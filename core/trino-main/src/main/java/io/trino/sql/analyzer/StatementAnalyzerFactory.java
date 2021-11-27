@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.GroupProvider;
@@ -34,6 +35,7 @@ public class StatementAnalyzerFactory
     private final AccessControl accessControl;
     private final GroupProvider groupProvider;
     private final TableProceduresRegistry tableProceduresRegistry;
+    private final SessionPropertyManager sessionPropertyManager;
 
     @Inject
     public StatementAnalyzerFactory(
@@ -41,18 +43,20 @@ public class StatementAnalyzerFactory
             SqlParser sqlParser,
             AccessControl accessControl,
             GroupProvider groupProvider,
-            TableProceduresRegistry tableProceduresRegistry)
+            TableProceduresRegistry tableProceduresRegistry,
+            SessionPropertyManager sessionPropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
     }
 
     public StatementAnalyzerFactory withSpecializedAccessControl(AccessControl accessControl)
     {
-        return new StatementAnalyzerFactory(metadata, sqlParser, accessControl, groupProvider, tableProceduresRegistry);
+        return new StatementAnalyzerFactory(metadata, sqlParser, accessControl, groupProvider, tableProceduresRegistry, sessionPropertyManager);
     }
 
     public StatementAnalyzer createStatementAnalyzer(
@@ -70,6 +74,7 @@ public class StatementAnalyzerFactory
                 accessControl,
                 session,
                 tableProceduresRegistry,
+                sessionPropertyManager,
                 warningCollector,
                 correlationSupport);
     }
@@ -105,6 +110,7 @@ public class StatementAnalyzerFactory
                 new SqlParser(),
                 accessControl,
                 user -> ImmutableSet.of(),
-                new TableProceduresRegistry());
+                new TableProceduresRegistry(),
+                new SessionPropertyManager());
     }
 }

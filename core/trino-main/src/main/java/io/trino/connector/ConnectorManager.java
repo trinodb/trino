@@ -32,6 +32,7 @@ import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ProcedureRegistry;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.PageIndexerFactory;
@@ -112,6 +113,7 @@ public class ConnectorManager
     private final TypeOperators typeOperators;
     private final ProcedureRegistry procedureRegistry;
     private final TableProceduresRegistry tableProceduresRegistry;
+    private final SessionPropertyManager sessionPropertyManager;
 
     private final boolean schedulerIncludeCoordinator;
 
@@ -144,6 +146,7 @@ public class ConnectorManager
             TypeOperators typeOperators,
             ProcedureRegistry procedureRegistry,
             TableProceduresRegistry tableProceduresRegistry,
+            SessionPropertyManager sessionPropertyManager,
             NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.metadataManager = metadataManager;
@@ -165,6 +168,7 @@ public class ConnectorManager
         this.typeOperators = typeOperators;
         this.procedureRegistry = procedureRegistry;
         this.tableProceduresRegistry = tableProceduresRegistry;
+        this.sessionPropertyManager = sessionPropertyManager;
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
     }
 
@@ -323,7 +327,7 @@ public class ConnectorManager
         for (TableProcedureMetadata tableProcedure : tableProcedures) {
             metadataManager.getTableProceduresPropertyManager().addProperties(catalogName, tableProcedure.getName(), tableProcedure.getProperties());
         }
-        metadataManager.getSessionPropertyManager().addConnectorSessionProperties(catalogName, connector.getSessionProperties());
+        sessionPropertyManager.addConnectorSessionProperties(catalogName, connector.getSessionProperties());
     }
 
     public synchronized void dropConnection(String catalogName)
@@ -355,7 +359,7 @@ public class ConnectorManager
         metadataManager.getSchemaPropertyManager().removeProperties(catalogName);
         metadataManager.getAnalyzePropertyManager().removeProperties(catalogName);
         metadataManager.getTableProceduresPropertyManager().removeProperties(catalogName);
-        metadataManager.getSessionPropertyManager().removeConnectorSessionProperties(catalogName);
+        sessionPropertyManager.removeConnectorSessionProperties(catalogName);
 
         MaterializedConnector materializedConnector = connectors.remove(catalogName);
         if (materializedConnector != null) {

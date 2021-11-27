@@ -5485,7 +5485,7 @@ public class TestAnalyzer
 
     private static Analyzer createAnalyzer(Session session, Metadata metadata, AccessControl accessControl)
     {
-        StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(metadata, SQL_PARSER, accessControl)));
+        StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(metadata, SQL_PARSER, accessControl, new SessionPropertyManager())));
         AnalyzerFactory analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, accessControl), statementRewrite);
         return analyzerFactory.createAnalyzer(
                 session,

@@ -245,6 +245,7 @@ public class LocalQueryRunner
     private final FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private final SpillerFactory spillerFactory;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
+    private final SessionPropertyManager sessionPropertyManager;
 
     private final PageFunctionCompiler pageFunctionCompiler;
     private final ExpressionCompiler expressionCompiler;
@@ -321,7 +322,6 @@ public class LocalQueryRunner
 
         this.metadata = new MetadataManager(
                 featuresConfig,
-                createSessionPropertyManager(extraSessionProperties, taskManagerConfig, featuresConfig),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new MaterializedViewPropertyManager(),
@@ -341,7 +341,8 @@ public class LocalQueryRunner
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry();
-        this.statementAnalyzerFactory = new StatementAnalyzerFactory(metadata, sqlParser, accessControl, groupProvider, tableProceduresRegistry);
+        this.sessionPropertyManager = createSessionPropertyManager(extraSessionProperties, taskManagerConfig, featuresConfig);
+        this.statementAnalyzerFactory = new StatementAnalyzerFactory(metadata, sqlParser, accessControl, groupProvider, tableProceduresRegistry, sessionPropertyManager);
         this.statsCalculator = createNewStatsCalculator(metadata, new TypeAnalyzer(statementAnalyzerFactory));
         this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, new TypeAnalyzer(statementAnalyzerFactory));
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
@@ -374,6 +375,7 @@ public class LocalQueryRunner
                 typeOperators,
                 new ProcedureRegistry(),
                 tableProceduresRegistry,
+                sessionPropertyManager,
                 nodeSchedulerConfig);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
@@ -429,7 +431,7 @@ public class LocalQueryRunner
                 defaultSession.getSystemProperties(),
                 defaultSession.getConnectorProperties(),
                 defaultSession.getUnprocessedCatalogProperties(),
-                metadata.getSessionPropertyManager(),
+                sessionPropertyManager,
                 defaultSession.getPreparedStatements(),
                 defaultSession.getProtocolHeaders());
 
@@ -516,6 +518,12 @@ public class LocalQueryRunner
         QueryExplainerFactory queryExplainerFactory = createQueryExplainerFactory(getPlanOptimizers(true));
         AnalyzerFactory analyzerFactory = createAnalyzerFactory(queryExplainerFactory);
         return queryExplainerFactory.createQueryExplainer(analyzerFactory);
+    }
+
+    @Override
+    public SessionPropertyManager getSessionPropertyManager()
+    {
+        return sessionPropertyManager;
     }
 
     public TypeOperators getTypeOperators()
@@ -980,7 +988,7 @@ public class LocalQueryRunner
                 new StatementRewrite(ImmutableSet.of(
                         new DescribeInputRewrite(sqlParser),
                         new DescribeOutputRewrite(sqlParser),
-                        new ShowQueriesRewrite(metadata, sqlParser, accessControl),
+                        new ShowQueriesRewrite(metadata, sqlParser, accessControl, sessionPropertyManager),
                         new ShowStatsRewrite(queryExplainerFactory, statsCalculator),
                         new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))));
     }

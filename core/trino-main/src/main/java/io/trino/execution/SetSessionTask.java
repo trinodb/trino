@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.TrinoException;
@@ -46,12 +47,14 @@ public class SetSessionTask
 {
     private final Metadata metadata;
     private final AccessControl accessControl;
+    private final SessionPropertyManager sessionPropertyManager;
 
     @Inject
-    public SetSessionTask(Metadata metadata, AccessControl accessControl)
+    public SetSessionTask(Metadata metadata, AccessControl accessControl, SessionPropertyManager sessionPropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
     }
 
     @Override
@@ -78,14 +81,14 @@ public class SetSessionTask
         PropertyMetadata<?> propertyMetadata;
         if (parts.size() == 1) {
             accessControl.checkCanSetSystemSessionProperty(session.getIdentity(), parts.get(0));
-            propertyMetadata = metadata.getSessionPropertyManager().getSystemSessionPropertyMetadata(parts.get(0))
+            propertyMetadata = sessionPropertyManager.getSystemSessionPropertyMetadata(parts.get(0))
                     .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, statement, "Session property '%s' does not exist", statement.getName()));
         }
         else {
             CatalogName catalogName = metadata.getCatalogHandle(stateMachine.getSession(), parts.get(0))
                     .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, statement, "Catalog '%s' does not exist", parts.get(0)));
             accessControl.checkCanSetCatalogSessionProperty(SecurityContext.of(session), parts.get(0), parts.get(1));
-            propertyMetadata = metadata.getSessionPropertyManager().getConnectorSessionPropertyMetadata(catalogName, parts.get(1))
+            propertyMetadata = sessionPropertyManager.getConnectorSessionPropertyMetadata(catalogName, parts.get(1))
                     .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, statement, "Session property '%s' does not exist", statement.getName()));
         }
 
