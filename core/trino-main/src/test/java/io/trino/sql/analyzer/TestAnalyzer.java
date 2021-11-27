@@ -30,6 +30,7 @@ import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
+import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
@@ -208,6 +209,7 @@ public class TestAnalyzer
     private AccessControl accessControl;
     private Metadata metadata;
     private TablePropertyManager tablePropertyManager;
+    private AnalyzePropertyManager analyzePropertyManager;
 
     @Test
     public void testTooManyArguments()
@@ -5175,7 +5177,8 @@ public class TestAnalyzer
         tablePropertyManager = new TablePropertyManager();
         tablePropertyManager.addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getTableProperties());
 
-        metadata.getAnalyzePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getAnalyzeProperties());
+        analyzePropertyManager = new AnalyzePropertyManager();
+        analyzePropertyManager.addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getAnalyzeProperties());
 
         catalogManager.registerCatalog(createTestingCatalog(SECOND_CATALOG, SECOND_CATALOG_NAME));
         catalogManager.registerCatalog(createTestingCatalog(THIRD_CATALOG, THIRD_CATALOG_NAME));
@@ -5502,7 +5505,8 @@ public class TestAnalyzer
                 new ColumnPropertyManager(),
                 tablePropertyManager,
                 new MaterializedViewPropertyManager())));
-        AnalyzerFactory analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, accessControl, tablePropertyManager), statementRewrite);
+        StatementAnalyzerFactory statementAnalyzerFactory = createTestingStatementAnalyzerFactory(metadata, accessControl, tablePropertyManager, analyzePropertyManager);
+        AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, statementRewrite);
         return analyzerFactory.createAnalyzer(
                 session,
                 emptyList(),

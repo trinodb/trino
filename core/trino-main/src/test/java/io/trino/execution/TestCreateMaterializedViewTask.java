@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
+import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.MaterializedViewDefinition;
@@ -44,6 +45,7 @@ import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.rewrite.StatementRewrite;
@@ -122,7 +124,7 @@ public class TestCreateMaterializedViewTask
                 .build();
         metadata = new MockMetadata(testCatalog.getConnectorCatalogName());
         parser = new SqlParser();
-        analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, new AllowAllAccessControl(), new TablePropertyManager()), new StatementRewrite(ImmutableSet.of()));
+        analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, new AllowAllAccessControl(), new TablePropertyManager(), new AnalyzePropertyManager()), new StatementRewrite(ImmutableSet.of()));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl());
     }
 
@@ -198,7 +200,12 @@ public class TestCreateMaterializedViewTask
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControl.deny(privilege("test_mv", CREATE_MATERIALIZED_VIEW));
 
-        AnalyzerFactory analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(metadata, accessControl, new TablePropertyManager()), new StatementRewrite(ImmutableSet.of()));
+        StatementAnalyzerFactory statementAnalyzerFactory = createTestingStatementAnalyzerFactory(
+                metadata,
+                accessControl,
+                new TablePropertyManager(),
+                new AnalyzePropertyManager());
+        AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, new StatementRewrite(ImmutableSet.of()));
         assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(metadata, accessControl, parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .isInstanceOf(AccessDeniedException.class)

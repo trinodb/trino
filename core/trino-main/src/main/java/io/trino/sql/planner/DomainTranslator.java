@@ -21,6 +21,7 @@ import com.google.common.collect.PeekingIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
+import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
@@ -313,7 +314,8 @@ public final class DomainTranslator
                 user -> ImmutableSet.of(),
                 new TableProceduresRegistry(),
                 new SessionPropertyManager(),
-                new TablePropertyManager()));
+                new TablePropertyManager(),
+                new AnalyzePropertyManager()));
         return new Visitor(metadata, typeOperators, session, types, typeAnalyzer).process(predicate, false);
     }
 

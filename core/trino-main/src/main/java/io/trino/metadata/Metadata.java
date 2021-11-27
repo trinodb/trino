@@ -685,8 +685,6 @@ public interface Metadata
     // Properties
     //
 
-    AnalyzePropertyManager getAnalyzePropertyManager();
-
     TableProceduresPropertyManager getTableProceduresPropertyManager();
 
     /**

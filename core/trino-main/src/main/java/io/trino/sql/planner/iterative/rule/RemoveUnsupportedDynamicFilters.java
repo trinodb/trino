@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.SessionPropertyManager;
@@ -94,7 +95,8 @@ public class RemoveUnsupportedDynamicFilters
                 user -> ImmutableSet.of(),
                 new TableProceduresRegistry(),
                 new SessionPropertyManager(),
-                new TablePropertyManager()));
+                new TablePropertyManager(),
+                new AnalyzePropertyManager()));
     }
 
     @Override
