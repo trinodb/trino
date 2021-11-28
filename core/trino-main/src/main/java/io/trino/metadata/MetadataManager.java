@@ -14,14 +14,11 @@
 package io.trino.metadata;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -111,7 +108,6 @@ import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
-import io.trino.type.InternalTypeManager;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -121,7 +117,6 @@ import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -163,20 +158,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
-import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
-import static io.trino.spi.function.OperatorType.EQUAL;
-import static io.trino.spi.function.OperatorType.HASH_CODE;
-import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static io.trino.spi.function.OperatorType.LESS_THAN;
-import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -193,13 +174,12 @@ public final class MetadataManager
     public static final int MAX_TABLE_REDIRECTIONS = 10;
 
     private final FunctionRegistry functions;
-    private final TypeOperators typeOperators;
     private final FunctionResolver functionResolver;
     private final SystemSecurityMetadata systemSecurityMetadata;
     private final TransactionManager transactionManager;
     private final TypeRegistry typeRegistry;
+    private final BlockEncodingSerde blockEncodingSerde;
 
-    private final InternalBlockEncodingSerde internalBlockEncodingSerde;
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
     private final ResolvedFunctionDecoder functionDecoder;
@@ -214,22 +194,20 @@ public final class MetadataManager
             TransactionManager transactionManager,
             TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators,
-            BlockEncodingManager blockEncodingManager,
+            TypeRegistry typeRegistry,
+            BlockEncodingSerde blockEncodingSerde,
             NodeVersion nodeVersion)
     {
         requireNonNull(nodeVersion, "nodeVersion is null");
-        typeRegistry = new TypeRegistry(featuresConfig);
-        internalBlockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager::getBlockEncoding, this::getType);
-        functions = new FunctionRegistry(internalBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators, nodeVersion.getVersion());
+        this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        functions = new FunctionRegistry(blockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators, nodeVersion.getVersion());
         functionResolver = new FunctionResolver(this);
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
 
-        verifyTypes();
-
-        functionDecoder = new ResolvedFunctionDecoder(this::getType);
+        functionDecoder = new ResolvedFunctionDecoder(typeRegistry::getType);
 
         operatorCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -263,13 +241,15 @@ public final class MetadataManager
     public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig)
     {
         TypeOperators typeOperators = new TypeOperators();
+        TypeRegistry typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
         return new MetadataManager(
                 featuresConfig,
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 typeOperators,
                 new BlockTypeOperators(typeOperators),
-                new BlockEncodingManager(),
+                typeRegistry,
+                new InternalBlockEncodingSerde(new BlockEncodingManager(), typeRegistry),
                 NodeVersion.UNKNOWN);
     }
 
@@ -701,7 +681,7 @@ public final class MetadataManager
                     ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
                     for (ViewColumn column : entry.getValue().getColumns()) {
                         try {
-                            columns.add(new ColumnMetadata(column.getName(), getType(column.getType())));
+                            columns.add(new ColumnMetadata(column.getName(), typeRegistry.getType(column.getType())));
                         }
                         catch (TypeNotFoundException e) {
                             throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), entry.getKey()));
@@ -715,7 +695,7 @@ public final class MetadataManager
                     ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
                     for (ViewColumn column : entry.getValue().getColumns()) {
                         try {
-                            columns.add(new ColumnMetadata(column.getName(), getType(column.getType())));
+                            columns.add(new ColumnMetadata(column.getName(), typeRegistry.getType(column.getType())));
                         }
                         catch (TypeNotFoundException e) {
                             throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in materialized view: %s", column.getType(), column.getName(), entry.getKey()));
@@ -2194,19 +2174,19 @@ public final class MetadataManager
     @Override
     public Type getType(TypeSignature signature)
     {
-        return typeRegistry.getType(new InternalTypeManager(this, typeOperators), signature);
+        return typeRegistry.getType(signature);
     }
 
     @Override
     public Type fromSqlType(String sqlType)
     {
-        return typeRegistry.fromSqlType(new InternalTypeManager(this, typeOperators), sqlType);
+        return typeRegistry.fromSqlType(sqlType);
     }
 
     @Override
     public Type getType(TypeId id)
     {
-        return typeRegistry.getType(new InternalTypeManager(this, typeOperators), id);
+        return typeRegistry.getType(id);
     }
 
     @Override
@@ -2219,170 +2199,6 @@ public final class MetadataManager
     public Collection<ParametricType> getParametricTypes()
     {
         return typeRegistry.getParametricTypes();
-    }
-
-    public void addType(Type type)
-    {
-        typeRegistry.addType(type);
-    }
-
-    public void addParametricType(ParametricType parametricType)
-    {
-        typeRegistry.addParametricType(parametricType);
-    }
-
-    @Override
-    public void verifyTypes()
-    {
-        Set<Type> missingOperatorDeclaration = new HashSet<>();
-        Multimap<Type, OperatorType> missingOperators = HashMultimap.create();
-        for (Type type : typeRegistry.getTypes()) {
-            if (type.getTypeOperatorDeclaration(typeOperators) == null) {
-                missingOperatorDeclaration.add(type);
-                continue;
-            }
-            if (type.isComparable()) {
-                if (!hasEqualMethod(type)) {
-                    missingOperators.put(type, EQUAL);
-                }
-                if (!hasHashCodeMethod(type)) {
-                    missingOperators.put(type, HASH_CODE);
-                }
-                if (!hasXxHash64Method(type)) {
-                    missingOperators.put(type, XX_HASH_64);
-                }
-                if (!hasDistinctFromMethod(type)) {
-                    missingOperators.put(type, IS_DISTINCT_FROM);
-                }
-                if (!hasIndeterminateMethod(type)) {
-                    missingOperators.put(type, INDETERMINATE);
-                }
-            }
-            if (type.isOrderable()) {
-                if (!hasComparisonUnorderedLastMethod(type)) {
-                    missingOperators.put(type, COMPARISON_UNORDERED_LAST);
-                }
-                if (!hasComparisonUnorderedFirstMethod(type)) {
-                    missingOperators.put(type, COMPARISON_UNORDERED_FIRST);
-                }
-                if (!hasLessThanMethod(type)) {
-                    missingOperators.put(type, LESS_THAN);
-                }
-                if (!hasLessThanOrEqualMethod(type)) {
-                    missingOperators.put(type, LESS_THAN_OR_EQUAL);
-                }
-            }
-        }
-        // TODO: verify the parametric types too
-        if (!missingOperators.isEmpty()) {
-            List<String> messages = new ArrayList<>();
-            for (Type type : missingOperatorDeclaration) {
-                messages.add(format("%s types operators is null", type));
-            }
-            for (Type type : missingOperators.keySet()) {
-                messages.add(format("%s missing for %s", missingOperators.get(type), type));
-            }
-            throw new IllegalStateException(Joiner.on(", ").join(messages));
-        }
-    }
-
-    private boolean hasEqualMethod(Type type)
-    {
-        try {
-            typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
-            return true;
-        }
-        catch (RuntimeException e) {
-            return false;
-        }
-    }
-
-    private boolean hasHashCodeMethod(Type type)
-    {
-        try {
-            typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
-            return true;
-        }
-        catch (RuntimeException e) {
-            return false;
-        }
-    }
-
-    private boolean hasXxHash64Method(Type type)
-    {
-        try {
-            typeOperators.getXxHash64Operator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
-            return true;
-        }
-        catch (RuntimeException e) {
-            return false;
-        }
-    }
-
-    private boolean hasDistinctFromMethod(Type type)
-    {
-        try {
-            typeOperators.getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE));
-            return true;
-        }
-        catch (RuntimeException e) {
-            return false;
-        }
-    }
-
-    private boolean hasIndeterminateMethod(Type type)
-    {
-        try {
-            typeOperators.getIndeterminateOperator(type, simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE));
-            return true;
-        }
-        catch (RuntimeException e) {
-            return false;
-        }
-    }
-
-    private boolean hasComparisonUnorderedLastMethod(Type type)
-    {
-        try {
-            typeOperators.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
-            return true;
-        }
-        catch (UnsupportedOperationException e) {
-            return false;
-        }
-    }
-
-    private boolean hasComparisonUnorderedFirstMethod(Type type)
-    {
-        try {
-            typeOperators.getComparisonUnorderedFirstOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
-            return true;
-        }
-        catch (UnsupportedOperationException e) {
-            return false;
-        }
-    }
-
-    private boolean hasLessThanMethod(Type type)
-    {
-        try {
-            typeOperators.getLessThanOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
-            return true;
-        }
-        catch (UnsupportedOperationException e) {
-            return false;
-        }
-    }
-
-    private boolean hasLessThanOrEqualMethod(Type type)
-    {
-        try {
-            typeOperators.getLessThanOrEqualOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
-            return true;
-        }
-        catch (UnsupportedOperationException e) {
-            return false;
-        }
     }
 
     //
@@ -2496,7 +2312,7 @@ public final class MetadataManager
     {
         Map<TypeSignature, Type> dependentTypes = declaration.getTypeDependencies().stream()
                 .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
-                .collect(toImmutableMap(Function.identity(), this::getType, (left, right) -> left));
+                .collect(toImmutableMap(Function.identity(), typeRegistry::getType, (left, right) -> left));
 
         ImmutableSet.Builder<ResolvedFunction> functions = ImmutableSet.builder();
         declaration.getFunctionDependencies().stream()
@@ -2534,8 +2350,8 @@ public final class MetadataManager
         declaration.getCastDependencies().stream()
                 .map(castDependency -> {
                     try {
-                        Type fromType = getType(applyBoundVariables(castDependency.getFromType(), functionBinding));
-                        Type toType = getType(applyBoundVariables(castDependency.getToType(), functionBinding));
+                        Type fromType = typeRegistry.getType(applyBoundVariables(castDependency.getFromType(), functionBinding));
+                        Type toType = typeRegistry.getType(applyBoundVariables(castDependency.getToType(), functionBinding));
                         return getCoercion(session, fromType, toType);
                     }
                     catch (TrinoException e) {
@@ -2745,10 +2561,11 @@ public final class MetadataManager
     // Blocks
     //
 
+    // TODO: this does not belong here, but there is too much non-injected code that depends on this
     @Override
     public BlockEncodingSerde getBlockEncodingSerde()
     {
-        return internalBlockEncodingSerde;
+        return blockEncodingSerde;
     }
 
     //

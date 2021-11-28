@@ -71,6 +71,7 @@ import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.DiscoveryNodeManager;
 import io.trino.metadata.ForNodeManager;
 import io.trino.metadata.HandleJsonModule;
+import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
@@ -84,6 +85,7 @@ import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
+import io.trino.metadata.TypeRegistry;
 import io.trino.operator.ExchangeClientConfig;
 import io.trino.operator.ExchangeClientFactory;
 import io.trino.operator.ExchangeClientSupplier;
@@ -382,6 +384,7 @@ public class ServerMainModule
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
         jsonBinder(binder).addKeyDeserializerBinding(TypeSignature.class).to(TypeSignatureKeyDeserializer.class);
+        binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
         newSetBinder(binder, Type.class);
 
         // split manager
@@ -437,6 +440,7 @@ public class ServerMainModule
         binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
+        binder.bind(BlockEncodingSerde.class).to(InternalBlockEncodingSerde.class).in(Scopes.SINGLETON);
 
         // thread visualizer
         jaxrsBinder(binder).bind(ThreadResource.class);
@@ -524,13 +528,6 @@ public class ServerMainModule
     public static ScheduledExecutorService createAsyncHttpTimeoutExecutor(TaskManagerConfig config)
     {
         return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("async-http-timeout-%s"));
-    }
-
-    @Provides
-    @Singleton
-    public static BlockEncodingSerde createBlockEncodingSerde(Metadata metadata)
-    {
-        return metadata.getBlockEncodingSerde();
     }
 
     public static class ExecutorCleanup

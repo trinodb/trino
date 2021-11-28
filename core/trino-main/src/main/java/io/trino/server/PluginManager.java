@@ -20,6 +20,7 @@ import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.MetadataManager;
+import io.trino.metadata.TypeRegistry;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.security.CertificateAuthenticatorManager;
@@ -78,6 +79,7 @@ public class PluginManager
     private final EventListenerManager eventListenerManager;
     private final GroupProviderManager groupProviderManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
+    private final TypeRegistry typeRegistry;
     private final BlockEncodingManager blockEncodingManager;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
@@ -95,6 +97,7 @@ public class PluginManager
             EventListenerManager eventListenerManager,
             GroupProviderManager groupProviderManager,
             SessionPropertyDefaults sessionPropertyDefaults,
+            TypeRegistry typeRegistry,
             BlockEncodingManager blockEncodingManager)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
@@ -108,6 +111,7 @@ public class PluginManager
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.groupProviderManager = requireNonNull(groupProviderManager, "groupProviderManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
+        this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
     }
 
@@ -119,7 +123,7 @@ public class PluginManager
 
         pluginsProvider.loadPlugins(this::loadPlugin, PluginManager::createClassLoader);
 
-        metadataManager.verifyTypes();
+        typeRegistry.verifyTypes();
 
         pluginsLoaded.set(true);
     }
@@ -157,7 +161,7 @@ public class PluginManager
     public void installPlugin(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
     {
         installPluginInternal(plugin, duplicatePluginClassLoaderFactory);
-        metadataManager.verifyTypes();
+        typeRegistry.verifyTypes();
     }
 
     private void installPluginInternal(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
@@ -169,12 +173,12 @@ public class PluginManager
 
         for (Type type : plugin.getTypes()) {
             log.info("Registering type %s", type.getTypeSignature());
-            metadataManager.addType(type);
+            typeRegistry.addType(type);
         }
 
         for (ParametricType parametricType : plugin.getParametricTypes()) {
             log.info("Registering parametric type %s", parametricType.getName());
-            metadataManager.addParametricType(parametricType);
+            typeRegistry.addParametricType(parametricType);
         }
 
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {

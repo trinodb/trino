@@ -633,8 +633,6 @@ public interface Metadata
 
     Collection<ParametricType> getParametricTypes();
 
-    void verifyTypes();
-
     //
     // Functions
     //
@@ -675,10 +673,7 @@ public interface Metadata
 
     FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention);
 
-    //
-    // Blocks
-    //
-
+    // TODO: this does not belong here, but there is too much non-injected code that depends on this
     BlockEncodingSerde getBlockEncodingSerde();
 
     /**
