@@ -20,10 +20,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.SingleRowBlock;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
@@ -390,6 +393,11 @@ public class EffectivePredicateExtractor
                             }
                             else {
                                 Type type = types.get(node.getOutputSymbols().get(i));
+                                if (hasNestedNulls(type, item)) {
+                                    // Workaround solution to deal with array and row comparisons don't support null elements currently.
+                                    // TODO: remove when comparisons are fixed
+                                    return TRUE_LITERAL;
+                                }
                                 if (isFloatingPointNaN(type, item)) {
                                     hasNaN[i] = true;
                                 }
@@ -414,6 +422,11 @@ public class EffectivePredicateExtractor
                             hasNull[i] = true;
                         }
                         else {
+                            if (hasNestedNulls(type, item)) {
+                                // Workaround solution to deal with array and row comparisons don't support null elements currently.
+                                // TODO: remove when comparisons are fixed
+                                return TRUE_LITERAL;
+                            }
                             if (isFloatingPointNaN(type, item)) {
                                 hasNaN[i] = true;
                             }
@@ -456,6 +469,44 @@ public class EffectivePredicateExtractor
 
             // simplify to avoid a large expression if there are many rows in ValuesNode
             return domainTranslator.toPredicate(TupleDomain.withColumnDomains(domains.build()).simplify());
+        }
+
+        private boolean hasNestedNulls(Type type, Object value)
+        {
+            if (type instanceof RowType) {
+                Block container = (Block) value;
+                RowType rowType = (RowType) type;
+                for (int i = 0; i < rowType.getFields().size(); i++) {
+                    Type elementType = rowType.getFields().get(i).getType();
+
+                    if (container.isNull(i) || elementHasNulls(elementType, container, i)) {
+                        return true;
+                    }
+                }
+            }
+            else if (type instanceof ArrayType) {
+                Block container = (Block) value;
+                ArrayType arrayType = (ArrayType) type;
+                Type elementType = arrayType.getElementType();
+
+                for (int i = 0; i < container.getPositionCount(); i++) {
+                    if (container.isNull(i) || elementHasNulls(elementType, container, i)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private boolean elementHasNulls(Type elementType, Block container, int position)
+        {
+            if (elementType instanceof RowType || elementType instanceof ArrayType) {
+                Block element = (Block) elementType.getObject(container, position);
+                return hasNestedNulls(elementType, element);
+            }
+
+            return false;
         }
 
         @SafeVarargs
