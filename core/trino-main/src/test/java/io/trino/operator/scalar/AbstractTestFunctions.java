@@ -137,7 +137,7 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertInvalidCast(projection);
     }
 
-    protected void assertInvalidCast(String projection, String message)
+    protected void assertInvalidCast(@Language("SQL") String projection, String message)
     {
         functionAssertions.assertInvalidCast(projection, message);
     }
