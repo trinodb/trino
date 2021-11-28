@@ -741,12 +741,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void verifyTypes()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Collection<Type> getTypes()
     {
         throw new UnsupportedOperationException();

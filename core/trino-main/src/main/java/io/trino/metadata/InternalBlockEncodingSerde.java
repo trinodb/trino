@@ -20,6 +20,9 @@ import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
+import org.assertj.core.util.VisibleForTesting;
+
+import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.function.Function;
@@ -27,13 +30,20 @@ import java.util.function.Function;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
-final class InternalBlockEncodingSerde
+public final class InternalBlockEncodingSerde
         implements BlockEncodingSerde
 {
     private final Function<String, BlockEncoding> blockEncodings;
     private final Function<TypeId, Type> types;
 
-    public InternalBlockEncodingSerde(Function<String, BlockEncoding> blockEncodings, Function<TypeId, Type> types)
+    @Inject
+    public InternalBlockEncodingSerde(BlockEncodingManager blockEncodingManager, TypeRegistry typeRegistry)
+    {
+        this(blockEncodingManager::getBlockEncoding, typeRegistry::getType);
+    }
+
+    @VisibleForTesting
+    InternalBlockEncodingSerde(Function<String, BlockEncoding> blockEncodings, Function<TypeId, Type> types)
     {
         this.blockEncodings = requireNonNull(blockEncodings, "blockEncodings is null");
         this.types = requireNonNull(types, "types is null");
