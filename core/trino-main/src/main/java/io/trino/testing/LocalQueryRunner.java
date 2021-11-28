@@ -76,6 +76,7 @@ import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InMemoryNodeManager;
+import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
@@ -91,6 +92,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
+import io.trino.metadata.TypeRegistry;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
@@ -326,13 +328,15 @@ public class LocalQueryRunner
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators);
 
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
+        TypeRegistry typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
         this.metadata = new MetadataManager(
                 featuresConfig,
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 typeOperators,
                 blockTypeOperators,
-                blockEncodingManager,
+                typeRegistry,
+                new InternalBlockEncodingSerde(blockEncodingManager, typeRegistry),
                 nodeManager.getCurrentNode().getNodeVersion());
         this.splitManager = new SplitManager(new QueryManagerConfig(), metadata);
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig());
@@ -427,6 +431,7 @@ public class LocalQueryRunner
                 eventListenerManager,
                 new GroupProviderManager(),
                 new SessionPropertyDefaults(nodeInfo, accessControl),
+                typeRegistry,
                 blockEncodingManager);
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory, globalSystemConnectorFactory.getClass()::getClassLoader);
