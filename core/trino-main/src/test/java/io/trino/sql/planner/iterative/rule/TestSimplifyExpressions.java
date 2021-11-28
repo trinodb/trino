@@ -21,6 +21,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
@@ -125,6 +126,25 @@ public class TestSimplifyExpressions
         assertSimplifies("null AND null AND null AND B1", "null AND B1");
         assertSimplifies("null OR null OR null OR true", "true");
         assertSimplifies("null OR null OR null OR B1", "null OR B1");
+    }
+
+    @Test
+    public void testCastBigintToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(12300000000 AS varchar(11))", "'12300000000'");
+        assertSimplifies("CAST(-12300000000 AS varchar(50))", "CAST('-12300000000' AS varchar(50))");
+
+        // the varchar type length is not enough to contain the number's representation:
+        // the cast operator returns a value that is too long for the expected type ('12300000000' for varchar(3))
+        // the value is then wrapped in another cast by the LiteralEncoder (CAST('12300000000' AS varchar(3))),
+        // so eventually we get a truncated string '123'
+        assertSimplifies("CAST(12300000000 AS varchar(3))", "CAST('12300000000' AS varchar(3))");
+        assertSimplifies("CAST(-12300000000 AS varchar(3))", "CAST('-12300000000' AS varchar(3))");
+
+        // the cast operator returns a value that is too long for the expected type ('12300000000' for varchar(3))
+        // the value is nested in a comparison expression, so it is not truncated by the LiteralEncoder
+        assertSimplifies("CAST(12300000000 AS varchar(3)) = '12300000000'", "true");
     }
 
     private static void assertSimplifies(String expression, String expected)
@@ -244,6 +264,14 @@ public class TestSimplifyExpressions
                     .sorted(Comparator.comparing(Expression::toString))
                     .collect(toList());
             return logicalExpression(node.getOperator(), predicates);
+        }
+
+        @Override
+        public Expression rewriteCast(Cast node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            // the `expected` Cast expression comes out of the AstBuilder with the `typeOnly` flag set to false.
+            // always set the `typeOnly` flag to false so that it does not break the comparison.
+            return new Cast(node.getExpression(), node.getType(), node.isSafe(), false);
         }
     }
 }
