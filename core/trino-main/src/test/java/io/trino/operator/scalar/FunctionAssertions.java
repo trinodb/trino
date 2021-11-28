@@ -75,6 +75,7 @@ import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
+import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -138,6 +139,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -329,6 +331,13 @@ public final class FunctionAssertions
     {
         assertTrinoExceptionThrownBy(() -> evaluateInvalid(projection))
                 .hasErrorCode(expectedErrorCode);
+    }
+
+    public void assertFunctionThrowsIncorrectly(@Language("SQL") String projection, Class<? extends Throwable> throwableClass, @Language("RegExp") String message)
+    {
+        assertThatThrownBy(() -> evaluateInvalid(projection))
+                .isInstanceOf(throwableClass)
+                .hasMessageMatching(message);
     }
 
     public void assertNumericOverflow(String projection, String message)
