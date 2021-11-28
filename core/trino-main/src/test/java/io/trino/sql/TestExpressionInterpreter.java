@@ -624,6 +624,17 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testCastBigintToBoundedVarchar()
+    {
+        assertEvaluatedEquals("CAST(12300000000 AS varchar(11))", "'12300000000'");
+        assertEvaluatedEquals("CAST(12300000000 AS varchar(50))", "'12300000000'");
+
+        // incorrect behavior: the result value does not fit in the type
+        assertEvaluatedEquals("CAST(12300000000 AS varchar(3))", "'12300000000'");
+        assertEvaluatedEquals("CAST(-12300000000 AS varchar(3))", "'-12300000000'");
+    }
+
+    @Test
     public void testCastToBoolean()
     {
         // integer
