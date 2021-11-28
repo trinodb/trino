@@ -70,6 +70,7 @@ import io.trino.index.IndexManager;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
+import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
@@ -324,12 +325,14 @@ public class LocalQueryRunner
                 notificationExecutor);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators);
 
+        BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         this.metadata = new MetadataManager(
                 featuresConfig,
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 typeOperators,
                 blockTypeOperators,
+                blockEncodingManager,
                 nodeManager.getCurrentNode().getNodeVersion());
         this.splitManager = new SplitManager(new QueryManagerConfig(), metadata);
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig());
@@ -423,7 +426,8 @@ public class LocalQueryRunner
                 Optional.of(new HeaderAuthenticatorManager(new HeaderAuthenticatorConfig())),
                 eventListenerManager,
                 new GroupProviderManager(),
-                new SessionPropertyDefaults(nodeInfo, accessControl));
+                new SessionPropertyDefaults(nodeInfo, accessControl),
+                blockEncodingManager);
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory, globalSystemConnectorFactory.getClass()::getClassLoader);
         connectorManager.createCatalog(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
