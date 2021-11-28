@@ -135,16 +135,10 @@ public class TestSimplifyExpressions
         assertSimplifies("CAST(12300000000 AS varchar(11))", "'12300000000'");
         assertSimplifies("CAST(-12300000000 AS varchar(50))", "CAST('-12300000000' AS varchar(50))");
 
-        // the varchar type length is not enough to contain the number's representation:
-        // the cast operator returns a value that is too long for the expected type ('12300000000' for varchar(3))
-        // the value is then wrapped in another cast by the LiteralEncoder (CAST('12300000000' AS varchar(3))),
-        // so eventually we get a truncated string '123'
-        assertSimplifies("CAST(12300000000 AS varchar(3))", "CAST('12300000000' AS varchar(3))");
-        assertSimplifies("CAST(-12300000000 AS varchar(3))", "CAST('-12300000000' AS varchar(3))");
-
-        // the cast operator returns a value that is too long for the expected type ('12300000000' for varchar(3))
-        // the value is nested in a comparison expression, so it is not truncated by the LiteralEncoder
-        assertSimplifies("CAST(12300000000 AS varchar(3)) = '12300000000'", "true");
+        // cast from bigint to varchar fails, so the expression is not modified
+        assertSimplifies("CAST(12300000000 AS varchar(3))", "CAST(12300000000 AS varchar(3))");
+        assertSimplifies("CAST(-12300000000 AS varchar(3))", "CAST(-12300000000 AS varchar(3))");
+        assertSimplifies("CAST(12300000000 AS varchar(3)) = '12300000000'", "CAST(12300000000 AS varchar(3)) = '12300000000'");
     }
 
     private static void assertSimplifies(String expression, String expected)
