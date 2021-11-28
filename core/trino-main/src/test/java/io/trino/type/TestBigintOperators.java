@@ -188,31 +188,31 @@ public class TestBigintOperators
     @Test
     public void testCastToVarchar()
     {
-        assertFunction("cast(37 as varchar)", VARCHAR, "37");
+        assertFunction("cast(BIGINT '37' as varchar)", VARCHAR, "37");
         assertFunction("cast(100000000017 as varchar)", VARCHAR, "100000000017");
     }
 
     @Test
     public void testCastToDouble()
     {
-        assertFunction("cast(37 as double)", DOUBLE, 37.0);
+        assertFunction("cast(BIGINT '37' as double)", DOUBLE, 37.0);
         assertFunction("cast(100000000017 as double)", DOUBLE, 100000000017.0);
     }
 
     @Test
     public void testCastToFloat()
     {
-        assertFunction("cast(37 as real)", REAL, 37.0f);
+        assertFunction("cast(BIGINT '37' as real)", REAL, 37.0f);
         assertFunction("cast(-100000000017 as real)", REAL, -100000000017.0f);
-        assertFunction("cast(0 as real)", REAL, 0.0f);
+        assertFunction("cast(BIGINT '0' as real)", REAL, 0.0f);
     }
 
     @Test
     public void testCastToBoolean()
     {
-        assertFunction("cast(37 as boolean)", BOOLEAN, true);
+        assertFunction("cast(BIGINT '37' as boolean)", BOOLEAN, true);
         assertFunction("cast(100000000017 as boolean)", BOOLEAN, true);
-        assertFunction("cast(0 as boolean)", BOOLEAN, false);
+        assertFunction("cast(BIGINT '0' as boolean)", BOOLEAN, false);
     }
 
     @Test
