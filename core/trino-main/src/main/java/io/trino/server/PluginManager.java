@@ -18,6 +18,7 @@ import io.airlift.log.Logger;
 import io.trino.connector.ConnectorManager;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
+import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.MetadataManager;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
@@ -77,6 +78,7 @@ public class PluginManager
     private final EventListenerManager eventListenerManager;
     private final GroupProviderManager groupProviderManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
+    private final BlockEncodingManager blockEncodingManager;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
@@ -92,7 +94,8 @@ public class PluginManager
             Optional<HeaderAuthenticatorManager> headerAuthenticatorManager,
             EventListenerManager eventListenerManager,
             GroupProviderManager groupProviderManager,
-            SessionPropertyDefaults sessionPropertyDefaults)
+            SessionPropertyDefaults sessionPropertyDefaults,
+            BlockEncodingManager blockEncodingManager)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
@@ -105,6 +108,7 @@ public class PluginManager
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.groupProviderManager = requireNonNull(groupProviderManager, "groupProviderManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
+        this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
     }
 
     public void loadPlugins()
@@ -160,7 +164,7 @@ public class PluginManager
     {
         for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
             log.info("Registering block encoding %s", blockEncoding.getName());
-            metadataManager.addBlockEncoding(blockEncoding);
+            blockEncodingManager.addBlockEncoding(blockEncoding);
         }
 
         for (Type type : plugin.getTypes()) {

@@ -88,7 +88,7 @@ public class TestLiteralEncoder
 
     private final ResolvedFunction literalFunction = new ResolvedFunction(
             new BoundSignature(LITERAL_FUNCTION_NAME, VARBINARY, ImmutableList.of(VARBINARY)),
-            new LiteralFunction(metadata::getBlockEncodingSerde).getFunctionMetadata().getFunctionId(),
+            new LiteralFunction(metadata.getBlockEncodingSerde()).getFunctionMetadata().getFunctionId(),
             SCALAR,
             true,
             new FunctionNullability(false, ImmutableList.of(false)),

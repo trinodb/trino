@@ -276,7 +276,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -387,7 +386,7 @@ public class FunctionRegistry
     private volatile FunctionMap functions = new FunctionMap();
 
     public FunctionRegistry(
-            Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier,
+            BlockEncodingSerde blockEncodingSerdeSupplier,
             FeaturesConfig featuresConfig,
             TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators,

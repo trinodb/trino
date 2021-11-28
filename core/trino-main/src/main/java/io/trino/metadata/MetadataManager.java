@@ -37,24 +37,8 @@ import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.ArrayBlockEncoding;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.block.BlockEncodingSerde;
-import io.trino.spi.block.ByteArrayBlockEncoding;
-import io.trino.spi.block.DictionaryBlockEncoding;
-import io.trino.spi.block.Int128ArrayBlockEncoding;
-import io.trino.spi.block.Int96ArrayBlockEncoding;
-import io.trino.spi.block.IntArrayBlockEncoding;
-import io.trino.spi.block.LazyBlockEncoding;
-import io.trino.spi.block.LongArrayBlockEncoding;
-import io.trino.spi.block.MapBlockEncoding;
-import io.trino.spi.block.RowBlockEncoding;
-import io.trino.spi.block.RunLengthBlockEncoding;
-import io.trino.spi.block.ShortArrayBlockEncoding;
-import io.trino.spi.block.SingleMapBlockEncoding;
-import io.trino.spi.block.SingleRowBlockEncoding;
-import io.trino.spi.block.VariableWidthBlockEncoding;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
@@ -215,7 +199,7 @@ public final class MetadataManager
     private final TransactionManager transactionManager;
     private final TypeRegistry typeRegistry;
 
-    private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
+    private final InternalBlockEncodingSerde internalBlockEncodingSerde;
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
     private final ResolvedFunctionDecoder functionDecoder;
@@ -230,33 +214,18 @@ public final class MetadataManager
             TransactionManager transactionManager,
             TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators,
+            BlockEncodingManager blockEncodingManager,
             NodeVersion nodeVersion)
     {
         requireNonNull(nodeVersion, "nodeVersion is null");
         typeRegistry = new TypeRegistry(featuresConfig);
-        functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators, nodeVersion.getVersion());
+        internalBlockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager::getBlockEncoding, this::getType);
+        functions = new FunctionRegistry(internalBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators, nodeVersion.getVersion());
         functionResolver = new FunctionResolver(this);
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-
-        // add the built-in BlockEncodings
-        addBlockEncoding(new VariableWidthBlockEncoding());
-        addBlockEncoding(new ByteArrayBlockEncoding());
-        addBlockEncoding(new ShortArrayBlockEncoding());
-        addBlockEncoding(new IntArrayBlockEncoding());
-        addBlockEncoding(new LongArrayBlockEncoding());
-        addBlockEncoding(new Int96ArrayBlockEncoding());
-        addBlockEncoding(new Int128ArrayBlockEncoding());
-        addBlockEncoding(new DictionaryBlockEncoding());
-        addBlockEncoding(new ArrayBlockEncoding());
-        addBlockEncoding(new MapBlockEncoding());
-        addBlockEncoding(new SingleMapBlockEncoding());
-        addBlockEncoding(new RowBlockEncoding());
-        addBlockEncoding(new SingleRowBlockEncoding());
-        addBlockEncoding(new RunLengthBlockEncoding());
-        addBlockEncoding(new LazyBlockEncoding());
 
         verifyTypes();
 
@@ -300,6 +269,7 @@ public final class MetadataManager
                 transactionManager,
                 typeOperators,
                 new BlockTypeOperators(typeOperators),
+                new BlockEncodingManager(),
                 NodeVersion.UNKNOWN);
     }
 
@@ -2775,24 +2745,10 @@ public final class MetadataManager
     // Blocks
     //
 
-    private BlockEncoding getBlockEncoding(String encodingName)
-    {
-        BlockEncoding blockEncoding = blockEncodings.get(encodingName);
-        checkArgument(blockEncoding != null, "Unknown block encoding: %s", encodingName);
-        return blockEncoding;
-    }
-
     @Override
     public BlockEncodingSerde getBlockEncodingSerde()
     {
-        return new InternalBlockEncodingSerde(this::getBlockEncoding, this::getType);
-    }
-
-    public void addBlockEncoding(BlockEncoding blockEncoding)
-    {
-        requireNonNull(blockEncoding, "blockEncoding is null");
-        BlockEncoding existingEntry = blockEncodings.putIfAbsent(blockEncoding.getName(), blockEncoding);
-        checkArgument(existingEntry == null, "Encoding already registered: %s", blockEncoding.getName());
+        return internalBlockEncodingSerde;
     }
 
     //
