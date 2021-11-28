@@ -55,6 +55,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -629,9 +630,12 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(12300000000 AS varchar(11))", "'12300000000'");
         assertEvaluatedEquals("CAST(12300000000 AS varchar(50))", "'12300000000'");
 
-        // incorrect behavior: the result value does not fit in the type
-        assertEvaluatedEquals("CAST(12300000000 AS varchar(3))", "'12300000000'");
-        assertEvaluatedEquals("CAST(-12300000000 AS varchar(3))", "'-12300000000'");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(12300000000 AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 12300000000 cannot be represented as varchar(3)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(-12300000000 AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -12300000000 cannot be represented as varchar(3)");
     }
 
     @Test
