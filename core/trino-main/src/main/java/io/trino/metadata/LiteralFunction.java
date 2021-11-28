@@ -26,7 +26,6 @@ import io.trino.spi.type.VarcharType;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.block.BlockSerdeUtil.READ_BLOCK;
@@ -39,15 +38,16 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static java.util.Objects.requireNonNull;
 
 public class LiteralFunction
         extends SqlScalarFunction
 {
     public static final String LITERAL_FUNCTION_NAME = "$literal$";
 
-    private final Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier;
+    private final BlockEncodingSerde blockEncodingSerde;
 
-    public LiteralFunction(Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier)
+    public LiteralFunction(BlockEncodingSerde blockEncodingSerde)
     {
         super(new FunctionMetadata(
                 new Signature(
@@ -62,7 +62,7 @@ public class LiteralFunction
                 true,
                 "literal",
                 SCALAR));
-        this.blockEncodingSerdeSupplier = blockEncodingSerdeSupplier;
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
     }
 
     @Override
@@ -78,10 +78,10 @@ public class LiteralFunction
 
         if (parameterType.getJavaType() == Slice.class) {
             if (type.getJavaType() == Block.class) {
-                methodHandle = READ_BLOCK.bindTo(blockEncodingSerdeSupplier.get());
+                methodHandle = READ_BLOCK.bindTo(blockEncodingSerde);
             }
             else if (type.getJavaType() != Slice.class) {
-                methodHandle = READ_BLOCK_VALUE.bindTo(blockEncodingSerdeSupplier.get()).bindTo(type);
+                methodHandle = READ_BLOCK_VALUE.bindTo(blockEncodingSerde).bindTo(type);
             }
         }
 

@@ -64,6 +64,7 @@ import io.trino.memory.MemoryPoolAssignmentsRequest;
 import io.trino.memory.MemoryResource;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
+import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
@@ -433,6 +434,7 @@ public class ServerMainModule
         binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
 
         // block encodings
+        binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
