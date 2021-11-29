@@ -108,7 +108,7 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public Collection<Identity> filterViewQuery(SystemSecurityContext context, Collection<Identity> queryOwners)
+    public Collection<Identity> filterViewQueryOwnedBy(SystemSecurityContext context, Collection<Identity> queryOwners)
     {
         return queryOwners;
     }
