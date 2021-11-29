@@ -31,12 +31,12 @@ The optional ``IF NOT EXISTS`` clause causes the error to be
 suppressed if the table already exists.
 
 The optional ``WITH`` clause can be used to set properties
-on the newly created table or on single columns.  To list all available table
+on the newly created table or on single columns.  To list all configured table
 properties, run the following query::
 
     SELECT * FROM system.metadata.table_properties
 
-To list all available column properties, run the following query::
+To list all configured column properties, run the following query::
 
     SELECT * FROM system.metadata.column_properties
 
