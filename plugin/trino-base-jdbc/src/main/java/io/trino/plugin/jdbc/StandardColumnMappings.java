@@ -509,19 +509,38 @@ public final class StandardColumnMappings
         checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
         return ColumnMapping.longMapping(
                 timestampType,
-                (resultSet, columnIndex) -> {
-                    LocalDateTime localDateTime = resultSet.getTimestamp(columnIndex).toLocalDateTime();
-                    int roundedNanos = toIntExact(round(localDateTime.getNano(), 9 - timestampType.getPrecision()));
-                    LocalDateTime rounded = localDateTime
-                            .withNano(0)
-                            .plusNanos(roundedNanos);
-                    return toTrinoTimestamp(timestampType, rounded);
-                },
+                timestampWithRoundingReadFunction(timestampType),
                 timestampWriteFunctionUsingSqlTimestamp(timestampType),
                 // NOTE: pushdown is disabled because the values stored in remote system might not match the values as
                 // read by Trino due to rounding. This can lead to incorrect results if operations are pushed down to
                 // the remote system.
                 DISABLE_PUSHDOWN);
+    }
+
+    @Deprecated
+    public static ColumnMapping timestampColumnMappingUsingSqlTimestampWithRoundingFullPushdown(TimestampType timestampType)
+    {
+        // TODO support higher precision
+        checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        return ColumnMapping.longMapping(
+                timestampType,
+                timestampWithRoundingReadFunction(timestampType),
+                timestampWriteFunctionUsingSqlTimestamp(timestampType),
+                // NOTE: as noted in the "DISABLE_PUSHDOWN" version, the values stored in remote system might not match
+                // the values as read by Trino due to rounding.
+                FULL_PUSHDOWN);
+    }
+
+    private static LongReadFunction timestampWithRoundingReadFunction(TimestampType timestampType)
+    {
+        return (resultSet, columnIndex) -> {
+            LocalDateTime localDateTime = resultSet.getTimestamp(columnIndex).toLocalDateTime();
+            int roundedNanos = toIntExact(round(localDateTime.getNano(), 9 - timestampType.getPrecision()));
+            LocalDateTime rounded = localDateTime
+                    .withNano(0)
+                    .plusNanos(roundedNanos);
+            return toTrinoTimestamp(timestampType, rounded);
+        };
     }
 
     public static ColumnMapping timestampColumnMapping(TimestampType timestampType)

@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Closer;
 import com.google.common.io.MoreFiles;
 import com.google.common.io.Resources;
+import io.airlift.log.Logger;
 import io.trino.testing.assertions.Assert;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -51,6 +52,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class TestingDruidServer
         implements Closeable
 {
+    private static final Logger log = Logger.get(TestingDruidServer.class);
     private final String hostWorkingDirectory;
     private final GenericContainer<?> broker;
     private final GenericContainer<?> coordinator;
@@ -77,7 +79,7 @@ public class TestingDruidServer
             // Cannot use Files.createTempDirectory() because on Mac by default it uses
             // /var/folders/ which is not visible to Docker for Mac
             hostWorkingDirectory = Files.createDirectory(
-                    Paths.get("/tmp/docker-tests-files-" + randomUUID().toString()))
+                            Paths.get("/tmp/docker-tests-files-" + randomUUID().toString()))
                     .toAbsolutePath().toString();
             File f = new File(hostWorkingDirectory);
             // Enable read/write/exec access for the services running in containers
@@ -238,13 +240,28 @@ public class TestingDruidServer
         middleManager.withCopyFileToContainer(forHostPath(dataFilePath),
                 getMiddleManagerContainerPathForDataFile(dataFilePath));
         String indexTask = Resources.toString(getResource(indexTaskFile), Charset.defaultCharset());
+        ingest(indexTask, datasource);
+    }
 
+    void ingestDataWithoutTaskFile(String indexTask, String dataFilePath, String datasource)
+            throws IOException, InterruptedException
+    {
+        middleManager.withCopyFileToContainer(forHostPath(dataFilePath),
+                getMiddleManagerContainerPathForDataFile(dataFilePath));
+        ingest(indexTask, datasource);
+    }
+
+    void ingest(String indexTask, String datasource)
+            throws IOException, InterruptedException
+    {
         Request.Builder requestBuilder = new Request.Builder();
         requestBuilder.addHeader("content-type", "application/json;charset=utf-8")
                 .url("http://localhost:" + getCoordinatorOverlordPort() + "/druid/indexer/v1/task")
                 .post(RequestBody.create(null, indexTask));
         Request ingestionRequest = requestBuilder.build();
-        try (Response ignored = httpClient.newCall(ingestionRequest).execute()) {
+
+        try (Response taskIdResponse = httpClient.newCall(ingestionRequest).execute()) {
+            log.info(taskIdResponse.body().string());
             Assert.assertTrue(checkDatasourceAvailable(datasource), "Datasource " + datasource + " not loaded");
         }
     }

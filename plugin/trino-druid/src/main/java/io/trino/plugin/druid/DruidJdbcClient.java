@@ -79,7 +79,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunct
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMappingUsingSqlTime;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRounding;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRoundingFullPushdown;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
@@ -107,12 +107,12 @@ import static java.lang.String.format;
 public class DruidJdbcClient
         extends BaseJdbcClient
 {
+    // All the datasources in Druid are created under schema "druid"
+    private static final String DRUID_SCHEMA = "druid";
     // Druid maintains its datasources related metadata by setting the catalog name as "druid"
     // Note that while a user may name the catalog name as something else, metadata queries made
     // to druid will always have the TABLE_CATALOG set to DRUID_CATALOG
     private static final String DRUID_CATALOG = "druid";
-    // All the datasources in Druid are created under schema "druid"
-    public static final String DRUID_SCHEMA = "druid";
 
     @Inject
     public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
@@ -248,8 +248,8 @@ public class DruidJdbcClient
                 return Optional.of(timeColumnMappingUsingSqlTime());
 
             case Types.TIMESTAMP:
-                // TODO Consider using `StandardColumnMappings.timestampColumnMapping`
-                return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
+                // TODO: use timestampColumnMapping when https://issues.apache.org/jira/browse/CALCITE-1630 gets resolved
+                return Optional.of(timestampColumnMappingUsingSqlTimestampWithRoundingFullPushdown(TIMESTAMP_MILLIS));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {

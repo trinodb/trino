@@ -36,33 +36,47 @@ public class TestTable
 
     private final SqlExecutor sqlExecutor;
     private final String name;
+    private final Boolean supportSqlCreateAndDrop;
 
     public TestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition)
     {
-        this(sqlExecutor, namePrefix, tableDefinition, ImmutableList.of());
+        this(sqlExecutor, namePrefix, tableDefinition, true);
+    }
+
+    public TestTable(SqlExecutor sqlExecutor, String namePrefix, Boolean supportSqlCreateAndDrop)
+    {
+        this(sqlExecutor, namePrefix, "dummy table definition", ImmutableList.of(), supportSqlCreateAndDrop);
+    }
+
+    public TestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition, Boolean supportSqlCreateAndDrop)
+    {
+        this(sqlExecutor, namePrefix, tableDefinition, ImmutableList.of(), supportSqlCreateAndDrop);
     }
 
     public TestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition, List<String> rowsToInsert)
     {
-        this.sqlExecutor = sqlExecutor;
-        this.name = namePrefix + randomTableSuffix();
-        sqlExecutor.execute(format("CREATE TABLE %s %s", name, tableDefinition));
-        try {
-            for (String row : rowsToInsert) {
-                // some databases do not support multi value insert statement
-                sqlExecutor.execute(format("INSERT INTO %s VALUES (%s)", name, row));
-            }
-        }
-        catch (Exception e) {
-            try (TestTable ignored = this) {
-                throw e;
-            }
-        }
+        this(sqlExecutor, namePrefix, tableDefinition, rowsToInsert, true);
     }
 
-    public String getName()
+    public TestTable(SqlExecutor sqlExecutor, String namePrefix, String tableDefinition, List<String> rowsToInsert, Boolean supportSqlCreateAndDrop)
     {
-        return name;
+        this.supportSqlCreateAndDrop = supportSqlCreateAndDrop;
+        this.sqlExecutor = sqlExecutor;
+        this.name = namePrefix + "_" + randomTableSuffix();
+        if (supportSqlCreateAndDrop) {
+            sqlExecutor.execute(format("CREATE TABLE %s %s", name, tableDefinition));
+            try {
+                for (String row : rowsToInsert) {
+                    // some databases do not support multi value insert statement
+                    sqlExecutor.execute(format("INSERT INTO %s VALUES (%s)", name, row));
+                }
+            }
+            catch (Exception e) {
+                try (TestTable ignored = this) {
+                    throw e;
+                }
+            }
+        }
     }
 
     public static TestTable fromColumns(SqlExecutor sqlExecutor, String namePrefix, Map<String, List<String>> columns)
@@ -116,15 +130,22 @@ public class TestTable
         return new TestTable(sqlExecutor, namePrefix, tableDefinition, rows.build());
     }
 
-    @Override
-    public void close()
-    {
-        sqlExecutor.execute("DROP TABLE " + name);
-    }
-
     public static String randomTableSuffix()
     {
         String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
         return randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));
+    }
+
+    public String getName()
+    {
+        return name;
+    }
+
+    @Override
+    public void close()
+    {
+        if (supportSqlCreateAndDrop) {
+            sqlExecutor.execute("DROP TABLE " + name);
+        }
     }
 }
