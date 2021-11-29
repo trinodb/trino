@@ -124,8 +124,8 @@ does not have an equivalent type.
 Decimal type handling
 ^^^^^^^^^^^^^^^^^^^^^
 
-``DECIMAL`` types with un-specified precision defaults to 38 and un-specified scale defaults to 0. These defaults can
-be overridden by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
+``DECIMAL`` types with unspecified precision or scale are mapped to a Trino ``DECIMAL`` with a default precision of 38 and default scale of 0. The scale can
+be changed by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
 ``allow_overflow``. The scale of the resulting type is controlled via the ``decimal-default-scale``
 configuration property or the ``decimal-rounding-mode`` session property. The precision is always 38.
 
