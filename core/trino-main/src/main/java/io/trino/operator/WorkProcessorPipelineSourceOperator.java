@@ -332,6 +332,7 @@ public class WorkProcessorPipelineSourceOperator
 
                         succinctBytes(context.inputDataSize.get()),
                         context.inputPositions.get(),
+                        Distribution.ofCount(context.inputPositions.get()),
                         (double) context.inputPositions.get() * context.inputPositions.get(),
 
                         context.operatorTiming.getCalls(),

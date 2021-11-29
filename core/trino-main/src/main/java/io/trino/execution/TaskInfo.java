@@ -97,6 +97,11 @@ public class TaskInfo
         return needsPlan;
     }
 
+    public TaskInfo pruneIntermediateStats()
+    {
+        return new TaskInfo(taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.pruneIntermediateStats(), needsPlan);
+    }
+
     public TaskInfo summarize()
     {
         if (taskStatus.getState().isDone()) {

@@ -32,6 +32,7 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.lang.Math.min;
@@ -613,5 +614,65 @@ public class QueryStats
         return succinctBytes(operatorSummaries.stream()
                 .mapToLong(stats -> stats.getSpilledDataSize().toBytes())
                 .sum());
+    }
+
+    public QueryStats pruneIntermediateStats()
+    {
+        return new QueryStats(
+                createTime,
+                executionStartTime,
+                lastHeartbeat,
+                endTime,
+                elapsedTime,
+                queuedTime,
+                resourceWaitingTime,
+                dispatchingTime,
+                executionTime,
+                analysisTime,
+                planningTime,
+                finishingTime,
+                totalTasks,
+                runningTasks,
+                completedTasks,
+                totalDrivers,
+                queuedDrivers,
+                runningDrivers,
+                blockedDrivers,
+                completedDrivers,
+                cumulativeUserMemory,
+                cumulativeSystemMemory,
+                userMemoryReservation,
+                revocableMemoryReservation,
+                totalMemoryReservation,
+                peakUserMemoryReservation,
+                peakRevocableMemoryReservation,
+                peakNonRevocableMemoryReservation,
+                peakTotalMemoryReservation,
+                peakTaskUserMemory,
+                peakTaskRevocableMemory,
+                peakTaskTotalMemory,
+                scheduled,
+                totalScheduledTime,
+                totalCpuTime,
+                totalBlockedTime,
+                fullyBlocked,
+                blockedReasons,
+                physicalInputDataSize,
+                physicalInputPositions,
+                physicalInputReadTime,
+                internalNetworkInputDataSize,
+                internalNetworkInputPositions,
+                rawInputDataSize,
+                rawInputPositions,
+                processedInputDataSize,
+                processedInputPositions,
+                outputDataSize,
+                outputPositions,
+                physicalWrittenDataSize,
+                stageGcStatistics,
+                dynamicFiltersStats,
+                operatorSummaries.stream()
+                        .map(OperatorStats::pruneIntermediateStats)
+                        .collect(toImmutableList()));
     }
 }

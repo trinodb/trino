@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.operator.Distribution;
 import io.trino.operator.FilterAndProjectOperator;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.TableWriterOperator;
@@ -56,6 +57,7 @@ public class TestQueryStats
                     succinctBytes(18L),
                     succinctBytes(19L),
                     110L,
+                    Distribution.ofCount(110L),
                     111.0,
                     112L,
                     new Duration(113, NANOSECONDS),
@@ -97,6 +99,7 @@ public class TestQueryStats
                     succinctBytes(28L),
                     succinctBytes(29L),
                     210L,
+                    Distribution.ofCount(211L),
                     211.0,
                     212L,
                     new Duration(213, NANOSECONDS),
@@ -138,6 +141,7 @@ public class TestQueryStats
                     succinctBytes(38L),
                     succinctBytes(39L),
                     310L,
+                    Distribution.ofCount(311L),
                     311.0,
                     312L,
                     new Duration(313, NANOSECONDS),

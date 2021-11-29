@@ -447,6 +447,50 @@ public class PipelineStats
         return drivers;
     }
 
+    public PipelineStats pruneIntermediateStats()
+    {
+        return new PipelineStats(
+                pipelineId,
+                firstStartTime,
+                lastStartTime,
+                lastEndTime,
+                inputPipeline,
+                outputPipeline,
+                totalDrivers,
+                queuedDrivers,
+                queuedPartitionedDrivers,
+                queuedPartitionedSplitsWeight,
+                runningDrivers,
+                runningPartitionedDrivers,
+                runningPartitionedSplitsWeight,
+                blockedDrivers,
+                completedDrivers,
+                userMemoryReservation,
+                revocableMemoryReservation,
+                systemMemoryReservation,
+                queuedTime,
+                elapsedTime,
+                totalScheduledTime,
+                totalCpuTime,
+                totalBlockedTime,
+                fullyBlocked,
+                blockedReasons,
+                physicalInputDataSize,
+                physicalInputPositions,
+                physicalInputReadTime,
+                internalNetworkInputDataSize,
+                internalNetworkInputPositions,
+                rawInputDataSize,
+                rawInputPositions,
+                processedInputDataSize,
+                processedInputPositions,
+                outputDataSize,
+                outputPositions,
+                physicalWrittenDataSize,
+                pruneIntermediateOperatorStats(operatorSummaries),
+                drivers);
+    }
+
     public PipelineStats summarize()
     {
         return new PipelineStats(
@@ -489,6 +533,16 @@ public class PipelineStats
                 physicalWrittenDataSize,
                 summarizeOperatorStats(operatorSummaries),
                 ImmutableList.of());
+    }
+
+    private static List<OperatorStats> pruneIntermediateOperatorStats(List<OperatorStats> operatorSummaries)
+    {
+        // Use an exact size ImmutableList builder to avoid a redundant copy in the PipelineStats constructor
+        ImmutableList.Builder<OperatorStats> results = ImmutableList.builderWithExpectedSize(operatorSummaries.size());
+        for (OperatorStats operatorStats : operatorSummaries) {
+            results.add(operatorStats.pruneIntermediateStats());
+        }
+        return results.build();
     }
 
     private static List<OperatorStats> summarizeOperatorStats(List<OperatorStats> operatorSummaries)

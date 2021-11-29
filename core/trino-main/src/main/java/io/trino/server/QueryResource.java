@@ -95,7 +95,7 @@ public class QueryResource
     {
         requireNonNull(queryId, "queryId is null");
 
-        Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
+        Optional<QueryInfo> queryInfo = dispatchManager.getPrunedFullQueryInfo(queryId);
         if (queryInfo.isEmpty()) {
             return Response.status(Status.GONE).build();
         }

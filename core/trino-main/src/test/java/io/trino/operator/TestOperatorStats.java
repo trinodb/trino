@@ -55,6 +55,7 @@ public class TestOperatorStats
             DataSize.ofBytes(5),
             DataSize.ofBytes(6),
             7,
+            Distribution.ofCount(911),
             8d,
 
             9,
@@ -104,6 +105,7 @@ public class TestOperatorStats
             DataSize.ofBytes(5),
             DataSize.ofBytes(6),
             7,
+            Distribution.ofCount(811),
             8d,
 
             9,
@@ -162,6 +164,7 @@ public class TestOperatorStats
         assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(5));
         assertEquals(actual.getInputDataSize(), DataSize.ofBytes(6));
         assertEquals(actual.getInputPositions(), 7);
+        assertEquals(actual.getInputPositionsDistribution().getCount(), 1.0);
         assertEquals(actual.getSumSquaredInputPositions(), 8.0);
 
         assertEquals(actual.getGetOutputCalls(), 9);
@@ -214,6 +217,7 @@ public class TestOperatorStats
         assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(3 * 5));
         assertEquals(actual.getInputDataSize(), DataSize.ofBytes(3 * 6));
         assertEquals(actual.getInputPositions(), 3 * 7);
+        assertEquals(actual.getInputPositionsDistribution().getCount(), 3.0);
         assertEquals(actual.getSumSquaredInputPositions(), 3 * 8.0);
 
         assertEquals(actual.getGetOutputCalls(), 3 * 9);
@@ -264,6 +268,7 @@ public class TestOperatorStats
         assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(3 * 5));
         assertEquals(actual.getInputDataSize(), DataSize.ofBytes(3 * 6));
         assertEquals(actual.getInputPositions(), 3 * 7);
+        assertEquals(actual.getInputPositionsDistribution().getCount(), 3.0);
         assertEquals(actual.getSumSquaredInputPositions(), 3 * 8.0);
 
         assertEquals(actual.getGetOutputCalls(), 3 * 9);

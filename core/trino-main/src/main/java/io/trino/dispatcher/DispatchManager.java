@@ -300,6 +300,11 @@ public class DispatchManager
         return queryTracker.getQuery(queryId).getBasicQueryInfo();
     }
 
+    public Optional<QueryInfo> getPrunedFullQueryInfo(QueryId queryId)
+    {
+        return getFullQueryInfo(queryId).map(QueryInfo::pruneIntermediateStats);
+    }
+
     public Optional<QueryInfo> getFullQueryInfo(QueryId queryId)
     {
         return queryTracker.tryGetQuery(queryId).map(DispatchQuery::getFullQueryInfo);

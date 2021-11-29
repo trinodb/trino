@@ -393,4 +393,41 @@ public class QueryInfo
     {
         return completeInfo;
     }
+
+    public QueryInfo pruneIntermediateStats()
+    {
+        return new QueryInfo(
+                queryId,
+                session,
+                state,
+                memoryPool,
+                scheduled,
+                self,
+                fieldNames,
+                query,
+                preparedQuery,
+                queryStats.pruneIntermediateStats(),
+                setCatalog,
+                setSchema,
+                setPath,
+                setSessionProperties,
+                resetSessionProperties,
+                setRoles,
+                addedPreparedStatements,
+                deallocatedPreparedStatements,
+                startedTransactionId,
+                clearTransactionId,
+                updateType,
+                outputStage.map(StageInfo::pruneIntermediateStats),
+                failureInfo,
+                errorCode,
+                warnings,
+                inputs,
+                output,
+                referencedTables,
+                routines,
+                completeInfo,
+                resourceGroupId,
+                queryType);
+    }
 }

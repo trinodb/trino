@@ -32,6 +32,7 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.StageState.FLUSHING;
 import static io.trino.execution.StageState.RUNNING;
 import static java.lang.Math.min;
@@ -429,6 +430,50 @@ public class StageStats
     public List<OperatorStats> getOperatorSummaries()
     {
         return operatorSummaries;
+    }
+
+    public StageStats pruneIntermediateStats()
+    {
+        return new StageStats(
+                schedulingComplete,
+                getSplitDistribution,
+                totalTasks,
+                runningTasks,
+                completedTasks,
+                totalDrivers,
+                queuedDrivers,
+                runningDrivers,
+                blockedDrivers,
+                completedDrivers,
+                cumulativeUserMemory,
+                cumulativeSystemMemory,
+                userMemoryReservation,
+                revocableMemoryReservation,
+                totalMemoryReservation,
+                peakUserMemoryReservation,
+                peakRevocableMemoryReservation,
+                totalScheduledTime,
+                totalCpuTime,
+                totalBlockedTime,
+                fullyBlocked,
+                blockedReasons,
+                physicalInputDataSize,
+                physicalInputPositions,
+                physicalInputReadTime,
+                internalNetworkInputDataSize,
+                internalNetworkInputPositions,
+                rawInputDataSize,
+                rawInputPositions,
+                processedInputDataSize,
+                processedInputPositions,
+                bufferedDataSize,
+                outputDataSize,
+                outputPositions,
+                physicalWrittenDataSize,
+                gcInfo,
+                operatorSummaries.stream()
+                        .map(OperatorStats::pruneIntermediateStats)
+                        .collect(toImmutableList()));
     }
 
     public BasicStageStats toBasicStageStats(StageState stageState)

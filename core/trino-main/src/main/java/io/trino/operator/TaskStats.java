@@ -508,6 +508,52 @@ public class TaskStats
         return fullGcTime;
     }
 
+    public TaskStats pruneIntermediateStats()
+    {
+        return new TaskStats(
+                createTime,
+                firstStartTime,
+                lastStartTime,
+                lastEndTime,
+                endTime,
+                elapsedTime,
+                queuedTime,
+                totalDrivers,
+                queuedDrivers,
+                queuedPartitionedDrivers,
+                queuedPartitionedSplitsWeight,
+                runningDrivers,
+                runningPartitionedDrivers,
+                runningPartitionedSplitsWeight,
+                blockedDrivers,
+                completedDrivers,
+                cumulativeUserMemory,
+                cumulativeSystemMemory,
+                userMemoryReservation,
+                revocableMemoryReservation,
+                systemMemoryReservation,
+                totalScheduledTime,
+                totalCpuTime,
+                totalBlockedTime,
+                fullyBlocked,
+                blockedReasons,
+                physicalInputDataSize,
+                physicalInputPositions,
+                physicalInputReadTime,
+                internalNetworkInputDataSize,
+                internalNetworkInputPositions,
+                rawInputDataSize,
+                rawInputPositions,
+                processedInputDataSize,
+                processedInputPositions,
+                outputDataSize,
+                outputPositions,
+                physicalWrittenDataSize,
+                fullGcCount,
+                fullGcTime,
+                pruneIntermediatePipelineStats(pipelines));
+    }
+
     public TaskStats summarize()
     {
         return new TaskStats(
@@ -598,6 +644,16 @@ public class TaskStats
                 fullGcCount,
                 fullGcTime,
                 summarizePipelineStats(pipelines));
+    }
+
+    private static List<PipelineStats> pruneIntermediatePipelineStats(List<PipelineStats> pipelines)
+    {
+        // Use an exact size ImmutableList builder to avoid a redundant copy in the TaskStats constructor
+        ImmutableList.Builder<PipelineStats> results = ImmutableList.builderWithExpectedSize(pipelines.size());
+        for (PipelineStats pipeline : pipelines) {
+            results.add(pipeline.pruneIntermediateStats());
+        }
+        return results.build();
     }
 
     private static List<PipelineStats> summarizePipelineStats(List<PipelineStats> pipelines)

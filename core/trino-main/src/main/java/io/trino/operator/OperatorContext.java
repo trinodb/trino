@@ -553,6 +553,7 @@ public class OperatorContext
                 DataSize.ofBytes(physicalInputDataSize.getTotalCount() + internalNetworkInputDataSize.getTotalCount()),
                 DataSize.ofBytes(inputDataSize.getTotalCount()),
                 inputPositionsCount,
+                Distribution.ofCount(inputPositionsCount),
                 (double) inputPositionsCount * inputPositionsCount,
 
                 getOutputTiming.getCalls(),

@@ -54,6 +54,7 @@ public class OperatorStats
     private final DataSize rawInputDataSize;
     private final DataSize inputDataSize;
     private final long inputPositions;
+    private final Distribution inputPositionsDistribution;
     private final double sumSquaredInputPositions;
 
     private final long getOutputCalls;
@@ -109,6 +110,7 @@ public class OperatorStats
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("inputDataSize") DataSize inputDataSize,
             @JsonProperty("inputPositions") long inputPositions,
+            @JsonProperty("inputPositionsDistribution") Distribution inputPositionsDistribution,
             @JsonProperty("sumSquaredInputPositions") double sumSquaredInputPositions,
 
             @JsonProperty("getOutputCalls") long getOutputCalls,
@@ -165,6 +167,7 @@ public class OperatorStats
         this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
         checkArgument(inputPositions >= 0, "inputPositions is negative");
         this.inputPositions = inputPositions;
+        this.inputPositionsDistribution = requireNonNull(inputPositionsDistribution, "inputPositionsDistribution is null");
         this.sumSquaredInputPositions = sumSquaredInputPositions;
 
         this.getOutputCalls = getOutputCalls;
@@ -296,6 +299,12 @@ public class OperatorStats
     public long getInputPositions()
     {
         return inputPositions;
+    }
+
+    @JsonProperty
+    public Distribution getInputPositionsDistribution()
+    {
+        return inputPositionsDistribution;
     }
 
     @JsonProperty
@@ -462,6 +471,7 @@ public class OperatorStats
         long rawInputDataSize = this.rawInputDataSize.toBytes();
         long inputDataSize = this.inputDataSize.toBytes();
         long inputPositions = this.inputPositions;
+        Distribution inputPositionsDistribution = this.inputPositionsDistribution;
         double sumSquaredInputPositions = this.sumSquaredInputPositions;
 
         long getOutputCalls = this.getOutputCalls;
@@ -511,6 +521,7 @@ public class OperatorStats
             rawInputDataSize += operator.getRawInputDataSize().toBytes();
             inputDataSize += operator.getInputDataSize().toBytes();
             inputPositions += operator.getInputPositions();
+            inputPositionsDistribution = inputPositionsDistribution.mergeWith(operator.getInputPositionsDistribution());
             sumSquaredInputPositions += operator.getSumSquaredInputPositions();
 
             getOutputCalls += operator.getGetOutputCalls();
@@ -572,6 +583,7 @@ public class OperatorStats
                 DataSize.ofBytes(rawInputDataSize),
                 DataSize.ofBytes(inputDataSize),
                 inputPositions,
+                inputPositionsDistribution,
                 sumSquaredInputPositions,
 
                 getOutputCalls,
@@ -623,6 +635,56 @@ public class OperatorStats
         return (Mergeable<T>) base.mergeWith(other);
     }
 
+    public OperatorStats pruneIntermediateStats()
+    {
+        Distribution prunedInputPositionsDistribution = inputPositionsDistribution.pruneDigest();
+        if (prunedInputPositionsDistribution == inputPositionsDistribution) {
+            return this;
+        }
+        return new OperatorStats(
+                stageId,
+                pipelineId,
+                operatorId,
+                planNodeId,
+                operatorType,
+                totalDrivers,
+                addInputCalls,
+                addInputWall,
+                addInputCpu,
+                physicalInputDataSize,
+                physicalInputPositions,
+                internalNetworkInputDataSize,
+                internalNetworkInputPositions,
+                rawInputDataSize,
+                inputDataSize,
+                inputPositions,
+                prunedInputPositionsDistribution,
+                sumSquaredInputPositions,
+                getOutputCalls,
+                getOutputWall,
+                getOutputCpu,
+                outputDataSize,
+                outputPositions,
+                dynamicFilterSplitsProcessed,
+                metrics,
+                connectorMetrics,
+                physicalWrittenDataSize,
+                blockedWall,
+                finishCalls,
+                finishWall,
+                finishCpu,
+                userMemoryReservation,
+                revocableMemoryReservation,
+                systemMemoryReservation,
+                peakUserMemoryReservation,
+                peakSystemMemoryReservation,
+                peakRevocableMemoryReservation,
+                peakTotalMemoryReservation,
+                spilledDataSize,
+                blockedReason,
+                info);
+    }
+
     public OperatorStats summarize()
     {
         if (info == null || info.isFinal()) {
@@ -646,6 +708,7 @@ public class OperatorStats
                 rawInputDataSize,
                 inputDataSize,
                 inputPositions,
+                inputPositionsDistribution,
                 sumSquaredInputPositions,
                 getOutputCalls,
                 getOutputWall,
