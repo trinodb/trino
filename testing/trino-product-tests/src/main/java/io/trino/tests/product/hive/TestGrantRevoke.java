@@ -21,8 +21,6 @@ import io.trino.tempto.AfterTestWithContext;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryExecutor;
-import io.trino.tempto.query.QueryResult;
-import org.assertj.core.api.Condition;
 import org.testng.annotations.Test;
 
 import java.util.Set;
@@ -245,14 +243,6 @@ public class TestGrantRevoke
                     .contains(row(tableName))
                     .contains(row(view.getName()));
         });
-    }
-
-    private Condition<? super QueryResult> expectedRow(Row row)
-    {
-        return new Condition<>(
-                (QueryResult qr) -> qr.rows().contains(row.getValues()),
-                "expected row %s",
-                row);
     }
 
     private ImmutableList<Row> ownerGrants()
