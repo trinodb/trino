@@ -222,6 +222,60 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
+    public void testCustomSchemaArrayOfStructsIncludingStructs()
+            throws Exception
+    {
+        MessageType customSchema = parseMessageType("message CustomSchema {" +
+                "required group self (LIST) {\n" +
+                "  repeated group self_tuple {\n" +
+                "    required binary a (UTF8);\n" +
+                "    required group b {\n" +
+                "      required binary x (UTF8);\n" +
+                "    }\n" +
+                "    required binary c (UTF8);\n" +
+                "    required group d {\n" +
+                "      required binary y (UTF8);\n" +
+                "    }\n" +
+                "  }\n" + // group self_tuple
+                "}\n" + // group self
+                "}\n"); // message
+        Iterable<String> strings = transform(intsBetween(12_345, 54_321), Object::toString);
+
+        Iterable<List<?>> structs = createTestStructs(
+                strings,
+                createTestStructs(strings),
+                strings,
+                createTestStructs(strings));
+        Iterable<List<List<?>>> values = createTestArrays(structs);
+
+        List<String> structFieldNames = List.of("a", "b", "c", "d");
+        Type structType = RowType.from(List.of(
+                field("a", VARCHAR),
+                field("b", RowType.from(List.of(field("x", VARCHAR)))),
+                field("c", VARCHAR),
+                field("d", RowType.from(List.of(field("y", VARCHAR))))));
+
+        tester.testSingleLevelArrayRoundTrip(
+                getStandardListObjectInspector(
+                    getStandardStructObjectInspector(
+                            structFieldNames,
+                            List.of(
+                                    javaStringObjectInspector,
+                                    getStandardStructObjectInspector(
+                                            List.of("x"),
+                                            List.of(javaStringObjectInspector)),
+                                    javaStringObjectInspector,
+                                    getStandardStructObjectInspector(
+                                            List.of("y"),
+                                            List.of(javaStringObjectInspector))))),
+                values,
+                values,
+                "self",
+                new ArrayType(structType),
+                Optional.of(customSchema));
+    }
+
+    @Test
     public void testSingleLevelSchemaArrayOfStructs()
             throws Exception
     {
