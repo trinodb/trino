@@ -387,7 +387,7 @@ public class OrcPageSourceFactory
                             systemMemoryUsage));
 
             Optional<Long> originalFileRowId = acidInfo
-                    .filter(OrcPageSourceFactory::hasOriginalFilesAndDeleteDeltas)
+                    .filter(OrcPageSourceFactory::hasOriginalFiles)
                     // TODO reduce number of file footer accesses. Currently this is quadratic to the number of original files.
                     .map(info -> OriginalFilesUtils.getPrecedingRowCount(
                             acidInfo.get().getOriginalFiles(),
@@ -523,9 +523,9 @@ public class OrcPageSourceFactory
         return builder.build();
     }
 
-    private static boolean hasOriginalFilesAndDeleteDeltas(AcidInfo acidInfo)
+    private static boolean hasOriginalFiles(AcidInfo acidInfo)
     {
-        return !acidInfo.getDeleteDeltas().isEmpty() && !acidInfo.getOriginalFiles().isEmpty();
+        return !acidInfo.getOriginalFiles().isEmpty();
     }
 
     private static String splitError(Throwable t, Path path, long start, long length)
