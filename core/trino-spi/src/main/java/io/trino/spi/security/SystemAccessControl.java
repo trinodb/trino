@@ -149,7 +149,7 @@ public interface SystemAccessControl
      * Filter the list of users to those the identity view query owned by the user.  The method
      * will not be called with the current user in the set.
      */
-    default Collection<Identity> filterViewQuery(SystemSecurityContext context, Collection<Identity> queryOwners)
+    default Collection<Identity> filterViewQueryOwnedBy(SystemSecurityContext context, Collection<Identity> queryOwners)
     {
         Set<String> ownerUsers = queryOwners.stream()
                 .map(Identity::getUser)
