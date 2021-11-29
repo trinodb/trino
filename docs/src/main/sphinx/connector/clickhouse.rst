@@ -143,6 +143,8 @@ The connector supports pushdown for a number of operations:
 * :func:`min`
 * :func:`sum`
 
+.. include:: no-pushdown-text-type.fragment
+
 .. _clickhouse-sql-support:
 
 SQL support
