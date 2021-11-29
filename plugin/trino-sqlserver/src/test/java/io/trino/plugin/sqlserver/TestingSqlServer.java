@@ -93,7 +93,10 @@ public final class TestingSqlServer
         databaseName = initializedState.databaseName;
         cleanup = initializedState.cleanup;
 
-        container.withUrlParam("database", databaseName);
+        container.withUrlParam("database", databaseName)
+                // Instead of having a statement block forever (the default)
+                // Throws SQLServerException with SQLServerError code 1222  "Lock request time out period exceeded"
+                .withUrlParam("lockTimeout", Integer.toString(60 * 1000));
     }
 
     private static InitializedState createContainer(String version, BiConsumer<SqlExecutor, String> databaseSetUp)
