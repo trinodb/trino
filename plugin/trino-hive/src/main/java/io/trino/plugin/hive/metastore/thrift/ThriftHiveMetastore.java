@@ -1518,7 +1518,7 @@ public class ThriftHiveMetastore
                                 return null;
                             }
 
-                            metastoreClient.revokePrivileges(buildPrivilegeBag(databaseName, tableName, grantee, privilegesToRevoke));
+                            metastoreClient.revokePrivileges(buildPrivilegeBag(databaseName, tableName, grantee, privilegesToRevoke), grantOption);
                         }
                         return null;
                     }));

@@ -159,11 +159,14 @@ public class TestGrantRevoke
         aliceExecutor.executeQuery(format("REVOKE GRANT OPTION FOR SELECT ON %s FROM bob", tableName));
         assertQueryFailure(() -> bobExecutor.executeQuery(format("GRANT SELECT ON %s TO ROLE role1 ", tableName)))
                 .hasMessageContaining(format("Access Denied: Cannot grant privilege SELECT on table default.%s", tableName));
-        // TODO (https://github.com/trinodb/trino/issues/4455) Should revoke only GRANT OPTION
-        assertQueryFailure(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
-                .hasMessageContaining(format("Access Denied: Cannot select from table default.%s", tableName));
+        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
         // Since Hive doesn't support REVOKE with CASCADE, charlie would still have access to table
         assertThat(charlieExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+
+        // test GRANT WITH GRANT OPTION post revoke
+        assertQueryFailure(() -> aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob WITH GRANT OPTION", tableName)))
+                // Updating a privilege with GRANT OPTION is not supported by Hive. https://issues.apache.org/jira/browse/HIVE-15689
+                .hasMessageContaining("Granting SELECT WITH GRANT OPTION is not supported while USER bob possesses SELECT");
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
