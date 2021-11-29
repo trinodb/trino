@@ -412,6 +412,7 @@
                                 <exclude>**/TestHiveGlueMetastore.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
                                 <exclude>**/TestHiveFailureRecoveryFile.java</exclude>
+                                <exclude>**/TestHiveFailureRecoveryMinIO.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -463,6 +464,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestHiveFailureRecoveryFile.java</include>
+                                <include>**/TestHiveFailureRecoveryMinIO.java</include>
                             </includes>
                         </configuration>
                     </plugin>
