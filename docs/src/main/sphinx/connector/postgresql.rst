@@ -173,3 +173,5 @@ The connector supports pushdown for a number of operations:
 * :func:`corr`
 * :func:`regr_intercept`
 * :func:`regr_slope`
+
+.. include:: no-inequality-pushdown-text-type.fragment
