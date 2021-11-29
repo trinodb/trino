@@ -45,10 +45,12 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.testing.DataProviders.toDataProvider;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
@@ -115,28 +117,32 @@ public class TestColumnReader
     @DataProvider
     public Object[][] testRowRangesProvider()
     {
-        Object[] columnReaders = ColumnReaderInput.values();
-        Object[] batchSkippers = BatchSkipper.values();
-        Object[] rowRanges = new Object[] {
-                Optional.empty(),
-                Optional.of(toRowRange(1024)),
-                Optional.of(toRowRange(956)),
-                Optional.of(toRowRanges(range(101, 900))),
-                Optional.of(toRowRanges(range(56, 89), range(120, 250), range(300, 455), range(600, 980)))
-        };
-        Object[] pageRowRanges = new Object[] {
-                ImmutableList.of(range(0, 1023)),
-                ImmutableList.of(range(0, 127), range(128, 1023)),
-                ImmutableList.of(range(0, 767), range(768, 1023)),
-                ImmutableList.of(range(0, 255), range(256, 511), range(512, 767), range(768, 1023)),
-                ImmutableList.of(range(0, 99), range(100, 199), range(200, 399), range(400, 599), range(600, 799), range(800, 999), range(1000, 1023))
-        };
+        Object[][] columnReaders = Stream.of(ColumnReaderInput.values())
+                .collect(toDataProvider());
+        Object[][] batchSkippers = Stream.of(BatchSkipper.values())
+                .collect(toDataProvider());
+        Object[][] rowRanges = Stream.of(
+                        Optional.empty(),
+                        Optional.of(toRowRange(1024)),
+                        Optional.of(toRowRange(956)),
+                        Optional.of(toRowRanges(range(101, 900))),
+                        Optional.of(toRowRanges(range(56, 89), range(120, 250), range(300, 455), range(600, 980))))
+                .collect(toDataProvider());
+        Object[][] pageRowRanges = Stream.of(
+                        ImmutableList.of(range(0, 1023)),
+                        ImmutableList.of(range(0, 127), range(128, 1023)),
+                        ImmutableList.of(range(0, 767), range(768, 1023)),
+                        ImmutableList.of(range(0, 255), range(256, 511), range(512, 767), range(768, 1023)),
+                        ImmutableList.of(range(0, 99), range(100, 199), range(200, 399), range(400, 599), range(600, 799), range(800, 999), range(1000, 1023)))
+                .collect(toDataProvider());
         Object[][] rangesWithNoPageSkipped = cartesianProduct(columnReaders, batchSkippers, rowRanges, pageRowRanges);
         Object[][] rangesWithPagesSkipped = cartesianProduct(
                 columnReaders,
                 batchSkippers,
-                new Object[] {Optional.of(toRowRanges(range(56, 80), range(120, 200), range(350, 455), range(600, 940)))},
-                new Object[] {ImmutableList.of(range(50, 100), range(120, 275), range(290, 455), range(590, 800), range(801, 1000))});
+                Stream.of(Optional.of(toRowRanges(range(56, 80), range(120, 200), range(350, 455), range(600, 940))))
+                        .collect(toDataProvider()),
+                Stream.of(ImmutableList.of(range(50, 100), range(120, 275), range(290, 455), range(590, 800), range(801, 1000)))
+                        .collect(toDataProvider()));
         return concat(rangesWithNoPageSkipped, rangesWithPagesSkipped);
     }
 
@@ -284,15 +290,17 @@ public class TestColumnReader
     }
 
     /**
-     * @return Full cartesian product of arguments, i.e cartesianProduct({A, B}, {1,2}) will produce {{A,1}, {A,2}, {B,1}, {B,2}}
+     * @return Full cartesian product of arguments, i.e. cartesianProduct({{A, B}}, {{1,2}}) will produce {{A,1}, {A,2}, {B,1}, {B,2}}
      */
-    private static Object[][] cartesianProduct(Object[]... args)
+    private static Object[][] cartesianProduct(Object[][]... args)
     {
         return Lists.cartesianProduct(Arrays.stream(args)
                         .map(ImmutableList::copyOf)
                         .collect(toImmutableList()))
                 .stream()
-                .map(list -> list.toArray(Object[]::new))
+                .map(list -> list.stream()
+                        .flatMap(Stream::of)
+                        .toArray(Object[]::new))
                 .toArray(Object[][]::new);
     }
 
