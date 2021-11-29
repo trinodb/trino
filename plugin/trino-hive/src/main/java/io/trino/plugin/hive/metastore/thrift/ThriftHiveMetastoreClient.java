@@ -78,6 +78,7 @@ import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.metastore.api.GrantRevokeType.REVOKE;
 import static org.apache.hadoop.hive.metastore.txn.TxnUtils.createValidTxnWriteIdList;
 
 public class ThriftHiveMetastoreClient
@@ -424,7 +425,7 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         GrantRevokeRoleRequest request = new GrantRevokeRoleRequest();
-        request.setRequestType(GrantRevokeType.REVOKE);
+        request.setRequestType(REVOKE);
         request.setRoleName(role);
         request.setPrincipalName(granteeName);
         request.setPrincipalType(granteeType);
