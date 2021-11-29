@@ -163,7 +163,10 @@ public interface SystemAccessControl
     /**
      * Filter the list of users to those the identity view query owned by the user.  The method
      * will not be called with the current user in the set.
+     *
+     * @deprecated Implement {@link #filterViewQueryOwnedBy(SystemSecurityContext, Collection)} instead.
      */
+    @Deprecated
     default Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
     {
         return emptySet();
