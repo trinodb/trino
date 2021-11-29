@@ -275,7 +275,7 @@ public class AccessControlManager
     public Collection<Identity> filterQueriesOwnedBy(Identity identity, Collection<Identity> queryOwners)
     {
         for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
-            queryOwners = systemAccessControl.filterViewQuery(new SystemSecurityContext(identity, Optional.empty()), queryOwners);
+            queryOwners = systemAccessControl.filterViewQueryOwnedBy(new SystemSecurityContext(identity, Optional.empty()), queryOwners);
         }
         return queryOwners;
     }

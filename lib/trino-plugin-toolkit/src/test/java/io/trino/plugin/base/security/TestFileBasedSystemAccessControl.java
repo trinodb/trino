@@ -1256,7 +1256,7 @@ public class TestFileBasedSystemAccessControl
     {
         assertAllMethodsOverridden(SystemAccessControl.class, FileBasedSystemAccessControl.class, ImmutableSet.of(
                 FileBasedSystemAccessControl.class.getMethod("checkCanViewQueryOwnedBy", SystemSecurityContext.class, Identity.class),
-                FileBasedSystemAccessControl.class.getMethod("filterViewQuery", SystemSecurityContext.class, Collection.class),
+                FileBasedSystemAccessControl.class.getMethod("filterViewQueryOwnedBy", SystemSecurityContext.class, Collection.class),
                 FileBasedSystemAccessControl.class.getMethod("checkCanKillQueryOwnedBy", SystemSecurityContext.class, Identity.class)));
     }
 
