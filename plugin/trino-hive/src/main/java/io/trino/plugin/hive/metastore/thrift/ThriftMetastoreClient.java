@@ -141,7 +141,7 @@ public interface ThriftMetastoreClient
     boolean grantPrivileges(PrivilegeBag privilegeBag)
             throws TException;
 
-    boolean revokePrivileges(PrivilegeBag privilegeBag)
+    boolean revokePrivileges(PrivilegeBag privilegeBag, boolean revokeGrantOption)
             throws TException;
 
     void grantRole(String role, String granteeName, PrincipalType granteeType, String grantorName, PrincipalType grantorType, boolean grantOption)
