@@ -213,7 +213,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void dropDatabase(HiveIdentity identity, String databaseName)
+    public synchronized void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
     {
         requireNonNull(databaseName, "databaseName is null");
 
@@ -222,7 +222,13 @@ public class FileHiveMetastore
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
         }
 
-        deleteDirectoryAndSchema(DATABASE, getDatabaseMetadataDirectory(databaseName));
+        // Either delete the entire database directory or just its metadata files
+        if (deleteData) {
+            deleteDirectoryAndSchema(DATABASE, getDatabaseMetadataDirectory(databaseName));
+        }
+        else {
+            deleteSchemaFile(DATABASE, getDatabaseMetadataDirectory(databaseName));
+        }
     }
 
     @Override
