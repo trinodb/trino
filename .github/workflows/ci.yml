@@ -217,6 +217,13 @@ jobs:
           path: |
             **/target/surefire-reports
             **/target/checkstyle-*
+      - name: Upload test report
+        uses: actions/upload-artifact@v2
+        with:
+          name: test report hive-tests
+          path: |
+            **/surefire-reports/TEST-TestSuite.xml
+          retention-days: 5
 
   test-other-modules:
     runs-on: ubuntu-latest
@@ -259,6 +266,13 @@ jobs:
           path: |
             **/target/surefire-reports
             **/target/checkstyle-*
+      - name: Upload test report
+        uses: actions/upload-artifact@v2
+        with:
+          name: test report test-other-modules
+          path: |
+            **/surefire-reports/TEST-TestSuite.xml
+          retention-days: 5
 
   test:
     runs-on: ubuntu-latest
@@ -311,6 +325,13 @@ jobs:
           path: |
             **/target/surefire-reports
             **/target/checkstyle-*
+      - name: Upload test report
+        uses: actions/upload-artifact@v2
+        with:
+          name: test report ${{ env.ARTIFACT_NAME }}
+          path: |
+            **/surefire-reports/TEST-TestSuite.xml
+          retention-days: 5
 
   test-memsql:
     runs-on: ubuntu-latest
@@ -343,6 +364,13 @@ jobs:
           path: |
             **/target/surefire-reports
             **/target/checkstyle-*
+      - name: Upload test report
+        uses: actions/upload-artifact@v2
+        with:
+          name: test report test-memsql
+          path: |
+            **/surefire-reports/TEST-TestSuite.xml
+          retention-days: 5
 
   test-bigquery:
     runs-on: ubuntu-latest
@@ -381,6 +409,13 @@ jobs:
           path: |
             **/target/surefire-reports
             **/target/checkstyle-*
+      - name: Upload test report
+        uses: actions/upload-artifact@v2
+        with:
+          name: test report test-bigquery
+          path: |
+            **/surefire-reports/TEST-TestSuite.xml
+          retention-days: 5
 
   pt:
     runs-on: ubuntu-latest
@@ -489,7 +524,7 @@ jobs:
           testing/bin/ptl suite run \
             --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --bind=off --logs-dir logs/ --timeout 2h \
             --trino-jdk-version zulu_${{ matrix.jdk }}
-      - name: Upload test results
+      - name: Upload test logs and results
         uses: actions/upload-artifact@v2
         if: failure()
         with:
@@ -497,3 +532,9 @@ jobs:
           path: |
             presto-product-tests/target/*
             logs/*
+      - name: Upload test report
+        uses: actions/upload-artifact@v2
+        with:
+          name: test report pt (${{ matrix.config }}, ${{ matrix.suite }})
+          path: presto-product-tests/target/reports/testng-results.xml
+          retention-days: 5
