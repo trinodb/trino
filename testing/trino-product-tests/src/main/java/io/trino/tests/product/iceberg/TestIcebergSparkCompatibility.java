@@ -908,35 +908,35 @@ public class TestIcebergSparkCompatibility
             QueryExecutor onTrino = onTrino();
             QueryExecutor onSpark = onSpark();
             List<Row> allInserted = executor.invokeAll(
-                    Stream.of(Engine.TRINO, Engine.SPARK)
-                            .map(engine -> (Callable<List<Row>>) () -> {
-                                List<Row> inserted = new ArrayList<>();
-                                for (int i = 0; i < insertsPerEngine; i++) {
-                                    barrier.await(20, SECONDS);
-                                    String engineName = engine.name().toLowerCase(ENGLISH);
-                                    long value = i;
-                                    switch (engine) {
-                                        case TRINO:
-                                            try {
-                                                onTrino.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", trinoTableName, engineName, value));
+                            Stream.of(Engine.TRINO, Engine.SPARK)
+                                    .map(engine -> (Callable<List<Row>>) () -> {
+                                        List<Row> inserted = new ArrayList<>();
+                                        for (int i = 0; i < insertsPerEngine; i++) {
+                                            barrier.await(20, SECONDS);
+                                            String engineName = engine.name().toLowerCase(ENGLISH);
+                                            long value = i;
+                                            switch (engine) {
+                                                case TRINO:
+                                                    try {
+                                                        onTrino.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", trinoTableName, engineName, value));
+                                                    }
+                                                    catch (QueryExecutionException queryExecutionException) {
+                                                        // failed to insert
+                                                        continue; // next loop iteration
+                                                    }
+                                                    break;
+                                                case SPARK:
+                                                    onSpark.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", sparkTableName, engineName, value));
+                                                    break;
+                                                default:
+                                                    throw new UnsupportedOperationException("Unexpected engine: " + engine);
                                             }
-                                            catch (QueryExecutionException queryExecutionException) {
-                                                // failed to insert
-                                                continue; // next loop iteration
-                                            }
-                                            break;
-                                        case SPARK:
-                                            onSpark.executeQuery(format("INSERT INTO %s VALUES ('%s', %d)", sparkTableName, engineName, value));
-                                            break;
-                                        default:
-                                            throw new UnsupportedOperationException("Unexpected engine: " + engine);
-                                    }
 
-                                    inserted.add(row(engineName, value));
-                                }
-                                return inserted;
-                            })
-                            .collect(toImmutableList())).stream()
+                                            inserted.add(row(engineName, value));
+                                        }
+                                        return inserted;
+                                    })
+                                    .collect(toImmutableList())).stream()
                     .map(MoreFutures::getDone)
                     .flatMap(List::stream)
                     .collect(toImmutableList());
