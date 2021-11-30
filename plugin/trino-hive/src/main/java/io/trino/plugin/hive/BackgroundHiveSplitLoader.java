@@ -83,6 +83,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 import java.util.function.IntPredicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -264,7 +265,10 @@ public class BackgroundHiveSplitLoader
                 // 2. Timeout after waiting for the configured time
                 long timeLeft = dynamicFilteringWaitTimeoutMillis - stopwatch.elapsed(MILLISECONDS);
                 if (timeLeft > 0 && dynamicFilter.isAwaitable()) {
-                    future = asVoid(toListenableFuture(dynamicFilter.isBlocked().orTimeout(timeLeft, MILLISECONDS)));
+                    future = asVoid(toListenableFuture(dynamicFilter.isBlocked()
+                                                                    // As isBlocked() returns unmodifiableFuture, we need the following line for correct propagation of the timeout
+                                                                    .thenApply(Function.identity())
+                                                                    .orTimeout(timeLeft, MILLISECONDS)));
                     return TaskStatus.continueOn(future);
                 }
                 taskExecutionLock.readLock().lock();

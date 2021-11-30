@@ -92,6 +92,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -390,14 +391,14 @@ public class TestBackgroundHiveSplitLoader
                     @Override
                     public CompletableFuture<?> isBlocked()
                     {
-                        return CompletableFuture.runAsync(() -> {
+                        return unmodifiableFuture(CompletableFuture.runAsync(() -> {
                             try {
                                 TimeUnit.HOURS.sleep(1);
                             }
                             catch (InterruptedException e) {
                                 throw new IllegalStateException(e);
                             }
-                        });
+                        }));
                     }
 
                     @Override
