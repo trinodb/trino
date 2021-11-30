@@ -36,6 +36,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -956,6 +957,127 @@ public class TestIcebergSparkCompatibility
         finally {
             executor.shutdownNow();
         }
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsAndCompressionCodecs")
+    public void testTrinoReadingSparkCompressedData(StorageFormat storageFormat, String compressionCodec)
+    {
+        String baseTableName = "test_spark_compression" +
+                "_" + storageFormat +
+                "_" + compressionCodec +
+                "_" + randomTableSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        List<Row> rows = IntStream.range(0, 555)
+                .mapToObj(i -> row("a" + i, i))
+                .collect(toImmutableList());
+
+        switch (storageFormat) {
+            case PARQUET:
+                onSpark().executeQuery("SET spark.sql.parquet.compression.codec = " + compressionCodec);
+                break;
+
+            case ORC:
+                switch (compressionCodec) {
+                    case "GZIP":
+                        onSpark().executeQuery("SET spark.sql.orc.compression.codec = zlib");
+                        break;
+                    case "ZSTD":
+                    case "LZ4":
+                        // not supported
+                        assertQueryFailure(() -> onSpark().executeQuery("SET spark.sql.orc.compression.codec = " + compressionCodec))
+                                .hasMessageStartingWith("org.apache.hive.service.cli.HiveSQLException: Error running query: java.lang.IllegalArgumentException: " +
+                                        "The value of spark.sql.orc.compression.codec should be one of uncompressed, lzo, snappy, zlib, none, but was " + compressionCodec.toLowerCase(ENGLISH));
+                        return;
+                    default:
+                        onSpark().executeQuery("SET spark.sql.orc.compression.codec = " + compressionCodec);
+                }
+                break;
+
+            default:
+                throw new UnsupportedOperationException("Unsupported storage format: " + storageFormat);
+        }
+
+        onSpark().executeQuery(
+                "CREATE TABLE " + sparkTableName + " (a string, b bigint) " +
+                        "USING ICEBERG TBLPROPERTIES ('write.format.default' = '" + storageFormat + "')");
+        onSpark().executeQuery(
+                "INSERT INTO " + sparkTableName + " VALUES " +
+                        rows.stream()
+                                .map(row -> format("('%s', %s)", row.getValues().get(0), row.getValues().get(1)))
+                                .collect(Collectors.joining(", ")));
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
+                .containsOnly(rows);
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName))
+                .containsOnly(rows);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsAndCompressionCodecs")
+    public void testSparkReadingTrinoCompressedData(StorageFormat storageFormat, String compressionCodec)
+    {
+        String baseTableName = "test_trino_compression" +
+                "_" + storageFormat +
+                "_" + compressionCodec +
+                "_" + randomTableSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("SET SESSION iceberg.compression_codec = '" + compressionCodec + "'");
+
+        String createTable = "CREATE TABLE " + trinoTableName + " WITH (format = '" + storageFormat + "') AS TABLE tpch.tiny.nation";
+        if (storageFormat == StorageFormat.PARQUET && "LZ4".equals(compressionCodec)) {
+            // TODO (https://github.com/trinodb/trino/issues/9142) LZ4 is not supported with native Parquet writer
+            assertQueryFailure(() -> onTrino().executeQuery(createTable))
+                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Unsupported codec: LZ4");
+            return;
+        }
+        onTrino().executeQuery(createTable);
+
+        List<Row> expected = onTrino().executeQuery("TABLE tpch.tiny.nation").rows().stream()
+                .map(row -> row(row.toArray()))
+                .collect(toImmutableList());
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName))
+                .containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
+                .containsOnly(expected);
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void verifyCompressionCodecsDataProvider()
+    {
+        assertThat(onTrino().executeQuery("SHOW SESSION LIKE 'iceberg.compression_codec'"))
+                .containsOnly(row(
+                        "iceberg.compression_codec",
+                        "GZIP",
+                        "GZIP",
+                        "varchar",
+                        "Compression codec to use when writing files. Possible values: " + compressionCodecs()));
+    }
+
+    @DataProvider
+    public Object[][] storageFormatsAndCompressionCodecs()
+    {
+        List<String> compressionCodecs = compressionCodecs();
+        return Stream.of(StorageFormat.values())
+                .filter(StorageFormat::isSupportedInTrino)
+                .flatMap(storageFormat -> compressionCodecs.stream()
+                        .map(compressionCodec -> new Object[] {storageFormat, compressionCodec}))
+                .toArray(Object[][]::new);
+    }
+
+    private List<String> compressionCodecs()
+    {
+        return List.of(
+                "NONE",
+                "SNAPPY",
+                "LZ4",
+                "ZSTD",
+                "GZIP");
     }
 
     private static String escapeSparkString(String value)
