@@ -13,17 +13,27 @@
  */
 package io.trino.sql.planner.planprinter;
 
+import io.trino.operator.Distribution;
+
+import static java.util.Objects.requireNonNull;
+
 class OperatorInputStats
 {
     private final long totalDrivers;
     private final long inputPositions;
     private final double sumSquaredInputPositions;
+    private final Distribution inputPositionsDistribution;
 
-    public OperatorInputStats(long totalDrivers, long inputPositions, double sumSquaredInputPositions)
+    public OperatorInputStats(
+            long totalDrivers,
+            long inputPositions,
+            double sumSquaredInputPositions,
+            Distribution inputPositionsDistribution)
     {
         this.totalDrivers = totalDrivers;
         this.inputPositions = inputPositions;
         this.sumSquaredInputPositions = sumSquaredInputPositions;
+        this.inputPositionsDistribution = requireNonNull(inputPositionsDistribution, "inputPositionsDistribution is null");
     }
 
     public long getTotalDrivers()
@@ -41,11 +51,17 @@ class OperatorInputStats
         return sumSquaredInputPositions;
     }
 
+    public Distribution getInputPositionsDistribution()
+    {
+        return inputPositionsDistribution;
+    }
+
     public static OperatorInputStats merge(OperatorInputStats first, OperatorInputStats second)
     {
         return new OperatorInputStats(
                 first.totalDrivers + second.totalDrivers,
                 first.inputPositions + second.inputPositions,
-                first.sumSquaredInputPositions + second.sumSquaredInputPositions);
+                first.sumSquaredInputPositions + second.sumSquaredInputPositions,
+                first.inputPositionsDistribution.mergeWith(second.inputPositionsDistribution));
     }
 }

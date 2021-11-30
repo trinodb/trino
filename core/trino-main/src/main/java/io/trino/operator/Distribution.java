@@ -17,11 +17,14 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.stats.TDigest;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -212,5 +215,20 @@ public class Distribution
     public synchronized double getP99()
     {
         return p99;
+    }
+
+    public Map<Double, Double> getPercentiles()
+    {
+        return ImmutableMap.<Double, Double>builder()
+                .put(0.01, p01)
+                .put(0.05, p05)
+                .put(0.10, p10)
+                .put(0.25, p25)
+                .put(0.50, p50)
+                .put(0.75, p75)
+                .put(0.90, p90)
+                .put(0.95, p95)
+                .put(0.99, p99)
+                .build();
     }
 }

@@ -15,6 +15,7 @@ package io.trino.sql.planner.planprinter;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.operator.Distribution;
 import io.trino.spi.Mergeable;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -156,6 +157,14 @@ public class PlanNodeStats
                                 entry.getValue().getSumSquaredInputPositions(),
                                 entry.getValue().getInputPositions(),
                                 entry.getValue().getTotalDrivers())));
+    }
+
+    public Map<String, Distribution> getOperatorInputPositionsDistribution()
+    {
+        return operatorInputStats.entrySet().stream()
+                .collect(toImmutableMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().getInputPositionsDistribution()));
     }
 
     @Override

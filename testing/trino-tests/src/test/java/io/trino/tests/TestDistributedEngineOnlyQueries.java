@@ -224,6 +224,14 @@ public class TestDistributedEngineOnlyQueries
     }
 
     @Test
+    public void testExplainAnalyzeVerbose()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
+                "Input distribution: p01:.*, p05:.*, p10:.*, p25:.*, p50:.*, p75:.*, p90:.*, p95:.*, p99:.*, min:.*, max:.*, count:.*");
+    }
+
+    @Test
     public void testInsertWithCoercion()
     {
         String tableName = "test_insert_with_coercion_" + randomTableSuffix();

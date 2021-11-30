@@ -18,6 +18,7 @@ import io.airlift.units.DataSize;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.operator.Distribution;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.Symbol;
@@ -176,6 +177,17 @@ public class TextRenderer
                     "Input avg.: %s rows, Input std.dev.: %s%%\n",
                     formatDouble(inputAverage),
                     formatDouble(100.0d * inputStdDevs.get(operator) / inputAverage)));
+
+            if (verbose) {
+                Distribution inputDistribution = stats.getOperatorInputPositionsDistribution().get(operator);
+                output.append("Input distribution: ")
+                        .append(inputDistribution.getPercentiles().entrySet().stream()
+                                .map(entry -> "p" + String.format("%02d", (int) (entry.getKey() * 100)) + ":" + formatDouble(entry.getValue()))
+                                .collect(joining(", ")) + ", ")
+                        .append("min:" + inputDistribution.getMin() + ", ")
+                        .append("max:" + inputDistribution.getMax() + ", ")
+                        .append("count: " + inputDistribution.getCount() + "\n");
+            }
         }
     }
 

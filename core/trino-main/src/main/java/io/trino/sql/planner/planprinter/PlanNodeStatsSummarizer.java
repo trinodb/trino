@@ -121,7 +121,8 @@ public final class PlanNodeStatsSummarizer
                                 new OperatorInputStats(
                                         operatorStats.getTotalDrivers(),
                                         operatorStats.getInputPositions(),
-                                        operatorStats.getSumSquaredInputPositions())),
+                                        operatorStats.getSumSquaredInputPositions(),
+                                        operatorStats.getInputPositionsDistribution())),
                         (map1, map2) -> mergeMaps(map1, map2, OperatorInputStats::merge));
 
                 metrics.merge(planNodeId, operatorStats.getMetrics(), Metrics::mergeWith);
