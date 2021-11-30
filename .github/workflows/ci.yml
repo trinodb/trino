@@ -48,6 +48,7 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: ${{ matrix.java-version }}
+          cache: 'maven'
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -73,6 +74,7 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -105,6 +107,7 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -132,6 +135,7 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -229,6 +233,7 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -291,6 +296,7 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -323,6 +329,7 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Cleanup node
         # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
         run: .github/bin/cleanup-node.sh
@@ -355,6 +362,7 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -477,6 +485,7 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
