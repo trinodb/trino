@@ -128,6 +128,8 @@ Type mapping
 
 .. include:: jdbc-type-mapping.fragment
 
+.. _clickhouse-pushdown:
+
 Pushdown
 --------
 
