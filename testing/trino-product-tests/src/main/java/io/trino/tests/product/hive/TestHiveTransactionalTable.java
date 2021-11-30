@@ -1892,6 +1892,17 @@ public class TestHiveTransactionalTable
                         "files in %s are not directly under table location"));
     }
 
+    @Test
+    public void testDeleteAfterMajorCompaction()
+    {
+        withTemporaryTable("test_delete_after_major_compaction", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.tiny.nation", tableName));
+            compactTableAndWait(MAJOR, tableName, "", new Duration(3, MINUTES));
+            onTrino().executeQuery(format("DELETE FROM %s", tableName));
+            verifySelectForTrinoAndHive(format("SELECT COUNT(*) FROM %s", tableName), "true", row(0));
+        });
+    }
+
     private void hdfsDeleteAll(String directory)
     {
         if (!hdfsClient.exist(directory)) {
