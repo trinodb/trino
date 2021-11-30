@@ -171,8 +171,11 @@ public class TextRenderer
             double inputAverage = inputAverages.get(operator);
 
             output.append(translatedOperatorType);
-            output.append(format(Locale.US, "Input avg.: %s rows, Input std.dev.: %s%%\n",
-                    formatDouble(inputAverage), formatDouble(100.0d * inputStdDevs.get(operator) / inputAverage)));
+            output.append(format(
+                    Locale.US,
+                    "Input avg.: %s rows, Input std.dev.: %s%%\n",
+                    formatDouble(inputAverage),
+                    formatDouble(100.0d * inputStdDevs.get(operator) / inputAverage)));
         }
     }
 
