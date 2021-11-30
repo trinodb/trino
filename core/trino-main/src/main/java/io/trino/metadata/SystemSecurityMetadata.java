@@ -164,4 +164,19 @@ public interface SystemSecurityMetadata
      * A table or view was dropped
      */
     void tableDropped(Session session, CatalogSchemaTableName table);
+
+    /**
+     * A column created
+     */
+    void columnCreated(Session session, CatalogSchemaTableName table, String columnName);
+
+    /**
+     * A column was renamed
+     */
+    void columnRenamed(Session session, CatalogSchemaTableName table, String oldColumnName, String newColumnName);
+
+    /**
+     * A column was dropped
+     */
+    void columnDropped(Session session, CatalogSchemaTableName table, String columnName);
 }

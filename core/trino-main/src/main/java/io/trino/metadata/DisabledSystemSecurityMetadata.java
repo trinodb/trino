@@ -179,6 +179,15 @@ public class DisabledSystemSecurityMetadata
     @Override
     public void tableDropped(Session session, CatalogSchemaTableName table) {}
 
+    @Override
+    public void columnCreated(Session session, CatalogSchemaTableName table, String columnName) {}
+
+    @Override
+    public void columnRenamed(Session session, CatalogSchemaTableName table, String oldColumnName, String newColumnName) {}
+
+    @Override
+    public void columnDropped(Session session, CatalogSchemaTableName table, String columnName) {}
+
     private static TrinoException notSupportedException(String catalogName)
     {
         return new TrinoException(NOT_SUPPORTED, "Catalog does not support permission management: " + catalogName);

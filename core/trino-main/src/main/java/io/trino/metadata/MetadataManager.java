@@ -900,24 +900,41 @@ public final class MetadataManager
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
         CatalogName catalogName = tableHandle.getCatalogName();
-        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
-        metadata.renameColumn(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), source, target.toLowerCase(ENGLISH));
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        Optional<CatalogSchemaTableName> tableName = getTableNameIfSystemSecurity(session, catalogMetadata, tableHandle);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        metadata.renameColumn(connectorSession, tableHandle.getConnectorHandle(), source, target.toLowerCase(ENGLISH));
+        tableName.ifPresent(name -> systemSecurityMetadata.columnRenamed(
+                session,
+                name,
+                metadata.getColumnMetadata(connectorSession, tableHandle.getConnectorHandle(), source).getName(),
+                target));
     }
 
     @Override
     public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column)
     {
         CatalogName catalogName = tableHandle.getCatalogName();
-        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
-        metadata.addColumn(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), column);
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        Optional<CatalogSchemaTableName> tableName = getTableNameIfSystemSecurity(session, catalogMetadata, tableHandle);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        metadata.addColumn(connectorSession, tableHandle.getConnectorHandle(), column);
+        tableName.ifPresent(name -> systemSecurityMetadata.columnCreated(session, name, column.getName()));
     }
 
     @Override
     public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
     {
         CatalogName catalogName = tableHandle.getCatalogName();
-        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
-        metadata.dropColumn(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), column);
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        Optional<CatalogSchemaTableName> tableName = getTableNameIfSystemSecurity(session, catalogMetadata, tableHandle);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        ColumnMetadata columnMetadata = metadata.getColumnMetadata(connectorSession, tableHandle.getConnectorHandle(), column);
+        metadata.dropColumn(connectorSession, tableHandle.getConnectorHandle(), column);
+        tableName.ifPresent(name -> systemSecurityMetadata.columnDropped(session, name, columnMetadata.getName()));
     }
 
     @Override
