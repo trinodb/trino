@@ -58,9 +58,76 @@ public class TDigestHistogram
     }
 
     @Override
+    @JsonProperty
     public long getTotal()
     {
         return (long) digest.getCount();
+    }
+
+    @JsonProperty
+    public synchronized double getMin()
+    {
+        return digest.getMin();
+    }
+
+    @JsonProperty
+    public synchronized double getMax()
+    {
+        return digest.getMax();
+    }
+
+    @JsonProperty
+    public synchronized double getP01()
+    {
+        return digest.valueAt(0.01);
+    }
+
+    @JsonProperty
+    public synchronized double getP05()
+    {
+        return digest.valueAt(0.05);
+    }
+
+    @JsonProperty
+    public synchronized double getP10()
+    {
+        return digest.valueAt(0.10);
+    }
+
+    @JsonProperty
+    public synchronized double getP25()
+    {
+        return digest.valueAt(0.25);
+    }
+
+    @JsonProperty
+    public synchronized double getP50()
+    {
+        return digest.valueAt(0.50);
+    }
+
+    @JsonProperty
+    public synchronized double getP75()
+    {
+        return digest.valueAt(0.75);
+    }
+
+    @JsonProperty
+    public synchronized double getP90()
+    {
+        return digest.valueAt(0.90);
+    }
+
+    @JsonProperty
+    public synchronized double getP95()
+    {
+        return digest.valueAt(0.95);
+    }
+
+    @JsonProperty
+    public synchronized double getP99()
+    {
+        return digest.valueAt(0.99);
     }
 
     @Override
