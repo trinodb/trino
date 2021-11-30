@@ -10,9 +10,9 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.execution.QueryManager;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
