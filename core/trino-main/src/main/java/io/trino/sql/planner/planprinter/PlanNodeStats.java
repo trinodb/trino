@@ -23,13 +23,13 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.util.MoreMaps.mergeMaps;
 import static java.lang.Double.max;
 import static java.lang.Math.sqrt;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.stream.Collectors.toMap;
 
 public class PlanNodeStats
         implements Mergeable<PlanNodeStats>
@@ -142,7 +142,7 @@ public class PlanNodeStats
     public Map<String, Double> getOperatorInputPositionsAverages()
     {
         return operatorInputStats.entrySet().stream()
-                .collect(toMap(
+                .collect(toImmutableMap(
                         Map.Entry::getKey,
                         entry -> (double) entry.getValue().getInputPositions() / operatorInputStats.get(entry.getKey()).getTotalDrivers()));
     }
@@ -150,7 +150,7 @@ public class PlanNodeStats
     public Map<String, Double> getOperatorInputPositionsStdDevs()
     {
         return operatorInputStats.entrySet().stream()
-                .collect(toMap(
+                .collect(toImmutableMap(
                         Map.Entry::getKey,
                         entry -> computedStdDev(
                                 entry.getValue().getSumSquaredInputPositions(),
