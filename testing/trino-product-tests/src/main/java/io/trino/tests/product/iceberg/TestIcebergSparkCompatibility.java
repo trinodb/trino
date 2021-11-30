@@ -321,7 +321,7 @@ public class TestIcebergSparkCompatibility
                 // TODO Iceberg Spark integration needs yet to gain support
                 //  once this is supported, merge this test with testSparkReadingTrinoData()
                 .isInstanceOf(SQLException.class)
-                .hasMessageStartingWith("Error running query: java.lang.ClassCastException: class [B cannot be cast to class org.apache.spark.unsafe.types.UTF8String");
+                .hasMessageMatching("org.apache.hive.service.cli.HiveSQLException: Error running query:.*\\Q java.lang.ClassCastException: class [B cannot be cast to class org.apache.spark.unsafe.types.UTF8String\\E(?s:.*)");
 
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
