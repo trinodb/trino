@@ -24,6 +24,7 @@ import io.airlift.stats.TDigest;
 import io.trino.spi.metrics.Distribution;
 
 import java.util.Base64;
+import java.util.Locale;
 
 import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -139,11 +140,25 @@ public class TDigestHistogram
     @Override
     public String toString()
     {
-        ToStringHelper helper = toStringHelper(this).add("count", digest.getCount());
-        for (int q = 0; q <= 100; q += 10) {
-            helper.add(format("p%d", q), getPercentile(q));
-        }
+        ToStringHelper helper = toStringHelper("")
+                .add("count", formatDouble(digest.getCount()))
+                .add("p01", formatDouble(getP01()))
+                .add("p05", formatDouble(getP05()))
+                .add("p10", formatDouble(getP10()))
+                .add("p25", formatDouble(getP25()))
+                .add("p50", formatDouble(getP50()))
+                .add("p75", formatDouble(getP75()))
+                .add("p90", formatDouble(getP90()))
+                .add("p95", formatDouble(getP95()))
+                .add("p99", formatDouble(getP99()))
+                .add("min", formatDouble(getMin()))
+                .add("max", formatDouble(getMax()));
         return helper.toString();
+    }
+
+    private static String formatDouble(double value)
+    {
+        return format(Locale.US, "%.2f", value);
     }
 
     public static class TDigestToBase64Converter
