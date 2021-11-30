@@ -46,7 +46,7 @@ public class TDigestHistogram
     @JsonProperty
     public TDigest getDigest()
     {
-        return digest;
+        return TDigest.copyOf(digest);
     }
 
     @Override
