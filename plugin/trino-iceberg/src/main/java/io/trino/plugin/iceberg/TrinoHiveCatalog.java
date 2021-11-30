@@ -215,7 +215,7 @@ class TrinoHiveCatalog
                 !listViews(session, Optional.of(namespace)).isEmpty()) {
             throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + namespace);
         }
-        metastore.dropDatabase(new HiveIdentity(session), namespace);
+        metastore.dropDatabase(new HiveIdentity(session), namespace, true);
         return true;
     }
 
