@@ -16,9 +16,11 @@ package io.trino.operator;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
+import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -27,6 +29,7 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.OperationTimer.OperationTiming;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.metrics.Metrics;
@@ -522,6 +525,13 @@ public class OperatorContext
                 .orElseGet(() -> ImmutableList.of(getOperatorStats()));
     }
 
+    public static Metrics getOperatorMetrics(Metrics operatorMetrics, long inputPositions)
+    {
+        TDigest digest = new TDigest();
+        digest.add(inputPositions);
+        return operatorMetrics.mergeWith(new Metrics(ImmutableMap.of("Input distribution", new TDigestHistogram(digest))));
+    }
+
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
     {
         return visitor.visitOperatorContext(this, context);
@@ -562,7 +572,7 @@ public class OperatorContext
                 outputPositions.getTotalCount(),
 
                 dynamicFilterSplitsProcessed.get(),
-                metrics.get(),
+                getOperatorMetrics(metrics.get(), inputPositionsCount),
                 connectorMetrics.get(),
 
                 DataSize.ofBytes(physicalWrittenDataSize.get()),
