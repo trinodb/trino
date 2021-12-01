@@ -546,6 +546,13 @@ public class GlueHiveMetastore
     @Override
     public void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
     {
+        Optional<String> location = Optional.empty();
+        if (deleteData) {
+            location = getDatabase(databaseName)
+                    .orElseThrow(() -> new SchemaNotFoundException(databaseName))
+                    .getLocation();
+        }
+
         try {
             stats.getDropDatabase().call(() ->
                     glueClient.deleteDatabase(new DeleteDatabaseRequest().withCatalogId(catalogId).withName(databaseName)));
@@ -555,6 +562,10 @@ public class GlueHiveMetastore
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+
+        if (deleteData) {
+            location.ifPresent(path -> deleteDir(hdfsContext, hdfsEnvironment, new Path(path), true));
         }
     }
 
