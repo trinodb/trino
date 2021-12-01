@@ -21,8 +21,8 @@ import io.trino.rcfile.EncodeOutput;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.Int128Math;
 import io.trino.spi.type.Type;
 
 import java.math.BigInteger;
@@ -179,13 +179,8 @@ public class DecimalEncoding
 
         resultSlice.setBytes(BYTES_IN_LONG_DECIMAL - length, slice, offset, length);
 
-        // todo get rid of BigInteger
-        BigInteger decimal = new BigInteger(resultBytes);
-        if (scale != type.getScale()) {
-            decimal = Decimals.rescale(decimal, scale, type.getScale());
-        }
-
-        return Int128.valueOf(decimal);
+        Int128 result = Int128.fromBigEndian(resultBytes);
+        return Int128Math.rescale(result, type.getScale() - scale);
     }
 
     private void writeLong(SliceOutput output, long value)

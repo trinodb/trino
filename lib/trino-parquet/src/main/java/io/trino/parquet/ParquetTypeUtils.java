@@ -14,7 +14,6 @@
 package io.trino.parquet;
 
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Int128;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.ColumnIOFactory;
@@ -28,7 +27,6 @@ import org.apache.parquet.schema.MessageType;
 
 import javax.annotation.Nullable;
 
-import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -261,10 +259,5 @@ public final class ParquetTypeUtils
         }
 
         return value;
-    }
-
-    public static Int128 getLongDecimalValue(byte[] bytes)
-    {
-        return Int128.valueOf(new BigInteger(bytes));
     }
 }
