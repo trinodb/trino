@@ -57,6 +57,7 @@ import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandar
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static io.trino.tests.product.launcher.testcontainers.PortBinder.unsafelyExposePort;
 import static java.lang.StrictMath.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
@@ -121,6 +122,9 @@ public final class TestRun
         @Option(names = "--attach", description = "attach to an existing environment")
         public boolean attach;
 
+        @Option(names = "--debug-suspend-tests", description = "Wait for client to connect in debug mode. Product Tests process only.")
+        public boolean debugSuspend;
+
         @Option(names = "--reports-dir", paramLabel = "<dir>", description = "Location of the reports directory " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/reports")
         public Path reportsDir;
 
@@ -148,6 +152,7 @@ public final class TestRun
         private static final String CONTAINER_REPORTS_DIR = "/docker/test-reports";
         private final EnvironmentFactory environmentFactory;
         private final boolean debug;
+        private final boolean debugSuspend;
         private final SupportedTrinoJdk jdkVersion;
         private final File testJar;
         private final File cliJar;
@@ -168,6 +173,7 @@ public final class TestRun
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             requireNonNull(environmentOptions, "environmentOptions is null");
             this.debug = environmentOptions.debug;
+            this.debugSuspend = requireNonNull(testRunOptions, "testRunOptions is null").debugSuspend;
             this.jdkVersion = requireNonNull(environmentOptions.jdkVersion, "environmentOptions.jdkVersion is null");
             this.testJar = requireNonNull(testRunOptions.testJar, "testRunOptions.testJar is null");
             this.cliJar = requireNonNull(testRunOptions.cliJar, "testRunOptions.cliJar is null");
@@ -262,7 +268,7 @@ public final class TestRun
 
                 if (debug) {
                     temptoJavaOptions = new ArrayList<>(temptoJavaOptions);
-                    temptoJavaOptions.add("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:5007");
+                    temptoJavaOptions.add(format("-agentlib:jdwp=transport=dt_socket,server=y,suspend=%s,address=0.0.0.0:5007", debugSuspend ? "y" : "n"));
                     unsafelyExposePort(container, 5007); // debug port
                 }
 
