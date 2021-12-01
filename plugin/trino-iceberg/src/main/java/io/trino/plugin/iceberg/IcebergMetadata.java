@@ -422,6 +422,7 @@ public class IcebergMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
+        verify(transaction == null, "transaction already set");
         transaction = newCreateTableTransaction(catalog, tableMetadata, session);
         return new IcebergWritableTableHandle(
                 tableMetadata.getTable().getSchemaName(),
@@ -480,6 +481,7 @@ public class IcebergMetadata
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
+        verify(transaction == null, "transaction already set");
         transaction = icebergTable.newTransaction();
 
         return new IcebergWritableTableHandle(
@@ -527,6 +529,7 @@ public class IcebergMetadata
 
         appendFiles.commit();
         transaction.commitTransaction();
+        transaction = null;
 
         return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
                 .map(CommitTaskData::getPath)
@@ -899,6 +902,7 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        verify(transaction == null, "transaction already set");
         transaction = icebergTable.newTransaction();
 
         return new IcebergWritableTableHandle(
@@ -964,6 +968,7 @@ public class IcebergMetadata
         appendFiles.commit();
 
         transaction.commitTransaction();
+        transaction = null;
         return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
                 .map(CommitTaskData::getPath)
                 .collect(toImmutableList())));
