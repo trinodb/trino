@@ -437,6 +437,9 @@ public class MemSqlClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
+        if (REAL.equals(type)) {
+            return WriteMapping.longMapping("float", realWriteFunction());
+        }
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;
             String dataType;
@@ -460,12 +463,6 @@ public class MemSqlClient
         if (VARBINARY.equals(type)) {
             return WriteMapping.sliceMapping("longblob", varbinaryWriteFunction());
         }
-        if (type.equals(jsonType)) {
-            return WriteMapping.sliceMapping("json", varcharWriteFunction());
-        }
-        if (REAL.equals(type)) {
-            return WriteMapping.longMapping("float", realWriteFunction());
-        }
         // TODO implement TIME type
         if (type instanceof TimestampType) {
             TimestampType timestampType = (TimestampType) type;
@@ -474,6 +471,9 @@ public class MemSqlClient
                 return WriteMapping.longMapping("datetime", timestampWriteFunction(timestampType));
             }
             return WriteMapping.longMapping(format("datetime(%s)", MEMSQL_DATE_TIME_MAX_PRECISION), timestampWriteFunction(TIMESTAMP_MICROS));
+        }
+        if (type.equals(jsonType)) {
+            return WriteMapping.sliceMapping("json", varcharWriteFunction());
         }
 
         // TODO add explicit mappings
