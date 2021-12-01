@@ -440,7 +440,6 @@ public class TestWorkProcessorPipelineSourceOperator
         @Override
         public Metrics getMetrics()
         {
-            System.err.println("closed: " + closed);
             return new Metrics(ImmutableMap.of(
                     "testSourceMetric", new LongCount(1),
                     "testSourceClosed", new LongCount(closed ? 1 : 0)));
