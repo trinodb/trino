@@ -36,7 +36,6 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static io.trino.plugin.hive.security.SqlStandardAccessControl.ADMIN_ROLE_NAME;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.security.PrincipalType.ROLE;
@@ -175,11 +174,16 @@ public class SqlStandardAccessControlMetadata
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
-        Set<HivePrivilegeInfo> hivePrivilegeInfos = privileges.stream()
-                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new HivePrincipal(USER, session.getUser()), new HivePrincipal(USER, session.getUser())))
-                .collect(toSet());
-
-        metastore.grantTablePrivileges(new HiveIdentity(session), schemaName, tableName, grantee, hivePrivilegeInfos);
+        metastore.grantTablePrivileges(
+                new HiveIdentity(session),
+                schemaName,
+                tableName,
+                grantee,
+                new HivePrincipal(USER, session.getUser()),
+                privileges.stream()
+                        .map(HivePrivilegeInfo::toHivePrivilege)
+                        .collect(toSet()),
+                grantOption);
     }
 
     @Override
@@ -188,11 +192,16 @@ public class SqlStandardAccessControlMetadata
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
-        Set<HivePrivilegeInfo> hivePrivilegeInfos = privileges.stream()
-                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new HivePrincipal(USER, session.getUser()), new HivePrincipal(USER, session.getUser())))
-                .collect(toSet());
-
-        metastore.revokeTablePrivileges(new HiveIdentity(session), schemaName, tableName, grantee, hivePrivilegeInfos);
+        metastore.revokeTablePrivileges(
+                new HiveIdentity(session),
+                schemaName,
+                tableName,
+                grantee,
+                new HivePrincipal(USER, session.getUser()),
+                privileges.stream()
+                        .map(HivePrivilegeInfo::toHivePrivilege)
+                        .collect(toSet()),
+                grantOption);
     }
 
     @Override

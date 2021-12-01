@@ -43,6 +43,7 @@ import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
@@ -1113,17 +1114,23 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public synchronized void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
-        setTablePrivileges(grantee, databaseName, tableName, privileges);
+        setTablePrivileges(
+                grantee,
+                databaseName,
+                tableName,
+                privileges.stream()
+                        .map(privilege -> new HivePrivilegeInfo(privilege, grantOption, grantor, grantee))
+                        .collect(toImmutableList()));
     }
 
     @Override
-    public synchronized void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public synchronized void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
         Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(databaseName, tableName, Optional.of(tableOwner), Optional.of(grantee));
         Set<HivePrivilegeInfo> privilegesToRemove = privileges.stream()
-                .map(p -> new HivePrivilegeInfo(p.getHivePrivilege(), p.isGrantOption(), p.getGrantor(), grantee))
+                .map(p -> new HivePrivilegeInfo(p, grantOption, grantor, grantee))
                 .collect(toImmutableSet());
 
         setTablePrivileges(grantee, databaseName, tableName, Sets.difference(currentPrivileges, privilegesToRemove));

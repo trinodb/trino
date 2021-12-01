@@ -41,6 +41,7 @@ import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
@@ -1440,9 +1441,10 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
         Set<PrivilegeGrantInfo> requestedPrivileges = privileges.stream()
+                .map(privilege -> new HivePrivilegeInfo(privilege, grantOption, grantor, grantee))
                 .map(ThriftMetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
                 .collect(toImmutableSet());
         checkArgument(!containsAllPrivilege(requestedPrivileges), "\"ALL\" not supported in PrivilegeGrantInfo.privilege");
@@ -1491,9 +1493,10 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
         Set<PrivilegeGrantInfo> requestedPrivileges = privileges.stream()
+                .map(privilege -> new HivePrivilegeInfo(privilege, grantOption, grantor, grantee))
                 .map(ThriftMetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
                 .collect(toImmutableSet());
         checkArgument(!containsAllPrivilege(requestedPrivileges), "\"ALL\" not supported in PrivilegeGrantInfo.privilege");
