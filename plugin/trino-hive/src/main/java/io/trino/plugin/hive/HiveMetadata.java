@@ -2138,6 +2138,7 @@ public class HiveMetadata
                     firstScannedPath = Optional.of(scannedPath);
                 }
                 retry().run("delete " + scannedPath, () -> fs.delete(scannedPath, false));
+                someDeleted = true;
                 remainingFilesToDelete.remove(scannedPath);
             }
         }
