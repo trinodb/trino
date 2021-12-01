@@ -70,12 +70,16 @@ public class TestWorkProcessorSourceOperatorAdapter
 
         operator.getOutput();
         assertThat(operator.isFinished()).isFalse();
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics()).isEqualTo(ImmutableMap.of("testOperatorMetric", new LongCount(1)));
+        assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
+                .hasSize(2)
+                .containsEntry("testOperatorMetric", new LongCount(1));
         assertThat(getOnlyElement(context.getNestedOperatorStats()).getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of("testConnectorMetric", new LongCount(2)));
 
         operator.getOutput();
         assertThat(operator.isFinished()).isTrue();
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics()).isEqualTo(ImmutableMap.of("testOperatorMetric", new LongCount(2)));
+        assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
+                .hasSize(2)
+                .containsEntry("testOperatorMetric", new LongCount(2));
         assertThat(getOnlyElement(context.getNestedOperatorStats()).getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of("testConnectorMetric", new LongCount(3)));
     }
 

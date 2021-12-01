@@ -50,6 +50,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static io.trino.operator.OperatorContext.getOperatorMetrics;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.ProcessState.Type.BLOCKED;
 import static io.trino.operator.WorkProcessor.ProcessState.Type.FINISHED;
@@ -342,7 +343,7 @@ public class WorkProcessorPipelineSourceOperator
                         context.outputPositions.get(),
 
                         context.dynamicFilterSplitsProcessed.get(),
-                        context.metrics.get(),
+                        getOperatorMetrics(context.metrics.get(), context.inputPositions.get()),
                         context.connectorMetrics.get(),
 
                         DataSize.ofBytes(0),
