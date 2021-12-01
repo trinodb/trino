@@ -24,6 +24,7 @@ env:
   # the Docker daemon only downloads 3 layers concurrently which prevents the other pull from making any progress.
   # This value should be greater than the time taken for the longest image pull.
   TESTCONTAINERS_PULL_PAUSE_TIMEOUT: 600
+  TEST_REPORT_RETENTION_DAYS: 5
 
 # Cancel previous PR builds.
 concurrency:
@@ -49,6 +50,9 @@ jobs:
           distribution: 'zulu'
           java-version: ${{ matrix.java-version }}
           cache: 'maven'
+      - name: Configure Problem Matchers
+        run: |
+          echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -75,6 +79,9 @@ jobs:
           distribution: 'zulu'
           java-version: 11
           cache: 'maven'
+      - name: Configure Problem Matchers
+        run: |
+          echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -108,6 +115,9 @@ jobs:
           distribution: 'zulu'
           java-version: 11
           cache: 'maven'
+      - name: Configure Problem Matchers
+        run: |
+          echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -117,6 +127,26 @@ jobs:
       - name: Test current JDBC vs old server
         if: always()
         run: $MAVEN test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        # Upload all test reports only on failure, because the artifacts are large
+        if: failure()
+        with:
+          name: result ${{ github.job }}
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
+      - name: Upload test report
+        uses: actions/upload-artifact@v2
+        # Always upload the test report for the annotate.yml workflow,
+        # but only the single XML file to keep the artifact small
+        if: always()
+        with:
+          # Name prefix is checked in the `Annotate checks` workflow
+          name: test report ${{ github.job }}
+          path: |
+            **/surefire-reports/TEST-*.xml
+          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
 
   hive-tests:
     runs-on: ubuntu-latest
@@ -136,6 +166,9 @@ jobs:
           distribution: 'zulu'
           java-version: 11
           cache: 'maven'
+      - name: Configure Problem Matchers
+        run: |
+          echo "::add-matcher::.github/problem-matcher.json"
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -217,12 +250,24 @@ jobs:
             plugin/trino-hive-hadoop2/bin/run_hive_alluxio_tests.sh
       - name: Upload test results
         uses: actions/upload-artifact@v2
+        # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
-          name: result hive-tests
+          name: result ${{ github.job }}
           path: |
             **/target/surefire-reports
             **/target/checkstyle-*
+      - name: Upload test report
+        uses: actions/upload-artifact@v2
+        # Always upload the test report for the annotate.yml workflow,
+        # but only the single XML file to keep the artifact small
+        if: always()
+        with:
+          # Name prefix is checked in the `Annotate checks` workflow
+          name: test report ${{ github.job }} (${{ matrix.config }})
+          path: |
+            **/surefire-reports/TEST-*.xml
+          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
 
   test-other-modules:
     runs-on: ubuntu-latest
@@ -234,6 +279,9 @@ jobs:
           distribution: 'zulu'
           java-version: 11
           cache: 'maven'
+      - name: Configure Problem Matchers
+        run: |
+          echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -260,12 +308,24 @@ jobs:
             !:trino-bigquery'
       - name: Upload test results
         uses: actions/upload-artifact@v2
+        # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
-          name: result test-other-modules
+          name: result ${{ github.job }}
           path: |
             **/target/surefire-reports
             **/target/checkstyle-*
+      - name: Upload test report
+        uses: actions/upload-artifact@v2
+        # Always upload the test report for the annotate.yml workflow,
+        # but only the single XML file to keep the artifact small
+        if: always()
+        with:
+          # Name prefix is checked in the `Annotate checks` workflow
+          name: test report ${{ github.job }}
+          path: |
+            **/surefire-reports/TEST-*.xml
+          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
 
   test:
     runs-on: ubuntu-latest
@@ -298,6 +358,9 @@ jobs:
           distribution: 'zulu'
           java-version: 11
           cache: 'maven'
+      - name: Configure Problem Matchers
+        run: |
+          echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -314,12 +377,24 @@ jobs:
           echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
       - name: Upload test results
         uses: actions/upload-artifact@v2
+        # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
           name: result ${{ env.ARTIFACT_NAME }}
           path: |
             **/target/surefire-reports
             **/target/checkstyle-*
+      - name: Upload test report
+        uses: actions/upload-artifact@v2
+        # Always upload the test report for the annotate.yml workflow,
+        # but only the single XML file to keep the artifact small
+        if: always()
+        with:
+          # Name prefix is checked in the `Annotate checks` workflow
+          name: test report ${{ github.job }} (${{ env.ARTIFACT_NAME }})
+          path: |
+            **/surefire-reports/TEST-*.xml
+          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
 
   test-memsql:
     runs-on: ubuntu-latest
@@ -331,6 +406,9 @@ jobs:
           distribution: 'zulu'
           java-version: 11
           cache: 'maven'
+      - name: Configure Problem Matchers
+        run: |
+          echo "::add-matcher::.github/problem-matcher.json"
       - name: Cleanup node
         # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
         run: .github/bin/cleanup-node.sh
@@ -347,12 +425,24 @@ jobs:
           fi
       - name: Upload test results
         uses: actions/upload-artifact@v2
+        # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
-          name: result test-memsql
+          name: result ${{ github.job }}
           path: |
             **/target/surefire-reports
             **/target/checkstyle-*
+      - name: Upload test report
+        uses: actions/upload-artifact@v2
+        # Always upload the test report for the annotate.yml workflow,
+        # but only the single XML file to keep the artifact small
+        if: always()
+        with:
+          # Name prefix is checked in the `Annotate checks` workflow
+          name: test report ${{ github.job }}
+          path: |
+            **/surefire-reports/TEST-*.xml
+          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
 
   test-bigquery:
     runs-on: ubuntu-latest
@@ -364,6 +454,9 @@ jobs:
           distribution: 'zulu'
           java-version: 11
           cache: 'maven'
+      - name: Configure Problem Matchers
+        run: |
+          echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -386,15 +479,29 @@ jobs:
           fi
       - name: Upload test results
         uses: actions/upload-artifact@v2
+        # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
-          name: result test-bigquery
+          name: result ${{ github.job }}
           path: |
             **/target/surefire-reports
             **/target/checkstyle-*
+      - name: Upload test report
+        uses: actions/upload-artifact@v2
+        # Always upload the test report for the annotate.yml workflow,
+        # but only the single XML file to keep the artifact small
+        if: always()
+        with:
+          # Name prefix is checked in the `Annotate checks` workflow
+          name: test report ${{ github.job }}
+          path: |
+            **/surefire-reports/TEST-*.xml
+          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
 
   pt:
     runs-on: ubuntu-latest
+    # explicitly define the name to avoid adding the value of the `ignore exclusion if` matrix item
+    name: pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
     strategy:
       fail-fast: false
       matrix:
@@ -501,11 +608,22 @@ jobs:
           testing/bin/ptl suite run \
             --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --bind=off --logs-dir logs/ --timeout 2h \
             --trino-jdk-version zulu_${{ matrix.jdk }}
-      - name: Upload test results
+      - name: Upload test logs and results
         uses: actions/upload-artifact@v2
+        # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
-          name: result pt (${{ matrix.config }}, ${{ matrix.suite }})
+          name: result pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
           path: |
             testing/trino-product-tests/target/*
             logs/*
+      - name: Upload test report
+        uses: actions/upload-artifact@v2
+        # Always upload the test report for the annotate.yml workflow,
+        # but only the single XML file to keep the artifact small
+        if: always()
+        with:
+          # Name prefix is checked in the `Annotate checks` workflow
+          name: test report pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
+          path: testing/trino-product-tests/target/reports/testng-results.xml
+          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
