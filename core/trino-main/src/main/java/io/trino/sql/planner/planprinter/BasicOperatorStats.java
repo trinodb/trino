@@ -13,17 +13,30 @@
  */
 package io.trino.sql.planner.planprinter;
 
-class OperatorInputStats
+import io.trino.spi.metrics.Metrics;
+
+import static java.util.Objects.requireNonNull;
+
+class BasicOperatorStats
 {
     private final long totalDrivers;
     private final long inputPositions;
     private final double sumSquaredInputPositions;
+    private final Metrics metrics;
+    private final Metrics connectorMetrics;
 
-    public OperatorInputStats(long totalDrivers, long inputPositions, double sumSquaredInputPositions)
+    public BasicOperatorStats(
+            long totalDrivers,
+            long inputPositions,
+            double sumSquaredInputPositions,
+            Metrics metrics,
+            Metrics connectorMetrics)
     {
         this.totalDrivers = totalDrivers;
         this.inputPositions = inputPositions;
         this.sumSquaredInputPositions = sumSquaredInputPositions;
+        this.metrics = requireNonNull(metrics, "metrics is null");
+        this.connectorMetrics = requireNonNull(connectorMetrics, "connectorMetrics is null");
     }
 
     public long getTotalDrivers()
@@ -41,11 +54,23 @@ class OperatorInputStats
         return sumSquaredInputPositions;
     }
 
-    public static OperatorInputStats merge(OperatorInputStats first, OperatorInputStats second)
+    public Metrics getMetrics()
     {
-        return new OperatorInputStats(
+        return metrics;
+    }
+
+    public Metrics getConnectorMetrics()
+    {
+        return connectorMetrics;
+    }
+
+    public static BasicOperatorStats merge(BasicOperatorStats first, BasicOperatorStats second)
+    {
+        return new BasicOperatorStats(
                 first.totalDrivers + second.totalDrivers,
                 first.inputPositions + second.inputPositions,
-                first.sumSquaredInputPositions + second.sumSquaredInputPositions);
+                first.sumSquaredInputPositions + second.sumSquaredInputPositions,
+                first.metrics.mergeWith(second.metrics),
+                first.connectorMetrics.mergeWith(second.connectorMetrics));
     }
 }
