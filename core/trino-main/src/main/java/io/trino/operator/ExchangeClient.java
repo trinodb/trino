@@ -57,7 +57,7 @@ public class ExchangeClient
     private final Duration maxErrorDuration;
     private final boolean acknowledgePages;
     private final HttpClient httpClient;
-    private final ScheduledExecutorService scheduler;
+    private final ScheduledExecutorService scheduledExecutor;
 
     @GuardedBy("this")
     private boolean noMoreLocations;
@@ -92,7 +92,7 @@ public class ExchangeClient
             Duration maxErrorDuration,
             boolean acknowledgePages,
             HttpClient httpClient,
-            ScheduledExecutorService scheduler,
+            ScheduledExecutorService scheduledExecutor,
             LocalMemoryContext systemMemoryContext,
             Executor pageBufferClientCallbackExecutor,
             TaskFailureListener taskFailureListener)
@@ -105,7 +105,7 @@ public class ExchangeClient
         this.maxErrorDuration = maxErrorDuration;
         this.acknowledgePages = acknowledgePages;
         this.httpClient = httpClient;
-        this.scheduler = scheduler;
+        this.scheduledExecutor = scheduledExecutor;
         this.systemMemoryContext = systemMemoryContext;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
         this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
@@ -160,7 +160,7 @@ public class ExchangeClient
                 taskId,
                 location,
                 new ExchangeClientCallback(),
-                scheduler,
+                scheduledExecutor,
                 pageBufferClientCallbackExecutor);
         allClients.put(location, client);
         queuedClients.add(client);
@@ -324,7 +324,7 @@ public class ExchangeClient
         requireNonNull(client, "client is null");
         if (completedClients.add(client)) {
             buffer.taskFailed(client.getRemoteTaskId(), cause);
-            scheduler.execute(() -> taskFailureListener.onTaskFailed(client.getRemoteTaskId(), cause));
+            scheduledExecutor.execute(() -> taskFailureListener.onTaskFailed(client.getRemoteTaskId(), cause));
             closeQuietly(client);
         }
         scheduleRequestIfNecessary();
