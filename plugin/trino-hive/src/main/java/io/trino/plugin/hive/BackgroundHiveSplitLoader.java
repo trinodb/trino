@@ -266,9 +266,9 @@ public class BackgroundHiveSplitLoader
                 long timeLeft = dynamicFilteringWaitTimeoutMillis - stopwatch.elapsed(MILLISECONDS);
                 if (timeLeft > 0 && dynamicFilter.isAwaitable()) {
                     future = asVoid(toListenableFuture(dynamicFilter.isBlocked()
-                                                                    // As isBlocked() returns unmodifiableFuture, we need the following line for correct propagation of the timeout
-                                                                    .thenApply(Function.identity())
-                                                                    .orTimeout(timeLeft, MILLISECONDS)));
+                            // As isBlocked() returns unmodifiableFuture, we need to create new future for correct propagation of the timeout
+                            .thenApply(Function.identity())
+                            .orTimeout(timeLeft, MILLISECONDS)));
                     return TaskStatus.continueOn(future);
                 }
                 taskExecutionLock.readLock().lock();
