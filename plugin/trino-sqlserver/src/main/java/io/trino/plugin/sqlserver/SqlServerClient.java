@@ -343,17 +343,17 @@ public class SqlServerClient
             return WriteMapping.booleanMapping("bit", booleanWriteFunction());
         }
 
-        if (type == BIGINT) {
-            return WriteMapping.longMapping("bigint", bigintWriteFunction());
-        }
-        if (type == INTEGER) {
-            return WriteMapping.longMapping("integer", integerWriteFunction());
+        if (type == TINYINT) {
+            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
         }
         if (type == SMALLINT) {
             return WriteMapping.longMapping("smallint", smallintWriteFunction());
         }
-        if (type == TINYINT) {
-            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
+        if (type == INTEGER) {
+            return WriteMapping.longMapping("integer", integerWriteFunction());
+        }
+        if (type == BIGINT) {
+            return WriteMapping.longMapping("bigint", bigintWriteFunction());
         }
 
         if (type == DOUBLE) {
