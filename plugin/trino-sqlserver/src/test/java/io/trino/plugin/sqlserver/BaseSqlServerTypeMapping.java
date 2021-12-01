@@ -23,6 +23,7 @@ import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -375,6 +376,17 @@ public abstract class BaseSqlServerTypeMapping
             testsSqlServer.execute(getQueryRunner(), session, sqlServerCreateAndInsert("test_date"));
             testsTrino.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
             testsTrino.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
+        }
+    }
+
+    @Test
+    public void testDateJulianGregorianCalendarSwitch()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_old_date", "(dt DATE)", ImmutableList.of("DATE '1582-10-05'", "DATE '1582-10-14'"))) {
+            // SQL Server returns +10 days when the date is in the range of 1582-10-05 and 1582-10-14, but we need to pass the original value in predicates
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES DATE '1582-10-15', DATE '1582-10-24'");
+            assertQuery("SELECT * FROM " + table.getName() + " WHERE dt = DATE '1582-10-05'", "VALUES DATE '1582-10-15'");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName() + " WHERE dt = DATE '1582-10-15'");
         }
     }
 
