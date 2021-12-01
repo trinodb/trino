@@ -22,7 +22,6 @@ import io.trino.operator.OperatorStats;
 import io.trino.operator.PipelineStats;
 import io.trino.operator.TaskStats;
 import io.trino.operator.WindowInfo;
-import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.ArrayList;
@@ -80,11 +79,9 @@ public final class PlanNodeStatsSummarizer
         Map<PlanNodeId, Long> planNodeScheduledMillis = new HashMap<>();
         Map<PlanNodeId, Long> planNodeCpuMillis = new HashMap<>();
 
-        Map<PlanNodeId, Map<String, OperatorInputStats>> operatorInputStats = new HashMap<>();
+        Map<PlanNodeId, Map<String, BasicOperatorStats>> basicOperatorStats = new HashMap<>();
         Map<PlanNodeId, Map<String, OperatorHashCollisionsStats>> operatorHashCollisionsStats = new HashMap<>();
         Map<PlanNodeId, WindowOperatorStats> windowNodeStats = new HashMap<>();
-        Map<PlanNodeId, Metrics> metrics = new HashMap<>();
-        Map<PlanNodeId, Metrics> connectorMetrics = new HashMap<>();
 
         for (PipelineStats pipelineStats : taskStats.getPipelines()) {
             // Due to eventual consistently collected stats, these could be empty
@@ -115,17 +112,16 @@ public final class PlanNodeStatsSummarizer
                     continue;
                 }
 
-                operatorInputStats.merge(planNodeId,
+                basicOperatorStats.merge(planNodeId,
                         ImmutableMap.of(
                                 operatorStats.getOperatorType(),
-                                new OperatorInputStats(
+                                new BasicOperatorStats(
                                         operatorStats.getTotalDrivers(),
                                         operatorStats.getInputPositions(),
-                                        operatorStats.getSumSquaredInputPositions())),
-                        (map1, map2) -> mergeMaps(map1, map2, OperatorInputStats::merge));
-
-                metrics.merge(planNodeId, operatorStats.getMetrics(), Metrics::mergeWith);
-                connectorMetrics.merge(planNodeId, operatorStats.getConnectorMetrics(), Metrics::mergeWith);
+                                        operatorStats.getSumSquaredInputPositions(),
+                                        operatorStats.getMetrics(),
+                                        operatorStats.getConnectorMetrics())),
+                        (map1, map2) -> mergeMaps(map1, map2, BasicOperatorStats::merge));
 
                 planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
                 planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSize().toBytes(), Long::sum);
@@ -200,9 +196,8 @@ public final class PlanNodeStatsSummarizer
                         outputPositions,
                         succinctBytes(planNodeOutputBytes.getOrDefault(planNodeId, 0L)),
                         succinctBytes(planNodeSpilledDataSize.get(planNodeId)),
-                        operatorInputStats.get(planNodeId),
-                        operatorHashCollisionsStats.get(planNodeId),
-                        metrics.get(planNodeId));
+                        basicOperatorStats.get(planNodeId),
+                        operatorHashCollisionsStats.get(planNodeId));
             }
             else if (windowNodeStats.containsKey(planNodeId)) {
                 nodeStats = new WindowPlanNodeStats(
@@ -214,9 +209,8 @@ public final class PlanNodeStatsSummarizer
                         outputPositions,
                         succinctBytes(planNodeOutputBytes.getOrDefault(planNodeId, 0L)),
                         succinctBytes(planNodeSpilledDataSize.get(planNodeId)),
-                        operatorInputStats.get(planNodeId),
-                        windowNodeStats.get(planNodeId),
-                        metrics.get(planNodeId));
+                        basicOperatorStats.get(planNodeId),
+                        windowNodeStats.get(planNodeId));
             }
             else {
                 nodeStats = new PlanNodeStats(
@@ -228,9 +222,7 @@ public final class PlanNodeStatsSummarizer
                         outputPositions,
                         succinctBytes(planNodeOutputBytes.getOrDefault(planNodeId, 0L)),
                         succinctBytes(planNodeSpilledDataSize.get(planNodeId)),
-                        operatorInputStats.get(planNodeId),
-                        metrics.get(planNodeId),
-                        connectorMetrics.get(planNodeId));
+                        basicOperatorStats.get(planNodeId));
             }
 
             stats.add(nodeStats);
