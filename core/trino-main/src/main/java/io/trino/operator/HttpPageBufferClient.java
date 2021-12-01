@@ -127,7 +127,7 @@ public final class HttpPageBufferClient
     private final TaskId remoteTaskId;
     private final URI location;
     private final ClientCallback clientCallback;
-    private final ScheduledExecutorService scheduler;
+    private final ScheduledExecutorService scheduledExecutor;
     private final Backoff backoff;
 
     @GuardedBy("this")
@@ -167,7 +167,7 @@ public final class HttpPageBufferClient
             TaskId remoteTaskId,
             URI location,
             ClientCallback clientCallback,
-            ScheduledExecutorService scheduler,
+            ScheduledExecutorService scheduledExecutor,
             Executor pageBufferClientCallbackExecutor)
     {
         this(
@@ -180,7 +180,7 @@ public final class HttpPageBufferClient
                 remoteTaskId,
                 location,
                 clientCallback,
-                scheduler,
+                scheduledExecutor,
                 Ticker.systemTicker(),
                 pageBufferClientCallbackExecutor);
     }
@@ -195,7 +195,7 @@ public final class HttpPageBufferClient
             TaskId remoteTaskId,
             URI location,
             ClientCallback clientCallback,
-            ScheduledExecutorService scheduler,
+            ScheduledExecutorService scheduledExecutor,
             Ticker ticker,
             Executor pageBufferClientCallbackExecutor)
     {
@@ -207,7 +207,7 @@ public final class HttpPageBufferClient
         this.remoteTaskId = requireNonNull(remoteTaskId, "remoteTaskId is null");
         this.location = requireNonNull(location, "location is null");
         this.clientCallback = requireNonNull(clientCallback, "clientCallback is null");
-        this.scheduler = requireNonNull(scheduler, "scheduler is null");
+        this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(ticker, "ticker is null");
@@ -302,7 +302,7 @@ public final class HttpPageBufferClient
         backoff.startRequest();
 
         long delayNanos = backoff.getBackoffDelayNanos();
-        scheduler.schedule(() -> {
+        scheduledExecutor.schedule(() -> {
             try {
                 initiateRequest();
             }
