@@ -21,8 +21,6 @@ import io.trino.spi.type.Type;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.api.Binary;
 
-import java.math.BigInteger;
-
 import static io.trino.spi.type.DecimalConversions.longToLongCast;
 import static io.trino.spi.type.DecimalConversions.longToShortCast;
 import static java.lang.String.format;
@@ -49,7 +47,7 @@ public class LongDecimalColumnReader
         DecimalType trinoDecimalType = (DecimalType) trinoType;
 
         Binary binary = valuesReader.readBytes();
-        Int128 value = Int128.valueOf(new BigInteger(binary.getBytes()));
+        Int128 value = Int128.fromBigEndian(binary.getBytes());
 
         if (trinoDecimalType.isShort()) {
             trinoType.writeLong(blockBuilder, longToShortCast(

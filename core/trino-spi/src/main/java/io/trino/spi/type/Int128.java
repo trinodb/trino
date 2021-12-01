@@ -41,6 +41,61 @@ public class Int128
         this.low = low;
     }
 
+    /**
+     * Decode an Int128 from the two's complement big-endian representation.
+     *
+     * @param bytes the two's complement big-endian encoding of the number. It must contain at least 1 byte.
+     *              It may contain more than 16 bytes if the leading bytes are not significant (either zeros or -1)
+     * @throws ArithmeticException if the bytes represent a number outside of the range [-2^127, 2^127 - 1]
+     */
+    public static Int128 fromBigEndian(byte[] bytes)
+    {
+        if (bytes.length >= 16) {
+            int offset = bytes.length - Long.BYTES;
+            long low = (long) BIG_ENDIAN_LONG_VIEW.get(bytes, offset);
+
+            offset -= Long.BYTES;
+            long high = (long) BIG_ENDIAN_LONG_VIEW.get(bytes, offset);
+
+            for (int i = 0; i < offset; i++) {
+                if (bytes[i] != (high >> 63)) {
+                    throw new ArithmeticException("Overflow");
+                }
+            }
+
+            return Int128.valueOf(high, low);
+        }
+        else if (bytes.length > 8) {
+            // read the last 8 bytes into low
+            int offset = bytes.length - Long.BYTES;
+            long low = (long) BIG_ENDIAN_LONG_VIEW.get(bytes, offset);
+
+            // At this point, we're guaranteed to have between 9 and 15 bytes available.
+            // Read 8 bytes into high, starting at offset 0. There will be some over-read
+            // of bytes belonging to low, so adjust by shifting them out
+            long high = (long) BIG_ENDIAN_LONG_VIEW.get(bytes, 0);
+            offset -= Long.BYTES;
+            high >>= (-offset * Byte.SIZE);
+
+            return Int128.valueOf(high, low);
+        }
+        else if (bytes.length == 8) {
+            long low = (long) BIG_ENDIAN_LONG_VIEW.get(bytes, 0);
+            long high = (low >> 63);
+
+            return Int128.valueOf(high, low);
+        }
+        else {
+            long high = (bytes[0] >> 7);
+            long low = high;
+            for (int i = 0; i < bytes.length; i++) {
+                low = (low << 8) | (bytes[i] & 0xFF);
+            }
+
+            return Int128.valueOf(high, low);
+        }
+    }
+
     public static Int128 valueOf(long[] value)
     {
         if (value.length != 2) {
