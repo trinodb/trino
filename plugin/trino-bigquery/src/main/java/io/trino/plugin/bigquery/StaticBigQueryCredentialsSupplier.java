@@ -36,7 +36,7 @@ public class StaticBigQueryCredentialsSupplier
     private final Supplier<Optional<Credentials>> credentialsCreator;
 
     @Inject
-    public StaticBigQueryCredentialsSupplier(BigQueryConfig config)
+    public StaticBigQueryCredentialsSupplier(StaticCredentialsConfig config)
     {
         requireNonNull(config, "config is null");
         // lazy creation, cache once it's created
