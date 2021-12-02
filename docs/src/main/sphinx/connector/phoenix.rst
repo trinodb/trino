@@ -56,6 +56,11 @@ Property Name                                      Required   Description
                                                               default the location is ``/hbase``
 ``phoenix.config.resources``                       No         Comma-separated list of configuration files (e.g. ``hbase-site.xml``) to use for
                                                               connection properties.  These files must exist on the machines running Trino.
+``phoenix.max-scans-per-split``                    No         Maximum number of HBase scans that will be performed in a single split. Default is 20.
+                                                              Lower values will lead to more splits in Trino.
+                                                              Can also be set via session propery ``max_scans_per_split``.
+                                                              For details see: `<https://phoenix.apache.org/update_statistics.html>`_.
+                                                              (This setting has no effect when guideposts are disabled in Phoenix.)
 ================================================== ========== ===================================================================================
 
 .. include:: jdbc-common-configurations.fragment
