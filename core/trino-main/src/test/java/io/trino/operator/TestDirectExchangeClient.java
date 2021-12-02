@@ -774,8 +774,7 @@ public class TestDirectExchangeClient
         //  wait for client to decide there are no more pages
         assertNull(getNextPage(exchangeClient));
         assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
-        assertTrue(exchangeClient.getStatus().getBufferedBytes() == 0);
-        assertEquals(exchangeClient.isFinished(), true);
+        assertTrue(exchangeClient.isFinished());
         exchangeClient.close();
         assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 5, 5, "not scheduled");
     }
