@@ -16,7 +16,7 @@ package io.trino.plugin.mongodb;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.DBRef;
-import com.mongodb.MongoClient;
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
@@ -274,13 +274,13 @@ public class TestMongoIntegrationSmokeTest
         assertUpdate("CREATE TABLE test.tmp_map9 (col VARCHAR)");
         client.getDatabase("test").getCollection("tmp_map9").insertOne(new Document(
                 ImmutableMap.of("col", new Document(ImmutableMap.of("key1", "value1", "key2", "value2")))));
-        assertQuery("SELECT col FROM test.tmp_map9", "SELECT '{ \"key1\" : \"value1\", \"key2\" : \"value2\" }'");
+        assertQuery("SELECT col FROM test.tmp_map9", "SELECT '{\"key1\": \"value1\", \"key2\": \"value2\"}'");
 
         assertUpdate("CREATE TABLE test.tmp_map10 (col VARCHAR)");
         client.getDatabase("test").getCollection("tmp_map10").insertOne(new Document(
                 ImmutableMap.of("col", ImmutableList.of(new Document(ImmutableMap.of("key1", "value1", "key2", "value2")),
                         new Document(ImmutableMap.of("key3", "value3", "key4", "value4"))))));
-        assertQuery("SELECT col FROM test.tmp_map10", "SELECT '[{ \"key1\" : \"value1\", \"key2\" : \"value2\" }, { \"key3\" : \"value3\", \"key4\" : \"value4\" }]'");
+        assertQuery("SELECT col FROM test.tmp_map10", "SELECT '[{\"key1\": \"value1\", \"key2\": \"value2\"}, {\"key3\": \"value3\", \"key4\": \"value4\"}]'");
 
         assertUpdate("CREATE TABLE test.tmp_map11 (col VARCHAR)");
         client.getDatabase("test").getCollection("tmp_map11").insertOne(new Document(
