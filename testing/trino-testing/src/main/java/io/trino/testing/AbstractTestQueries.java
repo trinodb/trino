@@ -44,7 +44,6 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestQueries
@@ -304,7 +303,9 @@ public abstract class AbstractTestQueries
             Set<Object> allSchemas = computeActual("SHOW SCHEMAS").getOnlyColumnAsSet();
             assertEquals(allSchemas, computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
             Set<Object> result = computeActual("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'").getOnlyColumnAsSet();
-            assertNotEquals(allSchemas, result);
+            assertThat(result)
+                    .isSubsetOf(allSchemas)
+                    .isNotEqualTo(allSchemas);
             assertThat(result).contains("information_schema").allMatch(schemaName -> ((String) schemaName).contains("_"));
         });
     }
