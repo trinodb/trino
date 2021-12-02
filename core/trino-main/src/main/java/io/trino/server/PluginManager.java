@@ -51,6 +51,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.metadata.FunctionExtractor.extractFunctions;
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -141,7 +142,7 @@ public class PluginManager
     {
         ServiceLoader<Plugin> serviceLoader = ServiceLoader.load(Plugin.class, pluginClassLoader);
         List<Plugin> plugins = ImmutableList.copyOf(serviceLoader);
-        checkState(!plugins.isEmpty(), "No service providers of type %s", Plugin.class.getName());
+        checkState(!plugins.isEmpty(), "No service providers of type %s in the classpath: %s", Plugin.class.getName(), asList(pluginClassLoader.getURLs()));
 
         for (Plugin plugin : plugins) {
             log.info("Installing %s", plugin.getClass().getName());
