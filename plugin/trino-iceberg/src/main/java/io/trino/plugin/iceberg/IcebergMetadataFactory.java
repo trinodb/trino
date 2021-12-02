@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.json.JsonCodec;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;

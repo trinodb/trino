@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.catalog.hms;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -32,7 +32,10 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.util.HiveUtil;
+import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
+import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
@@ -89,6 +92,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERT
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
+import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
@@ -102,12 +106,9 @@ import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
-import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
-import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
-import static org.apache.iceberg.TableProperties.WRITE_NEW_DATA_LOCATION;
 import static org.apache.iceberg.Transactions.createTableTransaction;
 
-class TrinoHiveCatalog
+public class TrinoHiveCatalog
         implements TrinoCatalog
 {
     private static final Logger log = Logger.get(TrinoHiveCatalog.class);
@@ -152,6 +153,11 @@ class TrinoHiveCatalog
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
         this.isUsingSystemSecurity = isUsingSystemSecurity;
+    }
+
+    public HiveMetastore getMetastore()
+    {
+        return metastore;
     }
 
     @Override
@@ -237,7 +243,7 @@ class TrinoHiveCatalog
     {
         TableMetadata metadata = newTableMetadata(schema, partitionSpec, location, properties);
         TableOperations ops = tableOperationsProvider.createTableOperations(
-                metastore,
+                this,
                 session,
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
@@ -272,11 +278,7 @@ class TrinoHiveCatalog
     {
         // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
         Table table = loadTable(session, schemaTableName);
-        if (table.properties().containsKey(OBJECT_STORE_PATH) ||
-                table.properties().containsKey(WRITE_NEW_DATA_LOCATION) ||
-                table.properties().containsKey(WRITE_METADATA_LOCATION)) {
-            throw new TrinoException(NOT_SUPPORTED, "Table " + schemaTableName + " contains Iceberg path override properties and cannot be dropped from Trino");
-        }
+        validateTableCanBeDropped(table, schemaTableName);
         metastore.dropTable(new HiveIdentity(session), schemaTableName.getSchemaName(), schemaTableName.getTableName(), purgeData);
         return true;
     }
@@ -292,9 +294,9 @@ class TrinoHiveCatalog
     {
         TableMetadata metadata = tableMetadataCache.computeIfAbsent(
                 schemaTableName,
-                ignore -> ((BaseTable) loadIcebergTable(metastore, tableOperationsProvider, session, schemaTableName)).operations().current());
+                ignore -> ((BaseTable) loadIcebergTable(this, tableOperationsProvider, session, schemaTableName)).operations().current());
 
-        return getIcebergTableWithMetadata(metastore, tableOperationsProvider, session, schemaTableName, metadata);
+        return getIcebergTableWithMetadata(this, tableOperationsProvider, session, schemaTableName, metadata);
     }
 
     @Override

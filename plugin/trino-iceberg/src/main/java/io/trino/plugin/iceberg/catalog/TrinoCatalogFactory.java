@@ -13,17 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
-import io.trino.spi.connector.ConnectorSession;
-
-import java.util.Optional;
-
-public interface IcebergTableOperationsProvider
+public interface TrinoCatalogFactory
 {
-    IcebergTableOperations createTableOperations(
-            TrinoCatalog catalog,
-            ConnectorSession session,
-            String database,
-            String table,
-            Optional<String> owner,
-            Optional<String> location);
+    TrinoCatalog create();
 }

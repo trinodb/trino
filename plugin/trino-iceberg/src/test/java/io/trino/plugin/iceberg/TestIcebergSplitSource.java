@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
@@ -25,7 +26,9 @@ import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
@@ -34,6 +37,7 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.apache.iceberg.Table;
@@ -57,7 +61,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
-import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -71,8 +74,7 @@ public class TestIcebergSplitSource
         extends AbstractTestQueryFramework
 {
     private File metastoreDir;
-    private HiveMetastore metastore;
-    private IcebergTableOperationsProvider operationsProvider;
+    private TrinoCatalog catalog;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -84,8 +86,9 @@ public class TestIcebergSplitSource
 
         File tempDir = Files.createTempDirectory("test_iceberg_split_source").toFile();
         this.metastoreDir = new File(tempDir, "iceberg_data");
-        this.metastore = createTestingFileHiveMetastore(metastoreDir);
-        this.operationsProvider = new FileMetastoreTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment));
+        HiveMetastore metastore = createTestingFileHiveMetastore(metastoreDir);
+        IcebergTableOperationsProvider operationsProvider = new FileMetastoreTableOperationsProvider(metastore, new HdfsFileIoProvider(hdfsEnvironment));
+        this.catalog = new TrinoHiveCatalog(new CatalogName("hive"), metastore, hdfsEnvironment, new TestingTypeManager(), operationsProvider, "test", false, false);
 
         return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of(NATION), Optional.of(metastoreDir));
     }
@@ -112,7 +115,7 @@ public class TestIcebergSplitSource
                 TupleDomain.all(),
                 ImmutableSet.of(),
                 Optional.empty());
-        Table nationTable = loadIcebergTable(metastore, operationsProvider, SESSION, schemaTableName);
+        Table nationTable = catalog.loadTable(SESSION, schemaTableName);
 
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 tableHandle,

@@ -28,9 +28,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
+import static io.trino.plugin.iceberg.CatalogType.TESTING_FILE_METASTORE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Locale.ENGLISH;
 
 public final class IcebergQueryRunner
 {
@@ -86,7 +89,14 @@ public final class IcebergQueryRunner
         queryRunner.installPlugin(new IcebergPlugin());
         connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
         connectorProperties.putIfAbsent("iceberg.catalog.type", "TESTING_FILE_METASTORE");
-        connectorProperties.putIfAbsent("hive.metastore.catalog.dir", dataDir.toString());
+        CatalogType catalogType = CatalogType.valueOf(connectorProperties.get("iceberg.catalog.type").toUpperCase(ENGLISH));
+        if (catalogType == TESTING_FILE_METASTORE || catalogType == HIVE_METASTORE) {
+            connectorProperties.putIfAbsent("hive.metastore.catalog.dir", dataDir.toString());
+        }
+        else {
+            connectorProperties.putIfAbsent("iceberg.default-schema-location", dataDir.toString());
+        }
+
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", connectorProperties);
 
         queryRunner.execute("CREATE SCHEMA tpch");

@@ -38,6 +38,8 @@ public class GlueMetastoreStats
     private final GlueMetastoreApiStats createTable = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats dropTable = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats replaceTable = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats updateTable = new GlueMetastoreApiStats();
+    private final GlueMetastoreApiStats renameTable = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats getPartitionNames = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats getPartitions = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats getPartition = new GlueMetastoreApiStats();
@@ -138,6 +140,20 @@ public class GlueMetastoreStats
     public GlueMetastoreApiStats getReplaceTable()
     {
         return replaceTable;
+    }
+
+    @Managed
+    @Nested
+    public GlueMetastoreApiStats getUpdateTable()
+    {
+        return updateTable;
+    }
+
+    @Managed
+    @Nested
+    public GlueMetastoreApiStats getRenameTable()
+    {
+        return renameTable;
     }
 
     @Managed

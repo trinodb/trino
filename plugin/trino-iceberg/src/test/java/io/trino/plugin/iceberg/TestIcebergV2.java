@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
@@ -24,8 +25,11 @@ import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.apache.hadoop.fs.FileSystem;
@@ -178,8 +182,9 @@ public class TestIcebergV2
 
     private Table updateTableToV2(String tableName)
     {
-        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment));
-        BaseTable table = (BaseTable) loadIcebergTable(metastore, tableOperationsProvider, SESSION, new SchemaTableName("tpch", tableName));
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(metastore, new HdfsFileIoProvider(hdfsEnvironment));
+        TrinoCatalog catalog = new TrinoHiveCatalog(new CatalogName("hive"), metastore, hdfsEnvironment, new TestingTypeManager(), tableOperationsProvider, "test", false, false);
+        BaseTable table = (BaseTable) loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName("tpch", tableName));
 
         TableOperations operations = table.operations();
         TableMetadata currentMetadata = operations.current();

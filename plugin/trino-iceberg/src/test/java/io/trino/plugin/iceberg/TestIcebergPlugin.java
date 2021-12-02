@@ -67,11 +67,13 @@ public class TestIcebergPlugin
     {
         ConnectorFactory factory = getConnectorFactory();
 
-        assertThatThrownBy(() -> factory.create(
+        factory.create(
                 "test",
-                Map.of("iceberg.catalog.type", "glue"),
-                new TestingConnectorContext()))
-                .hasMessageContaining("Explicit bindings are required and HiveMetastore is not explicitly bound");
+                Map.of(
+                        "iceberg.catalog.type", "glue",
+                        "hive.metastore.glue.region", "us-east-1"),
+                new TestingConnectorContext())
+                .shutdown();
 
         assertThatThrownBy(() -> factory.create(
                 "test",
@@ -105,8 +107,7 @@ public class TestIcebergPlugin
                         "hive.metastore.glue.region", "us-east-2",
                         "hive.metastore-recording-path", "/tmp"),
                 new TestingConnectorContext()))
-                .hasMessageContaining("Configuration property 'hive.metastore-recording-path' was not used")
-                .hasMessageContaining("Configuration property 'hive.metastore.glue.region' was not used");
+                .hasMessageContaining("Configuration property 'hive.metastore-recording-path' was not used");
     }
 
     @Test

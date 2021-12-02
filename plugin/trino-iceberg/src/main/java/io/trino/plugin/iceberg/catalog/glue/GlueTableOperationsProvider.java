@@ -11,32 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.catalog.file;
+package io.trino.plugin.iceberg.catalog.glue;
 
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.FileIoProvider;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
 
 import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
-
-public class FileMetastoreTableOperationsProvider
+public class GlueTableOperationsProvider
         implements IcebergTableOperationsProvider
 {
     private final FileIoProvider fileIoProvider;
 
     @Inject
-    public FileMetastoreTableOperationsProvider(HiveMetastore hiveMetastore, FileIoProvider fileIoProvider)
+    public GlueTableOperationsProvider(FileIoProvider fileIoProvider)
     {
-        this.fileIoProvider = requireNonNull(fileIoProvider, "fileIoProvider is null");
+        this.fileIoProvider = fileIoProvider;
     }
 
     @Override
@@ -48,9 +44,12 @@ public class FileMetastoreTableOperationsProvider
             Optional<String> owner,
             Optional<String> location)
     {
-        return new FileMetastoreTableOperations(
+        TrinoGlueCatalog glueCatalog = (TrinoGlueCatalog) catalog;
+        return new GlueTableOperations(
+                glueCatalog.getGlueClient(),
+                glueCatalog.getStats(),
+                glueCatalog.getCatalogId(),
                 fileIoProvider.createFileIo(new HdfsContext(session), session.getQueryId()),
-                ((TrinoHiveCatalog) catalog).getMetastore(),
                 session,
                 database,
                 table,

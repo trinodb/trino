@@ -14,19 +14,10 @@
 package io.trino.plugin.iceberg.catalog;
 
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreUtil;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.iceberg.UnknownTableTypeException;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
-import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
@@ -50,30 +41,22 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveType.toHiveType;
-import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
-import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
-import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
-import static io.trino.plugin.iceberg.IcebergUtil.isIcebergTable;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
-import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
-import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.TableMetadataParser.getFileExtension;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
 
 @NotThreadSafe
-public abstract class AbstractMetastoreTableOperations
+public abstract class AbstractIcebergTableOperations
         implements IcebergTableOperations
 {
-    private static final Logger log = Logger.get(AbstractMetastoreTableOperations.class);
+    private static final Logger log = Logger.get(AbstractIcebergTableOperations.class);
 
     public static final String METADATA_LOCATION = "metadata_location";
     public static final String PREVIOUS_METADATA_LOCATION = "previous_metadata_location";
@@ -84,7 +67,6 @@ public abstract class AbstractMetastoreTableOperations
             FileInputFormat.class.getName(),
             FileOutputFormat.class.getName());
 
-    protected final HiveMetastore metastore;
     protected final ConnectorSession session;
     protected final String database;
     protected final String tableName;
@@ -97,9 +79,8 @@ public abstract class AbstractMetastoreTableOperations
     protected boolean shouldRefresh = true;
     protected int version = -1;
 
-    protected AbstractMetastoreTableOperations(
+    protected AbstractIcebergTableOperations(
             FileIO fileIo,
-            HiveMetastore metastore,
             ConnectorSession session,
             String database,
             String table,
@@ -107,7 +88,6 @@ public abstract class AbstractMetastoreTableOperations
             Optional<String> location)
     {
         this.fileIo = requireNonNull(fileIo, "fileIo is null");
-        this.metastore = requireNonNull(metastore, "metastore is null");
         this.session = requireNonNull(session, "session is null");
         this.database = requireNonNull(database, "database is null");
         this.tableName = requireNonNull(table, "table is null");
@@ -141,24 +121,7 @@ public abstract class AbstractMetastoreTableOperations
             refreshFromMetadataLocation(null);
             return currentMetadata;
         }
-
-        Table table = getTable();
-
-        if (isPrestoView(table) && isHiveOrPrestoView(table)) {
-            // this is a Hive view, hence not a table
-            throw new TableNotFoundException(getSchemaTableName());
-        }
-        if (!isIcebergTable(table)) {
-            throw new UnknownTableTypeException(getSchemaTableName());
-        }
-
-        String metadataLocation = table.getParameters().get(METADATA_LOCATION);
-        if (metadataLocation == null) {
-            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table is missing [%s] property: %s", METADATA_LOCATION, getSchemaTableName()));
-        }
-
-        refreshFromMetadataLocation(metadataLocation);
-
+        refreshFromMetadataLocation(getRefreshedLocation());
         return currentMetadata;
     }
 
@@ -187,43 +150,9 @@ public abstract class AbstractMetastoreTableOperations
         shouldRefresh = true;
     }
 
-    protected void commitNewTable(TableMetadata metadata)
-    {
-        String newMetadataLocation = writeNewMetadata(metadata, version + 1);
+    protected abstract String getRefreshedLocation();
 
-        Table table;
-        try {
-            Table.Builder builder = Table.builder()
-                    .setDatabaseName(database)
-                    .setTableName(tableName)
-                    .setOwner(owner)
-                    .setTableType(TableType.EXTERNAL_TABLE.name())
-                    .setDataColumns(toHiveColumns(metadata.schema().columns()))
-                    .withStorage(storage -> storage.setLocation(metadata.location()))
-                    .withStorage(storage -> storage.setStorageFormat(STORAGE_FORMAT))
-                    .setParameter("EXTERNAL", "TRUE")
-                    .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
-                    .setParameter(METADATA_LOCATION, newMetadataLocation);
-            String tableComment = metadata.properties().get(TABLE_COMMENT);
-            if (tableComment != null) {
-                builder.setParameter(TABLE_COMMENT, tableComment);
-            }
-            table = builder.build();
-        }
-        catch (RuntimeException e) {
-            try {
-                io().deleteFile(newMetadataLocation);
-            }
-            catch (RuntimeException ex) {
-                e.addSuppressed(ex);
-            }
-            throw e;
-        }
-
-        PrincipalPrivileges privileges = owner.map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
-        HiveIdentity identity = new HiveIdentity(session);
-        metastore.createTable(identity, table, privileges);
-    }
+    protected abstract void commitNewTable(TableMetadata metadata);
 
     protected abstract void commitToExistingTable(TableMetadata base, TableMetadata metadata);
 
@@ -256,12 +185,6 @@ public abstract class AbstractMetastoreTableOperations
     {
         TableMetadata metadata = current();
         return getLocationProvider(getSchemaTableName(), metadata.location(), metadata.properties());
-    }
-
-    protected Table getTable()
-    {
-        return metastore.getTable(new HiveIdentity(session), database, tableName)
-                .orElseThrow(() -> new TableNotFoundException(getSchemaTableName()));
     }
 
     protected SchemaTableName getSchemaTableName()
