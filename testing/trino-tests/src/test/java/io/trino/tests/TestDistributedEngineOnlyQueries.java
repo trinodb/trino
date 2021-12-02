@@ -28,9 +28,9 @@ import java.time.ZonedDateTime;
 import java.util.regex.Pattern;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;

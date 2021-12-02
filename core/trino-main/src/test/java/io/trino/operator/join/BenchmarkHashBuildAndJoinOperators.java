@@ -18,6 +18,7 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
+import io.trino.Session;
 import io.trino.execution.Lifespan;
 import io.trino.operator.DriverContext;
 import io.trino.operator.InterpretedHashGenerator;
@@ -70,6 +71,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.jmh.Benchmarks.benchmark;
+import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
 import static io.trino.operator.join.JoinBridgeManager.lookupAllAtOnce;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -142,9 +144,14 @@ public class BenchmarkHashBuildAndJoinOperators
             initializeBuildPages();
         }
 
+        public Session getSession()
+        {
+            return TEST_SESSION;
+        }
+
         public TaskContext createTaskContext()
         {
-            return TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.of(2, GIGABYTE));
+            return TestingTaskContext.createTaskContext(executor, scheduledExecutor, getSession(), DataSize.of(2, GIGABYTE));
         }
 
         public OptionalInt getHashChannel()
@@ -348,7 +355,8 @@ public class BenchmarkHashBuildAndJoinOperators
                 10_000,
                 new PagesIndex.TestingFactory(false),
                 false,
-                SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
+                SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory(),
+                incrementalLoadFactorHashArraySizeSupplier(buildContext.getSession()));
 
         Operator[] operators = IntStream.range(0, partitionCount)
                 .mapToObj(i -> buildContext.createTaskContext()

@@ -20,11 +20,10 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.Expression;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,10 +32,21 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class DropTableTask
         implements DataDefinitionTask<DropTable>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public DropTableTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -46,9 +56,6 @@ public class DropTableTask
     @Override
     public ListenableFuture<Void> execute(
             DropTable statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
@@ -56,8 +63,7 @@ public class DropTableTask
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
 
-        Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, tableName);
-        if (materializedView.isPresent()) {
+        if (metadata.isMaterializedView(session, tableName)) {
             if (!statement.isExists()) {
                 throw semanticException(
                         TABLE_NOT_FOUND,
@@ -67,8 +73,7 @@ public class DropTableTask
             return immediateVoidFuture();
         }
 
-        Optional<ConnectorViewDefinition> view = metadata.getView(session, tableName);
-        if (view.isPresent()) {
+        if (metadata.isView(session, tableName)) {
             if (!statement.isExists()) {
                 throw semanticException(
                         TABLE_NOT_FOUND,

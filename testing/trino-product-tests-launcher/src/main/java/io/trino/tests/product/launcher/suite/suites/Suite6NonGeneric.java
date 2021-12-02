@@ -18,6 +18,8 @@ import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeKafka;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeKafkaSsl;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodePhoenix4;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodePhoenix5;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeCassandra;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosKmsHdfsImpersonation;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosKmsHdfsNoImpersonation;
@@ -42,6 +44,8 @@ public class Suite6NonGeneric
                 testOnEnvironment(EnvSinglenodeKerberosKmsHdfsImpersonation.class).withGroups("storage_formats").build(),
                 testOnEnvironment(EnvSinglenodeCassandra.class).withGroups("cassandra").build(),
                 testOnEnvironment(EnvMultinodeKafka.class).withGroups("kafka").build(),
-                testOnEnvironment(EnvMultinodeKafkaSsl.class).withGroups("kafka").build());
+                testOnEnvironment(EnvMultinodeKafkaSsl.class).withGroups("kafka").build(),
+                testOnEnvironment(EnvMultinodePhoenix4.class).withGroups("phoenix").build(),
+                testOnEnvironment(EnvMultinodePhoenix5.class).withGroups("phoenix").build());
     }
 }

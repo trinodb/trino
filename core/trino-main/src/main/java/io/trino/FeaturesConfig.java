@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.analyzer;
+package io.trino;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
@@ -23,6 +23,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
+import io.trino.sql.analyzer.RegexLibrary;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
@@ -56,6 +57,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "fast-inequality-joins",
         "histogram.implementation",
         "multimapagg.implementation",
+        "optimizer.iterative-rule-based-column-pruning",
         "optimizer.processing-optimization",
         "resource-group-manager",
 })
@@ -105,6 +107,8 @@ public class FeaturesConfig
     private boolean spillEnabled;
     private boolean spillOrderBy = true;
     private boolean spillWindowOperator = true;
+    private boolean spillDistinctingAggregationsEnabled = true;
+    private boolean spillOrderingAggregationsEnabled = true;
     private DataSize aggregationOperatorUnspillMemoryLimit = DataSize.of(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
@@ -127,7 +131,6 @@ public class FeaturesConfig
     private boolean skipRedundantSort = true;
     private boolean predicatePushdownUseTableProperties = true;
     private boolean ignoreDownstreamPreferences;
-    private boolean iterativeRuleBasedColumnPruning = true;
     private boolean rewriteFilteringSemiJoinToInnerJoin = true;
     private boolean optimizeDuplicateInsensitiveJoins = true;
     private boolean useLegacyWindowFilterPushdown;
@@ -142,6 +145,7 @@ public class FeaturesConfig
 
     private boolean legacyCatalogRoles;
     private boolean disableSetPropertiesSecurityCheckForCreateDdl;
+    private boolean incrementalHashArrayLoadFactorEnabled = true;
 
     public enum JoinReorderingStrategy
     {
@@ -594,6 +598,32 @@ public class FeaturesConfig
         return this;
     }
 
+    @Config("spill-distincting-aggregations-enabled")
+    @ConfigDescription("Spill distincting aggregations if spill is enabled")
+    public FeaturesConfig setSpillDistinctingAggregationsEnabled(boolean spillDistinctingAggregationsEnabled)
+    {
+        this.spillDistinctingAggregationsEnabled = spillDistinctingAggregationsEnabled;
+        return this;
+    }
+
+    public boolean isSpillDistinctingAggregationsEnabled()
+    {
+        return spillDistinctingAggregationsEnabled;
+    }
+
+    @Config("spill-ordering-aggregations-enabled")
+    @ConfigDescription("Spill ordering aggregations if spill is enabled")
+    public FeaturesConfig setSpillOrderingAggregationsEnabled(boolean spillOrderingAggregationsEnabled)
+    {
+        this.spillOrderingAggregationsEnabled = spillOrderingAggregationsEnabled;
+        return this;
+    }
+
+    public boolean isSpillOrderingAggregationsEnabled()
+    {
+        return spillOrderingAggregationsEnabled;
+    }
+
     public Duration getIterativeOptimizerTimeout()
     {
         return iterativeOptimizerTimeout;
@@ -991,18 +1021,6 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isIterativeRuleBasedColumnPruning()
-    {
-        return iterativeRuleBasedColumnPruning;
-    }
-
-    @Config("optimizer.iterative-rule-based-column-pruning")
-    public FeaturesConfig setIterativeRuleBasedColumnPruning(boolean iterativeRuleBasedColumnPruning)
-    {
-        this.iterativeRuleBasedColumnPruning = iterativeRuleBasedColumnPruning;
-        return this;
-    }
-
     public boolean isRewriteFilteringSemiJoinToInnerJoin()
     {
         return rewriteFilteringSemiJoinToInnerJoin;
@@ -1101,6 +1119,21 @@ public class FeaturesConfig
     public FeaturesConfig setDisableSetPropertiesSecurityCheckForCreateDdl(boolean disableSetPropertiesSecurityCheckForCreateDdl)
     {
         this.disableSetPropertiesSecurityCheckForCreateDdl = disableSetPropertiesSecurityCheckForCreateDdl;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isIncrementalHashArrayLoadFactorEnabled()
+    {
+        return incrementalHashArrayLoadFactorEnabled;
+    }
+
+    @Deprecated
+    @Config("incremental-hash-array-load-factor.enabled")
+    @ConfigDescription("Use smaller load factor for small hash arrays in order to improve performance")
+    public FeaturesConfig setIncrementalHashArrayLoadFactorEnabled(boolean incrementalHashArrayLoadFactorEnabled)
+    {
+        this.incrementalHashArrayLoadFactorEnabled = incrementalHashArrayLoadFactorEnabled;
         return this;
     }
 }

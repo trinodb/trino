@@ -20,7 +20,7 @@ connector.
 The categories of these different topics are related to :ref:`read operations
 <sql-read-operations>`, :ref:`write operations <sql-write-operations>`,
 :ref:`security operations <sql-security-operations>` and :ref:`transactions
-<sql-security-transactions>`.
+<sql-transactions>`.
 
 Details of the support for specific statements is available with the
 documentation for each connector.
@@ -146,7 +146,7 @@ Grants management:
 * :doc:`/sql/grant`
 * :doc:`/sql/revoke`
 
-.. _sql-security-transactions:
+.. _sql-transactions:
 
 Transactions
 ------------

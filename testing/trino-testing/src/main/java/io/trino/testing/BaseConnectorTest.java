@@ -13,11 +13,11 @@
  */
 package io.trino.testing;
 
+import io.trino.FeaturesConfig.JoinDistributionType;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.testing.sql.TestTable;
@@ -770,11 +770,10 @@ public abstract class BaseConnectorTest
     private String getTestingMaterializedViewsResultRow(QualifiedObjectName materializedView, String comment)
     {
         return format(
-                "VALUES ('%s', '%s', '%s', '%s', '%s', 'SELECT *\nFROM\n  nation\n')",
+                "VALUES ('%s', '%s', '%s', '%s', 'SELECT *\nFROM\n  nation\n')",
                 materializedView.getCatalogName(),
                 materializedView.getSchemaName(),
                 materializedView.getObjectName(),
-                getSession().getUser(),
                 comment);
     }
 
@@ -782,21 +781,18 @@ public abstract class BaseConnectorTest
             QualifiedObjectName materializedView,
             QualifiedObjectName otherMaterializedView)
     {
-        String user = getSession().getUser();
         String viewDefinitionSql = "SELECT *\nFROM\n  nation\n";
 
         return format(
-                "VALUES ('%s', '%s', '%s', '%s', '', '%s')," +
-                        "('%s', '%s', '%s', '%s', 'sarcastic comment', '%s')",
+                "VALUES ('%s', '%s', '%s', '', '%s')," +
+                        "('%s', '%s', '%s', 'sarcastic comment', '%s')",
                 materializedView.getCatalogName(),
                 materializedView.getSchemaName(),
                 materializedView.getObjectName(),
-                user,
                 viewDefinitionSql,
                 otherMaterializedView.getCatalogName(),
                 otherMaterializedView.getSchemaName(),
                 otherMaterializedView.getObjectName(),
-                user,
                 viewDefinitionSql);
     }
 
@@ -806,7 +802,6 @@ public abstract class BaseConnectorTest
                 "   catalog_name," +
                 "   schema_name," +
                 "   name," +
-                "   owner," +
                 "   comment," +
                 "   definition " +
                 "FROM system.metadata.materialized_views " +

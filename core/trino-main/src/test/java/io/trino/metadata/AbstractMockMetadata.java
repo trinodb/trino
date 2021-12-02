@@ -34,10 +34,8 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.JoinApplicationResult;
@@ -500,13 +498,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Map<QualifiedObjectName, ConnectorViewDefinition> getViews(Session session, QualifiedTablePrefix prefix)
+    public Map<QualifiedObjectName, ViewInfo> getViews(Session session, QualifiedTablePrefix prefix)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName)
+    public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
         throw new UnsupportedOperationException();
     }
@@ -524,7 +522,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void createView(Session session, QualifiedObjectName viewName, ConnectorViewDefinition definition, boolean replace)
+    public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, boolean replace)
     {
         throw new UnsupportedOperationException();
     }
@@ -922,7 +920,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void createMaterializedView(Session session, QualifiedObjectName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
     {
         throw new UnsupportedOperationException();
     }
@@ -940,13 +938,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Map<QualifiedObjectName, ConnectorMaterializedViewDefinition> getMaterializedViews(Session session, QualifiedTablePrefix prefix)
+    public Map<QualifiedObjectName, ViewInfo> getMaterializedViews(Session session, QualifiedTablePrefix prefix)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+    public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
     {
         throw new UnsupportedOperationException();
     }
@@ -973,5 +971,23 @@ public abstract class AbstractMockMetadata
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName)
     {
         return noRedirection(getTableHandle(session, tableName));
+    }
+
+    @Override
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isValidTableVersion(Session session, QualifiedObjectName tableName, TableVersion version)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    {
+        throw new UnsupportedOperationException();
     }
 }

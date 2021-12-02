@@ -58,7 +58,7 @@ public class TestGlueInputConverter
         TableInput tblInput = GlueInputConverter.convertTable(testTbl);
 
         assertEquals(tblInput.getName(), testTbl.getTableName());
-        assertEquals(tblInput.getOwner(), testTbl.getOwner());
+        assertEquals(tblInput.getOwner(), testTbl.getOwner().orElse(null));
         assertEquals(tblInput.getTableType(), testTbl.getTableType());
         assertEquals(tblInput.getParameters(), testTbl.getParameters());
         assertColumnList(tblInput.getStorageDescriptor().getColumns(), testTbl.getDataColumns());

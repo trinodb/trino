@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableMap;
+import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
@@ -105,6 +107,55 @@ public class TestIcebergPlugin
                 new TestingConnectorContext()))
                 .hasMessageContaining("Configuration property 'hive.metastore-recording-path' was not used")
                 .hasMessageContaining("Configuration property 'hive.metastore.glue.region' was not used");
+    }
+
+    @Test
+    public void testAllowAllAccessControl()
+    {
+        ConnectorFactory connectorFactory = getConnectorFactory();
+
+        connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("iceberg.catalog.type", "HIVE_METASTORE")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("iceberg.security", "allow-all")
+                        .build(),
+                new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    public void testReadOnlyAllAccessControl()
+    {
+        ConnectorFactory connectorFactory = getConnectorFactory();
+
+        connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("iceberg.catalog.type", "HIVE_METASTORE")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("iceberg.security", "read-only")
+                        .build(),
+                new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    public void testSystemAccessControl()
+    {
+        ConnectorFactory connectorFactory = getConnectorFactory();
+
+        Connector connector = connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("iceberg.catalog.type", "HIVE_METASTORE")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("iceberg.security", "system")
+                        .build(),
+                new TestingConnectorContext());
+        assertThatThrownBy(connector::getAccessControl).isInstanceOf(UnsupportedOperationException.class);
+        connector.shutdown();
     }
 
     private static ConnectorFactory getConnectorFactory()

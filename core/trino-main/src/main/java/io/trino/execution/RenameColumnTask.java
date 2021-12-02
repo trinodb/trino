@@ -23,7 +23,8 @@ import io.trino.security.AccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameColumn;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -37,10 +38,21 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class RenameColumnTask
         implements DataDefinitionTask<RenameColumn>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public RenameColumnTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -50,9 +62,6 @@ public class RenameColumnTask
     @Override
     public ListenableFuture<Void> execute(
             RenameColumn statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)

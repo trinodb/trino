@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.FeaturesConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
@@ -21,7 +22,6 @@ import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.PathElement;
 import io.trino.sql.tree.PathSpecification;
@@ -112,11 +112,8 @@ public class TestSetPathTask
 
     private void executeSetPathTask(PathSpecification pathSpecification, QueryStateMachine stateMachine)
     {
-        getFutureValue(new SetPathTask().execute(
+        getFutureValue(new SetPathTask(metadata).execute(
                 new SetPath(pathSpecification),
-                transactionManager,
-                metadata,
-                accessControl,
                 stateMachine,
                 emptyList(),
                 WarningCollector.NOOP));

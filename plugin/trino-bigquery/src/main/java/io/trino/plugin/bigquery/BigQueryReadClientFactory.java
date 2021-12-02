@@ -16,8 +16,9 @@ package io.trino.plugin.bigquery;
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.api.gax.rpc.HeaderProvider;
 import com.google.auth.Credentials;
-import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
-import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageSettings;
+import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
+import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
+import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
 
@@ -25,37 +26,41 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * Since Guice recommends to avoid injecting closeable resources (see
  * https://github.com/google/guice/wiki/Avoid-Injecting-Closable-Resources), this factory creates
  * short lived clients that can be closed independently.
  */
-public class BigQueryStorageClientFactory
+public class BigQueryReadClientFactory
 {
-    private final Optional<Credentials> credentials;
+    private final BigQueryCredentialsSupplier credentialsSupplier;
     private final HeaderProvider headerProvider;
 
     @Inject
-    public BigQueryStorageClientFactory(BigQueryCredentialsSupplier bigQueryCredentialsSupplier, HeaderProvider headerProvider)
+    public BigQueryReadClientFactory(BigQueryCredentialsSupplier bigQueryCredentialsSupplier, HeaderProvider headerProvider)
     {
-        this.credentials = bigQueryCredentialsSupplier.getCredentials();
-        this.headerProvider = headerProvider;
+        this.credentialsSupplier = requireNonNull(bigQueryCredentialsSupplier, "credentialsSupplier is null");
+        this.headerProvider = requireNonNull(headerProvider, "headerProvider is null");
     }
 
-    BigQueryStorageClient createBigQueryStorageClient()
+    BigQueryReadClient create(ConnectorSession session)
     {
+        Optional<Credentials> credentials = credentialsSupplier.getCredentials(session);
+
         try {
-            BigQueryStorageSettings.Builder clientSettings = BigQueryStorageSettings.newBuilder()
+            BigQueryReadSettings.Builder clientSettings = BigQueryReadSettings.newBuilder()
                     .setTransportChannelProvider(
-                            BigQueryStorageSettings.defaultGrpcTransportProviderBuilder()
+                            BigQueryReadSettings.defaultGrpcTransportProviderBuilder()
                                     .setHeaderProvider(headerProvider)
                                     .build());
-            credentials.ifPresent(credentials ->
-                    clientSettings.setCredentialsProvider(FixedCredentialsProvider.create(credentials)));
-            return BigQueryStorageClient.create(clientSettings.build());
+            credentials.ifPresent(value ->
+                    clientSettings.setCredentialsProvider(FixedCredentialsProvider.create(value)));
+            return BigQueryReadClient.create(clientSettings.build());
         }
         catch (IOException e) {
-            throw new UncheckedIOException("Error creating BigQueryStorageClient", e);
+            throw new UncheckedIOException("Error creating BigQueryReadClient", e);
         }
     }
 }

@@ -34,6 +34,7 @@ import io.airlift.bytecode.expression.BytecodeExpressions;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.jmx.CacheStatsMBean;
 import io.trino.Session;
+import io.trino.operator.HashArraySizeSupplier;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.join.JoinHash;
 import io.trino.operator.join.JoinHashSupplier;
@@ -1020,7 +1021,7 @@ public class JoinCompiler
         {
             this.pagesHashStrategyFactory = pagesHashStrategyFactory;
             try {
-                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class, Optional.class, List.class);
+                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class, Optional.class, List.class, HashArraySizeSupplier.class);
             }
             catch (NoSuchMethodException e) {
                 throw new RuntimeException(e);
@@ -1034,11 +1035,12 @@ public class JoinCompiler
                 OptionalInt hashChannel,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
                 Optional<Integer> sortChannel,
-                List<JoinFilterFunctionFactory> searchFunctionFactories)
+                List<JoinFilterFunctionFactory> searchFunctionFactories,
+                HashArraySizeSupplier hashArraySizeSupplier)
         {
             PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
             try {
-                return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory, sortChannel, searchFunctionFactories);
+                return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory, sortChannel, searchFunctionFactories, hashArraySizeSupplier);
             }
             catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);

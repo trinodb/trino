@@ -72,7 +72,7 @@ public class HiveConfig
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
     private int maxInitialSplits = 200;
-    private int splitLoaderConcurrency = 4;
+    private int splitLoaderConcurrency = 64;
     private Integer maxSplitsPerSecond;
     private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 100;

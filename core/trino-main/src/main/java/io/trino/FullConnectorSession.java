@@ -35,7 +35,6 @@ public class FullConnectorSession
         implements ConnectorSession
 {
     private final Session session;
-    private final Optional<Boolean> transactionAutoCommitContext;
     private final ConnectorIdentity identity;
     private final Map<String, String> properties;
     private final CatalogName catalogName;
@@ -45,7 +44,6 @@ public class FullConnectorSession
     public FullConnectorSession(Session session, ConnectorIdentity identity)
     {
         this.session = requireNonNull(session, "session is null");
-        this.transactionAutoCommitContext = Optional.empty();
         this.identity = requireNonNull(identity, "identity is null");
         this.properties = null;
         this.catalogName = null;
@@ -55,7 +53,6 @@ public class FullConnectorSession
 
     public FullConnectorSession(
             Session session,
-            Optional<Boolean> transactionAutoCommitContext,
             ConnectorIdentity identity,
             Map<String, String> properties,
             CatalogName catalogName,
@@ -63,7 +60,6 @@ public class FullConnectorSession
             SessionPropertyManager sessionPropertyManager)
     {
         this.session = requireNonNull(session, "session is null");
-        this.transactionAutoCommitContext = requireNonNull(transactionAutoCommitContext, "transactionAutoCommitContext is null");
         this.identity = requireNonNull(identity, "identity is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
@@ -74,12 +70,6 @@ public class FullConnectorSession
     public Session getSession()
     {
         return session;
-    }
-
-    @Override
-    public boolean isAutoCommitContext()
-    {
-        return transactionAutoCommitContext.orElseThrow(NotInTransactionException::new);
     }
 
     @Override

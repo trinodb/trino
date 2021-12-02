@@ -47,6 +47,7 @@ import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.sql.Connection;
@@ -102,7 +103,7 @@ public class TestJdbcExternalAuthentication
                 .setProperties(ImmutableMap.<String, String>builder()
                         .put("http-server.authentication.type", "dummy-external")
                         .put("http-server.https.enabled", "true")
-                        .put("http-server.https.keystore.path", getResource("localhost.keystore").getPath())
+                        .put("http-server.https.keystore.path", new File(getResource("localhost.keystore").toURI()).getPath())
                         .put("http-server.https.keystore.key", "changeit")
                         .put("web-ui.enabled", "false")
                         .build())
@@ -237,13 +238,13 @@ public class TestJdbcExternalAuthentication
     }
 
     private Connection createConnection()
-            throws SQLException
+            throws Exception
     {
         String url = format("jdbc:trino://localhost:%s", server.getHttpsAddress().getPort());
         Properties properties = new Properties();
         properties.setProperty("user", "test");
         properties.setProperty("SSL", "true");
-        properties.setProperty("SSLTrustStorePath", getResource("localhost.truststore").getPath());
+        properties.setProperty("SSLTrustStorePath", new File(getResource("localhost.truststore").toURI()).getPath());
         properties.setProperty("SSLTrustStorePassword", "changeit");
         properties.setProperty("externalAuthentication", "true");
         properties.setProperty("externalAuthenticationTimeout", "2s");

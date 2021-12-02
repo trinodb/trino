@@ -15,10 +15,10 @@ package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.common.EnvironmentExtender;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
 import io.trino.tests.product.launcher.env.common.SeleniumChrome;
 import io.trino.tests.product.launcher.env.common.Standard;
@@ -27,13 +27,8 @@ import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import javax.inject.Inject;
 
-import java.util.List;
-
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -43,7 +38,7 @@ public class EnvSinglenodeOauth2
 {
     private final PortBinder binder;
     private final HydraIdentityProvider hydraIdentityProvider;
-    private final DockerFiles dockerFiles;
+    private final ResourceProvider configDir;
 
     @Inject
     public EnvSinglenodeOauth2(DockerFiles dockerFiles, PortBinder binder, Standard standard, HydraIdentityProvider hydraIdentityProvider, SeleniumChrome seleniumChrome)
@@ -52,7 +47,8 @@ public class EnvSinglenodeOauth2
 
         this.binder = requireNonNull(binder, "binder is null");
         this.hydraIdentityProvider = requireNonNull(hydraIdentityProvider, "hydraIdentityProvider is null");
-        this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        requireNonNull(dockerFiles, "dockerFiles is null");
+        this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-oauth2/");
     }
 
     @Override
@@ -61,19 +57,10 @@ public class EnvSinglenodeOauth2
         builder.configureContainer(COORDINATOR, dockerContainer -> {
             dockerContainer
                     .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-oauth2/config.properties")),
-                            CONTAINER_PRESTO_CONFIG_PROPERTIES)
-                    .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("common/hydra-identity-provider/cert")),
-                            CONTAINER_PRESTO_ETC + "/hydra/cert");
+                            forHostPath(configDir.getPath("config.properties")),
+                            CONTAINER_PRESTO_CONFIG_PROPERTIES);
 
             binder.exposePort(dockerContainer, 7778);
-        });
-
-        builder.configureContainer(TESTS, dockerContainer -> {
-            dockerContainer.withCopyFileToContainer(
-                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-oauth2.yaml")),
-                    CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
 
         DockerContainer hydraClientConfig = hydraIdentityProvider.createClient(
@@ -85,11 +72,5 @@ public class EnvSinglenodeOauth2
                 "https://presto-master:7778/oauth2/callback,https://localhost:7778/oauth2/callback");
 
         builder.containerDependsOn(COORDINATOR, hydraClientConfig.getLogicalName());
-    }
-
-    @Override
-    public List<EnvironmentExtender> getDependencies()
-    {
-        return ImmutableList.of(hydraIdentityProvider);
     }
 }

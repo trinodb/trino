@@ -60,6 +60,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -249,6 +250,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilege
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
+import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -294,6 +296,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
+import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.OrcAcidVersion.writeVersionFile;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.deltaSubdir;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
@@ -334,6 +337,7 @@ public class HiveMetadata
 
     private final CatalogName catalogName;
     private final SemiTransactionalHiveMetastore metastore;
+    private final boolean autoCommit;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
     private final TypeManager typeManager;
@@ -349,10 +353,12 @@ public class HiveMetadata
     private final Set<SystemTableProvider> systemTableProviders;
     private final HiveMaterializedViewMetadata hiveMaterializedViewMetadata;
     private final AccessControlMetadata accessControlMetadata;
+    private final HiveTableRedirectionsProvider tableRedirectionsProvider;
 
     public HiveMetadata(
             CatalogName catalogName,
             SemiTransactionalHiveMetastore metastore,
+            boolean autoCommit,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             boolean writesToNonManagedTablesEnabled,
@@ -367,10 +373,12 @@ public class HiveMetadata
             HiveRedirectionsProvider hiveRedirectionsProvider,
             Set<SystemTableProvider> systemTableProviders,
             HiveMaterializedViewMetadata hiveMaterializedViewMetadata,
-            AccessControlMetadata accessControlMetadata)
+            AccessControlMetadata accessControlMetadata,
+            HiveTableRedirectionsProvider tableRedirectionsProvider)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
+        this.autoCommit = autoCommit;
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -386,6 +394,7 @@ public class HiveMetadata
         this.systemTableProviders = requireNonNull(systemTableProviders, "systemTableProviders is null");
         this.hiveMaterializedViewMetadata = requireNonNull(hiveMaterializedViewMetadata, "hiveMaterializedViewMetadata is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
+        this.tableRedirectionsProvider = requireNonNull(tableRedirectionsProvider, "tableRedirectionsProvider is null");
     }
 
     @Override
@@ -790,8 +799,8 @@ public class HiveMetadata
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
                 .setLocation(location)
-                .setOwnerType(owner.getType())
-                .setOwnerName(owner.getName())
+                .setOwnerType(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.of(owner.getType()))
+                .setOwnerName(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.of(owner.getName()))
                 .build();
 
         metastore.createDatabase(new HiveIdentity(session), database);
@@ -878,8 +887,9 @@ public class HiveMetadata
                 tableProperties,
                 targetPath,
                 external,
-                prestoVersion);
-        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
+                prestoVersion,
+                accessControlMetadata.isUsingSystemSecurity());
+        PrincipalPrivileges principalPrivileges = accessControlMetadata.isUsingSystemSecurity() ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
         HiveBasicStatistics basicStatistics = (!external && table.getPartitionColumns().isEmpty()) ? createZeroStatistics() : createEmptyStatistics();
         metastore.createTable(
                 session,
@@ -1082,7 +1092,8 @@ public class HiveMetadata
             Map<String, String> additionalTableParameters,
             Optional<Path> targetPath,
             boolean external,
-            String prestoVersion)
+            String prestoVersion,
+            boolean usingSystemSecurity)
     {
         Map<String, HiveColumnHandle> columnHandlesByName = Maps.uniqueIndex(columnHandles, HiveColumnHandle::getName);
         List<Column> partitionColumns = partitionedBy.stream()
@@ -1117,7 +1128,7 @@ public class HiveMetadata
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
-                .setOwner(tableOwner)
+                .setOwner(usingSystemSecurity ? Optional.empty() : Optional.of(tableOwner))
                 .setTableType((external ? EXTERNAL_TABLE : MANAGED_TABLE).name())
                 .setDataColumns(columns.build())
                 .setPartitionColumns(partitionColumns)
@@ -1385,8 +1396,9 @@ public class HiveMetadata
                 handle.getAdditionalTableParameters(),
                 Optional.of(writeInfo.getTargetPath()),
                 handle.isExternal(),
-                prestoVersion);
-        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(handle.getTableOwner());
+                prestoVersion,
+                accessControlMetadata.isUsingSystemSecurity());
+        PrincipalPrivileges principalPrivileges = accessControlMetadata.isUsingSystemSecurity() ? NO_PRIVILEGES : buildInitialPrivilegeSet(handle.getTableOwner());
 
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
 
@@ -1698,7 +1710,7 @@ public class HiveMetadata
             }
             // This check is required to prevent using partition overwrite operation during user managed transactions
             // Partition overwrite operation is nonatomic thus can't and shouldn't be used in non autocommit context.
-            if (!session.isAutoCommitContext()) {
+            if (!autoCommit) {
                 throw new TrinoException(NOT_SUPPORTED, "Overwriting existing partition in non auto commit context doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
             }
         }
@@ -2161,6 +2173,10 @@ public class HiveMetadata
     @Override
     public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
+        if (accessControlMetadata.isUsingSystemSecurity()) {
+            definition = definition.withoutOwner();
+        }
+
         HiveIdentity identity = new HiveIdentity(session);
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
@@ -2175,7 +2191,7 @@ public class HiveMetadata
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(viewName.getSchemaName())
                 .setTableName(viewName.getTableName())
-                .setOwner(session.getUser())
+                .setOwner(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.ofNullable(session.getUser()))
                 .setTableType(TableType.VIRTUAL_VIEW.name())
                 .setDataColumns(ImmutableList.of(dummyColumn))
                 .setPartitionColumns(ImmutableList.of())
@@ -2187,7 +2203,7 @@ public class HiveMetadata
                 .setStorageFormat(VIEW_STORAGE_FORMAT)
                 .setLocation("");
         Table table = tableBuilder.build();
-        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser());
+        PrincipalPrivileges principalPrivileges = accessControlMetadata.isUsingSystemSecurity() ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
 
         Optional<Table> existing = metastore.getTable(identity, viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
@@ -2268,7 +2284,7 @@ public class HiveMetadata
 
         Optional<Database> database = metastore.getDatabase(schemaName.getSchemaName());
         if (database.isPresent()) {
-            return database.flatMap(db -> Optional.of(new TrinoPrincipal(db.getOwnerType(), db.getOwnerName())));
+            return database.flatMap(db -> db.getOwnerName().map(ownerName -> new TrinoPrincipal(db.getOwnerType().orElseThrow(), ownerName)));
         }
 
         throw new SchemaNotFoundException(schemaName.getSchemaName());
@@ -2313,14 +2329,14 @@ public class HiveMetadata
                     ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager)
                             .decodeViewData(view.getViewOriginalText().get(), view, catalogName);
                     // use owner from table metadata if it exists
-                    if (view.getOwner() != null && !definition.isRunAsInvoker()) {
+                    if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
                         definition = new ConnectorViewDefinition(
                                 definition.getOriginalSql(),
                                 definition.getCatalog(),
                                 definition.getSchema(),
                                 definition.getColumns(),
                                 definition.getComment(),
-                                Optional.of(view.getOwner()),
+                                view.getOwner(),
                                 false);
                     }
                     return definition;
@@ -2523,8 +2539,8 @@ public class HiveMetadata
         if (isQueryPartitionFilterRequiredForTable(session, handle.getSchemaTableName()) && handle.getAnalyzePartitionValues().isEmpty() && handle.getEnforcedConstraint().isAll()) {
             List<HiveColumnHandle> partitionColumns = handle.getPartitionColumns();
             if (!partitionColumns.isEmpty()) {
-                Optional<Set<ColumnHandle>> referencedColumns = handle.getConstraintColumns();
-                if (referencedColumns.isEmpty() || Collections.disjoint(referencedColumns.get(), partitionColumns)) {
+                Set<ColumnHandle> referencedColumns = handle.getConstraintColumns();
+                if (Collections.disjoint(referencedColumns, partitionColumns)) {
                     String partitionColumnNames = partitionColumns.stream()
                             .map(HiveColumnHandle::getName)
                             .collect(joining(", "));
@@ -2560,8 +2576,7 @@ public class HiveMetadata
         // all references are simple variables
         if (columnProjections.values().stream().allMatch(ProjectedColumnRepresentation::isVariable)) {
             Set<ColumnHandle> projectedColumns = ImmutableSet.copyOf(assignments.values());
-            if (hiveTableHandle.getProjectedColumns().isPresent()
-                    && hiveTableHandle.getProjectedColumns().get().equals(projectedColumns)) {
+            if (hiveTableHandle.getProjectedColumns().equals(projectedColumns)) {
                 return Optional.empty();
             }
             List<Assignment> assignmentsList = assignments.entrySet().stream()
@@ -2760,8 +2775,8 @@ public class HiveMetadata
                 hiveTable.getBucketFilter(),
                 hiveTable.getAnalyzePartitionValues(),
                 hiveTable.getAnalyzeColumnNames(),
-                Optional.empty(),
-                Optional.empty(), // Projected columns is used only during optimization phase of planning
+                ImmutableSet.of(),
+                ImmutableSet.of(), // Projected columns is used only during optimization phase of planning
                 hiveTable.getTransaction(),
                 hiveTable.isRecordScannedFiles(),
                 hiveTable.getMaxScannedFileSize());
@@ -3357,6 +3372,61 @@ public class HiveMetadata
     public CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName name)
     {
         return hiveMaterializedViewMetadata.refreshMaterializedView(session, name);
+    }
+
+    @Override
+    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(tableName, "tableName is null");
+        if (isHiveSystemSchema(tableName.getSchemaName())) {
+            return Optional.empty();
+        }
+        // we need to chop off any "$partitions" and similar suffixes from table name while querying the metastore for the Table object
+        TableNameSplitResult tableNameSplit = splitTableName(tableName.getTableName());
+        Optional<Table> table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableNameSplit.getBaseTableName());
+        if (table.isEmpty() || VIRTUAL_VIEW.name().equals(table.get().getTableType())) {
+            return Optional.empty();
+        }
+
+        Optional<CatalogSchemaTableName> catalogSchemaTableName = tableRedirectionsProvider.redirectTable(session, table.get());
+
+        // stitch back the suffix we cut off.
+        return catalogSchemaTableName.map(name -> new CatalogSchemaTableName(
+                name.getCatalogName(),
+                new SchemaTableName(
+                        name.getSchemaTableName().getSchemaName(),
+                        name.getSchemaTableName().getTableName() + tableNameSplit.getSuffix().orElse(""))));
+    }
+
+    private static TableNameSplitResult splitTableName(String tableName)
+    {
+        int metadataMarkerIndex = tableName.lastIndexOf('$');
+        return metadataMarkerIndex <= 0 ? // marker not found or at the beginning of tableName
+                new TableNameSplitResult(tableName, Optional.empty()) :
+                new TableNameSplitResult(tableName.substring(0, metadataMarkerIndex), Optional.of(tableName.substring(metadataMarkerIndex)));
+    }
+
+    private static class TableNameSplitResult
+    {
+        private final String baseTableName;
+        private final Optional<String> suffix;
+
+        public TableNameSplitResult(String baseTableName, Optional<String> suffix)
+        {
+            this.baseTableName = requireNonNull(baseTableName, "baseTableName is null");
+            this.suffix = requireNonNull(suffix, "suffix is null");
+        }
+
+        public String getBaseTableName()
+        {
+            return baseTableName;
+        }
+
+        public Optional<String> getSuffix()
+        {
+            return suffix;
+        }
     }
 
     @SafeVarargs

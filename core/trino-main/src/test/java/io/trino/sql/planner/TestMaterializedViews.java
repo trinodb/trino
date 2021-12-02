@@ -23,17 +23,18 @@ import io.trino.metadata.Catalog;
 import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ViewColumn;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -119,14 +120,14 @@ public class TestMaterializedViews
         });
 
         QualifiedObjectName freshMaterializedView = new QualifiedObjectName(CATALOG, SCHEMA, "fresh_materialized_view");
-        ConnectorMaterializedViewDefinition materializedViewDefinition = new ConnectorMaterializedViewDefinition(
+        MaterializedViewDefinition materializedViewDefinition = new MaterializedViewDefinition(
                 "SELECT a, b FROM test_table",
-                Optional.of(new CatalogSchemaTableName(CATALOG, SCHEMA, "storage_table")),
                 Optional.of(CATALOG),
                 Optional.of(SCHEMA),
-                ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("b", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("b", BIGINT.getTypeId())),
                 Optional.empty(),
-                "some user",
+                Identity.ofUser("some user"),
+                Optional.of(new CatalogSchemaTableName(CATALOG, SCHEMA, "storage_table")),
                 ImmutableMap.of());
         queryRunner.inTransaction(session -> {
             metadata.createMaterializedView(
@@ -150,14 +151,14 @@ public class TestMaterializedViews
             return null;
         });
 
-        ConnectorMaterializedViewDefinition materializedViewDefinitionWithCasts = new ConnectorMaterializedViewDefinition(
+        MaterializedViewDefinition materializedViewDefinitionWithCasts = new MaterializedViewDefinition(
                 "SELECT a, b FROM test_table",
-                Optional.of(new CatalogSchemaTableName(CATALOG, SCHEMA, "storage_table_with_casts")),
                 Optional.of(CATALOG),
                 Optional.of(SCHEMA),
-                ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("b", BIGINT.getTypeId())),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("b", BIGINT.getTypeId())),
                 Optional.empty(),
-                "some user",
+                Identity.ofUser("some user"),
+                Optional.of(new CatalogSchemaTableName(CATALOG, SCHEMA, "storage_table_with_casts")),
                 ImmutableMap.of());
         QualifiedObjectName materializedViewWithCasts = new QualifiedObjectName(CATALOG, SCHEMA, "materialized_view_with_casts");
         queryRunner.inTransaction(session -> {
@@ -235,7 +236,7 @@ public class TestMaterializedViews
             private final ConnectorMetadata metadata = new TestingMetadata();
 
             @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
             {
                 return new ConnectorTransactionHandle() {};
             }

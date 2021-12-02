@@ -11,25 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.util;
+package io.trino.operator.aggregation;
 
-import java.util.Optional;
-import java.util.function.BinaryOperator;
+import io.trino.spi.block.BlockBuilder;
 
-public final class Optionals
+public class BlockBuilderCopier
 {
-    private Optionals() {}
+    private BlockBuilderCopier() {}
 
-    public static <T> Optional<T> combine(Optional<T> left, Optional<T> right, BinaryOperator<T> combiner)
+    public static BlockBuilder copyBlockBuilder(BlockBuilder blockBuilder)
     {
-        if (left.isPresent() && right.isPresent()) {
-            return Optional.of(combiner.apply(left.get(), right.get()));
+        if (blockBuilder == null) {
+            return null;
         }
-        else if (left.isPresent()) {
-            return left;
+
+        BlockBuilder copy = blockBuilder.newBlockBuilderLike(null);
+        for (int i = 0; i < blockBuilder.getPositionCount(); i++) {
+            copy.appendStructure(blockBuilder.getSingleValueBlock(i));
         }
-        else {
-            return right;
-        }
+
+        return copy;
     }
 }

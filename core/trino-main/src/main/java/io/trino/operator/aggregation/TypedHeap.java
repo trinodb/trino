@@ -48,6 +48,17 @@ public class TypedHeap
         this.heapBlockBuilder = type.createBlockBuilder(null, capacity);
     }
 
+    // for copying
+    private TypedHeap(MethodHandle greaterThanMethod, Type type, int capacity, int positionCount, int[] heapIndex, BlockBuilder heapBlockBuilder)
+    {
+        this.greaterThanMethod = greaterThanMethod;
+        this.type = type;
+        this.capacity = capacity;
+        this.positionCount = positionCount;
+        this.heapIndex = heapIndex;
+        this.heapBlockBuilder = heapBlockBuilder;
+    }
+
     public int getCapacity()
     {
         return capacity;
@@ -191,5 +202,14 @@ public class TypedHeap
             Throwables.throwIfUnchecked(throwable);
             throw new RuntimeException(throwable);
         }
+    }
+
+    public TypedHeap copy()
+    {
+        BlockBuilder heapBlockBuilderCopy = null;
+        if (heapBlockBuilder != null) {
+            heapBlockBuilderCopy = (BlockBuilder) heapBlockBuilder.copyRegion(0, heapBlockBuilder.getPositionCount());
+        }
+        return new TypedHeap(greaterThanMethod, type, capacity, positionCount, heapIndex.clone(), heapBlockBuilderCopy);
     }
 }

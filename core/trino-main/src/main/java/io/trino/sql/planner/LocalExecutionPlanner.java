@@ -270,10 +270,13 @@ import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFilters
 import static io.trino.SystemSessionProperties.isEnableLargeDynamicFilters;
 import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.trino.SystemSessionProperties.isLateMaterializationEnabled;
+import static io.trino.SystemSessionProperties.isSpillDistinctingAggregationsEnabled;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
 import static io.trino.SystemSessionProperties.isSpillOrderBy;
+import static io.trino.SystemSessionProperties.isSpillOrderingAggregationsEnabled;
 import static io.trino.SystemSessionProperties.isSpillWindowOperator;
 import static io.trino.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
+import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
 import static io.trino.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
@@ -987,6 +990,9 @@ public class LocalExecutionPlanner
             }
 
             Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
+            boolean isPartial = node.isPartial();
+            Optional<DataSize> maxPartialTopNMemorySize = isPartial ? Optional.of(SystemSessionProperties.getMaxPartialTopNMemory(session)).filter(
+                    maxSize -> maxSize.compareTo(DataSize.ofBytes(0)) > 0) : Optional.empty();
             OperatorFactory operatorFactory = new TopNRankingOperator.TopNRankingOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
@@ -998,9 +1004,10 @@ public class LocalExecutionPlanner
                     sortChannels,
                     sortOrder,
                     node.getMaxRankingPerPartition(),
-                    node.isPartial(),
+                    isPartial,
                     hashChannel,
                     1000,
+                    maxPartialTopNMemorySize,
                     joinCompiler,
                     typeOperators,
                     blockTypeOperators);
@@ -1552,7 +1559,14 @@ public class LocalExecutionPlanner
             boolean spillEnabled = isSpillEnabled(session);
             DataSize unspillMemoryLimit = getAggregationOperatorUnspillMemoryLimit(session);
 
-            return planGroupByAggregation(node, source, spillEnabled, unspillMemoryLimit, context);
+            return planGroupByAggregation(
+                    node,
+                    source,
+                    spillEnabled,
+                    isSpillDistinctingAggregationsEnabled(session),
+                    isSpillOrderingAggregationsEnabled(session),
+                    unspillMemoryLimit,
+                    context);
         }
 
         @Override
@@ -2561,6 +2575,7 @@ public class LocalExecutionPlanner
                 buildSource = createDynamicFilterSourceOperatorFactory(operatorId, localDynamicFilter.get(), node, buildSource, buildContext);
             }
 
+            int taskConcurrency = getTaskConcurrency(session);
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
                     node.getId(),
@@ -2574,7 +2589,12 @@ public class LocalExecutionPlanner
                     10_000,
                     pagesIndexFactory,
                     spillEnabled && partitionCount > 1,
-                    singleStreamSpillerFactory);
+                    singleStreamSpillerFactory,
+                    incrementalLoadFactorHashArraySizeSupplier(
+                            session,
+                            // scale load factor in case partition count (and number of hash build operators)
+                            // is reduced (e.g. by plan rule) with respect to default task concurrency
+                            taskConcurrency / partitionCount));
 
             context.addDriverFactory(
                     buildContext.isInputDriver(),
@@ -2922,6 +2942,8 @@ public class LocalExecutionPlanner
                         false,
                         false,
                         false,
+                        false,
+                        false,
                         DataSize.ofBytes(0),
                         context,
                         STATS_START_CHANNEL,
@@ -3003,6 +3025,8 @@ public class LocalExecutionPlanner
                         Optional.empty(),
                         Optional.empty(),
                         source,
+                        false,
+                        false,
                         false,
                         false,
                         false,
@@ -3311,7 +3335,8 @@ public class LocalExecutionPlanner
 
         private AccumulatorFactory buildAccumulatorFactory(
                 PhysicalOperation source,
-                Aggregation aggregation)
+                Aggregation aggregation,
+                boolean spillEnabled)
         {
             InternalAggregationFunction internalAggregationFunction = metadata.getAggregateFunctionImplementation(aggregation.getResolvedFunction());
 
@@ -3356,6 +3381,7 @@ public class LocalExecutionPlanner
                     joinCompiler,
                     blockTypeOperators,
                     lambdaProviders,
+                    spillEnabled,
                     session);
         }
 
@@ -3443,7 +3469,7 @@ public class LocalExecutionPlanner
             for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
                 Symbol symbol = entry.getKey();
                 Aggregation aggregation = entry.getValue();
-                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
+                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation, false));
                 outputMappings.put(symbol, outputChannel); // one aggregation per channel
                 outputChannel++;
             }
@@ -3454,6 +3480,8 @@ public class LocalExecutionPlanner
                 AggregationNode node,
                 PhysicalOperation source,
                 boolean spillEnabled,
+                boolean spillDistinctingAggregationsEnabled,
+                boolean spillOrderingAggregationsEnabled,
                 DataSize unspillMemoryLimit,
                 LocalExecutionPlanContext context)
         {
@@ -3469,6 +3497,8 @@ public class LocalExecutionPlanner
                     source,
                     node.hasDefaultOutput(),
                     spillEnabled,
+                    spillDistinctingAggregationsEnabled,
+                    spillOrderingAggregationsEnabled,
                     node.isStreamable(),
                     unspillMemoryLimit,
                     context,
@@ -3491,6 +3521,8 @@ public class LocalExecutionPlanner
                 PhysicalOperation source,
                 boolean hasDefaultOutput,
                 boolean spillEnabled,
+                boolean distinctSpillEnabled,
+                boolean orderBySpillEnabled,
                 boolean isStreamable,
                 DataSize unspillMemoryLimit,
                 LocalExecutionPlanContext context,
@@ -3502,11 +3534,12 @@ public class LocalExecutionPlanner
         {
             List<Symbol> aggregationOutputSymbols = new ArrayList<>();
             List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
+            boolean useSpill = spillEnabled && !isStreamable && (!hasDistinct(aggregations) || distinctSpillEnabled) && (!hasOrderBy(aggregations) || orderBySpillEnabled);
             for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
                 Symbol symbol = entry.getKey();
                 Aggregation aggregation = entry.getValue();
 
-                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
+                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation, useSpill));
                 aggregationOutputSymbols.add(symbol);
             }
 
@@ -3563,13 +3596,23 @@ public class LocalExecutionPlanner
                         groupIdChannel,
                         expectedGroups,
                         maxPartialAggregationMemorySize,
-                        spillEnabled,
+                        useSpill,
                         unspillMemoryLimit,
                         spillerFactory,
                         joinCompiler,
                         blockTypeOperators,
                         useSystemMemory);
             }
+        }
+
+        private boolean hasDistinct(Map<Symbol, Aggregation> aggregations)
+        {
+            return aggregations.values().stream().anyMatch(aggregation -> aggregation.isDistinct());
+        }
+
+        private boolean hasOrderBy(Map<Symbol, Aggregation> aggregations)
+        {
+            return aggregations.values().stream().anyMatch(aggregation -> aggregation.getOrderingScheme().isPresent());
         }
     }
 

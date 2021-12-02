@@ -133,6 +133,7 @@ public class TestAggregationOperator
                 new JoinCompiler(typeOperators),
                 new BlockTypeOperators(typeOperators),
                 ImmutableList.of(),
+                true,
                 TEST_SESSION);
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)

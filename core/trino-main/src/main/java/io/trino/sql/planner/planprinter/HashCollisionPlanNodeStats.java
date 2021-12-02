@@ -15,6 +15,7 @@ package io.trino.sql.planner.planprinter;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Map;
@@ -39,7 +40,8 @@ public class HashCollisionPlanNodeStats
             DataSize planNodeOutputDataSize,
             DataSize planNodeSpilledDataSize,
             Map<String, OperatorInputStats> operatorInputStats,
-            Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats)
+            Map<String, OperatorHashCollisionsStats> operatorHashCollisionsStats,
+            Metrics metrics)
     {
         super(
                 planNodeId,
@@ -50,7 +52,9 @@ public class HashCollisionPlanNodeStats
                 planNodeOutputPositions,
                 planNodeOutputDataSize,
                 planNodeSpilledDataSize,
-                operatorInputStats);
+                operatorInputStats,
+                metrics,
+                Metrics.EMPTY);
         this.operatorHashCollisionsStats = requireNonNull(operatorHashCollisionsStats, "operatorHashCollisionsStats is null");
     }
 
@@ -104,6 +108,7 @@ public class HashCollisionPlanNodeStats
                 merged.getPlanNodeOutputDataSize(),
                 merged.getPlanNodeSpilledDataSize(),
                 merged.operatorInputStats,
-                operatorHashCollisionsStats);
+                operatorHashCollisionsStats,
+                merged.getMetrics());
     }
 }

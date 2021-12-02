@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
+import io.trino.FeaturesConfig;
 import io.trino.GroupByHashPageIndexerFactory;
 import io.trino.PagesIndexPageSorter;
 import io.trino.Session;
@@ -51,37 +52,16 @@ import io.trino.cost.StatsNormalizer;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
-import io.trino.execution.CommentTask;
-import io.trino.execution.CommitTask;
-import io.trino.execution.CreateTableTask;
-import io.trino.execution.CreateViewTask;
-import io.trino.execution.DataDefinitionTask;
-import io.trino.execution.DeallocateTask;
-import io.trino.execution.DropTableTask;
-import io.trino.execution.DropViewTask;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.Lifespan;
 import io.trino.execution.NodeTaskMap;
-import io.trino.execution.PrepareTask;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryPreparer.PreparedQuery;
-import io.trino.execution.RenameColumnTask;
-import io.trino.execution.RenameMaterializedViewTask;
-import io.trino.execution.RenameTableTask;
-import io.trino.execution.RenameViewTask;
-import io.trino.execution.ResetSessionTask;
-import io.trino.execution.RollbackTask;
 import io.trino.execution.ScheduledSplit;
-import io.trino.execution.SetPathTask;
-import io.trino.execution.SetPropertiesTask;
-import io.trino.execution.SetSessionTask;
-import io.trino.execution.SetTimeZoneTask;
-import io.trino.execution.StartTransactionTask;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskSource;
-import io.trino.execution.TruncateTableTask;
 import io.trino.execution.resourcegroups.NoOpResourceGroupManager;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
@@ -148,8 +128,8 @@ import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
-import io.trino.sql.analyzer.FeaturesConfig;
-import io.trino.sql.analyzer.QueryExplainer;
+import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
@@ -173,27 +153,12 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.planner.sanity.PlanSanityChecker;
-import io.trino.sql.tree.Comment;
-import io.trino.sql.tree.Commit;
-import io.trino.sql.tree.CreateTable;
-import io.trino.sql.tree.CreateView;
-import io.trino.sql.tree.Deallocate;
-import io.trino.sql.tree.DropTable;
-import io.trino.sql.tree.DropView;
-import io.trino.sql.tree.Prepare;
-import io.trino.sql.tree.RenameColumn;
-import io.trino.sql.tree.RenameMaterializedView;
-import io.trino.sql.tree.RenameTable;
-import io.trino.sql.tree.RenameView;
-import io.trino.sql.tree.ResetSession;
-import io.trino.sql.tree.Rollback;
-import io.trino.sql.tree.SetPath;
-import io.trino.sql.tree.SetProperties;
-import io.trino.sql.tree.SetSession;
-import io.trino.sql.tree.SetTimeZone;
-import io.trino.sql.tree.StartTransaction;
-import io.trino.sql.tree.Statement;
-import io.trino.sql.tree.TruncateTable;
+import io.trino.sql.rewrite.DescribeInputRewrite;
+import io.trino.sql.rewrite.DescribeOutputRewrite;
+import io.trino.sql.rewrite.ExplainRewrite;
+import io.trino.sql.rewrite.ShowQueriesRewrite;
+import io.trino.sql.rewrite.ShowStatsRewrite;
+import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import io.trino.transaction.InMemoryTransactionManager;
 import io.trino.transaction.TransactionId;
@@ -227,6 +192,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
@@ -280,7 +246,6 @@ public class LocalQueryRunner
     private final JoinCompiler joinCompiler;
     private final ConnectorManager connectorManager;
     private final PluginManager pluginManager;
-    private final ImmutableMap<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
 
     private final TaskManagerConfig taskManagerConfig;
     private final boolean alwaysRevokeMemory;
@@ -455,31 +420,7 @@ public class LocalQueryRunner
                 defaultSession.getUnprocessedCatalogProperties(),
                 metadata.getSessionPropertyManager(),
                 defaultSession.getPreparedStatements(),
-                defaultSession.getProtocolHeaders(),
-                transactionId.map(tId -> transactionManager.getTransactionInfo(tId).isAutoCommitContext()));
-
-        dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
-                .put(CreateTable.class, new CreateTableTask(featuresConfig))
-                .put(CreateView.class, new CreateViewTask(sqlParser, groupProvider, statsCalculator))
-                .put(DropTable.class, new DropTableTask())
-                .put(DropView.class, new DropViewTask())
-                .put(TruncateTable.class, new TruncateTableTask())
-                .put(RenameColumn.class, new RenameColumnTask())
-                .put(RenameMaterializedView.class, new RenameMaterializedViewTask())
-                .put(RenameTable.class, new RenameTableTask())
-                .put(RenameView.class, new RenameViewTask())
-                .put(Comment.class, new CommentTask())
-                .put(ResetSession.class, new ResetSessionTask())
-                .put(SetSession.class, new SetSessionTask())
-                .put(Prepare.class, new PrepareTask(sqlParser))
-                .put(Deallocate.class, new DeallocateTask())
-                .put(StartTransaction.class, new StartTransactionTask())
-                .put(Commit.class, new CommitTask())
-                .put(Rollback.class, new RollbackTask())
-                .put(SetPath.class, new SetPathTask())
-                .put(SetProperties.class, new SetPropertiesTask())
-                .put(SetTimeZone.class, new SetTimeZoneTask(sqlParser, groupProvider, statsCalculator))
-                .build();
+                defaultSession.getProtocolHeaders());
 
         SpillerStats spillerStats = new SpillerStats();
         this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(metadata, spillerStats, featuresConfig, nodeSpillConfig);
@@ -556,6 +497,12 @@ public class LocalQueryRunner
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    @Override
+    public AnalyzerFactory getAnalyzerFactory()
+    {
+        return createAnalyzerFactory(getPlanOptimizers(false));
     }
 
     public TypeOperators getTypeOperators()
@@ -862,7 +809,8 @@ public class LocalQueryRunner
                     session,
                     table,
                     stageExecutionDescriptor.isScanGroupedExecution(tableScan.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING,
-                    EMPTY);
+                    EMPTY,
+                    alwaysTrue());
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             while (!splitSource.isFinished()) {
@@ -963,18 +911,12 @@ public class LocalQueryRunner
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
-        QueryExplainer queryExplainer = new QueryExplainer(
-                optimizers,
-                planFragmenter,
-                metadata,
-                typeOperators,
-                groupProvider,
-                accessControl,
-                sqlParser,
-                statsCalculator,
-                costCalculator,
-                dataDefinitionTask);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), warningCollector, statsCalculator);
+        AnalyzerFactory analyzerFactory = createAnalyzerFactory(optimizers);
+        Analyzer analyzer = analyzerFactory.createAnalyzer(
+                session,
+                preparedQuery.getParameters(),
+                parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
+                warningCollector);
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(
                 session,
@@ -991,6 +933,30 @@ public class LocalQueryRunner
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         // make LocalQueryRunner always compute plan statistics for test purposes
         return logicalPlanner.plan(analysis, stage);
+    }
+
+    private AnalyzerFactory createAnalyzerFactory(List<PlanOptimizer> optimizers)
+    {
+        QueryExplainerFactory queryExplainerFactory = new QueryExplainerFactory(
+                () -> optimizers,
+                planFragmenter,
+                metadata,
+                typeOperators,
+                sqlParser,
+                statsCalculator,
+                costCalculator);
+
+        return new AnalyzerFactory(
+                metadata,
+                sqlParser,
+                accessControl,
+                groupProvider,
+                new StatementRewrite(ImmutableSet.of(
+                        new DescribeInputRewrite(sqlParser),
+                        new DescribeOutputRewrite(sqlParser),
+                        new ShowQueriesRewrite(metadata, sqlParser, accessControl),
+                        new ShowStatsRewrite(queryExplainerFactory, statsCalculator),
+                        new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))));
     }
 
     private static List<Split> getNextBatch(SplitSource splitSource)

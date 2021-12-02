@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.SystemSessionProperties;
@@ -181,7 +182,7 @@ import io.trino.sql.planner.iterative.rule.PushdownLimitIntoRowNumber;
 import io.trino.sql.planner.iterative.rule.PushdownLimitIntoWindow;
 import io.trino.sql.planner.iterative.rule.RemoveAggregationInSemiJoin;
 import io.trino.sql.planner.iterative.rule.RemoveDuplicateConditions;
-import io.trino.sql.planner.iterative.rule.RemoveEmptyDelete;
+import io.trino.sql.planner.iterative.rule.RemoveEmptyDeleteRuleSet;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyExceptBranches;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyTableExecute;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyUnionBranches;
@@ -240,7 +241,6 @@ import io.trino.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
 import io.trino.sql.planner.optimizations.OptimizerStats;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.optimizations.PredicatePushDown;
-import io.trino.sql.planner.optimizations.PruneUnreferencedOutputs;
 import io.trino.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import io.trino.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import io.trino.sql.planner.optimizations.TableDeleteOptimizer;
@@ -254,7 +254,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static io.trino.SystemSessionProperties.isIterativeRuleBasedColumnPruning;
 import static java.util.Objects.requireNonNull;
 
 public class PlanOptimizers
@@ -318,56 +317,7 @@ public class PlanOptimizers
         this.ruleStats = requireNonNull(ruleStats, "ruleStats is null");
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
-        Set<Rule<?>> columnPruningRules = ImmutableSet.of(
-                new PruneAggregationColumns(),
-                new PruneAggregationSourceColumns(),
-                new PruneApplyColumns(),
-                new PruneApplyCorrelation(),
-                new PruneApplySourceColumns(),
-                new PruneAssignUniqueIdColumns(),
-                new PruneCorrelatedJoinColumns(),
-                new PruneCorrelatedJoinCorrelation(),
-                new PruneDeleteSourceColumns(),
-                new PruneUpdateSourceColumns(),
-                new PruneDistinctLimitSourceColumns(),
-                new PruneEnforceSingleRowColumns(),
-                new PruneExceptSourceColumns(),
-                new PruneExchangeColumns(),
-                new PruneExchangeSourceColumns(),
-                new PruneExplainAnalyzeSourceColumns(),
-                new PruneFilterColumns(),
-                new PruneGroupIdColumns(),
-                new PruneGroupIdSourceColumns(),
-                new PruneIndexJoinColumns(),
-                new PruneIndexSourceColumns(),
-                new PruneIntersectSourceColumns(),
-                new PruneJoinChildrenColumns(),
-                new PruneJoinColumns(),
-                new PruneLimitColumns(),
-                new PruneMarkDistinctColumns(),
-                new PruneOffsetColumns(),
-                new PruneOutputSourceColumns(),
-                new PrunePattenRecognitionColumns(),
-                new PrunePatternRecognitionSourceColumns(),
-                new PruneProjectColumns(),
-                new PruneRowNumberColumns(),
-                new PruneSampleColumns(),
-                new PruneSemiJoinColumns(),
-                new PruneSemiJoinFilteringSourceColumns(),
-                new PruneSortColumns(),
-                new PruneSpatialJoinChildrenColumns(),
-                new PruneSpatialJoinColumns(),
-                new PruneTableExecuteSourceColumns(),
-                new PruneTableScanColumns(metadata),
-                new PruneTableWriterSourceColumns(),
-                new PruneTopNColumns(),
-                new PruneTopNRankingColumns(),
-                new PruneUnionColumns(),
-                new PruneUnionSourceColumns(),
-                new PruneUnnestColumns(),
-                new PruneUnnestSourceColumns(),
-                new PruneValuesColumns(),
-                new PruneWindowColumns());
+        Set<Rule<?>> columnPruningRules = columnPruningRules(metadata);
 
         Set<Rule<?>> projectionPushdownRules = ImmutableSet.of(
                 new PushProjectionThroughUnion(),
@@ -425,8 +375,6 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                session -> !isIterativeRuleBasedColumnPruning(session),
-                ImmutableList.of(new PruneUnreferencedOutputs(metadata)),
                 columnPruningRules);
 
         builder.add(
@@ -889,9 +837,11 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        ImmutableSet.of(
-                                new RemoveEmptyDelete(),
-                                new RemoveEmptyTableExecute()))); // Run RemoveEmptyDelete and RemoveEmptyTableExecute after table scan is removed by PickTableLayout/AddExchanges
+                        ImmutableSet.<Rule<?>>builder()
+                                // Run RemoveEmptyDeleteRuleSet and RemoveEmptyTableExecute after table scan is removed by PickTableLayout/AddExchanges
+                                .addAll(RemoveEmptyDeleteRuleSet.rules())
+                                .add(new RemoveEmptyTableExecute())
+                                .build()));
 
         // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         // and to pushdown dynamic filters
@@ -989,6 +939,61 @@ public class PlanOptimizers
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
 
         this.optimizers = builder.build();
+    }
+
+    @VisibleForTesting
+    public static Set<Rule<?>> columnPruningRules(Metadata metadata)
+    {
+        return ImmutableSet.of(
+                new PruneAggregationColumns(),
+                new PruneAggregationSourceColumns(),
+                new PruneApplyColumns(),
+                new PruneApplyCorrelation(),
+                new PruneApplySourceColumns(),
+                new PruneAssignUniqueIdColumns(),
+                new PruneCorrelatedJoinColumns(),
+                new PruneCorrelatedJoinCorrelation(),
+                new PruneDeleteSourceColumns(),
+                new PruneUpdateSourceColumns(),
+                new PruneDistinctLimitSourceColumns(),
+                new PruneEnforceSingleRowColumns(),
+                new PruneExceptSourceColumns(),
+                new PruneExchangeColumns(),
+                new PruneExchangeSourceColumns(),
+                new PruneExplainAnalyzeSourceColumns(),
+                new PruneFilterColumns(),
+                new PruneGroupIdColumns(),
+                new PruneGroupIdSourceColumns(),
+                new PruneIndexJoinColumns(),
+                new PruneIndexSourceColumns(),
+                new PruneIntersectSourceColumns(),
+                new PruneJoinChildrenColumns(),
+                new PruneJoinColumns(),
+                new PruneLimitColumns(),
+                new PruneMarkDistinctColumns(),
+                new PruneOffsetColumns(),
+                new PruneOutputSourceColumns(),
+                new PrunePattenRecognitionColumns(),
+                new PrunePatternRecognitionSourceColumns(),
+                new PruneProjectColumns(),
+                new PruneRowNumberColumns(),
+                new PruneSampleColumns(),
+                new PruneSemiJoinColumns(),
+                new PruneSemiJoinFilteringSourceColumns(),
+                new PruneSortColumns(),
+                new PruneSpatialJoinChildrenColumns(),
+                new PruneSpatialJoinColumns(),
+                new PruneTableExecuteSourceColumns(),
+                new PruneTableScanColumns(metadata),
+                new PruneTableWriterSourceColumns(),
+                new PruneTopNColumns(),
+                new PruneTopNRankingColumns(),
+                new PruneUnionColumns(),
+                new PruneUnionSourceColumns(),
+                new PruneUnnestColumns(),
+                new PruneUnnestSourceColumns(),
+                new PruneValuesColumns(),
+                new PruneWindowColumns());
     }
 
     @Override

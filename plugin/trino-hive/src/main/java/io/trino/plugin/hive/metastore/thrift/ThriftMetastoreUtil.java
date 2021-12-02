@@ -158,9 +158,9 @@ public final class ThriftMetastoreUtil
         org.apache.hadoop.hive.metastore.api.Database result = new org.apache.hadoop.hive.metastore.api.Database();
         result.setName(database.getDatabaseName());
         database.getLocation().ifPresent(result::setLocationUri);
-        result.setOwnerName(database.getOwnerName());
+        result.setOwnerName(database.getOwnerName().orElse(null));
 
-        result.setOwnerType(fromTrinoPrincipalType(database.getOwnerType()));
+        result.setOwnerType(database.getOwnerType().map(ThriftMetastoreUtil::fromTrinoPrincipalType).orElse(null));
         database.getComment().ifPresent(result::setDescription);
         result.setParameters(database.getParameters());
         return result;
@@ -178,7 +178,7 @@ public final class ThriftMetastoreUtil
         org.apache.hadoop.hive.metastore.api.Table result = new org.apache.hadoop.hive.metastore.api.Table();
         result.setDbName(table.getDatabaseName());
         result.setTableName(table.getTableName());
-        result.setOwner(table.getOwner());
+        result.setOwner(table.getOwner().orElse(null));
         result.setTableType(table.getTableType());
         result.setParameters(table.getParameters());
         result.setPartitionKeys(table.getPartitionColumns().stream().map(ThriftMetastoreUtil::toMetastoreApiFieldSchema).collect(toImmutableList()));
@@ -363,8 +363,8 @@ public final class ThriftMetastoreUtil
         return Database.builder()
                 .setDatabaseName(database.getName())
                 .setLocation(Optional.ofNullable(database.getLocationUri()))
-                .setOwnerName(ownerName)
-                .setOwnerType(ownerType)
+                .setOwnerName(Optional.of(ownerName))
+                .setOwnerType(Optional.of(ownerType))
                 .setComment(Optional.ofNullable(database.getDescription()))
                 .setParameters(parameters)
                 .build();
@@ -389,7 +389,7 @@ public final class ThriftMetastoreUtil
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getDbName())
                 .setTableName(table.getTableName())
-                .setOwner(nullToEmpty(table.getOwner()))
+                .setOwner(Optional.ofNullable(table.getOwner()))
                 .setTableType(table.getTableType())
                 .setDataColumns(schema.stream()
                         .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)

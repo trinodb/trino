@@ -60,7 +60,7 @@
         <dep.selenium.version>3.141.59</dep.selenium.version>
         <dep.tempto.version>186</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
-        <dep.errorprone.version>2.9.0</dep.errorprone.version>
+        <dep.errorprone.version>2.10.0</dep.errorprone.version>
         <dep.testcontainers.version>1.16.2</dep.testcontainers.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
         <dep.coral.version>1.0.120</dep.coral.version>
@@ -70,7 +70,7 @@
         <!-- TODO(https://github.com/airlift/airbase/pull/281): Required by testcontainers, remove when pulled from Airbase -->
         <dep.slf4j.version>1.7.32</dep.slf4j.version>
 
-        <dep.docker.images.version>51</dep.docker.images.version>
+        <dep.docker.images.version>53</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -551,7 +551,7 @@
             <dependency>
                 <groupId>io.trino.hadoop</groupId>
                 <artifactId>hadoop-apache</artifactId>
-                <version>3.2.0-15</version>
+                <version>3.2.0-16</version>
             </dependency>
 
             <dependency>

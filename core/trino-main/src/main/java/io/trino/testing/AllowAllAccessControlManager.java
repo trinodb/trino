@@ -24,6 +24,7 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 
 import java.security.Principal;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -47,16 +48,16 @@ public class AllowAllAccessControlManager
     public void checkCanExecuteQuery(Identity identity) {}
 
     @Override
-    public void checkCanViewQueryOwnedBy(Identity identity, String queryOwner) {}
+    public void checkCanViewQueryOwnedBy(Identity identity, Identity queryOwner) {}
 
     @Override
-    public Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners)
+    public Collection<Identity> filterQueriesOwnedBy(Identity identity, Collection<Identity> queryOwners)
     {
         return queryOwners;
     }
 
     @Override
-    public void checkCanKillQueryOwnedBy(Identity identity, String queryOwner) {}
+    public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner) {}
 
     @Override
     public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)

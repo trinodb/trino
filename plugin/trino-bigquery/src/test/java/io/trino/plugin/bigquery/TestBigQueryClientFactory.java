@@ -22,12 +22,12 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestBigQueryConnectorModule
+public class TestBigQueryClientFactory
 {
     @Test
     public void testConfigurationOnly()
     {
-        String projectId = BigQueryConnectorModule.calculateBillingProjectId(Optional.of("pid"), Optional.empty());
+        String projectId = BigQueryClientFactory.calculateBillingProjectId(Optional.of("pid"), Optional.empty());
         assertThat(projectId).isEqualTo("pid");
     }
 
@@ -35,7 +35,7 @@ public class TestBigQueryConnectorModule
     public void testCredentialsOnly()
             throws Exception
     {
-        String projectId = BigQueryConnectorModule.calculateBillingProjectId(Optional.empty(), credentials());
+        String projectId = BigQueryClientFactory.calculateBillingProjectId(Optional.empty(), credentials());
         assertThat(projectId).isEqualTo("presto-bq-credentials-test");
     }
 
@@ -43,7 +43,7 @@ public class TestBigQueryConnectorModule
     public void testBothConfigurationAndCredentials()
             throws Exception
     {
-        String projectId = BigQueryConnectorModule.calculateBillingProjectId(Optional.of("pid"), credentials());
+        String projectId = BigQueryClientFactory.calculateBillingProjectId(Optional.of("pid"), credentials());
         assertThat(projectId).isEqualTo("pid");
     }
 

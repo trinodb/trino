@@ -23,9 +23,9 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableMetadata;
+import io.trino.metadata.TableSchema;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
@@ -512,11 +512,9 @@ class QueryPlanner
         Table table = node.getTable();
         TableHandle handle = analysis.getTableHandle(table);
 
-        TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
+        TableSchema tableSchema = metadata.getTableSchema(session, handle);
         Map<String, ColumnHandle> columnMap = metadata.getColumnHandles(session, handle);
-        List<ColumnMetadata> dataColumns = tableMetadata.getMetadata().getColumns().stream()
-                .filter(column -> !column.isHidden())
-                .collect(toImmutableList());
+        List<ColumnSchema> columnsSchemas = tableSchema.getColumns();
 
         List<String> targetColumnNames = node.getAssignments().stream()
                 .map(assignment -> assignment.getName().getValue())
@@ -526,8 +524,8 @@ class QueryPlanner
         ImmutableList.Builder<String> updatedColumnNamesBuilder = ImmutableList.builder();
         ImmutableList.Builder<ColumnHandle> updatedColumnHandlesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Expression> orderedColumnValuesBuilder = ImmutableList.builder();
-        for (ColumnMetadata columnMetadata : dataColumns) {
-            String name = columnMetadata.getName();
+        for (ColumnSchema columnSchema : columnsSchemas) {
+            String name = columnSchema.getName();
             int index = targetColumnNames.indexOf(name);
             if (index >= 0) {
                 updatedColumnNamesBuilder.add(name);

@@ -16,21 +16,19 @@ package io.trino.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
-import io.trino.cost.StatsCalculator;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ViewColumn;
 import io.trino.security.AccessControl;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
-import io.trino.spi.security.GroupProvider;
 import io.trino.sql.analyzer.Analysis;
-import io.trino.sql.analyzer.Analyzer;
+import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
-import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
@@ -50,16 +48,18 @@ import static java.util.Objects.requireNonNull;
 public class CreateMaterializedViewTask
         implements DataDefinitionTask<CreateMaterializedView>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
     private final SqlParser sqlParser;
-    private final GroupProvider groupProvider;
-    private final StatsCalculator statsCalculator;
+    private final AnalyzerFactory analyzerFactory;
 
     @Inject
-    public CreateMaterializedViewTask(SqlParser sqlParser, GroupProvider groupProvider, StatsCalculator statsCalculator)
+    public CreateMaterializedViewTask(Metadata metadata, AccessControl accessControl, SqlParser sqlParser, AnalyzerFactory analyzerFactory)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
-        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
     }
 
     @Override
@@ -69,17 +69,8 @@ public class CreateMaterializedViewTask
     }
 
     @Override
-    public String explain(CreateMaterializedView statement, List<Expression> parameters)
-    {
-        return "CREATE MATERIALIZED VIEW " + statement.getName();
-    }
-
-    @Override
     public ListenableFuture<Void> execute(
             CreateMaterializedView statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
@@ -90,15 +81,13 @@ public class CreateMaterializedViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.empty(), parameters, parameterLookup, stateMachine.getWarningCollector(), statsCalculator)
+        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, stateMachine.getWarningCollector())
                 .analyze(statement);
 
-        List<ConnectorMaterializedViewDefinition.Column> columns = analysis.getOutputDescriptor(statement.getQuery())
+        List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
-                .map(field -> new ConnectorMaterializedViewDefinition.Column(field.getName().get(), field.getType().getTypeId()))
+                .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeId()))
                 .collect(toImmutableList());
-
-        String owner = session.getUser();
 
         CatalogName catalogName = getRequiredCatalogHandle(metadata, session, statement, name.getCatalogName());
 
@@ -113,14 +102,14 @@ public class CreateMaterializedViewTask
                 parameterLookup,
                 true);
 
-        ConnectorMaterializedViewDefinition definition = new ConnectorMaterializedViewDefinition(
+        MaterializedViewDefinition definition = new MaterializedViewDefinition(
                 sql,
-                Optional.empty(),
                 session.getCatalog(),
                 session.getSchema(),
                 columns,
                 statement.getComment(),
-                owner,
+                session.getIdentity(),
+                Optional.empty(),
                 properties);
 
         metadata.createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());

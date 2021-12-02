@@ -40,10 +40,10 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.FeaturesConfig.JoinDistributionType;
+import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -162,6 +162,22 @@ public class TestMemoryConnectorTest
         assertThat(metrics.getMetrics().get("rows")).isEqualTo(new LongCount(PART_COUNT));
         assertThat(metrics.getMetrics().get("started")).isEqualTo(metrics.getMetrics().get("finished"));
         assertThat(((Count<?>) metrics.getMetrics().get("finished")).getTotal()).isGreaterThan(0);
+    }
+
+    @Test
+    public void testExplainCustomMetricsScanOnly()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT partkey FROM part",
+                "'rows' = LongCount\\{total=2000}");
+    }
+
+    @Test
+    public void testExplainCustomMetricsScanFilter()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT partkey FROM part WHERE partkey % 1000 > 0",
+                "'rows' = LongCount\\{total=2000}");
     }
 
     private Metrics collectCustomMetrics(String sql)
@@ -338,7 +354,6 @@ public class TestMemoryConnectorTest
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "Lists differ at element")
     public void testCrossJoinDynamicFiltering()
     {
         assertUpdate("DROP TABLE IF EXISTS probe");

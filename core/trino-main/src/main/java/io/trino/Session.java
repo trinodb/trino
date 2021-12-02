@@ -84,7 +84,6 @@ public final class Session
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
     private final ProtocolHeaders protocolHeaders;
-    private final Optional<Boolean> transactionAutoCommitContext;
 
     public Session(
             QueryId queryId,
@@ -110,8 +109,7 @@ public final class Session
             Map<String, Map<String, String>> unprocessedCatalogProperties,
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
-            ProtocolHeaders protocolHeaders,
-            Optional<Boolean> transactionAutoCommitContext)
+            ProtocolHeaders protocolHeaders)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -151,8 +149,6 @@ public final class Session
         checkArgument(transactionId.isEmpty() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
 
         checkArgument(catalog.isPresent() || schema.isEmpty(), "schema is set but catalog is not");
-
-        this.transactionAutoCommitContext = requireNonNull(transactionAutoCommitContext, "transactionId is null");
     }
 
     public QueryId getQueryId()
@@ -350,7 +346,6 @@ public final class Session
                 connectorRoles.put(systemTablesCatalogName, role);
             }
         }
-        boolean isAutoCommitContext = transactionManager.getTransactionInfo(transactionId).isAutoCommitContext();
 
         return new Session(
                 queryId,
@@ -378,8 +373,7 @@ public final class Session
                 ImmutableMap.of(),
                 sessionPropertyManager,
                 preparedStatements,
-                protocolHeaders,
-                Optional.of(isAutoCommitContext));
+                protocolHeaders);
     }
 
     public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
@@ -431,8 +425,7 @@ public final class Session
                 connectorProperties,
                 sessionPropertyManager,
                 preparedStatements,
-                protocolHeaders,
-                transactionAutoCommitContext);
+                protocolHeaders);
     }
 
     public ConnectorSession toConnectorSession()
@@ -451,7 +444,6 @@ public final class Session
 
         return new FullConnectorSession(
                 this,
-                transactionAutoCommitContext,
                 identity.toConnectorIdentity(catalogName.getCatalogName()),
                 connectorProperties.getOrDefault(catalogName, ImmutableMap.of()),
                 catalogName,
@@ -488,8 +480,7 @@ public final class Session
                 unprocessedCatalogProperties,
                 identity.getCatalogRoles(),
                 preparedStatements,
-                protocolHeaders.getProtocolName(),
-                transactionAutoCommitContext);
+                protocolHeaders.getProtocolName());
     }
 
     @Override
@@ -844,8 +835,7 @@ public final class Session
                     catalogSessionProperties,
                     sessionPropertyManager,
                     preparedStatements,
-                    protocolHeaders,
-                    Optional.empty());
+                    protocolHeaders);
         }
     }
 

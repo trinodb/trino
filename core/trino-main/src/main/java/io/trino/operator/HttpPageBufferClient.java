@@ -31,11 +31,11 @@ import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.server.remotetask.Backoff;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
-import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;

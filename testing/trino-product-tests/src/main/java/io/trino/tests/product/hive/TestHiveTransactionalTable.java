@@ -1836,6 +1836,73 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testDeleteWithOriginalFiles()
+    {
+        withTemporaryTable("test_delete_with_original_files", true, false, NONE, tableName -> {
+            // these 3 properties are necessary to make sure there is more than 1 original file created
+            onTrino().executeQuery("SET SESSION scale_writers = true");
+            onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
+            onTrino().executeQuery("SET SESSION task_writer_count = 2");
+            onTrino().executeQuery(format(
+                    "CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.sf1000.orders LIMIT 100000", tableName));
+
+            verify(onTrino().executeQuery(format("SELECT DISTINCT \"$path\" FROM %s", tableName)).getRowsCount() >= 2,
+                    "There should be at least 2 files");
+            validateFileIsDirectlyUnderTableLocation(tableName);
+
+            onTrino().executeQuery(format("DELETE FROM %s", tableName));
+            verifySelectForTrinoAndHive(format("SELECT COUNT(*) FROM %s", tableName), "TRUE", row(0));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testDeleteWithOriginalFilesWithWhereClause()
+    {
+        withTemporaryTable("test_delete_with_original_files_with_where_clause", true, false, NONE, tableName -> {
+            // these 3 properties are necessary to make sure there is more than 1 original file created
+            onTrino().executeQuery("SET SESSION scale_writers = true");
+            onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
+            onTrino().executeQuery("SET SESSION task_writer_count = 2");
+            onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.sf1000.orders LIMIT 100000", tableName));
+
+            verify(onTrino().executeQuery(format("SELECT DISTINCT \"$path\" FROM %s", tableName)).getRowsCount() >= 2,
+                    "There should be at least 2 files");
+            validateFileIsDirectlyUnderTableLocation(tableName);
+            int sizeBeforeDeletion = onTrino().executeQuery(format("SELECT orderkey FROM %s", tableName)).rows().size();
+
+            onTrino().executeQuery(format("DELETE FROM %s WHERE (orderkey %% 2) = 0", tableName));
+            assertThat(onTrino().executeQuery(format("SELECT COUNT (orderkey) FROM %s WHERE orderkey %%2 = 0", tableName))).containsOnly(row(0));
+
+            int sizeOnTrinoWithWhere = onTrino().executeQuery(format("SELECT orderkey FROM %s WHERE orderkey %%2 = 1", tableName)).rows().size();
+            int sizeOnHiveWithWhere = onHive().executeQuery(format("SELECT orderkey FROM %s WHERE orderkey %%2 = 1", tableName)).rows().size();
+            int sizeOnTrinoWithoutWhere = onTrino().executeQuery(format("SELECT orderkey FROM %s", tableName)).rows().size();
+
+            verify(sizeOnHiveWithWhere == sizeOnTrinoWithWhere);
+            verify(sizeOnTrinoWithWhere == sizeOnTrinoWithoutWhere);
+            verify(sizeBeforeDeletion > sizeOnTrinoWithoutWhere);
+        });
+    }
+
+    private void validateFileIsDirectlyUnderTableLocation(String tableName)
+    {
+        onTrino().executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s", tableName))
+                .column(1)
+                .forEach(path -> verify(path.toString().endsWith(tableName.toLowerCase(ENGLISH)),
+                        "files in %s are not directly under table location"));
+    }
+
+    @Test
+    public void testDeleteAfterMajorCompaction()
+    {
+        withTemporaryTable("test_delete_after_major_compaction", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true) AS SELECT * FROM tpch.tiny.nation", tableName));
+            compactTableAndWait(MAJOR, tableName, "", new Duration(3, MINUTES));
+            onTrino().executeQuery(format("DELETE FROM %s", tableName));
+            verifySelectForTrinoAndHive(format("SELECT COUNT(*) FROM %s", tableName), "true", row(0));
+        });
+    }
+
     private void hdfsDeleteAll(String directory)
     {
         if (!hdfsClient.exist(directory)) {

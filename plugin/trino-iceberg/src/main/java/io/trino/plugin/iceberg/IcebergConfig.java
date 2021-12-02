@@ -22,7 +22,7 @@ import org.apache.iceberg.FileFormat;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
-import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -30,13 +30,14 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class IcebergConfig
 {
     private IcebergFileFormat fileFormat = ORC;
-    private HiveCompressionCodec compressionCodec = GZIP;
+    private HiveCompressionCodec compressionCodec = ZSTD;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation;
     private CatalogType catalogType = HIVE_METASTORE;
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;
+    private boolean projectionPushdownEnabled = true;
 
     public CatalogType getCatalogType()
     {
@@ -152,5 +153,18 @@ public class IcebergConfig
     public boolean isTableStatisticsEnabled()
     {
         return tableStatisticsEnabled;
+    }
+
+    public boolean isProjectionPushdownEnabled()
+    {
+        return projectionPushdownEnabled;
+    }
+
+    @Config("iceberg.projection-pushdown-enabled")
+    @ConfigDescription("Read only required fields from a struct")
+    public IcebergConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
+    {
+        this.projectionPushdownEnabled = projectionPushdownEnabled;
+        return this;
     }
 }

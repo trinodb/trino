@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery;
 import com.google.auth.oauth2.GoogleCredentials;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigHidden;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
@@ -49,6 +50,7 @@ public class BigQueryConfig
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Duration viewsCacheTtl = new Duration(15, MINUTES);
+    private Duration serviceCacheTtl = new Duration(3, MINUTES);
 
     @AssertTrue(message = "Exactly one of 'bigquery.credentials-key' or 'bigquery.credentials-file' must be specified, or the default GoogleCredentials could be created")
     public boolean isCredentialsConfigurationValid()
@@ -233,6 +235,22 @@ public class BigQueryConfig
     public BigQueryConfig setViewsCacheTtl(Duration viewsCacheTtl)
     {
         this.viewsCacheTtl = viewsCacheTtl;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0m")
+    public Duration getServiceCacheTtl()
+    {
+        return serviceCacheTtl;
+    }
+
+    @ConfigHidden
+    @Config("bigquery.service-cache-ttl")
+    @ConfigDescription("Duration for which BigQuery client service instances are cached")
+    public BigQueryConfig setServiceCacheTtl(Duration serviceCacheTtl)
+    {
+        this.serviceCacheTtl = serviceCacheTtl;
         return this;
     }
 }

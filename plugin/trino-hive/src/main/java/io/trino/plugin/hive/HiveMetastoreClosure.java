@@ -291,7 +291,7 @@ public class HiveMetastoreClosure
         delegate.revokeTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
     }
 
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
     {
         return delegate.listTablePrivileges(databaseName, tableName, tableOwner, principal);
     }

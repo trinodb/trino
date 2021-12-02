@@ -20,11 +20,10 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.TruncateTable;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,10 +33,21 @@ import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class TruncateTableTask
         implements DataDefinitionTask<TruncateTable>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public TruncateTableTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -47,9 +57,6 @@ public class TruncateTableTask
     @Override
     public ListenableFuture<Void> execute(
             TruncateTable statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
@@ -57,13 +64,11 @@ public class TruncateTableTask
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
 
-        Optional<ConnectorMaterializedViewDefinition> materializedView = metadata.getMaterializedView(session, tableName);
-        if (materializedView.isPresent()) {
+        if (metadata.isMaterializedView(session, tableName)) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot truncate a materialized view");
         }
 
-        Optional<ConnectorViewDefinition> view = metadata.getView(session, tableName);
-        if (view.isPresent()) {
+        if (metadata.isView(session, tableName)) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot truncate a view");
         }
 

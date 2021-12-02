@@ -61,14 +61,14 @@ public class TestRemoveRedundantTableScanPredicate
     {
         removeRedundantTableScanPredicate = new RemoveRedundantTableScanPredicate(tester().getMetadata(), new TypeOperators(), tester().getTypeAnalyzer());
         CatalogName catalogName = tester().getCurrentConnectorId();
-        TpchTableHandle nation = new TpchTableHandle("nation", 1.0);
+        TpchTableHandle nation = new TpchTableHandle("sf1", "nation", 1.0);
         nationTableHandle = new TableHandle(
                 catalogName,
                 nation,
                 TpchTransactionHandle.INSTANCE,
                 Optional.of(new TpchTableLayoutHandle(nation, TupleDomain.all())));
 
-        TpchTableHandle orders = new TpchTableHandle("orders", 1.0);
+        TpchTableHandle orders = new TpchTableHandle("sf1", "orders", 1.0);
         ordersTableHandle = new TableHandle(
                 catalogName,
                 orders,

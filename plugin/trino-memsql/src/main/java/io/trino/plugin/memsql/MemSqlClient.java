@@ -42,6 +42,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TimestampType;
@@ -80,20 +81,29 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRou
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMappingUsingSqlTime;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -101,11 +111,19 @@ import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsuppor
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -305,7 +323,13 @@ public class MemSqlClient
             case Types.BIGINT:
                 return Optional.of(bigintColumnMapping());
             case Types.REAL:
-                return Optional.of(realColumnMapping());
+                // Disable pushdown because floating-point values are approximate and not stored as exact values,
+                // attempts to treat them as exact in comparisons may lead to problems
+                return Optional.of(ColumnMapping.longMapping(
+                        REAL,
+                        (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
+                        realWriteFunction(),
+                        DISABLE_PUSHDOWN));
             case Types.DOUBLE:
                 return Optional.of(doubleColumnMapping());
             case Types.CHAR:
@@ -431,6 +455,38 @@ public class MemSqlClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
+        if (type == BOOLEAN) {
+            return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
+        }
+        if (type == TINYINT) {
+            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
+        }
+        if (type == SMALLINT) {
+            return WriteMapping.longMapping("smallint", smallintWriteFunction());
+        }
+        if (type == INTEGER) {
+            return WriteMapping.longMapping("integer", integerWriteFunction());
+        }
+        if (type == BIGINT) {
+            return WriteMapping.longMapping("bigint", bigintWriteFunction());
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            if (decimalType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
+            }
+            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType));
+        }
+        if (REAL.equals(type)) {
+            return WriteMapping.longMapping("float", realWriteFunction());
+        }
+        if (type == DOUBLE) {
+            return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
+        }
+        if (type instanceof CharType) {
+            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        }
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;
             String dataType;
@@ -454,11 +510,8 @@ public class MemSqlClient
         if (VARBINARY.equals(type)) {
             return WriteMapping.sliceMapping("longblob", varbinaryWriteFunction());
         }
-        if (type.equals(jsonType)) {
-            return WriteMapping.sliceMapping("json", varcharWriteFunction());
-        }
-        if (REAL.equals(type)) {
-            return WriteMapping.longMapping("float", realWriteFunction());
+        if (type == DATE) {
+            return WriteMapping.longMapping("date", dateWriteFunction());
         }
         // TODO implement TIME type
         if (type instanceof TimestampType) {
@@ -469,9 +522,11 @@ public class MemSqlClient
             }
             return WriteMapping.longMapping(format("datetime(%s)", MEMSQL_DATE_TIME_MAX_PRECISION), timestampWriteFunction(TIMESTAMP_MICROS));
         }
+        if (type.equals(jsonType)) {
+            return WriteMapping.sliceMapping("json", varcharWriteFunction());
+        }
 
-        // TODO add explicit mappings
-        return legacyToWriteMapping(session, type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     @Override

@@ -23,7 +23,6 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.server.BasicQueryInfo;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -1084,7 +1083,6 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "AssertionError: expected \\[.*\\] but found \\[.*\\]")
     public void testWrittenStats()
     {
         skipTestUnless(supportsCreateTable());

@@ -27,6 +27,7 @@ import io.trino.execution.Column;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionKind;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.OperatorNotFoundException;
@@ -37,6 +38,9 @@ import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TableSchema;
+import io.trino.metadata.TableVersion;
+import io.trino.metadata.ViewColumn;
+import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.security.ViewAccessControl;
@@ -47,10 +51,8 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorViewDefinition;
-import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.OperatorType;
@@ -60,8 +62,11 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.VarcharType;
@@ -142,6 +147,7 @@ import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
+import io.trino.sql.tree.QueryPeriod;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Relation;
@@ -287,6 +293,7 @@ import static io.trino.sql.analyzer.Scope.BasisType.TABLE;
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.DereferenceExpression.getQualifiedName;
 import static io.trino.sql.tree.Join.Type.FULL;
@@ -384,9 +391,7 @@ class StatementAnalyzer
         {
             Scope returnScope = super.process(node, scope);
             checkState(returnScope.getOuterQueryParent().equals(outerQueryScope), "result scope should have outer query scope equal with parameter outer query scope");
-            if (scope.isPresent()) {
-                checkState(hasScopeAsLocalParent(returnScope, scope.get()), "return scope should have context scope as one of its ancestors");
-            }
+            scope.ifPresent(value -> checkState(hasScopeAsLocalParent(returnScope, value), "return scope should have context scope as one of its ancestors"));
             return returnScope;
         }
 
@@ -412,11 +417,11 @@ class StatementAnalyzer
         {
             QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget());
 
-            if (metadata.getMaterializedView(session, targetTable).isPresent()) {
+            if (metadata.isMaterializedView(session, targetTable)) {
                 throw semanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
             }
 
-            if (metadata.getView(session, targetTable).isPresent()) {
+            if (metadata.isView(session, targetTable)) {
                 throw semanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
             }
 
@@ -432,10 +437,6 @@ class StatementAnalyzer
             }
             accessControl.checkCanInsertIntoTable(session.toSecurityContext(), targetTable);
 
-            if (!accessControl.getRowFilters(session.toSecurityContext(), targetTable).isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, insert, "Insert into table with a row filter is not supported");
-            }
-
             TableSchema tableSchema = metadata.getTableSchema(session, targetTableHandle.get());
 
             List<ColumnSchema> columns = tableSchema.getColumns().stream()
@@ -447,6 +448,10 @@ class StatementAnalyzer
                     throw semanticException(NOT_SUPPORTED, insert, "Insert into table with column masks is not supported");
                 }
             }
+
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
+            List<Field> tableFields = analyzeTableOutputFields(insert.getTable(), targetTable, tableSchema, columnHandles);
+            analyzeFiltersAndMasks(insert.getTable(), targetTable, targetTableHandle, tableFields, session.getIdentity().getUser());
 
             List<String> tableColumns = columns.stream()
                     .map(ColumnSchema::getName)
@@ -481,8 +486,8 @@ class StatementAnalyzer
                 insertColumns = tableColumns;
             }
 
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
             analysis.setInsert(new Analysis.Insert(
+                    insert.getTable(),
                     targetTableHandle.get(),
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList()),
                     newTableLayout));
@@ -526,7 +531,7 @@ class StatementAnalyzer
         protected Scope visitRefreshMaterializedView(RefreshMaterializedView refreshMaterializedView, Optional<Scope> scope)
         {
             QualifiedObjectName name = createQualifiedObjectName(session, refreshMaterializedView, refreshMaterializedView.getName());
-            Optional<ConnectorMaterializedViewDefinition> optionalView = metadata.getMaterializedView(session, name);
+            Optional<MaterializedViewDefinition> optionalView = metadata.getMaterializedView(session, name);
 
             if (optionalView.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Materialized view '%s' does not exist", name);
@@ -573,7 +578,7 @@ class StatementAnalyzer
 
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
             analysis.setRefreshMaterializedView(new Analysis.RefreshMaterializedViewAnalysis(
-                    name,
+                    refreshMaterializedView.getTable(),
                     targetTableHandle.get(), query,
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
 
@@ -668,7 +673,7 @@ class StatementAnalyzer
         {
             Table table = node.getTable();
             QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName());
-            if (metadata.getView(session, originalName).isPresent()) {
+            if (metadata.isView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
 
@@ -679,12 +684,8 @@ class StatementAnalyzer
 
             accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
 
-            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, node, "Delete from table with row filter");
-            }
-
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
-            for (ColumnMetadata tableColumn : tableMetadata.getColumns()) {
+            TableSchema tableSchema = metadata.getTableSchema(session, handle);
+            for (ColumnSchema tableColumn : tableSchema.getColumns()) {
                 if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
                     throw semanticException(NOT_SUPPORTED, node, "Delete from table with column mask");
                 }
@@ -707,6 +708,7 @@ class StatementAnalyzer
 
             analysis.setUpdateType("DELETE");
             analysis.setUpdateTarget(tableName, Optional.of(table), Optional.empty());
+            analyzeFiltersAndMasks(table, tableName, Optional.of(handle), analysis.getScope(table).getRelationType(), session.getIdentity().getUser());
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -719,7 +721,7 @@ class StatementAnalyzer
             analysis.setUpdateTarget(tableName, Optional.empty(), Optional.empty());
 
             // verify the target table exists and it's not a view
-            if (metadata.getView(session, tableName).isPresent()) {
+            if (metadata.isView(session, tableName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
             }
 
@@ -1012,11 +1014,11 @@ class StatementAnalyzer
             QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName());
             String procedureName = node.getProcedureName().getCanonicalValue();
 
-            if (metadata.getMaterializedView(session, originalName).isPresent()) {
+            if (metadata.isMaterializedView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for materialized views");
             }
 
-            if (metadata.getView(session, originalName).isPresent()) {
+            if (metadata.isView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, node, "ALTER TABLE EXECUTE is not supported for views");
             }
 
@@ -1414,7 +1416,7 @@ class StatementAnalyzer
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
 
-        private Optional<QualifiedName> getMaterializedViewStorageTableName(ConnectorMaterializedViewDefinition viewDefinition)
+        private Optional<QualifiedName> getMaterializedViewStorageTableName(MaterializedViewDefinition viewDefinition)
         {
             if (viewDefinition.getStorageTable().isEmpty()) {
                 return Optional.empty();
@@ -1451,7 +1453,7 @@ class StatementAnalyzer
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
 
-            Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
+            Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
             if (optionalMaterializedView.isPresent()) {
                 if (metadata.getMaterializedViewFreshness(session, name).isMaterializedViewFresh()) {
                     // If materialized view is current, answer the query using the storage table
@@ -1475,14 +1477,14 @@ class StatementAnalyzer
             }
 
             // This could be a reference to a logical view or a table
-            Optional<ConnectorViewDefinition> optionalView = metadata.getView(session, name);
+            Optional<ViewDefinition> optionalView = metadata.getView(session, name);
             if (optionalView.isPresent()) {
                 analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
                 return createScopeForView(table, name, scope, optionalView.get());
             }
 
             // This can only be a table
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, name);
+            RedirectionAwareTableHandle redirection = getTableHandle(table, name, scope);
             Optional<TableHandle> tableHandle = redirection.getTableHandle();
             QualifiedObjectName targetTableName = redirection.getRedirectedTableName().orElse(name);
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), targetTableName);
@@ -1508,9 +1510,11 @@ class StatementAnalyzer
                         rowIdColumnHandle = metadata.getDeleteRowIdColumnHandle(session, tableHandle.get());
                         break;
                     case UPDATE:
-                        List<ColumnMetadata> updatedColumnMetadata = analysis.getUpdatedColumns()
+                        List<ColumnSchema> updatedColumnMetadata = analysis.getUpdatedColumns()
                                 .orElseThrow(() -> new VerifyException("updated columns not set"));
-                        Set<String> updatedColumnNames = updatedColumnMetadata.stream().map(ColumnMetadata::getName).collect(toImmutableSet());
+                        Set<String> updatedColumnNames = updatedColumnMetadata.stream()
+                                .map(ColumnSchema::getName)
+                                .collect(toImmutableSet());
                         List<ColumnHandle> updatedColumns = columnHandles.entrySet().stream()
                                 .filter(entry -> updatedColumnNames.contains(entry.getKey()))
                                 .map(Map.Entry::getValue)
@@ -1551,11 +1555,17 @@ class StatementAnalyzer
 
         private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, Optional<TableHandle> tableHandle, List<Field> fields, String authorization)
         {
+            analyzeFiltersAndMasks(table, name, tableHandle, new RelationType(fields), authorization);
+        }
+
+        private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, Optional<TableHandle> tableHandle, RelationType relationType, String authorization)
+        {
             Scope accessControlScope = Scope.builder()
-                    .withRelationType(RelationId.anonymous(), new RelationType(fields))
+                    .withRelationType(RelationId.anonymous(), relationType)
                     .build();
 
-            for (Field field : fields) {
+            for (int index = 0; index < relationType.getAllFieldCount(); index++) {
+                Field field = relationType.getFieldByIndex(index);
                 if (field.getName().isPresent()) {
                     List<ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType());
 
@@ -1633,7 +1643,7 @@ class StatementAnalyzer
             return createAndAssignScope(table, scope, fields);
         }
 
-        private Scope createScopeForMaterializedView(Table table, QualifiedObjectName name, Optional<Scope> scope, ConnectorMaterializedViewDefinition view, Optional<TableHandle> storageTable)
+        private Scope createScopeForMaterializedView(Table table, QualifiedObjectName name, Optional<Scope> scope, MaterializedViewDefinition view, Optional<TableHandle> storageTable)
         {
             return createScopeForView(
                     table,
@@ -1642,26 +1652,14 @@ class StatementAnalyzer
                     view.getOriginalSql(),
                     view.getCatalog(),
                     view.getSchema(),
-                    Optional.of(view.getOwner()),
-                    translateMaterializedViewColumns(view.getColumns()),
+                    view.getRunAsIdentity(),
+                    view.getColumns(),
                     storageTable);
         }
 
-        private List<ConnectorViewDefinition.ViewColumn> translateMaterializedViewColumns(List<ConnectorMaterializedViewDefinition.Column> materializedViewColumns)
+        private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ViewDefinition view)
         {
-            List<ConnectorViewDefinition.ViewColumn> viewColumns = new ArrayList<>();
-            for (ConnectorMaterializedViewDefinition.Column column : materializedViewColumns) {
-                viewColumns.add(new ViewColumn(column.getName(), column.getType()));
-            }
-            return viewColumns;
-        }
-
-        private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ConnectorViewDefinition view)
-        {
-            if (!view.isRunAsInvoker() && view.getOwner().isEmpty()) {
-                throw semanticException(INVALID_VIEW, table, "Owner must be present in view '%s' with SECURITY DEFINER mode", name);
-            }
-            return createScopeForView(table, name, scope, view.getOriginalSql(), view.getCatalog(), view.getSchema(), view.getOwner(), view.getColumns(), Optional.empty());
+            return createScopeForView(table, name, scope, view.getOriginalSql(), view.getCatalog(), view.getSchema(), view.getRunAsIdentity(), view.getColumns(), Optional.empty());
         }
 
         private Scope createScopeForView(
@@ -1671,8 +1669,8 @@ class StatementAnalyzer
                 String originalSql,
                 Optional<String> catalog,
                 Optional<String> schema,
-                Optional<String> owner,
-                List<ConnectorViewDefinition.ViewColumn> columns,
+                Optional<Identity> owner,
+                List<ViewColumn> columns,
                 Optional<TableHandle> storageTable)
         {
             Statement statement = analysis.getStatement();
@@ -2369,7 +2367,7 @@ class StatementAnalyzer
         {
             Table table = update.getTable();
             QualifiedObjectName originalName = createQualifiedObjectName(session, table, table.getName());
-            if (metadata.getView(session, originalName).isPresent()) {
+            if (metadata.isView(session, originalName)) {
                 throw semanticException(NOT_SUPPORTED, update, "Updating through views is not supported");
             }
 
@@ -2378,11 +2376,11 @@ class StatementAnalyzer
             TableHandle handle = redirection.getTableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
 
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
+            TableSchema tableSchema = metadata.getTableSchema(session, handle);
 
-            List<ColumnMetadata> allColumns = tableMetadata.getColumns();
-            Map<String, ColumnMetadata> columns = allColumns.stream()
-                    .collect(toImmutableMap(ColumnMetadata::getName, Function.identity()));
+            List<ColumnSchema> allColumns = tableSchema.getColumns();
+            Map<String, ColumnSchema> columns = allColumns.stream()
+                    .collect(toImmutableMap(ColumnSchema::getName, Function.identity()));
 
             for (UpdateAssignment assignment : update.getAssignments()) {
                 String columnName = assignment.getName().getValue();
@@ -2402,13 +2400,13 @@ class StatementAnalyzer
 
             // TODO: how to deal with connectors that need to see the pre-image of rows to perform the update without
             //       flowing that data through the masking logic
-            for (ColumnMetadata tableColumn : allColumns) {
+            for (ColumnSchema tableColumn : allColumns) {
                 if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
                     throw semanticException(NOT_SUPPORTED, update, "Updating a table with column masks is not supported");
                 }
             }
 
-            List<ColumnMetadata> updatedColumns = allColumns.stream()
+            List<ColumnSchema> updatedColumns = allColumns.stream()
                     .filter(column -> assignmentTargets.contains(column.getName()))
                     .collect(toImmutableList());
             analysis.setUpdatedColumns(updatedColumns);
@@ -2440,7 +2438,7 @@ class StatementAnalyzer
 
             List<Type> tableTypes = update.getAssignments().stream()
                     .map(assignment -> requireNonNull(columns.get(assignment.getName().getValue())))
-                    .map(ColumnMetadata::getType)
+                    .map(ColumnSchema::getType)
                     .collect(toImmutableList());
 
             if (!typesMatchForInsert(tableTypes, expressionTypes)) {
@@ -3389,15 +3387,15 @@ class StatementAnalyzer
             }
         }
 
-        private RelationType analyzeView(Query query, QualifiedObjectName name, Optional<String> catalog, Optional<String> schema, Optional<String> owner, Table node)
+        private RelationType analyzeView(Query query, QualifiedObjectName name, Optional<String> catalog, Optional<String> schema, Optional<Identity> owner, Table node)
         {
             try {
                 // run view as view owner if set; otherwise, run as session user
                 Identity identity;
                 AccessControl viewAccessControl;
-                if (owner.isPresent() && !owner.get().equals(session.getIdentity().getUser())) {
-                    identity = Identity.forUser(owner.get())
-                            .withGroups(groupProvider.getGroups(owner.get()))
+                if (owner.isPresent() && !owner.get().getUser().equals(session.getIdentity().getUser())) {
+                    identity = Identity.from(owner.get())
+                            .withGroups(groupProvider.getGroups(owner.get().getUser()))
                             .build();
                     viewAccessControl = new ViewAccessControl(accessControl, session.getIdentity());
                 }
@@ -4132,7 +4130,7 @@ class StatementAnalyzer
                 Expression providedValue = analysis.getParameters().get(NodeRef.of(parameter));
                 Object value;
                 try {
-                    value = ExpressionInterpreter.evaluateConstantExpression(
+                    value = evaluateConstantExpression(
                             providedValue,
                             BIGINT,
                             metadata,
@@ -4199,6 +4197,83 @@ class StatementAnalyzer
         private OutputColumn createOutputColumn(Field field)
         {
             return new OutputColumn(new Column(field.getName().orElseThrow(), field.getType().toString()), analysis.getSourceColumns(field));
+        }
+
+        /**
+         * Helper function that analyzes any versioning and returns the appropriate table handle.
+         * If no for clause exists, this is just a wrapper around getRedirectionAwareTableHandle in MetadataManager.
+         */
+        private RedirectionAwareTableHandle getTableHandle(Table table, QualifiedObjectName name, Optional<Scope> scope)
+        {
+            if (table.getQueryPeriod().isPresent()) {
+                Optional<TableVersion> startVersion = extractTableVersion(table, name, table.getQueryPeriod().get().getStart(), scope);
+                Optional<TableVersion> endVersion = extractTableVersion(table, name, table.getQueryPeriod().get().getEnd(), scope);
+                return metadata.getRedirectionAwareTableHandle(session, name, startVersion, endVersion);
+            }
+            return metadata.getRedirectionAwareTableHandle(session, name);
+        }
+
+        /**
+         * Analyzes the version pointer in a query period and extracts an evaluated version value
+         */
+        private Optional<TableVersion> extractTableVersion(Table table, QualifiedObjectName tableName, Optional<Expression> version, Optional<Scope> scope)
+        {
+            Optional<TableVersion> tableVersion = Optional.empty();
+            if (version.isEmpty()) {
+                return tableVersion;
+            }
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(version.get(), scope.get());
+            analysis.recordSubqueries(table, expressionAnalysis);
+
+            // Once the range value is analyzed, we can evaluate it
+            Type versionType = expressionAnalysis.getType(version.get());
+            PointerType pointerType = toPointerType(table.getQueryPeriod().get().getRangeType());
+            Object evaluatedVersion = evaluateConstantExpression(version.get(), versionType, metadata, session, accessControl, ImmutableMap.of());
+            TableVersion extractedVersion = new TableVersion(pointerType, versionType, evaluatedVersion);
+
+            // Before checking if the connector supports the version type, verify that version is a valid time-based type
+            if (extractedVersion.getPointerType() == PointerType.TEMPORAL) {
+                if (!isValidTemporalType(extractedVersion.getObjectType())) {
+                    throw semanticException(
+                            TYPE_MISMATCH,
+                            table.getQueryPeriod().get(),
+                            format(
+                                    "Type %s invalid. Temporal pointers must be of type Timestamp, Timestamp with Time Zone, or Date.",
+                                    extractedVersion.getObjectType().getDisplayName()));
+                }
+            }
+
+            if (!metadata.isValidTableVersion(session, tableName, extractedVersion)) {
+                throw semanticException(
+                        TYPE_MISMATCH,
+                        table.getQueryPeriod().get(),
+                        format("Type %s not supported by this connector.", extractedVersion.getObjectType().getDisplayName()));
+            }
+
+            return Optional.of(extractedVersion);
+        }
+
+        private boolean isValidTemporalType(Type type)
+        {
+            return (type instanceof TimestampWithTimeZoneType ||
+                    type instanceof TimestampType ||
+                    type instanceof DateType);
+        }
+
+        private PointerType toPointerType(QueryPeriod.RangeType type)
+        {
+            PointerType pointerType = null;
+            switch (type) {
+                case TIMESTAMP:
+                    pointerType = PointerType.TEMPORAL;
+                    break;
+                case VERSION:
+                    pointerType = PointerType.TARGET_ID;
+                    break;
+                default:
+                    throw new TrinoException(NOT_SUPPORTED, format("No TravelType maps from RangeType %s.", type.name()));
+            }
+            return pointerType;
         }
     }
 

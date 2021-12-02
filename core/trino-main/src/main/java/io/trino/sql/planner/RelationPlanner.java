@@ -249,6 +249,16 @@ class RelationPlanner
 
     private RelationPlan addRowFilters(Table node, RelationPlan plan)
     {
+        return addRowFilters(node, plan, Function.identity());
+    }
+
+    public RelationPlan addRowFilters(Table node, RelationPlan plan, Function<Expression, Expression> predicateTransformation)
+    {
+        return addRowFilters(node, plan, predicateTransformation, analysis::getAccessControlScope);
+    }
+
+    public RelationPlan addRowFilters(Table node, RelationPlan plan, Function<Expression, Expression> predicateTransformation, Function<Table, Scope> accessControlScope)
+    {
         List<Expression> filters = analysis.getRowFilters(node);
 
         if (filters.isEmpty()) {
@@ -256,15 +266,17 @@ class RelationPlanner
         }
 
         PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap)
-                .withScope(analysis.getAccessControlScope(node), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
+                .withScope(accessControlScope.apply(node), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
 
         for (Expression filter : filters) {
             planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, analysis.getSubqueries(filter));
 
+            Expression predicate = planBuilder.rewrite(filter);
+            predicate = predicateTransformation.apply(predicate);
             planBuilder = planBuilder.withNewRoot(new FilterNode(
                     idAllocator.getNextId(),
                     planBuilder.getRoot(),
-                    planBuilder.rewrite(filter)));
+                    predicate));
         }
 
         return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings(), outerContext);
@@ -1029,7 +1041,8 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new UnionNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
+        PlanNode planNode = new UnionNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping()
+                .keySet()));
         if (node.isDistinct()) {
             planNode = distinct(planNode);
         }
@@ -1043,7 +1056,8 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()), node.isDistinct());
+        PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping()
+                .keySet()), node.isDistinct());
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext);
     }
 
@@ -1054,7 +1068,8 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()), node.isDistinct());
+        PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping()
+                .keySet()), node.isDistinct());
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext);
     }
 

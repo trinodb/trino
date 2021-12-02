@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -28,7 +29,6 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 
 public class DisabledSystemSecurityMetadata
         implements SystemSecurityMetadata
@@ -100,7 +100,7 @@ public class DisabledSystemSecurityMetadata
             Set<Privilege> privileges,
             TrinoPrincipal grantee, boolean grantOption)
     {
-        throw new TrinoException(NOT_SUPPORTED, format("Catalog '%s' does not support permission management", schemaName.getCatalogName()));
+        throw notSupportedException(schemaName.getCatalogName());
     }
 
     @Override
@@ -110,24 +110,77 @@ public class DisabledSystemSecurityMetadata
             Set<Privilege> privileges,
             TrinoPrincipal grantee, boolean grantOption)
     {
-        throw new TrinoException(NOT_SUPPORTED, format("Catalog '%s' does not support permission management", schemaName.getCatalogName()));
+        throw notSupportedException(schemaName.getCatalogName());
     }
 
     @Override
     public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
-        throw new TrinoException(NOT_SUPPORTED, format("Catalog '%s' does not support permission management", tableName.getCatalogName()));
+        throw notSupportedException(tableName.getCatalogName());
     }
 
     @Override
     public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
-        throw new TrinoException(NOT_SUPPORTED, format("Catalog '%s' does not support permission management", tableName.getCatalogName()));
+        throw notSupportedException(tableName.getCatalogName());
     }
 
     @Override
     public Set<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix)
     {
         return ImmutableSet.of();
+    }
+
+    @Override
+    public Optional<TrinoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schema)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public void setSchemaOwner(Session session, CatalogSchemaName schema, TrinoPrincipal principal)
+    {
+        throw notSupportedException(schema.getCatalogName());
+    }
+
+    @Override
+    public void setTableOwner(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
+    {
+        throw notSupportedException(table.getCatalogName());
+    }
+
+    @Override
+    public Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName view)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public void setViewOwner(Session session, CatalogSchemaTableName view, TrinoPrincipal principal)
+    {
+        throw notSupportedException(view.getCatalogName());
+    }
+
+    @Override
+    public void schemaCreated(Session session, CatalogSchemaName schema) {}
+
+    @Override
+    public void schemaRenamed(Session session, CatalogSchemaName sourceSchema, CatalogSchemaName targetSchema) {}
+
+    @Override
+    public void schemaDropped(Session session, CatalogSchemaName schema) {}
+
+    @Override
+    public void tableCreated(Session session, CatalogSchemaTableName table) {}
+
+    @Override
+    public void tableRenamed(Session session, CatalogSchemaTableName sourceTable, CatalogSchemaTableName targetTable) {}
+
+    @Override
+    public void tableDropped(Session session, CatalogSchemaTableName table) {}
+
+    private static TrinoException notSupportedException(String catalogName)
+    {
+        return new TrinoException(NOT_SUPPORTED, "Catalog does not support permission management: " + catalogName);
     }
 }

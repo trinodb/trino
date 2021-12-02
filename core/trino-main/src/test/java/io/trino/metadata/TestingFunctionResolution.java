@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.security.AllowAllAccessControl;
@@ -20,7 +21,6 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;

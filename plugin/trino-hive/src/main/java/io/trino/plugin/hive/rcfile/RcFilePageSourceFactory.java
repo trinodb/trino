@@ -142,10 +142,6 @@ public class RcFilePageSourceFactory
 
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
-        if (estimatedFileSize == 0) {
-            throw new TrinoException(HIVE_BAD_DATA, "RCFile is empty: " + path);
-        }
-
         List<HiveColumnHandle> projectedReaderColumns = columns;
         Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
 

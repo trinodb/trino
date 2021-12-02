@@ -22,7 +22,8 @@ import io.trino.security.AccessControl;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SetViewAuthorization;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,10 +35,21 @@ import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class SetViewAuthorizationTask
         implements DataDefinitionTask<SetViewAuthorization>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public SetViewAuthorizationTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -47,9 +59,6 @@ public class SetViewAuthorizationTask
     @Override
     public ListenableFuture<Void> execute(
             SetViewAuthorization statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
@@ -57,12 +66,12 @@ public class SetViewAuthorizationTask
         Session session = stateMachine.getSession();
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
         getRequiredCatalogHandle(metadata, session, statement, viewName.getCatalogName());
-        if (metadata.getView(session, viewName).isEmpty()) {
+        if (!metadata.isView(session, viewName)) {
             throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
         }
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
-        checkRoleExists(session, statement, metadata, principal, Optional.of(viewName.getCatalogName()));
+        checkRoleExists(session, statement, metadata, principal, Optional.of(viewName.getCatalogName()).filter(catalog -> metadata.isCatalogManagedSecurity(session, catalog)));
 
         accessControl.checkCanSetViewAuthorization(session.toSecurityContext(), viewName, principal);
 

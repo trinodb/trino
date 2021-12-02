@@ -31,6 +31,7 @@ import io.trino.spi.type.Type;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -79,7 +80,7 @@ public interface JdbcClient
     Connection getConnection(ConnectorSession session, JdbcSplit split)
             throws SQLException;
 
-    default void abortReadConnection(Connection connection)
+    default void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
         // most drivers do not need this

@@ -235,15 +235,17 @@ public final class MapToMapCast
     public static Block mapCast(
             MethodHandle keyProcessFunction,
             MethodHandle valueProcessFunction,
-            Type toMapType,
+            Type targetType,
             BlockPositionEqual keyEqual,
             BlockPositionHashCode keyHashCode,
             ConnectorSession session,
             Block fromMap)
     {
-        checkState(toMapType.getTypeParameters().size() == 2, "Expect two type parameters for toMapType");
-        Type toKeyType = toMapType.getTypeParameters().get(0);
-        TypedSet typedSet = createEqualityTypedSet(toKeyType, keyEqual, keyHashCode, fromMap.getPositionCount() / 2, "map-to-map cast");
+        checkState(targetType.getTypeParameters().size() == 2, "Expect two type parameters for targetType");
+        Type toKeyType = targetType.getTypeParameters().get(0);
+        TypedSet resultKeys = createEqualityTypedSet(toKeyType, keyEqual, keyHashCode, fromMap.getPositionCount() / 2, "map-to-map cast");
+
+        // Cast the keys into a new block
         BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(null, fromMap.getPositionCount() / 2);
         for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
             try {
@@ -255,11 +257,10 @@ public final class MapToMapCast
         }
         Block keyBlock = keyBlockBuilder.build();
 
-        BlockBuilder mapBlockBuilder = toMapType.createBlockBuilder(null, 1);
+        BlockBuilder mapBlockBuilder = targetType.createBlockBuilder(null, 1);
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
         for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
-            if (!typedSet.contains(keyBlock, i / 2)) {
-                typedSet.add(keyBlock, i / 2);
+            if (resultKeys.add(keyBlock, i / 2)) {
                 toKeyType.appendTo(keyBlock, i / 2, blockBuilder);
                 if (fromMap.isNull(i + 1)) {
                     blockBuilder.appendNull();
@@ -280,6 +281,6 @@ public final class MapToMapCast
         }
 
         mapBlockBuilder.closeEntry();
-        return (Block) toMapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
+        return (Block) targetType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
     }
 }

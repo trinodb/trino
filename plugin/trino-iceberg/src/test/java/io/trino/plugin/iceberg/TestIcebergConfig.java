@@ -23,7 +23,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.GLUE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -37,13 +37,14 @@ public class TestIcebergConfig
     {
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
                 .setFileFormat(ORC)
-                .setCompressionCodec(GZIP)
+                .setCompressionCodec(ZSTD)
                 .setUseFileSizeFromMetadata(true)
                 .setMaxPartitionsPerWriter(100)
                 .setUniqueTableLocation(false)
                 .setCatalogType(HIVE_METASTORE)
                 .setDynamicFilteringWaitTimeout(new Duration(0, MINUTES))
-                .setTableStatisticsEnabled(true));
+                .setTableStatisticsEnabled(true)
+                .setProjectionPushdownEnabled(true));
     }
 
     @Test
@@ -58,6 +59,7 @@ public class TestIcebergConfig
                 .put("iceberg.catalog.type", "GLUE")
                 .put("iceberg.dynamic-filtering.wait-timeout", "1h")
                 .put("iceberg.table-statistics-enabled", "false")
+                .put("iceberg.projection-pushdown-enabled", "false")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -68,7 +70,8 @@ public class TestIcebergConfig
                 .setUniqueTableLocation(true)
                 .setCatalogType(GLUE)
                 .setDynamicFilteringWaitTimeout(Duration.valueOf("1h"))
-                .setTableStatisticsEnabled(false);
+                .setTableStatisticsEnabled(false)
+                .setProjectionPushdownEnabled(false);
 
         assertFullMapping(properties, expected);
     }

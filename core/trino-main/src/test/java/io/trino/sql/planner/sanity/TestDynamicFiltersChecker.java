@@ -68,7 +68,7 @@ public class TestDynamicFiltersChecker
         CatalogName catalogName = getCurrentConnectorId();
         TableHandle lineitemTableHandle = new TableHandle(
                 catalogName,
-                new TpchTableHandle("lineitem", 1.0),
+                new TpchTableHandle("sf1", "lineitem", 1.0),
                 TestingTransactionHandle.create(),
                 Optional.empty());
         lineitemOrderKeySymbol = builder.symbol("LINEITEM_OK", BIGINT);
@@ -76,7 +76,7 @@ public class TestDynamicFiltersChecker
 
         TableHandle ordersTableHandle = new TableHandle(
                 catalogName,
-                new TpchTableHandle("orders", 1.0),
+                new TpchTableHandle("sf1", "orders", 1.0),
                 TestingTransactionHandle.create(),
                 Optional.empty());
         ordersOrderKeySymbol = builder.symbol("ORDERS_OK", BIGINT);

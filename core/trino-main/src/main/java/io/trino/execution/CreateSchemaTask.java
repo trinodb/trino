@@ -26,7 +26,8 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.Expression;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -42,10 +43,21 @@ import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.trino.sql.NodeUtils.mapFromProperties;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class CreateSchemaTask
         implements DataDefinitionTask<CreateSchema>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public CreateSchemaTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -53,17 +65,8 @@ public class CreateSchemaTask
     }
 
     @Override
-    public String explain(CreateSchema statement, List<Expression> parameters)
-    {
-        return "CREATE SCHEMA " + statement.getSchemaName();
-    }
-
-    @Override
     public ListenableFuture<Void> execute(
             CreateSchema statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
