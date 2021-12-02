@@ -4709,7 +4709,7 @@ public class TestHiveConnectorTest
 
     private void testParquetDictionaryPredicatePushdown(Session session)
     {
-        String tableName = "test_parquet_dictionary_pushdown";
+        String tableName = "test_parquet_dictionary_pushdown_" + randomTableSuffix();
         assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
         assertUpdate(session, "CREATE TABLE " + tableName + " (n BIGINT) WITH (format = 'PARQUET')");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1, 1, 2, 2, 4, 4, 5, 5", 8);
