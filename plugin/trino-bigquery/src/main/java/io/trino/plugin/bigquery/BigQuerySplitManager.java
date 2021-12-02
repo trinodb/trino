@@ -39,7 +39,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
@@ -57,7 +56,7 @@ public class BigQuerySplitManager
 
     private final BigQueryClientFactory bigQueryClientFactory;
     private final BigQueryReadClientFactory bigQueryReadClientFactory;
-    private final OptionalInt parallelism;
+    private final Optional<Integer> parallelism;
     private final boolean viewEnabled;
     private final Duration viewExpiration;
     private final NodeManager nodeManager;
