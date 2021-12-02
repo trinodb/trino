@@ -13,22 +13,16 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.auth.oauth2.GoogleCredentials;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigHidden;
-import io.airlift.configuration.ConfigSecuritySensitive;
-import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
-import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
-import java.io.IOException;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -38,11 +32,9 @@ public class BigQueryConfig
     public static final int DEFAULT_MAX_READ_ROWS_RETRIES = 3;
     public static final String VIEWS_ENABLED = "bigquery.views-enabled";
 
-    private Optional<String> credentialsKey = Optional.empty();
-    private Optional<String> credentialsFile = Optional.empty();
     private Optional<String> projectId = Optional.empty();
     private Optional<String> parentProjectId = Optional.empty();
-    private OptionalInt parallelism = OptionalInt.empty();
+    private Optional<Integer> parallelism = Optional.empty();
     private boolean viewsEnabled;
     private Optional<String> viewMaterializationProject = Optional.empty();
     private Optional<String> viewMaterializationDataset = Optional.empty();
@@ -51,52 +43,6 @@ public class BigQueryConfig
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Duration viewsCacheTtl = new Duration(15, MINUTES);
     private Duration serviceCacheTtl = new Duration(3, MINUTES);
-
-    @AssertTrue(message = "Exactly one of 'bigquery.credentials-key' or 'bigquery.credentials-file' must be specified, or the default GoogleCredentials could be created")
-    public boolean isCredentialsConfigurationValid()
-    {
-        // only one of them (at most) should be present
-        if (credentialsKey.isPresent() && credentialsFile.isPresent()) {
-            return false;
-        }
-        // if no credentials were supplied, let's check if we can create the default ones
-        if (credentialsKey.isEmpty() && credentialsFile.isEmpty()) {
-            try {
-                GoogleCredentials.getApplicationDefault();
-            }
-            catch (IOException e) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public Optional<String> getCredentialsKey()
-    {
-        return credentialsKey;
-    }
-
-    @Config("bigquery.credentials-key")
-    @ConfigDescription("The base64 encoded credentials key")
-    @ConfigSecuritySensitive
-    public BigQueryConfig setCredentialsKey(String credentialsKey)
-    {
-        this.credentialsKey = Optional.of(credentialsKey);
-        return this;
-    }
-
-    public Optional<@FileExists String> getCredentialsFile()
-    {
-        return credentialsFile;
-    }
-
-    @Config("bigquery.credentials-file")
-    @ConfigDescription("The path to the JSON credentials file")
-    public BigQueryConfig setCredentialsFile(String credentialsFile)
-    {
-        this.credentialsFile = Optional.of(credentialsFile);
-        return this;
-    }
 
     public Optional<String> getProjectId()
     {
@@ -107,7 +53,7 @@ public class BigQueryConfig
     @ConfigDescription("The Google Cloud Project ID where the data reside")
     public BigQueryConfig setProjectId(String projectId)
     {
-        this.projectId = Optional.of(projectId);
+        this.projectId = Optional.ofNullable(projectId);
         return this;
     }
 
@@ -120,20 +66,21 @@ public class BigQueryConfig
     @ConfigDescription("The Google Cloud Project ID to bill for the export")
     public BigQueryConfig setParentProjectId(String parentProjectId)
     {
-        this.parentProjectId = Optional.of(parentProjectId);
+        this.parentProjectId = Optional.ofNullable(parentProjectId);
         return this;
     }
 
-    public OptionalInt getParallelism()
+    public Optional<Integer> getParallelism()
     {
         return parallelism;
     }
 
     @Config("bigquery.parallelism")
     @ConfigDescription("The number of partitions to split the data into.")
-    public BigQueryConfig setParallelism(int parallelism)
+    public BigQueryConfig setParallelism(Integer parallelism)
     {
-        this.parallelism = OptionalInt.of(parallelism);
+        this.parallelism = Optional.ofNullable(parallelism);
+
         return this;
     }
 
@@ -164,7 +111,7 @@ public class BigQueryConfig
     @ConfigDescription("The project where the materialized view is going to be created")
     public BigQueryConfig setViewMaterializationProject(String viewMaterializationProject)
     {
-        this.viewMaterializationProject = Optional.of(viewMaterializationProject);
+        this.viewMaterializationProject = Optional.ofNullable(viewMaterializationProject);
         return this;
     }
 
@@ -177,7 +124,7 @@ public class BigQueryConfig
     @ConfigDescription("The dataset where the materialized view is going to be created")
     public BigQueryConfig setViewMaterializationDataset(String viewMaterializationDataset)
     {
-        this.viewMaterializationDataset = Optional.of(viewMaterializationDataset);
+        this.viewMaterializationDataset = Optional.ofNullable(viewMaterializationDataset);
         return this;
     }
 
