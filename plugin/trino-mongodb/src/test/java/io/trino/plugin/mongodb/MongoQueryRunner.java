@@ -15,7 +15,8 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.mongodb.MongoClient;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -56,8 +57,7 @@ public final class MongoQueryRunner
 
             Map<String, String> properties = ImmutableMap.of(
                     "mongodb.case-insensitive-name-matching", "true",
-                    "mongodb.seeds", server.getAddress().toString(),
-                    "mongodb.socket-keep-alive", "true");
+                    "mongodb.connection-url", server.getConnectionString().toString());
 
             queryRunner.installPlugin(new MongoPlugin());
             queryRunner.createCatalog("mongodb", "mongodb", properties);
@@ -81,7 +81,7 @@ public final class MongoQueryRunner
 
     public static MongoClient createMongoClient(MongoServer server)
     {
-        return new MongoClient(server.getAddress().getHost(), server.getAddress().getPort());
+        return MongoClients.create(server.getConnectionString());
     }
 
     public static void main(String[] args)

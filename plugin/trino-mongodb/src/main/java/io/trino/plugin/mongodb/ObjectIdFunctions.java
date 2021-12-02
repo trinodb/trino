@@ -25,13 +25,14 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import org.bson.types.ObjectId;
 
+import java.util.Date;
+
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Math.toIntExact;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class ObjectIdFunctions
@@ -68,8 +69,8 @@ public final class ObjectIdFunctions
     @SqlType("ObjectId")
     public static Slice timestampObjectid(@SqlType("timestamp(0) with time zone") long timestamp)
     {
-        long epochSeconds = MILLISECONDS.toSeconds(unpackMillisUtc(timestamp));
-        return Slices.wrappedBuffer(new ObjectId((int) epochSeconds, 0, (short) 0, 0).toByteArray());
+        ObjectId objectId = ObjectId.getSmallestWithDate(new Date(unpackMillisUtc(timestamp)));
+        return Slices.wrappedBuffer(objectId.toByteArray());
     }
 
     @ScalarOperator(CAST)
