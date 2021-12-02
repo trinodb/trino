@@ -118,7 +118,7 @@ public class PageProcessor
         }
 
         if (filter.isPresent()) {
-            SelectedPositions selectedPositions = filter.get().filter(session, filter.get().getInputChannels().getInputChannels(page));
+            SelectedPositions selectedPositions = filter.get().filter(session, filter.get().getInputChannels().getLoadedInputChannels(page));
             if (selectedPositions.isEmpty()) {
                 return WorkProcessor.of();
             }
