@@ -13,13 +13,15 @@
  */
 package io.trino.operator.aggregation;
 
+import io.trino.operator.UpdateMemory;
+
 public interface AccumulatorFactory
 {
-    Accumulator createAccumulator();
+    Accumulator createAccumulator(UpdateMemory updateMemory);
 
-    Accumulator createIntermediateAccumulator();
+    Accumulator createIntermediateAccumulator(UpdateMemory updateMemory);
 
-    GroupedAccumulator createGroupedAccumulator();
+    GroupedAccumulator createGroupedAccumulator(UpdateMemory updateMemory);
 
-    GroupedAccumulator createGroupedIntermediateAccumulator();
+    GroupedAccumulator createGroupedIntermediateAccumulator(UpdateMemory updateMemory);
 }

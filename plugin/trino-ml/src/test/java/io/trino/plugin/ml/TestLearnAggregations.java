@@ -24,6 +24,7 @@ import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.metadata.TypeRegistry;
+import io.trino.operator.UpdateMemory;
 import io.trino.operator.aggregation.Aggregator;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.plugin.ml.type.ClassifierParametricType;
@@ -89,7 +90,7 @@ public class TestLearnAggregations
         TestingAggregationFunction aggregationFunction = FUNCTION_RESOLUTION.getAggregateFunction(
                 QualifiedName.of("learn_classifier"),
                 fromTypeSignatures(BIGINT.getTypeSignature(), mapType(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature())));
-        assertLearnClassifier(aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createAggregator());
+        assertLearnClassifier(aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty()).createAggregator(UpdateMemory.NOOP));
     }
 
     @Test
@@ -98,7 +99,7 @@ public class TestLearnAggregations
         TestingAggregationFunction aggregationFunction = FUNCTION_RESOLUTION.getAggregateFunction(
                 QualifiedName.of("learn_libsvm_classifier"),
                 fromTypeSignatures(BIGINT.getTypeSignature(), mapType(BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()), VARCHAR.getTypeSignature()));
-        assertLearnClassifier(aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1, 2), OptionalInt.empty()).createAggregator());
+        assertLearnClassifier(aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1, 2), OptionalInt.empty()).createAggregator(UpdateMemory.NOOP));
     }
 
     private static void assertLearnClassifier(Aggregator aggregator)

@@ -96,7 +96,7 @@ public class AggregationOperator
         this.useSystemMemory = useSystemMemory;
 
         aggregates = aggregatorFactories.stream()
-                .map(AggregatorFactory::createAggregator)
+                .map(factory -> factory.createAggregator(this::updateMemory))
                 .collect(toImmutableList());
     }
 
@@ -139,17 +139,10 @@ public class AggregationOperator
         checkState(needsInput(), "Operator is already finishing");
         requireNonNull(page, "page is null");
 
-        long memorySize = 0;
         for (Aggregator aggregate : aggregates) {
             aggregate.processPage(page);
-            memorySize += aggregate.getEstimatedSize();
         }
-        if (useSystemMemory) {
-            systemMemoryContext.setBytes(memorySize);
-        }
-        else {
-            userMemoryContext.setBytes(memorySize);
-        }
+        updateMemory();
     }
 
     @Override
@@ -175,5 +168,22 @@ public class AggregationOperator
 
         state = State.FINISHED;
         return pageBuilder.build();
+    }
+
+    private boolean updateMemory()
+    {
+        long memorySize = 0;
+        for (Aggregator aggregate : aggregates) {
+            memorySize += aggregate.getEstimatedSize();
+        }
+        if (useSystemMemory) {
+            systemMemoryContext.setBytes(memorySize);
+        }
+        else {
+            userMemoryContext.setBytes(memorySize);
+        }
+
+        // This is needed to be fit into UpdateMemory.
+        return true;
     }
 }

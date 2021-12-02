@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.operator.UpdateMemory;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 
@@ -53,38 +54,38 @@ public class AggregatorFactory
         checkArgument(step.isInputRaw() || inputChannels.size() == 1, "expected 1 input channel for intermediate aggregation");
     }
 
-    public Aggregator createAggregator()
+    public Aggregator createAggregator(UpdateMemory updateMemory)
     {
         Accumulator accumulator;
         if (step.isInputRaw()) {
-            accumulator = accumulatorFactory.createAccumulator();
+            accumulator = accumulatorFactory.createAccumulator(updateMemory);
         }
         else {
-            accumulator = accumulatorFactory.createIntermediateAccumulator();
+            accumulator = accumulatorFactory.createIntermediateAccumulator(updateMemory);
         }
         return new Aggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel);
     }
 
-    public GroupedAggregator createGroupedAggregator()
+    public GroupedAggregator createGroupedAggregator(UpdateMemory updateMemory)
     {
         GroupedAccumulator accumulator;
         if (step.isInputRaw()) {
-            accumulator = accumulatorFactory.createGroupedAccumulator();
+            accumulator = accumulatorFactory.createGroupedAccumulator(updateMemory);
         }
         else {
-            accumulator = accumulatorFactory.createGroupedIntermediateAccumulator();
+            accumulator = accumulatorFactory.createGroupedIntermediateAccumulator(updateMemory);
         }
         return new GroupedAggregator(accumulator, step, intermediateType, finalType, inputChannels, maskChannel);
     }
 
-    public GroupedAggregator createUnspillGroupedAggregator(Step step, int inputChannel)
+    public GroupedAggregator createUnspillGroupedAggregator(Step step, int inputChannel, UpdateMemory updateMemory)
     {
         GroupedAccumulator accumulator;
         if (step.isInputRaw()) {
-            accumulator = accumulatorFactory.createGroupedAccumulator();
+            accumulator = accumulatorFactory.createGroupedAccumulator(updateMemory);
         }
         else {
-            accumulator = accumulatorFactory.createGroupedIntermediateAccumulator();
+            accumulator = accumulatorFactory.createGroupedIntermediateAccumulator(updateMemory);
         }
         return new GroupedAggregator(accumulator, step, intermediateType, finalType, ImmutableList.of(inputChannel), maskChannel);
     }

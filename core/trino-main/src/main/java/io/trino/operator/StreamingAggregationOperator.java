@@ -203,7 +203,7 @@ public class StreamingAggregationOperator
             this.step = requireNonNull(step, "step is null");
 
             this.aggregates = aggregatorFactories.stream()
-                    .map(AggregatorFactory::createAggregator)
+                    .map(factory -> factory.createAggregator(this::updateMemoryUsage))
                     .collect(toImmutableList());
             this.pageBuilder = new PageBuilder(toTypes(groupByTypes, aggregates));
             requireNonNull(joinCompiler, "joinCompiler is null");
@@ -255,7 +255,7 @@ public class StreamingAggregationOperator
             return ofResult(outputPage, outputPages.isEmpty());
         }
 
-        private void updateMemoryUsage()
+        private boolean updateMemoryUsage()
         {
             long memorySize = pageBuilder.getRetainedSizeInBytes();
             for (Page output : outputPages) {
@@ -275,6 +275,9 @@ public class StreamingAggregationOperator
             else {
                 userMemoryContext.setBytes(memorySize);
             }
+
+            // This is needed to be fit into UpdateMemory.
+            return true;
         }
 
         private void processInput(Page page)
@@ -336,7 +339,7 @@ public class StreamingAggregationOperator
             }
 
             aggregates = aggregatorFactories.stream()
-                    .map(AggregatorFactory::createAggregator)
+                    .map(factory -> factory.createAggregator(this::updateMemoryUsage))
                     .collect(toImmutableList());
         }
 

@@ -120,10 +120,10 @@ public class InMemoryHashAggregationBuilder
         for (int i = 0; i < aggregatorFactories.size(); i++) {
             AggregatorFactory accumulatorFactory = aggregatorFactories.get(i);
             if (unspillIntermediateChannelOffset.isPresent()) {
-                builder.add(accumulatorFactory.createUnspillGroupedAggregator(step, unspillIntermediateChannelOffset.get() + i));
+                builder.add(accumulatorFactory.createUnspillGroupedAggregator(step, unspillIntermediateChannelOffset.get() + i, updateMemory));
             }
             else {
-                builder.add(accumulatorFactory.createGroupedAggregator());
+                builder.add(accumulatorFactory.createGroupedAggregator(updateMemory));
             }
         }
         groupedAggregators = builder.build();
@@ -346,7 +346,7 @@ public class InMemoryHashAggregationBuilder
             types.add(BIGINT);
         }
         for (AggregatorFactory factory : factories) {
-            types.add(factory.createAggregator().getType());
+            types.add(factory.createAggregator(UpdateMemory.NOOP).getType());
         }
         return types.build();
     }

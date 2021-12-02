@@ -18,6 +18,7 @@ import com.google.common.primitives.Ints;
 import io.trino.block.BlockAssertions;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.GroupByIdBlock;
+import io.trino.operator.UpdateMemory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -217,7 +218,7 @@ public final class AggregationTestUtils
 
     private static Object aggregation(TestingAggregationFunction function, int[] args, OptionalInt maskChannel, Page... pages)
     {
-        Aggregator aggregator = function.createAggregatorFactory(SINGLE, Ints.asList(args), maskChannel).createAggregator();
+        Aggregator aggregator = function.createAggregatorFactory(SINGLE, Ints.asList(args), maskChannel).createAggregator(UpdateMemory.NOOP);
         for (Page page : pages) {
             if (page.getPositionCount() > 0) {
                 aggregator.processPage(page);
@@ -250,16 +251,16 @@ public final class AggregationTestUtils
     private static Object partialAggregation(TestingAggregationFunction function, int[] args, Page... pages)
     {
         AggregatorFactory finalAggregatorFactory = function.createAggregatorFactory(FINAL, Ints.asList(0), OptionalInt.empty());
-        Aggregator finalAggregator = finalAggregatorFactory.createAggregator();
+        Aggregator finalAggregator = finalAggregatorFactory.createAggregator(UpdateMemory.NOOP);
 
         // Test handling of empty intermediate blocks
         AggregatorFactory partialAggregatorFactory = function.createAggregatorFactory(PARTIAL, Ints.asList(args), OptionalInt.empty());
-        Block emptyBlock = getIntermediateBlock(function.getIntermediateType(), partialAggregatorFactory.createAggregator());
+        Block emptyBlock = getIntermediateBlock(function.getIntermediateType(), partialAggregatorFactory.createAggregator(UpdateMemory.NOOP));
 
         finalAggregator.processPage(new Page(emptyBlock));
 
         for (Page page : pages) {
-            Aggregator partialAggregation = partialAggregatorFactory.createAggregator();
+            Aggregator partialAggregation = partialAggregatorFactory.createAggregator(UpdateMemory.NOOP);
             if (page.getPositionCount() > 0) {
                 partialAggregation.processPage(page);
             }
@@ -299,7 +300,7 @@ public final class AggregationTestUtils
 
     public static Object groupedAggregation(TestingAggregationFunction function, int[] args, Page... pages)
     {
-        GroupedAggregator groupedAggregator = function.createAggregatorFactory(SINGLE, Ints.asList(args), OptionalInt.empty()).createGroupedAggregator();
+        GroupedAggregator groupedAggregator = function.createAggregatorFactory(SINGLE, Ints.asList(args), OptionalInt.empty()).createGroupedAggregator(UpdateMemory.NOOP);
         for (Page page : pages) {
             groupedAggregator.processPage(createGroupByIdBlock(0, page.getPositionCount()), page);
         }
@@ -336,16 +337,16 @@ public final class AggregationTestUtils
     private static Object groupedPartialAggregation(TestingAggregationFunction function, int[] args, Page... pages)
     {
         AggregatorFactory finalFactory = function.createAggregatorFactory(FINAL, ImmutableList.of(0), OptionalInt.empty());
-        GroupedAggregator finalAggregator = finalFactory.createGroupedAggregator();
+        GroupedAggregator finalAggregator = finalFactory.createGroupedAggregator(UpdateMemory.NOOP);
 
         // Add an empty block to test the handling of empty intermediates
         AggregatorFactory partialFactory = function.createAggregatorFactory(PARTIAL, Ints.asList(args), OptionalInt.empty());
-        Block emptyBlock = getIntermediateBlock(function.getIntermediateType(), partialFactory.createGroupedAggregator());
+        Block emptyBlock = getIntermediateBlock(function.getIntermediateType(), partialFactory.createGroupedAggregator(UpdateMemory.NOOP));
 
         finalAggregator.processPage(createGroupByIdBlock(0, emptyBlock.getPositionCount()), new Page(emptyBlock));
 
         for (Page page : pages) {
-            GroupedAggregator partialAggregator = partialFactory.createGroupedAggregator();
+            GroupedAggregator partialAggregator = partialFactory.createGroupedAggregator(UpdateMemory.NOOP);
             partialAggregator.processPage(createGroupByIdBlock(0, page.getPositionCount()), page);
             Block partialBlock = getIntermediateBlock(function.getIntermediateType(), partialAggregator);
             finalAggregator.processPage(createGroupByIdBlock(0, partialBlock.getPositionCount()), new Page(partialBlock));

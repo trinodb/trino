@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.operator.UpdateMemory;
 
 import java.lang.reflect.Constructor;
 import java.util.List;
@@ -38,7 +39,7 @@ public class CompiledAccumulatorFactory
     }
 
     @Override
-    public Accumulator createAccumulator()
+    public Accumulator createAccumulator(UpdateMemory updateMemory)
     {
         try {
             return accumulatorConstructor.newInstance(lambdaProviders);
@@ -49,7 +50,7 @@ public class CompiledAccumulatorFactory
     }
 
     @Override
-    public Accumulator createIntermediateAccumulator()
+    public Accumulator createIntermediateAccumulator(UpdateMemory updateMemory)
     {
         try {
             return accumulatorConstructor.newInstance(lambdaProviders);
@@ -60,7 +61,7 @@ public class CompiledAccumulatorFactory
     }
 
     @Override
-    public GroupedAccumulator createGroupedAccumulator()
+    public GroupedAccumulator createGroupedAccumulator(UpdateMemory updateMemory)
     {
         try {
             return groupedAccumulatorConstructor.newInstance(lambdaProviders);
@@ -71,7 +72,7 @@ public class CompiledAccumulatorFactory
     }
 
     @Override
-    public GroupedAccumulator createGroupedIntermediateAccumulator()
+    public GroupedAccumulator createGroupedIntermediateAccumulator(UpdateMemory updateMemory)
     {
         try {
             return groupedAccumulatorConstructor.newInstance(lambdaProviders);

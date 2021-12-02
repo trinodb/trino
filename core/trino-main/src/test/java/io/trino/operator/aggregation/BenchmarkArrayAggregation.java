@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.UpdateMemory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -98,7 +99,7 @@ public class BenchmarkArrayAggregation
                     throw new UnsupportedOperationException();
             }
             TestingAggregationFunction function = new TestingFunctionResolution().getAggregateFunction(QualifiedName.of("array_agg"), fromTypes(elementType));
-            aggregator = function.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()).createAggregator();
+            aggregator = function.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()).createAggregator(UpdateMemory.NOOP);
 
             block = createChannel(ARRAY_SIZE, elementType);
             page = new Page(block);

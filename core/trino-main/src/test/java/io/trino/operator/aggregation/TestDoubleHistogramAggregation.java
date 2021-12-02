@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.operator.UpdateMemory;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -89,7 +90,6 @@ public class TestDoubleHistogramAggregation
         Block intermediate = getIntermediateBlock(intermediateType, partialStep);
 
         Aggregator finalStep = getAggregator(FINAL);
-
         finalStep.processPage(new Page(intermediate));
         finalStep.processPage(new Page(intermediate));
         Block actual = getFinalBlock(finalType, finalStep);
@@ -121,7 +121,7 @@ public class TestDoubleHistogramAggregation
 
     private Aggregator getAggregator(Step step)
     {
-        return function.createAggregatorFactory(step, step.isInputRaw() ? ImmutableList.of(0, 1, 2) : ImmutableList.of(0), OptionalInt.empty()).createAggregator();
+        return function.createAggregatorFactory(step, step.isInputRaw() ? ImmutableList.of(0, 1, 2) : ImmutableList.of(0), OptionalInt.empty()).createAggregator(UpdateMemory.NOOP);
     }
 
     private static Map<Double, Double> extractSingleValue(Block block)

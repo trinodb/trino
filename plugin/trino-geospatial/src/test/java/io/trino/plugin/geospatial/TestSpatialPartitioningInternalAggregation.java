@@ -22,6 +22,7 @@ import com.google.common.primitives.Ints;
 import io.trino.block.BlockAssertions;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.geospatial.Rectangle;
+import io.trino.operator.UpdateMemory;
 import io.trino.operator.aggregation.Aggregator;
 import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.GroupedAggregator;
@@ -81,12 +82,12 @@ public class TestSpatialPartitioningInternalAggregation
         AggregatorFactory aggregatorFactory = function.createAggregatorFactory(SINGLE, Ints.asList(0, 1), OptionalInt.empty());
         Page page = new Page(geometryBlock, partitionCountBlock);
 
-        Aggregator aggregator = aggregatorFactory.createAggregator();
+        Aggregator aggregator = aggregatorFactory.createAggregator(UpdateMemory.NOOP);
         aggregator.processPage(page);
         String aggregation = (String) BlockAssertions.getOnlyValue(function.getFinalType(), getFinalBlock(function.getFinalType(), aggregator));
         assertEquals(aggregation, expectedValue);
 
-        GroupedAggregator groupedAggregator = aggregatorFactory.createGroupedAggregator();
+        GroupedAggregator groupedAggregator = aggregatorFactory.createGroupedAggregator(UpdateMemory.NOOP);
         groupedAggregator.processPage(createGroupByIdBlock(0, page.getPositionCount()), page);
         String groupValue = (String) getGroupValue(function.getFinalType(), groupedAggregator, 0);
         assertEquals(groupValue, expectedValue);

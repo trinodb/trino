@@ -562,7 +562,8 @@ public class HashAggregationOperator
             }
 
             for (AggregatorFactory aggregatorFactory : aggregatorFactories) {
-                aggregatorFactory.createAggregator().evaluate(output.getBlockBuilder(channel));
+                // No input will be added to the accumulators, it is ok not to specify the memory callback
+                aggregatorFactory.createAggregator(UpdateMemory.NOOP).evaluate(output.getBlockBuilder(channel));
                 channel++;
             }
         }

@@ -18,6 +18,7 @@ import com.google.common.primitives.Ints;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndex.Factory;
+import io.trino.operator.UpdateMemory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -64,29 +65,29 @@ public class OrderedAccumulatorFactory
     }
 
     @Override
-    public Accumulator createAccumulator()
+    public Accumulator createAccumulator(UpdateMemory updateMemory)
     {
-        Accumulator accumulator = delegate.createAccumulator();
+        Accumulator accumulator = delegate.createAccumulator(updateMemory);
         return new OrderedAccumulator(accumulator, sourceTypes, argumentChannels, orderByChannels, orderings, pagesIndexFactory);
     }
 
     @Override
-    public Accumulator createIntermediateAccumulator()
+    public Accumulator createIntermediateAccumulator(UpdateMemory updateMemory)
     {
-        return delegate.createIntermediateAccumulator();
+        return delegate.createIntermediateAccumulator(updateMemory);
     }
 
     @Override
-    public GroupedAccumulator createGroupedAccumulator()
+    public GroupedAccumulator createGroupedAccumulator(UpdateMemory updateMemory)
     {
-        GroupedAccumulator accumulator = delegate.createGroupedAccumulator();
+        GroupedAccumulator accumulator = delegate.createGroupedAccumulator(updateMemory);
         return new OrderingGroupedAccumulator(accumulator, sourceTypes, argumentChannels, orderByChannels, orderings, pagesIndexFactory);
     }
 
     @Override
-    public GroupedAccumulator createGroupedIntermediateAccumulator()
+    public GroupedAccumulator createGroupedIntermediateAccumulator(UpdateMemory updateMemory)
     {
-        return delegate.createGroupedIntermediateAccumulator();
+        return delegate.createGroupedIntermediateAccumulator(updateMemory);
     }
 
     private static class OrderedAccumulator

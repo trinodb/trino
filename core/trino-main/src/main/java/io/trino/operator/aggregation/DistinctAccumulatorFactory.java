@@ -60,37 +60,39 @@ public class DistinctAccumulatorFactory
     }
 
     @Override
-    public Accumulator createAccumulator()
+    public Accumulator createAccumulator(UpdateMemory updateMemory)
     {
         return new DistinctAccumulator(
-                delegate.createAccumulator(),
+                delegate.createAccumulator(updateMemory),
                 argumentTypes,
                 session,
                 joinCompiler,
-                blockTypeOperators);
+                blockTypeOperators,
+                updateMemory);
     }
 
     @Override
-    public Accumulator createIntermediateAccumulator()
+    public Accumulator createIntermediateAccumulator(UpdateMemory updateMemory)
     {
-        return delegate.createIntermediateAccumulator();
+        return delegate.createIntermediateAccumulator(updateMemory);
     }
 
     @Override
-    public GroupedAccumulator createGroupedAccumulator()
+    public GroupedAccumulator createGroupedAccumulator(UpdateMemory updateMemory)
     {
         return new DistinctGroupedAccumulator(
-                delegate.createGroupedAccumulator(),
+                delegate.createGroupedAccumulator(updateMemory),
                 argumentTypes,
                 session,
                 joinCompiler,
-                blockTypeOperators);
+                blockTypeOperators,
+                updateMemory);
     }
 
     @Override
-    public GroupedAccumulator createGroupedIntermediateAccumulator()
+    public GroupedAccumulator createGroupedIntermediateAccumulator(UpdateMemory updateMemory)
     {
-        return delegate.createGroupedIntermediateAccumulator();
+        return delegate.createGroupedIntermediateAccumulator(updateMemory);
     }
 
     private static class DistinctAccumulator
@@ -104,7 +106,8 @@ public class DistinctAccumulatorFactory
                 List<Type> inputTypes,
                 Session session,
                 JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                BlockTypeOperators blockTypeOperators,
+                UpdateMemory updateMemory)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.hash = new MarkDistinctHash(
@@ -114,7 +117,12 @@ public class DistinctAccumulatorFactory
                     Optional.empty(),
                     joinCompiler,
                     blockTypeOperators,
-                    UpdateMemory.NOOP);
+                    () -> {
+                        // enforce task memory limits for fast throw
+                        updateMemory.update();
+                        // never block, as addInput doesn't support yield semantics
+                        return true;
+                    });
         }
 
         @Override
@@ -180,7 +188,8 @@ public class DistinctAccumulatorFactory
                 List<Type> inputTypes,
                 Session session,
                 JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                BlockTypeOperators blockTypeOperators,
+                UpdateMemory updateMemory)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.hash = new MarkDistinctHash(
@@ -193,7 +202,12 @@ public class DistinctAccumulatorFactory
                     Optional.empty(),
                     joinCompiler,
                     blockTypeOperators,
-                    UpdateMemory.NOOP);
+                    () -> {
+                        // enforce task memory limits for fast throw
+                        updateMemory.update();
+                        // never block, as addInput doesn't support yield semantics
+                        return true;
+                    });
         }
 
         @Override
