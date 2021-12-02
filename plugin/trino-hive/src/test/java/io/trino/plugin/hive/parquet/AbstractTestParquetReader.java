@@ -226,7 +226,7 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         MessageType customSchema = parseMessageType("message CustomSchema {" +
-                "required group self (LIST) {\n" +
+                "optional group self (LIST) {\n" +
                 "  repeated group self_tuple {\n" +
                 "    required binary a (UTF8);\n" +
                 "    required group b {\n" +
