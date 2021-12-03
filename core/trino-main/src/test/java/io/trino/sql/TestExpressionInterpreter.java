@@ -687,23 +687,39 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(DECIMAL '12.4' AS varchar(4))", "'12.4'");
         assertEvaluatedEquals("CAST(DECIMAL '12.4' AS varchar(50))", "'12.4'");
 
-        // short decimal: incorrect behavior: the result value does not fit in the type
-        assertEvaluatedEquals("CAST(DECIMAL '12.4' AS varchar(3))", "'12.4'");
-        assertEvaluatedEquals("CAST(DECIMAL '-12.4' AS varchar(3))", "'-12.4'");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '12.4' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 12.4 cannot be represented as varchar(3)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-12.4' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -12.4 cannot be represented as varchar(3)");
+
         // the trailing 0 does not fit in the type
-        assertEvaluatedEquals("CAST(DECIMAL '12.40' AS varchar(4))", "'12.40'");
-        assertEvaluatedEquals("CAST(DECIMAL '-12.40' AS varchar(5))", "'-12.40'");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '12.40' AS varchar(4))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 12.40 cannot be represented as varchar(4)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-12.40' AS varchar(5))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -12.40 cannot be represented as varchar(5)");
 
         // long decimal
         assertEvaluatedEquals("CAST(DECIMAL '100000000000000000.1' AS varchar(20))", "'100000000000000000.1'");
         assertEvaluatedEquals("CAST(DECIMAL '100000000000000000.1' AS varchar(50))", "'100000000000000000.1'");
 
-        // long decimal: incorrect behavior: the result value does not fit in the type
-        assertEvaluatedEquals("CAST(DECIMAL '100000000000000000.1' AS varchar(3))", "'100000000000000000.1'");
-        assertEvaluatedEquals("CAST(DECIMAL '-100000000000000000.1' AS varchar(3))", "'-100000000000000000.1'");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '100000000000000000.1' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 100000000000000000.1 cannot be represented as varchar(3)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-100000000000000000.1' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -100000000000000000.1 cannot be represented as varchar(3)");
+
         // the trailing 0 does not fit in the type
-        assertEvaluatedEquals("CAST(DECIMAL '100000000000000000.10' AS varchar(20))", "'100000000000000000.10'");
-        assertEvaluatedEquals("CAST(DECIMAL '-100000000000000000.10' AS varchar(21))", "'-100000000000000000.10'");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '100000000000000000.10' AS varchar(20))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 100000000000000000.10 cannot be represented as varchar(20)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-100000000000000000.10' AS varchar(21))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -100000000000000000.10 cannot be represented as varchar(21)");
     }
 
     @Test
