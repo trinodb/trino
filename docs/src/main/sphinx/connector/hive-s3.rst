@@ -108,6 +108,12 @@ Property Name                                Description
 ``hive.s3.proxy.preemptive-basic-auth``      Whether to attempt to authenticate preemptively against proxy
                                              when using base authorization, defaults to ``false``.
 
+``hive.s3.sts.endpoint``                     Optional override for the sts endpoint given that IAM role based
+                                             authentication via sts is used.
+
+``hive.s3.sts.region``                       Optional override for the sts region given that IAM role based
+                                             authentication via sts is used.
+
 ============================================ =================================================================
 
 .. _hive-s3-credentials:

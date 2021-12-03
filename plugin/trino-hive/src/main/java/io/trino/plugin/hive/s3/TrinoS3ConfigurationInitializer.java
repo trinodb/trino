@@ -61,6 +61,8 @@ import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STAGING_DIRECTORY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STORAGE_CLASS;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STREAMING_UPLOAD_ENABLED;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STREAMING_UPLOAD_PART_SIZE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STS_ENDPOINT;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STS_REGION;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_USER_AGENT_PREFIX;
 import static java.util.stream.Collectors.joining;
 
@@ -106,6 +108,8 @@ public class TrinoS3ConfigurationInitializer
     private final String s3proxyUsername;
     private final String s3proxyPassword;
     private final boolean s3preemptiveBasicProxyAuth;
+    private final String s3StsEndpoint;
+    private final String s3StsRegion;
 
     @Inject
     public TrinoS3ConfigurationInitializer(HiveS3Config config)
@@ -149,6 +153,8 @@ public class TrinoS3ConfigurationInitializer
         this.s3proxyUsername = config.getS3ProxyUsername();
         this.s3proxyPassword = config.getS3ProxyPassword();
         this.s3preemptiveBasicProxyAuth = config.getS3PreemptiveBasicProxyAuth();
+        this.s3StsEndpoint = config.getS3StsEndpoint();
+        this.s3StsRegion = config.getS3StsRegion();
     }
 
     @Override
@@ -230,5 +236,11 @@ public class TrinoS3ConfigurationInitializer
             config.set(S3_PROXY_PASSWORD, s3proxyPassword);
         }
         config.setBoolean(S3_PREEMPTIVE_BASIC_PROXY_AUTH, s3preemptiveBasicProxyAuth);
+        if (s3StsEndpoint != null) {
+            config.set(S3_STS_ENDPOINT, s3StsEndpoint);
+        }
+        if (s3StsRegion != null) {
+            config.set(S3_STS_REGION, s3StsRegion);
+        }
     }
 }

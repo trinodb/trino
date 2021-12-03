@@ -79,6 +79,8 @@ public class HiveS3Config
     private String s3proxyUsername;
     private String s3proxyPassword;
     private boolean s3preemptiveBasicProxyAuth;
+    private String s3StsEndpoint;
+    private String s3StsRegion;
 
     public String getS3AwsAccessKey()
     {
@@ -588,6 +590,30 @@ public class HiveS3Config
     public HiveS3Config setS3PreemptiveBasicProxyAuth(boolean s3preemptiveBasicProxyAuth)
     {
         this.s3preemptiveBasicProxyAuth = s3preemptiveBasicProxyAuth;
+        return this;
+    }
+
+    public String getS3StsEndpoint()
+    {
+        return s3StsEndpoint;
+    }
+
+    @Config("hive.s3.sts.endpoint")
+    public HiveS3Config setS3StsEndpoint(String s3StsEndpoint)
+    {
+        this.s3StsEndpoint = s3StsEndpoint;
+        return this;
+    }
+
+    public String getS3StsRegion()
+    {
+        return s3StsRegion;
+    }
+
+    @Config("hive.s3.sts.region")
+    public HiveS3Config setS3StsRegion(String s3StsRegion)
+    {
+        this.s3StsRegion = s3StsRegion;
         return this;
     }
 }
