@@ -40,6 +40,7 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // Note that there are no CTAS-based type mapping tests in this class due to Salesforce custom object limits
 // We instead use static test names with no random suffix to avoid creating and deleting many tables and hitting this limit, which caused builds to fail
@@ -139,6 +140,26 @@ public class TestSalesforceTypeMapping
                     .build();
             testCases.execute(getQueryRunner(), session, salesforceCreateAndInsert("test_date"));
         }
+
+        // The min and max value in Salesforce
+        SqlDataTypeTest.create()
+                .addRoundTrip("DATE", "DATE '1700-01-01'", DateType.DATE, "DATE '1700-01-01'")
+                .addRoundTrip("DATE", "DATE '4000-12-31'", DateType.DATE, "DATE '4000-12-31'")
+                .execute(getQueryRunner(), salesforceCreateAndInsert("test_date"));
+
+        // Verify the failure when the value is min - 1d or max + 1d
+        assertThatThrownBy(() ->
+                SqlDataTypeTest.create()
+                        .addRoundTrip("DATE", "DATE '1699-12-31'", DateType.DATE, "DATE '1699-12-31'")
+                        .execute(getQueryRunner(), salesforceCreateAndInsert("test_date")))
+                .hasMessageContaining("INSERT INTO")
+                .hasStackTraceContaining("invalid date");
+        assertThatThrownBy(() ->
+                SqlDataTypeTest.create()
+                        .addRoundTrip("DATE", "DATE '4001-01-01'", DateType.DATE, "DATE '4001-01-01'")
+                        .execute(getQueryRunner(), salesforceCreateAndInsert("test_date")))
+                .hasMessageContaining("INSERT INTO")
+                .hasStackTraceContaining("invalid date");
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
