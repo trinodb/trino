@@ -658,9 +658,12 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(SMALLINT '1234' AS varchar(4))", "'1234'");
         assertEvaluatedEquals("CAST(SMALLINT '1234' AS varchar(50))", "'1234'");
 
-        // incorrect behavior: the result value does not fit in the type
-        assertEvaluatedEquals("CAST(SMALLINT '1234' AS varchar(3))", "'1234'");
-        assertEvaluatedEquals("CAST(SMALLINT '-1234' AS varchar(3))", "'-1234'");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(SMALLINT '1234' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 1234 cannot be represented as varchar(3)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(SMALLINT '-1234' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -1234 cannot be represented as varchar(3)");
     }
 
     @Test
