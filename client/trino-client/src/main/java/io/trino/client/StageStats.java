@@ -40,6 +40,8 @@ public class StageStats
     private final long processedRows;
     private final long processedBytes;
     private final long physicalInputBytes;
+    private final long physicalInputDataSize;
+    private final long inputDataSize;
     private final List<StageStats> subStages;
 
     @JsonCreator
@@ -57,6 +59,8 @@ public class StageStats
             @JsonProperty("processedRows") long processedRows,
             @JsonProperty("processedBytes") long processedBytes,
             @JsonProperty("physicalInputBytes") long physicalInputBytes,
+            @JsonProperty("physicalInputDataSize") long physicalInputDataSize,
+            @JsonProperty("inputDataSize") long inputDataSize,
             @JsonProperty("subStages") List<StageStats> subStages)
     {
         this.stageId = stageId;
@@ -72,6 +76,8 @@ public class StageStats
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
         this.physicalInputBytes = physicalInputBytes;
+        this.physicalInputDataSize = physicalInputDataSize;
+        this.inputDataSize = inputDataSize;
         this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "subStages is null"));
     }
 
@@ -154,6 +160,18 @@ public class StageStats
     }
 
     @JsonProperty
+    public long getPhysicalInputDataSize()
+    {
+        return physicalInputDataSize;
+    }
+
+    @JsonProperty
+    public long getInputDataSize()
+    {
+        return inputDataSize;
+    }
+
+    @JsonProperty
     public List<StageStats> getSubStages()
     {
         return subStages;
@@ -175,6 +193,8 @@ public class StageStats
                 .add("processedRows", processedRows)
                 .add("processedBytes", processedBytes)
                 .add("physicalInputBytes", physicalInputBytes)
+                .add("physicalInputDataSize", physicalInputDataSize)
+                .add("inputDataSize", inputDataSize)
                 .add("subStages", subStages)
                 .toString();
     }
@@ -199,6 +219,8 @@ public class StageStats
         private long processedRows;
         private long processedBytes;
         private long physicalInputBytes;
+        private long physicalInputDataSize;
+        private long inputDataSize;
         private List<StageStats> subStages;
 
         private Builder() {}
@@ -281,6 +303,18 @@ public class StageStats
             return this;
         }
 
+        public Builder setPhysicalInputDataSize(long physicalInputDataSize)
+        {
+            this.physicalInputDataSize = physicalInputDataSize;
+            return this;
+        }
+
+        public Builder setInputDataSize(long inputDataSize)
+        {
+            this.inputDataSize = inputDataSize;
+            return this;
+        }
+
         public Builder setSubStages(List<StageStats> subStages)
         {
             this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "subStages is null"));
@@ -303,6 +337,8 @@ public class StageStats
                     processedRows,
                     processedBytes,
                     physicalInputBytes,
+                    physicalInputDataSize,
+                    inputDataSize,
                     subStages);
         }
     }

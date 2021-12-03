@@ -34,6 +34,8 @@ public final class StageStats
     private final long wallTimeMillis;
     private final long processedRows;
     private final long processedBytes;
+    private final long physicalInputDataSize;
+    private final long inputDataSize;
     private final List<StageStats> subStages;
 
     public StageStats(
@@ -49,6 +51,8 @@ public final class StageStats
             long wallTimeMillis,
             long processedRows,
             long processedBytes,
+            long physicalInputDataSize,
+            long inputDataSize,
             List<StageStats> subStages)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
@@ -63,6 +67,8 @@ public final class StageStats
         this.wallTimeMillis = wallTimeMillis;
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
+        this.physicalInputDataSize = physicalInputDataSize;
+        this.inputDataSize = inputDataSize;
         this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "subStages is null"));
     }
 
@@ -81,6 +87,8 @@ public final class StageStats
                 stats.getWallTimeMillis(),
                 stats.getProcessedRows(),
                 stats.getProcessedBytes(),
+                stats.getPhysicalInputDataSize(),
+                stats.getInputDataSize(),
                 stats.getSubStages().stream()
                         .map(StageStats::create)
                         .collect(toList()));
@@ -144,6 +152,16 @@ public final class StageStats
     public long getProcessedBytes()
     {
         return processedBytes;
+    }
+
+    public long getPhysicalInputDataSize()
+    {
+        return physicalInputDataSize;
+    }
+
+    public long getInputDataSize()
+    {
+        return inputDataSize;
     }
 
     public List<StageStats> getSubStages()

@@ -39,6 +39,8 @@ public final class QueryStats
     private final long processedRows;
     private final long processedBytes;
     private final long peakMemoryBytes;
+    private final long physicalInputDataSize;
+    private final long inputDataSize;
     private final Optional<StageStats> rootStage;
 
     public QueryStats(
@@ -58,6 +60,8 @@ public final class QueryStats
             long processedRows,
             long processedBytes,
             long peakMemoryBytes,
+            long physicalInputDataSize,
+            long inputDataSize,
             Optional<StageStats> rootStage)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -76,6 +80,8 @@ public final class QueryStats
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
         this.peakMemoryBytes = peakMemoryBytes;
+        this.physicalInputDataSize = physicalInputDataSize;
+        this.inputDataSize = inputDataSize;
         this.rootStage = requireNonNull(rootStage, "rootStage is null");
     }
 
@@ -98,6 +104,8 @@ public final class QueryStats
                 stats.getProcessedRows(),
                 stats.getProcessedBytes(),
                 stats.getPeakMemoryBytes(),
+                stats.getPhysicalInputDataSize(),
+                stats.getInputDataSize(),
                 Optional.ofNullable(stats.getRootStage()).map(StageStats::create));
     }
 
@@ -179,6 +187,16 @@ public final class QueryStats
     public long getPeakMemoryBytes()
     {
         return peakMemoryBytes;
+    }
+
+    public long getPhysicalInputDataSize()
+    {
+        return physicalInputDataSize;
+    }
+
+    public long getInputDataSize()
+    {
+        return inputDataSize;
     }
 
     public Optional<StageStats> getRootStage()

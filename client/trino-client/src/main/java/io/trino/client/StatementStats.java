@@ -45,6 +45,8 @@ public class StatementStats
     private final long physicalInputBytes;
     private final long peakMemoryBytes;
     private final long spilledBytes;
+    private final long physicalInputDataSize;
+    private final long inputDataSize;
     private final StageStats rootStage;
 
     @JsonCreator
@@ -66,6 +68,8 @@ public class StatementStats
             @JsonProperty("physicalInputBytes") long physicalInputBytes,
             @JsonProperty("peakMemoryBytes") long peakMemoryBytes,
             @JsonProperty("spilledBytes") long spilledBytes,
+            @JsonProperty("physicalInputDataSize") long physicalInputDataSize,
+            @JsonProperty("inputDataSize") long inputDataSize,
             @JsonProperty("rootStage") StageStats rootStage)
     {
         this.state = requireNonNull(state, "state is null");
@@ -85,6 +89,8 @@ public class StatementStats
         this.physicalInputBytes = physicalInputBytes;
         this.peakMemoryBytes = peakMemoryBytes;
         this.spilledBytes = spilledBytes;
+        this.physicalInputDataSize = physicalInputDataSize;
+        this.inputDataSize = inputDataSize;
         this.rootStage = rootStage;
     }
 
@@ -184,6 +190,18 @@ public class StatementStats
         return peakMemoryBytes;
     }
 
+    @JsonProperty
+    public long getPhysicalInputDataSize()
+    {
+        return physicalInputDataSize;
+    }
+
+    @JsonProperty
+    public long getInputDataSize()
+    {
+        return inputDataSize;
+    }
+
     @Nullable
     @JsonProperty
     public StageStats getRootStage()
@@ -227,6 +245,8 @@ public class StatementStats
                 .add("physicalInputBytes", physicalInputBytes)
                 .add("peakMemoryBytes", peakMemoryBytes)
                 .add("spilledBytes", spilledBytes)
+                .add("physicalInputDataSize", physicalInputDataSize)
+                .add("inputDataSize", inputDataSize)
                 .add("rootStage", rootStage)
                 .toString();
     }
@@ -255,6 +275,8 @@ public class StatementStats
         private long physicalInputBytes;
         private long peakMemoryBytes;
         private long spilledBytes;
+        private long physicalInputDataSize;
+        private long inputDataSize;
         private StageStats rootStage;
 
         private Builder() {}
@@ -361,6 +383,18 @@ public class StatementStats
             return this;
         }
 
+        public Builder setPhysicalInputDataSize(long physicalInputDataSize)
+        {
+            this.physicalInputDataSize = physicalInputDataSize;
+            return this;
+        }
+
+        public Builder setInputDataSize(long inputDataSize)
+        {
+            this.inputDataSize = inputDataSize;
+            return this;
+        }
+
         public Builder setRootStage(StageStats rootStage)
         {
             this.rootStage = rootStage;
@@ -387,6 +421,8 @@ public class StatementStats
                     physicalInputBytes,
                     peakMemoryBytes,
                     spilledBytes,
+                    physicalInputDataSize,
+                    inputDataSize,
                     rootStage);
         }
     }
