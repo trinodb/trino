@@ -213,7 +213,7 @@ public class TestTinyintOperators
         assertFunction("cast(TINYINT '17' as varchar)", VARCHAR, "17");
         assertFunction("cast(TINYINT '123' as varchar(3))", createVarcharType(3), "123");
         assertFunction("cast(TINYINT '123' as varchar(50))", createVarcharType(50), "123");
-        assertFunctionThrowsIncorrectly("cast(TINYINT '123' as varchar(2))", IllegalArgumentException.class, "Character count exceeds length limit 2.*");
+        assertInvalidCast("cast(TINYINT '123' as varchar(2))", "Value 123 cannot be represented as varchar(2)");
     }
 
     @Test

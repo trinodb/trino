@@ -672,9 +672,12 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(TINYINT '123' AS varchar(3))", "'123'");
         assertEvaluatedEquals("CAST(TINYINT '123' AS varchar(50))", "'123'");
 
-        // incorrect behavior: the result value does not fit in the type
-        assertEvaluatedEquals("CAST(TINYINT '123' AS varchar(2))", "'123'");
-        assertEvaluatedEquals("CAST(TINYINT '-123' AS varchar(2))", "'-123'");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(TINYINT '123' AS varchar(2))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 123 cannot be represented as varchar(2)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(TINYINT '-123' AS varchar(2))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -123 cannot be represented as varchar(2)");
     }
 
     @Test
