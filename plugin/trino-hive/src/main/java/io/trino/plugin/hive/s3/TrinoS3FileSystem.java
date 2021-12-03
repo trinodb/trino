@@ -18,6 +18,7 @@ import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
+import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
@@ -32,6 +33,7 @@ import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.metrics.RequestMetricCollector;
+import com.amazonaws.regions.DefaultAwsRegionProviderChain;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -64,6 +66,7 @@ import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.Upload;
+import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractSequentialIterator;
@@ -204,6 +207,9 @@ public class TrinoS3FileSystem
     public static final String S3_PROXY_USERNAME = "trino.s3.proxy.username";
     public static final String S3_PROXY_PASSWORD = "trino.s3.proxy.password";
     public static final String S3_PREEMPTIVE_BASIC_PROXY_AUTH = "trino.s3.proxy.preemptive-basic-auth";
+
+    public static final String S3_STS_ENDPOINT = "trino.s3.sts.endpoint";
+    public static final String S3_STS_REGION = "trino.s3.sts.region";
 
     private static final Logger log = Logger.get(TrinoS3FileSystem.class);
     private static final TrinoS3FileSystemStats STATS = new TrinoS3FileSystemStats();
@@ -973,9 +979,37 @@ public class TrinoS3FileSystem
                 .orElseGet(DefaultAWSCredentialsProviderChain::getInstance);
 
         if (iamRole != null) {
+            String stsEndpointOverride = conf.get(S3_STS_ENDPOINT);
+            String stsRegionOverride = conf.get(S3_STS_REGION);
+
+            AWSSecurityTokenServiceClientBuilder stsClientBuilder = AWSSecurityTokenServiceClientBuilder.standard()
+                    .withCredentials(provider);
+
+            String region;
+            if (!isNullOrEmpty(stsRegionOverride)) {
+                region = stsRegionOverride;
+            }
+            else {
+                DefaultAwsRegionProviderChain regionProviderChain = new DefaultAwsRegionProviderChain();
+                try {
+                    region = regionProviderChain.getRegion();
+                }
+                catch (SdkClientException ex) {
+                    log.warn("Falling back to default AWS region " + US_EAST_1);
+                    region = US_EAST_1.getName();
+                }
+            }
+
+            if (!isNullOrEmpty(stsEndpointOverride)) {
+                stsClientBuilder.withEndpointConfiguration(new EndpointConfiguration(stsEndpointOverride, region));
+            }
+            else {
+                stsClientBuilder.withRegion(region);
+            }
+
             provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, s3RoleSessionName)
                     .withExternalId(externalId)
-                    .withLongLivedCredentialsProvider(provider)
+                    .withStsClient(stsClientBuilder.build())
                     .build();
         }
 
