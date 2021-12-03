@@ -472,10 +472,10 @@ public class TestDecimalCasts
 
         assertFunction("cast(DECIMAL '12.4' as varchar(4))", createVarcharType(4), "12.4");
         assertFunction("cast(DECIMAL '12.4' as varchar(50))", createVarcharType(50), "12.4");
-        assertFunctionThrowsIncorrectly("cast(DECIMAL '12.4' as varchar(3))", IllegalArgumentException.class, "Character count exceeds length limit 3.*");
+        assertInvalidCast("cast(DECIMAL '12.4' as varchar(3))", "Value 12.4 cannot be represented as varchar(3)");
 
         assertFunction("cast(DECIMAL '100000000000000000.1' as varchar(20))", createVarcharType(20), "100000000000000000.1");
         assertFunction("cast(DECIMAL '100000000000000000.1' as varchar(50))", createVarcharType(50), "100000000000000000.1");
-        assertFunctionThrowsIncorrectly("cast(DECIMAL '100000000000000000.1' as varchar(19))", IllegalArgumentException.class, "Character count exceeds length limit 19.*");
+        assertInvalidCast("cast(DECIMAL '100000000000000000.1' as varchar(19))", "Value 100000000000000000.1 cannot be represented as varchar(19)");
     }
 }
