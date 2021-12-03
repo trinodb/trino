@@ -598,6 +598,7 @@ public class TestSqlTaskExecution
                 new QueryId("queryid"),
                 DataSize.of(1, MEGABYTE),
                 DataSize.of(2, MEGABYTE),
+                Optional.empty(),
                 new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE)),
                 new TestingGcMonitor(),
                 taskNotificationExecutor,

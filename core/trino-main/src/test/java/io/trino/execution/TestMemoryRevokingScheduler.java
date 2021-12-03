@@ -43,6 +43,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
@@ -314,6 +315,7 @@ public class TestMemoryRevokingScheduler
         return queryContexts.computeIfAbsent(queryId, id -> new QueryContext(id,
                 DataSize.of(1, MEGABYTE),
                 DataSize.of(2, MEGABYTE),
+                Optional.empty(),
                 memoryPool,
                 new TestingGcMonitor(),
                 executor,
