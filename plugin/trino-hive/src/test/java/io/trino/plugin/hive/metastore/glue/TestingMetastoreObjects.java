@@ -106,7 +106,7 @@ public final class TestingMetastoreObjects
                 .withStorageDescriptor(getGlueTestStorageDescriptor());
     }
 
-    // --------------- Presto Objects ---------------
+    // --------------- Trino Objects ---------------
 
     public static io.trino.plugin.hive.metastore.Database getPrestoTestDatabase()
     {

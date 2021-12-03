@@ -116,7 +116,7 @@ public final class Standard
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.properties")), CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
 
-        portBinder.exposePort(container, 8080); // Presto default port
+        portBinder.exposePort(container, 8080); // Trino default port
         return container;
     }
 

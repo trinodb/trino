@@ -205,9 +205,9 @@ public final class HiveTypeTranslator
                 }
                 return rowType(Streams.zip(
                         // We lower case the struct field names.
-                        // Otherwise, Presto will refuse to write to columns whose struct type has field names containing upper case characters.
-                        // Users can't work around this by casting in their queries because Presto parser always lower case types.
-                        // TODO: This is a hack. Presto engine should be able to handle identifiers in a case insensitive way where necessary.
+                        // Otherwise, Trino will refuse to write to columns whose struct type has field names containing upper case characters.
+                        // Users can't work around this by casting in their queries because Trino parser always lower case types.
+                        // TODO: This is a hack. Trino engine should be able to handle identifiers in a case insensitive way where necessary.
                         fieldNames.stream().map(s -> s.toLowerCase(Locale.US)),
                         fieldTypes.stream().map(type -> toTypeSignature(type, timestampPrecision)),
                         TypeSignatureParameter::namedField)
