@@ -71,6 +71,7 @@ import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class LiteralEncoder
@@ -204,10 +205,15 @@ public final class LiteralEncoder
                 return new GenericLiteral("VARCHAR", value.toStringUtf8());
             }
             StringLiteral stringLiteral = new StringLiteral(value.toStringUtf8());
-            if (varcharType.getBoundedLength() == SliceUtf8.countCodePoints(value)) {
+            int boundedLength = varcharType.getBoundedLength();
+            int valueLength = SliceUtf8.countCodePoints(value);
+            if (boundedLength == valueLength) {
                 return stringLiteral;
             }
-            return new Cast(stringLiteral, toSqlType(type), false, true);
+            if (boundedLength > valueLength) {
+                return new Cast(stringLiteral, toSqlType(type), false, true);
+            }
+            throw new IllegalArgumentException(format("Value [%s] does not fit in type %s", value.toStringUtf8(), varcharType));
         }
 
         if (type instanceof CharType) {
