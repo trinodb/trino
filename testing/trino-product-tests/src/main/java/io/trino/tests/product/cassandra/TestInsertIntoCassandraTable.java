@@ -179,8 +179,8 @@ public class TestInsertIntoCassandraTable
         onCasssandra(format("CREATE TABLE %s.%s (key int, value frozen<tuple<int, text, float>>, PRIMARY KEY (key))",
                  KEY_SPACE, tableName));
 
-        assertThat(() -> query(format("INSERT INTO %s.%s.%s (key, value) VALUES (1, ROW(1, 'text-1', 1.11))", CONNECTOR_NAME, KEY_SPACE, tableName)))
-                .failsWithMessage("Unsupported column type: row(integer, varchar, real)");
+        assertQueryFailure(() -> query(format("INSERT INTO %s.%s.%s (key, value) VALUES (1, ROW(1, 'text-1', 1.11))", CONNECTOR_NAME, KEY_SPACE, tableName)))
+                .hasMessageContaining("Unsupported column type: row(integer, varchar, real)");
 
         onCasssandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
     }
