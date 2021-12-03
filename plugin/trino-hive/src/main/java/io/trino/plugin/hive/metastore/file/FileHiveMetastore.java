@@ -136,7 +136,7 @@ public class FileHiveMetastore
 {
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
-    private static final String TRINO_SCHEMA_FILE_NAME = ".trinoSchema";
+    private static final String TRINO_SCHEMA_FILE_NAME_SUFFIX = ".trinoSchema";
     private static final String TRINO_PERMISSIONS_DIRECTORY_NAME = ".trinoPermissions";
     public static final String ROLES_FILE_NAME = ".roles";
     public static final String ROLE_GRANTS_FILE_NAME = ".roleGrants";
@@ -204,6 +204,12 @@ public class FileHiveMetastore
 
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
         writeSchemaFile(DATABASE, databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, database), false);
+        try {
+            metadataFileSystem.mkdirs(databaseMetadataDirectory);
+        }
+        catch (IOException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, "Could not write database", e);
+        }
     }
 
     @Override
@@ -1242,6 +1248,10 @@ public class FileHiveMetastore
                 return;
             }
 
+            // Delete the schema file first, so it can never exist after the directory is deleted.
+            // (For cases when the schema file isn't in the metadata directory.)
+            deleteSchemaFile(type, metadataDirectory);
+
             if (!metadataFileSystem.delete(metadataDirectory, true)) {
                 throw new TrinoException(HIVE_METASTORE_ERROR, "Could not delete metadata directory");
             }
@@ -1382,7 +1392,12 @@ public class FileHiveMetastore
 
     private static Path getSchemaPath(SchemaType type, Path metadataDirectory)
     {
-        return new Path(metadataDirectory, TRINO_SCHEMA_FILE_NAME);
+        if (type == DATABASE) {
+            return new Path(
+                    requireNonNull(metadataDirectory.getParent(), "Can't use root directory as database path"),
+                    format(".%s%s", metadataDirectory.getName(), TRINO_SCHEMA_FILE_NAME_SUFFIX));
+        }
+        return new Path(metadataDirectory, TRINO_SCHEMA_FILE_NAME_SUFFIX);
     }
 
     private static boolean isChildDirectory(Path parentDirectory, Path childDirectory)
