@@ -45,6 +45,7 @@ public class HiveMetadataFactory
     private final boolean skipTargetCleanupOnRollback;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
+    private final boolean deleteSchemaLocationsFallback;
     private final boolean translateHiveViews;
     private final boolean hideDeltaLakeTables;
     private final long perTransactionCacheMaximumSize;
@@ -100,6 +101,7 @@ public class HiveMetadataFactory
                 hiveConfig.isSkipTargetCleanupOnRollback(),
                 hiveConfig.getWritesToNonManagedTablesEnabled(),
                 hiveConfig.getCreatesOfNonManagedTablesEnabled(),
+                hiveConfig.isDeleteSchemaLocationsFallback(),
                 hiveConfig.isTranslateHiveViews(),
                 hiveConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 hiveConfig.getHiveTransactionHeartbeatInterval(),
@@ -130,6 +132,7 @@ public class HiveMetadataFactory
             boolean skipTargetCleanupOnRollback,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
+            boolean deleteSchemaLocationsFallback,
             boolean translateHiveViews,
             long perTransactionCacheMaximumSize,
             Optional<Duration> hiveTransactionHeartbeatInterval,
@@ -152,6 +155,7 @@ public class HiveMetadataFactory
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
+        this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.translateHiveViews = translateHiveViews;
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
@@ -197,6 +201,7 @@ public class HiveMetadataFactory
                 updateExecutor,
                 skipDeletionForAlter,
                 skipTargetCleanupOnRollback,
+                deleteSchemaLocationsFallback,
                 hiveTransactionHeartbeatInterval,
                 heartbeatService);
 

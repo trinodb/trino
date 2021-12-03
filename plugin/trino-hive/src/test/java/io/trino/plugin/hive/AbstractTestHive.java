@@ -815,6 +815,7 @@ public abstract class AbstractTestHive
                 false,
                 false,
                 true,
+                true,
                 false,
                 1000,
                 Optional.empty(),
