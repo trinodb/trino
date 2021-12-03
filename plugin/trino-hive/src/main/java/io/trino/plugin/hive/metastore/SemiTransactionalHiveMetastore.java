@@ -42,6 +42,7 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadataMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
@@ -133,6 +134,7 @@ public class SemiTransactionalHiveMetastore
     private final Executor updateExecutor;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
+    private final boolean deleteSchemaLocationsFallback;
     private final ScheduledExecutorService heartbeatExecutor;
     private final Optional<Duration> configuredTransactionHeartbeatInterval;
 
@@ -169,6 +171,7 @@ public class SemiTransactionalHiveMetastore
             Executor updateExecutor,
             boolean skipDeletionForAlter,
             boolean skipTargetCleanupOnRollback,
+            boolean deleteSchemaLocationsFallback,
             Optional<Duration> hiveTransactionHeartbeatInterval,
             ScheduledExecutorService heartbeatService)
     {
@@ -179,6 +182,7 @@ public class SemiTransactionalHiveMetastore
         this.updateExecutor = requireNonNull(updateExecutor, "updateExecutor is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
+        this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.heartbeatExecutor = heartbeatService;
         this.configuredTransactionHeartbeatInterval = requireNonNull(hiveTransactionHeartbeatInterval, "hiveTransactionHeartbeatInterval is null");
     }
@@ -365,9 +369,32 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.createDatabase(identity, database));
     }
 
-    public synchronized void dropDatabase(HiveIdentity identity, String schemaName)
+    public synchronized void dropDatabase(ConnectorSession session, String schemaName)
     {
-        setExclusive((delegate, hdfsEnvironment) -> delegate.dropDatabase(identity, schemaName, true));
+        Optional<Path> location = delegate.getDatabase(schemaName)
+                .orElseThrow(() -> new SchemaNotFoundException(schemaName))
+                .getLocation()
+                .map(Path::new);
+
+        setExclusive((delegate, hdfsEnvironment) -> {
+            HiveIdentity identity = new HiveIdentity(session);
+
+            // If we see files in the schema location, don't delete it.
+            // If we see no files, request deletion.
+            // If we fail to check the schema location, behave according to fallback.
+            boolean deleteData = location.map(path -> {
+                HdfsContext context = new HdfsContext(session);
+                try (FileSystem fs = hdfsEnvironment.getFileSystem(context, path)) {
+                    return !fs.listFiles(path, false).hasNext();
+                }
+                catch (IOException | RuntimeException e) {
+                    log.warn(e, "Could not check schema directory '%s'", path);
+                    return deleteSchemaLocationsFallback;
+                }
+            }).orElse(deleteSchemaLocationsFallback);
+
+            delegate.dropDatabase(identity, schemaName, deleteData);
+        });
     }
 
     public synchronized void renameDatabase(HiveIdentity identity, String source, String target)
