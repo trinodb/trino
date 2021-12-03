@@ -35,11 +35,13 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -393,7 +395,7 @@ public abstract class AbstractTestFailureRecovery
     {
         private final String query;
         private Session session = getQueryRunner().getDefaultSession();
-        private Function<MaterializedResult, Integer> stageSelector;
+        private Optional<Function<MaterializedResult, Integer>> stageSelector;
         private Optional<InjectedFailureType> failureType = Optional.empty();
         private Optional<ErrorType> errorType = Optional.empty();
         private Optional<String> setup = Optional.empty();
@@ -443,7 +445,7 @@ public abstract class AbstractTestFailureRecovery
 
         public FailureRecoveryAssert at(Function<MaterializedResult, Integer> stageSelector)
         {
-            this.stageSelector = requireNonNull(stageSelector, "stageSelector is null");
+            this.stageSelector = Optional.of(requireNonNull(stageSelector, "stageSelector is null"));
             return this;
         }
 
@@ -452,22 +454,24 @@ public abstract class AbstractTestFailureRecovery
             return execute(noRetries(session), query, Optional.empty());
         }
 
-        private ExecutionResult executeActual(MaterializedResult expected)
+        private ExecutionResult executeActual(OptionalInt failureStageId)
         {
-            requireNonNull(stageSelector, "stageSelector must be set");
-            int stageId = stageSelector.apply(expected);
             String token = UUID.randomUUID().toString();
-            failureType.ifPresent(failure -> getQueryRunner().injectTaskFailure(
-                    token,
-                    stageId,
-                    0,
-                    0,
-                    failure,
-                    errorType));
+            if (failureType.isPresent()) {
+                getQueryRunner().injectTaskFailure(
+                        token,
+                        failureStageId.orElseThrow(() -> new IllegalArgumentException("failure stageId not provided")),
+                        0,
+                        0,
+                        failureType.get(),
+                        errorType);
 
-            ExecutionResult actual = execute(session, query, Optional.of(token));
-            assertEquals(getStageStats(actual.getQueryResult(), stageId).getFailedTasks(), failureType.isPresent() ? 1 : 0);
-            return actual;
+                ExecutionResult actual = execute(session, query, Optional.of(token));
+                assertEquals(getStageStats(actual.getQueryResult(), failureStageId.getAsInt()).getFailedTasks(), 1);
+                return actual;
+            }
+            // no failure injected
+            return execute(session, query, Optional.of(token));
         }
 
         private ExecutionResult execute(Session session, String query, Optional<String> traceToken)
@@ -521,9 +525,10 @@ public abstract class AbstractTestFailureRecovery
 
         public void finishesSuccessfully(Consumer<QueryId> queryAssertion)
         {
+            verifyFailureTypeAndStageSelector();
             ExecutionResult expected = executeExpected();
             MaterializedResult expectedQueryResult = expected.getQueryResult();
-            ExecutionResult actual = executeActual(expectedQueryResult);
+            ExecutionResult actual = executeActual(getFailureStageId(() -> expectedQueryResult));
             MaterializedResult actualQueryResult = actual.getQueryResult();
 
             boolean isAnalyze = expectedQueryResult.getUpdateType().isPresent() && expectedQueryResult.getUpdateType().get().equals("ANALYZE");
@@ -558,8 +563,23 @@ public abstract class AbstractTestFailureRecovery
 
         public AbstractThrowableAssert<?, ? extends Throwable> failsWithErrorThat()
         {
-            ExecutionResult expected = executeExpected();
-            return assertThatThrownBy(() -> executeActual(expected.getQueryResult()));
+            verifyFailureTypeAndStageSelector();
+            OptionalInt failureStageId = getFailureStageId(() -> executeExpected().getQueryResult());
+            return assertThatThrownBy(() -> executeActual(failureStageId));
+        }
+
+        private void verifyFailureTypeAndStageSelector()
+        {
+            assertThat(failureType.isPresent() == stageSelector.isPresent()).withFailMessage("Either both or none of failureType and stageSelector must be set").isTrue();
+        }
+
+        private OptionalInt getFailureStageId(Supplier<MaterializedResult> expectedQueryResult)
+        {
+            if (stageSelector.isEmpty()) {
+                return OptionalInt.empty();
+            }
+            // only compute MaterializedResult if needed
+            return OptionalInt.of(stageSelector.get().apply(expectedQueryResult.get()));
         }
 
         private String resolveTableName(String query, String tableName)
