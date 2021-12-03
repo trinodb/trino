@@ -37,6 +37,7 @@ import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.trino.client.JsonCodec.jsonCodec;
 import static io.trino.client.JsonResponse.execute;
 import static java.lang.String.format;
+import static java.net.HttpURLConnection.HTTP_GATEWAY_TIMEOUT;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static java.time.temporal.ChronoUnit.MILLIS;
@@ -135,7 +136,9 @@ public class HttpTokenPoller
         if ((response.getStatusCode() == HTTP_OK) && response.hasValue()) {
             return response.getValue().toResult();
         }
-
+        if (response.getStatusCode() == HTTP_GATEWAY_TIMEOUT) {
+            return TokenPollResult.pending(request.url().uri());
+        }
         String message = format("Request to %s failed: %s [Error: %s]", request.url(), response, response.getResponseBody());
 
         if (response.getStatusCode() == HTTP_UNAVAILABLE) {
