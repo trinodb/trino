@@ -187,16 +187,10 @@ public class TestSimplifyExpressions
         assertSimplifies("CAST(DECIMAL '12.4' AS varchar(4))", "'12.4'");
         assertSimplifies("CAST(DECIMAL '-12.4' AS varchar(50))", "CAST('-12.4' AS varchar(50))");
 
-        // the varchar type length is not enough to contain the number's representation:
-        // the cast operator returns a value that is too long for the expected type ('12.4' for varchar(3))
-        // the value is then wrapped in another cast by the LiteralEncoder (CAST('12.4' AS varchar(3))),
-        // so eventually we get a truncated string '12.'
-        assertSimplifies("CAST(DECIMAL '12.4' AS varchar(3))", "CAST('12.4' AS varchar(3))");
-        assertSimplifies("CAST(DECIMAL '-12.4' AS varchar(3))", "CAST('-12.4' AS varchar(3))");
-
-        // the cast operator returns a value that is too long for the expected type ('12.4' for varchar(3))
-        // the value is nested in a comparison expression, so it is not truncated by the LiteralEncoder
-        assertSimplifies("CAST(DECIMAL '12.4' AS varchar(3)) = '12.4'", "true");
+        // cast from short decimal to varchar fails, so the expression is not modified
+        assertSimplifies("CAST(DECIMAL '12.4' AS varchar(3))", "CAST(DECIMAL '12.4' AS varchar(3))");
+        assertSimplifies("CAST(DECIMAL '-12.4' AS varchar(3))", "CAST(DECIMAL '-12.4' AS varchar(3))");
+        assertSimplifies("CAST(DECIMAL '12.4' AS varchar(3)) = '12.4'", "CAST(DECIMAL '12.4' AS varchar(3)) = '12.4'");
     }
 
     @Test
@@ -206,16 +200,10 @@ public class TestSimplifyExpressions
         assertSimplifies("CAST(DECIMAL '100000000000000000.1' AS varchar(20))", "'100000000000000000.1'");
         assertSimplifies("CAST(DECIMAL '-100000000000000000.1' AS varchar(50))", "CAST('-100000000000000000.1' AS varchar(50))");
 
-        // the varchar type length is not enough to contain the number's representation:
-        // the cast operator returns a value that is too long for the expected type ('100000000000000000.1' for varchar(3))
-        // the value is then wrapped in another cast by the LiteralEncoder (CAST('100000000000000000.1' AS varchar(3))),
-        // so eventually we get a truncated string '100'
-        assertSimplifies("CAST(DECIMAL '100000000000000000.1' AS varchar(3))", "CAST('100000000000000000.1' AS varchar(3))");
-        assertSimplifies("CAST(DECIMAL '-100000000000000000.1' AS varchar(3))", "CAST('-100000000000000000.1' AS varchar(3))");
-
-        // the cast operator returns a value that is too long for the expected type ('100000000000000000.1' for varchar(3))
-        // the value is nested in a comparison expression, so it is not truncated by the LiteralEncoder
-        assertSimplifies("CAST(DECIMAL '100000000000000000.1' AS varchar(3)) = '100000000000000000.1'", "true");
+        // cast from long decimal to varchar fails, so the expression is not modified
+        assertSimplifies("CAST(DECIMAL '100000000000000000.1' AS varchar(3))", "CAST(DECIMAL '100000000000000000.1' AS varchar(3))");
+        assertSimplifies("CAST(DECIMAL '-100000000000000000.1' AS varchar(3))", "CAST(DECIMAL '-100000000000000000.1' AS varchar(3))");
+        assertSimplifies("CAST(DECIMAL '100000000000000000.1' AS varchar(3)) = '100000000000000000.1'", "CAST(DECIMAL '100000000000000000.1' AS varchar(3)) = '100000000000000000.1'");
     }
 
     private static void assertSimplifies(String expression, String expected)
