@@ -222,7 +222,7 @@ public class FileHiveMetastore
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
         }
 
-        deleteMetadataDirectory(DATABASE, getDatabaseMetadataDirectory(databaseName));
+        deleteDirectoryAndSchema(DATABASE, getDatabaseMetadataDirectory(databaseName));
     }
 
     @Override
@@ -528,7 +528,7 @@ public class FileHiveMetastore
 
         // It is safe to delete the whole meta directory for external tables and views
         if (!table.getTableType().equals(MANAGED_TABLE.name()) || deleteData) {
-            deleteMetadataDirectory(TABLE, tableMetadataDirectory);
+            deleteDirectoryAndSchema(TABLE, tableMetadataDirectory);
         }
         else {
             // in this case we only want to delete the metadata of a managed table
@@ -820,7 +820,7 @@ public class FileHiveMetastore
 
         Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partitionValues);
         if (deleteData) {
-            deleteMetadataDirectory(PARTITION, partitionMetadataDirectory);
+            deleteDirectoryAndSchema(PARTITION, partitionMetadataDirectory);
         }
         else {
             deleteSchemaFile(PARTITION, partitionMetadataDirectory);
@@ -1239,7 +1239,7 @@ public class FileHiveMetastore
         }
     }
 
-    private void deleteMetadataDirectory(SchemaType type, Path metadataDirectory)
+    private void deleteDirectoryAndSchema(SchemaType type, Path metadataDirectory)
     {
         try {
             Path schemaPath = getSchemaPath(type, metadataDirectory);
