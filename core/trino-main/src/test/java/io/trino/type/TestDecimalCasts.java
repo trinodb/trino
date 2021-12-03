@@ -24,6 +24,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 
 public class TestDecimalCasts
         extends AbstractTestFunctions
@@ -468,5 +469,13 @@ public class TestDecimalCasts
         assertFunction("CAST(DECIMAL '-1234567890.1234567890' AS VARCHAR)", VARCHAR, "-1234567890.1234567890");
         assertFunction("CAST(DECIMAL '1234567890.12345678900000000000' AS VARCHAR)", VARCHAR, "1234567890.12345678900000000000");
         assertFunction("CAST(DECIMAL '-1234567890.12345678900000000000' AS VARCHAR)", VARCHAR, "-1234567890.12345678900000000000");
+
+        assertFunction("cast(DECIMAL '12.4' as varchar(4))", createVarcharType(4), "12.4");
+        assertFunction("cast(DECIMAL '12.4' as varchar(50))", createVarcharType(50), "12.4");
+        assertFunctionThrowsIncorrectly("cast(DECIMAL '12.4' as varchar(3))", IllegalArgumentException.class, "Character count exceeds length limit 3.*");
+
+        assertFunction("cast(DECIMAL '100000000000000000.1' as varchar(20))", createVarcharType(20), "100000000000000000.1");
+        assertFunction("cast(DECIMAL '100000000000000000.1' as varchar(50))", createVarcharType(50), "100000000000000000.1");
+        assertFunctionThrowsIncorrectly("cast(DECIMAL '100000000000000000.1' as varchar(19))", IllegalArgumentException.class, "Character count exceeds length limit 19.*");
     }
 }
