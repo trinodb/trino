@@ -27,6 +27,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 
 public class TestTinyintOperators
@@ -210,6 +211,9 @@ public class TestTinyintOperators
     {
         assertFunction("cast(TINYINT '37' as varchar)", VARCHAR, "37");
         assertFunction("cast(TINYINT '17' as varchar)", VARCHAR, "17");
+        assertFunction("cast(TINYINT '123' as varchar(3))", createVarcharType(3), "123");
+        assertFunction("cast(TINYINT '123' as varchar(50))", createVarcharType(50), "123");
+        assertFunctionThrowsIncorrectly("cast(TINYINT '123' as varchar(2))", IllegalArgumentException.class, "Character count exceeds length limit 2.*");
     }
 
     @Test
