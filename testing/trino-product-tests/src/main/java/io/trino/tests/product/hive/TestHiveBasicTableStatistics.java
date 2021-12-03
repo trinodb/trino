@@ -158,7 +158,7 @@ public class TestHiveBasicTableStatistics
 
         try {
             BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
-            // Metastore can auto-gather table statistics. This is not relevant for Presto, since we do not use table-level statistics in case of a partitioned table.
+            // Metastore can auto-gather table statistics. This is not relevant for Trino, since we do not use table-level statistics in case of a partitioned table.
             if (tableStatistics.getNumRows().isEmpty()) {
                 assertThatStatisticsAreNotPresent(tableStatistics);
             }
@@ -196,7 +196,7 @@ public class TestHiveBasicTableStatistics
 
         try {
             BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
-            // Metastore can auto-gather table statistics. This is not relevant for Presto, since we do not use table-level statistics in case of a partitioned table.
+            // Metastore can auto-gather table statistics. This is not relevant for Trino, since we do not use table-level statistics in case of a partitioned table.
             if (tableStatistics.getNumRows().isEmpty()) {
                 assertThatStatisticsAreNotPresent(tableStatistics);
             }
@@ -272,7 +272,7 @@ public class TestHiveBasicTableStatistics
 
         try {
             BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
-            // Metastore can auto-gather table statistics. This is not relevant for Presto, since we do not use table-level statistics in case of a partitioned table.
+            // Metastore can auto-gather table statistics. This is not relevant for Trino, since we do not use table-level statistics in case of a partitioned table.
             if (tableStatistics.getNumRows().isEmpty()) {
                 assertThatStatisticsAreNotPresent(tableStatistics);
             }
@@ -354,7 +354,7 @@ public class TestHiveBasicTableStatistics
 
         try {
             BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
-            // Metastore can auto-gather table statistics. This is not relevant for Presto, since we do not use table-level statistics in case of a partitioned table.
+            // Metastore can auto-gather table statistics. This is not relevant for Trino, since we do not use table-level statistics in case of a partitioned table.
             if (tableStatistics.getNumRows().isEmpty()) {
                 assertThatStatisticsAreNotPresent(tableStatistics);
             }

@@ -655,7 +655,7 @@ public class HiveWriterFactory
 
     private String computeFileName(OptionalInt bucketNumber)
     {
-        // Currently CTAS for transactional tables in Presto creates non-transactional ("original") files.
+        // Currently CTAS for transactional tables in Trino creates non-transactional ("original") files.
         // Hive requires "original" files of transactional tables to conform to the following naming pattern:
         //
         // For bucketed tables we drop query id from file names and just leave <bucketId>_0

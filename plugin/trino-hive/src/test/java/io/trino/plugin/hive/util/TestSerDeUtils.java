@@ -112,7 +112,7 @@ public class TestSerDeUtils
         // ObjectInspectorFactory.getReflectionObjectInspector is not thread-safe although it
         // gives people a first impression that it is. This may have been fixed in HIVE-11586.
 
-        // Presto only uses getReflectionObjectInspector here, in a test method. Therefore, we
+        // Trino only uses getReflectionObjectInspector here, in a test method. Therefore, we
         // choose to work around this issue by synchronizing this method. Before synchronizing
         // this method, test in this class fails approximately 1 out of 10 runs on Travis.
 

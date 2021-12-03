@@ -52,7 +52,7 @@ public class TestKafkaReadsSmokeTest
     private static final String SIMPLE_KEY_AND_VALUE_TABLE_NAME = "read_simple_key_and_value";
     private static final String SIMPLE_KEY_AND_VALUE_TOPIC_NAME = "read_simple_key_and_value";
 
-    // kafka-connectors requires tables to be predefined in presto configuration
+    // kafka-connectors requires tables to be predefined in Trino configuration
     // the requirements here will be used to verify that table actually exists and to
     // create topics and propagate them with data
 

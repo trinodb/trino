@@ -4633,7 +4633,7 @@ public class TestHiveConnectorTest
         assertUpdate(session, format("INSERT INTO test_orc_timestamp_predicate_pushdown VALUES (%s)", formatTimestamp(value)), 1);
         assertQuery(session, "SELECT * FROM test_orc_timestamp_predicate_pushdown", format("VALUES (%s)", formatTimestamp(value)));
 
-        // to account for the fact that ORC stats are stored at millisecond precision and Presto rounds timestamps,
+        // to account for the fact that ORC stats are stored at millisecond precision and Trino rounds timestamps,
         // we filter by timestamps that differ from the actual value by at least 1ms, to observe pruning
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
@@ -5162,7 +5162,7 @@ public class TestHiveConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES (0.1, 0.1, 'both 0.1')", 1);
 
         // These assertions are intended to make sure we are handling NaN values in Parquet statistics,
-        // however Parquet file stats created in Presto don't include such values; the test is here mainly to prevent
+        // however Parquet file stats created in Trino don't include such values; the test is here mainly to prevent
         // regressions, should a new writer start recording such stats
         assertQuery("SELECT c_string FROM " + tableName + " WHERE c_double > 4", "VALUES ('4.2 double')");
         assertQuery("SELECT c_string FROM " + tableName + " WHERE c_real > 4", "VALUES ('4.2 real')");

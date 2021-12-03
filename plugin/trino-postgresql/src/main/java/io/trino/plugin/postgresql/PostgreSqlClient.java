@@ -924,7 +924,7 @@ public class PostgreSqlClient
                     return round(picosOfDay, 12 - precision);
                 },
                 timeWriteFunction(precision),
-                // Pushdown disabled because PostgreSQL distinguishes TIME '24:00:00' and TIME '00:00:00' whereas Presto does not.
+                // Pushdown disabled because PostgreSQL distinguishes TIME '24:00:00' and TIME '00:00:00' whereas Trino does not.
                 DISABLE_PUSHDOWN);
     }
 
