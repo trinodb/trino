@@ -174,16 +174,10 @@ public class TestSimplifyExpressions
         assertSimplifies("CAST(TINYINT '123' AS varchar(3))", "'123'");
         assertSimplifies("CAST(TINYINT '-123' AS varchar(50))", "CAST('-123' AS varchar(50))");
 
-        // the varchar type length is not enough to contain the number's representation:
-        // the cast operator returns a value that is too long for the expected type ('123' for varchar(2))
-        // the value is then wrapped in another cast by the LiteralEncoder (CAST('123' AS varchar(2))),
-        // so eventually we get a truncated string '12'
-        assertSimplifies("CAST(TINYINT '123' AS varchar(2))", "CAST('123' AS varchar(2))");
-        assertSimplifies("CAST(TINYINT '-123' AS varchar(2))", "CAST('-123' AS varchar(2))");
-
-        // the cast operator returns a value that is too long for the expected type ('123' for varchar(2))
-        // the value is nested in a comparison expression, so it is not truncated by the LiteralEncoder
-        assertSimplifies("CAST(TINYINT '123' AS varchar(2)) = '123'", "true");
+        // cast from smallint to varchar fails, so the expression is not modified
+        assertSimplifies("CAST(TINYINT '123' AS varchar(2))", "CAST(TINYINT '123' AS varchar(2))");
+        assertSimplifies("CAST(TINYINT '-123' AS varchar(2))", "CAST(TINYINT '-123' AS varchar(2))");
+        assertSimplifies("CAST(TINYINT '123' AS varchar(2)) = '123'", "CAST(TINYINT '123' AS varchar(2)) = '123'");
     }
 
     @Test
