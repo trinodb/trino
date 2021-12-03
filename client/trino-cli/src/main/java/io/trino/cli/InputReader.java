@@ -26,6 +26,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Path;
 
+import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static org.jline.reader.LineReader.BLINK_MATCHING_PAREN;
 import static org.jline.reader.LineReader.HISTORY_FILE;
 import static org.jline.reader.LineReader.Option.HISTORY_TIMESTAMPED;
@@ -44,7 +45,7 @@ public class InputReader
         reader = LineReaderBuilder.builder()
                 .terminal(TerminalUtils.getTerminal())
                 .variable(HISTORY_FILE, historyFile)
-                .variable(SECONDARY_PROMPT_PATTERN, colored("%P -> "))
+                .variable(SECONDARY_PROMPT_PATTERN, isRealTerminal() ? colored("%P -> ") : "") // workaround for https://github.com/jline/jline3/issues/751
                 .variable(BLINK_MATCHING_PAREN, 0)
                 .parser(new InputParser())
                 .highlighter(new InputHighlighter())
