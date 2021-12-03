@@ -153,6 +153,8 @@ public class HiveConfig
     private boolean optimizeSymlinkListing = true;
 
     private boolean legacyHiveViewTranslation;
+    private Optional<String> icebergCatalogName = Optional.empty();
+
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
 
     private boolean sizeBasedSplitWeightsEnabled = true;
@@ -1090,6 +1092,19 @@ public class HiveConfig
     public boolean isLegacyHiveViewTranslation()
     {
         return this.legacyHiveViewTranslation;
+    }
+
+    public Optional<String> getIcebergCatalogName()
+    {
+        return icebergCatalogName;
+    }
+
+    @Config("hive.iceberg-catalog-name")
+    @ConfigDescription("The catalog to redirect iceberg tables to")
+    public HiveConfig setIcebergCatalogName(String icebergCatalogName)
+    {
+        this.icebergCatalogName = Optional.ofNullable(icebergCatalogName);
+        return this;
     }
 
     @Config("hive.size-based-split-weights-enabled")
