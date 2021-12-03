@@ -1040,7 +1040,7 @@ public class TestHiveTableStatistics
     {
         String tableNameInDatabase = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
 
-        // insert from hive to prevent Trino collecting statistics on insert
+        // insert from Hive to prevent Trino collecting statistics on insert
         onHive().executeQuery("INSERT INTO TABLE " + tableNameInDatabase + " VALUES(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)");
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
