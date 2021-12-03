@@ -525,7 +525,7 @@ public class FileHiveMetastore
             deleteMetadataDirectory(tableMetadataDirectory);
         }
         else {
-            // in this case we only wan to delete the metadata of a managed table
+            // in this case we only want to delete the metadata of a managed table
             deleteSchemaFile(TABLE, tableMetadataDirectory);
             deleteTablePrivileges(table);
         }
