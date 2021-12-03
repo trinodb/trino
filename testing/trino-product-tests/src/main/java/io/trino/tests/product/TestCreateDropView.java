@@ -18,6 +18,7 @@ import io.trino.tempto.Requires;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
 
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ContextDsl.executeWith;
 import static io.trino.tempto.query.QueryExecutor.query;
@@ -72,8 +73,8 @@ public class TestCreateDropView
     public void createSimpleViewTwiceShouldFail()
     {
         executeWith(createViewAs("SELECT * FROM nation"), view -> {
-            assertThat(() -> query(format("CREATE VIEW %s AS SELECT * FROM nation", view.getName())))
-                    .failsWithMessage("View already exists");
+            assertQueryFailure(() -> query(format("CREATE VIEW %s AS SELECT * FROM nation", view.getName())))
+                    .hasMessageContaining("View already exists");
             assertThat(query(format("SELECT * FROM %s", view.getName())))
                     .hasRowsCount(25);
         });
@@ -87,8 +88,8 @@ public class TestCreateDropView
                     .hasRowsCount(25);
             assertThat(query(format("DROP VIEW %s", view.getName())))
                     .hasRowsCount(1);
-            assertThat(() -> query(format("SELECT * FROM %s", view.getName())))
-                    .failsWithMessage("does not exist");
+            assertQueryFailure(() -> query(format("SELECT * FROM %s", view.getName())))
+                    .hasMessageContaining("does not exist");
         });
     }
 }
