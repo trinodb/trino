@@ -33,6 +33,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -79,6 +80,8 @@ public class QueryContext
     private long maxUserMemory;
     @GuardedBy("this")
     private long maxTotalMemory;
+    @GuardedBy("this")
+    private Optional<DataSize> maxTaskMemory;
 
     private final MemoryTrackingContext queryMemoryContext;
 
@@ -92,6 +95,7 @@ public class QueryContext
             QueryId queryId,
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
+            Optional<DataSize> maxTaskMemory,
             MemoryPool memoryPool,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
@@ -102,6 +106,7 @@ public class QueryContext
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null").toBytes();
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null").toBytes();
+        this.maxTaskMemory = requireNonNull(maxTaskMemory, "maxTaskMemory is null");
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
@@ -120,7 +125,7 @@ public class QueryContext
     }
 
     // TODO: This method should be removed, and the correct limit set in the constructor. However, due to the way QueryContext is constructed the memory limit is not known in advance
-    public synchronized void initializeMemoryLimits(boolean resourceOverCommit, long maxUserMemory, long maxTotalMemory)
+    public synchronized void initializeMemoryLimits(boolean resourceOverCommit, long maxUserMemory, long maxTotalMemory, Optional<DataSize> maxTaskMemory)
     {
         checkArgument(maxUserMemory >= 0, "maxUserMemory must be >= 0, found: %s", maxUserMemory);
         checkArgument(maxTotalMemory >= 0, "maxTotalMemory must be >= 0, found: %s", maxTotalMemory);
@@ -130,10 +135,12 @@ public class QueryContext
             // The coordinator will kill the query if the cluster runs out of memory.
             this.maxUserMemory = memoryPool.getMaxBytes();
             this.maxTotalMemory = memoryPool.getMaxBytes();
+            this.maxTaskMemory = Optional.empty(); // disabled
         }
         else {
             this.maxUserMemory = maxUserMemory;
             this.maxTotalMemory = maxTotalMemory;
+            this.maxTaskMemory = maxTaskMemory;
         }
         memoryLimitsInitialized = true;
     }
@@ -305,7 +312,8 @@ public class QueryContext
                 queryMemoryContext.newMemoryTrackingContext(),
                 notifyStatusChanged,
                 perOperatorCpuTimerEnabled,
-                cpuTimerEnabled);
+                cpuTimerEnabled,
+                maxTaskMemory);
         taskContexts.put(taskStateMachine.getTaskId(), taskContext);
         return taskContext;
     }
