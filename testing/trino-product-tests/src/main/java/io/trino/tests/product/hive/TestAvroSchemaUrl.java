@@ -132,7 +132,7 @@ public class TestAvroSchemaUrl
         onHive().executeQuery("INSERT INTO test_avro_schema_url_in_serde_properties VALUES ('some text', 2147483635)");
 
         // Hive stores initial schema inferred from schema files in the Metastore DB.
-        // We need to change the schema to test that current schema is used by Presto, not a snapshot saved during CREATE TABLE.
+        // We need to change the schema to test that current schema is used by Trino, not a snapshot saved during CREATE TABLE.
         saveResourceOnHdfs("avro/change_column_type_schema.avsc", schemaLocationOnHdfs);
 
         assertThat(onTrino().executeQuery("SHOW COLUMNS FROM test_avro_schema_url_in_serde_properties"))

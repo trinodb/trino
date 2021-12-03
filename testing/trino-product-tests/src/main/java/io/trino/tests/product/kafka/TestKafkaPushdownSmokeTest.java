@@ -53,7 +53,7 @@ public class TestKafkaPushdownSmokeTest
 
     private static final String PUSHDOWN_CREATE_TIME_TABLE_NAME = "pushdown_create_time";
 
-    // Kafka connector requires tables to be predefined in Presto configuration
+    // Kafka connector requires tables to be predefined in Trino configuration
     // the code here will be used to verify that table actually exists and to
     // create topics and insert test data
 

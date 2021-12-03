@@ -549,14 +549,14 @@ public abstract class AbstractTestHiveViews
 
     protected void setSessionProperty(String key, String value)
     {
-        // We need to setup sessions for both "presto" and "default" executors in tempto
+        // We need to setup sessions for both "trino" and "default" executors in tempto
         onTrino().executeQuery(format("SET SESSION %s = %s", key, value));
         query(format("SET SESSION %s = %s", key, value));
     }
 
     protected void unsetSessionProperty(String key)
     {
-        // We need to setup sessions for both "presto" and "default" executors in tempto
+        // We need to setup sessions for both "trino" and "default" executors in tempto
         onTrino().executeQuery("RESET SESSION " + key);
         query("RESET SESSION " + key);
     }

@@ -905,7 +905,7 @@ public class HiveMetadata
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         ImmutableMap.Builder<String, String> tableProperties = ImmutableMap.builder();
 
-        // When metastore is configured with metastore.create.as.acid=true, it will also change Presto-created tables
+        // When metastore is configured with metastore.create.as.acid=true, it will also change Trino-created tables
         // behind the scenes. In particular, this won't work with CTAS.
         // TODO (https://github.com/trinodb/trino/issues/1956) convert this into normal table property
 
