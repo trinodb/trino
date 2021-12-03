@@ -76,7 +76,9 @@ public class TestHiveS3Config
                 .setS3NonProxyHosts(ImmutableList.of())
                 .setS3ProxyUsername(null)
                 .setS3ProxyPassword(null)
-                .setS3PreemptiveBasicProxyAuth(false));
+                .setS3PreemptiveBasicProxyAuth(false)
+                .setS3StsEndpoint(null)
+                .setS3StsRegion(null));
     }
 
     @Test
@@ -125,6 +127,8 @@ public class TestHiveS3Config
                 .put("hive.s3.proxy.username", "test")
                 .put("hive.s3.proxy.password", "test")
                 .put("hive.s3.proxy.preemptive-basic-auth", "true")
+                .put("hive.s3.sts.endpoint", "http://minio:9000")
+                .put("hive.s3.sts.region", "eu-central-1")
                 .buildOrThrow();
 
         HiveS3Config expected = new HiveS3Config()
@@ -166,7 +170,9 @@ public class TestHiveS3Config
                 .setS3NonProxyHosts(ImmutableList.of("test", "test2", "test3"))
                 .setS3ProxyUsername("test")
                 .setS3ProxyPassword("test")
-                .setS3PreemptiveBasicProxyAuth(true);
+                .setS3PreemptiveBasicProxyAuth(true)
+                .setS3StsEndpoint("http://minio:9000")
+                .setS3StsRegion("eu-central-1");
 
         assertFullMapping(properties, expected);
     }
