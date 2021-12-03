@@ -141,6 +141,101 @@ public class TestSimplifyExpressions
         assertSimplifies("CAST(12300000000 AS varchar(3)) = '12300000000'", "CAST(12300000000 AS varchar(3)) = '12300000000'");
     }
 
+    @Test
+    public void testCastIntegerToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(1234 AS varchar(4))", "'1234'");
+        assertSimplifies("CAST(-1234 AS varchar(50))", "CAST('-1234' AS varchar(50))");
+
+        // the varchar type length is not enough to contain the number's representation:
+        // the cast operator returns a value that is too long for the expected type ('1234' for varchar(3))
+        // the value is then wrapped in another cast by the LiteralEncoder (CAST('1234' AS varchar(3))),
+        // so eventually we get a truncated string '123'
+        assertSimplifies("CAST(1234 AS varchar(3))", "CAST('1234' AS varchar(3))");
+        assertSimplifies("CAST(-1234 AS varchar(3))", "CAST('-1234' AS varchar(3))");
+
+        // the cast operator returns a value that is too long for the expected type ('1234' for varchar(3))
+        // the value is nested in a comparison expression, so it is not truncated by the LiteralEncoder
+        assertSimplifies("CAST(1234 AS varchar(3)) = '1234'", "true");
+    }
+
+    @Test
+    public void testCastSmallintToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(SMALLINT '1234' AS varchar(4))", "'1234'");
+        assertSimplifies("CAST(SMALLINT '-1234' AS varchar(50))", "CAST('-1234' AS varchar(50))");
+
+        // the varchar type length is not enough to contain the number's representation:
+        // the cast operator returns a value that is too long for the expected type ('1234' for varchar(3))
+        // the value is then wrapped in another cast by the LiteralEncoder (CAST('1234' AS varchar(3))),
+        // so eventually we get a truncated string '123'
+        assertSimplifies("CAST(SMALLINT '1234' AS varchar(3))", "CAST('1234' AS varchar(3))");
+        assertSimplifies("CAST(SMALLINT '-1234' AS varchar(3))", "CAST('-1234' AS varchar(3))");
+
+        // the cast operator returns a value that is too long for the expected type ('1234' for varchar(3))
+        // the value is nested in a comparison expression, so it is not truncated by the LiteralEncoder
+        assertSimplifies("CAST(SMALLINT '1234' AS varchar(3)) = '1234'", "true");
+    }
+
+    @Test
+    public void testCastTinyintToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(TINYINT '123' AS varchar(3))", "'123'");
+        assertSimplifies("CAST(TINYINT '-123' AS varchar(50))", "CAST('-123' AS varchar(50))");
+
+        // the varchar type length is not enough to contain the number's representation:
+        // the cast operator returns a value that is too long for the expected type ('123' for varchar(2))
+        // the value is then wrapped in another cast by the LiteralEncoder (CAST('123' AS varchar(2))),
+        // so eventually we get a truncated string '12'
+        assertSimplifies("CAST(TINYINT '123' AS varchar(2))", "CAST('123' AS varchar(2))");
+        assertSimplifies("CAST(TINYINT '-123' AS varchar(2))", "CAST('-123' AS varchar(2))");
+
+        // the cast operator returns a value that is too long for the expected type ('123' for varchar(2))
+        // the value is nested in a comparison expression, so it is not truncated by the LiteralEncoder
+        assertSimplifies("CAST(TINYINT '123' AS varchar(2)) = '123'", "true");
+    }
+
+    @Test
+    public void testCastShortDecimalToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(DECIMAL '12.4' AS varchar(4))", "'12.4'");
+        assertSimplifies("CAST(DECIMAL '-12.4' AS varchar(50))", "CAST('-12.4' AS varchar(50))");
+
+        // the varchar type length is not enough to contain the number's representation:
+        // the cast operator returns a value that is too long for the expected type ('12.4' for varchar(3))
+        // the value is then wrapped in another cast by the LiteralEncoder (CAST('12.4' AS varchar(3))),
+        // so eventually we get a truncated string '12.'
+        assertSimplifies("CAST(DECIMAL '12.4' AS varchar(3))", "CAST('12.4' AS varchar(3))");
+        assertSimplifies("CAST(DECIMAL '-12.4' AS varchar(3))", "CAST('-12.4' AS varchar(3))");
+
+        // the cast operator returns a value that is too long for the expected type ('12.4' for varchar(3))
+        // the value is nested in a comparison expression, so it is not truncated by the LiteralEncoder
+        assertSimplifies("CAST(DECIMAL '12.4' AS varchar(3)) = '12.4'", "true");
+    }
+
+    @Test
+    public void testCastLongDecimalToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(DECIMAL '100000000000000000.1' AS varchar(20))", "'100000000000000000.1'");
+        assertSimplifies("CAST(DECIMAL '-100000000000000000.1' AS varchar(50))", "CAST('-100000000000000000.1' AS varchar(50))");
+
+        // the varchar type length is not enough to contain the number's representation:
+        // the cast operator returns a value that is too long for the expected type ('100000000000000000.1' for varchar(3))
+        // the value is then wrapped in another cast by the LiteralEncoder (CAST('100000000000000000.1' AS varchar(3))),
+        // so eventually we get a truncated string '100'
+        assertSimplifies("CAST(DECIMAL '100000000000000000.1' AS varchar(3))", "CAST('100000000000000000.1' AS varchar(3))");
+        assertSimplifies("CAST(DECIMAL '-100000000000000000.1' AS varchar(3))", "CAST('-100000000000000000.1' AS varchar(3))");
+
+        // the cast operator returns a value that is too long for the expected type ('100000000000000000.1' for varchar(3))
+        // the value is nested in a comparison expression, so it is not truncated by the LiteralEncoder
+        assertSimplifies("CAST(DECIMAL '100000000000000000.1' AS varchar(3)) = '100000000000000000.1'", "true");
+    }
+
     private static void assertSimplifies(String expression, String expected)
     {
         ParsingOptions parsingOptions = new ParsingOptions();

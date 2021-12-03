@@ -639,6 +639,65 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testCastIntegerToBoundedVarchar()
+    {
+        assertEvaluatedEquals("CAST(1234 AS varchar(4))", "'1234'");
+        assertEvaluatedEquals("CAST(1234 AS varchar(50))", "'1234'");
+
+        // incorrect behavior: the result value does not fit in the type
+        assertEvaluatedEquals("CAST(1234 AS varchar(3))", "'1234'");
+        assertEvaluatedEquals("CAST(-1234 AS varchar(3))", "'-1234'");
+    }
+
+    @Test
+    public void testCastSmallintToBoundedVarchar()
+    {
+        assertEvaluatedEquals("CAST(SMALLINT '1234' AS varchar(4))", "'1234'");
+        assertEvaluatedEquals("CAST(SMALLINT '1234' AS varchar(50))", "'1234'");
+
+        // incorrect behavior: the result value does not fit in the type
+        assertEvaluatedEquals("CAST(SMALLINT '1234' AS varchar(3))", "'1234'");
+        assertEvaluatedEquals("CAST(SMALLINT '-1234' AS varchar(3))", "'-1234'");
+    }
+
+    @Test
+    public void testCastTinyintToBoundedVarchar()
+    {
+        assertEvaluatedEquals("CAST(TINYINT '123' AS varchar(3))", "'123'");
+        assertEvaluatedEquals("CAST(TINYINT '123' AS varchar(50))", "'123'");
+
+        // incorrect behavior: the result value does not fit in the type
+        assertEvaluatedEquals("CAST(TINYINT '123' AS varchar(2))", "'123'");
+        assertEvaluatedEquals("CAST(TINYINT '-123' AS varchar(2))", "'-123'");
+    }
+
+    @Test
+    public void testCastDecimalToBoundedVarchar()
+    {
+        // short decimal
+        assertEvaluatedEquals("CAST(DECIMAL '12.4' AS varchar(4))", "'12.4'");
+        assertEvaluatedEquals("CAST(DECIMAL '12.4' AS varchar(50))", "'12.4'");
+
+        // short decimal: incorrect behavior: the result value does not fit in the type
+        assertEvaluatedEquals("CAST(DECIMAL '12.4' AS varchar(3))", "'12.4'");
+        assertEvaluatedEquals("CAST(DECIMAL '-12.4' AS varchar(3))", "'-12.4'");
+        // the trailing 0 does not fit in the type
+        assertEvaluatedEquals("CAST(DECIMAL '12.40' AS varchar(4))", "'12.40'");
+        assertEvaluatedEquals("CAST(DECIMAL '-12.40' AS varchar(5))", "'-12.40'");
+
+        // long decimal
+        assertEvaluatedEquals("CAST(DECIMAL '100000000000000000.1' AS varchar(20))", "'100000000000000000.1'");
+        assertEvaluatedEquals("CAST(DECIMAL '100000000000000000.1' AS varchar(50))", "'100000000000000000.1'");
+
+        // long decimal: incorrect behavior: the result value does not fit in the type
+        assertEvaluatedEquals("CAST(DECIMAL '100000000000000000.1' AS varchar(3))", "'100000000000000000.1'");
+        assertEvaluatedEquals("CAST(DECIMAL '-100000000000000000.1' AS varchar(3))", "'-100000000000000000.1'");
+        // the trailing 0 does not fit in the type
+        assertEvaluatedEquals("CAST(DECIMAL '100000000000000000.10' AS varchar(20))", "'100000000000000000.10'");
+        assertEvaluatedEquals("CAST(DECIMAL '-100000000000000000.10' AS varchar(21))", "'-100000000000000000.10'");
+    }
+
+    @Test
     public void testCastToBoolean()
     {
         // integer
