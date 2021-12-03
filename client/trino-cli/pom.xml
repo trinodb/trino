@@ -16,7 +16,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>8</project.build.targetJdk>
         <main-class>io.trino.cli.Trino</main-class>
-        <dep.jline.version>3.17.1</dep.jline.version>
+        <dep.jline.version>3.21.0</dep.jline.version>
     </properties>
 
     <dependencies>
