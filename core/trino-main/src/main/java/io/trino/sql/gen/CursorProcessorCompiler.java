@@ -270,7 +270,7 @@ public class CursorProcessorCompiler
         Parameter output = arg("output", BlockBuilder.class);
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), methodName, type(void.class), session, cursor, output);
 
-        method.comment("Projection: %s", projection.toString());
+        method.comment("Projection: %s", projection);
 
         Scope scope = method.getScope();
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");

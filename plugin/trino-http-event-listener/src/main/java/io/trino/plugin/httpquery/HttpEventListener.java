@@ -137,7 +137,7 @@ public class HttpEventListener
                             @Override
                             public void onFailure(Throwable t)
                             {
-                                log.error("Error sending HTTP request to ingest server with URL %s: %s", request.getUri().toString(), t.toString());
+                                log.error("Error sending HTTP request to ingest server with URL %s: %s", request.getUri(), t);
                             }
                         }, executor),
                 (long) delay.getValue(), delay.getUnit());
