@@ -48,7 +48,7 @@ import static java.util.Collections.emptyMap;
 public class TestSqlToRowExpressionTranslator
 {
     private final Metadata metadata = createTestMetadataManager();
-    private final LiteralEncoder literalEncoder = new LiteralEncoder(TEST_SESSION, metadata);
+    private final LiteralEncoder literalEncoder = new LiteralEncoder(metadata);
 
     @Test(timeOut = 10_000)
     public void testPossibleExponentialOptimizationTime()
@@ -102,7 +102,7 @@ public class TestSqlToRowExpressionTranslator
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(expression);
         ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, metadata, TEST_SESSION, expressionTypes);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-        return literalEncoder.toExpression(value, expressionTypes.get(NodeRef.of(expression)));
+        return literalEncoder.toExpression(TEST_SESSION, value, expressionTypes.get(NodeRef.of(expression)));
     }
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)

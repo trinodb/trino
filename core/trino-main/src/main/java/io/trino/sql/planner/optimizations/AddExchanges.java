@@ -162,7 +162,7 @@ public class AddExchanges
             this.types = symbolAllocator.getTypes();
             this.statsProvider = new CachingStatsProvider(statsCalculator, session, types);
             this.session = session;
-            this.domainTranslator = new DomainTranslator(session, metadata);
+            this.domainTranslator = new DomainTranslator(metadata);
             this.distributedIndexJoins = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
             this.redistributeWrites = SystemSessionProperties.isRedistributeWrites(session);
             this.scaleWriters = SystemSessionProperties.isScaleWriters(session);

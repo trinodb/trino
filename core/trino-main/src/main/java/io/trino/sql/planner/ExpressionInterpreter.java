@@ -172,7 +172,7 @@ public class ExpressionInterpreter
     {
         this.expression = requireNonNull(expression, "expression is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.literalEncoder = new LiteralEncoder(session, metadata);
+        this.literalEncoder = new LiteralEncoder(metadata);
         this.session = requireNonNull(session, "session is null");
         this.connectorSession = session.toConnectorSession();
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
@@ -1412,12 +1412,12 @@ public class ExpressionInterpreter
 
         private Expression toExpression(Object base, Type type)
         {
-            return literalEncoder.toExpression(base, type);
+            return literalEncoder.toExpression(session, base, type);
         }
 
         private List<Expression> toExpressions(List<Object> values, List<Type> types)
         {
-            return literalEncoder.toExpressions(values, types);
+            return literalEncoder.toExpressions(session, values, types);
         }
     }
 

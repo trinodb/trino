@@ -116,7 +116,7 @@ public class FilterStatsCalculator
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
             value = false;
         }
-        return new LiteralEncoder(session, metadata).toExpression(value, BOOLEAN);
+        return new LiteralEncoder(metadata).toExpression(session, value, BOOLEAN);
     }
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)

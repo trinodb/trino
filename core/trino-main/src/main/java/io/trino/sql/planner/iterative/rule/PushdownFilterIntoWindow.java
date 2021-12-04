@@ -127,7 +127,7 @@ public class PushdownFilterIntoWindow
         Expression newPredicate = ExpressionUtils.combineConjuncts(
                 metadata,
                 extractionResult.getRemainingExpression(),
-                new DomainTranslator(session, metadata).toPredicate(newTupleDomain));
+                new DomainTranslator(metadata).toPredicate(session, newTupleDomain));
 
         if (newPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
             return Result.ofPlanNode(newSource);

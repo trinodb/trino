@@ -84,7 +84,7 @@ import static org.testng.Assert.assertTrue;
 public class TestLiteralEncoder
 {
     private final Metadata metadata = createTestMetadataManager();
-    private final LiteralEncoder encoder = new LiteralEncoder(TEST_SESSION, metadata);
+    private final LiteralEncoder encoder = new LiteralEncoder(metadata);
 
     private final ResolvedFunction literalFunction = new ResolvedFunction(
             new BoundSignature(LITERAL_FUNCTION_NAME, VARBINARY, ImmutableList.of(VARBINARY)),
@@ -258,7 +258,7 @@ public class TestLiteralEncoder
 
     private void assertEncode(Object value, Type type, String expected)
     {
-        Expression expression = encoder.toExpression(value, type);
+        Expression expression = encoder.toExpression(TEST_SESSION, value, type);
         assertEquals(getExpressionType(expression), type);
         assertEquals(getExpressionValue(expression), value);
         assertEquals(formatSql(expression), expected);
@@ -270,7 +270,7 @@ public class TestLiteralEncoder
     @Deprecated
     private void assertEncodeCaseInsensitively(Object value, Type type, String expected)
     {
-        Expression expression = encoder.toExpression(value, type);
+        Expression expression = encoder.toExpression(TEST_SESSION, value, type);
         assertEquals(getExpressionType(expression), type);
         assertEquals(getExpressionValue(expression), value);
         assertEqualsIgnoreCase(formatSql(expression), expected);
@@ -278,7 +278,7 @@ public class TestLiteralEncoder
 
     private <T> void assertRoundTrip(T value, Type type, BiPredicate<T, T> predicate)
     {
-        Expression expression = encoder.toExpression(value, type);
+        Expression expression = encoder.toExpression(TEST_SESSION, value, type);
         assertEquals(getExpressionType(expression), type);
         @SuppressWarnings("unchecked")
         T decodedValue = (T) getExpressionValue(expression);

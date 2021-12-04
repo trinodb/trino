@@ -50,7 +50,7 @@ public class SimplifyExpressions
         expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
         ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, metadata, session, expressionTypes);
         Object optimized = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-        return new LiteralEncoder(session, metadata).toExpression(optimized, expressionTypes.get(NodeRef.of(expression)));
+        return new LiteralEncoder(metadata).toExpression(session, optimized, expressionTypes.get(NodeRef.of(expression)));
     }
 
     public SimplifyExpressions(Metadata metadata, TypeAnalyzer typeAnalyzer)

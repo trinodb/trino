@@ -95,7 +95,7 @@ public class MetadataQueryOptimizer
         {
             this.session = session;
             this.metadata = metadata;
-            this.literalEncoder = new LiteralEncoder(session, metadata);
+            this.literalEncoder = new LiteralEncoder(metadata);
             this.idAllocator = idAllocator;
         }
 
@@ -164,7 +164,7 @@ public class MetadataQueryOptimizer
                             return context.defaultRewrite(node);
                         }
                         else {
-                            rowBuilder.add(literalEncoder.toExpression(value.getValue(), type));
+                            rowBuilder.add(literalEncoder.toExpression(session, value.getValue(), type));
                         }
                     }
                     rowsBuilder.add(new Row(rowBuilder.build()));

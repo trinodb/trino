@@ -76,16 +76,14 @@ import static java.util.Objects.requireNonNull;
 
 public final class LiteralEncoder
 {
-    private final Session session;
     private final Metadata metadata;
 
-    public LiteralEncoder(Session session, Metadata metadata)
+    public LiteralEncoder(Metadata metadata)
     {
-        this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    public List<Expression> toExpressions(List<?> objects, List<? extends Type> types)
+    public List<Expression> toExpressions(Session session, List<?> objects, List<? extends Type> types)
     {
         requireNonNull(objects, "objects is null");
         requireNonNull(types, "types is null");
@@ -95,12 +93,12 @@ public final class LiteralEncoder
         for (int i = 0; i < objects.size(); i++) {
             Object object = objects.get(i);
             Type type = types.get(i);
-            expressions.add(toExpression(object, type));
+            expressions.add(toExpression(session, object, type));
         }
         return expressions.build();
     }
 
-    public Expression toExpression(Object object, Type type)
+    public Expression toExpression(Session session, Object object, Type type)
     {
         requireNonNull(type, "type is null");
 
@@ -289,7 +287,7 @@ public final class LiteralEncoder
                     .build();
         }
         else {
-            argument = toExpression(object, argumentType);
+            argument = toExpression(session, object, argumentType);
         }
 
         ResolvedFunction resolvedFunction = metadata.getCoercion(session, QualifiedName.of(LITERAL_FUNCTION_NAME), argumentType, type);
