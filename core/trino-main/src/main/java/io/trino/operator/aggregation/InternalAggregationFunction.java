@@ -119,7 +119,6 @@ public final class InternalAggregationFunction
                 null,
                 null,
                 ImmutableList.of(),
-                false,
                 null);
     }
 
@@ -134,22 +133,9 @@ public final class InternalAggregationFunction
             JoinCompiler joinCompiler,
             BlockTypeOperators blockTypeOperators,
             List<LambdaProvider> lambdaProviders,
-            boolean spillEnabled,
             Session session)
     {
-        return factory.bind(
-                inputChannels,
-                maskChannel,
-                sourceTypes,
-                orderByChannels,
-                orderings,
-                pagesIndexFactory,
-                distinct,
-                joinCompiler,
-                blockTypeOperators,
-                lambdaProviders,
-                spillEnabled,
-                session);
+        return factory.bind(inputChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, distinct, joinCompiler, blockTypeOperators, lambdaProviders, session);
     }
 
     @VisibleForTesting

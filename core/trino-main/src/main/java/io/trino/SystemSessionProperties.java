@@ -93,8 +93,6 @@ public final class SystemSessionProperties
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String SPILL_ORDER_BY = "spill_order_by";
     public static final String SPILL_WINDOW_OPERATOR = "spill_window_operator";
-    public static final String SPILL_DISTINCTING_AGGREGATIONS_ENABLED = "spill_distincting_aggregations_enabled";
-    public static final String SPILL_ORDERING_AGGREGATIONS_ENABLED = "spill_ordering_aggregations_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
@@ -397,16 +395,6 @@ public final class SystemSessionProperties
                         SPILL_WINDOW_OPERATOR,
                         "Spill in WindowOperator if spill_enabled is also set",
                         featuresConfig.isSpillWindowOperator(),
-                        false),
-                booleanProperty(
-                        SPILL_DISTINCTING_AGGREGATIONS_ENABLED,
-                        "Enable spill for distincting aggregations if spill_enabled",
-                        featuresConfig.isSpillDistinctingAggregationsEnabled(),
-                        false),
-                booleanProperty(
-                        SPILL_ORDERING_AGGREGATIONS_ENABLED,
-                        "Enable spill for ordering aggregations if spill_enabled",
-                        featuresConfig.isSpillOrderingAggregationsEnabled(),
                         false),
                 dataSizeProperty(
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
@@ -906,16 +894,6 @@ public final class SystemSessionProperties
     public static boolean isSpillWindowOperator(Session session)
     {
         return session.getSystemProperty(SPILL_WINDOW_OPERATOR, Boolean.class);
-    }
-
-    public static boolean isSpillDistinctingAggregationsEnabled(Session session)
-    {
-        return session.getSystemProperty(SPILL_DISTINCTING_AGGREGATIONS_ENABLED, Boolean.class) && isSpillEnabled(session);
-    }
-
-    public static boolean isSpillOrderingAggregationsEnabled(Session session)
-    {
-        return session.getSystemProperty(SPILL_ORDERING_AGGREGATIONS_ENABLED, Boolean.class) && isSpillEnabled(session);
     }
 
     public static DataSize getAggregationOperatorUnspillMemoryLimit(Session session)
