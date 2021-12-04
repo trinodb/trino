@@ -268,7 +268,7 @@ public class IndexJoinOptimizer
                 Session session)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.domainTranslator = new DomainTranslator(session, metadata);
+            this.domainTranslator = new DomainTranslator(metadata);
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
@@ -346,7 +346,7 @@ public class IndexJoinOptimizer
 
             Expression resultingPredicate = combineConjuncts(
                     metadata,
-                    domainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
+                    domainTranslator.toPredicate(session, resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
                     decomposedPredicate.getRemainingExpression());
 
             if (!resultingPredicate.equals(TRUE_LITERAL)) {

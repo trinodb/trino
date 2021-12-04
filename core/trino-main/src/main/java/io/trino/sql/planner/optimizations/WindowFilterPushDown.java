@@ -108,7 +108,7 @@ public class WindowFilterPushDown
             this.types = requireNonNull(types, "types is null");
             rowNumberFunctionId = metadata.resolveFunction(session, QualifiedName.of("row_number"), ImmutableList.of()).getFunctionId();
             rankFunctionId = metadata.resolveFunction(session, QualifiedName.of("rank"), ImmutableList.of()).getFunctionId();
-            domainTranslator = new DomainTranslator(session, metadata);
+            domainTranslator = new DomainTranslator(metadata);
         }
 
         @Override
@@ -220,7 +220,7 @@ public class WindowFilterPushDown
             Expression newPredicate = ExpressionUtils.combineConjuncts(
                     metadata,
                     extractionResult.getRemainingExpression(),
-                    domainTranslator.toPredicate(newTupleDomain));
+                    domainTranslator.toPredicate(session, newTupleDomain));
 
             if (newPredicate.equals(BooleanLiteral.TRUE_LITERAL)) {
                 return source;

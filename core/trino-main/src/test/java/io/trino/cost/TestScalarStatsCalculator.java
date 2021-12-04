@@ -144,8 +144,8 @@ public class TestScalarStatsCalculator
     @Test
     public void testVarbinaryConstant()
     {
-        LiteralEncoder literalEncoder = new LiteralEncoder(session, functionResolution.getMetadata());
-        Expression expression = literalEncoder.toExpression(Slices.utf8Slice("ala ma kota"), VARBINARY);
+        LiteralEncoder literalEncoder = new LiteralEncoder(functionResolution.getMetadata());
+        Expression expression = literalEncoder.toExpression(session, Slices.utf8Slice("ala ma kota"), VARBINARY);
 
         assertCalculate(expression)
                 .distinctValuesCount(1.0)

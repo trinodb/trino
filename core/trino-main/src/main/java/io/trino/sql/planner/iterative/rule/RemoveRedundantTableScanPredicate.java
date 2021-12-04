@@ -149,7 +149,7 @@ public class RemoveRedundantTableScanPredicate
                 session,
                 symbolAllocator,
                 typeAnalyzer,
-                new DomainTranslator(session, metadata).toPredicate(unenforcedDomain.transformKeys(assignments::get)),
+                new DomainTranslator(metadata).toPredicate(session, unenforcedDomain.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
                 decomposedPredicate.getRemainingExpression());
 

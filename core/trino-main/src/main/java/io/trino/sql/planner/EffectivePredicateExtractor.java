@@ -253,7 +253,7 @@ public class EffectivePredicateExtractor
             }
 
             // TODO: replace with metadata.getTableProperties() when table layouts are fully removed
-            return domainTranslator.toPredicate(predicate.simplify()
+            return domainTranslator.toPredicate(session, predicate.simplify()
                     .filter((columnHandle, domain) -> assignments.containsKey(columnHandle))
                     .transformKeys(assignments::get));
         }
@@ -455,7 +455,7 @@ public class EffectivePredicateExtractor
             }
 
             // simplify to avoid a large expression if there are many rows in ValuesNode
-            return domainTranslator.toPredicate(TupleDomain.withColumnDomains(domains.build()).simplify());
+            return domainTranslator.toPredicate(session, TupleDomain.withColumnDomains(domains.build()).simplify());
         }
 
         @SafeVarargs
