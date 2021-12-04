@@ -11,10 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator;
+package io.trino.operator.aggregation;
 
-import io.trino.operator.aggregation.Accumulator;
-import io.trino.operator.aggregation.AccumulatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -22,7 +20,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-class Aggregator
+public class Aggregator
 {
     private final Type intermediateType;
     private final Type finalType;
@@ -30,7 +28,7 @@ class Aggregator
     private final AggregationNode.Step step;
     private final int intermediateChannel;
 
-    Aggregator(AccumulatorFactory accumulatorFactory, AggregationNode.Step step)
+    public Aggregator(AccumulatorFactory accumulatorFactory, AggregationNode.Step step)
     {
         intermediateType = accumulatorFactory.getIntermediateType();
         finalType = accumulatorFactory.getFinalType();
