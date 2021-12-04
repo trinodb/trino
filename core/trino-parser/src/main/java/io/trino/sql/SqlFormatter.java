@@ -1275,7 +1275,7 @@ public final class SqlFormatter
                     return principal.getName().toString();
                 case USER:
                 case ROLE:
-                    return format("%s %s", type.name(), principal.getName().toString());
+                    return format("%s %s", type.name(), principal.getName());
             }
             throw new IllegalArgumentException("Unsupported principal type: " + type);
         }

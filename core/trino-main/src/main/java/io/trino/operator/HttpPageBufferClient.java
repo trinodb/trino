@@ -635,7 +635,7 @@ public final class HttpPageBufferClient
                     catch (RuntimeException | IOException e) {
                         // Ignored. Just return whatever message we were able to decode
                     }
-                    throw new PageTransportErrorException(fromUri(uri), format("Expected response code to be 200, but was %s:%n%s", response.getStatusCode(), body.toString()));
+                    throw new PageTransportErrorException(fromUri(uri), format("Expected response code to be 200, but was %s:%n%s", response.getStatusCode(), body));
                 }
 
                 // invalid content type can happen when an error page is returned, but is unlikely given the above 200
