@@ -1478,6 +1478,10 @@ public class TrinoS3FileSystem
         private int bufferSize;
 
         private boolean failed;
+        // Mutated and read by main thread; mutated just before scheduling upload to background thread (access does not need to be thread safe)
+        private boolean multipartUploadStarted;
+        // Mutated by background thread which does the multipart upload; read by both main thread and background thread;
+        // Visibility ensured by memory barrier via inProgressUploadFuture
         private Optional<String> uploadId = Optional.empty();
         private Future<UploadPartResult> inProgressUploadFuture;
         private final List<UploadPartResult> parts = new ArrayList<>();
@@ -1571,17 +1575,8 @@ public class TrinoS3FileSystem
         private void flushBuffer(boolean finished)
                 throws IOException
         {
-            try {
-                waitForPreviousUploadFinish();
-            }
-            catch (IOException e) {
-                failed = true;
-                abortUploadSuppressed(e);
-                throw e;
-            }
-
-            // skip multipart upload if there would only be one part
-            if (finished && uploadId.isEmpty()) {
+            // Skip multipart upload if there would only be one part
+            if (finished && !multipartUploadStarted) {
                 InputStream in = new ByteArrayInputStream(buffer, 0, bufferSize);
 
                 ObjectMetadata metadata = new ObjectMetadata();
@@ -1614,6 +1609,15 @@ public class TrinoS3FileSystem
                     bufferSize = 0;
                 }
 
+                try {
+                    waitForPreviousUploadFinish();
+                }
+                catch (IOException e) {
+                    failed = true;
+                    abortUploadSuppressed(e);
+                    throw e;
+                }
+                multipartUploadStarted = true;
                 inProgressUploadFuture = uploadExecutor.submit(() -> uploadPage(data, length));
             }
         }
