@@ -107,8 +107,6 @@ public class FeaturesConfig
     private boolean spillEnabled;
     private boolean spillOrderBy = true;
     private boolean spillWindowOperator = true;
-    private boolean spillDistinctingAggregationsEnabled = true;
-    private boolean spillOrderingAggregationsEnabled = true;
     private DataSize aggregationOperatorUnspillMemoryLimit = DataSize.of(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
@@ -596,32 +594,6 @@ public class FeaturesConfig
     {
         this.spillWindowOperator = spillWindowOperator;
         return this;
-    }
-
-    @Config("spill-distincting-aggregations-enabled")
-    @ConfigDescription("Spill distincting aggregations if spill is enabled")
-    public FeaturesConfig setSpillDistinctingAggregationsEnabled(boolean spillDistinctingAggregationsEnabled)
-    {
-        this.spillDistinctingAggregationsEnabled = spillDistinctingAggregationsEnabled;
-        return this;
-    }
-
-    public boolean isSpillDistinctingAggregationsEnabled()
-    {
-        return spillDistinctingAggregationsEnabled;
-    }
-
-    @Config("spill-ordering-aggregations-enabled")
-    @ConfigDescription("Spill ordering aggregations if spill is enabled")
-    public FeaturesConfig setSpillOrderingAggregationsEnabled(boolean spillOrderingAggregationsEnabled)
-    {
-        this.spillOrderingAggregationsEnabled = spillOrderingAggregationsEnabled;
-        return this;
-    }
-
-    public boolean isSpillOrderingAggregationsEnabled()
-    {
-        return spillOrderingAggregationsEnabled;
     }
 
     public Duration getIterativeOptimizerTimeout()
