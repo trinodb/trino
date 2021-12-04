@@ -896,20 +896,21 @@ public class LocalQueryRunner
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
     {
         return planOptimizersProvider.getPlanOptimizers(
-                forceSingleNode,
-                sqlParser,
                 metadata,
                 typeOperators,
+                new TypeAnalyzer(sqlParser, metadata),
                 taskManagerConfig,
+                forceSingleNode,
                 splitManager,
                 pageSourceManager,
                 statsCalculator,
                 scalarStatsCalculator,
                 costCalculator,
                 estimatedExchangesCostCalculator,
-                featuresConfig,
+                new CostComparator(featuresConfig),
                 taskCountEstimator,
-                nodePartitioningManager);
+                nodePartitioningManager,
+                new RuleStatsRecorder()).get();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)
@@ -987,21 +988,22 @@ public class LocalQueryRunner
 
     public interface PlanOptimizersProvider
     {
-        List<PlanOptimizer> getPlanOptimizers(
-                boolean forceSingleNode,
-                SqlParser sqlParser,
-                MetadataManager metadata,
+        PlanOptimizers getPlanOptimizers(
+                Metadata metadata,
                 TypeOperators typeOperators,
+                TypeAnalyzer typeAnalyzer,
                 TaskManagerConfig taskManagerConfig,
+                boolean forceSingleNode,
                 SplitManager splitManager,
                 PageSourceManager pageSourceManager,
                 StatsCalculator statsCalculator,
                 ScalarStatsCalculator scalarStatsCalculator,
                 CostCalculator costCalculator,
                 CostCalculator estimatedExchangesCostCalculator,
-                FeaturesConfig featuresConfig,
+                CostComparator costComparator,
                 TaskCountEstimator taskCountEstimator,
-                NodePartitioningManager nodePartitioningManager);
+                NodePartitioningManager nodePartitioningManager,
+                RuleStatsRecorder ruleStats);
     }
 
     public static class Builder
@@ -1014,37 +1016,7 @@ public class LocalQueryRunner
         private Map<String, List<PropertyMetadata<?>>> defaultSessionProperties = ImmutableMap.of();
         private Set<SystemSessionPropertiesProvider> extraSessionProperties = ImmutableSet.of();
         private int nodeCountForStats;
-        private PlanOptimizersProvider planOptimizersProvider = (
-                forceSingleNode,
-                sqlParser,
-                metadata,
-                typeOperators,
-                taskManagerConfig,
-                splitManager,
-                pageSourceManager,
-                statsCalculator,
-                scalarStatsCalculator,
-                costCalculator,
-                estimatedExchangesCostCalculator,
-                featuresConfig,
-                taskCountEstimator,
-                nodePartitioningManager) ->
-                new PlanOptimizers(
-                        metadata,
-                        typeOperators,
-                        new TypeAnalyzer(sqlParser, metadata),
-                        taskManagerConfig,
-                        forceSingleNode,
-                        splitManager,
-                        pageSourceManager,
-                        statsCalculator,
-                        scalarStatsCalculator,
-                        costCalculator,
-                        estimatedExchangesCostCalculator,
-                        new CostComparator(featuresConfig),
-                        taskCountEstimator,
-                        nodePartitioningManager,
-                        new RuleStatsRecorder()).get();
+        private PlanOptimizersProvider planOptimizersProvider = PlanOptimizers::new;
         private OperatorFactories operatorFactories = new TrinoOperatorFactories();
 
         private Builder(Session defaultSession)
