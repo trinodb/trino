@@ -20,6 +20,7 @@ import io.trino.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProce
 import io.trino.operator.WorkProcessor.Transformation;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.aggregation.AccumulatorFactory;
+import io.trino.operator.aggregation.Aggregator;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
