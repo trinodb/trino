@@ -47,7 +47,7 @@ public class TestConnectorExpressionTranslator
     private static final Metadata METADATA = createTestMetadataManager();
     private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(METADATA);
     private static final Type ROW_TYPE = rowType(field("int_symbol_1", INTEGER), field("varchar_symbol_1", createVarcharType(5)));
-    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(TEST_SESSION, METADATA);
+    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(METADATA);
 
     private static final Map<Symbol, Type> symbols = ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("double_symbol_1"), DOUBLE)
@@ -98,7 +98,7 @@ public class TestConnectorExpressionTranslator
 
     private void assertTranslationFromConnectorExpression(ConnectorExpression connectorExpression, Expression expected)
     {
-        Expression translation = translate(connectorExpression, variableMappings, LITERAL_ENCODER);
+        Expression translation = translate(TEST_SESSION, connectorExpression, variableMappings, LITERAL_ENCODER);
         assertEquals(translation, expected);
     }
 }

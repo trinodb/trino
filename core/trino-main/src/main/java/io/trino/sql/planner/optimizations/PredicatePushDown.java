@@ -196,10 +196,10 @@ public class PredicatePushDown
             this.dynamicFiltering = dynamicFiltering;
 
             this.effectivePredicateExtractor = new EffectivePredicateExtractor(
-                    new DomainTranslator(session, metadata),
+                    new DomainTranslator(metadata),
                     metadata,
                     useTableProperties && isPredicatePushdownUseTableProperties(session));
-            this.literalEncoder = new LiteralEncoder(session, metadata);
+            this.literalEncoder = new LiteralEncoder(metadata);
         }
 
         @Override
@@ -1226,7 +1226,7 @@ public class PredicatePushDown
         {
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
             ExpressionInterpreter optimizer = new ExpressionInterpreter(expression, metadata, session, expressionTypes);
-            return literalEncoder.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
+            return literalEncoder.toExpression(session, optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
         }
 
         private boolean areExpressionsEquivalent(Expression leftExpression, Expression rightExpression)

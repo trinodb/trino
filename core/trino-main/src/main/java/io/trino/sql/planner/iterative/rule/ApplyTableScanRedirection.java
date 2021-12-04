@@ -218,7 +218,7 @@ public class ApplyTableScanRedirection
                 scanNode.isUpdateTarget(),
                 Optional.empty());
 
-        DomainTranslator domainTranslator = new DomainTranslator(context.getSession(), metadata);
+        DomainTranslator domainTranslator = new DomainTranslator(metadata);
         FilterNode filterNode = new FilterNode(
                 context.getIdAllocator().getNextId(),
                 applyProjection(
@@ -226,7 +226,7 @@ public class ApplyTableScanRedirection
                         newAssignments.keySet(),
                         casts.build(),
                         newScanNode),
-                domainTranslator.toPredicate(transformedConstraint));
+                domainTranslator.toPredicate(context.getSession(), transformedConstraint));
 
         return Result.ofPlanNode(applyProjection(
                 context.getIdAllocator(),

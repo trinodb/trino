@@ -164,7 +164,7 @@ public class UnwrapCastInComparison
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(metadata);
-            this.literalEncoder = new LiteralEncoder(session, metadata);
+            this.literalEncoder = new LiteralEncoder(metadata);
         }
 
         @Override
@@ -276,15 +276,15 @@ public class UnwrapCastInComparison
                         case GREATER_THAN:
                             return falseIfNotNull(cast.getExpression());
                         case GREATER_THAN_OR_EQUAL:
-                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(max, sourceType));
+                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
                         case LESS_THAN_OR_EQUAL:
                             return trueIfNotNull(cast.getExpression());
                         case LESS_THAN:
-                            return new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(max, sourceType));
+                            return new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
                         case EQUAL:
                         case NOT_EQUAL:
                         case IS_DISTINCT_FROM:
-                            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(max, sourceType));
+                            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
                     }
                     throw new UnsupportedOperationException("Not yet implemented: " + operator);
                 }
@@ -316,15 +316,15 @@ public class UnwrapCastInComparison
                         case LESS_THAN:
                             return falseIfNotNull(cast.getExpression());
                         case LESS_THAN_OR_EQUAL:
-                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(min, sourceType));
+                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
                         case GREATER_THAN_OR_EQUAL:
                             return trueIfNotNull(cast.getExpression());
                         case GREATER_THAN:
-                            return new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(min, sourceType));
+                            return new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
                         case EQUAL:
                         case NOT_EQUAL:
                         case IS_DISTINCT_FROM:
-                            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(min, sourceType));
+                            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
                     }
                     throw new UnsupportedOperationException("Not yet implemented: " + operator);
                 }
@@ -369,14 +369,14 @@ public class UnwrapCastInComparison
                     case LESS_THAN:
                     case LESS_THAN_OR_EQUAL:
                         if (sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMin(), literalInSourceType) == 0) {
-                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                         }
-                        return new ComparisonExpression(LESS_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+                        return new ComparisonExpression(LESS_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                     case GREATER_THAN:
                     case GREATER_THAN_OR_EQUAL:
                         // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
                         // larger than the next value in the source type
-                        return new ComparisonExpression(GREATER_THAN, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+                        return new ComparisonExpression(GREATER_THAN, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                 }
                 throw new UnsupportedOperationException("Not yet implemented: " + operator);
             }
@@ -394,18 +394,18 @@ public class UnwrapCastInComparison
                     case LESS_THAN_OR_EQUAL:
                         // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
                         // smaller than the next value in the source type
-                        return new ComparisonExpression(LESS_THAN, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+                        return new ComparisonExpression(LESS_THAN, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                     case GREATER_THAN:
                     case GREATER_THAN_OR_EQUAL:
                         if (sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMax(), literalInSourceType) == 0) {
-                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                         }
-                        return new ComparisonExpression(GREATER_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+                        return new ComparisonExpression(GREATER_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                 }
                 throw new UnsupportedOperationException("Not yet implemented: " + operator);
             }
 
-            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
         }
 
         private boolean hasInjectiveImplicitCoercion(Type source, Type target, Object value)
