@@ -339,7 +339,7 @@ public class PageFunctionCompiler
                         .add(position)
                         .build());
 
-        method.comment("Projection: %s", projection.toString());
+        method.comment("Projection: %s", projection);
 
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
@@ -518,7 +518,7 @@ public class PageFunctionCompiler
                         .add(position)
                         .build());
 
-        method.comment("Filter: %s", filter.toString());
+        method.comment("Filter: %s", filter);
 
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();

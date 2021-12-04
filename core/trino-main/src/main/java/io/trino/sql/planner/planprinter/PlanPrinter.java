@@ -580,7 +580,7 @@ public class PlanPrinter
         {
             String type = "";
             if (node.getStep() != AggregationNode.Step.SINGLE) {
-                type = format("(%s)", node.getStep().toString());
+                type = format("(%s)", node.getStep());
             }
             if (node.isStreamable()) {
                 type = format("%s(STREAMING)", type);
@@ -1143,7 +1143,7 @@ public class PlanPrinter
                     node,
                     name,
                     format("[replicate=%s, unnest=%s", formatOutputs(types, node.getReplicateSymbols()), formatOutputs(types, unnestInputs))
-                            + (node.getFilter().isPresent() ? format(", filter=%s]", node.getFilter().get().toString()) : "]"));
+                            + (node.getFilter().isPresent() ? format(", filter=%s]", node.getFilter().get()) : "]"));
             return processChildren(node, context);
         }
 

@@ -428,7 +428,7 @@ public class TestParquetDecimalScaling
 
     private Path getParquetWritePath(String tableName)
     {
-        return new Path(basePath.toString(), format("hive_data/tpch/%s/%s", tableName, UUID.randomUUID().toString()));
+        return new Path(basePath.toString(), format("hive_data/tpch/%s/%s", tableName, UUID.randomUUID()));
     }
 
     private static void createParquetFile(
