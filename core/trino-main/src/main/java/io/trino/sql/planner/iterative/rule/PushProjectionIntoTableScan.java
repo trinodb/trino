@@ -22,7 +22,6 @@ import io.trino.cost.SymbolStatsEstimate;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProperties.TablePartitioning;
 import io.trino.spi.connector.Assignment;
@@ -31,6 +30,7 @@ import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.Symbol;
@@ -70,13 +70,13 @@ public class PushProjectionIntoTableScan
     private static final Pattern<ProjectNode> PATTERN = project().with(source().matching(
             tableScan().capturedAs(TABLE_SCAN)));
 
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
     private final ScalarStatsCalculator scalarStatsCalculator;
 
-    public PushProjectionIntoTableScan(Metadata metadata, TypeAnalyzer typeAnalyzer, ScalarStatsCalculator scalarStatsCalculator)
+    public PushProjectionIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, ScalarStatsCalculator scalarStatsCalculator)
     {
-        this.metadata = metadata;
+        this.plannerContext = plannerContext;
         this.typeAnalyzer = typeAnalyzer;
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
     }
@@ -118,7 +118,7 @@ public class PushProjectionIntoTableScan
         Map<String, ColumnHandle> assignments = inputVariableMappings.entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> tableScan.getAssignments().get(entry.getValue())));
 
-        Optional<ProjectionApplicationResult<TableHandle>> result = metadata.applyProjection(context.getSession(), tableScan.getTable(), connectorPartialProjections, assignments);
+        Optional<ProjectionApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyProjection(context.getSession(), tableScan.getTable(), connectorPartialProjections, assignments);
 
         if (result.isEmpty()) {
             return Result.empty();
@@ -143,7 +143,7 @@ public class PushProjectionIntoTableScan
 
         // Translate partial connector projections back to new partial projections
         List<Expression> newPartialProjections = newConnectorPartialProjections.stream()
-                .map(expression -> ConnectorExpressionTranslator.translate(expression, variableMappings, new LiteralEncoder(context.getSession(), metadata)))
+                .map(expression -> ConnectorExpressionTranslator.translate(context.getSession(), expression, variableMappings, new LiteralEncoder(plannerContext)))
                 .collect(toImmutableList());
 
         // Map internal node references to new partial projections
@@ -170,7 +170,7 @@ public class PushProjectionIntoTableScan
                     continue;
                 }
                 String resultVariableName = ((Variable) resultConnectorExpression).getName();
-                Expression inputExpression = ConnectorExpressionTranslator.translate(inputConnectorExpression, inputVariableMappings, new LiteralEncoder(context.getSession(), metadata));
+                Expression inputExpression = ConnectorExpressionTranslator.translate(context.getSession(), inputConnectorExpression, inputVariableMappings, new LiteralEncoder(plannerContext));
                 SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, context.getSession(), context.getSymbolAllocator().getTypes());
                 builder.addSymbolStatistics(variableMappings.get(resultVariableName), symbolStatistics);
             }
@@ -206,8 +206,8 @@ public class PushProjectionIntoTableScan
             return;
         }
 
-        Optional<TablePartitioning> oldTablePartitioning = metadata.getTableProperties(context.getSession(), oldTableScan.getTable()).getTablePartitioning();
-        Optional<TablePartitioning> newTablePartitioning = metadata.getTableProperties(context.getSession(), newTable).getTablePartitioning();
+        Optional<TablePartitioning> oldTablePartitioning = plannerContext.getMetadata().getTableProperties(context.getSession(), oldTableScan.getTable()).getTablePartitioning();
+        Optional<TablePartitioning> newTablePartitioning = plannerContext.getMetadata().getTableProperties(context.getSession(), newTable).getTablePartitioning();
         verify(newTablePartitioning.equals(oldTablePartitioning), "Partitioning must not change after projection is pushed down");
     }
 }

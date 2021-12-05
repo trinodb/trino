@@ -21,7 +21,6 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.SliceUtf8;
 import io.trino.Session;
 import io.trino.block.BlockSerdeUtil;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.VarbinaryFunctions;
 import io.trino.operator.scalar.timestamp.TimestampToVarcharCast;
@@ -37,6 +36,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
@@ -76,11 +76,11 @@ import static java.util.Objects.requireNonNull;
 
 public final class LiteralEncoder
 {
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
 
-    public LiteralEncoder(Metadata metadata)
+    public LiteralEncoder(PlannerContext plannerContext)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
     }
 
     public List<Expression> toExpressions(Session session, List<?> objects, List<? extends Type> types)
@@ -141,17 +141,17 @@ public final class LiteralEncoder
             // if you remove this, you will need to update the TupleDomainOrcPredicate
             // When changing this, don't forget about similar code for REAL below
             if (value.isNaN()) {
-                return FunctionCallBuilder.resolve(session, metadata)
+                return FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                         .setName(QualifiedName.of("nan"))
                         .build();
             }
             if (value.equals(Double.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(FunctionCallBuilder.resolve(session, metadata)
+                return ArithmeticUnaryExpression.negative(FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                         .setName(QualifiedName.of("infinity"))
                         .build());
             }
             if (value.equals(Double.POSITIVE_INFINITY)) {
-                return FunctionCallBuilder.resolve(session, metadata)
+                return FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                         .setName(QualifiedName.of("infinity"))
                         .build();
             }
@@ -163,21 +163,21 @@ public final class LiteralEncoder
             // WARNING for ORC predicate code as above (for double)
             if (value.isNaN()) {
                 return new Cast(
-                        FunctionCallBuilder.resolve(session, metadata)
+                        FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                                 .setName(QualifiedName.of("nan"))
                                 .build(),
                         toSqlType(REAL));
             }
             if (value.equals(Float.NEGATIVE_INFINITY)) {
                 return ArithmeticUnaryExpression.negative(new Cast(
-                        FunctionCallBuilder.resolve(session, metadata)
+                        FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                                 .setName(QualifiedName.of("infinity"))
                                 .build(),
                         toSqlType(REAL)));
             }
             if (value.equals(Float.POSITIVE_INFINITY)) {
                 return new Cast(
-                        FunctionCallBuilder.resolve(session, metadata)
+                        FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                                 .setName(QualifiedName.of("infinity"))
                                 .build(),
                         toSqlType(REAL));
@@ -269,7 +269,7 @@ public final class LiteralEncoder
 
         if (object instanceof Block) {
             SliceOutput output = new DynamicSliceOutput(toIntExact(((Block) object).getSizeInBytes()));
-            BlockSerdeUtil.writeBlock(metadata.getBlockEncodingSerde(), output, (Block) object);
+            BlockSerdeUtil.writeBlock(plannerContext.getMetadata().getBlockEncodingSerde(), output, (Block) object);
             object = output.slice();
             // This if condition will evaluate to true: object instanceof Slice && !type.equals(VARCHAR)
         }
@@ -281,7 +281,7 @@ public final class LiteralEncoder
             // able to encode it in the plan that gets sent to workers.
             // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
             Slice encoded = VarbinaryFunctions.toBase64((Slice) object);
-            argument = FunctionCallBuilder.resolve(session, metadata)
+            argument = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                     .setName(QualifiedName.of("from_base64"))
                     .addArgument(VARCHAR, new StringLiteral(encoded.toStringUtf8()))
                     .build();
@@ -290,8 +290,8 @@ public final class LiteralEncoder
             argument = toExpression(session, object, argumentType);
         }
 
-        ResolvedFunction resolvedFunction = metadata.getCoercion(session, QualifiedName.of(LITERAL_FUNCTION_NAME), argumentType, type);
-        return FunctionCallBuilder.resolve(session, metadata)
+        ResolvedFunction resolvedFunction = plannerContext.getMetadata().getCoercion(session, QualifiedName.of(LITERAL_FUNCTION_NAME), argumentType, type);
+        return FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
                 .setName(resolvedFunction.toQualifiedName())
                 .addArgument(argumentType, argument)
                 .build();

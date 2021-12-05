@@ -27,6 +27,7 @@ import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -85,12 +86,12 @@ public class RemoveUnsupportedDynamicFilters
     private final Metadata metadata;
     private final TypeAnalyzer typeAnalyzer;
 
-    public RemoveUnsupportedDynamicFilters(Metadata metadata)
+    public RemoveUnsupportedDynamicFilters(PlannerContext plannerContext)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.metadata = requireNonNull(plannerContext, "plannerContext is null").getMetadata();
         // This is a limited type analyzer for the simple expressions used in dynamic filters
         this.typeAnalyzer = new TypeAnalyzer(new StatementAnalyzerFactory(
-                metadata,
+                plannerContext,
                 new SqlParser(),
                 new AllowAllAccessControl(),
                 user -> ImmutableSet.of(),

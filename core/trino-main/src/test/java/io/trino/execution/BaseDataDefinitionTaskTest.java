@@ -41,6 +41,7 @@ import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
@@ -64,6 +65,7 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -76,6 +78,7 @@ public abstract class BaseDataDefinitionTaskTest
     public static final String SCHEMA = "schema";
     protected Session testSession;
     protected MockMetadata metadata;
+    protected PlannerContext plannerContext;
     protected TransactionManager transactionManager;
     protected QueryStateMachine queryStateMachine;
 
@@ -90,6 +93,7 @@ public abstract class BaseDataDefinitionTaskTest
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
         metadata = new MockMetadata(testCatalog.getConnectorCatalogName());
+        plannerContext = plannerContextBuilder().withMetadata(metadata).build();
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
     }
 

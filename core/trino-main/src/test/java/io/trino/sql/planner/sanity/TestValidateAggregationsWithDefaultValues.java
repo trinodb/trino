@@ -18,11 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -51,8 +50,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestValidateAggregationsWithDefaultValues
         extends BasePlanTest
 {
-    private Metadata metadata;
-    private TypeOperators typeOperators = new TypeOperators();
+    private PlannerContext plannerContext;
     private PlanBuilder builder;
     private Symbol symbol;
     private TableScanNode tableScanNode;
@@ -60,8 +58,8 @@ public class TestValidateAggregationsWithDefaultValues
     @BeforeClass
     public void setup()
     {
-        metadata = getQueryRunner().getMetadata();
-        builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata, TEST_SESSION);
+        plannerContext = getQueryRunner().getPlannerContext();
+        builder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext.getMetadata(), TEST_SESSION);
         CatalogName catalogName = getCurrentConnectorId();
         TableHandle nationTableHandle = new TableHandle(
                 catalogName,
@@ -199,13 +197,12 @@ public class TestValidateAggregationsWithDefaultValues
     {
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
+            session.getCatalog().ifPresent(catalog -> plannerContext.getMetadata().getCatalogHandle(session, catalog));
             new ValidateAggregationsWithDefaultValues(forceSingleNode).validate(
                     root,
                     session,
-                    metadata,
-                    typeOperators,
-                    createTestingTypeAnalyzer(metadata),
+                    plannerContext,
+                    createTestingTypeAnalyzer(plannerContext),
                     TypeProvider.empty(),
                     WarningCollector.NOOP);
             return null;

@@ -335,9 +335,8 @@ public class TestReorderWindows
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
                 new PredicatePushDown(
-                        getQueryRunner().getMetadata(),
-                        getQueryRunner().getTypeOperators(),
-                        createTestingTypeAnalyzer(getQueryRunner().getMetadata()),
+                        getQueryRunner().getPlannerContext(),
+                        createTestingTypeAnalyzer(getQueryRunner().getPlannerContext()),
                         false,
                         false),
                 new IterativeOptimizer(

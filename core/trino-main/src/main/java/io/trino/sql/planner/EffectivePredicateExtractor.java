@@ -25,6 +25,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.DistinctLimitNode;
@@ -94,36 +95,38 @@ public class EffectivePredicateExtractor
                 return new ComparisonExpression(EQUAL, reference, expression);
             };
 
+    private final PlannerContext plannerContext;
     private final DomainTranslator domainTranslator;
-    private final Metadata metadata;
     private final boolean useTableProperties;
 
-    public EffectivePredicateExtractor(DomainTranslator domainTranslator, Metadata metadata, boolean useTableProperties)
+    public EffectivePredicateExtractor(DomainTranslator domainTranslator, PlannerContext plannerContext, boolean useTableProperties)
     {
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
         this.useTableProperties = useTableProperties;
     }
 
     public Expression extract(Session session, PlanNode node, TypeProvider types, TypeAnalyzer typeAnalyzer)
     {
-        return node.accept(new Visitor(domainTranslator, metadata, session, types, typeAnalyzer, useTableProperties), null);
+        return node.accept(new Visitor(domainTranslator, plannerContext, session, types, typeAnalyzer, useTableProperties), null);
     }
 
     private static class Visitor
             extends PlanVisitor<Expression, Void>
     {
         private final DomainTranslator domainTranslator;
+        private final PlannerContext plannerContext;
         private final Metadata metadata;
         private final Session session;
         private final TypeProvider types;
         private final TypeAnalyzer typeAnalyzer;
         private final boolean useTableProperties;
 
-        public Visitor(DomainTranslator domainTranslator, Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer, boolean useTableProperties)
+        public Visitor(DomainTranslator domainTranslator, PlannerContext plannerContext, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer, boolean useTableProperties)
         {
             this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+            this.metadata = plannerContext.getMetadata();
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -380,7 +383,7 @@ public class EffectivePredicateExtractor
                             nonDeterministic[i] = true;
                         }
                         else {
-                            ExpressionInterpreter interpreter = new ExpressionInterpreter(value, metadata, session, expressionTypes);
+                            ExpressionInterpreter interpreter = new ExpressionInterpreter(value, plannerContext, session, expressionTypes);
                             Object item = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
                             if (item instanceof Expression) {
                                 return TRUE_LITERAL;
@@ -402,7 +405,7 @@ public class EffectivePredicateExtractor
                     if (!DeterminismEvaluator.isDeterministic(row, metadata)) {
                         return TRUE_LITERAL;
                     }
-                    ExpressionInterpreter interpreter = new ExpressionInterpreter(row, metadata, session, expressionTypes);
+                    ExpressionInterpreter interpreter = new ExpressionInterpreter(row, plannerContext, session, expressionTypes);
                     Object evaluated = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
                     if (evaluated instanceof Expression) {
                         return TRUE_LITERAL;

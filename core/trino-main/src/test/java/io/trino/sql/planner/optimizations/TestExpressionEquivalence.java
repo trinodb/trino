@@ -16,7 +16,6 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -32,13 +31,13 @@ import org.testng.annotations.Test;
 import java.util.Set;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ExpressionTestUtils.planExpression;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
@@ -50,8 +49,7 @@ import static org.testng.Assert.assertTrue;
 public class TestExpressionEquivalence
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final Metadata METADATA = createTestMetadataManager();
-    private static final ExpressionEquivalence EQUIVALENCE = new ExpressionEquivalence(METADATA, createTestingTypeAnalyzer(METADATA));
+    private static final ExpressionEquivalence EQUIVALENCE = new ExpressionEquivalence(PLANNER_CONTEXT.getMetadata(), createTestingTypeAnalyzer(PLANNER_CONTEXT));
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("a_boolean"), BOOLEAN)
             .put(new Symbol("b_boolean"), BOOLEAN)
@@ -134,8 +132,8 @@ public class TestExpressionEquivalence
     private static void assertEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
         ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
-        Expression leftExpression = planExpression(METADATA, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left, parsingOptions));
-        Expression rightExpression = planExpression(METADATA, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right, parsingOptions));
+        Expression leftExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left, parsingOptions));
+        Expression rightExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right, parsingOptions));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
         TypeProvider types = TypeProvider.copyOf(symbols.stream()
@@ -212,8 +210,8 @@ public class TestExpressionEquivalence
     private static void assertNotEquivalent(@Language("SQL") String left, @Language("SQL") String right)
     {
         ParsingOptions parsingOptions = new ParsingOptions(AS_DOUBLE /* anything */);
-        Expression leftExpression = planExpression(METADATA, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left, parsingOptions));
-        Expression rightExpression = planExpression(METADATA, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right, parsingOptions));
+        Expression leftExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(left, parsingOptions));
+        Expression rightExpression = planExpression(PLANNER_CONTEXT, TEST_SESSION, TYPE_PROVIDER, SQL_PARSER.createExpression(right, parsingOptions));
 
         Set<Symbol> symbols = extractUnique(ImmutableList.of(leftExpression, rightExpression));
         TypeProvider types = TypeProvider.copyOf(symbols.stream()
@@ -239,6 +237,6 @@ public class TestExpressionEquivalence
     private static Type generateType(Symbol symbol)
     {
         String typeName = Splitter.on('_').limit(2).splitToList(symbol.getName()).get(1);
-        return METADATA.getType(new TypeSignature(typeName, ImmutableList.of()));
+        return PLANNER_CONTEXT.getMetadata().getType(new TypeSignature(typeName, ImmutableList.of()));
     }
 }

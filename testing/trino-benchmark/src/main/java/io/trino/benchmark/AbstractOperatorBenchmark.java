@@ -245,7 +245,7 @@ public abstract class AbstractOperatorBenchmark
                 ImmutableList.copyOf(symbolTypes.keySet()));
         verify(hashExpression.isPresent());
 
-        Map<NodeRef<Expression>, Type> expressionTypes = createTestingTypeAnalyzer(localQueryRunner.getMetadata())
+        Map<NodeRef<Expression>, Type> expressionTypes = createTestingTypeAnalyzer(localQueryRunner.getPlannerContext())
                 .getTypes(session, TypeProvider.copyOf(symbolTypes), hashExpression.get());
 
         RowExpression translated = translate(hashExpression.get(), expressionTypes, symbolToInputMapping.build(), localQueryRunner.getMetadata(), session, false);

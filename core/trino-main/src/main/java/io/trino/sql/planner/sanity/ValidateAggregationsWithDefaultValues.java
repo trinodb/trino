@@ -15,8 +15,7 @@ package io.trino.sql.planner.sanity;
 
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.ActualProperties;
@@ -63,29 +62,26 @@ public class ValidateAggregationsWithDefaultValues
     @Override
     public void validate(PlanNode planNode,
             Session session,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(session, metadata, typeOperators, typeAnalyzer, types), null);
+        planNode.accept(new Visitor(session, plannerContext, typeAnalyzer, types), null);
     }
 
     private class Visitor
             extends PlanVisitor<Optional<SeenExchanges>, Void>
     {
         final Session session;
-        final Metadata metadata;
-        final TypeOperators typeOperators;
+        final PlannerContext plannerContext;
         final TypeAnalyzer typeAnalyzer;
         final TypeProvider types;
 
-        Visitor(Session session, Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer, TypeProvider types)
+        Visitor(Session session, PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, TypeProvider types)
         {
             this.session = requireNonNull(session, "session is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.types = requireNonNull(types, "types is null");
         }
@@ -124,14 +120,14 @@ public class ValidateAggregationsWithDefaultValues
 
             // No remote repartition exchange between final and partial aggregation.
             // Make sure that final aggregation operators are executed on a single node.
-            ActualProperties globalProperties = PropertyDerivations.derivePropertiesRecursively(node, metadata, typeOperators, session, types, typeAnalyzer);
+            ActualProperties globalProperties = PropertyDerivations.derivePropertiesRecursively(node, plannerContext, session, types, typeAnalyzer);
             checkArgument(forceSingleNode || globalProperties.isSingleNode(),
                     "Final aggregation with default value not separated from partial aggregation by remote hash exchange");
 
             if (!seenExchanges.localRepartitionExchange) {
                 // No local repartition exchange between final and partial aggregation.
                 // Make sure that final aggregation operators are executed by single thread.
-                StreamProperties localProperties = StreamPropertyDerivations.derivePropertiesRecursively(node, metadata, typeOperators, session, types, typeAnalyzer);
+                StreamProperties localProperties = StreamPropertyDerivations.derivePropertiesRecursively(node, plannerContext, session, types, typeAnalyzer);
                 checkArgument(localProperties.isSingleStream(),
                         "Final aggregation with default value not separated from partial aggregation by local hash exchange");
             }
