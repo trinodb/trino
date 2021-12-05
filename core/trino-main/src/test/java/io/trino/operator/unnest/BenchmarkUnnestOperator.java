@@ -11,10 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator;
+package io.trino.operator.unnest;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.trino.operator.DriverContext;
+import io.trino.operator.Operator;
+import io.trino.operator.OperatorFactory;
+import io.trino.operator.TaskContext;
 import io.trino.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
