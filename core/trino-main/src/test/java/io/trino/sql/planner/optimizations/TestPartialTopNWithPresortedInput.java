@@ -21,13 +21,13 @@ import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanAssert;
@@ -200,8 +200,8 @@ public class TestPartialTopNWithPresortedInput
         queryRunner.inTransaction(queryRunner.getDefaultSession(), transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
-            Metadata metadata = queryRunner.getMetadata();
-            new ValidateLimitWithPresortedInput().validate(actualPlan.getRoot(), transactionSession, metadata, queryRunner.getTypeOperators(), createTestingTypeAnalyzer(metadata), actualPlan.getTypes(), WarningCollector.NOOP);
+            PlannerContext plannerContext = queryRunner.getPlannerContext();
+            new ValidateLimitWithPresortedInput().validate(actualPlan.getRoot(), transactionSession, plannerContext, createTestingTypeAnalyzer(plannerContext), actualPlan.getTypes(), WarningCollector.NOOP);
             return null;
         });
     }

@@ -13,7 +13,6 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.operator.aggregation.TestingAggregationFunction;
@@ -22,6 +21,7 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
@@ -34,13 +34,12 @@ import io.trino.transaction.TransactionManager;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.FunctionExtractor.extractFunctions;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
@@ -49,18 +48,13 @@ public class TestingFunctionResolution
 {
     private final TransactionManager transactionManager;
     private final Metadata metadata;
+    private final PlannerContext plannerContext;
 
     public TestingFunctionResolution()
     {
-        this(ImmutableSet.of());
-    }
-
-    public TestingFunctionResolution(Set<Class<?>> functions)
-    {
-        transactionManager = createTestTransactionManager();
-        MetadataManager metadataManager = createTestMetadataManager(transactionManager, new FeaturesConfig());
-        metadataManager.addFunctions(extractFunctions(functions));
-        metadata = metadataManager;
+        this.transactionManager = createTestTransactionManager();
+        this.metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        this.plannerContext = plannerContextBuilder().withMetadata(metadata).build();
     }
 
     public TestingFunctionResolution(LocalQueryRunner localQueryRunner)
@@ -72,12 +66,18 @@ public class TestingFunctionResolution
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = plannerContextBuilder().withMetadata(metadata).build();
     }
 
     public TestingFunctionResolution addFunctions(List<? extends SqlFunction> functions)
     {
         metadata.addFunctions(functions);
         return this;
+    }
+
+    public PlannerContext getPlannerContext()
+    {
+        return plannerContext;
     }
 
     public Metadata getMetadata()

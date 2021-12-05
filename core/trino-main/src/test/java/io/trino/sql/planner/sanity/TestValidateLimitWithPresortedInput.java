@@ -22,7 +22,6 @@ import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -181,16 +180,15 @@ public class TestValidateLimitWithPresortedInput
     private void validatePlan(Function<PlanBuilder, PlanNode> planProvider)
     {
         LocalQueryRunner queryRunner = getQueryRunner();
-        Metadata metadata = queryRunner.getMetadata();
-        PlanBuilder builder = new PlanBuilder(idAllocator, metadata, queryRunner.getDefaultSession());
+        PlanBuilder builder = new PlanBuilder(idAllocator, queryRunner.getMetadata(), queryRunner.getDefaultSession());
         PlanNode planNode = planProvider.apply(builder);
         TypeProvider types = builder.getTypes();
 
         queryRunner.inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(metadata);
-            new ValidateLimitWithPresortedInput().validate(planNode, session, metadata, queryRunner.getTypeOperators(), typeAnalyzer, types, WarningCollector.NOOP);
+            session.getCatalog().ifPresent(catalog -> queryRunner.getMetadata().getCatalogHandle(session, catalog));
+            TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(queryRunner.getPlannerContext());
+            new ValidateLimitWithPresortedInput().validate(planNode, session, queryRunner.getPlannerContext(), typeAnalyzer, types, WarningCollector.NOOP);
             return null;
         });
     }

@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.tree.Expression;
@@ -53,13 +53,13 @@ import static java.util.Objects.requireNonNull;
 public class SetTimeZoneTask
         implements DataDefinitionTask<SetTimeZone>
 {
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final AccessControl accessControl;
 
     @Inject
-    public SetTimeZoneTask(Metadata metadata, AccessControl accessControl)
+    public SetTimeZoneTask(PlannerContext plannerContext, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
@@ -92,7 +92,7 @@ public class SetTimeZoneTask
             WarningCollector warningCollector)
     {
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
-        ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, accessControl, stateMachine.getSession(), parameterLookup, warningCollector);
+        ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext.getMetadata(), accessControl, stateMachine.getSession(), parameterLookup, warningCollector);
 
         Type type = analyzer.analyze(expression, Scope.create());
         if (!(type instanceof VarcharType || type instanceof IntervalDayTimeType)) {
@@ -103,7 +103,7 @@ public class SetTimeZoneTask
                 expression,
                 analyzer.getExpressionCoercions(),
                 analyzer.getTypeOnlyCoercions(),
-                metadata,
+                plannerContext,
                 stateMachine.getSession(),
                 accessControl,
                 ImmutableSet.of(),

@@ -15,8 +15,7 @@ package io.trino.sql.analyzer;
 
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
-import io.trino.metadata.Metadata;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizersFactory;
 
@@ -28,8 +27,7 @@ public class QueryExplainerFactory
 {
     private final PlanOptimizersFactory planOptimizersFactory;
     private final PlanFragmenter planFragmenter;
-    private final Metadata metadata;
-    private final TypeOperators typeOperators;
+    private final PlannerContext plannerContext;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
@@ -38,16 +36,14 @@ public class QueryExplainerFactory
     public QueryExplainerFactory(
             PlanOptimizersFactory planOptimizersFactory,
             PlanFragmenter planFragmenter,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             StatementAnalyzerFactory statementAnalyzerFactory,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator)
     {
         this.planOptimizersFactory = requireNonNull(planOptimizersFactory, "planOptimizersFactory is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.plannerContext = requireNonNull(plannerContext, "metadata is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
@@ -58,8 +54,7 @@ public class QueryExplainerFactory
         return new QueryExplainer(
                 planOptimizersFactory,
                 planFragmenter,
-                metadata,
-                typeOperators,
+                plannerContext,
                 analyzerFactory,
                 statementAnalyzerFactory,
                 statsCalculator,

@@ -133,6 +133,7 @@ import io.trino.split.PageSinkManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
@@ -228,9 +229,8 @@ public class LocalQueryRunner
     private final SqlParser sqlParser;
     private final PlanFragmenter planFragmenter;
     private final InMemoryNodeManager nodeManager;
-    private final TypeOperators typeOperators;
     private final BlockTypeOperators blockTypeOperators;
-    private final MetadataManager metadata;
+    private final PlannerContext plannerContext;
     private final StatsCalculator statsCalculator;
     private final ScalarStatsCalculator scalarStatsCalculator;
     private final CostCalculator costCalculator;
@@ -309,7 +309,7 @@ public class LocalQueryRunner
         this.finalizerService = new FinalizerService();
         finalizerService.start();
 
-        this.typeOperators = new TypeOperators();
+        TypeOperators typeOperators = new TypeOperators();
         this.blockTypeOperators = new BlockTypeOperators(typeOperators);
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
@@ -329,7 +329,7 @@ public class LocalQueryRunner
 
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         TypeRegistry typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
-        this.metadata = new MetadataManager(
+        MetadataManager metadata = new MetadataManager(
                 featuresConfig,
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
@@ -338,8 +338,9 @@ public class LocalQueryRunner
                 typeRegistry,
                 new InternalBlockEncodingSerde(blockEncodingManager, typeRegistry),
                 nodeManager.getCurrentNode().getNodeVersion());
+        this.plannerContext = new PlannerContext(metadata, typeOperators);
         this.splitManager = new SplitManager(new QueryManagerConfig(), metadata);
-        this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig());
+        this.planFragmenter = new PlanFragmenter(metadata, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler, blockTypeOperators);
         this.groupProvider = new TestingGroupProvider();
@@ -356,7 +357,7 @@ public class LocalQueryRunner
         TableProceduresPropertyManager tableProceduresPropertyManager = new TableProceduresPropertyManager();
 
         this.statementAnalyzerFactory = new StatementAnalyzerFactory(
-                metadata,
+                plannerContext,
                 sqlParser,
                 accessControl,
                 groupProvider,
@@ -365,8 +366,8 @@ public class LocalQueryRunner
                 tablePropertyManager,
                 analyzePropertyManager,
                 tableProceduresPropertyManager);
-        this.statsCalculator = createNewStatsCalculator(metadata, new TypeAnalyzer(statementAnalyzerFactory));
-        this.scalarStatsCalculator = new ScalarStatsCalculator(metadata, new TypeAnalyzer(statementAnalyzerFactory));
+        this.statsCalculator = createNewStatsCalculator(plannerContext, new TypeAnalyzer(statementAnalyzerFactory));
+        this.scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, new TypeAnalyzer(statementAnalyzerFactory));
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
@@ -491,12 +492,12 @@ public class LocalQueryRunner
         return new SessionPropertyManager(systemSessionProperties);
     }
 
-    private static StatsCalculator createNewStatsCalculator(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    private static StatsCalculator createNewStatsCalculator(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
     {
         StatsNormalizer normalizer = new StatsNormalizer();
-        ScalarStatsCalculator scalarStatsCalculator = new ScalarStatsCalculator(metadata, typeAnalyzer);
-        FilterStatsCalculator filterStatsCalculator = new FilterStatsCalculator(metadata, scalarStatsCalculator, normalizer);
-        return new ComposableStatsCalculator(new StatsRulesProvider(metadata, scalarStatsCalculator, filterStatsCalculator, normalizer).get());
+        ScalarStatsCalculator scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, typeAnalyzer);
+        FilterStatsCalculator filterStatsCalculator = new FilterStatsCalculator(plannerContext, scalarStatsCalculator, normalizer);
+        return new ComposableStatsCalculator(new StatsRulesProvider(plannerContext, scalarStatsCalculator, filterStatsCalculator, normalizer).get());
     }
 
     @Override
@@ -536,10 +537,15 @@ public class LocalQueryRunner
         return sqlParser;
     }
 
+    public PlannerContext getPlannerContext()
+    {
+        return plannerContext;
+    }
+
     @Override
     public Metadata getMetadata()
     {
-        return metadata;
+        return plannerContext.getMetadata();
     }
 
     @Override
@@ -558,7 +564,7 @@ public class LocalQueryRunner
 
     public TypeOperators getTypeOperators()
     {
-        return typeOperators;
+        return plannerContext.getTypeOperators();
     }
 
     public BlockTypeOperators getBlockTypeOperators()
@@ -649,7 +655,7 @@ public class LocalQueryRunner
     @Override
     public void addFunctions(List<? extends SqlFunction> functions)
     {
-        metadata.addFunctions(functions);
+        plannerContext.getMetadata().addFunctions(functions);
     }
 
     @Override
@@ -815,7 +821,7 @@ public class LocalQueryRunner
     private List<Driver> createDrivers(Session session, Plan plan, OutputFactory outputFactory, TaskContext taskContext)
     {
         if (printPlan) {
-            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, plan.getStatsAndCosts(), session, 0, false));
+            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), plannerContext.getMetadata(), plan.getStatsAndCosts(), session, 0, false));
         }
 
         SubPlan subplan = createSubPlans(session, plan, true);
@@ -826,7 +832,7 @@ public class LocalQueryRunner
         TableExecuteContextManager tableExecuteContextManager = new TableExecuteContextManager();
         tableExecuteContextManager.registerTableExecuteContextForQuery(taskContext.getQueryContext().getQueryId());
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
-                metadata,
+                plannerContext,
                 new TypeAnalyzer(statementAnalyzerFactory),
                 Optional.empty(),
                 pageSourceManager,
@@ -845,9 +851,8 @@ public class LocalQueryRunner
                 new PagesIndex.TestingFactory(false),
                 joinCompiler,
                 operatorFactories,
-                new OrderingCompiler(typeOperators),
+                new OrderingCompiler(plannerContext.getTypeOperators()),
                 new DynamicFilterConfig(),
-                typeOperators,
                 blockTypeOperators,
                 tableExecuteContextManager);
 
@@ -945,8 +950,7 @@ public class LocalQueryRunner
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
     {
         return planOptimizersProvider.getPlanOptimizers(
-                metadata,
-                typeOperators,
+                plannerContext,
                 new TypeAnalyzer(statementAnalyzerFactory),
                 taskManagerConfig,
                 forceSingleNode,
@@ -987,8 +991,7 @@ public class LocalQueryRunner
                 optimizers,
                 new PlanSanityChecker(true),
                 idAllocator,
-                metadata,
-                typeOperators,
+                getPlannerContext(),
                 new TypeAnalyzer(statementAnalyzerFactory),
                 statsCalculator,
                 costCalculator,
@@ -1004,8 +1007,7 @@ public class LocalQueryRunner
         return new QueryExplainerFactory(
                 () -> optimizers,
                 planFragmenter,
-                metadata,
-                typeOperators,
+                plannerContext,
                 statementAnalyzerFactory,
                 statsCalculator,
                 costCalculator);
@@ -1019,7 +1021,7 @@ public class LocalQueryRunner
                         new DescribeInputRewrite(sqlParser),
                         new DescribeOutputRewrite(sqlParser),
                         new ShowQueriesRewrite(
-                                metadata,
+                                plannerContext.getMetadata(),
                                 sqlParser,
                                 accessControl,
                                 sessionPropertyManager,
@@ -1046,8 +1048,7 @@ public class LocalQueryRunner
     public interface PlanOptimizersProvider
     {
         PlanOptimizers getPlanOptimizers(
-                Metadata metadata,
-                TypeOperators typeOperators,
+                PlannerContext plannerContext,
                 TypeAnalyzer typeAnalyzer,
                 TaskManagerConfig taskManagerConfig,
                 boolean forceSingleNode,

@@ -88,7 +88,7 @@ public class TestPushDistinctLimitIntoTableScan
     @BeforeClass
     public void init()
     {
-        rule = new PushDistinctLimitIntoTableScan(tester().getMetadata());
+        rule = new PushDistinctLimitIntoTableScan(tester().getPlannerContext());
 
         tableHandle = new TableHandle(
                 TEST_CATALOG,

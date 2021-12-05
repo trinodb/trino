@@ -83,6 +83,6 @@ public class TestCreateSchemaTask
     {
         SchemaPropertyManager schemaPropertyManager = new SchemaPropertyManager();
         schemaPropertyManager.addProperties(new CatalogName(CATALOG_NAME), ImmutableList.of());
-        return new CreateSchemaTask(metadata, new AllowAllAccessControl(), schemaPropertyManager);
+        return new CreateSchemaTask(plannerContext, new AllowAllAccessControl(), schemaPropertyManager);
     }
 }

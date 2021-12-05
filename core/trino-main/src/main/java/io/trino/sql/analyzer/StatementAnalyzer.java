@@ -78,6 +78,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlPath;
 import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
@@ -324,6 +325,7 @@ class StatementAnalyzer
     private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final Analysis analysis;
     private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final TypeCoercion typeCoercion;
     private final Session session;
     private final SqlParser sqlParser;
@@ -341,7 +343,7 @@ class StatementAnalyzer
     StatementAnalyzer(
             StatementAnalyzerFactory statementAnalyzerFactory,
             Analysis analysis,
-            Metadata metadata,
+            PlannerContext plannerContext,
             SqlParser sqlParser,
             GroupProvider groupProvider,
             AccessControl accessControl,
@@ -356,8 +358,9 @@ class StatementAnalyzer
     {
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.analysis = requireNonNull(analysis, "analysis is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeCoercion = new TypeCoercion(metadata::getType);
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
+        this.typeCoercion = new TypeCoercion(plannerContext.getMetadata()::getType);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -754,7 +757,7 @@ class StatementAnalyzer
                     catalogName.getCatalogName(),
                     mapFromProperties(node.getProperties()),
                     session,
-                    metadata,
+                    plannerContext,
                     accessControl,
                     analysis.getParameters(),
                     true);
@@ -844,7 +847,7 @@ class StatementAnalyzer
                     targetTable.getCatalogName(),
                     mapFromProperties(node.getProperties()),
                     session,
-                    metadata,
+                    plannerContext,
                     accessControl,
                     analysis.getParameters(),
                     true);
@@ -1084,7 +1087,7 @@ class StatementAnalyzer
                     catalogName.getCatalogName(),
                     propertiesMap,
                     session,
-                    metadata,
+                    plannerContext,
                     accessControl,
                     analysis.getParameters(),
                     true);
@@ -2080,7 +2083,7 @@ class StatementAnalyzer
                 throw semanticException(TYPE_MISMATCH, samplePercentage, "Sample percentage should be a numeric expression");
             }
 
-            ExpressionInterpreter samplePercentageEval = new ExpressionInterpreter(samplePercentage, metadata, session, expressionTypes);
+            ExpressionInterpreter samplePercentageEval = new ExpressionInterpreter(samplePercentage, plannerContext, session, expressionTypes);
 
             Object samplePercentageObject = samplePercentageEval.optimize(symbol -> {
                 throw semanticException(EXPRESSION_NOT_CONSTANT, samplePercentage, "Sample percentage cannot contain column references");
@@ -4177,7 +4180,7 @@ class StatementAnalyzer
                     value = evaluateConstantExpression(
                             providedValue,
                             BIGINT,
-                            metadata,
+                            plannerContext,
                             session,
                             accessControl,
                             analysis.getParameters());
@@ -4272,7 +4275,7 @@ class StatementAnalyzer
             // Once the range value is analyzed, we can evaluate it
             Type versionType = expressionAnalysis.getType(version.get());
             PointerType pointerType = toPointerType(table.getQueryPeriod().get().getRangeType());
-            Object evaluatedVersion = evaluateConstantExpression(version.get(), versionType, metadata, session, accessControl, ImmutableMap.of());
+            Object evaluatedVersion = evaluateConstantExpression(version.get(), versionType, plannerContext, session, accessControl, ImmutableMap.of());
             TableVersion extractedVersion = new TableVersion(pointerType, versionType, evaluatedVersion);
 
             // Before checking if the connector supports the version type, verify that version is a valid time-based type

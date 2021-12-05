@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.predicate.Domain;
@@ -30,7 +29,6 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.Cast;
@@ -175,8 +173,6 @@ public class TestDomainTranslator
     private static final long COLOR_VALUE_2 = 2;
 
     private TestingFunctionResolution functionResolution;
-    private Metadata metadata;
-    private TypeOperators typeOperators;
     private LiteralEncoder literalEncoder;
     private DomainTranslator domainTranslator;
 
@@ -184,17 +180,14 @@ public class TestDomainTranslator
     public void setup()
     {
         functionResolution = new TestingFunctionResolution();
-        metadata = functionResolution.getMetadata();
-        typeOperators = new TypeOperators();
-        literalEncoder = new LiteralEncoder(metadata);
-        domainTranslator = new DomainTranslator(metadata);
+        literalEncoder = new LiteralEncoder(functionResolution.getPlannerContext());
+        domainTranslator = new DomainTranslator(functionResolution.getPlannerContext());
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         functionResolution = null;
-        metadata = null;
         literalEncoder = null;
         domainTranslator = null;
     }
@@ -1476,7 +1469,7 @@ public class TestDomainTranslator
     {
         Type columnType = columnValues.getType();
         Type literalType = literalValues.getType();
-        Type superType = new TypeCoercion(metadata::getType).getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
+        Type superType = new TypeCoercion(functionResolution.getMetadata()::getType).getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
 
         Expression max = toExpression(literalValues.getMax(), literalType);
         Expression min = toExpression(literalValues.getMin(), literalType);
@@ -1936,7 +1929,7 @@ public class TestDomainTranslator
         return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
-                    return DomainTranslator.fromPredicate(metadata, typeOperators, transactionSession, originalPredicate, TYPES);
+                    return DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), transactionSession, originalPredicate, TYPES);
                 });
     }
 
