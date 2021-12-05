@@ -668,6 +668,8 @@ features:
 * :ref:`sql-security-operations`, see also :ref:`hive-sql-standard-based-authorization`
 * :ref:`sql-transactions`
 
+Refer to :doc:`the migration guide </appendix/from-hive>` for practical advice on migrating from Hive to Trino.
+
 .. _hive-alter-table-execute:
 
 ALTER TABLE EXECUTE
