@@ -18,10 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
@@ -72,8 +72,12 @@ public class TypeAnalyzer
         return getTypes(session, inputTypes, expression).get(NodeRef.of(expression));
     }
 
-    public static TypeAnalyzer createTestingTypeAnalyzer(Metadata metadata)
+    public static TypeAnalyzer createTestingTypeAnalyzer(PlannerContext plannerContext)
     {
-        return new TypeAnalyzer(createTestingStatementAnalyzerFactory(metadata, new AllowAllAccessControl(), new TablePropertyManager(), new AnalyzePropertyManager()));
+        return new TypeAnalyzer(createTestingStatementAnalyzerFactory(
+                plannerContext,
+                new AllowAllAccessControl(),
+                new TablePropertyManager(),
+                new AnalyzePropertyManager()));
     }
 }

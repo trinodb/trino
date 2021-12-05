@@ -124,6 +124,7 @@ import io.trino.split.PageSinkProvider;
 import io.trino.split.PageSourceManager;
 import io.trino.split.PageSourceProvider;
 import io.trino.split.SplitManager;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.gen.ExpressionCompiler;
@@ -378,6 +379,7 @@ public class ServerMainModule
         newExporter(binder).export(TypeOperatorsCache.class).withGeneratedName();
         binder.bind(ProcedureRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TableProceduresRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(PlannerContext.class).in(Scopes.SINGLETON);
 
         // type
         binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);

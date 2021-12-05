@@ -18,9 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.SubExpressionExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -57,8 +56,7 @@ public class DynamicFiltersChecker
     public void validate(
             PlanNode plan,
             Session session,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
@@ -69,7 +67,7 @@ public class DynamicFiltersChecker
         catch (RuntimeException e) {
             try {
                 int nestLevel = 4; // so that it renders reasonably within exception stacktrace
-                String explain = textLogicalPlan(plan, types, metadata, StatsAndCosts.empty(), session, nestLevel, false);
+                String explain = textLogicalPlan(plan, types, plannerContext.getMetadata(), StatsAndCosts.empty(), session, nestLevel, false);
                 e.addSuppressed(new Exception("Current plan:\n" + explain));
             }
             catch (RuntimeException ignore) {

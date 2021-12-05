@@ -66,6 +66,7 @@ import io.trino.spi.transaction.IsolationLevel;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.rewrite.ShowQueriesRewrite;
@@ -166,6 +167,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
@@ -207,7 +209,7 @@ public class TestAnalyzer
 
     private TransactionManager transactionManager;
     private AccessControl accessControl;
-    private Metadata metadata;
+    private PlannerContext plannerContext;
     private TablePropertyManager tablePropertyManager;
     private AnalyzePropertyManager analyzePropertyManager;
 
@@ -5167,8 +5169,9 @@ public class TestAnalyzer
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         this.accessControl = accessControlManager;
 
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
         metadata.addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        plannerContext = plannerContextBuilder().withMetadata(metadata).build();
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CATALOG_NAME);
         TestingMetadata testingConnectorMetadata = (TestingMetadata) tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getMetadata(null);
@@ -5497,7 +5500,7 @@ public class TestAnalyzer
     private Analyzer createAnalyzer(Session session, AccessControl accessControl)
     {
         StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(
-                metadata,
+                plannerContext.getMetadata(),
                 SQL_PARSER,
                 accessControl,
                 new SessionPropertyManager(),
@@ -5505,7 +5508,7 @@ public class TestAnalyzer
                 new ColumnPropertyManager(),
                 tablePropertyManager,
                 new MaterializedViewPropertyManager())));
-        StatementAnalyzerFactory statementAnalyzerFactory = createTestingStatementAnalyzerFactory(metadata, accessControl, tablePropertyManager, analyzePropertyManager);
+        StatementAnalyzerFactory statementAnalyzerFactory = createTestingStatementAnalyzerFactory(plannerContext, accessControl, tablePropertyManager, analyzePropertyManager);
         AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, statementRewrite);
         return analyzerFactory.createAnalyzer(
                 session,
@@ -5564,7 +5567,7 @@ public class TestAnalyzer
                 connector,
                 SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
-                new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
+                new InformationSchemaConnector(catalogName, nodeManager, plannerContext.getMetadata(), accessControl),
                 systemId,
                 new SystemConnector(
                         nodeManager,

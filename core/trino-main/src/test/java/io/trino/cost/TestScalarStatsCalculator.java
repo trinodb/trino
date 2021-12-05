@@ -59,7 +59,7 @@ public class TestScalarStatsCalculator
     public void setUp()
     {
         functionResolution = new TestingFunctionResolution();
-        calculator = new ScalarStatsCalculator(functionResolution.getMetadata(), createTestingTypeAnalyzer(functionResolution.getMetadata()));
+        calculator = new ScalarStatsCalculator(functionResolution.getPlannerContext(), createTestingTypeAnalyzer(functionResolution.getPlannerContext()));
         session = testSessionBuilder().build();
     }
 
@@ -144,7 +144,7 @@ public class TestScalarStatsCalculator
     @Test
     public void testVarbinaryConstant()
     {
-        LiteralEncoder literalEncoder = new LiteralEncoder(functionResolution.getMetadata());
+        LiteralEncoder literalEncoder = new LiteralEncoder(functionResolution.getPlannerContext());
         Expression expression = literalEncoder.toExpression(session, Slices.utf8Slice("ala ma kota"), VARBINARY);
 
         assertCalculate(expression)

@@ -17,13 +17,13 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.GroupProvider;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.TypeProvider;
 
@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 
 public class StatementAnalyzerFactory
 {
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
     private final GroupProvider groupProvider;
@@ -45,7 +45,7 @@ public class StatementAnalyzerFactory
 
     @Inject
     public StatementAnalyzerFactory(
-            Metadata metadata,
+            PlannerContext plannerContext,
             SqlParser sqlParser,
             AccessControl accessControl,
             GroupProvider groupProvider,
@@ -55,7 +55,7 @@ public class StatementAnalyzerFactory
             AnalyzePropertyManager analyzePropertyManager,
             TableProceduresPropertyManager tableProceduresPropertyManager)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
@@ -69,7 +69,7 @@ public class StatementAnalyzerFactory
     public StatementAnalyzerFactory withSpecializedAccessControl(AccessControl accessControl)
     {
         return new StatementAnalyzerFactory(
-                metadata,
+                plannerContext,
                 sqlParser,
                 accessControl,
                 groupProvider,
@@ -89,7 +89,7 @@ public class StatementAnalyzerFactory
         return new StatementAnalyzer(
                 this,
                 analysis,
-                metadata,
+                plannerContext,
                 sqlParser,
                 groupProvider,
                 accessControl,
@@ -111,7 +111,7 @@ public class StatementAnalyzerFactory
             WarningCollector warningCollector)
     {
         return new ExpressionAnalyzer(
-                metadata,
+                plannerContext.getMetadata(),
                 accessControl,
                 (node, correlationSupport) -> createStatementAnalyzer(
                         analysis,
@@ -128,13 +128,13 @@ public class StatementAnalyzerFactory
     }
 
     public static StatementAnalyzerFactory createTestingStatementAnalyzerFactory(
-            Metadata metadata,
+            PlannerContext plannerContext,
             AccessControl accessControl,
             TablePropertyManager tablePropertyManager,
             AnalyzePropertyManager analyzePropertyManager)
     {
         return new StatementAnalyzerFactory(
-                metadata,
+                plannerContext,
                 new SqlParser(),
                 accessControl,
                 user -> ImmutableSet.of(),

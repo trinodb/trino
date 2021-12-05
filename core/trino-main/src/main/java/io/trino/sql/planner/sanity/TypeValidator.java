@@ -19,7 +19,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.SimplePlanVisitor;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -51,13 +51,12 @@ public final class TypeValidator
     @Override
     public void validate(PlanNode plan,
             Session session,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {
-        plan.accept(new Visitor(session, metadata, typeAnalyzer, types), null);
+        plan.accept(new Visitor(session, plannerContext.getMetadata(), typeAnalyzer, types), null);
     }
 
     private static class Visitor

@@ -41,8 +41,8 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationId;
@@ -159,7 +159,7 @@ public class LogicalPlanner
     private final PlanSanityChecker planSanityChecker;
     private final SymbolAllocator symbolAllocator = new SymbolAllocator();
     private final Metadata metadata;
-    private final TypeOperators typeOperators;
+    private final PlannerContext plannerContext;
     private final TypeCoercion typeCoercion;
     private final TypeAnalyzer typeAnalyzer;
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
@@ -171,14 +171,13 @@ public class LogicalPlanner
             Session session,
             List<PlanOptimizer> planOptimizers,
             PlanNodeIdAllocator idAllocator,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             WarningCollector warningCollector)
     {
-        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, metadata, typeOperators, typeAnalyzer, statsCalculator, costCalculator, warningCollector);
+        this(session, planOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, plannerContext, typeAnalyzer, statsCalculator, costCalculator, warningCollector);
     }
 
     public LogicalPlanner(
@@ -186,8 +185,7 @@ public class LogicalPlanner
             List<PlanOptimizer> planOptimizers,
             PlanSanityChecker planSanityChecker,
             PlanNodeIdAllocator idAllocator,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
@@ -197,9 +195,9 @@ public class LogicalPlanner
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
         this.planSanityChecker = requireNonNull(planSanityChecker, "planSanityChecker is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
         this.typeCoercion = new TypeCoercion(metadata::getType);
-        this.typeOperators = typeOperators;
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, metadata, session);
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -225,7 +223,7 @@ public class LogicalPlanner
             LOG.debug("Initial plan:\n%s", PlanPrinter.textLogicalPlan(root, symbolAllocator.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false));
         }
 
-        planSanityChecker.validateIntermediatePlan(root, session, metadata, typeOperators, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
+        planSanityChecker.validateIntermediatePlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
 
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {
@@ -240,7 +238,7 @@ public class LogicalPlanner
 
         if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {
             // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
-            planSanityChecker.validateFinalPlan(root, session, metadata, typeOperators, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
+            planSanityChecker.validateFinalPlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
         }
 
         TypeProvider types = symbolAllocator.getTypes();

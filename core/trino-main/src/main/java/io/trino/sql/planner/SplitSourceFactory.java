@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.connector.Constraint;
@@ -27,6 +26,7 @@ import io.trino.split.SampledSplitSource;
 import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.DeleteNode;
@@ -87,16 +87,16 @@ public class SplitSourceFactory
     private static final Logger log = Logger.get(SplitSourceFactory.class);
 
     private final SplitManager splitManager;
+    private final PlannerContext plannerContext;
     private final DynamicFilterService dynamicFilterService;
-    private final Metadata metadata;
     private final TypeAnalyzer typeAnalyzer;
 
     @Inject
-    public SplitSourceFactory(SplitManager splitManager, DynamicFilterService dynamicFilterService, Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public SplitSourceFactory(SplitManager splitManager, PlannerContext plannerContext, DynamicFilterService dynamicFilterService, TypeAnalyzer typeAnalyzer)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.plannerContext = requireNonNull(plannerContext, "metadata is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
@@ -174,9 +174,9 @@ public class SplitSourceFactory
             }
 
             Constraint constraint = filterPredicate
-                    .map(predicate -> filterConjuncts(metadata, predicate, expression -> !DynamicFilters.isDynamicFilter(expression)))
-                    .map(predicate -> new LayoutConstraintEvaluator(metadata, typeAnalyzer, session, typeProvider, node.getAssignments(), predicate))
-                    .map(evaluator -> new Constraint(TupleDomain.all(), evaluator::isCandidate, evaluator.getArguments())) // we are interested only in functional predicate here so we set the summary to ALL.
+                    .map(predicate -> filterConjuncts(plannerContext.getMetadata(), predicate, expression -> !DynamicFilters.isDynamicFilter(expression)))
+                    .map(predicate -> new LayoutConstraintEvaluator(plannerContext, typeAnalyzer, session, typeProvider, node.getAssignments(), predicate))
+                    .map(evaluator -> new Constraint(TupleDomain.all(), evaluator::isCandidate, evaluator.getArguments())) // we are interested only in functional predicate here, so we set the summary to ALL.
                     .orElse(alwaysTrue());
 
             // get dataSource for table

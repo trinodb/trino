@@ -38,7 +38,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
@@ -95,7 +94,7 @@ public class TestPushPredicateIntoTableScan
     @BeforeClass
     public void setUpBeforeClass()
     {
-        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getMetadata(), new TypeOperators(), createTestingTypeAnalyzer(tester().getMetadata()));
+        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), createTestingTypeAnalyzer(tester().getPlannerContext()));
 
         CatalogName catalogName = tester().getCurrentConnectorId();
         tester().getQueryRunner().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());

@@ -25,7 +25,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
@@ -59,7 +58,7 @@ public class TestRemoveRedundantTableScanPredicate
     @BeforeClass
     public void setUpBeforeClass()
     {
-        removeRedundantTableScanPredicate = new RemoveRedundantTableScanPredicate(tester().getMetadata(), new TypeOperators(), tester().getTypeAnalyzer());
+        removeRedundantTableScanPredicate = new RemoveRedundantTableScanPredicate(tester().getPlannerContext(), tester().getTypeAnalyzer());
         CatalogName catalogName = tester().getCurrentConnectorId();
         TpchTableHandle nation = new TpchTableHandle("sf1", "nation", 1.0);
         nationTableHandle = new TableHandle(

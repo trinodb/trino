@@ -31,6 +31,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.TestingAccessControlManager;
@@ -49,6 +50,7 @@ import java.util.function.Function;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.block.MethodHandleUtil.methodHandle;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
@@ -131,7 +133,8 @@ public class TestCallTask
                         methodHandle));
         AccessControl accessControl = accessControlProvider.apply(transactionManager);
 
-        new CallTask(transactionManager, metadata, accessControl, procedureRegistry)
+        PlannerContext plannerContext = plannerContextBuilder().withMetadata(metadata).build();
+        new CallTask(transactionManager, plannerContext, accessControl, procedureRegistry)
                 .execute(
                         new Call(QualifiedName.of("testing_procedure"), ImmutableList.of()),
                         stateMachine(transactionManager, metadata, accessControl),

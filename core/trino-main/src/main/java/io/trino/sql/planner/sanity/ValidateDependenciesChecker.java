@@ -18,8 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -97,8 +96,7 @@ public final class ValidateDependenciesChecker
     @Override
     public void validate(PlanNode plan,
             Session session,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)

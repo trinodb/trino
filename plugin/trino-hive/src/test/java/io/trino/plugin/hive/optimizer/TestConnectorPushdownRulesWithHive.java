@@ -44,7 +44,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
@@ -137,9 +136,9 @@ public class TestConnectorPushdownRulesWithHive
     {
         String tableName = "projection_test";
         PushProjectionIntoTableScan pushProjectionIntoTableScan = new PushProjectionIntoTableScan(
-                tester().getMetadata(),
+                tester().getPlannerContext(),
                 tester().getTypeAnalyzer(),
-                new ScalarStatsCalculator(tester().getMetadata(), tester().getTypeAnalyzer()));
+                new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
         tester().getQueryRunner().execute(format(
                 "CREATE TABLE  %s (struct_of_int) AS " +
@@ -224,7 +223,7 @@ public class TestConnectorPushdownRulesWithHive
         String tableName = "predicate_test";
         tester().getQueryRunner().execute(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
 
-        PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getMetadata(), new TypeOperators(), tester().getTypeAnalyzer());
+        PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
         TableHandle table = new TableHandle(new CatalogName(HIVE_CATALOG_NAME), hiveTable, new HiveTransactionHandle(), Optional.empty());
@@ -297,9 +296,9 @@ public class TestConnectorPushdownRulesWithHive
                 tableName));
 
         PushProjectionIntoTableScan pushProjectionIntoTableScan = new PushProjectionIntoTableScan(
-                tester().getMetadata(),
+                tester().getPlannerContext(),
                 tester().getTypeAnalyzer(),
-                new ScalarStatsCalculator(tester().getMetadata(), tester().getTypeAnalyzer()));
+                new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
         TableHandle table = new TableHandle(new CatalogName(HIVE_CATALOG_NAME), hiveTable, new HiveTransactionHandle(), Optional.empty());

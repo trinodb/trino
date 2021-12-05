@@ -255,7 +255,7 @@ public class TestSetTimeZoneTask
 
     private void executeSetTimeZone(SetTimeZone setTimeZone, QueryStateMachine stateMachine)
     {
-        SetTimeZoneTask task = new SetTimeZoneTask(localQueryRunner.getMetadata(), localQueryRunner.getAccessControl());
+        SetTimeZoneTask task = new SetTimeZoneTask(localQueryRunner.getPlannerContext(), localQueryRunner.getAccessControl());
         getFutureValue(task.execute(setTimeZone, stateMachine, emptyList(), WarningCollector.NOOP));
     }
 }

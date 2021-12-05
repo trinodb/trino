@@ -90,7 +90,7 @@ public class TestEliminateSorts
 
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
-        TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(getQueryRunner().getMetadata());
+        TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(getQueryRunner().getPlannerContext());
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new IterativeOptimizer(
                         getQueryRunner().getMetadata(),
@@ -100,7 +100,7 @@ public class TestEliminateSorts
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
                                 new DetermineTableScanNodePartitioning(getQueryRunner().getMetadata(), getQueryRunner().getNodePartitioningManager(), new TaskCountEstimator(() -> 10)))),
-                new AddExchanges(getQueryRunner().getMetadata(), getQueryRunner().getTypeOperators(), typeAnalyzer, getQueryRunner().getStatsCalculator()));
+                new AddExchanges(getQueryRunner().getPlannerContext(), typeAnalyzer, getQueryRunner().getStatsCalculator()));
 
         assertPlan(sql, pattern, optimizers);
     }

@@ -24,7 +24,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.TableProperties;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.LocalProperty;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Partitioning.ArgumentBinding;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -106,42 +106,39 @@ public final class StreamPropertyDerivations
 
     public static StreamProperties derivePropertiesRecursively(
             PlanNode node,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             Session session,
             TypeProvider types,
             TypeAnalyzer typeAnalyzer)
     {
         List<StreamProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, metadata, typeOperators, session, types, typeAnalyzer))
+                .map(source -> derivePropertiesRecursively(source, plannerContext, session, types, typeAnalyzer))
                 .collect(toImmutableList());
-        return deriveProperties(node, inputProperties, metadata, typeOperators, session, types, typeAnalyzer);
+        return deriveProperties(node, inputProperties, plannerContext, session, types, typeAnalyzer);
     }
 
     public static StreamProperties deriveProperties(
             PlanNode node,
             StreamProperties inputProperties,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             Session session,
             TypeProvider types,
             TypeAnalyzer typeAnalyzer)
     {
-        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, typeOperators, session, types, typeAnalyzer);
+        return deriveProperties(node, ImmutableList.of(inputProperties), plannerContext, session, types, typeAnalyzer);
     }
 
     public static StreamProperties deriveProperties(
             PlanNode node,
             List<StreamProperties> inputProperties,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             Session session,
             TypeProvider types,
             TypeAnalyzer typeAnalyzer)
     {
         requireNonNull(node, "node is null");
         requireNonNull(inputProperties, "inputProperties is null");
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -154,13 +151,12 @@ public final class StreamPropertyDerivations
                 inputProperties.stream()
                         .map(properties -> properties.otherActualProperties)
                         .collect(toImmutableList()),
-                metadata,
-                typeOperators,
+                plannerContext,
                 session,
                 types,
                 typeAnalyzer);
 
-        StreamProperties result = node.accept(new Visitor(metadata, session), inputProperties)
+        StreamProperties result = node.accept(new Visitor(plannerContext.getMetadata(), session), inputProperties)
                 .withOtherActualProperties(otherProperties);
 
         result.getPartitioningColumns().ifPresent(columns ->

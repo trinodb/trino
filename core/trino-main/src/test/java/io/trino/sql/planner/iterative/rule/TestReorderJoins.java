@@ -20,7 +20,6 @@ import io.trino.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.cost.CostComparator;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.SymbolStatsEstimate;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
@@ -45,8 +44,8 @@ import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -64,8 +63,6 @@ import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 public class TestReorderJoins
 {
     private RuleTester tester;
-
-    private final Metadata metadata = createTestMetadataManager();
 
     @BeforeClass
     public void setUp()
@@ -682,6 +679,6 @@ public class TestReorderJoins
 
     private RuleAssert assertReorderJoins()
     {
-        return tester.assertThat(new ReorderJoins(metadata, new CostComparator(1, 1, 1), createTestingTypeAnalyzer(metadata)));
+        return tester.assertThat(new ReorderJoins(PLANNER_CONTEXT.getMetadata(), new CostComparator(1, 1, 1), createTestingTypeAnalyzer(PLANNER_CONTEXT)));
     }
 }

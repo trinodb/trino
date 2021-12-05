@@ -22,7 +22,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -52,17 +52,18 @@ public class TestDynamicFiltersChecker
         extends BasePlanTest
 {
     private Metadata metadata;
-    private final TypeOperators typeOperators = new TypeOperators();
     private PlanBuilder builder;
     private Symbol lineitemOrderKeySymbol;
     private TableScanNode lineitemTableScanNode;
     private Symbol ordersOrderKeySymbol;
     private TableScanNode ordersTableScanNode;
+    private PlannerContext plannerContext;
 
     @BeforeClass
     public void setup()
     {
-        metadata = getQueryRunner().getMetadata();
+        plannerContext = getQueryRunner().getPlannerContext();
+        metadata = plannerContext.getMetadata();
         builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata, TEST_SESSION);
         CatalogName catalogName = getCurrentConnectorId();
         TableHandle lineitemTableHandle = new TableHandle(
@@ -353,7 +354,7 @@ public class TestDynamicFiltersChecker
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new DynamicFiltersChecker().validate(root, session, metadata, typeOperators, createTestingTypeAnalyzer(metadata), TypeProvider.empty(), WarningCollector.NOOP);
+            new DynamicFiltersChecker().validate(root, session, plannerContext, createTestingTypeAnalyzer(plannerContext), TypeProvider.empty(), WarningCollector.NOOP);
             return null;
         });
     }

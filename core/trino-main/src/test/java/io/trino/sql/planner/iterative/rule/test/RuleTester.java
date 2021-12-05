@@ -23,6 +23,7 @@ import io.trino.security.AccessControl;
 import io.trino.spi.Plugin;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.testing.LocalQueryRunner;
@@ -93,7 +94,7 @@ public class RuleTester
         this.splitManager = queryRunner.getSplitManager();
         this.pageSourceManager = queryRunner.getPageSourceManager();
         this.accessControl = queryRunner.getAccessControl();
-        this.typeAnalyzer = createTestingTypeAnalyzer(metadata);
+        this.typeAnalyzer = createTestingTypeAnalyzer(queryRunner.getPlannerContext());
     }
 
     public RuleAssert assertThat(Rule<?> rule)
@@ -105,6 +106,11 @@ public class RuleTester
     public void close()
     {
         queryRunner.close();
+    }
+
+    public PlannerContext getPlannerContext()
+    {
+        return queryRunner.getPlannerContext();
     }
 
     public Metadata getMetadata()

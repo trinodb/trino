@@ -15,7 +15,6 @@ package io.trino.cost;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -37,10 +36,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
@@ -76,8 +75,7 @@ public class TestComparisonStatsCalculator
     public void setUp()
     {
         session = testSessionBuilder().build();
-        Metadata metadata = createTestMetadataManager();
-        filterStatsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, createTestingTypeAnalyzer(metadata)), new StatsNormalizer());
+        filterStatsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer());
 
         uStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(8.0)
