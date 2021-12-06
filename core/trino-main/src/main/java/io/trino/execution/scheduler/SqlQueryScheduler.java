@@ -297,6 +297,9 @@ public class SqlQueryScheduler
         if (queryStateMachine.isDone()) {
             return Optional.empty();
         }
+        if (attempt > 0 && retryPolicy == RetryPolicy.QUERY) {
+            dynamicFilterService.registerQueryRetry(queryStateMachine.getQueryId(), attempt);
+        }
         DistributedStagesScheduler distributedStagesScheduler = PipelinedDistributedStagesScheduler.create(
                 queryStateMachine,
                 schedulerStats,
@@ -1462,9 +1465,8 @@ public class SqlQueryScheduler
                         return;
                     }
                     int numberOfTasks = stageExecution.getAllTasks().size();
-                    // TODO: support dynamic filter for failure retries
                     if (!state.canScheduleMoreTasks()) {
-                        dynamicFilterService.stageCannotScheduleMoreTasks(stageExecution.getStageId(), numberOfTasks);
+                        dynamicFilterService.stageCannotScheduleMoreTasks(stageExecution.getStageId(), stageExecution.getAttemptId(), numberOfTasks);
                     }
                     if (numberOfTasks != 0) {
                         stateMachine.transitionToRunning();
