@@ -211,7 +211,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
-import static io.trino.plugin.hive.HiveMetadata.convertToPredicate;
 import static io.trino.plugin.hive.HiveSessionProperties.getTemporaryStagingDirectoryPath;
 import static io.trino.plugin.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
@@ -5613,6 +5612,11 @@ public abstract class AbstractTestHive
         if (expectedTag == tag) {
             throw new TestingRollbackException();
         }
+    }
+
+    protected static Predicate<Map<ColumnHandle, NullableValue>> convertToPredicate(TupleDomain<ColumnHandle> tupleDomain)
+    {
+        return bindings -> tupleDomain.contains(TupleDomain.fromFixedValues(bindings));
     }
 
     private static class TestingRollbackException
