@@ -84,15 +84,6 @@ public class Constraint
     }
 
     /**
-     * @deprecated Use {@link #getPredicateColumns()} instead.
-     */
-    @Deprecated
-    public Optional<Set<ColumnHandle>> getColumns()
-    {
-        return getPredicateColumns();
-    }
-
-    /**
      * Set of columns the {@link #predicate()} result depends on.
      */
     public Optional<Set<ColumnHandle>> getPredicateColumns()
