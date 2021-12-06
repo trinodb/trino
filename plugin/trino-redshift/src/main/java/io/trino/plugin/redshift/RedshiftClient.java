@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.redshift;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -38,7 +37,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -89,22 +87,6 @@ import static java.lang.String.format;
 public class RedshiftClient
         extends BaseJdbcClient
 {
-    /**
-     * @deprecated To be removed after {{@link #legacyToWriteMapping} is removed.
-     */
-    @Deprecated
-    private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
-            .put(BOOLEAN, WriteMapping.booleanMapping("boolean", booleanWriteFunction()))
-            .put(BIGINT, WriteMapping.longMapping("bigint", bigintWriteFunction()))
-            .put(INTEGER, WriteMapping.longMapping("integer", integerWriteFunction()))
-            .put(SMALLINT, WriteMapping.longMapping("smallint", smallintWriteFunction()))
-            .put(TINYINT, WriteMapping.longMapping("tinyint", tinyintWriteFunction()))
-            .put(DOUBLE, WriteMapping.doubleMapping("double precision", doubleWriteFunction()))
-            .put(REAL, WriteMapping.longMapping("real", realWriteFunction()))
-            .put(VARBINARY, WriteMapping.sliceMapping("varbinary", varbinaryWriteFunction()))
-            .put(DATE, WriteMapping.longMapping("date", dateWriteFunction()))
-            .build();
-
     @Inject
     public RedshiftClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
     {
@@ -158,36 +140,7 @@ public class RedshiftClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        // TODO (https://github.com/trinodb/trino/issues/497) Implement proper type mapping and add test
-        // This method is copied from deprecated BaseJdbcClient.legacyToWriteMapping()
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
-            String dataType;
-            if (varcharType.isUnbounded()) {
-                dataType = "varchar";
-            }
-            else {
-                dataType = "varchar(" + varcharType.getBoundedLength() + ")";
-            }
-            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
-        }
-        if (type instanceof CharType) {
-            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
-        }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
-            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
-            if (decimalType.isShort()) {
-                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
-            }
-            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType));
-        }
-
-        WriteMapping writeMapping = WRITE_MAPPINGS.get(type);
-        if (writeMapping != null) {
-            return writeMapping;
-        }
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+        return legacyToWriteMapping(type);
     }
 
     @Override
@@ -277,5 +230,61 @@ public class RedshiftClient
                 return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
         }
         return Optional.empty();
+    }
+
+    private WriteMapping legacyToWriteMapping(Type type)
+    {
+        // TODO (https://github.com/trinodb/trino/issues/497) Implement proper type mapping and add test
+        // This method is copied from deprecated BaseJdbcClient.legacyToWriteMapping()
+        if (type == BOOLEAN) {
+            return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
+        }
+        if (type == TINYINT) {
+            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
+        }
+        if (type == SMALLINT) {
+            return WriteMapping.longMapping("smallint", smallintWriteFunction());
+        }
+        if (type == INTEGER) {
+            return WriteMapping.longMapping("integer", integerWriteFunction());
+        }
+        if (type == BIGINT) {
+            return WriteMapping.longMapping("bigint", bigintWriteFunction());
+        }
+        if (type == REAL) {
+            return WriteMapping.longMapping("real", realWriteFunction());
+        }
+        if (type == DOUBLE) {
+            return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            if (decimalType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
+            }
+            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType));
+        }
+        if (type instanceof CharType) {
+            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        }
+        if (type instanceof VarcharType) {
+            VarcharType varcharType = (VarcharType) type;
+            String dataType;
+            if (varcharType.isUnbounded()) {
+                dataType = "varchar";
+            }
+            else {
+                dataType = "varchar(" + varcharType.getBoundedLength() + ")";
+            }
+            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
+        }
+        if (type == VARBINARY) {
+            return WriteMapping.sliceMapping("varbinary", varbinaryWriteFunction());
+        }
+        if (type == DATE) {
+            return WriteMapping.longMapping("date", dateWriteFunction());
+        }
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 }
