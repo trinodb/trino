@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
-import io.trino.metadata.Metadata;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
@@ -49,9 +48,9 @@ import static io.trino.client.ClientStandardTypes.MAP;
 import static io.trino.client.ClientStandardTypes.ROW;
 import static io.trino.client.ClientStandardTypes.TIMESTAMP;
 import static io.trino.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.protocol.QueryResultRows.queryResultRowsBuilder;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -65,8 +64,6 @@ public class TestQueryResultRows
     private static final Function<String, Column> BOOLEAN_COLUMN = name -> new Column(name, BOOLEAN, new ClientTypeSignature(BOOLEAN));
     private static final Function<String, Column> BIGINT_COLUMN = name -> new Column(name, BIGINT, new ClientTypeSignature(BIGINT));
     private static final Function<String, Column> INT_COLUMN = name -> new Column(name, INTEGER, new ClientTypeSignature(INTEGER));
-
-    private static final Metadata METADATA = createTestMetadataManager();
 
     @Test
     public void shouldNotReturnValues()
@@ -484,6 +481,6 @@ public class TestQueryResultRows
 
     private static Type createMapType(Type keyType, Type valueType)
     {
-        return METADATA.getType(mapType(keyType.getTypeSignature(), valueType.getTypeSignature()));
+        return TESTING_TYPE_MANAGER.getType(mapType(keyType.getTypeSignature(), valueType.getTypeSignature()));
     }
 }

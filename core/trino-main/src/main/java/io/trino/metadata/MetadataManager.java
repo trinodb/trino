@@ -96,9 +96,9 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
-import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
@@ -108,6 +108,7 @@ import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
+import io.trino.type.InternalTypeManager;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -177,7 +178,7 @@ public final class MetadataManager
     private final FunctionResolver functionResolver;
     private final SystemSecurityMetadata systemSecurityMetadata;
     private final TransactionManager transactionManager;
-    private final TypeRegistry typeRegistry;
+    private final TypeManager typeManager;
 
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
@@ -193,19 +194,19 @@ public final class MetadataManager
             TransactionManager transactionManager,
             TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators,
-            TypeRegistry typeRegistry,
+            TypeManager typeManager,
             BlockEncodingSerde blockEncodingSerde,
             NodeVersion nodeVersion)
     {
         requireNonNull(nodeVersion, "nodeVersion is null");
-        this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         functions = new FunctionRegistry(blockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators, nodeVersion.getVersion());
         functionResolver = new FunctionResolver(this);
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
 
-        functionDecoder = new ResolvedFunctionDecoder(typeRegistry::getType);
+        functionDecoder = new ResolvedFunctionDecoder(typeManager::getType);
 
         operatorCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -240,14 +241,15 @@ public final class MetadataManager
     {
         TypeOperators typeOperators = new TypeOperators();
         TypeRegistry typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
+        TypeManager typeManager = new InternalTypeManager(typeRegistry);
         return new MetadataManager(
                 featuresConfig,
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 typeOperators,
                 new BlockTypeOperators(typeOperators),
-                typeRegistry,
-                new InternalBlockEncodingSerde(new BlockEncodingManager(), typeRegistry),
+                typeManager,
+                new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager),
                 NodeVersion.UNKNOWN);
     }
 
@@ -679,7 +681,7 @@ public final class MetadataManager
                     ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
                     for (ViewColumn column : entry.getValue().getColumns()) {
                         try {
-                            columns.add(new ColumnMetadata(column.getName(), typeRegistry.getType(column.getType())));
+                            columns.add(new ColumnMetadata(column.getName(), typeManager.getType(column.getType())));
                         }
                         catch (TypeNotFoundException e) {
                             throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), entry.getKey()));
@@ -693,7 +695,7 @@ public final class MetadataManager
                     ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
                     for (ViewColumn column : entry.getValue().getColumns()) {
                         try {
-                            columns.add(new ColumnMetadata(column.getName(), typeRegistry.getType(column.getType())));
+                            columns.add(new ColumnMetadata(column.getName(), typeManager.getType(column.getType())));
                         }
                         catch (TypeNotFoundException e) {
                             throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in materialized view: %s", column.getType(), column.getName(), entry.getKey()));
@@ -2172,31 +2174,19 @@ public final class MetadataManager
     @Override
     public Type getType(TypeSignature signature)
     {
-        return typeRegistry.getType(signature);
+        return typeManager.getType(signature);
     }
 
     @Override
     public Type fromSqlType(String sqlType)
     {
-        return typeRegistry.fromSqlType(sqlType);
+        return typeManager.fromSqlType(sqlType);
     }
 
     @Override
     public Type getType(TypeId id)
     {
-        return typeRegistry.getType(id);
-    }
-
-    @Override
-    public Collection<Type> getTypes()
-    {
-        return typeRegistry.getTypes();
-    }
-
-    @Override
-    public Collection<ParametricType> getParametricTypes()
-    {
-        return typeRegistry.getParametricTypes();
+        return typeManager.getType(id);
     }
 
     //
@@ -2310,7 +2300,7 @@ public final class MetadataManager
     {
         Map<TypeSignature, Type> dependentTypes = declaration.getTypeDependencies().stream()
                 .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
-                .collect(toImmutableMap(Function.identity(), typeRegistry::getType, (left, right) -> left));
+                .collect(toImmutableMap(Function.identity(), typeManager::getType, (left, right) -> left));
 
         ImmutableSet.Builder<ResolvedFunction> functions = ImmutableSet.builder();
         declaration.getFunctionDependencies().stream()
@@ -2348,8 +2338,8 @@ public final class MetadataManager
         declaration.getCastDependencies().stream()
                 .map(castDependency -> {
                     try {
-                        Type fromType = typeRegistry.getType(applyBoundVariables(castDependency.getFromType(), functionBinding));
-                        Type toType = typeRegistry.getType(applyBoundVariables(castDependency.getToType(), functionBinding));
+                        Type fromType = typeManager.getType(applyBoundVariables(castDependency.getFromType(), functionBinding));
+                        Type toType = typeManager.getType(applyBoundVariables(castDependency.getToType(), functionBinding));
                         return getCoercion(session, fromType, toType);
                     }
                     catch (TrinoException e) {

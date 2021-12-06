@@ -15,25 +15,23 @@ package io.trino.block;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.trino.FeaturesConfig;
-import io.trino.metadata.TypeRegistry;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.TestingBlockEncodingSerde;
-import io.trino.spi.type.TypeOperators;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;
 
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public final class ColumnarTestUtils
 {
-    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new TestingBlockEncodingSerde(new TypeRegistry(new TypeOperators(), new FeaturesConfig())::getType);
+    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new TestingBlockEncodingSerde(TESTING_TYPE_MANAGER::getType);
 
     private ColumnarTestUtils() {}
 

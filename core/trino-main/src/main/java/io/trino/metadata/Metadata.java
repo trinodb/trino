@@ -58,7 +58,6 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
-import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeSignature;
@@ -627,10 +626,6 @@ public interface Metadata
     {
         return getType(new TypeSignature(baseTypeName, typeParameters));
     }
-
-    Collection<Type> getTypes();
-
-    Collection<ParametricType> getParametricTypes();
 
     //
     // Functions

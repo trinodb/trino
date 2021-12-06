@@ -20,6 +20,7 @@ import io.trino.spi.block.BlockEncoding;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeManager;
 import org.assertj.core.util.VisibleForTesting;
 
 import javax.inject.Inject;
@@ -37,9 +38,9 @@ public final class InternalBlockEncodingSerde
     private final Function<TypeId, Type> types;
 
     @Inject
-    public InternalBlockEncodingSerde(BlockEncodingManager blockEncodingManager, TypeRegistry typeRegistry)
+    public InternalBlockEncodingSerde(BlockEncodingManager blockEncodingManager, TypeManager typeManager)
     {
-        this(blockEncodingManager::getBlockEncoding, typeRegistry::getType);
+        this(blockEncodingManager::getBlockEncoding, typeManager::getType);
     }
 
     @VisibleForTesting

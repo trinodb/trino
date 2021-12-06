@@ -13,7 +13,7 @@
  */
 package io.trino.connector.system.jdbc;
 
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TypeRegistry;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -65,12 +65,12 @@ public class TypesJdbcTable
             .column("num_prec_radix", BIGINT)
             .build();
 
-    private final Metadata metadata;
+    private final TypeRegistry typeRegistry;
 
     @Inject
-    public TypesJdbcTable(Metadata metadata)
+    public TypesJdbcTable(TypeRegistry typeRegistry)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
     }
 
     @Override
@@ -83,10 +83,10 @@ public class TypesJdbcTable
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession connectorSession, TupleDomain<Integer> constraint)
     {
         Builder table = InMemoryRecordSet.builder(METADATA);
-        for (Type type : metadata.getTypes()) {
+        for (Type type : typeRegistry.getTypes()) {
             addTypeRow(table, type);
         }
-        for (ParametricType type : metadata.getParametricTypes()) {
+        for (ParametricType type : typeRegistry.getParametricTypes()) {
             addTypeRow(table, type);
         }
         return table.build().cursor();

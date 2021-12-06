@@ -61,14 +61,13 @@ import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.session.PropertyMetadata;
-import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSinkManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.RecordPageSourceProvider;
 import io.trino.split.SplitManager;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.transaction.TransactionManager;
-import io.trino.type.InternalTypeManager;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -116,7 +115,7 @@ public class ConnectorManager
     private final VersionEmbedder versionEmbedder;
     private final TransactionManager transactionManager;
     private final EventListenerManager eventListenerManager;
-    private final TypeOperators typeOperators;
+    private final TypeManager typeManager;
     private final ProcedureRegistry procedureRegistry;
     private final TableProceduresRegistry tableProceduresRegistry;
     private final SessionPropertyManager sessionPropertyManager;
@@ -155,7 +154,7 @@ public class ConnectorManager
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager,
             EventListenerManager eventListenerManager,
-            TypeOperators typeOperators,
+            TypeManager typeManager,
             ProcedureRegistry procedureRegistry,
             TableProceduresRegistry tableProceduresRegistry,
             SessionPropertyManager sessionPropertyManager,
@@ -183,7 +182,7 @@ public class ConnectorManager
         this.versionEmbedder = versionEmbedder;
         this.transactionManager = transactionManager;
         this.eventListenerManager = eventListenerManager;
-        this.typeOperators = typeOperators;
+        this.typeManager = typeManager;
         this.procedureRegistry = procedureRegistry;
         this.tableProceduresRegistry = tableProceduresRegistry;
         this.sessionPropertyManager = sessionPropertyManager;
@@ -402,7 +401,7 @@ public class ConnectorManager
         ConnectorContext context = new ConnectorContextInstance(
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogName, schedulerIncludeCoordinator),
                 versionEmbedder,
-                new InternalTypeManager(metadataManager, typeOperators),
+                typeManager,
                 new InternalMetadataProvider(metadataManager),
                 pageSorter,
                 pageIndexerFactory,

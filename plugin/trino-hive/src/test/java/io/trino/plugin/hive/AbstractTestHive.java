@@ -230,7 +230,6 @@ import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableRedirectionsProvider.NO_REDIRECTIONS;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
-import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.trino.plugin.hive.HiveTestUtils.arrayType;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
@@ -294,6 +293,7 @@ import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -819,7 +819,7 @@ public abstract class AbstractTestHive
                 1000,
                 Optional.empty(),
                 true,
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 NOOP_METADATA_PROVIDER,
                 locationService,
                 partitionUpdateCodec,
@@ -876,14 +876,14 @@ public abstract class AbstractTestHive
                 hiveConfig.getSplitLoaderConcurrency(),
                 hiveConfig.getMaxSplitsPerSecond(),
                 false,
-                TYPE_MANAGER);
+                TESTING_TYPE_MANAGER);
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
                 hdfsEnvironment,
                 PAGE_SORTER,
                 metastoreClient,
                 new GroupByHashPageIndexerFactory(JOIN_COMPILER, BLOCK_TYPE_OPERATORS),
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 getHiveConfig(),
                 locationService,
                 partitionUpdateCodec,
@@ -892,7 +892,7 @@ public abstract class AbstractTestHive
                 getHiveSessionProperties(hiveConfig),
                 new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 hdfsEnvironment,
                 hiveConfig,
                 getDefaultHivePageSourceFactories(hdfsEnvironment, hiveConfig),
@@ -901,7 +901,7 @@ public abstract class AbstractTestHive
                 Optional.empty());
         nodePartitioningProvider = new HiveNodePartitioningProvider(
                 new TestingNodeManager("fake-environment"),
-                TYPE_MANAGER);
+                TESTING_TYPE_MANAGER);
     }
 
     protected HdfsConfiguration createTestHdfsConfiguration()
