@@ -25,7 +25,6 @@ import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -848,16 +847,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    //
-    // Blocks
-    //
-
-    @Override
-    public BlockEncodingSerde getBlockEncodingSerde()
     {
         throw new UnsupportedOperationException();
     }

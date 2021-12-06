@@ -86,7 +86,7 @@ public class TestLiteralEncoder
 
     private final ResolvedFunction literalFunction = new ResolvedFunction(
             new BoundSignature(LITERAL_FUNCTION_NAME, VARBINARY, ImmutableList.of(VARBINARY)),
-            new LiteralFunction(PLANNER_CONTEXT.getMetadata().getBlockEncodingSerde()).getFunctionMetadata().getFunctionId(),
+            new LiteralFunction(PLANNER_CONTEXT.getBlockEncodingSerde()).getFunctionMetadata().getFunctionId(),
             SCALAR,
             true,
             new FunctionNullability(false, ImmutableList.of(false)),

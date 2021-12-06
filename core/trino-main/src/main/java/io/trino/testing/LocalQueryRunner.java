@@ -329,6 +329,7 @@ public class LocalQueryRunner
 
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         TypeRegistry typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
+        InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeRegistry);
         MetadataManager metadata = new MetadataManager(
                 featuresConfig,
                 new DisabledSystemSecurityMetadata(),
@@ -336,9 +337,9 @@ public class LocalQueryRunner
                 typeOperators,
                 blockTypeOperators,
                 typeRegistry,
-                new InternalBlockEncodingSerde(blockEncodingManager, typeRegistry),
+                blockEncodingSerde,
                 nodeManager.getCurrentNode().getNodeVersion());
-        this.plannerContext = new PlannerContext(metadata, typeOperators);
+        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde);
         this.splitManager = new SplitManager(new QueryManagerConfig(), metadata);
         this.planFragmenter = new PlanFragmenter(metadata, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(typeOperators);
@@ -467,7 +468,7 @@ public class LocalQueryRunner
                 defaultSession.getProtocolHeaders());
 
         SpillerStats spillerStats = new SpillerStats();
-        this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(metadata, spillerStats, featuresConfig, nodeSpillConfig);
+        this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(plannerContext.getBlockEncodingSerde(), spillerStats, featuresConfig, nodeSpillConfig);
         this.partitioningSpillerFactory = new GenericPartitioningSpillerFactory(this.singleStreamSpillerFactory);
         this.spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
     }

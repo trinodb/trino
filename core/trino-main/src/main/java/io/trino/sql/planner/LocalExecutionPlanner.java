@@ -553,7 +553,7 @@ public class LocalExecutionPlanner
                                 plan.getId(),
                                 outputTypes,
                                 pagePreprocessor,
-                                new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session))),
+                                new PagesSerdeFactory(plannerContext.getBlockEncodingSerde(), isExchangeCompressionEnabled(session))),
                         physicalOperation),
                 context.getDriverInstanceCount());
 
@@ -884,7 +884,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     exchangeClientSupplier,
-                    new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)),
+                    new PagesSerdeFactory(plannerContext.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)),
                     orderingCompiler,
                     types,
                     outputChannels,
@@ -904,7 +904,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     exchangeClientSupplier,
-                    new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)),
+                    new PagesSerdeFactory(plannerContext.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)),
                     node.getRetryPolicy());
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);

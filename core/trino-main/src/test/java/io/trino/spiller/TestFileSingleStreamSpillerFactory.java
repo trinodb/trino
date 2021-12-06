@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -40,7 +41,6 @@ import static com.google.common.io.MoreFiles.listFiles;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
@@ -52,7 +52,7 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestFileSingleStreamSpillerFactory
 {
-    private final BlockEncodingSerde blockEncodingSerde = createTestMetadataManager().getBlockEncodingSerde();
+    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
     private Closer closer;
     private ListeningExecutorService executor;
     private File spillPath1;

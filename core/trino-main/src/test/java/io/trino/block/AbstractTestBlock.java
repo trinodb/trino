@@ -18,14 +18,19 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.trino.metadata.Metadata;
+import io.trino.FeaturesConfig;
+import io.trino.metadata.TypeRegistry;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.MapHashTables;
+import io.trino.spi.block.TestingBlockEncodingSerde;
+import io.trino.spi.type.TypeOperators;
 import org.openjdk.jol.info.ClassLayout;
+import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
@@ -41,7 +46,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -55,9 +59,10 @@ import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+@Test
 public abstract class AbstractTestBlock
 {
-    private static final Metadata METADATA = createTestMetadataManager();
+    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new TestingBlockEncodingSerde(new TypeRegistry(new TypeOperators(), new FeaturesConfig())::getType);
 
     protected <T> void assertBlock(Block block, Supplier<BlockBuilder> newBlockBuilder, T[] expectedValues)
     {
@@ -421,8 +426,8 @@ public abstract class AbstractTestBlock
     private static Block copyBlockViaBlockSerde(Block block)
     {
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        METADATA.getBlockEncodingSerde().writeBlock(sliceOutput, block);
-        return METADATA.getBlockEncodingSerde().readBlock(sliceOutput.slice().getInput());
+        BLOCK_ENCODING_SERDE.writeBlock(sliceOutput, block);
+        return BLOCK_ENCODING_SERDE.readBlock(sliceOutput.slice().getInput());
     }
 
     private static Block copyBlockViaWritePositionTo(Block block, Supplier<BlockBuilder> newBlockBuilder)

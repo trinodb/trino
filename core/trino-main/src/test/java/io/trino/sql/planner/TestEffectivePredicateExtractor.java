@@ -32,7 +32,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProperties;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableProperties;
@@ -141,12 +140,6 @@ public class TestEffectivePredicateExtractor
     private final Metadata metadata = new AbstractMockMetadata()
     {
         private final Metadata delegate = functionResolution.getMetadata();
-
-        @Override
-        public BlockEncodingSerde getBlockEncodingSerde()
-        {
-            return delegate.getBlockEncodingSerde();
-        }
 
         @Override
         public Type getType(TypeSignature signature)

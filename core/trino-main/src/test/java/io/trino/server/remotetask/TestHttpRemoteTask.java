@@ -28,6 +28,7 @@ import io.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonModule;
 import io.airlift.units.Duration;
+import io.trino.FeaturesConfig;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
@@ -47,11 +48,14 @@ import io.trino.execution.TaskStatus;
 import io.trino.execution.TaskTestUtils;
 import io.trino.execution.TestSqlTaskManager;
 import io.trino.execution.buffer.OutputBuffers;
+import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.HandleResolver;
+import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
+import io.trino.metadata.TypeRegistry;
 import io.trino.server.DynamicFilterService;
 import io.trino.server.HttpRemoteTaskFactory;
 import io.trino.server.TaskUpdateRequest;
@@ -77,7 +81,6 @@ import io.trino.testing.TestingSplit;
 import io.trino.type.TypeDeserializer;
 import org.testng.annotations.Test;
 
-import javax.inject.Singleton;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
@@ -108,6 +111,8 @@ import java.util.function.BooleanSupplier;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static com.google.inject.Scopes.SINGLETON;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
@@ -437,7 +442,7 @@ public class TestHttpRemoteTask
                     @Override
                     public void configure(Binder binder)
                     {
-                        binder.bind(JsonMapper.class);
+                        binder.bind(JsonMapper.class).in(SINGLETON);
                         binder.bind(Metadata.class).toInstance(createTestMetadataManager());
                         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
@@ -446,13 +451,12 @@ public class TestHttpRemoteTask
                         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
-                    }
 
-                    @Provides
-                    @Singleton
-                    public BlockEncodingSerde createBlockEncodingSerde(Metadata metadata)
-                    {
-                        return metadata.getBlockEncodingSerde();
+                        binder.bind(TypeOperators.class).in(SINGLETON);
+                        binder.bind(TypeRegistry.class).in(SINGLETON);
+                        configBinder(binder).bindConfig(FeaturesConfig.class);
+                        binder.bind(BlockEncodingManager.class).in(SINGLETON);
+                        binder.bind(BlockEncodingSerde.class).to(InternalBlockEncodingSerde.class).in(SINGLETON);
                     }
 
                     @Provides

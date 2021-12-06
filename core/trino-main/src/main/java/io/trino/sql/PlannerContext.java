@@ -14,6 +14,7 @@
 package io.trino.sql;
 
 import io.trino.metadata.Metadata;
+import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.TypeOperators;
 
 import javax.inject.Inject;
@@ -33,12 +34,14 @@ public class PlannerContext
     // circular dependencies, just create a junk drawer of services.
     private final Metadata metadata;
     private final TypeOperators typeOperators;
+    private final BlockEncodingSerde blockEncodingSerde;
 
     @Inject
-    public PlannerContext(Metadata metadata, TypeOperators typeOperators)
+    public PlannerContext(Metadata metadata, TypeOperators typeOperators, BlockEncodingSerde blockEncodingSerde)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
     }
 
     public Metadata getMetadata()
@@ -49,5 +52,10 @@ public class PlannerContext
     public TypeOperators getTypeOperators()
     {
         return typeOperators;
+    }
+
+    public BlockEncodingSerde getBlockEncodingSerde()
+    {
+        return blockEncodingSerde;
     }
 }
