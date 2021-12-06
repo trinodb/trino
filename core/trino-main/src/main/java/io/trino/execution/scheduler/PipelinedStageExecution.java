@@ -522,6 +522,11 @@ public class PipelinedStageExecution
         return stage.getStageId();
     }
 
+    public int getAttemptId()
+    {
+        return attempt;
+    }
+
     public PlanFragment getFragment()
     {
         return stage.getFragment();

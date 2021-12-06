@@ -228,7 +228,7 @@ public class TestHttpRemoteTask
                 ImmutableSet.of(filterId1, filterId2),
                 ImmutableSet.of(filterId1, filterId2),
                 ImmutableSet.of());
-        dynamicFilterService.stageCannotScheduleMoreTasks(new StageId(queryId, 1), 1);
+        dynamicFilterService.stageCannotScheduleMoreTasks(new StageId(queryId, 1), 0, 1);
 
         DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
                 queryId,
@@ -297,7 +297,7 @@ public class TestHttpRemoteTask
                 ImmutableSet.of(filterId1, filterId2),
                 ImmutableSet.of(filterId1, filterId2),
                 ImmutableSet.of());
-        dynamicFilterService.stageCannotScheduleMoreTasks(new StageId(queryId, 1), 1);
+        dynamicFilterService.stageCannotScheduleMoreTasks(new StageId(queryId, 1), 0, 1);
 
         DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
                 queryId,
