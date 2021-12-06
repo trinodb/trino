@@ -81,6 +81,7 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -340,6 +341,7 @@ public class HiveMetadata
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
     private final TypeManager typeManager;
+    private final MetadataProvider metadataProvider;
     private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final boolean writesToNonManagedTablesEnabled;
@@ -365,6 +367,7 @@ public class HiveMetadata
             boolean translateHiveViews,
             boolean hideDeltaLakeTables,
             TypeManager typeManager,
+            MetadataProvider metadataProvider,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             String trinoVersion,
@@ -381,6 +384,7 @@ public class HiveMetadata
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.metadataProvider = requireNonNull(metadataProvider, "metadataProvider is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
@@ -2326,7 +2330,7 @@ public class HiveMetadata
                         throw new HiveViewNotSupportedException(viewName);
                     }
 
-                    ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager)
+                    ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager, this::redirectTable, metadataProvider)
                             .decodeViewData(view.getViewOriginalText().get(), view, catalogName);
                     // use owner from table metadata if it exists
                     if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {

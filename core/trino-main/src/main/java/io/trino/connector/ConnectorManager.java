@@ -367,6 +367,7 @@ public class ConnectorManager
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogName, schedulerIncludeCoordinator),
                 versionEmbedder,
                 new InternalTypeManager(metadataManager, typeOperators),
+                new InternalMetadataProvider(metadataManager),
                 pageSorter,
                 pageIndexerFactory,
                 factory.getDuplicatePluginClassLoaderFactory());
