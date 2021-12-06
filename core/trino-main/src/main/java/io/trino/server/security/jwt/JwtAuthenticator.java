@@ -25,7 +25,9 @@ import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 
 import java.security.Principal;
+import java.util.Collections;
 import java.util.Optional;
+import java.util.Set;
 
 import static io.trino.server.security.UserMapping.createUserMapping;
 
@@ -34,12 +36,14 @@ public class JwtAuthenticator
 {
     private final JwtParser jwtParser;
     private final String principalField;
+    private final Optional<String> groupsField;
 
     @Inject
     public JwtAuthenticator(JwtAuthenticatorConfig config, SigningKeyResolver signingKeyResolver)
     {
         super(createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile()));
         principalField = config.getPrincipalField();
+        groupsField = config.getGroupsField();
 
         JwtParserBuilder jwtParser = Jwts.parserBuilder()
                 .setSigningKeyResolver(signingKeyResolver);
@@ -57,9 +61,18 @@ public class JwtAuthenticator
     protected Optional<Principal> extractPrincipalFromToken(String token)
     {
         return Optional.ofNullable(jwtParser.parseClaimsJws(token)
-                .getBody()
-                .get(principalField, String.class))
+                        .getBody()
+                        .get(principalField, String.class))
                 .map(BasicPrincipal::new);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    protected Set<String> extractGroupsFromToken(String token)
+    {
+        return groupsField.flatMap(s -> Optional.ofNullable(jwtParser.parseClaimsJws(token)
+                .getBody()
+                .get(s, Set.class))).orElse(Collections.emptySet());
     }
 
     @Override

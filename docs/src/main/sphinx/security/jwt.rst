@@ -98,6 +98,10 @@ The following configuration properties are available:
      - String to identify the field in the JWT that identifies the
        subject of the JWT. The default value is ``sub``. This field is used to
        create the Trino principal.
+   * - ``http-server.authentication.jwt.groups-field``
+     - String to identify the field in the JWT that identifies the
+       groups to be mapped for this user. This field is used to
+       add groups to the Trino principal.
    * - ``http-server.authentication.jwt.user-mapping.pattern``
      - A regular expression pattern to :doc:`map all user names
        </security/user-mapping>` for this authentication system to the format
