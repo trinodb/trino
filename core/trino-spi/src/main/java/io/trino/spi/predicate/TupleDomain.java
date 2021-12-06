@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collector;
 
 import static java.lang.String.format;
@@ -564,6 +565,23 @@ public final class TupleDomain<T>
                             Domain newDomain = transformation.apply(entry.getKey(), entry.getValue());
                             return requireNonNull(newDomain, "newDomain is null");
                         })));
+    }
+
+    public Predicate<Map<T, NullableValue>> asPredicate()
+    {
+        if (isNone()) {
+            return bindings -> false;
+        }
+        Map<T, Domain> domains = this.domains.orElseThrow();
+        return bindings -> {
+            for (Map.Entry<T, NullableValue> entry : bindings.entrySet()) {
+                Domain domain = domains.get(entry.getKey());
+                if (domain != null && !domain.includesNullableValue(entry.getValue().getValue())) {
+                    return false;
+                }
+            }
+            return true;
+        };
     }
 
     // Available for Jackson serialization only!
