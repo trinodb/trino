@@ -29,14 +29,11 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
-import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -189,26 +186,9 @@ public class SystemTablesMetadata
         }
         return new Constraint(
                 effectiveDomain,
-                convertToPredicate(oldDomain).and(newConstraint.predicate().get()),
+                oldDomain.asPredicate().and(newConstraint.predicate().get()),
                 Sets.union(
                         oldDomain.getDomains().orElseThrow().keySet(),
                         newConstraint.getPredicateColumns().orElseThrow()));
-    }
-
-    private static Predicate<Map<ColumnHandle, NullableValue>> convertToPredicate(TupleDomain<ColumnHandle> tupleDomain)
-    {
-        if (tupleDomain.isNone()) {
-            return bindings -> false;
-        }
-        Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
-        return bindings -> {
-            for (Map.Entry<ColumnHandle, NullableValue> entry : bindings.entrySet()) {
-                Domain domain = domains.get(entry.getKey());
-                if (domain != null && !domain.includesNullableValue(entry.getValue().getValue())) {
-                    return false;
-                }
-            }
-            return true;
-        };
     }
 }
