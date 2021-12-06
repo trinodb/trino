@@ -14,6 +14,7 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import io.trino.connector.system.jdbc.JdbcTable;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -28,11 +29,14 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -163,7 +167,7 @@ public class SystemTablesMetadata
 
         SystemTable systemTable = checkAndGetTable(session, table);
         if (systemTable instanceof JdbcTable) {
-            TupleDomain<ColumnHandle> filtered = ((JdbcTable) systemTable).applyFilter(session, new Constraint(newDomain, constraint.predicate(), constraint.getColumns()));
+            TupleDomain<ColumnHandle> filtered = ((JdbcTable) systemTable).applyFilter(session, effectiveConstraint(oldDomain, constraint, newDomain));
             newDomain = newDomain.intersect(filtered);
         }
 
@@ -176,5 +180,35 @@ public class SystemTablesMetadata
         }
         table = new SystemTableHandle(table.getSchemaName(), table.getTableName(), newDomain);
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), false));
+    }
+
+    private Constraint effectiveConstraint(TupleDomain<ColumnHandle> oldDomain, Constraint newConstraint, TupleDomain<ColumnHandle> effectiveDomain)
+    {
+        if (effectiveDomain.isNone() || newConstraint.predicate().isEmpty()) {
+            return new Constraint(effectiveDomain);
+        }
+        return new Constraint(
+                effectiveDomain,
+                convertToPredicate(oldDomain).and(newConstraint.predicate().get()),
+                Sets.union(
+                        oldDomain.getDomains().orElseThrow().keySet(),
+                        newConstraint.getPredicateColumns().orElseThrow()));
+    }
+
+    private static Predicate<Map<ColumnHandle, NullableValue>> convertToPredicate(TupleDomain<ColumnHandle> tupleDomain)
+    {
+        if (tupleDomain.isNone()) {
+            return bindings -> false;
+        }
+        Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
+        return bindings -> {
+            for (Map.Entry<ColumnHandle, NullableValue> entry : bindings.entrySet()) {
+                Domain domain = domains.get(entry.getKey());
+                if (domain != null && !domain.includesNullableValue(entry.getValue().getValue())) {
+                    return false;
+                }
+            }
+            return true;
+        };
     }
 }
