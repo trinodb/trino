@@ -394,9 +394,9 @@ public class DictionaryBlock
     {
         checkArrayRange(positions, offset, length);
 
-        if (uniqueIds == positionCount) {
-            // each block position is unique, therefore it makes more sense to unwrap dictionary
-            // block by copying selected positions
+        if (length <= 1 || dictionary instanceof DictionaryBlock || uniqueIds == positionCount) {
+            // each block position is unique or the dictionary is a nested dictionary block,
+            // therefore it makes sense to unwrap this outer dictionary layer directly
             int[] positionsToCopy = new int[length];
             for (int i = 0; i < length; i++) {
                 positionsToCopy[i] = getId(positions[offset + i]);
@@ -418,7 +418,19 @@ public class DictionaryBlock
             }
             newIds[i] = newId;
         }
-        return new DictionaryBlock(dictionary.copyPositions(positionsToCopy.elements(), 0, positionsToCopy.size()), newIds);
+        Block compactDictionary = dictionary.copyPositions(positionsToCopy.elements(), 0, positionsToCopy.size());
+        if (positionsToCopy.size() == length) {
+            // discovered that all positions are unique, so return the unwrapped underlying dictionary directly
+            return compactDictionary;
+        }
+        return new DictionaryBlock(
+                0,
+                length,
+                compactDictionary,
+                newIds,
+                true, // new dictionary is compact
+                false,
+                randomDictionaryId());
     }
 
     @Override
@@ -437,6 +449,17 @@ public class DictionaryBlock
     public Block copyRegion(int position, int length)
     {
         checkValidRegion(positionCount, position, length);
+        // Avoid repeated volatile reads to the uniqueIds field
+        int uniqueIds = this.uniqueIds;
+        if (length <= 1 || (uniqueIds == dictionary.getPositionCount() && isSequentialIds)) {
+            // copy the contiguous range directly via copyRegion
+            return dictionary.copyRegion(getId(position), length);
+        }
+        if (dictionary instanceof DictionaryBlock || uniqueIds == positionCount) {
+            // each block position is unique or the dictionary is a nested dictionary block,
+            // therefore it makes sense to unwrap this outer dictionary layer directly
+            return dictionary.copyPositions(ids, idsOffset + position, length);
+        }
         int[] newIds = Arrays.copyOfRange(ids, idsOffset + position, idsOffset + position + length);
         DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, newIds);
         return dictionaryBlock.compact();
