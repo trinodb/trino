@@ -3436,6 +3436,12 @@ public class HiveMetadata
     }
 
     @Override
+    public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    {
+        hiveMaterializedViewMetadata.setMaterializedViewProperties(session, viewName, nonNullProperties, nullPropertyNames);
+    }
+
+    @Override
     public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
     {
         requireNonNull(session, "session is null");
