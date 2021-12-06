@@ -13,16 +13,16 @@
  */
 package io.trino.sql.planner;
 
-import io.trino.FeaturesConfig;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
-import io.trino.metadata.TypeRegistry;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
 
 import java.util.Optional;
+
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
 public final class TestingPlannerContext
 {
@@ -49,12 +49,10 @@ public final class TestingPlannerContext
 
         public PlannerContext build()
         {
-            TypeOperators typeOperators = new TypeOperators();
-            TypeRegistry typeRegistry = new TypeRegistry(typeOperators, new FeaturesConfig());
             return new PlannerContext(
                     metadata.orElseGet(MetadataManager::createTestMetadataManager),
-                    typeOperators,
-                    new InternalBlockEncodingSerde(new BlockEncodingManager(), typeRegistry));
+                    new TypeOperators(),
+                    new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER));
         }
     }
 }

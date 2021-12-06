@@ -23,8 +23,6 @@ import io.trino.plugin.accumulo.metadata.ZooKeeperMetadataManager;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.TypeOperators;
-import io.trino.type.InternalTypeManager;
 import org.apache.accumulo.core.client.Connector;
 import org.testng.annotations.Test;
 
@@ -32,8 +30,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.testng.Assert.assertNotNull;
 
 public class TestAccumuloClient
@@ -50,7 +48,7 @@ public class TestAccumuloClient
 
         Connector connector = TestingAccumuloServer.getInstance().getConnector();
         config.setZooKeepers(connector.getInstance().getZooKeepers());
-        zooKeeperMetadataManager = new ZooKeeperMetadataManager(config, new InternalTypeManager(createTestMetadataManager(), new TypeOperators()));
+        zooKeeperMetadataManager = new ZooKeeperMetadataManager(config, TESTING_TYPE_MANAGER);
         client = new AccumuloClient(connector, config, zooKeeperMetadataManager, new AccumuloTableManager(connector), new IndexLookup(connector, new ColumnCardinalityCache(connector, config)));
     }
 

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.airlift.json.JsonCodec;
-import io.trino.metadata.Metadata;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
@@ -27,9 +26,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
-import io.trino.type.InternalTypeManager;
 import org.apache.http.NameValuePair;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -49,7 +45,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.plugin.prometheus.PrometheusClock.fixedClockAt;
@@ -58,6 +53,7 @@ import static io.trino.plugin.prometheus.PrometheusSplitManager.decimalSecondStr
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.time.Instant.ofEpochMilli;
 import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -72,8 +68,6 @@ public class TestPrometheusSplit
 {
     private PrometheusHttpServer prometheusHttpServer;
     private final PrometheusSplit split = new PrometheusSplit(URI.create("http://127.0.0.1/test.file"));
-    private static final Metadata METADATA = createTestMetadataManager();
-    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA, new TypeOperators());
     private static final int NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS = 100;
 
     @BeforeClass
@@ -124,7 +118,7 @@ public class TestPrometheusSplit
     {
         Instant now = LocalDateTime.of(2019, 10, 2, 7, 26, 56, 0).toInstant(UTC);
         PrometheusConnectorConfig config = getCommonConfig(prometheusHttpServer.resolve("/prometheus-data/prom-metrics-non-standard-name.json"));
-        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TYPE_MANAGER);
+        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
         PrometheusTable table = client.getTable("default", "up now");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, fixedClockAt(now), config);
         ConnectorSplitSource splits = splitManager.getSplits(
@@ -150,7 +144,7 @@ public class TestPrometheusSplit
     {
         Instant now = LocalDateTime.of(2019, 10, 2, 7, 26, 56, 0).toInstant(UTC);
         PrometheusConnectorConfig config = getCommonConfig(prometheusHttpServer.resolve("/prometheus-data/prometheus-metrics.json"));
-        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TYPE_MANAGER);
+        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
         PrometheusTable table = client.getTable("default", "up");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, fixedClockAt(now), config);
         ConnectorSplitSource splits = splitManager.getSplits(
@@ -176,7 +170,7 @@ public class TestPrometheusSplit
     {
         Instant now = LocalDateTime.of(2019, 10, 2, 7, 26, 56, 0).toInstant(UTC);
         PrometheusConnectorConfig config = getCommonConfig(prometheusHttpServer.resolve("/prometheus-data/prometheus-metrics.json"));
-        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TYPE_MANAGER);
+        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
         PrometheusTable table = client.getTable("default", "up");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, fixedClockAt(now), config);
         ConnectorSplitSource splitsMaybe = splitManager.getSplits(
@@ -201,7 +195,7 @@ public class TestPrometheusSplit
     {
         Instant now = LocalDateTime.of(2019, 10, 2, 7, 26, 56, 0).toInstant(UTC);
         PrometheusConnectorConfig config = getCommonConfig(prometheusHttpServer.resolve("/prometheus-data/prometheus-metrics.json"));
-        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TYPE_MANAGER);
+        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
         PrometheusTable table = client.getTable("default", "up");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, fixedClockAt(now), config);
         ConnectorSplitSource splits = splitManager.getSplits(
