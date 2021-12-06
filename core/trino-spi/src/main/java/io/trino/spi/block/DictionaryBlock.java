@@ -484,7 +484,7 @@ public class DictionaryBlock
         checkArrayRange(positions, offset, length);
 
         int[] newIds = new int[length];
-        boolean isCompact = isCompact() && length >= dictionary.getPositionCount();
+        boolean isCompact = length >= dictionary.getPositionCount() && isCompact();
         boolean[] seen = null;
         if (isCompact) {
             seen = new boolean[dictionary.getPositionCount()];
