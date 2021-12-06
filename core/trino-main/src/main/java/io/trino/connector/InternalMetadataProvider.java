@@ -26,6 +26,7 @@ import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.MetadataProvider;
+import io.trino.spi.type.TypeManager;
 
 import java.util.List;
 import java.util.Optional;
@@ -37,10 +38,12 @@ public class InternalMetadataProvider
         implements MetadataProvider
 {
     private final MetadataManager metadataManager;
+    private final TypeManager typeManager;
 
-    public InternalMetadataProvider(MetadataManager metadataManager)
+    public InternalMetadataProvider(MetadataManager metadataManager, TypeManager typeManager)
     {
         this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -73,7 +76,7 @@ public class InternalMetadataProvider
                 .map(viewColumn ->
                         ColumnSchema.builder()
                                 .setName(viewColumn.getName())
-                                .setType(metadataManager.getType(viewColumn.getType()))
+                                .setType(typeManager.getType(viewColumn.getType()))
                                 .build())
                 .collect(toImmutableList());
     }

@@ -39,6 +39,7 @@ import io.trino.plugin.thrift.server.ThriftTpchService;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
+import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.analyzer.QueryExplainer;
@@ -213,6 +214,12 @@ public final class ThriftQueryRunner
         public Metadata getMetadata()
         {
             return source.getMetadata();
+        }
+
+        @Override
+        public TypeManager getTypeManager()
+        {
+            return source.getTypeManager();
         }
 
         @Override

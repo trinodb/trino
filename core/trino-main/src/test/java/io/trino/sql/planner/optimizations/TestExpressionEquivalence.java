@@ -237,6 +237,6 @@ public class TestExpressionEquivalence
     private static Type generateType(Symbol symbol)
     {
         String typeName = Splitter.on('_').limit(2).splitToList(symbol.getName()).get(1);
-        return PLANNER_CONTEXT.getMetadata().getType(new TypeSignature(typeName, ImmutableList.of()));
+        return PLANNER_CONTEXT.getTypeManager().getType(new TypeSignature(typeName, ImmutableList.of()));
     }
 }

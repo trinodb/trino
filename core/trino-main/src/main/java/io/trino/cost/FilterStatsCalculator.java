@@ -122,7 +122,7 @@ public class FilterStatsCalculator
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                plannerContext.getMetadata(),
+                plannerContext,
                 new AllowAllAccessControl(),
                 session,
                 types,
@@ -417,7 +417,7 @@ public class FilterStatsCalculator
             }
 
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    plannerContext.getMetadata(),
+                    plannerContext,
                     new AllowAllAccessControl(),
                     session,
                     types,
@@ -440,7 +440,7 @@ public class FilterStatsCalculator
 
         private OptionalDouble doubleValueFromLiteral(Type type, Literal literal)
         {
-            Object literalValue = LiteralInterpreter.evaluate(plannerContext.getMetadata(), session, getExpressionTypes(session, literal, types), literal);
+            Object literalValue = LiteralInterpreter.evaluate(plannerContext, session, getExpressionTypes(session, literal, types), literal);
             return toStatsRepresentation(type, literalValue);
         }
     }

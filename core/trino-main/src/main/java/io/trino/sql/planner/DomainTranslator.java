@@ -336,7 +336,7 @@ public final class DomainTranslator
             this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getMetadata());
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-            this.typeCoercion = new TypeCoercion(plannerContext.getMetadata()::getType);
+            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         }
 
         private Type checkedTypeLookup(Symbol symbol)

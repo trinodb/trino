@@ -1936,7 +1936,7 @@ public class TestExpressionInterpreter
                 .execute(TEST_SESSION, transactionSession -> {
                     Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(transactionSession));
                     parsedExpression = rewriteIdentifiersToSymbolReferences(parsedExpression);
-                    parsedExpression = resolveFunctionCalls(PLANNER_CONTEXT.getMetadata(), transactionSession, SYMBOL_TYPES, parsedExpression);
+                    parsedExpression = resolveFunctionCalls(PLANNER_CONTEXT, transactionSession, SYMBOL_TYPES, parsedExpression);
                     parsedExpression = CanonicalizeExpressionRewriter.rewrite(
                             parsedExpression,
                             transactionSession,

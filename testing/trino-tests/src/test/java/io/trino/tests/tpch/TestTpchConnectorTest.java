@@ -111,7 +111,7 @@ public class TestTpchConnectorTest
                 scanEstimate);
 
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(getQueryRunner().getMetadata())));
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(getQueryRunner().getTypeManager())));
         JsonCodec<IoPlanPrinter.IoPlan> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(IoPlanPrinter.IoPlan.class);
 
         assertEquals(

@@ -69,7 +69,7 @@ public class ApplyTableScanRedirection
     public ApplyTableScanRedirection(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.typeCoercion = new TypeCoercion(plannerContext.getMetadata()::getType);
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
     }
 
     @Override

@@ -73,7 +73,7 @@ public class TestWindowNode
                 Slice.class, new SliceSerializer(),
                 Expression.class, new ExpressionSerializer()));
         provider.setJsonDeserializers(ImmutableMap.of(
-                Type.class, new TypeDeserializer(functionResolution.getMetadata()),
+                Type.class, new TypeDeserializer(functionResolution.getPlannerContext().getTypeManager()),
                 Slice.class, new SliceDeserializer(),
                 Expression.class, new ExpressionDeserializer(sqlParser),
                 TypeSignature.class, new TypeSignatureDeserializer()));

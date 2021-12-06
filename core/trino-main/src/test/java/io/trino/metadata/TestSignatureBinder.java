@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.metadata.Signature.castableFromTypeParameter;
 import static io.trino.metadata.Signature.castableToTypeParameter;
 import static io.trino.metadata.Signature.comparableTypeParameter;
@@ -55,6 +54,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
@@ -69,7 +69,6 @@ import static org.testng.Assert.fail;
 public class TestSignatureBinder
 {
     private static final TypeVariables NO_BOUND_VARIABLES = new BoundVariables();
-    private final Metadata metadata = createTestMetadataManager();
 
     @Test
     public void testBindLiteralForDecimal()
@@ -1134,7 +1133,7 @@ public class TestSignatureBinder
 
     private Type type(TypeSignature signature)
     {
-        return requireNonNull(metadata.getType(signature));
+        return requireNonNull(PLANNER_CONTEXT.getTypeManager().getType(signature));
     }
 
     private BindSignatureAssertion assertThat(Signature function)
@@ -1142,7 +1141,7 @@ public class TestSignatureBinder
         return new BindSignatureAssertion(function);
     }
 
-    private class BindSignatureAssertion
+    private static class BindSignatureAssertion
     {
         private final Signature function;
         private List<TypeSignatureProvider> argumentTypes;
@@ -1208,7 +1207,7 @@ public class TestSignatureBinder
         private Optional<TypeVariables> bindVariables()
         {
             assertNotNull(argumentTypes);
-            SignatureBinder signatureBinder = new SignatureBinder(TEST_SESSION, metadata, function, allowCoercion);
+            SignatureBinder signatureBinder = new SignatureBinder(TEST_SESSION, PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), function, allowCoercion);
             if (returnType == null) {
                 return signatureBinder.bindVariables(argumentTypes);
             }
