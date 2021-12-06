@@ -36,6 +36,11 @@ public interface ConnectorContext
         throw new UnsupportedOperationException();
     }
 
+    default MetadataProvider getMetadataProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
     default PageSorter getPageSorter()
     {
         throw new UnsupportedOperationException();
