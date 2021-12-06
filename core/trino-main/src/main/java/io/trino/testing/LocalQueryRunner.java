@@ -121,6 +121,7 @@ import io.trino.spi.PageSorter;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.FileSingleStreamSpillerFactory;
 import io.trino.spiller.GenericPartitioningSpillerFactory;
@@ -175,6 +176,7 @@ import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import io.trino.transaction.TransactionManagerConfig;
 import io.trino.type.BlockTypeOperators;
+import io.trino.type.InternalTypeManager;
 import io.trino.util.FinalizerService;
 import org.intellij.lang.annotations.Language;
 
@@ -329,14 +331,15 @@ public class LocalQueryRunner
 
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         TypeRegistry typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
-        InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeRegistry);
+        TypeManager typeManager = new InternalTypeManager(typeRegistry);
+        InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeManager);
         MetadataManager metadata = new MetadataManager(
                 featuresConfig,
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 typeOperators,
                 blockTypeOperators,
-                typeRegistry,
+                typeManager,
                 blockEncodingSerde,
                 nodeManager.getCurrentNode().getNodeVersion());
         this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde);
@@ -396,7 +399,7 @@ public class LocalQueryRunner
                 pageIndexerFactory,
                 transactionManager,
                 eventListenerManager,
-                typeOperators,
+                typeManager,
                 new ProcedureRegistry(),
                 tableProceduresRegistry,
                 sessionPropertyManager,

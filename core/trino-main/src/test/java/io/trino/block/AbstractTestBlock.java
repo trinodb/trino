@@ -18,8 +18,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.trino.FeaturesConfig;
-import io.trino.metadata.TypeRegistry;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -28,7 +26,6 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.MapHashTables;
 import io.trino.spi.block.TestingBlockEncodingSerde;
-import io.trino.spi.type.TypeOperators;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
@@ -49,6 +46,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Arrays.fill;
@@ -62,7 +60,7 @@ import static org.testng.Assert.assertTrue;
 @Test
 public abstract class AbstractTestBlock
 {
-    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new TestingBlockEncodingSerde(new TypeRegistry(new TypeOperators(), new FeaturesConfig())::getType);
+    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new TestingBlockEncodingSerde(TESTING_TYPE_MANAGER::getType);
 
     protected <T> void assertBlock(Block block, Supplier<BlockBuilder> newBlockBuilder, T[] expectedValues)
     {

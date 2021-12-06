@@ -108,6 +108,7 @@ import io.trino.spi.VersionEmbedder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spiller.FileSingleStreamSpillerFactory;
@@ -141,6 +142,7 @@ import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TransactionManagerConfig;
 import io.trino.type.BlockTypeOperators;
+import io.trino.type.InternalTypeManager;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeOperatorsCache;
 import io.trino.type.TypeSignatureDeserializer;
@@ -387,6 +389,7 @@ public class ServerMainModule
         jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
         jsonBinder(binder).addKeyDeserializerBinding(TypeSignature.class).to(TypeSignatureKeyDeserializer.class);
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(TypeManager.class).to(InternalTypeManager.class).in(Scopes.SINGLETON);
         newSetBinder(binder, Type.class);
 
         // split manager

@@ -259,6 +259,11 @@ public final class TypeRegistry
         parametricTypes.putIfAbsent(name, parametricType);
     }
 
+    public TypeOperators getTypeOperators()
+    {
+        return typeOperators;
+    }
+
     public void verifyTypes()
     {
         Set<Type> missingOperatorDeclaration = new HashSet<>();

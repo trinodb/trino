@@ -52,6 +52,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.StructuralTestUtil.mapBlockOf;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -69,8 +70,8 @@ public class TestLearnAggregations
                 transactionManager,
                 typeOperators,
                 new BlockTypeOperators(typeOperators),
-                typeRegistry,
-                new InternalBlockEncodingSerde(new BlockEncodingManager(), typeRegistry),
+                TESTING_TYPE_MANAGER,
+                new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER),
                 NodeVersion.UNKNOWN);
 
         typeRegistry.addParametricType(new ClassifierParametricType());

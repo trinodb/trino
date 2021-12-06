@@ -63,7 +63,6 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
-import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeSignature;
@@ -735,18 +734,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Type getType(TypeId id)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Collection<Type> getTypes()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Collection<ParametricType> getParametricTypes()
     {
         throw new UnsupportedOperationException();
     }

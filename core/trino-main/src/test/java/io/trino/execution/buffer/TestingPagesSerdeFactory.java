@@ -17,23 +17,20 @@ import io.airlift.compress.Compressor;
 import io.airlift.compress.Decompressor;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
-import io.trino.FeaturesConfig;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
-import io.trino.metadata.TypeRegistry;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockEncodingSerde;
-import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.SpillCipher;
 
 import java.util.Optional;
 
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+
 public class TestingPagesSerdeFactory
         extends PagesSerdeFactory
 {
-    private static final InternalBlockEncodingSerde BLOCK_ENCODING_SERDE = new InternalBlockEncodingSerde(
-            new BlockEncodingManager(),
-            new TypeRegistry(new TypeOperators(), new FeaturesConfig()));
+    private static final InternalBlockEncodingSerde BLOCK_ENCODING_SERDE = new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER);
 
     public TestingPagesSerdeFactory()
     {
