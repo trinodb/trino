@@ -269,7 +269,7 @@ public final class LiteralEncoder
 
         if (object instanceof Block) {
             SliceOutput output = new DynamicSliceOutput(toIntExact(((Block) object).getSizeInBytes()));
-            BlockSerdeUtil.writeBlock(plannerContext.getMetadata().getBlockEncodingSerde(), output, (Block) object);
+            BlockSerdeUtil.writeBlock(plannerContext.getBlockEncodingSerde(), output, (Block) object);
             object = output.slice();
             // This if condition will evaluate to true: object instanceof Slice && !type.equals(VARCHAR)
         }

@@ -178,7 +178,6 @@ public final class MetadataManager
     private final SystemSecurityMetadata systemSecurityMetadata;
     private final TransactionManager transactionManager;
     private final TypeRegistry typeRegistry;
-    private final BlockEncodingSerde blockEncodingSerde;
 
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
@@ -200,7 +199,6 @@ public final class MetadataManager
     {
         requireNonNull(nodeVersion, "nodeVersion is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
-        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         functions = new FunctionRegistry(blockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators, nodeVersion.getVersion());
         functionResolver = new FunctionResolver(this);
 
@@ -2560,13 +2558,6 @@ public final class MetadataManager
     //
     // Blocks
     //
-
-    // TODO: this does not belong here, but there is too much non-injected code that depends on this
-    @Override
-    public BlockEncodingSerde getBlockEncodingSerde()
-    {
-        return blockEncodingSerde;
-    }
 
     //
     // Helpers

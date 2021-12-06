@@ -40,6 +40,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
@@ -72,7 +73,6 @@ import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRLEBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -106,7 +106,7 @@ public class TestPartitionedOutputOperator
     private static final int POSITIONS_PER_PAGE = 8;
     private static final int PARTITION_COUNT = 2;
 
-    private static final PagesSerdeFactory PAGES_SERDE_FACTORY = new PagesSerdeFactory(createTestMetadataManager().getBlockEncodingSerde(), false);
+    private static final PagesSerdeFactory PAGES_SERDE_FACTORY = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false);
     private static final PagesSerde PAGES_SERDE = PAGES_SERDE_FACTORY.createPagesSerde();
 
     private final Session testSession;
