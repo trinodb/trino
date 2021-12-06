@@ -22,6 +22,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Property;
 
 import java.util.List;
 import java.util.Map;
@@ -44,25 +45,57 @@ abstract class AbstractCatalogPropertyManager
         doRemoveProperties(catalogName);
     }
 
+    /**
+     * Evaluate {@code properties}. The returned {@code Map&lt;String, Object&gt;} contains a supported property iff its value is
+     * (implicitly or explictly) set to a non-{@code null} value. Thus,
+     * <ul>
+     *     <li>If a property does not appear in the result, then its value is {@code null}</li>
+     *     <li>If a {@code Property} in {@code properties} is set to DEFAULT, then it will appear in the result iff the default value is not
+     *     {@code null}.</li>
+     *     <li>If a property does not appear in {@code properties} at all, then it will appear in the result iff its default value is not
+     *     {@code null}. (Thus, specifying a property to have the DEFAULT value is the same as not specifying it at all.)</li>
+     * </ul>
+     */
     public Map<String, Object> getProperties(
             CatalogName catalog,
             String catalogNameForDiagnostics,
-            Map<String, Expression> sqlPropertyValues,
+            Iterable<Property> properties,
             Session session,
             PlannerContext plannerContext,
             AccessControl accessControl,
-            Map<NodeRef<Parameter>, Expression> parameters,
-            boolean setDefaultProperties)
+            Map<NodeRef<Parameter>, Expression> parameters)
     {
         return doGetProperties(
                 catalog,
                 catalogNameForDiagnostics,
-                sqlPropertyValues,
+                properties,
                 session,
                 plannerContext,
                 accessControl,
-                parameters,
-                setDefaultProperties);
+                parameters);
+    }
+
+    /**
+     * Evaluate {@code properties}. Unlike {@link #getProperties}, a property appears in the returned result iff it is specified in
+     * {@code properties}.
+     */
+    public Properties getOnlySpecifiedProperties(
+            CatalogName catalog,
+            String catalogNameForDiagnostics,
+            Iterable<Property> properties,
+            Session session,
+            PlannerContext plannerContext,
+            AccessControl accessControl,
+            Map<NodeRef<Parameter>, Expression> parameters)
+    {
+        return doGetOnlySpecifiedProperties(
+                catalog,
+                catalogNameForDiagnostics,
+                properties,
+                session,
+                plannerContext,
+                accessControl,
+                parameters);
     }
 
     public Map<CatalogName, Map<String, PropertyMetadata<?>>> getAllProperties()

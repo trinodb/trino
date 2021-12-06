@@ -96,6 +96,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivil
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
@@ -771,6 +772,15 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Object> properties)
+    {
+        // check if user will be an owner of the materialize view after creation
+        if (!checkTablePermission(context, materializedView, OWNERSHIP)) {
+            denyCreateMaterializedView(materializedView.toString());
+        }
+    }
+
+    @Override
     public void checkCanRefreshMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
     {
         if (!checkTablePermission(context, materializedView, UPDATE)) {
@@ -792,6 +802,14 @@ public class FileBasedSystemAccessControl
         // check if user owns the existing materialized view, and if they will be an owner of the materialized view after the rename
         if (!checkTablePermission(context, view, OWNERSHIP) || !checkTablePermission(context, newView, OWNERSHIP)) {
             denyRenameMaterializedView(view.toString(), newView.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    {
+        if (!checkTablePermission(context, materializedView, OWNERSHIP)) {
+            denySetMaterializedViewProperties(materializedView.toString());
         }
     }
 

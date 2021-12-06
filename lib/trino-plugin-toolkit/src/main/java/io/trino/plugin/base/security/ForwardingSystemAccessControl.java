@@ -342,6 +342,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Object> properties)
+    {
+        delegate().checkCanCreateMaterializedView(context, materializedView, properties);
+    }
+
+    @Override
     public void checkCanRefreshMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
     {
         delegate().checkCanRefreshMaterializedView(context, materializedView);
@@ -357,6 +363,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanRenameMaterializedView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
     {
         delegate().checkCanRenameMaterializedView(context, view, newView);
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    {
+        delegate().checkCanSetMaterializedViewProperties(context, materializedView, nonNullProperties, nullPropertyNames);
     }
 
     @Override

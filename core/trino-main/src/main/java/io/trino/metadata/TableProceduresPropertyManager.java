@@ -63,8 +63,7 @@ public class TableProceduresPropertyManager
             Session session,
             PlannerContext plannerContext,
             AccessControl accessControl,
-            Map<NodeRef<Parameter>, Expression> parameters,
-            boolean setDefaultProperties)
+            Map<NodeRef<Parameter>, Expression> parameters)
     {
         return doGetProperties(
                 new Key(catalog, procedureName),
@@ -73,8 +72,7 @@ public class TableProceduresPropertyManager
                 session,
                 plannerContext,
                 accessControl,
-                parameters,
-                setDefaultProperties);
+                parameters);
     }
 
     public Map<Key, Map<String, PropertyMetadata<?>>> getAllProperties()

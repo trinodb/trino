@@ -252,6 +252,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Object> properties)
+    {
+        delegate().checkCanCreateMaterializedView(context, materializedViewName, properties);
+    }
+
+    @Override
     public void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
     {
         delegate().checkCanRefreshMaterializedView(context, materializedViewName);
@@ -267,6 +273,12 @@ public abstract class ForwardingConnectorAccessControl
     public void checkCanRenameMaterializedView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
     {
         delegate().checkCanRenameMaterializedView(context, viewName, newViewName);
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    {
+        delegate().checkCanSetMaterializedViewProperties(context, materializedViewName, nonNullProperties, nullPropertyNames);
     }
 
     @Override

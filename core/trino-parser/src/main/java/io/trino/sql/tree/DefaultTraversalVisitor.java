@@ -719,8 +719,9 @@ public abstract class DefaultTraversalVisitor<C>
     protected Void visitProperty(Property node, C context)
     {
         process(node.getName(), context);
-        process(node.getValue(), context);
-
+        if (!node.isSetToDefault()) {
+            process(node.getNonDefaultValue(), context);
+        }
         return null;
     }
 
