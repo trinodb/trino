@@ -35,7 +35,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
-import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -70,33 +69,11 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalInsert;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
-import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
@@ -110,22 +87,6 @@ public abstract class BaseJdbcClient
         implements JdbcClient
 {
     private static final Logger log = Logger.get(BaseJdbcClient.class);
-
-    /**
-     * @deprecated To be removed after {{@link #legacyToWriteMapping} is removed.
-     */
-    @Deprecated
-    private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
-            .put(BOOLEAN, WriteMapping.booleanMapping("boolean", booleanWriteFunction()))
-            .put(BIGINT, WriteMapping.longMapping("bigint", bigintWriteFunction()))
-            .put(INTEGER, WriteMapping.longMapping("integer", integerWriteFunction()))
-            .put(SMALLINT, WriteMapping.longMapping("smallint", smallintWriteFunction()))
-            .put(TINYINT, WriteMapping.longMapping("tinyint", tinyintWriteFunction()))
-            .put(DOUBLE, WriteMapping.doubleMapping("double precision", doubleWriteFunction()))
-            .put(REAL, WriteMapping.longMapping("real", realWriteFunction()))
-            .put(VARBINARY, WriteMapping.sliceMapping("varbinary", varbinaryWriteFunction()))
-            .put(DATE, WriteMapping.longMapping("date", dateWriteFunction()))
-            .build();
 
     protected final ConnectionFactory connectionFactory;
     protected final String identifierQuote;
@@ -888,42 +849,6 @@ public abstract class BaseJdbcClient
             exception.addSuppressed(new RuntimeException("Query: " + query));
             throw exception;
         }
-    }
-
-    /**
-     * @deprecated Each connector should provide its own explicit type mapping, along with respective tests.
-     */
-    @Deprecated
-    protected WriteMapping legacyToWriteMapping(@SuppressWarnings("unused") ConnectorSession session, Type type)
-    {
-        if (type instanceof VarcharType) {
-            VarcharType varcharType = (VarcharType) type;
-            String dataType;
-            if (varcharType.isUnbounded()) {
-                dataType = "varchar";
-            }
-            else {
-                dataType = "varchar(" + varcharType.getBoundedLength() + ")";
-            }
-            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
-        }
-        if (type instanceof CharType) {
-            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
-        }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
-            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
-            if (decimalType.isShort()) {
-                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
-            }
-            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType));
-        }
-
-        WriteMapping writeMapping = WRITE_MAPPINGS.get(type);
-        if (writeMapping != null) {
-            return writeMapping;
-        }
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     protected static boolean preventTextualTypeAggregationPushdown(List<List<ColumnHandle>> groupingSets)
