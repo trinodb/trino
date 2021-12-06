@@ -31,12 +31,12 @@ public class Constraint
 
     public static Constraint alwaysTrue()
     {
-        return new Constraint(TupleDomain.all(), Optional.empty(), Optional.empty());
+        return new Constraint(TupleDomain.all());
     }
 
     public static Constraint alwaysFalse()
     {
-        return new Constraint(TupleDomain.none(), Optional.of(bindings -> false), Optional.empty());
+        return new Constraint(TupleDomain.none(), bindings -> false, Set.of());
     }
 
     public Constraint(TupleDomain<ColumnHandle> summary)
@@ -49,19 +49,17 @@ public class Constraint
         this(summary, Optional.of(predicate), Optional.of(predicateColumns));
     }
 
-    /**
-     * @deprecated Use {@link #Constraint(TupleDomain)} or {@link #Constraint(TupleDomain, Predicate, Set)} instead.
-     */
-    @Deprecated // TODO update all usages and make private
-    public Constraint(TupleDomain<ColumnHandle> summary, Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate, Optional<Set<ColumnHandle>> predicateColumns)
+    private Constraint(TupleDomain<ColumnHandle> summary, Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate, Optional<Set<ColumnHandle>> predicateColumns)
     {
         this.summary = requireNonNull(summary, "summary is null");
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null");
 
-        // TODO (https://github.com/trinodb/trino/issues/9589) validate that predicate is present *iff* predicateColumns is present
         if (predicateColumns.isPresent() && predicate.isEmpty()) {
             throw new IllegalArgumentException("predicateColumns cannot be present when predicate is not present");
+        }
+        if (predicateColumns.isEmpty() && predicate.isPresent()) {
+            throw new IllegalArgumentException("predicate cannot be present without predicateColumns");
         }
     }
 
@@ -84,7 +82,7 @@ public class Constraint
     }
 
     /**
-     * Set of columns the {@link #predicate()} result depends on.
+     * Set of columns the {@link #predicate()} result depends on. It's present if and only if {@link #predicate()} is present.
      */
     public Optional<Set<ColumnHandle>> getPredicateColumns()
     {
