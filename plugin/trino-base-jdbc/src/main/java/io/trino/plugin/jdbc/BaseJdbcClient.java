@@ -412,10 +412,10 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
             throws SQLException
     {
-        PreparedQuery preparedQuery = prepareQuery(session, connection, table, Optional.empty(), columns, ImmutableMap.of(), Optional.of(split));
+        PreparedQuery preparedQuery = prepareQuery(session, connection, table, Optional.empty(), columns, columnExpressions, Optional.of(split));
         return new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
     }
 

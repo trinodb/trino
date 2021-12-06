@@ -151,10 +151,10 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columnHandles)
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columnHandles, Map<String, String> columnExpressions)
             throws SQLException
     {
-        return delegate().buildSql(session, connection, split, tableHandle, columnHandles);
+        return delegate().buildSql(session, connection, split, tableHandle, columnHandles, columnExpressions);
     }
 
     @Override

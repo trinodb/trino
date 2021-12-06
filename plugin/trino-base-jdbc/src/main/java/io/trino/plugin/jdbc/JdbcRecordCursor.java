@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
@@ -74,6 +75,7 @@ public class JdbcRecordCursor
         longReadFunctions = new LongReadFunction[columnHandles.size()];
         sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
         objectReadFunctions = new ObjectReadFunction[columnHandles.size()];
+        ImmutableMap.Builder<String, String> columnExpressions = ImmutableMap.builder();
 
         try {
             connection = jdbcClient.getConnection(session, split);
@@ -89,6 +91,9 @@ public class JdbcRecordCursor
                 Class<?> javaType = columnMapping.getType().getJavaType();
                 ReadFunction readFunction = columnMapping.getReadFunction();
                 readFunctions[i] = readFunction;
+
+                readFunction.getBindExpression(columnHandle.getColumnName())
+                        .ifPresent(expression -> columnExpressions.put(columnHandle.getColumnName(), expression));
 
                 if (javaType == boolean.class) {
                     booleanReadFunctions[i] = (BooleanReadFunction) readFunction;
@@ -107,7 +112,7 @@ public class JdbcRecordCursor
                 }
             }
 
-            statement = jdbcClient.buildSql(session, connection, split, table, columnHandles);
+            statement = jdbcClient.buildSql(session, connection, split, table, columnHandles, columnExpressions.build());
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);

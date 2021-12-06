@@ -249,7 +249,7 @@ public class PhoenixClient
     }
 
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles, Map<String, String> columnExpressions)
             throws SQLException
     {
         PreparedStatement query = prepareStatement(

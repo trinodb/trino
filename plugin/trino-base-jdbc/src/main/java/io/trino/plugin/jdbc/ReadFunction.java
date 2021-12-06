@@ -15,10 +15,16 @@ package io.trino.plugin.jdbc;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Optional;
 
 public interface ReadFunction
 {
     Class<?> getJavaType();
+
+    default Optional<String> getBindExpression(String columnName)
+    {
+        return Optional.empty();
+    }
 
     default boolean isNull(ResultSet resultSet, int columnIndex)
             throws SQLException
