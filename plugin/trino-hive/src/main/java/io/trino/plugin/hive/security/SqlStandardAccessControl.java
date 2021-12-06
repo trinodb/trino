@@ -83,6 +83,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
@@ -389,6 +390,14 @@ public class SqlStandardAccessControl
     }
 
     @Override
+    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Object> properties)
+    {
+        if (!isDatabaseOwner(context, materializedViewName.getSchemaName())) {
+            denyCreateMaterializedView(materializedViewName.toString());
+        }
+    }
+
+    @Override
     public void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
     {
         if (!checkTablePermission(context, materializedViewName, UPDATE, false)) {
@@ -409,6 +418,14 @@ public class SqlStandardAccessControl
     {
         if (!isTableOwner(context, viewName)) {
             denyRenameMaterializedView(viewName.toString(), newViewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    {
+        if (!isTableOwner(context, materializedViewName)) {
+            denySetMaterializedViewProperties(materializedViewName.toString());
         }
     }
 

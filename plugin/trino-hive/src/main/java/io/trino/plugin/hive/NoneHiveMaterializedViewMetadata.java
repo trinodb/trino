@@ -24,6 +24,7 @@ import io.trino.spi.connector.SchemaTableName;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -84,5 +85,11 @@ public class NoneHiveMaterializedViewMetadata
     public void renameMaterializedView(ConnectorSession session, SchemaTableName existingViewName, SchemaTableName newViewName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming materialized views");
+    }
+
+    @Override
+    public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting materialized view properties");
     }
 }
