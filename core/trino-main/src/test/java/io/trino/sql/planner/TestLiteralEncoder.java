@@ -239,7 +239,7 @@ public class TestLiteralEncoder
     {
         assertRoundTrip(castVarcharToJoniRegexp(utf8Slice("[a-z]")), LIKE_PATTERN, (left, right) -> left.pattern().equals(right.pattern()));
         assertRoundTrip(castVarcharToJoniRegexp(utf8Slice("[a-z]")), JONI_REGEXP, (left, right) -> left.pattern().equals(right.pattern()));
-        assertRoundTrip(castVarcharToRe2JRegexp(utf8Slice("[a-z]")), PLANNER_CONTEXT.getMetadata().getType(RE2J_REGEXP_SIGNATURE), (left, right) -> left.pattern().equals(right.pattern()));
+        assertRoundTrip(castVarcharToRe2JRegexp(utf8Slice("[a-z]")), PLANNER_CONTEXT.getTypeManager().getType(RE2J_REGEXP_SIGNATURE), (left, right) -> left.pattern().equals(right.pattern()));
     }
 
     @Test
@@ -302,7 +302,7 @@ public class TestLiteralEncoder
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
                     ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                            PLANNER_CONTEXT.getMetadata(),
+                            PLANNER_CONTEXT,
                             new AllowAllAccessControl(),
                             transactionSession,
                             TypeProvider.empty(),

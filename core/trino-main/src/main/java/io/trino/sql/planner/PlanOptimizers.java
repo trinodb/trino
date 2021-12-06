@@ -444,7 +444,7 @@ public class PlanOptimizers
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(metadata),
                                         new PruneOrderByInAggregation(metadata),
-                                        new RewriteSpatialPartitioningAggregation(metadata),
+                                        new RewriteSpatialPartitioningAggregation(plannerContext),
                                         new SimplifyCountOverConstant(metadata)))
                                 .build()),
                 new IterativeOptimizer(
@@ -495,7 +495,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new TransformExistsApplyToCorrelatedJoin(metadata))),
+                        ImmutableSet.of(new TransformExistsApplyToCorrelatedJoin(plannerContext))),
                 new TransformQuantifiedComparisonApplyToCorrelatedJoin(metadata),
                 new IterativeOptimizer(
                         metadata,
@@ -507,16 +507,16 @@ public class PlanOptimizers
                                 new RemoveUnreferencedScalarSubqueries(),
                                 new TransformUncorrelatedSubqueryToJoin(),
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
-                                new TransformCorrelatedJoinToJoin(metadata),
+                                new TransformCorrelatedJoinToJoin(plannerContext),
                                 new DecorrelateInnerUnnestWithGlobalAggregation(),
                                 new DecorrelateLeftUnnestWithGlobalAggregation(),
                                 new DecorrelateUnnest(metadata),
-                                new TransformCorrelatedGlobalAggregationWithProjection(metadata),
-                                new TransformCorrelatedGlobalAggregationWithoutProjection(metadata),
-                                new TransformCorrelatedDistinctAggregationWithProjection(metadata),
-                                new TransformCorrelatedDistinctAggregationWithoutProjection(metadata),
-                                new TransformCorrelatedGroupedAggregationWithProjection(metadata),
-                                new TransformCorrelatedGroupedAggregationWithoutProjection(metadata))),
+                                new TransformCorrelatedGlobalAggregationWithProjection(plannerContext),
+                                new TransformCorrelatedGlobalAggregationWithoutProjection(plannerContext),
+                                new TransformCorrelatedDistinctAggregationWithProjection(plannerContext),
+                                new TransformCorrelatedDistinctAggregationWithoutProjection(plannerContext),
+                                new TransformCorrelatedGroupedAggregationWithProjection(plannerContext),
+                                new TransformCorrelatedGroupedAggregationWithoutProjection(plannerContext))),
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,
@@ -527,7 +527,7 @@ public class PlanOptimizers
                                 new RemoveUnreferencedScalarApplyNodes(),
                                 new TransformCorrelatedInPredicateToJoin(metadata), // must be run after columnPruningOptimizer
                                 new TransformCorrelatedScalarSubquery(metadata), // must be run after TransformCorrelatedAggregation rules
-                                new TransformCorrelatedJoinToJoin(metadata),
+                                new TransformCorrelatedJoinToJoin(plannerContext),
                                 new ImplementFilteredAggregations(metadata))),
                 new IterativeOptimizer(
                         metadata,
@@ -772,7 +772,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .add(new RemoveRedundantIdentityProjections())
-                        .addAll(new ExtractSpatialJoins(metadata, splitManager, pageSourceManager, typeAnalyzer).rules())
+                        .addAll(new ExtractSpatialJoins(plannerContext, splitManager, pageSourceManager, typeAnalyzer).rules())
                         .add(new InlineProjections(typeAnalyzer))
                         .build()));
 
@@ -900,7 +900,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.of(
                         new PushPartialAggregationThroughJoin(),
-                        new PushPartialAggregationThroughExchange(metadata),
+                        new PushPartialAggregationThroughExchange(plannerContext),
                         new PruneJoinColumns(),
                         new PruneJoinChildrenColumns())));
         builder.add(new IterativeOptimizer(

@@ -97,7 +97,6 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
@@ -201,7 +200,7 @@ public final class MetadataManager
         requireNonNull(nodeVersion, "nodeVersion is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         functions = new FunctionRegistry(blockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators, nodeVersion.getVersion());
-        functionResolver = new FunctionResolver(this);
+        functionResolver = new FunctionResolver(this, typeManager);
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -2165,28 +2164,6 @@ public final class MetadataManager
             }
         }
         return ImmutableList.copyOf(grantInfos.build());
-    }
-
-    //
-    // Types
-    //
-
-    @Override
-    public Type getType(TypeSignature signature)
-    {
-        return typeManager.getType(signature);
-    }
-
-    @Override
-    public Type fromSqlType(String sqlType)
-    {
-        return typeManager.fromSqlType(sqlType);
-    }
-
-    @Override
-    public Type getType(TypeId id)
-    {
-        return typeManager.getType(id);
     }
 
     //

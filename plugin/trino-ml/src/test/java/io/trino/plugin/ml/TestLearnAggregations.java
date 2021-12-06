@@ -37,6 +37,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
+import io.trino.type.InternalTypeManager;
 import org.testng.annotations.Test;
 
 import java.util.OptionalInt;
@@ -64,14 +65,15 @@ public class TestLearnAggregations
         TransactionManager transactionManager = createTestTransactionManager();
         TypeOperators typeOperators = new TypeOperators();
         TypeRegistry typeRegistry = new TypeRegistry(typeOperators, new FeaturesConfig());
+        InternalTypeManager typeManager = new InternalTypeManager(typeRegistry);
         MetadataManager metadata = new MetadataManager(
                 new FeaturesConfig(),
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 typeOperators,
                 new BlockTypeOperators(typeOperators),
-                TESTING_TYPE_MANAGER,
-                new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER),
+                typeManager,
+                new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager),
                 NodeVersion.UNKNOWN);
 
         typeRegistry.addParametricType(new ClassifierParametricType());
@@ -113,7 +115,7 @@ public class TestLearnAggregations
 
     private static Page getPage()
     {
-        Type mapType = FUNCTION_RESOLUTION.getMetadata().getParameterizedType("map", ImmutableList.of(typeParameter(BIGINT.getTypeSignature()), typeParameter(DOUBLE.getTypeSignature())));
+        Type mapType = TESTING_TYPE_MANAGER.getParameterizedType("map", ImmutableList.of(typeParameter(BIGINT.getTypeSignature()), typeParameter(DOUBLE.getTypeSignature())));
         int datapoints = 100;
         RowPageBuilder builder = RowPageBuilder.rowPageBuilder(BIGINT, mapType, VARCHAR);
         Random rand = new Random(0);

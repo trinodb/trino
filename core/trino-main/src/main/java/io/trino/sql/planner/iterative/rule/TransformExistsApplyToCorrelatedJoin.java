@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeDecorrelator;
@@ -80,12 +80,11 @@ public class TransformExistsApplyToCorrelatedJoin
     private static final Pattern<ApplyNode> PATTERN = applyNode();
 
     private static final QualifiedName COUNT = QualifiedName.of("count");
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
 
-    public TransformExistsApplyToCorrelatedJoin(Metadata metadata)
+    public TransformExistsApplyToCorrelatedJoin(PlannerContext plannerContext)
     {
-        requireNonNull(metadata, "metadata is null");
-        this.metadata = metadata;
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
     }
 
     @Override
@@ -142,7 +141,7 @@ public class TransformExistsApplyToCorrelatedJoin
                         false),
                 Assignments.of(subqueryTrue, TRUE_LITERAL));
 
-        PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(metadata, context.getSymbolAllocator(), context.getLookup());
+        PlanNodeDecorrelator decorrelator = new PlanNodeDecorrelator(plannerContext, context.getSymbolAllocator(), context.getLookup());
         if (decorrelator.decorrelateFilters(subquery, applyNode.getCorrelation()).isEmpty()) {
             return Optional.empty();
         }
@@ -166,7 +165,7 @@ public class TransformExistsApplyToCorrelatedJoin
 
     private PlanNode rewriteToDefaultAggregation(ApplyNode applyNode, Context context)
     {
-        ResolvedFunction countFunction = metadata.resolveFunction(context.getSession(), COUNT, ImmutableList.of());
+        ResolvedFunction countFunction = plannerContext.getMetadata().resolveFunction(context.getSession(), COUNT, ImmutableList.of());
         Symbol count = context.getSymbolAllocator().newSymbol(COUNT.toString(), BIGINT);
         Symbol exists = getOnlyElement(applyNode.getSubqueryAssignments().getSymbols());
 

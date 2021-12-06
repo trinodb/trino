@@ -360,7 +360,7 @@ class StatementAnalyzer
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
-        this.typeCoercion = new TypeCoercion(plannerContext.getMetadata()::getType);
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -969,7 +969,7 @@ class StatementAnalyzer
         protected Scope visitProperty(Property node, Optional<Scope> scope)
         {
             // Property value expressions must be constant
-            createConstantAnalyzer(metadata, accessControl, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe())
+            createConstantAnalyzer(plannerContext, accessControl, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe())
                     .analyze(node.getValue(), createScope(scope));
             return createAndAssignScope(node, scope);
         }
@@ -978,7 +978,7 @@ class StatementAnalyzer
         protected Scope visitCallArgument(CallArgument node, Optional<Scope> scope)
         {
             // CallArgument value expressions must be constant
-            createConstantAnalyzer(metadata, accessControl, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe())
+            createConstantAnalyzer(plannerContext, accessControl, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe())
                     .analyze(node.getValue(), createScope(scope));
             return createAndAssignScope(node, scope);
         }
@@ -3530,7 +3530,7 @@ class StatementAnalyzer
         private Type getViewColumnType(ViewColumn column, QualifiedObjectName name, Node node)
         {
             try {
-                return metadata.getType(column.getType());
+                return plannerContext.getTypeManager().getType(column.getType());
             }
             catch (TypeNotFoundException e) {
                 throw semanticException(INVALID_VIEW, node, e, "Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), name);
@@ -3604,7 +3604,7 @@ class StatementAnalyzer
 
             Type actualType = expressionAnalysis.getType(expression);
             if (!actualType.equals(BOOLEAN)) {
-                TypeCoercion coercion = new TypeCoercion(metadata::getType);
+                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
 
                 if (!coercion.canCoerce(actualType, BOOLEAN)) {
                     throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected row filter for '%s' to be of type BOOLEAN, but was %s", name, actualType), null);
@@ -3659,7 +3659,7 @@ class StatementAnalyzer
             Type expectedType = field.getType();
             Type actualType = expressionAnalysis.getType(expression);
             if (!actualType.equals(expectedType)) {
-                TypeCoercion coercion = new TypeCoercion(metadata::getType);
+                TypeCoercion coercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
 
                 if (!coercion.canCoerce(actualType, field.getType())) {
                     throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, field.getType(), actualType), null);

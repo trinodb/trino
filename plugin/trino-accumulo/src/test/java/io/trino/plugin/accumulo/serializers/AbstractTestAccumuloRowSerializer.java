@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -47,6 +46,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -185,7 +185,7 @@ public abstract class AbstractTestAccumuloRowSerializer
             throws Exception
     {
         AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
-        Type type = createTestMetadataManager().getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        Type type = TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()),
                 TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature())));
         Map<Object, Object> expected = ImmutableMap.of("a", 1L, "b", 2L, "3", 3L);

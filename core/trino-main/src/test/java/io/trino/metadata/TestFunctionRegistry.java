@@ -82,7 +82,7 @@ public class TestFunctionRegistry
                 continue;
             }
             List<Type> argumentTypes = function.getSignature().getArgumentTypes().stream()
-                    .map(metadata::getType)
+                    .map(functionResolution.getPlannerContext().getTypeManager()::getType)
                     .collect(toImmutableList());
             BoundSignature exactOperator = functionResolution.resolveOperator(operatorType, argumentTypes).getSignature();
             assertEquals(exactOperator.toSignature(), function.getSignature());

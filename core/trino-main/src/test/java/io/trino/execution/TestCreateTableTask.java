@@ -24,7 +24,6 @@ import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
-import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
@@ -37,9 +36,6 @@ import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.tree.ColumnDefinition;
@@ -64,7 +60,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -302,7 +297,6 @@ public class TestCreateTableTask
     private static class MockMetadata
             extends AbstractMockMetadata
     {
-        private final MetadataManager metadata;
         private final CatalogName catalogHandle;
         private final List<ConnectorTableMetadata> tables = new CopyOnWriteArrayList<>();
         private Set<ConnectorCapabilities> connectorCapabilities;
@@ -311,7 +305,6 @@ public class TestCreateTableTask
         {
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
             this.connectorCapabilities = immutableEnumSet(requireNonNull(connectorCapabilities, "connectorCapabilities is null"));
-            this.metadata = createTestMetadataManager();
         }
 
         @Override
@@ -321,24 +314,6 @@ public class TestCreateTableTask
             if (!ignoreExisting) {
                 throw new TrinoException(ALREADY_EXISTS, "Table already exists");
             }
-        }
-
-        @Override
-        public Type getType(TypeSignature signature)
-        {
-            return metadata.getType(signature);
-        }
-
-        @Override
-        public Type getType(TypeId id)
-        {
-            return metadata.getType(id);
-        }
-
-        @Override
-        public Type fromSqlType(String sqlType)
-        {
-            return metadata.fromSqlType(sqlType);
         }
 
         @Override

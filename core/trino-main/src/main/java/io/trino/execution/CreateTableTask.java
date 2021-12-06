@@ -149,7 +149,7 @@ public class CreateTableTask
                 String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
                 Type type;
                 try {
-                    type = plannerContext.getMetadata().getType(toTypeSignature(column.getType()));
+                    type = plannerContext.getTypeManager().getType(toTypeSignature(column.getType()));
                 }
                 catch (TypeNotFoundException e) {
                     throw semanticException(TYPE_NOT_FOUND, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());

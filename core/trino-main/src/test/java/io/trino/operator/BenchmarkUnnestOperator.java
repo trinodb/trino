@@ -15,7 +15,6 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.trino.metadata.Metadata;
 import io.trino.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -55,9 +54,9 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -113,23 +112,22 @@ public class BenchmarkUnnestOperator
         {
             executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
             scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
-            Metadata metadata = createTestMetadataManager();
 
             InputGenerator inputGenerator = new InputGenerator(0, nestedLengths, stringLengths);
 
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Integer> channelsBuilder = ImmutableList.builder();
 
-            Type replicateType = getType(metadata, this.replicateType).get();
+            Type replicateType = getType(this.replicateType).get();
             typesBuilder.add(replicateType);
             channelsBuilder.add(0);
 
-            Type nestedTypeOne = getType(metadata, this.nestedTypeOne).get();
+            Type nestedTypeOne = getType(this.nestedTypeOne).get();
             typesBuilder.add(nestedTypeOne);
             channelsBuilder.add(1);
 
             if (!nestedTypeTwo.equals("NONE")) {
-                Type nestedTypeTwo = getType(metadata, this.nestedTypeTwo).get();
+                Type nestedTypeTwo = getType(this.nestedTypeTwo).get();
                 typesBuilder.add(nestedTypeTwo);
                 channelsBuilder.add(2);
             }
@@ -151,12 +149,12 @@ public class BenchmarkUnnestOperator
                     false);
         }
 
-        public Optional<Type> getType(Metadata metadata, String typeString)
+        public static Optional<Type> getType(String typeString)
         {
             if (typeString.equals("NONE")) {
                 return Optional.empty();
             }
-            return Optional.of(metadata.fromSqlType(typeString));
+            return Optional.of(TESTING_TYPE_MANAGER.fromSqlType(typeString));
         }
 
         @TearDown

@@ -113,9 +113,9 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitLiteral(Literal node, Void context)
         {
-            ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext.getMetadata(), new AllowAllAccessControl(), session, ImmutableMap.of(), WarningCollector.NOOP);
+            ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext, new AllowAllAccessControl(), session, ImmutableMap.of(), WarningCollector.NOOP);
             Type type = analyzer.analyze(node, Scope.create());
-            Object value = evaluate(plannerContext.getMetadata(), session, analyzer.getExpressionTypes(), node);
+            Object value = evaluate(plannerContext, session, analyzer.getExpressionTypes(), node);
 
             OptionalDouble doubleValue = toStatsRepresentation(type, value);
             SymbolStatsEstimate.Builder estimate = SymbolStatsEstimate.builder()
@@ -155,7 +155,7 @@ public class ScalarStatsCalculator
         private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
         {
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    plannerContext.getMetadata(),
+                    plannerContext,
                     new AllowAllAccessControl(),
                     session,
                     types,

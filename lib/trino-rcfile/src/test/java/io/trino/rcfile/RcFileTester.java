@@ -24,7 +24,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.hadoop.HadoopNative;
-import io.trino.metadata.Metadata;
 import io.trino.rcfile.binary.BinaryRcFileEncoding;
 import io.trino.rcfile.text.TextRcFileEncoding;
 import io.trino.spi.Page;
@@ -123,7 +122,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.rcfile.RcFileDecoderUtils.findFirstSyncPosition;
 import static io.trino.rcfile.RcFileTester.Compression.BZIP2;
 import static io.trino.rcfile.RcFileTester.Compression.LZ4;
@@ -148,6 +146,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
@@ -183,7 +182,6 @@ public class RcFileTester
         HadoopNative.requireHadoopNative();
     }
 
-    private static final Metadata METADATA = createTestMetadataManager();
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     public enum Format
@@ -1160,7 +1158,7 @@ public class RcFileTester
 
     private static MapType createMapType(Type type)
     {
-        return (MapType) METADATA.getParameterizedType(MAP, ImmutableList.of(
+        return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(
                 TypeSignatureParameter.typeParameter(type.getTypeSignature()),
                 TypeSignatureParameter.typeParameter(type.getTypeSignature())));
     }

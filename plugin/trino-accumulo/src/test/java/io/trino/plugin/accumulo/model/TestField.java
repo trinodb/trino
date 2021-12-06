@@ -30,7 +30,6 @@ import java.sql.Timestamp;
 import java.util.GregorianCalendar;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -43,6 +42,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToIntBits;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
@@ -160,7 +160,7 @@ public class TestField
     @Test
     public void testMap()
     {
-        Type type = createTestMetadataManager().getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        Type type = TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()),
                 TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature())));
         Block expected = AccumuloRowSerializer.getBlockFromMap(type, ImmutableMap.of("a", 1L, "b", 2L, "c", 3L));

@@ -52,7 +52,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcTester.writeOrcColumnTrino;
 import static io.trino.orc.metadata.CompressionKind.NONE;
@@ -68,6 +67,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -422,7 +422,7 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            Type type = createTestMetadataManager().fromSqlType(typeName);
+            Type type = TESTING_TYPE_MANAGER.fromSqlType(typeName);
             setup(type, createValues());
         }
 

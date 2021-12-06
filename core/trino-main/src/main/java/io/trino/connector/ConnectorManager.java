@@ -402,7 +402,7 @@ public class ConnectorManager
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogName, schedulerIncludeCoordinator),
                 versionEmbedder,
                 typeManager,
-                new InternalMetadataProvider(metadataManager),
+                new InternalMetadataProvider(metadataManager, typeManager),
                 pageSorter,
                 pageIndexerFactory,
                 factory.getDuplicatePluginClassLoaderFactory());

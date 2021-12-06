@@ -23,6 +23,7 @@ import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SqlFunction;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
+import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.analyzer.QueryExplainer;
@@ -50,6 +51,8 @@ public interface QueryRunner
     TransactionManager getTransactionManager();
 
     Metadata getMetadata();
+
+    TypeManager getTypeManager();
 
     QueryExplainer getQueryExplainer();
 

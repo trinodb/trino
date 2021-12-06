@@ -24,7 +24,6 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
@@ -50,6 +49,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis.PredicateCoercions;
 import io.trino.sql.analyzer.Analysis.Range;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
@@ -244,7 +244,7 @@ public class ExpressionAnalyzer
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT = 63;
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER = 31;
 
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final AccessControl accessControl;
     private final BiFunction<Node, CorrelationSupport, StatementAnalyzer> statementAnalyzerFactory;
     private final TypeProvider symbolTypes;
@@ -297,7 +297,7 @@ public class ExpressionAnalyzer
     private final List<Field> sourceFields = new ArrayList<>();
 
     ExpressionAnalyzer(
-            Metadata metadata,
+            PlannerContext plannerContext,
             AccessControl accessControl,
             BiFunction<Node, CorrelationSupport, StatementAnalyzer> statementAnalyzerFactory,
             Session session,
@@ -308,7 +308,7 @@ public class ExpressionAnalyzer
             Function<Expression, Type> getPreanalyzedType,
             Function<Node, ResolvedWindow> getResolvedWindow)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.session = requireNonNull(session, "session is null");
@@ -316,7 +316,7 @@ public class ExpressionAnalyzer
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-        this.typeCoercion = new TypeCoercion(metadata::getType);
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.getPreanalyzedType = requireNonNull(getPreanalyzedType, "getPreanalyzedType is null");
         this.getResolvedWindow = requireNonNull(getResolvedWindow, "getResolvedWindow is null");
     }
@@ -947,7 +947,7 @@ public class ExpressionAnalyzer
         protected Type visitArrayConstructor(ArrayConstructor node, StackableAstVisitorContext<Context> context)
         {
             Type type = coerceToSingleType(context, "All ARRAY elements must be the same type: %s", node.getValues());
-            Type arrayType = metadata.getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.typeParameter(type.getTypeSignature())));
+            Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.typeParameter(type.getTypeSignature())));
             return setExpressionType(node, arrayType);
         }
 
@@ -1005,7 +1005,7 @@ public class ExpressionAnalyzer
         {
             Type type;
             try {
-                type = metadata.fromSqlType(node.getType());
+                type = plannerContext.getTypeManager().fromSqlType(node.getType());
             }
             catch (TypeNotFoundException e) {
                 throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", node.getType());
@@ -1013,7 +1013,7 @@ public class ExpressionAnalyzer
 
             if (!JSON.equals(type)) {
                 try {
-                    metadata.getCoercion(session, VARCHAR, type);
+                    plannerContext.getMetadata().getCoercion(session, VARCHAR, type);
                 }
                 catch (IllegalArgumentException e) {
                     throw semanticException(INVALID_LITERAL, node, "No literal form for type %s", type);
@@ -1098,7 +1098,7 @@ public class ExpressionAnalyzer
         protected Type visitFunctionCall(FunctionCall node, StackableAstVisitorContext<Context> context)
         {
             boolean isRowPatternCount = context.getContext().isPatternRecognition() &&
-                    metadata.isAggregationFunction(node.getName()) &&
+                    plannerContext.getMetadata().isAggregationFunction(node.getName()) &&
                     node.getName().getSuffix().equalsIgnoreCase("count");
             // argument of the form `label.*` is only allowed for row pattern count function
             node.getArguments().stream()
@@ -1112,7 +1112,7 @@ public class ExpressionAnalyzer
             if (context.getContext().isPatternRecognition() && isPatternRecognitionFunction(node)) {
                 return analyzePatternRecognitionFunction(node, context);
             }
-            if (context.getContext().isPatternRecognition() && metadata.isAggregationFunction(node.getName())) {
+            if (context.getContext().isPatternRecognition() && plannerContext.getMetadata().isAggregationFunction(node.getName())) {
                 analyzePatternAggregation(node);
                 patternAggregations.add(NodeRef.of(node));
             }
@@ -1121,7 +1121,7 @@ public class ExpressionAnalyzer
                 if (!context.getContext().isPatternRecognition()) {
                     throw semanticException(INVALID_PROCESSING_MODE, processingMode, "%s semantics is not supported out of pattern recognition context", processingMode.getMode());
                 }
-                if (!metadata.isAggregationFunction(node.getName())) {
+                if (!plannerContext.getMetadata().isAggregationFunction(node.getName())) {
                     throw semanticException(INVALID_PROCESSING_MODE, processingMode, "%s semantics is supported only for FIRST(), LAST() and aggregation functions. Actual: %s", processingMode.getMode(), node.getName());
                 }
             }
@@ -1134,7 +1134,7 @@ public class ExpressionAnalyzer
                 windowFunctions.add(NodeRef.of(node));
             }
             else {
-                if (node.isDistinct() && !metadata.isAggregationFunction(node.getName())) {
+                if (node.isDistinct() && !plannerContext.getMetadata().isAggregationFunction(node.getName())) {
                     throw semanticException(FUNCTION_NOT_AGGREGATE, node, "DISTINCT is not supported for non-aggregation functions");
                 }
             }
@@ -1159,13 +1159,13 @@ public class ExpressionAnalyzer
             }
 
             // must run after arguments are processed and labels are recorded
-            if (context.getContext().isPatternRecognition() && metadata.isAggregationFunction(node.getName())) {
+            if (context.getContext().isPatternRecognition() && plannerContext.getMetadata().isAggregationFunction(node.getName())) {
                 validateAggregationLabelConsistency(node);
             }
 
             ResolvedFunction function;
             try {
-                function = metadata.resolveFunction(session, node.getName(), argumentTypes);
+                function = plannerContext.getMetadata().resolveFunction(session, node.getName(), argumentTypes);
             }
             catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
@@ -1213,7 +1213,7 @@ public class ExpressionAnalyzer
                     process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentTypes())));
                 }
                 else {
-                    Type actualType = metadata.getType(argumentTypes.get(i).getTypeSignature());
+                    Type actualType = plannerContext.getTypeManager().getType(argumentTypes.get(i).getTypeSignature());
                     coerceType(expression, actualType, expectedType, format("Function %s argument %d", function, i));
                 }
             }
@@ -1221,7 +1221,7 @@ public class ExpressionAnalyzer
 
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            FunctionMetadata functionMetadata = metadata.getFunctionMetadata(function);
+            FunctionMetadata functionMetadata = plannerContext.getMetadata().getFunctionMetadata(function);
             if (functionMetadata.isDeprecated()) {
                 warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION,
                         format("Use of deprecated function: %s: %s",
@@ -1452,7 +1452,7 @@ public class ExpressionAnalyzer
                 operatorType = ADD;
             }
             try {
-                function = metadata.resolveOperator(session, operatorType, ImmutableList.of(sortKeyType, offsetValueType));
+                function = plannerContext.getMetadata().resolveOperator(session, operatorType, ImmutableList.of(sortKeyType, offsetValueType));
             }
             catch (TrinoException e) {
                 ErrorCode errorCode = e.getErrorCode();
@@ -1522,7 +1522,7 @@ public class ExpressionAnalyzer
                     argumentTypesBuilder.add(new TypeSignatureProvider(
                             types -> {
                                 ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
-                                        metadata,
+                                        plannerContext,
                                         accessControl,
                                         statementAnalyzerFactory,
                                         session,
@@ -1847,7 +1847,7 @@ public class ExpressionAnalyzer
         private void checkNoNestedAggregations(FunctionCall node)
         {
             extractExpressions(node.getArguments(), FunctionCall.class).stream()
-                    .filter(function -> metadata.isAggregationFunction(function.getName()))
+                    .filter(function -> plannerContext.getMetadata().isAggregationFunction(function.getName()))
                     .findFirst()
                     .ifPresent(aggregation -> {
                         throw semanticException(
@@ -1930,7 +1930,7 @@ public class ExpressionAnalyzer
 
             for (int i = 1; i < arguments.size(); i++) {
                 try {
-                    metadata.resolveFunction(session, QualifiedName.of(FormatFunction.NAME), fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
+                    plannerContext.getMetadata().resolveFunction(session, QualifiedName.of(FormatFunction.NAME), fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
                 }
                 catch (TrinoException e) {
                     ErrorCode errorCode = e.getErrorCode();
@@ -2087,7 +2087,7 @@ public class ExpressionAnalyzer
         {
             Type type;
             try {
-                type = metadata.getType(toTypeSignature(node.getType()));
+                type = plannerContext.getTypeManager().getType(toTypeSignature(node.getType()));
             }
             catch (TypeNotFoundException e) {
                 throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", node.getType());
@@ -2100,7 +2100,7 @@ public class ExpressionAnalyzer
             Type value = process(node.getExpression(), context);
             if (!value.equals(UNKNOWN) && !node.isTypeOnly()) {
                 try {
-                    metadata.getCoercion(session, value, type);
+                    plannerContext.getMetadata().getCoercion(session, value, type);
                 }
                 catch (OperatorNotFoundException e) {
                     throw semanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
@@ -2325,7 +2325,7 @@ public class ExpressionAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "Lambda expression in pattern recognition context is not yet supported");
             }
 
-            verifyNoAggregateWindowOrGroupingFunctions(metadata, node.getBody(), "Lambda expression");
+            verifyNoAggregateWindowOrGroupingFunctions(plannerContext.getMetadata(), node.getBody(), "Lambda expression");
             if (!context.getContext().isExpectingLambda()) {
                 throw semanticException(TYPE_MISMATCH, node, "Lambda expression should always be used inside a function");
             }
@@ -2431,7 +2431,7 @@ public class ExpressionAnalyzer
 
             BoundSignature operatorSignature;
             try {
-                operatorSignature = metadata.resolveOperator(session, operatorType, argumentTypes.build()).getSignature();
+                operatorSignature = plannerContext.getMetadata().resolveOperator(session, operatorType, argumentTypes.build()).getSignature();
             }
             catch (OperatorNotFoundException e) {
                 throw semanticException(TYPE_MISMATCH, node, e, "%s", e.getMessage());
@@ -2800,14 +2800,14 @@ public class ExpressionAnalyzer
     }
 
     public static ExpressionAnalyzer createConstantAnalyzer(
-            Metadata metadata,
+            PlannerContext plannerContext,
             AccessControl accessControl,
             Session session,
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector)
     {
         return createWithoutSubqueries(
-                metadata,
+                plannerContext,
                 accessControl,
                 session,
                 parameters,
@@ -2818,7 +2818,7 @@ public class ExpressionAnalyzer
     }
 
     public static ExpressionAnalyzer createConstantAnalyzer(
-            Metadata metadata,
+            PlannerContext plannerContext,
             AccessControl accessControl,
             Session session,
             Map<NodeRef<Parameter>, Expression> parameters,
@@ -2826,7 +2826,7 @@ public class ExpressionAnalyzer
             boolean isDescribe)
     {
         return createWithoutSubqueries(
-                metadata,
+                plannerContext,
                 accessControl,
                 session,
                 parameters,
@@ -2837,7 +2837,7 @@ public class ExpressionAnalyzer
     }
 
     public static ExpressionAnalyzer createWithoutSubqueries(
-            Metadata metadata,
+            PlannerContext plannerContext,
             AccessControl accessControl,
             Session session,
             Map<NodeRef<Parameter>, Expression> parameters,
@@ -2847,7 +2847,7 @@ public class ExpressionAnalyzer
             boolean isDescribe)
     {
         return createWithoutSubqueries(
-                metadata,
+                plannerContext,
                 accessControl,
                 session,
                 TypeProvider.empty(),
@@ -2858,7 +2858,7 @@ public class ExpressionAnalyzer
     }
 
     public static ExpressionAnalyzer createWithoutSubqueries(
-            Metadata metadata,
+            PlannerContext plannerContext,
             AccessControl accessControl,
             Session session,
             TypeProvider symbolTypes,
@@ -2868,7 +2868,7 @@ public class ExpressionAnalyzer
             boolean isDescribe)
     {
         return new ExpressionAnalyzer(
-                metadata,
+                plannerContext,
                 accessControl,
                 (node, correlationSupport) -> {
                     throw statementAnalyzerRejection.apply(node);

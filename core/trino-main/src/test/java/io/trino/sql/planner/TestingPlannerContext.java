@@ -52,7 +52,8 @@ public final class TestingPlannerContext
             return new PlannerContext(
                     metadata.orElseGet(MetadataManager::createTestMetadataManager),
                     new TypeOperators(),
-                    new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER));
+                    new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER),
+                    TESTING_TYPE_MANAGER);
         }
     }
 }

@@ -100,7 +100,7 @@ public class AddColumnTask
         ColumnDefinition element = statement.getColumn();
         Type type;
         try {
-            type = plannerContext.getMetadata().getType(toTypeSignature(element.getType()));
+            type = plannerContext.getTypeManager().getType(toTypeSignature(element.getType()));
         }
         catch (TypeNotFoundException e) {
             throw semanticException(TYPE_NOT_FOUND, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());

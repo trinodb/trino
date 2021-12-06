@@ -157,6 +157,7 @@ import static java.util.stream.Collectors.toList;
 public class ExpressionInterpreter
 {
     private final Expression expression;
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final LiteralEncoder literalEncoder;
     private final Session session;
@@ -172,14 +173,15 @@ public class ExpressionInterpreter
     public ExpressionInterpreter(Expression expression, PlannerContext plannerContext, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
     {
         this.expression = requireNonNull(expression, "expression is null");
-        this.metadata = requireNonNull(plannerContext, "plannerContext is null").getMetadata();
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
         this.literalEncoder = new LiteralEncoder(plannerContext);
         this.session = requireNonNull(session, "session is null");
         this.connectorSession = session.toConnectorSession();
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.functionInvoker = new InterpretedFunctionInvoker(metadata);
-        this.typeCoercion = new TypeCoercion(metadata::getType);
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
     }
 
     public static Object evaluateConstantExpression(
@@ -190,11 +192,11 @@ public class ExpressionInterpreter
             AccessControl accessControl,
             Map<NodeRef<Parameter>, Expression> parameters)
     {
-        ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext.getMetadata(), accessControl, session, parameters, WarningCollector.NOOP);
+        ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(expression, Scope.create());
 
         Type actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
-        if (!new TypeCoercion(plannerContext.getMetadata()::getType).canCoerce(actualType, expectedType)) {
+        if (!new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(actualType, expectedType)) {
             throw semanticException(TYPE_MISMATCH, expression, "Cannot cast type %s to %s", actualType.getDisplayName(), expectedType.getDisplayName());
         }
 
@@ -223,7 +225,7 @@ public class ExpressionInterpreter
         Expression rewrite = Coercer.addCoercions(expression, coercions, typeOnlyCoercions);
 
         // redo the analysis since above expression rewriter might create new expressions which do not have entries in the type map
-        ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext.getMetadata(), accessControl, session, parameters, WarningCollector.NOOP);
+        ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(rewrite, Scope.create());
 
         // remove syntax sugar
@@ -231,7 +233,7 @@ public class ExpressionInterpreter
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
-        analyzer = createConstantAnalyzer(plannerContext.getMetadata(), accessControl, session, parameters, WarningCollector.NOOP);
+        analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(rewrite, Scope.create());
 
         // expressionInterpreter/optimizer only understands a subset of expression types
@@ -240,7 +242,7 @@ public class ExpressionInterpreter
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
-        analyzer = createConstantAnalyzer(plannerContext.getMetadata(), accessControl, session, parameters, WarningCollector.NOOP);
+        analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(canonicalized, Scope.create());
 
         // resolve functions
@@ -248,7 +250,7 @@ public class ExpressionInterpreter
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
-        analyzer = createConstantAnalyzer(plannerContext.getMetadata(), accessControl, session, parameters, WarningCollector.NOOP);
+        analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(resolved, Scope.create());
 
         // evaluate the expression
@@ -383,7 +385,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitLiteral(Literal node, Object context)
         {
-            return LiteralInterpreter.evaluate(metadata, session, expressionTypes, node);
+            return LiteralInterpreter.evaluate(plannerContext, session, expressionTypes, node);
         }
 
         @Override
@@ -1222,7 +1224,7 @@ public class ExpressionInterpreter
         public Object visitCast(Cast node, Object context)
         {
             Object value = processWithExceptionHandling(node.getExpression(), context);
-            Type targetType = metadata.getType(toTypeSignature(node.getType()));
+            Type targetType = plannerContext.getTypeManager().getType(toTypeSignature(node.getType()));
             Type sourceType = type(node.getExpression());
             if (value instanceof Expression) {
                 if (targetType.equals(sourceType)) {

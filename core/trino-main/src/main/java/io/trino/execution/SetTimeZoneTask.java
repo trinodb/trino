@@ -92,7 +92,12 @@ public class SetTimeZoneTask
             WarningCollector warningCollector)
     {
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
-        ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext.getMetadata(), accessControl, stateMachine.getSession(), parameterLookup, warningCollector);
+        ExpressionAnalyzer analyzer = createConstantAnalyzer(
+                plannerContext,
+                accessControl,
+                stateMachine.getSession(),
+                parameterLookup,
+                warningCollector);
 
         Type type = analyzer.analyze(expression, Scope.create());
         if (!(type instanceof VarcharType || type instanceof IntervalDayTimeType)) {

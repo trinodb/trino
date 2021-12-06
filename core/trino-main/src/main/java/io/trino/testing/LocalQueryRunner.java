@@ -342,7 +342,7 @@ public class LocalQueryRunner
                 typeManager,
                 blockEncodingSerde,
                 nodeManager.getCurrentNode().getNodeVersion());
-        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde);
+        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager);
         this.splitManager = new SplitManager(new QueryManagerConfig(), metadata);
         this.planFragmenter = new PlanFragmenter(metadata, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(typeOperators);
@@ -421,7 +421,7 @@ public class LocalQueryRunner
                 new MaterializedViewPropertiesSystemTable(transactionManager, materializedViewPropertyManager),
                 new ColumnPropertiesSystemTable(transactionManager, columnPropertyManager),
                 new AnalyzePropertiesSystemTable(transactionManager, analyzePropertyManager),
-                new TransactionsSystemTable(metadata, transactionManager)),
+                new TransactionsSystemTable(typeManager, transactionManager)),
                 ImmutableSet.of());
 
         this.pluginManager = new PluginManager(
@@ -550,6 +550,12 @@ public class LocalQueryRunner
     public Metadata getMetadata()
     {
         return plannerContext.getMetadata();
+    }
+
+    @Override
+    public TypeManager getTypeManager()
+    {
+        return plannerContext.getTypeManager();
     }
 
     @Override
