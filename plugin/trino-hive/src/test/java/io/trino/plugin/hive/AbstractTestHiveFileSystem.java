@@ -106,6 +106,7 @@ import static io.trino.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.trino.plugin.hive.HiveTestUtils.getTypes;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getRawFileSystem;
+import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -209,6 +210,7 @@ public abstract class AbstractTestHiveFileSystem
                 newDirectExecutorService(),
                 heartbeatService,
                 TYPE_MANAGER,
+                NOOP_METADATA_PROVIDER,
                 locationService,
                 partitionUpdateCodec,
                 new NodeVersion("test_version"),

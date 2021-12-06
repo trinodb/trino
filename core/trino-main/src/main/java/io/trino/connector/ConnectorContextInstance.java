@@ -18,6 +18,7 @@ import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.type.TypeManager;
 
 import java.util.function.Supplier;
@@ -30,6 +31,7 @@ public class ConnectorContextInstance
     private final NodeManager nodeManager;
     private final VersionEmbedder versionEmbedder;
     private final TypeManager typeManager;
+    private final MetadataProvider metadataProvider;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final Supplier<ClassLoader> duplicatePluginClassLoaderFactory;
@@ -38,6 +40,7 @@ public class ConnectorContextInstance
             NodeManager nodeManager,
             VersionEmbedder versionEmbedder,
             TypeManager typeManager,
+            MetadataProvider metadataProvider,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
             Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
@@ -45,6 +48,7 @@ public class ConnectorContextInstance
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.metadataProvider = requireNonNull(metadataProvider, "metadataProvider is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.duplicatePluginClassLoaderFactory = requireNonNull(duplicatePluginClassLoaderFactory, "duplicatePluginClassLoaderFactory is null");
@@ -66,6 +70,12 @@ public class ConnectorContextInstance
     public TypeManager getTypeManager()
     {
         return typeManager;
+    }
+
+    @Override
+    public MetadataProvider getMetadataProvider()
+    {
+        return metadataProvider;
     }
 
     @Override
