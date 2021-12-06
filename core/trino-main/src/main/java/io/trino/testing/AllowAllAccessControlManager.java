@@ -171,6 +171,9 @@ public class AllowAllAccessControlManager
     public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName) {}
 
     @Override
+    public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties) {}
+
+    @Override
     public void checkCanRefreshMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName) {}
 
     @Override
@@ -178,6 +181,9 @@ public class AllowAllAccessControlManager
 
     @Override
     public void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName) {}
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames) {}
 
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption) {}

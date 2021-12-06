@@ -70,6 +70,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivil
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
@@ -347,6 +348,12 @@ public class DenyAllAccessControl
     }
 
     @Override
+    public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties)
+    {
+        denyCreateMaterializedView(materializedViewName.toString());
+    }
+
+    @Override
     public void checkCanRefreshMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
     {
         denyRefreshMaterializedView(materializedViewName.toString());
@@ -362,6 +369,12 @@ public class DenyAllAccessControl
     public void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
     {
         denyRenameMaterializedView(viewName.toString(), newViewName.toString());
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    {
+        denySetMaterializedViewProperties(materializedViewName.toString());
     }
 
     @Override

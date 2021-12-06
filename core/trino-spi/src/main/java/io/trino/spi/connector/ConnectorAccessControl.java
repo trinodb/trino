@@ -57,6 +57,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivil
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
@@ -419,8 +420,20 @@ public interface ConnectorAccessControl
      * Check if identity is allowed to create the specified materialized view.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     * @deprecated use {@link #checkCanCreateMaterializedView(ConnectorSecurityContext, SchemaTableName, Map<String, Object>)} instead
      */
+    @Deprecated
     default void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
+    {
+        denyCreateMaterializedView(materializedViewName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to create the specified materialized view.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Object> properties)
     {
         denyCreateMaterializedView(materializedViewName.toString());
     }
@@ -433,6 +446,16 @@ public interface ConnectorAccessControl
     default void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
     {
         denyRefreshMaterializedView(materializedViewName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to set the properties of the specified materialized view.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    {
+        denySetMaterializedViewProperties(materializedViewName.toString());
     }
 
     /**

@@ -1301,6 +1301,14 @@ public interface ConnectorMetadata
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming materialized views");
     }
 
+    /**
+     * Sets the properties of the specified materialized view
+     */
+    default void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting materialized view properties");
+    }
+
     default Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return Optional.empty();

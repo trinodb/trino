@@ -342,8 +342,17 @@ public interface AccessControl
      * Check if identity is allowed to create the specified materialized view.
      *
      * @throws AccessDeniedException if not allowed
+     * @deprecated use {@link #checkCanCreateMaterializedView(SecurityContext, QualifiedObjectName, Map<String, Object>) instead}
      */
+    @Deprecated
     void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName);
+
+    /**
+     * Check if identity is allowed to create the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties);
 
     /**
      * Check if identity is allowed to refresh the specified materialized view.
@@ -365,6 +374,13 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName);
+
+    /**
+     * Check if identity is allowed to set the properties of the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames);
 
     /**
      * Check if identity is allowed to create a view that executes the function.

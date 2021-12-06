@@ -115,6 +115,7 @@ public class TestFileBasedSystemAccessControl
     private static final String CREATE_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot create materialized view .*";
     private static final String DROP_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop materialized view .*";
     private static final String REFRESH_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot refresh materialized view .*";
+    private static final String SET_MATERIALIZED_VIEW_PROPERTIES_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set properties of materialized view .*";
     private static final String GRANT_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot grant privilege DELETE on table .*";
     private static final String DENY_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot deny privilege DELETE on table .*";
     private static final String REVOKE_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot revoke privilege DELETE on table .*";
@@ -575,6 +576,37 @@ public class TestFileBasedSystemAccessControl
 
         accessControl.checkCanRefreshMaterializedView(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bob-materialized-view"));
         assertAccessDenied(() -> accessControl.checkCanRefreshMaterializedView(UNKNOWN, new CatalogSchemaTableName("some-catalog", "bobschema", "bob-materialized-view")), REFRESH_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanSetMaterializedViewProperties()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanSetMaterializedViewProperties(
+                ADMIN,
+                new CatalogSchemaTableName("some-catalog", "bobschema", "bob-materialized-view"),
+                ImmutableMap.of(),
+                ImmutableSet.of());
+        accessControl.checkCanSetMaterializedViewProperties(
+                ALICE,
+                new CatalogSchemaTableName("some-catalog", "aliceschema", "alice-materialized-view"),
+                ImmutableMap.of(),
+                ImmutableSet.of());
+        assertAccessDenied(
+                () -> accessControl.checkCanSetMaterializedViewProperties(
+                        ALICE,
+                        new CatalogSchemaTableName("some-catalog", "bobschema", "bob-materialized-view"),
+                        ImmutableMap.of(),
+                        ImmutableSet.of()),
+                SET_MATERIALIZED_VIEW_PROPERTIES_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(
+                () -> accessControl.checkCanSetMaterializedViewProperties(
+                        BOB,
+                        new CatalogSchemaTableName("some-catalog", "bobschema", "bob-materialized-view"),
+                        ImmutableMap.of(),
+                        ImmutableSet.of()),
+                SET_MATERIALIZED_VIEW_PROPERTIES_ACCESS_DENIED_MESSAGE);
     }
 
     @Test

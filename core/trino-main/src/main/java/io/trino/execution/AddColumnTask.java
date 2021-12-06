@@ -45,7 +45,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
-import static io.trino.sql.NodeUtils.mapFromProperties;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
@@ -117,17 +116,14 @@ public class AddColumnTask
         if (!element.isNullable() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogName).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
             throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", catalogName.getCatalogName(), element.getName());
         }
-
-        Map<String, Expression> sqlProperties = mapFromProperties(element.getProperties());
         Map<String, Object> columnProperties = columnPropertyManager.getProperties(
                 catalogName,
                 tableName.getCatalogName(),
-                sqlProperties,
+                element.getProperties(),
                 session,
                 plannerContext,
                 accessControl,
-                parameterExtractor(statement, parameters),
-                true);
+                parameterExtractor(statement, parameters));
 
         ColumnMetadata column = ColumnMetadata.builder()
                 .setName(element.getName().getValue())

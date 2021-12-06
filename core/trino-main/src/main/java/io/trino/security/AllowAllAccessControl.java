@@ -246,6 +246,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties)
+    {
+    }
+
+    @Override
     public void checkCanRefreshMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
     {
     }
@@ -257,6 +262,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
+    {
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
     {
     }
 

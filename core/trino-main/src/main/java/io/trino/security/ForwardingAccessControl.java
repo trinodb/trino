@@ -305,6 +305,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties)
+    {
+        delegate().checkCanCreateMaterializedView(context, materializedViewName, properties);
+    }
+
+    @Override
     public void checkCanRefreshMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
     {
         delegate().checkCanRefreshMaterializedView(context, materializedViewName);
@@ -320,6 +326,12 @@ public abstract class ForwardingAccessControl
     public void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
     {
         delegate().checkCanRenameMaterializedView(context, viewName, newViewName);
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    {
+        delegate().checkCanSetMaterializedViewProperties(context, materializedViewName, nonNullProperties, nullPropertyNames);
     }
 
     @Override

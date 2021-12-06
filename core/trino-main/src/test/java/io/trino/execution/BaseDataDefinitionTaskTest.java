@@ -21,9 +21,12 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.FunctionInvoker;
 import io.trino.metadata.MaterializedViewDefinition;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TableSchema;
@@ -36,11 +39,15 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TestingColumnHandle;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.tree.QualifiedName;
@@ -50,9 +57,11 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -64,6 +73,8 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.session.PropertyMetadata.longProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingSession.createBogusTestingCatalog;
@@ -76,9 +87,17 @@ public abstract class BaseDataDefinitionTaskTest
 {
     protected static final String CATALOG_NAME = "catalog";
     public static final String SCHEMA = "schema";
+
+    protected static final String MATERIALIZED_VIEW_PROPERTY_1_NAME = "property1";
+    protected static final Long MATERIALIZED_VIEW_PROPERTY_1_DEFAULT_VALUE = null;
+
+    protected static final String MATERIALIZED_VIEW_PROPERTY_2_NAME = "property2";
+    protected static final String MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE = "defaultProperty2Value";
+
     protected Session testSession;
     protected MockMetadata metadata;
     protected PlannerContext plannerContext;
+    protected MaterializedViewPropertyManager materializedViewPropertyManager;
     protected TransactionManager transactionManager;
     protected QueryStateMachine queryStateMachine;
 
@@ -94,6 +113,12 @@ public abstract class BaseDataDefinitionTaskTest
                 .build();
         metadata = new MockMetadata(testCatalog.getConnectorCatalogName());
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
+        materializedViewPropertyManager = new MaterializedViewPropertyManager();
+        materializedViewPropertyManager.addProperties(
+                new CatalogName(CATALOG_NAME),
+                ImmutableList.of(
+                        longProperty(MATERIALIZED_VIEW_PROPERTY_1_NAME, "property 1", MATERIALIZED_VIEW_PROPERTY_1_DEFAULT_VALUE, false),
+                        stringProperty(MATERIALIZED_VIEW_PROPERTY_2_NAME, "property 2", MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE, false)));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
     }
 
@@ -132,7 +157,7 @@ public abstract class BaseDataDefinitionTaskTest
                 Optional.empty(),
                 Identity.ofUser("owner"),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(MATERIALIZED_VIEW_PROPERTY_2_NAME, MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE));
     }
 
     protected static ConnectorTableMetadata someTable(QualifiedObjectName tableName)
@@ -176,6 +201,7 @@ public abstract class BaseDataDefinitionTaskTest
     protected static class MockMetadata
             extends AbstractMockMetadata
     {
+        private final MetadataManager delegate;
         private final CatalogName catalogHandle;
         private final List<CatalogSchemaName> schemas = new CopyOnWriteArrayList<>();
         private final AtomicBoolean failCreateSchema = new AtomicBoolean();
@@ -185,6 +211,7 @@ public abstract class BaseDataDefinitionTaskTest
 
         public MockMetadata(CatalogName catalogHandle)
         {
+            delegate = createTestMetadataManager();
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         }
 
@@ -296,6 +323,31 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public synchronized void setMaterializedViewProperties(
+                Session session,
+                QualifiedObjectName viewName,
+                Map<String, Object> nonNullProperties,
+                Set<String> nullPropertyNames)
+        {
+            MaterializedViewDefinition existingDefinition = getMaterializedView(session, viewName)
+                    .orElseThrow(() -> new MaterializedViewNotFoundException(viewName.asSchemaTableName()));
+            Map<String, Object> newProperties = new HashMap<>(existingDefinition.getProperties());
+            newProperties.putAll(nonNullProperties);
+            nullPropertyNames.forEach(newProperties::remove);
+            materializedViews.put(
+                    viewName.asSchemaTableName(),
+                    new MaterializedViewDefinition(
+                            existingDefinition.getOriginalSql(),
+                            existingDefinition.getCatalog(),
+                            existingDefinition.getSchema(),
+                            existingDefinition.getColumns(),
+                            existingDefinition.getComment(),
+                            existingDefinition.getRunAsIdentity().get(),
+                            existingDefinition.getStorageTable(),
+                            newProperties));
+        }
+
+        @Override
         public void dropMaterializedView(Session session, QualifiedObjectName viewName)
         {
             materializedViews.remove(viewName.asSchemaTableName());
@@ -334,6 +386,18 @@ public abstract class BaseDataDefinitionTaskTest
             SchemaTableName oldViewName = source.asSchemaTableName();
             materializedViews.put(target.asSchemaTableName(), verifyNotNull(materializedViews.get(oldViewName), "Materialized View not found %s", oldViewName));
             materializedViews.remove(oldViewName);
+        }
+
+        @Override
+        public ResolvedFunction getCoercion(Session session, OperatorType operatorType, Type fromType, Type toType)
+        {
+            return delegate.getCoercion(session, operatorType, fromType, toType);
+        }
+
+        @Override
+        public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
+        {
+            return delegate.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
         }
     }
 }
