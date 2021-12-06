@@ -20,7 +20,6 @@ import io.trino.connector.CatalogName;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -672,9 +671,6 @@ public interface Metadata
     AggregationMetadata getAggregateFunctionImplementation(ResolvedFunction resolvedFunction);
 
     FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention);
-
-    // TODO: this does not belong here, but there is too much non-injected code that depends on this
-    BlockEncodingSerde getBlockEncodingSerde();
 
     /**
      * Creates the specified materialized view with the specified view definition.
