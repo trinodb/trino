@@ -197,7 +197,7 @@ public class LogicalPlanner
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
-        this.typeCoercion = new TypeCoercion(metadata::getType);
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, metadata, session);
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -406,7 +406,7 @@ public class LogicalPlanner
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
 
         Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap = buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator);
-        RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, Optional.empty(), session, ImmutableMap.of());
+        RelationPlanner planner = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.empty(), session, ImmutableMap.of());
         RelationPlan plan = planner.process(query, null);
 
         ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
@@ -604,7 +604,7 @@ public class LogicalPlanner
         if (!statisticsMetadata.isEmpty()) {
             TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToSymbolMap);
 
-            StatisticAggregations.Parts aggregations = result.getAggregations().createPartialAggregations(symbolAllocator, metadata);
+            StatisticAggregations.Parts aggregations = result.getAggregations().createPartialAggregations(symbolAllocator, plannerContext);
 
             // partial aggregation is run within the TableWriteOperator to calculate the statistics for
             // the data consumed by the TableWriteOperator
@@ -713,7 +713,7 @@ public class LogicalPlanner
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
     {
-        DeleteNode deleteNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, Optional.empty(), session, ImmutableMap.of())
+        DeleteNode deleteNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
                 .plan(node);
 
         TableFinishNode commitNode = new TableFinishNode(
@@ -729,7 +729,7 @@ public class LogicalPlanner
 
     private RelationPlan createUpdatePlan(Analysis analysis, Update node)
     {
-        UpdateNode updateNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, Optional.empty(), session, ImmutableMap.of())
+        UpdateNode updateNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
                 .plan(node);
 
         TableFinishNode commitNode = new TableFinishNode(
@@ -776,7 +776,7 @@ public class LogicalPlanner
 
     private RelationPlanner getRelationPlanner(Analysis analysis)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, Optional.empty(), session, ImmutableMap.of());
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of());
     }
 
     private static Map<NodeRef<LambdaArgumentDeclaration>, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
@@ -817,7 +817,7 @@ public class LogicalPlanner
         RelationPlan tableScanPlan = createRelationPlan(analysis, table);
         PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of());
         if (statement.getWhere().isPresent()) {
-            SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, typeCoercion, Optional.empty(), session, ImmutableMap.of());
+            SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, typeCoercion, Optional.empty(), session, ImmutableMap.of());
             Expression whereExpression = statement.getWhere().get();
             sourcePlanBuilder = subqueryPlanner.handleSubqueries(sourcePlanBuilder, whereExpression, analysis.getSubqueries(statement));
             sourcePlanBuilder = sourcePlanBuilder.withNewRoot(new FilterNode(idAllocator.getNextId(), sourcePlanBuilder.getRoot(), sourcePlanBuilder.rewrite(whereExpression)));

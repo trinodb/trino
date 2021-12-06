@@ -41,8 +41,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -142,24 +140,6 @@ public class TestEffectivePredicateExtractor
     private final Metadata metadata = new AbstractMockMetadata()
     {
         private final Metadata delegate = functionResolution.getMetadata();
-
-        @Override
-        public Type getType(TypeSignature signature)
-        {
-            return delegate.getType(signature);
-        }
-
-        @Override
-        public Type fromSqlType(String sqlType)
-        {
-            return delegate.fromSqlType(sqlType);
-        }
-
-        @Override
-        public Type getType(TypeId id)
-        {
-            return delegate.getType(id);
-        }
 
         @Override
         public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)

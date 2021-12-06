@@ -16,7 +16,6 @@ package io.trino.util;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.metadata.Metadata;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
@@ -31,14 +30,12 @@ import io.trino.spi.type.TypeSignatureParameter;
 import java.math.BigDecimal;
 import java.util.Map;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToRawIntBits;
 
 public final class StructuralTestUtil
 {
-    private static final Metadata METADATA = createTestMetadataManager();
-
     private StructuralTestUtil() {}
 
     public static Block arrayBlockOf(Type elementType, Object... values)
@@ -65,7 +62,7 @@ public final class StructuralTestUtil
 
     public static MapType mapType(Type keyType, Type valueType)
     {
-        return (MapType) METADATA.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
                 TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
     }

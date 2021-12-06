@@ -8421,7 +8421,7 @@ public class TestHiveConnectorTest
     private JsonCodec<IoPlan> getIoPlanCodec()
     {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(getQueryRunner().getMetadata())));
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(getQueryRunner().getTypeManager())));
         return new JsonCodecFactory(objectMapperProvider).jsonCodec(IoPlan.class);
     }
 

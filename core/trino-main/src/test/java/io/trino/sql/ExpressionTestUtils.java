@@ -16,7 +16,6 @@ package io.trino.sql;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
@@ -109,18 +108,18 @@ public final class ExpressionTestUtils
         rewritten = DesugarLikeRewriter.rewrite(rewritten, transactionSession, plannerContext.getMetadata(), createTestingTypeAnalyzer(plannerContext), typeProvider);
         rewritten = DesugarArrayConstructorRewriter.rewrite(rewritten, transactionSession, plannerContext.getMetadata(), createTestingTypeAnalyzer(plannerContext), typeProvider);
         rewritten = CanonicalizeExpressionRewriter.rewrite(rewritten, transactionSession, plannerContext.getMetadata(), createTestingTypeAnalyzer(plannerContext), typeProvider);
-        return resolveFunctionCalls(plannerContext.getMetadata(), transactionSession, typeProvider, rewritten);
+        return resolveFunctionCalls(plannerContext, transactionSession, typeProvider, rewritten);
     }
 
-    public static Expression resolveFunctionCalls(Metadata metadata, Session session, TypeProvider typeProvider, Expression expression)
+    public static Expression resolveFunctionCalls(PlannerContext plannerContext, Session session, TypeProvider typeProvider, Expression expression)
     {
-        return resolveFunctionCalls(metadata, session, typeProvider, expression, Scope.builder().build());
+        return resolveFunctionCalls(plannerContext, session, typeProvider, expression, Scope.builder().build());
     }
 
-    public static Expression resolveFunctionCalls(Metadata metadata, Session session, TypeProvider typeProvider, Expression expression, Scope scope)
+    public static Expression resolveFunctionCalls(PlannerContext plannerContext, Session session, TypeProvider typeProvider, Expression expression, Scope scope)
     {
         ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata,
+                plannerContext,
                 new AllowAllAccessControl(),
                 session,
                 typeProvider,

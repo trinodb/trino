@@ -78,6 +78,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.SystemAccessControl;
+import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.analyzer.AnalyzerFactory;
@@ -148,6 +149,7 @@ public class TestingTrinoServer
     private final CatalogManager catalogManager;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
+    private final TypeManager typeManager;
     private final QueryExplainer queryExplainer;
     private final SessionPropertyManager sessionPropertyManager;
     private final StatsCalculator statsCalculator;
@@ -299,6 +301,7 @@ public class TestingTrinoServer
         catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
         metadata = injector.getInstance(Metadata.class);
+        typeManager = injector.getInstance(TypeManager.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         groupProvider = injector.getInstance(TestingGroupProvider.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
@@ -454,6 +457,11 @@ public class TestingTrinoServer
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    public TypeManager getTypeManager()
+    {
+        return typeManager;
     }
 
     public QueryExplainer getQueryExplainer()

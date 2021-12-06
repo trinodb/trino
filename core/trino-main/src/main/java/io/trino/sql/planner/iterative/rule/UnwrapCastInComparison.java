@@ -469,7 +469,7 @@ public class UnwrapCastInComparison
                 return false;
             }
 
-            boolean coercible = new TypeCoercion(plannerContext.getMetadata()::getType).canCoerce(source, target);
+            boolean coercible = new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(source, target);
             if (source instanceof VarcharType && target instanceof CharType) {
                 VarcharType sourceVarchar = (VarcharType) source;
                 CharType targetChar = (CharType) target;

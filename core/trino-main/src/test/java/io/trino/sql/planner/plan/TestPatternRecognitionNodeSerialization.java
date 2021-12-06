@@ -64,6 +64,7 @@ import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static io.trino.sql.tree.SkipTo.Position.LAST;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.testng.Assert.assertEquals;
 
 public class TestPatternRecognitionNodeSerialization
@@ -89,7 +90,7 @@ public class TestPatternRecognitionNodeSerialization
         provider.setJsonSerializers(ImmutableMap.of(Expression.class, new ExpressionSerialization.ExpressionSerializer()));
         provider.setJsonDeserializers(ImmutableMap.of(
                 Expression.class, new ExpressionSerialization.ExpressionDeserializer(new SqlParser()),
-                Type.class, new TypeDeserializer(createTestMetadataManager())));
+                Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
         provider.setKeyDeserializers(ImmutableMap.of(
                 TypeSignature.class, new TypeSignatureKeyDeserializer()));
         JsonCodec<ValuePointer> codec = new JsonCodecFactory(provider).jsonCodec(ValuePointer.class);
@@ -148,7 +149,7 @@ public class TestPatternRecognitionNodeSerialization
         provider.setJsonSerializers(ImmutableMap.of(Expression.class, new ExpressionSerialization.ExpressionSerializer()));
         provider.setJsonDeserializers(ImmutableMap.of(
                 Expression.class, new ExpressionSerialization.ExpressionDeserializer(new SqlParser()),
-                Type.class, new TypeDeserializer(createTestMetadataManager())));
+                Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
         JsonCodec<Measure> codec = new JsonCodecFactory(provider).jsonCodec(Measure.class);
 
         assertJsonRoundTrip(codec, new Measure(
@@ -184,7 +185,7 @@ public class TestPatternRecognitionNodeSerialization
         provider.setJsonSerializers(ImmutableMap.of(Expression.class, new ExpressionSerialization.ExpressionSerializer()));
         provider.setJsonDeserializers(ImmutableMap.of(
                 Expression.class, new ExpressionSerialization.ExpressionDeserializer(new SqlParser()),
-                Type.class, new TypeDeserializer(createTestMetadataManager())));
+                Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
         provider.setKeyDeserializers(ImmutableMap.of(
                 TypeSignature.class, new TypeSignatureKeyDeserializer()));
         JsonCodec<PatternRecognitionNode> codec = new JsonCodecFactory(provider).jsonCodec(PatternRecognitionNode.class);

@@ -1469,7 +1469,7 @@ public class TestDomainTranslator
     {
         Type columnType = columnValues.getType();
         Type literalType = literalValues.getType();
-        Type superType = new TypeCoercion(functionResolution.getMetadata()::getType).getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
+        Type superType = new TypeCoercion(functionResolution.getPlannerContext().getTypeManager()::getType).getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
 
         Expression max = toExpression(literalValues.getMax(), literalType);
         Expression min = toExpression(literalValues.getMin(), literalType);

@@ -59,9 +59,6 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
-import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.QualifiedName;
@@ -611,21 +608,6 @@ public interface Metadata
      * Gets the privileges for the specified table available to the given grantee considering the selected session role
      */
     List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
-
-    //
-    // Types
-    //
-
-    Type getType(TypeSignature signature);
-
-    Type fromSqlType(String sqlType);
-
-    Type getType(TypeId id);
-
-    default Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
-    {
-        return getType(new TypeSignature(baseTypeName, typeParameters));
-    }
 
     //
     // Functions

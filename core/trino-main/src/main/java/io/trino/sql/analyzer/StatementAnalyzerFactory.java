@@ -111,7 +111,7 @@ public class StatementAnalyzerFactory
             WarningCollector warningCollector)
     {
         return new ExpressionAnalyzer(
-                plannerContext.getMetadata(),
+                plannerContext,
                 accessControl,
                 (node, correlationSupport) -> createStatementAnalyzer(
                         analysis,
