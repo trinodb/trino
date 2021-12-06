@@ -28,6 +28,7 @@ import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
 
+import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 
@@ -35,6 +36,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.trino.server.ServletSecurityUtils.sendErrorMessage;
 import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
+import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.TRINO_FORM_LOGIN;
@@ -132,7 +134,7 @@ public class OAuth2WebUiAuthenticationFilter
             sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
             return;
         }
-        request.abortWith(service.startOAuth2Challenge(request.getUriInfo()));
+        request.abortWith(service.startOAuth2Challenge(request.getUriInfo().resolve(URI.create(CALLBACK_ENDPOINT)), Optional.empty()));
     }
 
     private static boolean isValidPrincipal(Object principal)

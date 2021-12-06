@@ -62,18 +62,18 @@ public class OAuth2CallbackResource
             @Context UriInfo uriInfo)
     {
         if (error != null) {
-            return service.handleOAuth2Error(state, error, errorDescription, errorUri);
+            return service.handleOAuth2Error(state, error, errorDescription, uriInfo.getPath(false), errorUri);
         }
 
         try {
             requireNonNull(state, "state is null");
             requireNonNull(code, "code is null");
-            return service.finishOAuth2Challenge(state, code, uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT), NonceCookie.read(nonce));
+            return service.finishOAuth2Challenge(state, code, uriInfo.getAbsolutePath(), NonceCookie.read(nonce));
         }
         catch (RuntimeException e) {
             LOG.debug(e, "Authentication response could not be verified: state=%s", state);
             return Response.status(BAD_REQUEST)
-                    .cookie(NonceCookie.delete())
+                    .cookie(NonceCookie.delete(uriInfo.getPath(false)))
                     .entity(service.getInternalFailureHtml("Authentication response could not be verified"))
                     .build();
         }

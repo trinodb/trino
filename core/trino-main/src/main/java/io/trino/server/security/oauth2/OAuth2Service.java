@@ -33,7 +33,6 @@ import io.trino.server.ui.OAuthWebUiCookie;
 import javax.inject.Inject;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
-import javax.ws.rs.core.UriInfo;
 
 import java.io.IOException;
 import java.net.URI;
@@ -57,7 +56,6 @@ import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandl
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
-import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -135,26 +133,7 @@ public class OAuth2Service
         this.webUiOAuthEnabled = requireNonNull(webUiOAuthEnabled, "webUiOAuthEnabled is null").isPresent();
     }
 
-    public Response startOAuth2Challenge(UriInfo uriInfo)
-    {
-        return startOAuth2Challenge(
-                uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
-                Optional.empty());
-    }
-
-    public Response startOAuth2Challenge(UriInfo uriInfo, String handlerState)
-    {
-        return startOAuth2Challenge(
-                uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
-                Optional.of(handlerState));
-    }
-
-    public Response startOAuth2Challenge(URI callbackUri, String handlerState)
-    {
-        return startOAuth2Challenge(callbackUri, Optional.of(handlerState));
-    }
-
-    private Response startOAuth2Challenge(URI callbackUri, Optional<String> handlerState)
+    public Response startOAuth2Challenge(URI callbackUri, Optional<String> handlerState)
     {
         Instant challengeExpiration = now().plus(challengeTimeout);
         String state = Jwts.builder()
@@ -178,11 +157,11 @@ public class OAuth2Service
                         state,
                         callbackUri,
                         nonce.map(OAuth2Service::hashNonce)));
-        nonce.ifPresent(nce -> response.cookie(NonceCookie.create(nce, challengeExpiration)));
+        nonce.ifPresent(nce -> response.cookie(NonceCookie.create(nce, callbackUri.getPath(), challengeExpiration)));
         return response.build();
     }
 
-    public Response handleOAuth2Error(String state, String error, String errorDescription, String errorUri)
+    public Response handleOAuth2Error(String state, String error, String errorDescription, String callbackUri, String errorUri)
     {
         try {
             Claims stateClaims = parseState(state);
@@ -196,14 +175,14 @@ public class OAuth2Service
             LOG.debug(e, "Authentication response could not be verified invalid state: state=%s", state);
             return Response.status(BAD_REQUEST)
                     .entity(getInternalFailureHtml("Authentication response could not be verified"))
-                    .cookie(NonceCookie.delete())
+                    .cookie(NonceCookie.delete(callbackUri))
                     .build();
         }
 
         LOG.debug("OAuth server returned an error: error=%s, error_description=%s, error_uri=%s, state=%s", error, errorDescription, errorUri, state);
         return Response.ok()
                 .entity(getCallbackErrorHtml(error))
-                .cookie(NonceCookie.delete())
+                .cookie(NonceCookie.delete(callbackUri))
                 .build();
     }
 
@@ -218,7 +197,7 @@ public class OAuth2Service
             LOG.debug(e, "Authentication response could not be verified invalid state: state=%s", state);
             return Response.status(BAD_REQUEST)
                     .entity(getInternalFailureHtml("Authentication response could not be verified"))
-                    .cookie(NonceCookie.delete())
+                    .cookie(NonceCookie.delete(callbackUri.getPath()))
                     .build();
         }
 
@@ -234,7 +213,7 @@ public class OAuth2Service
             if (handlerState.isEmpty()) {
                 return Response
                         .seeOther(URI.create(UI_LOCATION))
-                        .cookie(OAuthWebUiCookie.create(oauth2Response.getAccessToken(), validUntil), NonceCookie.delete())
+                        .cookie(OAuthWebUiCookie.create(oauth2Response.getAccessToken(), validUntil), NonceCookie.delete(callbackUri.getPath()))
                         .build();
             }
 
@@ -244,14 +223,14 @@ public class OAuth2Service
             if (webUiOAuthEnabled) {
                 builder.cookie(OAuthWebUiCookie.create(oauth2Response.getAccessToken(), validUntil));
             }
-            return builder.cookie(NonceCookie.delete()).build();
+            return builder.cookie(NonceCookie.delete(callbackUri.getPath())).build();
         }
         catch (ChallengeFailedException | RuntimeException e) {
             LOG.debug(e, "Authentication response could not be verified: state=%s", state);
             handlerState.ifPresent(value ->
                     tokenHandler.setTokenExchangeError(value, format("Authentication response could not be verified: state=%s", value)));
             return Response.status(BAD_REQUEST)
-                    .cookie(NonceCookie.delete())
+                    .cookie(NonceCookie.delete(callbackUri.getPath()))
                     .entity(getInternalFailureHtml("Authentication response could not be verified"))
                     .build();
         }

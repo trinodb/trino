@@ -20,7 +20,6 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
 
-import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static java.util.function.Predicate.not;
 import static javax.ws.rs.core.Cookie.DEFAULT_VERSION;
 import static javax.ws.rs.core.NewCookie.DEFAULT_MAX_AGE;
@@ -32,12 +31,12 @@ public final class NonceCookie
 
     private NonceCookie() {}
 
-    public static NewCookie create(String nonce, Instant tokenExpiration)
+    public static NewCookie create(String nonce, String callbackEndpoint, Instant tokenExpiration)
     {
         return new NewCookie(
                 NONCE_COOKIE,
                 nonce,
-                CALLBACK_ENDPOINT,
+                sanitizePath(callbackEndpoint),
                 null,
                 DEFAULT_VERSION,
                 null,
@@ -54,12 +53,12 @@ public final class NonceCookie
                 .filter(not(String::isBlank));
     }
 
-    public static NewCookie delete()
+    public static NewCookie delete(String callbackEndpoint)
     {
         return new NewCookie(
                 NONCE_COOKIE,
                 "delete",
-                CALLBACK_ENDPOINT,
+                sanitizePath(callbackEndpoint),
                 null,
                 DEFAULT_VERSION,
                 null,
@@ -67,5 +66,14 @@ public final class NonceCookie
                 null,
                 true,
                 true);
+    }
+
+    private static String sanitizePath(String path)
+    {
+        if (path.endsWith("/")) {
+            return path.substring(0, path.length() - 1);
+        }
+
+        return path;
     }
 }
