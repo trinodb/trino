@@ -27,7 +27,7 @@ public final class SetProperties
 {
     public enum Type
     {
-        TABLE
+        TABLE, MATERIALIZED_VIEW
     }
 
     private final Type type;

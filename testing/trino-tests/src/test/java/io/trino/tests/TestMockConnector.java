@@ -36,6 +36,7 @@ import java.util.Optional;
 
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
+import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -69,6 +70,12 @@ public class TestMockConnector
                                     }
                                     return new MockConnectorTableHandle(tableName);
                                 })
+                                .withGetMaterializedViewProperties(() -> ImmutableList.of(
+                                        durationProperty(
+                                                "refresh_interval",
+                                                "Time interval after which materialized view will be refreshed",
+                                                null,
+                                                false)))
                                 .withGetMaterializedViews((session, schemaTablePrefix) -> ImmutableMap.of(
                                         new SchemaTableName("default", "test_materialized_view"),
                                         new ConnectorMaterializedViewDefinition(
@@ -119,7 +126,7 @@ public class TestMockConnector
     @Test
     public void testCreateMaterializedView()
     {
-        assertUpdate("CREATE MATERIALIZED VIEW mock.default.materialized_view AS SELECT * FROM tpch.tiny.nation");
+        assertUpdate("CREATE MATERIALIZED VIEW mock.default.materialized_view WITH (refresh_interval = '1h') AS SELECT * FROM tpch.tiny.nation");
     }
 
     @Test

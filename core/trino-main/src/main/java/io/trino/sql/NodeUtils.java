@@ -14,16 +14,17 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.SortItem;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public final class NodeUtils
 {
@@ -34,10 +35,23 @@ public final class NodeUtils
         return orderBy.map(OrderBy::getSortItems).orElse(ImmutableList.of());
     }
 
-    public static Map<String, Expression> mapFromProperties(List<Property> properties)
+    /**
+     * Throws an exception if {@code properties} contains a {@code Property} set to DEFAULT. This method is intended to be used when a user
+     * issues an SQL statement containing a property set to DEFAULT but setting a property to DEFAULT is not supported in that type of
+     * statement.
+     * <p>
+     * {@code statementType} is a {@code String} indicating the type of the statement, e.g. "CREATE TABLE", "ANALYZE",
+     * "ALTER TABLE ... ADD COLUMN ...".
+     */
+    public static void throwOnDefaultProperty(Collection<Property> properties, String statementType)
     {
-        return properties.stream().collect(toImmutableMap(
-                property -> property.getName().getValue(),
-                Property::getValue));
+        requireNonNull(properties, "properties is null");
+        requireNonNull(statementType, "statementType is null");
+        properties.stream()
+                .filter(Property::isSetToDefault)
+                .findFirst()
+                .ifPresent(defaultProperty -> {
+                    throw semanticException(NOT_SUPPORTED, defaultProperty, "Setting a property to DEFAULT is not supported in %s", statementType);
+                });
     }
 }

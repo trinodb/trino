@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
@@ -41,7 +42,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
-import static io.trino.sql.NodeUtils.mapFromProperties;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static java.util.Objects.requireNonNull;
@@ -54,6 +54,7 @@ public class CreateMaterializedViewTask
     private final SqlParser sqlParser;
     private final AnalyzerFactory analyzerFactory;
     private final MaterializedViewPropertyManager materializedViewPropertyManager;
+    private final boolean disableSetPropertiesSecurityCheckForCreateDdl;
 
     @Inject
     public CreateMaterializedViewTask(
@@ -61,13 +62,15 @@ public class CreateMaterializedViewTask
             AccessControl accessControl,
             SqlParser sqlParser,
             AnalyzerFactory analyzerFactory,
-            MaterializedViewPropertyManager materializedViewPropertyManager)
+            MaterializedViewPropertyManager materializedViewPropertyManager,
+            FeaturesConfig featuresConfig)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
         this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
+        this.disableSetPropertiesSecurityCheckForCreateDdl = featuresConfig.isDisableSetPropertiesSecurityCheckForCreateDdl();
     }
 
     @Override
@@ -99,16 +102,14 @@ public class CreateMaterializedViewTask
 
         CatalogName catalogName = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, name.getCatalogName());
 
-        Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
         Map<String, Object> properties = materializedViewPropertyManager.getProperties(
                 catalogName,
                 name.getCatalogName(),
-                sqlProperties,
+                statement.getProperties(),
                 session,
                 plannerContext,
                 accessControl,
-                parameterLookup,
-                true);
+                parameterLookup);
 
         MaterializedViewDefinition definition = new MaterializedViewDefinition(
                 sql,
@@ -120,6 +121,12 @@ public class CreateMaterializedViewTask
                 Optional.empty(),
                 properties);
 
+        if (!disableSetPropertiesSecurityCheckForCreateDdl) {
+            accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, properties);
+        }
+        else {
+            accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name);
+        }
         plannerContext.getMetadata().createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());
 
         stateMachine.setOutput(analysis.getTarget());

@@ -683,6 +683,11 @@ public interface Metadata
     void renameMaterializedView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName);
 
     /**
+     * Sets the properties of the specified materialized view.
+     */
+    void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames);
+
+    /**
      * Returns the result of redirecting the table scan on a given table to a different table.
      * This method is used by the engine during the plan optimization phase to allow a connector to offload table scans to any other connector.
      * This method is called after security checks against the original table.

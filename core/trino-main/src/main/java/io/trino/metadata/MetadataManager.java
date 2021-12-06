@@ -1441,6 +1441,16 @@ public final class MetadataManager
     }
 
     @Override
+    public void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.setMaterializedViewProperties(session.toConnectorSession(catalogName), viewName.asSchemaTableName(), nonNullProperties, nullPropertyNames);
+    }
+
+    @Override
     public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle)
     {
         CatalogName catalogName = tableHandle.getCatalogName();

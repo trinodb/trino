@@ -309,6 +309,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Object> properties)
+    {
+    }
+
+    @Override
     public void checkCanRefreshMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
     {
     }
@@ -320,6 +325,11 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanRenameMaterializedView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
+    {
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
     {
     }
 

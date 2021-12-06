@@ -68,6 +68,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivil
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
@@ -591,8 +592,20 @@ public interface SystemAccessControl
      * Check if identity is allowed to create the specified materialized view in a catalog.
      *
      * @throws AccessDeniedException if not allowed
+     * @deprecated use {@link #checkCanCreateMaterializedView(SystemSecurityContext, CatalogSchemaTableName, Map<String, Object>)} instead
      */
+    @Deprecated
     default void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
+    {
+        denyCreateMaterializedView(materializedView.toString());
+    }
+
+    /**
+     * Check if identity is allowed to create the specified materialized view in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Object> properties)
     {
         denyCreateMaterializedView(materializedView.toString());
     }
@@ -605,6 +618,16 @@ public interface SystemAccessControl
     default void checkCanRefreshMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
     {
         denyRefreshMaterializedView(materializedView.toString());
+    }
+
+    /**
+     * Check if identity is allowed to set the properties of the specified materialized view in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    {
+        denySetMaterializedViewProperties(materializedView.toString());
     }
 
     /**
