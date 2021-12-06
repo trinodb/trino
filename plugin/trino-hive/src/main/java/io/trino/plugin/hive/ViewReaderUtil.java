@@ -60,7 +60,7 @@ public final class ViewReaderUtil
         ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName);
     }
 
-    public static ViewReader createViewReader(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table, TypeManager typemanager)
+    public static ViewReader createViewReader(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table, TypeManager typeManager)
     {
         if (isPrestoView(table)) {
             return new PrestoViewReader();
@@ -69,7 +69,7 @@ public final class ViewReaderUtil
             return new LegacyHiveViewReader();
         }
 
-        return new HiveViewReader(new CoralSemiTransactionalHiveMSCAdapter(metastore, new HiveIdentity(session)), typemanager);
+        return new HiveViewReader(new CoralSemiTransactionalHiveMSCAdapter(metastore, new HiveIdentity(session)), typeManager);
     }
 
     public static final String PRESTO_VIEW_FLAG = "presto_view";
