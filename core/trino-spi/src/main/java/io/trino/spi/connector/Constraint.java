@@ -49,6 +49,10 @@ public class Constraint
         this(summary, Optional.of(predicate), Optional.of(predicateColumns));
     }
 
+    /**
+     * @deprecated Use {@link #Constraint(TupleDomain)} or {@link #Constraint(TupleDomain, Predicate, Set)} instead.
+     */
+    @Deprecated // TODO update all usages and make private
     public Constraint(TupleDomain<ColumnHandle> summary, Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate, Optional<Set<ColumnHandle>> predicateColumns)
     {
         this.summary = requireNonNull(summary, "summary is null");
@@ -66,6 +70,14 @@ public class Constraint
         return summary;
     }
 
+    /**
+     * A predicate that can be used to filter data. If present, it is equivalent to, or stricter than, {@link #getSummary()}.
+     * <p>
+     * For Constraint provided in {@link ConnectorMetadata#applyFilter(ConnectorSession, ConnectorTableHandle, Constraint)},
+     * the predicate cannot be held on to after the call returns.
+     *
+     * @see #getPredicateColumns()
+     */
     public Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate()
     {
         return predicate;
