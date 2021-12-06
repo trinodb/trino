@@ -174,4 +174,32 @@ The connector supports pushdown for a number of operations:
 * :func:`regr_intercept`
 * :func:`regr_slope`
 
-.. include:: no-inequality-pushdown-text-type.fragment
+Predicate pushdown support
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector does not support pushdown of range predicates, such as ``>``,
+``<``, or ``BETWEEN``, on columns with :ref:`character string types
+<string-data-types>` like ``CHAR`` or ``VARCHAR``.  Equality predicates, such as
+``IN`` or ``=``, and inequality predicates, such as ``!=`` on columns with
+textual types are pushed down. This ensures correctness of results since the
+remote data source may sort strings differently than Trino.
+
+In the following example, the predicate of the first query is not pushed down
+since ``name`` is a column of type ``VARCHAR`` and ``>`` is a range predicate.
+The other queries are pushed down.
+
+.. code-block:: sql
+
+    -- Not pushed down
+    SELECT * FROM nation WHERE name > 'CANADA';
+    -- Pushed down
+    SELECT * FROM nation WHERE name != 'CANADA';
+    SELECT * FROM nation WHERE name = 'CANADA';
+
+There is experimental support to enable pushdown of range predicates on columns
+with character string types which can be enabled by setting the
+``postgresql.experimental.enable-string-pushdown-with-collate`` catalog
+configuration property or the corresponding
+``enable_string_pushdown_with_collate`` session property to ``true``.
+Enabling this configuration will make the predicate of all the queries in the
+above example get pushed down.
