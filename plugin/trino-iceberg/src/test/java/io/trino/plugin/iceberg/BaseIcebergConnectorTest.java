@@ -2020,6 +2020,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(insertStart + " VALUES (1, 101), (2, 102), (3, 103), (4, 104)", 4);
         TableStatistics tableStatistics = getTableStatistics(tableName, new Constraint(TupleDomain.all()));
         IcebergColumnHandle col1Handle = getColumnHandleFromStatistics(tableStatistics, "col1");
+        IcebergColumnHandle col2Handle = getColumnHandleFromStatistics(tableStatistics, "col2");
 
         // Constraint.predicate is currently not supported, because it's never provided by the engine.
         // TODO add (restore) test coverage when this changes.
@@ -2028,17 +2029,17 @@ public abstract class BaseIcebergConnectorTest
         assertThatThrownBy(() ->
                 getTableStatistics(tableName, new Constraint(
                         TupleDomain.all(),
-                        Optional.of(new TestRelationalNumberPredicate("col1", 3, i1 -> i1 >= 0)),
-                        Optional.of(ImmutableSet.of(col1Handle)))))
+                        new TestRelationalNumberPredicate("col1", 3, i1 -> i1 >= 0),
+                        Set.of(col1Handle))))
                 .isInstanceOf(VerifyException.class)
                 .hasMessage("Unexpected Constraint predicate");
 
-        // predicate on an unspecified set of columns column
+        // predicate on a non-partition column
         assertThatThrownBy(() ->
                 getTableStatistics(tableName, new Constraint(
                         TupleDomain.all(),
-                        Optional.of(new TestRelationalNumberPredicate("col2", 102, i -> i >= 0)),
-                        Optional.empty())))
+                        new TestRelationalNumberPredicate("col2", 102, i -> i >= 0),
+                        Set.of(col2Handle))))
                 .isInstanceOf(VerifyException.class)
                 .hasMessage("Unexpected Constraint predicate");
 
