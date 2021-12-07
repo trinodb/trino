@@ -752,11 +752,11 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public void setTableProperties(ConnectorSession session, ConnectorTableHandle table, Map<String, Object> properties)
+    public void setTableProperties(ConnectorSession session, ConnectorTableHandle table, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
-        jdbcClient.setTableProperties(session, tableHandle, properties);
+        jdbcClient.setTableProperties(session, tableHandle, nonNullProperties, nullPropertyNames);
     }
 
     @Override

@@ -105,7 +105,7 @@ public class AllowAllAccessControlManager
     public void checkCanRenameTable(SecurityContext context, QualifiedObjectName tableName, QualifiedObjectName newTableName) {}
 
     @Override
-    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties) {}
+    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames) {}
 
     @Override
     public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName) {}

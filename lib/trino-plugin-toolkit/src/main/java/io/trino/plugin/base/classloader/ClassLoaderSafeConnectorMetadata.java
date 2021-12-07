@@ -408,10 +408,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> properties)
+    public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.setTableProperties(session, tableHandle, properties);
+            delegate.setTableProperties(session, tableHandle, nonNullProperties, nullPropertyNames);
         }
     }
 

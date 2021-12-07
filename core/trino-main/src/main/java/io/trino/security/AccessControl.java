@@ -196,7 +196,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties);
+    void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames);
 
     /**
      * Check if identity is allowed to comment the specified table.

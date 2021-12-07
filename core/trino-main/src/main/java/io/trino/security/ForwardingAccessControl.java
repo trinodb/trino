@@ -185,9 +185,9 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
+    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
     {
-        delegate().checkCanSetTableProperties(context, tableName, properties);
+        delegate().checkCanSetTableProperties(context, tableName, nonNullProperties, nullPropertyNames);
     }
 
     @Override
