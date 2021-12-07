@@ -469,7 +469,9 @@ public final class HiveSessionProperties
                         ICEBERG_CATALOG_NAME,
                         "Catalog to redirect to when an Iceberg table is referenced",
                         hiveConfig.getIcebergCatalogName().orElse(null),
-                        false),
+                        // Session-level redirections configuration does not work well with views, as view body is analyzed in context
+                        // of a session with properties stripped off. Thus, this property is more of a test-only, or at most POC usefulness.
+                        true),
                 booleanProperty(
                         SIZE_BASED_SPLIT_WEIGHTS_ENABLED,
                         "Enable estimating split weights based on size in bytes",
