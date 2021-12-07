@@ -759,13 +759,25 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(12345678.9e0 AS varchar(12))", "'1.23456789E7'");
         assertEvaluatedEquals("CAST(0.00001e0 AS varchar(6))", "'1.0E-5'");
 
-        // incorrect behavior: the result value does not fit in the type (also, it is not compliant with the SQL standard)
-        assertEvaluatedEquals("CAST(12e0 AS varchar(1))", "'12.0'");
-        assertEvaluatedEquals("CAST(-12e2 AS varchar(1))", "'-1200.0'");
-        assertEvaluatedEquals("CAST(0e0 AS varchar(1))", "'0.0'");
-        assertEvaluatedEquals("CAST(0e0 / 0e0 AS varchar(1))", "'NaN'");
-        assertEvaluatedEquals("CAST(DOUBLE 'Infinity' AS varchar(1))", "'Infinity'");
-        assertEvaluatedEquals("CAST(1200000e0 AS varchar(5))", "'1200000.0'");
+        // the result value does not fit in the type (also, it is not compliant with the SQL standard)
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(12e0 AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 12.0 cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(-12e2 AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -1200.0 cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(0e0 AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 0.0 cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(0e0 / 0e0 AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value NaN cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DOUBLE 'Infinity' AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value Infinity cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(1200000e0 AS varchar(5))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 1200000.0 cannot be represented as varchar(5)");
     }
 
     @Test
