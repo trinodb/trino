@@ -1480,7 +1480,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertDescribeOutputEmpty("ALTER TABLE foo ADD COLUMN y bigint");
         assertDescribeOutputEmpty("ALTER TABLE foo SET AUTHORIZATION bar");
         assertDescribeOutputEmpty("ALTER TABLE foo RENAME TO bar");
-        assertDescribeOutputEmpty("ALTER TABLE foo SET PROPERTIES x = 'y'");
+        assertDescribeOutputEmpty("ALTER TABLE foo SET PROPERTIES x = 'y', a = DEFAULT");
         assertDescribeOutputEmpty("TRUNCATE TABLE foo");
         assertDescribeOutputEmpty("DROP TABLE foo");
         assertDescribeOutputEmpty("CREATE VIEW foo AS SELECT * FROM nation");

@@ -1834,6 +1834,7 @@ public class TestSqlParser
         assertStatement("ALTER TABLE a SET PROPERTIES foo=123", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")))));
         assertStatement("ALTER TABLE a SET PROPERTIES foo=123, bar=456", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")), new Property(new Identifier("bar"), new LongLiteral("456")))));
         assertStatement("ALTER TABLE a SET PROPERTIES \" s p a c e \"='bar'", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier(" s p a c e "), new StringLiteral("bar")))));
+        assertStatement("ALTER TABLE a SET PROPERTIES foo=123, bar=DEFAULT", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")), new Property(new Identifier("bar")))));
 
         assertStatementIsInvalid("ALTER TABLE a SET PROPERTIES")
                 .withMessage("line 1:29: mismatched input '<EOF>'. Expecting: <identifier>");

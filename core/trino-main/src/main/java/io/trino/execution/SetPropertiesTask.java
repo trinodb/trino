@@ -29,7 +29,6 @@ import io.trino.sql.tree.SetProperties;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -37,7 +36,6 @@ import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
-import static io.trino.sql.NodeUtils.throwOnDefaultProperty;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.tree.SetProperties.Type.MATERIALIZED_VIEW;
@@ -79,15 +77,14 @@ public class SetPropertiesTask
         QualifiedObjectName objectName = createQualifiedObjectName(session, statement, statement.getName());
 
         if (statement.getType() == TABLE) {
-            throwOnDefaultProperty(statement.getProperties(), "ALTER TABLE... SET PROPERTIES...");
-            Map<String, Object> properties = tablePropertyManager.getOnlySpecifiedProperties(
+            Properties properties = tablePropertyManager.getOnlySpecifiedProperties(
                     getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, objectName.getCatalogName()),
                     objectName.getCatalogName(),
                     statement.getProperties(),
                     session,
                     plannerContext,
                     accessControl,
-                    parameterExtractor(statement, parameters)).getNonNullProperties();
+                    parameterExtractor(statement, parameters));
             setTableProperties(statement, objectName, session, properties);
         }
         else if (statement.getType() == MATERIALIZED_VIEW) {
@@ -108,7 +105,7 @@ public class SetPropertiesTask
         return immediateVoidFuture();
     }
 
-    private void setTableProperties(SetProperties statement, QualifiedObjectName tableName, Session session, Map<String, Object> properties)
+    private void setTableProperties(SetProperties statement, QualifiedObjectName tableName, Session session, Properties properties)
     {
         if (plannerContext.getMetadata().isMaterializedView(session, tableName)) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot set properties to a materialized view in ALTER TABLE");
@@ -123,9 +120,9 @@ public class SetPropertiesTask
             throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", tableName);
         }
 
-        accessControl.checkCanSetTableProperties(session.toSecurityContext(), tableName, properties);
+        accessControl.checkCanSetTableProperties(session.toSecurityContext(), tableName, properties.getNonNullProperties(), properties.getNullPropertyNames());
 
-        plannerContext.getMetadata().setTableProperties(session, tableHandle.get(), properties);
+        plannerContext.getMetadata().setTableProperties(session, tableHandle.get(), properties.getNonNullProperties(), properties.getNullPropertyNames());
     }
 
     private void setMaterializedViewProperties(

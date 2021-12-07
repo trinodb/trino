@@ -139,7 +139,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
+    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
     {
     }
 

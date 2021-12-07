@@ -209,6 +209,7 @@ public class TestStatementBuilder
 
         printStatement("alter table foo set properties a='1'");
         printStatement("alter table a.b.c set properties a=true, b=123, c='x'");
+        printStatement("alter table a.b.c set properties a=DEFAULT, b=123");
 
         printStatement("alter table a.b.c add column x bigint");
 

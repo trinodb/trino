@@ -468,17 +468,18 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSetTableProperties(SecurityContext securityContext, QualifiedObjectName tableName, Map<String, Object> properties)
+    public void checkCanSetTableProperties(SecurityContext securityContext, QualifiedObjectName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
-        requireNonNull(properties, "properties is null");
+        requireNonNull(nonNullProperties, "nonNullProperties is null");
+        requireNonNull(nullPropertyNames, "nullPropertyNames is null");
 
         checkCanAccessCatalog(securityContext, tableName.getCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanSetTableProperties(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), properties));
+        systemAuthorizationCheck(control -> control.checkCanSetTableProperties(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), nonNullProperties, nullPropertyNames));
 
-        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanSetTableProperties(context, tableName.asSchemaTableName(), properties));
+        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanSetTableProperties(context, tableName.asSchemaTableName(), nonNullProperties, nullPropertyNames));
     }
 
     @Override

@@ -382,13 +382,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
+    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), SET_TABLE_PROPERTIES)) {
             denySetTableProperties(tableName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanSetTableProperties(context, tableName, properties);
+            super.checkCanSetTableProperties(context, tableName, nonNullProperties, nullPropertyNames);
         }
     }
 
