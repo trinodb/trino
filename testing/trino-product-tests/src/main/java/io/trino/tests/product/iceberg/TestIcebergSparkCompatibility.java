@@ -346,19 +346,26 @@ public class TestIcebergSparkCompatibility
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testSparkReadsTrinoPartitionedTable(StorageFormat storageFormat)
     {
-        String baseTableName = "test_spark_reads_trino_partitioned_table_" + storageFormat;
+        String baseTableName = "test_spark_reads_trino_partitioned_table_5" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
 
-        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '%s')", trinoTableName, storageFormat));
-        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', 1001), ('b', 1002), ('c', 1003)", trinoTableName));
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _varbinary VARBINARY, _bigint BIGINT) WITH (partitioning = ARRAY['_string', '_varbinary'], format = '%s')", trinoTableName, storageFormat));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a', X'0ff102f0feff', 1001), ('b', X'0ff102f0fefe', 1002), ('c', X'0ff102fdfeff', 1003)", trinoTableName));
 
-        Row row = row("b", 1002);
-        String select = "SELECT * FROM %s WHERE _string = 'b'";
-        assertThat(onTrino().executeQuery(format(select, trinoTableName)))
-                .containsOnly(row);
-        assertThat(onSpark().executeQuery(format(select, sparkTableName)))
-                .containsOnly(row);
+        Row row1 = row("b", new byte[]{15, -15, 2, -16, -2, -2}, 1002);
+        String selectByString = "SELECT * FROM %s WHERE _string = 'b'";
+        assertThat(onTrino().executeQuery(format(selectByString, trinoTableName)))
+                .containsOnly(row1);
+        assertThat(onSpark().executeQuery(format(selectByString, sparkTableName)))
+                .containsOnly(row1);
+
+        Row row2 = row("a", new byte[]{15, -15, 2, -16, -2, -1}, 1001);
+        String selectByVarbinaryTrino = "SELECT * FROM %s WHERE _varbinary = X'0ff102f0feff'"; //for now this fails on spark see https://githubmemory.com/repo/apache/iceberg/issues/2934
+        assertThat(onTrino().executeQuery(format(selectByVarbinaryTrino, trinoTableName)))
+                .containsOnly(row2);
+
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
@@ -368,20 +375,26 @@ public class TestIcebergSparkCompatibility
         String baseTableName = "test_trino_reads_spark_partitioned_table_" + storageFormat;
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
+        onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
 
         onSpark().executeQuery(format(
-                "CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG PARTITIONED BY (_string) TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)",
+                "CREATE TABLE %s (_string STRING, _varbinary BINARY, _bigint BIGINT) USING ICEBERG PARTITIONED BY (_string, _varbinary) TBLPROPERTIES ('write.format.default'='%s', 'format-version' = %s)",
                 sparkTableName,
                 storageFormat,
                 specVersion));
-        onSpark().executeQuery(format("INSERT INTO %s VALUES ('a', 1001), ('b', 1002), ('c', 1003)", sparkTableName));
+        onSpark().executeQuery(format("INSERT INTO %s VALUES ('a', X'0ff102f0feff', 1001), ('b', X'0ff102f0fefe', 1002), ('c', X'0ff102fdfeff', 1003)", sparkTableName));
 
-        Row row = row("b", 1002);
-        String select = "SELECT * FROM %s WHERE _string = 'b'";
+        Row row1 = row("a", new byte[]{15, -15, 2, -16, -2, -1}, 1001);
+        String select = "SELECT * FROM %s WHERE _string = 'a'";
         assertThat(onSpark().executeQuery(format(select, sparkTableName)))
-                .containsOnly(row);
+                .containsOnly(row1);
         assertThat(onTrino().executeQuery(format(select, trinoTableName)))
-                .containsOnly(row);
+                .containsOnly(row1);
+
+        Row row2 = row("c", new byte[]{15, -15, 2, -3, -2, -1}, 1003);
+        String selectByVarbinaryTrino = "SELECT * FROM %s WHERE _varbinary = X'0ff102fdfeff'"; //for now this fails on spark see https://githubmemory.com/repo/apache/iceberg/issues/2934
+        assertThat(onTrino().executeQuery(format(selectByVarbinaryTrino, trinoTableName)))
+                .containsOnly(row2);
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
