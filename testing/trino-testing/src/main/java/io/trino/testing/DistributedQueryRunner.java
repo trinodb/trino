@@ -574,7 +574,7 @@ public class DistributedQueryRunner
         }
     }
 
-    public static class Builder<SELF extends Builder>
+    public static class Builder<SELF extends Builder<?>>
     {
         private Session defaultSession;
         private int nodeCount = 3;
