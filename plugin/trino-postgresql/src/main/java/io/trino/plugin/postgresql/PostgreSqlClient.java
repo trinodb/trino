@@ -126,6 +126,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
+import static io.trino.plugin.geospatial.GeoFunctions.stAsBinary;
 import static io.trino.plugin.geospatial.GeoFunctions.stGeomFromBinary;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
@@ -1178,12 +1179,33 @@ public class PostgreSqlClient
         }
     }
 
+    public static SliceWriteFunction geometryWriteFunction()
+    {
+        String bindExpression = format("ST_GeomFromWKB(?)");
+        return new SliceWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return bindExpression;
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice slice)
+                    throws SQLException
+            {
+                byte[] bytes = stAsBinary(slice).getBytes();
+                statement.setBytes(index, bytes);
+            }
+        };
+    }
+
     private ColumnMapping geometryColumnMapping()
     {
         return ColumnMapping.sliceMapping(
                 geometryType,
-                ((resultSet, columnIndex) -> stGeomFromBinary(wrappedBuffer(resultSet.getBytes(columnIndex)))),
-                (statement, index, value) -> { throw new TrinoException(NOT_SUPPORTED, "Geometry type is not supported for INSERT"); },
+                (resultSet, columnIndex) -> stGeomFromBinary(wrappedBuffer(resultSet.getBytes(columnIndex))),
+                geometryWriteFunction(),
                 DISABLE_PUSHDOWN);
     }
 
