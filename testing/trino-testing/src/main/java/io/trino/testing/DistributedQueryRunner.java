@@ -88,9 +88,9 @@ public class DistributedQueryRunner
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    public static Builder builder(Session defaultSession)
+    public static Builder<?> builder(Session defaultSession)
     {
-        return new Builder(defaultSession);
+        return new Builder<>(defaultSession);
     }
 
     private DistributedQueryRunner(
@@ -574,7 +574,7 @@ public class DistributedQueryRunner
         }
     }
 
-    public static class Builder
+    public static class Builder<B extends Builder>
     {
         private Session defaultSession;
         private int nodeCount = 3;
@@ -592,41 +592,41 @@ public class DistributedQueryRunner
             this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
         }
 
-        public Builder amendSession(Function<SessionBuilder, SessionBuilder> amendSession)
+        public B amendSession(Function<SessionBuilder, SessionBuilder> amendSession)
         {
             SessionBuilder builder = Session.builder(defaultSession);
             this.defaultSession = amendSession.apply(builder).build();
-            return this;
+            return (B) this;
         }
 
-        public Builder setNodeCount(int nodeCount)
+        public B setNodeCount(int nodeCount)
         {
             this.nodeCount = nodeCount;
-            return this;
+            return (B) this;
         }
 
-        public Builder setExtraProperties(Map<String, String> extraProperties)
+        public B setExtraProperties(Map<String, String> extraProperties)
         {
             this.extraProperties = new HashMap<>(extraProperties);
-            return this;
+            return (B) this;
         }
 
-        public Builder addExtraProperty(String key, String value)
+        public B addExtraProperty(String key, String value)
         {
             this.extraProperties.put(key, value);
-            return this;
+            return (B) this;
         }
 
-        public Builder setCoordinatorProperties(Map<String, String> coordinatorProperties)
+        public B setCoordinatorProperties(Map<String, String> coordinatorProperties)
         {
             this.coordinatorProperties = coordinatorProperties;
-            return this;
+            return (B) this;
         }
 
-        public Builder setBackupCoordinatorProperties(Map<String, String> backupCoordinatorProperties)
+        public B setBackupCoordinatorProperties(Map<String, String> backupCoordinatorProperties)
         {
             this.backupCoordinatorProperties = Optional.of(backupCoordinatorProperties);
-            return this;
+            return (B) this;
         }
 
         /**
@@ -634,61 +634,61 @@ public class DistributedQueryRunner
          * Note, that calling this method OVERWRITES previously set property values.
          * As a result, it should only be used when only one coordinator property needs to be set.
          */
-        public Builder setSingleCoordinatorProperty(String key, String value)
+        public B setSingleCoordinatorProperty(String key, String value)
         {
             return setCoordinatorProperties(ImmutableMap.of(key, value));
         }
 
-        public Builder setEnvironment(String environment)
+        public B setEnvironment(String environment)
         {
             this.environment = environment;
-            return this;
+            return (B) this;
         }
 
-        public Builder setAdditionalModule(Module additionalModule)
+        public B setAdditionalModule(Module additionalModule)
         {
             this.additionalModule = requireNonNull(additionalModule, "additionalModules is null");
-            return this;
+            return (B) this;
         }
 
-        public Builder setBaseDataDir(Optional<Path> baseDataDir)
+        public B setBaseDataDir(Optional<Path> baseDataDir)
         {
             this.baseDataDir = requireNonNull(baseDataDir, "baseDataDir is null");
-            return this;
+            return (B) this;
         }
 
         @SuppressWarnings("unused")
-        public Builder setSystemAccessControl(SystemAccessControl systemAccessControl)
+        public B setSystemAccessControl(SystemAccessControl systemAccessControl)
         {
             return setSystemAccessControls(ImmutableList.of(requireNonNull(systemAccessControl, "systemAccessControl is null")));
         }
 
         @SuppressWarnings("unused")
-        public Builder setSystemAccessControls(List<SystemAccessControl> systemAccessControls)
+        public B setSystemAccessControls(List<SystemAccessControl> systemAccessControls)
         {
             this.systemAccessControls = ImmutableList.copyOf(requireNonNull(systemAccessControls, "systemAccessControls is null"));
-            return this;
+            return (B) this;
         }
 
         @SuppressWarnings("unused")
-        public Builder setEventListener(EventListener eventListener)
+        public B setEventListener(EventListener eventListener)
         {
             return setEventListeners(ImmutableList.of(requireNonNull(eventListener, "eventListener is null")));
         }
 
         @SuppressWarnings("unused")
-        public Builder setEventListeners(List<EventListener> eventListeners)
+        public B setEventListeners(List<EventListener> eventListeners)
         {
             this.eventListeners = ImmutableList.copyOf(requireNonNull(eventListeners, "eventListeners is null"));
-            return this;
+            return (B) this;
         }
 
-        public Builder enableBackupCoordinator()
+        public B enableBackupCoordinator()
         {
             if (backupCoordinatorProperties.isEmpty()) {
                 setBackupCoordinatorProperties(ImmutableMap.of());
             }
-            return this;
+            return (B) this;
         }
 
         public DistributedQueryRunner build()
