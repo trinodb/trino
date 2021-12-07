@@ -208,12 +208,12 @@ public class TestSimplifyExpressions
     public void testCastDoubleToBoundedVarchar()
     {
         // the varchar type length is enough to contain the number's representation
-        assertSimplifies("CAST(0e0 AS varchar(3))", "'0.0'");
-        assertSimplifies("CAST(-0e0 AS varchar(4))", "'-0.0'");
+        assertSimplifies("CAST(0e0 AS varchar(3))", "'0E0'");
+        assertSimplifies("CAST(-0e0 AS varchar(4))", "'-0E0'");
         assertSimplifies("CAST(0e0 / 0e0 AS varchar(3))", "'NaN'");
         assertSimplifies("CAST(DOUBLE 'Infinity' AS varchar(8))", "'Infinity'");
-        assertSimplifies("CAST(12e2 AS varchar(6))", "'1200.0'");
-        assertSimplifies("CAST(-12e2 AS varchar(50))", "CAST('-1200.0' AS varchar(50))");
+        assertSimplifies("CAST(12e2 AS varchar(5))", "'1.2E3'");
+        assertSimplifies("CAST(-12e2 AS varchar(50))", "CAST('-1.2E3' AS varchar(50))");
 
         // cast from double to varchar fails, so the expression is not modified
         assertSimplifies("CAST(12e2 AS varchar(3))", "CAST(12e2 AS varchar(3))");
