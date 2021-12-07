@@ -1021,20 +1021,10 @@ public abstract class BaseIcebergConnectorTest
                 .getOnlyValue();
     }
 
-    @Test
-    public void testInsertIntoNotNullColumn()
+    @Override
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        assertUpdate("CREATE TABLE test_not_null_table (c1 INTEGER, c2 INTEGER NOT NULL)");
-        assertUpdate("INSERT INTO test_not_null_table (c2) VALUES (2)", 1);
-        assertQuery("SELECT * FROM test_not_null_table", "VALUES (NULL, 2)");
-        assertQueryFails("INSERT INTO test_not_null_table (c1) VALUES (1)", "NULL value not allowed for NOT NULL column: c2");
-        dropTable("test_not_null_table");
-
-        assertUpdate("CREATE TABLE test_commuted_not_null_table (a BIGINT, b BIGINT NOT NULL)");
-        assertUpdate("INSERT INTO test_commuted_not_null_table (b) VALUES (2)", 1);
-        assertQuery("SELECT * FROM test_commuted_not_null_table", "VALUES (NULL, 2)");
-        assertQueryFails("INSERT INTO test_commuted_not_null_table (b, a) VALUES (NULL, 3)", "NULL value not allowed for NOT NULL column: b");
-        dropTable("test_commuted_not_null_table");
+        return "NULL value not allowed for NOT NULL column: " + columnName;
     }
 
     @Test
