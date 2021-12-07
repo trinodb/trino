@@ -18,24 +18,15 @@ import io.trino.spi.security.Identity;
 
 import javax.ws.rs.container.ContainerRequestContext;
 
-import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractBearerAuthenticator
         implements Authenticator
 {
-    private final UserMapping userMapping;
-
-    protected AbstractBearerAuthenticator(UserMapping userMapping)
-    {
-        this.userMapping = requireNonNull(userMapping, "userMapping is null");
-    }
-
     @Override
     public Identity authenticate(ContainerRequestContext request)
             throws AuthenticationException
@@ -47,15 +38,7 @@ public abstract class AbstractBearerAuthenticator
             throws AuthenticationException
     {
         try {
-            Optional<Principal> principal = extractPrincipalFromToken(token);
-            if (principal.isEmpty()) {
-                throw needAuthentication(request, "Invalid credentials");
-            }
-
-            String authenticatedUser = userMapping.mapUser(principal.get().getName());
-            return Identity.forUser(authenticatedUser)
-                    .withPrincipal(principal.get())
-                    .build();
+            return createIdentity(token).orElseThrow(() -> needAuthentication(request, "Invalid credentials"));
         }
         catch (JwtException | UserMappingException e) {
             throw needAuthentication(request, e.getMessage());
@@ -88,7 +71,8 @@ public abstract class AbstractBearerAuthenticator
         return token;
     }
 
-    protected abstract Optional<Principal> extractPrincipalFromToken(String token);
+    protected abstract Optional<Identity> createIdentity(String token)
+            throws UserMappingException;
 
     protected abstract AuthenticationException needAuthentication(ContainerRequestContext request, String message);
 }
