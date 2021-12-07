@@ -19,12 +19,14 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.trino.server.security.AbstractBearerAuthenticator;
 import io.trino.server.security.AuthenticationException;
+import io.trino.server.security.UserMapping;
+import io.trino.server.security.UserMappingException;
 import io.trino.spi.security.BasicPrincipal;
+import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 
-import java.security.Principal;
 import java.util.Optional;
 
 import static io.trino.server.security.UserMapping.createUserMapping;
@@ -34,11 +36,11 @@ public class JwtAuthenticator
 {
     private final JwtParser jwtParser;
     private final String principalField;
+    private final UserMapping userMapping;
 
     @Inject
     public JwtAuthenticator(JwtAuthenticatorConfig config, SigningKeyResolver signingKeyResolver)
     {
-        super(createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile()));
         principalField = config.getPrincipalField();
 
         JwtParserBuilder jwtParser = Jwts.parserBuilder()
@@ -51,15 +53,22 @@ public class JwtAuthenticator
             jwtParser.requireAudience(config.getRequiredAudience());
         }
         this.jwtParser = jwtParser.build();
+        userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
     }
 
     @Override
-    protected Optional<Principal> extractPrincipalFromToken(String token)
+    protected Optional<Identity> createIdentity(String token)
+            throws UserMappingException
     {
-        return Optional.ofNullable(jwtParser.parseClaimsJws(token)
+        Optional<String> principal = Optional.ofNullable(jwtParser.parseClaimsJws(token)
                 .getBody()
-                .get(principalField, String.class))
-                .map(BasicPrincipal::new);
+                .get(principalField, String.class));
+        if (principal.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(Identity.forUser(userMapping.mapUser(principal.get()))
+                .withPrincipal(new BasicPrincipal(principal.get()))
+                .build());
     }
 
     @Override
