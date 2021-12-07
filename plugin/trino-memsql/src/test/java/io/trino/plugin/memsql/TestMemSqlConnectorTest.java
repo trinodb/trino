@@ -29,7 +29,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -144,12 +143,6 @@ public class TestMemSqlConnectorTest
         }
 
         return Optional.of(dataMappingTestSetup);
-    }
-
-    @Override
-    protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
-    {
-        return nullToEmpty(exception.getMessage()).matches(".*Incorrect column name.*");
     }
 
     @Override
