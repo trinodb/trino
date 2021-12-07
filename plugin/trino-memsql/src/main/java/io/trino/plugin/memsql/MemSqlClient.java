@@ -33,9 +33,7 @@ import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
@@ -368,35 +366,6 @@ public class MemSqlClient
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
-    }
-
-    @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
-    {
-        // MemSQL doesn't accept `some;column` in CTAS statements - so we explicitly block it and throw a proper error message
-        tableMetadata.getColumns().stream()
-                .map(ColumnMetadata::getName)
-                .filter(s -> s.contains(";"))
-                .findAny()
-                .ifPresent(illegalColumnName -> {
-                    throw new TrinoException(JDBC_ERROR, format("Incorrect column name '%s'", illegalColumnName));
-                });
-
-        super.createTable(session, tableMetadata);
-    }
-
-    @Override
-    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
-    {
-        // MemSQL doesn't accept `some;column` in CTAS statements - so we explicitly block it and throw a proper error message
-        columnNames.stream()
-                .filter(s -> s.contains(";"))
-                .findAny()
-                .ifPresent(illegalColumnName -> {
-                    throw new TrinoException(JDBC_ERROR, format("Incorrect column name '%s'", illegalColumnName));
-                });
-
-        super.copyTableSchema(connection, catalogName, schemaName, tableName, newTableName, columnNames);
     }
 
     @Override
