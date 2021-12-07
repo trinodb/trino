@@ -13,13 +13,13 @@
  */
 package io.trino.testing;
 
-import io.trino.GroupByHashPageIndexerFactory;
-import io.trino.PagesIndexPageSorter;
 import io.trino.connector.CatalogName;
 import io.trino.connector.ConnectorAwareNodeManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.Metadata;
+import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.PagesIndexPageSorter;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
