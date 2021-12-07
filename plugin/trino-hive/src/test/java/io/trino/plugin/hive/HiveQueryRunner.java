@@ -86,7 +86,7 @@ public final class HiveQueryRunner
     }
 
     public static class Builder
-            extends DistributedQueryRunner.Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
         private boolean skipTimezoneSetup;
         private Map<String, String> hiveProperties = ImmutableMap.of();
@@ -106,18 +106,6 @@ public final class HiveQueryRunner
         protected Builder()
         {
             super(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))));
-        }
-
-        @Override
-        public Builder setExtraProperties(Map<String, String> extraProperties)
-        {
-            return (Builder) super.setExtraProperties(extraProperties);
-        }
-
-        @Override
-        public Builder addExtraProperty(String key, String value)
-        {
-            return (Builder) super.addExtraProperty(key, value);
         }
 
         public Builder setSkipTimezoneSetup(boolean skipTimezoneSetup)
