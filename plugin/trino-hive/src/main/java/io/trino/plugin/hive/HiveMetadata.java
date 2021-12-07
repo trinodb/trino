@@ -288,6 +288,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
@@ -485,7 +486,7 @@ public class HiveMetadata
 
             handle = handle.withAnalyzePartitionValues(list);
             HivePartitionResult partitions = partitionManager.getPartitions(handle, list);
-            handle = partitionManager.applyPartitionResult(handle, partitions, Optional.empty());
+            handle = partitionManager.applyPartitionResult(handle, partitions, alwaysTrue());
         }
 
         if (analyzeColumnNames.isPresent()) {
@@ -761,8 +762,14 @@ public class HiveMetadata
         Map<String, Type> columnTypes = columns.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint);
-        List<HivePartition> partitions = partitionManager.getPartitionsAsList(partitionResult);
-        return hiveStatisticsProvider.getTableStatistics(session, ((HiveTableHandle) tableHandle).getSchemaTableName(), columns, columnTypes, partitions);
+        // If partitions are not loaded, then don't generate table statistics.
+        // Note that the computation is not persisted in the table handle, so can be redone many times
+        // TODO: https://github.com/trinodb/trino/issues/10980.
+        if (partitionManager.canPartitionsBeLoaded(partitionResult)) {
+            List<HivePartition> partitions = partitionManager.getPartitionsAsList(partitionResult);
+            return hiveStatisticsProvider.getTableStatistics(session, ((HiveTableHandle) tableHandle).getSchemaTableName(), columns, columnTypes, partitions);
+        }
+        return TableStatistics.empty();
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
@@ -2536,17 +2543,40 @@ public class HiveMetadata
         HiveTableHandle hiveTable = (HiveTableHandle) table;
 
         List<ColumnHandle> partitionColumns = ImmutableList.copyOf(hiveTable.getPartitionColumns());
-        List<HivePartition> partitions = partitionManager.getOrLoadPartitions(metastore, hiveTable);
-
-        TupleDomain<ColumnHandle> predicate = createPredicate(partitionColumns, partitions);
-
+        TupleDomain<ColumnHandle> predicate = TupleDomain.all();
         Optional<DiscretePredicates> discretePredicates = Optional.empty();
-        if (!partitionColumns.isEmpty()) {
-            // Do not create tuple domains for every partition at the same time!
-            // There can be a huge number of partitions so use an iterable so
-            // all domains do not need to be in memory at the same time.
-            Iterable<TupleDomain<ColumnHandle>> partitionDomains = Iterables.transform(partitions, hivePartition -> TupleDomain.fromFixedValues(hivePartition.getKeys()));
-            discretePredicates = Optional.of(new DiscretePredicates(partitionColumns, partitionDomains));
+
+        // If only partition names are loaded, then the predicates are partially enforced.
+        // So computation of  predicate and discretePredicates are not valid.
+        if (hiveTable.getPartitionNames().isEmpty()) {
+            Optional<List<HivePartition>> partitions = hiveTable.getPartitions()
+                    // If the partitions are not loaded, try out if they can be loaded.
+                    .or(() -> {
+                        // We load the partitions to compute the predicates enforced by the table.
+                        // Note that the computation is not persisted in the table handle, so can be redone many times
+                        // TODO: https://github.com/trinodb/trino/issues/10980.
+                        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, table, new Constraint(hiveTable.getEnforcedConstraint()));
+                        if (partitionManager.canPartitionsBeLoaded(partitionResult)) {
+                            return Optional.of(partitionManager.getPartitionsAsList(partitionResult));
+                        }
+                        return Optional.empty();
+                    });
+
+            if (partitions.isPresent()) {
+                List<HivePartition> hivePartitions = partitions.orElseThrow();
+                // Since the partitions are fully loaded now, we need to compute
+                predicate = createPredicate(partitionColumns, hivePartitions);
+
+                // Un-partitioned tables can have a partition with ID - UNPARTITIONED,
+                // this check allows us to ensure that table is partitioned
+                if (!partitionColumns.isEmpty()) {
+                    // Do not create tuple domains for every partition at the same time!
+                    // There can be a huge number of partitions so use an iterable so
+                    // all domains do not need to be in memory at the same time.
+                    Iterable<TupleDomain<ColumnHandle>> partitionDomains = Iterables.transform(hivePartitions, hivePartition -> TupleDomain.fromFixedValues(hivePartition.getKeys()));
+                    discretePredicates = Optional.of(new DiscretePredicates(partitionColumns, partitionDomains));
+                }
+            }
         }
 
         Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
@@ -2595,16 +2625,23 @@ public class HiveMetadata
         checkArgument(handle.getAnalyzePartitionValues().isEmpty() || constraint.getSummary().isAll(), "Analyze should not have a constraint");
 
         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, handle, constraint);
-        HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult, constraint.getPredicateColumns());
+        HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult, constraint);
 
         if (handle.getPartitions().equals(newHandle.getPartitions()) &&
+                handle.getPartitionNames().equals(newHandle.getPartitionNames()) &&
                 handle.getCompactEffectivePredicate().equals(newHandle.getCompactEffectivePredicate()) &&
                 handle.getBucketFilter().equals(newHandle.getBucketFilter()) &&
                 handle.getConstraintColumns().equals(newHandle.getConstraintColumns())) {
             return Optional.empty();
         }
 
-        return Optional.of(new ConstraintApplicationResult<>(newHandle, partitionResult.getUnenforcedConstraint(), false));
+        TupleDomain<ColumnHandle> unenforcedConstraint = partitionResult.getEffectivePredicate();
+        if (newHandle.getPartitions().isPresent()) {
+            List<HiveColumnHandle> partitionColumns = partitionResult.getPartitionColumns();
+            unenforcedConstraint = partitionResult.getEffectivePredicate().filter((column, domain) -> !partitionColumns.contains(column));
+        }
+
+        return Optional.of(new ConstraintApplicationResult<>(newHandle, unenforcedConstraint, false));
     }
 
     @Override
@@ -2838,6 +2875,7 @@ public class HiveMetadata
                 hiveTable.getTableParameters(),
                 hiveTable.getPartitionColumns(),
                 hiveTable.getDataColumns(),
+                hiveTable.getPartitionNames(),
                 hiveTable.getPartitions(),
                 hiveTable.getCompactEffectivePredicate(),
                 hiveTable.getEnforcedConstraint(),
