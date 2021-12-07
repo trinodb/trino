@@ -119,7 +119,6 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SkipTo.Position;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.util.GraphvizPrinter;
 
 import java.util.ArrayList;
 import java.util.Collection;
