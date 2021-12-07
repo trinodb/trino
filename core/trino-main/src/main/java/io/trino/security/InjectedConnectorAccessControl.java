@@ -140,10 +140,10 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanSetTableProperties(securityContext, getQualifiedObjectName(tableName), properties);
+        accessControl.checkCanSetTableProperties(securityContext, getQualifiedObjectName(tableName), nonNullProperties, nullPropertyNames);
     }
 
     @Override

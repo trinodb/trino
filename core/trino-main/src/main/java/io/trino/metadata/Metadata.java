@@ -206,7 +206,7 @@ public interface Metadata
     /**
      * Set properties to the specified table.
      */
-    void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties);
+    void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames);
 
     /**
      * Comments to the specified table.

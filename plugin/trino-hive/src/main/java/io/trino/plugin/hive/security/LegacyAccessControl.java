@@ -153,7 +153,7 @@ public class LegacyAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
     {
     }
 

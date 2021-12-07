@@ -141,10 +141,10 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanSetTableProperties(context, tableName, properties);
+            delegate.checkCanSetTableProperties(context, tableName, nonNullProperties, nullPropertyNames);
         }
     }
 

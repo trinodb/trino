@@ -210,9 +210,9 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+    public void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
     {
-        delegate().checkCanSetTableProperties(context, table, properties);
+        delegate().checkCanSetTableProperties(context, table, nonNullProperties, nullPropertyNames);
     }
 
     @Override

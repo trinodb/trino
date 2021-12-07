@@ -73,6 +73,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiFunction;
 
@@ -243,13 +244,15 @@ public class ClickHouseClient
     }
 
     @Override
-    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> properties)
+    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
     {
         // TODO: Support other table properties
-        checkArgument(properties.size() == 1 && properties.containsKey(SAMPLE_BY_PROPERTY), "Only support setting 'sample_by' property");
+        checkArgument(nonNullProperties.size() == 1 && nonNullProperties.containsKey(SAMPLE_BY_PROPERTY), "Only support setting 'sample_by' property");
+        // TODO: Support sampling key removal when we support a newer version of ClickHouse. See https://github.com/ClickHouse/ClickHouse/pull/30180.
+        checkArgument(nullPropertyNames.isEmpty(), "Setting a property to null is not supported");
 
         ImmutableList.Builder<String> tableOptions = ImmutableList.builder();
-        ClickHouseTableProperties.getSampleBy(properties).ifPresent(value -> tableOptions.add("SAMPLE BY " + value));
+        ClickHouseTableProperties.getSampleBy(nonNullProperties).ifPresent(value -> tableOptions.add("SAMPLE BY " + value));
 
         try (Connection connection = connectionFactory.openConnection(session)) {
             String sql = format(

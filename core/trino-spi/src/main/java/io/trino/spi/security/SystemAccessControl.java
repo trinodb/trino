@@ -379,7 +379,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+    default void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
     {
         denySetTableProperties(table.toString());
     }

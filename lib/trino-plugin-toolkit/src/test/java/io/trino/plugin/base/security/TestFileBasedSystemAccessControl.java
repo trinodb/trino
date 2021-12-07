@@ -769,9 +769,9 @@ public class TestFileBasedSystemAccessControl
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
 
-        accessControl.checkCanSetTableProperties(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableMap.of());
-        accessControl.checkCanSetTableProperties(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "alicetable"), ImmutableMap.of());
-        assertAccessDenied(() -> accessControl.checkCanSetTableProperties(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableMap.of()), SET_TABLE_PROPERTIES_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanSetTableProperties(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableMap.of(), ImmutableSet.of());
+        accessControl.checkCanSetTableProperties(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "alicetable"), ImmutableMap.of(), ImmutableSet.of());
+        assertAccessDenied(() -> accessControl.checkCanSetTableProperties(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableMap.of(), ImmutableSet.of()), SET_TABLE_PROPERTIES_ACCESS_DENIED_MESSAGE);
     }
 
     @Test
