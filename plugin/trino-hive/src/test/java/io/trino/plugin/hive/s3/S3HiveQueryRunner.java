@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.hive.s3;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.trino.plugin.hive.HdfsConfig;
@@ -35,6 +33,8 @@ import io.trino.testing.DistributedQueryRunner;
 import java.util.Map;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public final class S3HiveQueryRunner
 {
     private S3HiveQueryRunner() {}
@@ -44,46 +44,115 @@ public final class S3HiveQueryRunner
             Map<String, String> additionalHiveProperties)
             throws Exception
     {
-        return create(
-                hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
-                hiveMinioDataLake.getMinio().getMinioApiEndpoint(),
-                HiveMinioDataLake.ACCESS_KEY,
-                HiveMinioDataLake.SECRET_KEY,
-                additionalHiveProperties);
+        return builder(hiveMinioDataLake)
+                .setHiveProperties(additionalHiveProperties)
+                .build();
     }
 
     public static DistributedQueryRunner create(
-            HostAndPort hiveEndpoint,
+            HostAndPort hiveMetastoreEndpoint,
             HostAndPort s3Endpoint,
             String s3AccessKey,
             String s3SecretKey,
+            String bucketName,
             Map<String, String> additionalHiveProperties)
             throws Exception
     {
-        return HiveQueryRunner.builder()
-                .setMetastore(distributedQueryRunner -> new BridgingHiveMetastore(
-                        new ThriftHiveMetastore(
-                                new TestingMetastoreLocator(
-                                        Optional.empty(),
-                                        hiveEndpoint),
-                                new HiveConfig(),
-                                new MetastoreConfig(),
-                                new ThriftMetastoreConfig(),
-                                new HdfsEnvironment(new HiveHdfsConfiguration(
-                                        new HdfsConfigurationInitializer(
-                                                new HdfsConfig(),
-                                                ImmutableSet.of()),
-                                        ImmutableSet.of()),
-                                        new HdfsConfig(),
-                                        new NoHdfsAuthentication()),
-                                false)))
-                .setHiveProperties(ImmutableMap.<String, String>builder()
-                        .put("hive.s3.endpoint", "http://" + s3Endpoint)
-                        .put("hive.s3.aws-access-key", s3AccessKey)
-                        .put("hive.s3.aws-secret-key", s3SecretKey)
-                        .putAll(additionalHiveProperties)
-                        .build())
-                .setInitialTables(ImmutableList.of())
+        return builder()
+                .setHiveMetastoreEndpoint(hiveMetastoreEndpoint)
+                .setS3Endpoint(s3Endpoint)
+                .setS3AccessKey(s3AccessKey)
+                .setS3SecretKey(s3SecretKey)
+                .setBucketName(bucketName)
+                .setHiveProperties(additionalHiveProperties)
                 .build();
+    }
+
+    public static Builder builder(HiveMinioDataLake hiveMinioDataLake)
+    {
+        return builder()
+                .setHiveMetastoreEndpoint(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                .setS3Endpoint(hiveMinioDataLake.getMinio().getMinioApiEndpoint())
+                .setS3AccessKey(HiveMinioDataLake.ACCESS_KEY)
+                .setS3SecretKey(HiveMinioDataLake.SECRET_KEY)
+                .setBucketName(hiveMinioDataLake.getBucketName());
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+            extends HiveQueryRunner.Builder<Builder>
+    {
+        private HostAndPort hiveMetastoreEndpoint;
+        private HostAndPort s3Endpoint;
+        private String s3AccessKey;
+        private String s3SecretKey;
+        private String bucketName;
+
+        public Builder setHiveMetastoreEndpoint(HostAndPort hiveMetastoreEndpoint)
+        {
+            this.hiveMetastoreEndpoint = requireNonNull(hiveMetastoreEndpoint, "hiveMetastoreEndpoint is null");
+            return this;
+        }
+
+        public Builder setS3Endpoint(HostAndPort s3Endpoint)
+        {
+            this.s3Endpoint = requireNonNull(s3Endpoint, "s3Endpoint is null");
+            return this;
+        }
+
+        public Builder setS3AccessKey(String s3AccessKey)
+        {
+            this.s3AccessKey = requireNonNull(s3AccessKey, "s3AccessKey is null");
+            return this;
+        }
+
+        public Builder setS3SecretKey(String s3SecretKey)
+        {
+            this.s3SecretKey = requireNonNull(s3SecretKey, "s3SecretKey is null");
+            return this;
+        }
+
+        public Builder setBucketName(String bucketName)
+        {
+            this.bucketName = requireNonNull(bucketName, "bucketName is null");
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            requireNonNull(hiveMetastoreEndpoint, "hiveMetastoreEndpoint is null");
+            requireNonNull(s3Endpoint, "s3Endpoint is null");
+            requireNonNull(s3AccessKey, "s3AccessKey is null");
+            requireNonNull(s3SecretKey, "s3SecretKey is null");
+            requireNonNull(bucketName, "bucketName is null");
+
+            addHiveProperty("hive.s3.endpoint", "http://" + s3Endpoint);
+            addHiveProperty("hive.s3.aws-access-key", s3AccessKey);
+            addHiveProperty("hive.s3.aws-secret-key", s3SecretKey);
+            setMetastore(distributedQueryRunner -> new BridgingHiveMetastore(
+                            new ThriftHiveMetastore(
+                                    new TestingMetastoreLocator(
+                                            Optional.empty(),
+                                            hiveMetastoreEndpoint),
+                                    new HiveConfig(),
+                                    new MetastoreConfig(),
+                                    new ThriftMetastoreConfig(),
+                                    new HdfsEnvironment(new HiveHdfsConfiguration(
+                                            new HdfsConfigurationInitializer(
+                                                    new HdfsConfig(),
+                                                    ImmutableSet.of()),
+                                            ImmutableSet.of()),
+                                            new HdfsConfig(),
+                                            new NoHdfsAuthentication()),
+                                    false)));
+            setInitialSchemasLocationBase("s3a://" + bucketName); // cannot use s3:// as Hive metastore is not configured to accept it
+            return super.build();
+        }
     }
 }

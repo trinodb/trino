@@ -106,6 +106,11 @@ public class HiveMinioDataLake
         return hiveHadoop;
     }
 
+    public String getBucketName()
+    {
+        return bucketName;
+    }
+
     @Override
     public void close()
             throws Exception
