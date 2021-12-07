@@ -91,6 +91,7 @@ public final class HiveQueryRunner
         private boolean skipTimezoneSetup;
         private Map<String, String> hiveProperties = ImmutableMap.of();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
+        private Optional<String> initialSchemasLocationBase = Optional.empty();
         private Function<DistributedQueryRunner, HiveMetastore> metastore = queryRunner -> {
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
             return new FileHiveMetastore(
@@ -123,6 +124,12 @@ public final class HiveQueryRunner
         public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
         {
             this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
+            return this;
+        }
+
+        public Builder setInitialSchemasLocationBase(String initialSchemasLocationBase)
+        {
+            this.initialSchemasLocationBase = Optional.of(initialSchemasLocationBase);
             return this;
         }
 
@@ -187,12 +194,12 @@ public final class HiveQueryRunner
         {
             HiveIdentity identity = new HiveIdentity(SESSION);
             if (metastore.getDatabase(TPCH_SCHEMA).isEmpty()) {
-                metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_SCHEMA));
+                metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_SCHEMA, initialSchemasLocationBase));
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), initialTables);
             }
 
             if (metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isEmpty()) {
-                metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
+                metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA, initialSchemasLocationBase));
                 copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), initialTables);
             }
         }
@@ -204,9 +211,10 @@ public final class HiveQueryRunner
         logging.setLevel("org.apache.parquet.hadoop", WARN);
     }
 
-    private static Database createDatabaseMetastoreObject(String name)
+    private static Database createDatabaseMetastoreObject(String name, Optional<String> locationBase)
     {
         return Database.builder()
+                .setLocation(locationBase.map(base -> base + "/" + name))
                 .setDatabaseName(name)
                 .setOwnerName(Optional.of("public"))
                 .setOwnerType(Optional.of(PrincipalType.ROLE))
