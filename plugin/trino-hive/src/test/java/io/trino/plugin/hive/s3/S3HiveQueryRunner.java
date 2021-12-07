@@ -24,6 +24,7 @@ import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.TestingMetastoreLocator;
@@ -37,6 +38,19 @@ import java.util.Optional;
 public final class S3HiveQueryRunner
 {
     private S3HiveQueryRunner() {}
+
+    public static DistributedQueryRunner create(
+            HiveMinioDataLake hiveMinioDataLake,
+            Map<String, String> additionalHiveProperties)
+            throws Exception
+    {
+        return create(
+                hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
+                hiveMinioDataLake.getMinio().getMinioApiEndpoint(),
+                HiveMinioDataLake.ACCESS_KEY,
+                HiveMinioDataLake.SECRET_KEY,
+                additionalHiveProperties);
+    }
 
     public static DistributedQueryRunner create(
             HostAndPort hiveEndpoint,
