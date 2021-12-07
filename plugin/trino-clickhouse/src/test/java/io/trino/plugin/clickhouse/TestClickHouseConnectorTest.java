@@ -453,6 +453,17 @@ public class TestClickHouseConnectorTest
         }
     }
 
+    @Test
+    @Override
+    public void testDateYearOfEraPredicate()
+    {
+        // Override because ClickHouse throws an exception instead of an empty result when the value is out of range
+        assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
+        assertQueryFails(
+                "SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'",
+                "(?s).*Cannot convert string -1996-09-14 to type Date.*");
+    }
+
     @Override
     protected SqlExecutor onRemoteDatabase()
     {

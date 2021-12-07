@@ -378,6 +378,14 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testDateYearOfEraPredicate()
+    {
+        // Verify the predicate of '-1996-09-14' doesn't match '1997-09-14'
+        assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
+        assertQueryReturnsEmptyResult("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'");
+    }
+
+    @Test
     public void testPredicateReflectedInExplain()
     {
         // Even if the predicate is pushed down into the table scan, it should still be reflected in EXPLAIN (via ConnectorTableHandle.toString)

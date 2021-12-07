@@ -27,6 +27,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.assertions.Assert;
 import io.trino.testing.sql.SqlExecutor;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -274,5 +275,12 @@ public abstract class BaseDruidConnectorTest
                         "LEFT JOIN region r USING (regionkey) " +
                         "LIMIT 30"))
                 .isNotFullyPushedDown(joinOverTableScans);
+    }
+
+    @Test
+    @Override
+    public void testDateYearOfEraPredicate()
+    {
+        throw new SkipException("Druid connector does not map 'orderdate' column to date type");
     }
 }
