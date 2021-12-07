@@ -642,6 +642,11 @@ public class SqlStandardAccessControl
             return true;
         }
 
+        // create is not supported
+        if (privilege == Privilege.CREATE) {
+            return false;
+        }
+
         return listApplicableTablePrivileges(
                 context,
                 tableName.getSchemaName(),
