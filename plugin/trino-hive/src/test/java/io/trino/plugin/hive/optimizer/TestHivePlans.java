@@ -60,6 +60,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -296,8 +297,22 @@ public class TestHivePlans
     @Test
     public void testQueryScanningForTooManyPartitions()
     {
-        assertThatThrownBy(() -> plan("SELECT l.str_col, r.str_col FROM table_int_with_too_many_partitions l JOIN table_unpartitioned r ON l.int_part = r.int_col"))
-                .getCause()
+        String query = "SELECT l.str_col, r.str_col FROM table_int_with_too_many_partitions l JOIN table_unpartitioned r ON l.int_part = r.int_col";
+        assertDistributedPlan(
+                query,
+                output(
+                        exchange(REMOTE, GATHER,
+                                join(INNER, List.of(equiJoinClause("L_INT_PART", "R_INT_COL")),
+                                        project(
+                                                filter("true", //dynamic filter
+                                                        tableScan("table_int_with_too_many_partitions", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))),
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPLICATE,
+                                                        project(
+                                                                tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
+
+        // The partitions will be loaded during split creation, so it fails during execution.
+        assertThatThrownBy(() -> getQueryRunner().execute(query))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Query over table 'test_schema.table_int_with_too_many_partitions' can potentially read more than 5 partitions");
     }
