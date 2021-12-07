@@ -42,6 +42,7 @@ import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toSet;
 
 public class SqlStandardAccessControlMetadata
@@ -174,6 +175,13 @@ public class SqlStandardAccessControlMetadata
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
+        // Hive does not support the CREATE privilege, so ignore. Normally we would throw
+        // an error for this, but when the Trino engine sees ALL_PRIVILEGES, it sends the
+        // enumerated list of privileges instead of an Optional.empty
+        privileges = privileges.stream()
+                .filter(not(Privilege.CREATE::equals))
+                .collect(toImmutableSet());
+
         metastore.grantTablePrivileges(
                 new HiveIdentity(session),
                 schemaName,
@@ -191,6 +199,13 @@ public class SqlStandardAccessControlMetadata
     {
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
+
+        // Hive does not support the CREATE privilege, so ignore. Normally we would throw
+        // an error for this, but when the Trino engine sees ALL_PRIVILEGES, it sends the
+        // enumerated list of privileges instead of an Optional.empty
+        privileges = privileges.stream()
+                .filter(not(Privilege.CREATE::equals))
+                .collect(toImmutableSet());
 
         metastore.revokeTablePrivileges(
                 new HiveIdentity(session),
