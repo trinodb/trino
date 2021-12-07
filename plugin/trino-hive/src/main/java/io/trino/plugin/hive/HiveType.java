@@ -26,6 +26,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.UnionTypeInfo;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
@@ -56,6 +57,8 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfosF
 
 public final class HiveType
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveType.class).instanceSize();
+
     public static final HiveType HIVE_BOOLEAN = new HiveType(booleanTypeInfo);
     public static final HiveType HIVE_BYTE = new HiveType(byteTypeInfo);
     public static final HiveType HIVE_SHORT = new HiveType(shortTypeInfo);
@@ -244,5 +247,11 @@ public final class HiveType
         }
 
         return dereferenceNames.build();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        // typeInfo is not accounted for as the instances are cached (by TypeInfoFactory) and shared
+        return INSTANCE_SIZE + hiveTypeName.getEstimatedSizeInBytes();
     }
 }

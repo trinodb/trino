@@ -15,6 +15,7 @@ package io.trino.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -25,6 +26,8 @@ import static java.lang.Math.multiplyExact;
 
 public final class SplitWeight
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SplitWeight.class).instanceSize();
+
     private static final long UNIT_VALUE = 100;
     private static final int UNIT_SCALE = 2; // Decimal scale such that (10 ^ UNIT_SCALE) == UNIT_VALUE
     private static final SplitWeight STANDARD_WEIGHT = new SplitWeight(UNIT_VALUE);
@@ -108,5 +111,10 @@ public final class SplitWeight
             sum = addExact(sum, value);
         }
         return sum;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE;
     }
 }

@@ -19,16 +19,19 @@ import com.google.common.collect.ImmutableList;
 import io.trino.execution.TaskId;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
-import java.net.URI;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class RemoteSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RemoteSplit.class).instanceSize();
+
     private final TaskId taskId;
     private final String location;
 
@@ -76,5 +79,13 @@ public class RemoteSplit
                 .add("taskId", taskId)
                 .add("location", location)
                 .toString();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + taskId.getRetainedSizeInBytes()
+                + estimatedSizeOf(location);
     }
 }

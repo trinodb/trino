@@ -16,18 +16,24 @@ package io.trino.plugin.phoenix;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.slice.SizeOf;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.spi.HostAddress;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class PhoenixSplit
         extends JdbcSplit
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PhoenixSplit.class).instanceSize();
+
     private final List<HostAddress> addresses;
     private final SerializedPhoenixInputSplit serializedPhoenixInputSplit;
 
@@ -58,5 +64,14 @@ public class PhoenixSplit
     public PhoenixInputSplit getPhoenixInputSplit()
     {
         return serializedPhoenixInputSplit.deserialize();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + sizeOf(getAdditionalPredicate(), SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
+                + serializedPhoenixInputSplit.getRetainedSizeInBytes();
     }
 }
