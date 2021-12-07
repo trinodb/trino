@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.connector.CatalogName;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
@@ -27,6 +28,8 @@ import static java.util.Objects.requireNonNull;
 public class EmptySplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(EmptySplit.class).instanceSize();
+
     private final CatalogName catalogName;
 
     @JsonCreator
@@ -52,6 +55,13 @@ public class EmptySplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + catalogName.getRetainedSizeInBytes();
     }
 
     @JsonProperty

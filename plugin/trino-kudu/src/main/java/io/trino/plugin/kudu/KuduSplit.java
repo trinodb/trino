@@ -19,15 +19,19 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.SchemaTableName;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class KuduSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(KuduSplit.class).instanceSize();
+
     private final SchemaTableName schemaTableName;
     private final int primaryKeyColumnCount;
     private final byte[] serializedScanToken;
@@ -87,5 +91,13 @@ public class KuduSplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + schemaTableName.getRetainedSizeInBytes()
+                + sizeOf(serializedScanToken);
     }
 }
