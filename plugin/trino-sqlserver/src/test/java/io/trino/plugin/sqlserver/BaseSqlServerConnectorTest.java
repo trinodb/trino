@@ -453,6 +453,12 @@ public abstract class BaseSqlServerConnectorTest
         assertUpdate("DROP TABLE test_show_unique_constraint_table");
     }
 
+    @Override
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
+    {
+        return format("Cannot insert the value NULL into column '%s'.*", columnName);
+    }
+
     private String getLongInClause(int start, int length)
     {
         String longValues = range(start, start + length)
