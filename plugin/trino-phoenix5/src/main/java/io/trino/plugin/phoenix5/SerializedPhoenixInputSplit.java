@@ -18,14 +18,18 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.io.ByteStreams;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class SerializedPhoenixInputSplit
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SerializedPhoenixInputSplit.class).instanceSize();
+
     private final byte[] bytes;
 
     public static SerializedPhoenixInputSplit serialize(PhoenixInputSplit split)
@@ -55,5 +59,10 @@ public class SerializedPhoenixInputSplit
             throw new UncheckedIOException(e);
         }
         return split;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(bytes);
     }
 }

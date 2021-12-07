@@ -17,16 +17,21 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class SheetsSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SheetsSplit.class).instanceSize();
+
     private final String schemaName;
     private final String tableName;
     private final List<List<String>> values;
@@ -82,5 +87,15 @@ public class SheetsSplit
                 .put("tableName", tableName)
                 .put("hostAddresses", hostAddresses)
                 .build();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(schemaName)
+                + estimatedSizeOf(tableName)
+                + estimatedSizeOf(values, value -> estimatedSizeOf(value, SizeOf::estimatedSizeOf))
+                + estimatedSizeOf(hostAddresses, HostAddress::getRetainedSizeInBytes);
     }
 }

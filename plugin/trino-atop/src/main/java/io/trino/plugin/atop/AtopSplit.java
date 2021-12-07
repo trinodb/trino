@@ -18,18 +18,22 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.time.Instant.ofEpochSecond;
 import static java.util.Objects.requireNonNull;
 
 public class AtopSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AtopSplit.class).instanceSize();
+
     private final HostAddress host;
     private final long epochSeconds;
     private final String timeZoneId;
@@ -85,6 +89,14 @@ public class AtopSplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + host.getRetainedSizeInBytes()
+                + estimatedSizeOf(timeZoneId);
     }
 
     @Override

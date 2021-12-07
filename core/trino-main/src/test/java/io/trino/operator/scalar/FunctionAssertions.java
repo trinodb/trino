@@ -984,6 +984,8 @@ public final class FunctionAssertions
     private static class TestSplit
             implements ConnectorSplit
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestSplit.class).instanceSize();
+
         private final boolean recordSet;
 
         private TestSplit(boolean recordSet)
@@ -1012,6 +1014,12 @@ public final class FunctionAssertions
         public Object getInfo()
         {
             return this;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
         }
     }
 }
