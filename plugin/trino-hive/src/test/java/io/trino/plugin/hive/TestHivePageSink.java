@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slices;
-import io.trino.GroupByHashPageIndexerFactory;
+import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
