@@ -43,7 +43,7 @@ public class GenericDoubleStateSerializer
             out.appendNull();
         }
         else {
-            serializedType.writeDouble(out, state.getDouble());
+            serializedType.writeDouble(out, state.getValue());
         }
     }
 
@@ -51,6 +51,6 @@ public class GenericDoubleStateSerializer
     public void deserialize(Block block, int index, GenericDoubleState state)
     {
         state.setNull(false);
-        state.setDouble(serializedType.getDouble(block, index));
+        state.setValue(serializedType.getDouble(block, index));
     }
 }

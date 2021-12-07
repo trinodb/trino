@@ -31,6 +31,7 @@ import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -111,6 +112,7 @@ public final class HiveSessionProperties
     private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
     private static final String LEGACY_HIVE_VIEW_TRANSLATION = "legacy_hive_view_translation";
+    private static final String ICEBERG_CATALOG_NAME = "iceberg_catalog_name";
     public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     public static final String NON_TRANSACTIONAL_OPTIMIZE_ENABLED = "non_transactional_optimize_enabled";
@@ -463,6 +465,11 @@ public final class HiveSessionProperties
                         "Use legacy Hive view translation mechanism",
                         hiveConfig.isLegacyHiveViewTranslation(),
                         false),
+                stringProperty(
+                        ICEBERG_CATALOG_NAME,
+                        "Catalog to redirect to when an Iceberg table is referenced",
+                        hiveConfig.getIcebergCatalogName().orElse(null),
+                        false),
                 booleanProperty(
                         SIZE_BASED_SPLIT_WEIGHTS_ENABLED,
                         "Enable estimating split weights based on size in bytes",
@@ -788,6 +795,11 @@ public final class HiveSessionProperties
     public static boolean isLegacyHiveViewTranslation(ConnectorSession session)
     {
         return session.getProperty(LEGACY_HIVE_VIEW_TRANSLATION, Boolean.class);
+    }
+
+    public static Optional<String> getIcebergCatalogName(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(ICEBERG_CATALOG_NAME, String.class));
     }
 
     public static boolean isSizeBasedSplitWeightsEnabled(ConnectorSession session)

@@ -27,7 +27,6 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -488,9 +487,17 @@ public class PipelineStats
                 outputDataSize,
                 outputPositions,
                 physicalWrittenDataSize,
-                operatorSummaries.stream()
-                        .map(OperatorStats::summarize)
-                        .collect(Collectors.toList()),
+                summarizeOperatorStats(operatorSummaries),
                 ImmutableList.of());
+    }
+
+    private static List<OperatorStats> summarizeOperatorStats(List<OperatorStats> operatorSummaries)
+    {
+        // Use an exact size ImmutableList builder to avoid a redundant copy in the PipelineStats constructor
+        ImmutableList.Builder<OperatorStats> results = ImmutableList.builderWithExpectedSize(operatorSummaries.size());
+        for (OperatorStats operatorStats : operatorSummaries) {
+            results.add(operatorStats.summarize());
+        }
+        return results.build();
     }
 }

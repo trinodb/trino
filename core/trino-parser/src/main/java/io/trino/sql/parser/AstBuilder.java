@@ -154,6 +154,7 @@ import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.QuantifiedPattern;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QueryBody;
+import io.trino.sql.tree.QueryPeriod;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.RefreshMaterializedView;
@@ -446,8 +447,9 @@ class AstBuilder
     @Override
     public Node visitRefreshMaterializedView(SqlBaseParser.RefreshMaterializedViewContext context)
     {
-        return new RefreshMaterializedView(Optional.of(getLocation(context)),
-                getQualifiedName(context.qualifiedName()));
+        return new RefreshMaterializedView(
+                Optional.of(getLocation(context)),
+                new Table(getQualifiedName(context.qualifiedName())));
     }
 
     @Override
@@ -484,7 +486,7 @@ class AstBuilder
         }
 
         return new Insert(
-                getQualifiedName(context.qualifiedName()),
+                new Table(getQualifiedName(context.qualifiedName())),
                 columnAliases,
                 (Query) visit(context.query()));
     }
@@ -1696,6 +1698,9 @@ class AstBuilder
     @Override
     public Node visitTableName(SqlBaseParser.TableNameContext context)
     {
+        if (context.queryPeriod() != null) {
+            return new Table(getLocation(context), getQualifiedName(context.qualifiedName()), (QueryPeriod) visit(context.queryPeriod()));
+        }
         return new Table(getLocation(context), getQualifiedName(context.qualifiedName()));
     }
 
@@ -2247,6 +2252,11 @@ class AstBuilder
             }
         }
 
+        List<Expression> arguments = visit(context.expression(), Expression.class);
+        if (context.label != null) {
+            arguments = ImmutableList.of(new DereferenceExpression(getLocation(context.label), (Identifier) visit(context.label)));
+        }
+
         return new FunctionCall(
                 Optional.of(getLocation(context)),
                 name,
@@ -2256,7 +2266,7 @@ class AstBuilder
                 distinct,
                 nulls,
                 mode,
-                visit(context.expression(), Expression.class));
+                arguments);
     }
 
     @Override
@@ -2777,6 +2787,14 @@ class AstBuilder
                 ImmutableList.of(new TypeParameter((DataType) visit(context.type()))));
     }
 
+    @Override
+    public Node visitQueryPeriod(SqlBaseParser.QueryPeriodContext context)
+    {
+        QueryPeriod.RangeType type = getRangeType((Token) context.rangeType().getChild(0).getPayload());
+        Expression marker = (Expression) visit(context.valueExpression());
+        return new QueryPeriod(getLocation(context), type, marker);
+    }
+
     // ***************** helpers *****************
 
     @Override
@@ -3202,5 +3220,16 @@ class AstBuilder
     private static ParsingException parseError(String message, ParserRuleContext context)
     {
         return new ParsingException(message, null, context.getStart().getLine(), context.getStart().getCharPositionInLine() + 1);
+    }
+
+    private static QueryPeriod.RangeType getRangeType(Token token)
+    {
+        switch (token.getType()) {
+            case SqlBaseLexer.TIMESTAMP:
+                return QueryPeriod.RangeType.TIMESTAMP;
+            case SqlBaseLexer.VERSION:
+                return QueryPeriod.RangeType.VERSION;
+        }
+        throw new IllegalArgumentException("Unsupported query period range type: " + token.getText());
     }
 }

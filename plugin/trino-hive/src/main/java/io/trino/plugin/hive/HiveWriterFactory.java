@@ -39,7 +39,6 @@ import io.trino.spi.PageSorter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SortOrder;
-import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
@@ -62,6 +61,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -72,6 +72,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Maps.immutableEntry;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
@@ -256,8 +257,12 @@ public class HiveWriterFactory
 
         requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
         this.sessionProperties = hiveSessionProperties.getSessionProperties().stream()
-                .collect(toImmutableMap(PropertyMetadata::getName,
-                        entry -> session.getProperty(entry.getName(), entry.getJavaType()).toString()));
+                .map(propertyMetadata -> immutableEntry(
+                        propertyMetadata.getName(),
+                        session.getProperty(propertyMetadata.getName(), propertyMetadata.getJavaType())))
+                // The session properties collected here are used for events only. Filter out nulls to avoid problems with downstream consumers
+                .filter(entry -> entry.getValue() != null)
+                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().toString()));
 
         Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session), writePath);
         configureCompression(conf, getCompressionCodec(session));
@@ -655,7 +660,7 @@ public class HiveWriterFactory
 
     private String computeFileName(OptionalInt bucketNumber)
     {
-        // Currently CTAS for transactional tables in Presto creates non-transactional ("original") files.
+        // Currently CTAS for transactional tables in Trino creates non-transactional ("original") files.
         // Hive requires "original" files of transactional tables to conform to the following naming pattern:
         //
         // For bucketed tables we drop query id from file names and just leave <bucketId>_0

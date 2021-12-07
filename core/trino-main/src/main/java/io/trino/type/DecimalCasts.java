@@ -31,6 +31,7 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.VarcharType;
 import io.trino.util.JsonCastException;
 
 import java.io.IOException;
@@ -62,6 +63,7 @@ import static io.trino.spi.type.UnscaledDecimal128Arithmetic.overflows;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
+import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.createJsonGenerator;
@@ -91,7 +93,6 @@ public final class DecimalCasts
     public static final SqlScalarFunction DOUBLE_TO_DECIMAL_CAST = castFunctionToDecimalFrom(DOUBLE.getTypeSignature(), "doubleToShortDecimal", "doubleToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_REAL_CAST = castFunctionFromDecimalTo(REAL.getTypeSignature(), "shortDecimalToReal", "longDecimalToReal");
     public static final SqlScalarFunction REAL_TO_DECIMAL_CAST = castFunctionToDecimalFrom(REAL.getTypeSignature(), "realToShortDecimal", "realToLongDecimal");
-    public static final SqlScalarFunction DECIMAL_TO_VARCHAR_CAST = castFunctionFromDecimalTo(new TypeSignature("varchar", typeVariable("x")), "shortDecimalToVarchar", "longDecimalToVarchar");
     public static final SqlScalarFunction VARCHAR_TO_DECIMAL_CAST = castFunctionToDecimalFrom(new TypeSignature("varchar", typeVariable("x")), "varcharToShortDecimal", "varcharToLongDecimal");
     public static final SqlScalarFunction DECIMAL_TO_JSON_CAST = castFunctionFromDecimalTo(JSON.getTypeSignature(), "shortDecimalToJson", "longDecimalToJson");
     public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(JSON.getTypeSignature(), true, "jsonToShortDecimal", "jsonToLongDecimal");
@@ -156,6 +157,30 @@ public final class DecimalCasts
                                     return ImmutableList.of(resultType.getPrecision(), resultType.getScale(), tenToScale);
                                 }))).build();
     }
+
+    public static final SqlScalarFunction DECIMAL_TO_VARCHAR_CAST = new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
+            .signature(Signature.builder()
+                    .operatorType(CAST)
+                    .argumentTypes(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
+                    .returnType(new TypeSignature("varchar", typeVariable("x")))
+                    .build())
+            .deterministic(true)
+            .choice(choice -> choice
+                    .implementation(methodsGroup -> methodsGroup
+                            .methods("shortDecimalToVarchar", "longDecimalToVarchar")
+                            .withExtraParameters((context) -> {
+                                long scale = context.getLiteral("scale");
+                                VarcharType resultType = (VarcharType) context.getReturnType();
+                                long length;
+                                if (resultType.isUnbounded()) {
+                                    length = UNBOUNDED_LENGTH;
+                                }
+                                else {
+                                    length = resultType.getBoundedLength();
+                                }
+                                return ImmutableList.of(scale, length);
+                            })))
+            .build();
 
     private DecimalCasts() {}
 
@@ -457,15 +482,27 @@ public final class DecimalCasts
     }
 
     @UsedByGeneratedCode
-    public static Slice shortDecimalToVarchar(long decimal, long precision, long scale, long tenToScale)
+    public static Slice shortDecimalToVarchar(long decimal, long scale, long varcharLength)
     {
-        return utf8Slice(Decimals.toString(decimal, DecimalConversions.intScale(scale)));
+        String stringValue = Decimals.toString(decimal, DecimalConversions.intScale(scale));
+        // String is all-ASCII, so String.length() here returns actual code points count
+        if (stringValue.length() <= varcharLength) {
+            return utf8Slice(stringValue);
+        }
+
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", stringValue, varcharLength));
     }
 
     @UsedByGeneratedCode
-    public static Slice longDecimalToVarchar(Slice decimal, long precision, long scale, BigInteger tenToScale)
+    public static Slice longDecimalToVarchar(Slice decimal, long scale, long varcharLength)
     {
-        return utf8Slice(Decimals.toString(decimal, DecimalConversions.intScale(scale)));
+        String stringValue = Decimals.toString(decimal, DecimalConversions.intScale(scale));
+        // String is all-ASCII, so String.length() here returns actual code points count
+        if (stringValue.length() <= varcharLength) {
+            return utf8Slice(stringValue);
+        }
+
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", stringValue, varcharLength));
     }
 
     @UsedByGeneratedCode

@@ -14,21 +14,16 @@
 package io.trino.operator.aggregation.minmaxby;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
-import io.trino.operator.aggregation.AbstractMinMaxNAggregationFunction;
-import io.trino.operator.aggregation.AccumulatorCompiler;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.GenericAccumulatorFactoryBinder;
-import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.aggregation.TypedKeyValueHeap;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -39,19 +34,16 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.util.MinMaxCompare;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -62,7 +54,6 @@ import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.MinMaxCompare.getMinMaxCompare;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Math.toIntExact;
-import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMinMaxByNAggregationFunction
         extends SqlAggregationFunction
@@ -72,7 +63,6 @@ public abstract class AbstractMinMaxByNAggregationFunction
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(AbstractMinMaxByNAggregationFunction.class, "output", ArrayType.class, MinMaxByNState.class, BlockBuilder.class);
     private static final long MAX_NUMBER_OF_VALUES = 10_000;
 
-    private final String name;
     private final boolean min;
 
     protected AbstractMinMaxByNAggregationFunction(String name, boolean min, String description)
@@ -86,11 +76,7 @@ public abstract class AbstractMinMaxByNAggregationFunction
                                 arrayType(new TypeSignature("V")),
                                 ImmutableList.of(new TypeSignature("V"), new TypeSignature("K"), BIGINT.getTypeSignature()),
                                 false),
-                        true,
-                        ImmutableList.of(
-                                new FunctionArgumentDefinition(true),
-                                new FunctionArgumentDefinition(false),
-                                new FunctionArgumentDefinition(false)),
+                        new FunctionNullability(true, ImmutableList.of(true, false, false)),
                         false,
                         true,
                         description,
@@ -100,21 +86,20 @@ public abstract class AbstractMinMaxByNAggregationFunction
                         BIGINT.getTypeSignature(),
                         arrayType(new TypeSignature("K")),
                         arrayType(new TypeSignature("V"))));
-        this.name = requireNonNull(name, "name is null");
         this.min = min;
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies(BoundSignature boundSignature)
     {
-        return MinMaxCompare.getMinMaxCompareFunctionDependencies(functionBinding.getTypeVariable("K").getTypeSignature(), min);
+        return MinMaxCompare.getMinMaxCompareFunctionDependencies(boundSignature.getArgumentTypes().get(1).getTypeSignature(), min);
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public AggregationMetadata specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type keyType = functionBinding.getTypeVariable("K");
-        Type valueType = functionBinding.getTypeVariable("V");
+        Type keyType = boundSignature.getArgumentTypes().get(1);
+        Type valueType = boundSignature.getArgumentTypes().get(0);
         MethodHandle keyComparisonMethod = getMinMaxCompare(functionDependencies, keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION), min);
         return generateAggregation(keyComparisonMethod, valueType, keyType);
     }
@@ -176,36 +161,20 @@ public abstract class AbstractMinMaxByNAggregationFunction
         out.closeEntry();
     }
 
-    protected InternalAggregationFunction generateAggregation(MethodHandle keyComparisonMethod, Type valueType, Type keyType)
+    protected AggregationMetadata generateAggregation(MethodHandle keyComparisonMethod, Type valueType, Type keyType)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(AbstractMinMaxNAggregationFunction.class.getClassLoader());
-
-        List<Type> inputTypes = ImmutableList.of(valueType, keyType, BIGINT);
         MinMaxByNStateSerializer stateSerializer = new MinMaxByNStateSerializer(keyComparisonMethod, keyType, valueType);
-        Type intermediateType = stateSerializer.getSerializedType();
         ArrayType outputType = new ArrayType(valueType);
 
-        List<AggregationMetadata.ParameterMetadata> inputParameterMetadata = ImmutableList.of(
-                new AggregationMetadata.ParameterMetadata(STATE),
-                new AggregationMetadata.ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, valueType),
-                new AggregationMetadata.ParameterMetadata(BLOCK_INPUT_CHANNEL, keyType),
-                new AggregationMetadata.ParameterMetadata(BLOCK_INDEX),
-                new AggregationMetadata.ParameterMetadata(INPUT_CHANNEL, BIGINT));
-
-        AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(name, valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
-                inputParameterMetadata,
+        return new AggregationMetadata(
+                ImmutableList.of(STATE, NULLABLE_BLOCK_INPUT_CHANNEL, BLOCK_INPUT_CHANNEL, BLOCK_INDEX, INPUT_CHANNEL),
                 INPUT_FUNCTION.bindTo(keyComparisonMethod).bindTo(valueType).bindTo(keyType),
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION.bindTo(outputType),
-                ImmutableList.of(new AccumulatorStateDescriptor(
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
                         MinMaxByNState.class,
                         stateSerializer,
-                        new MinMaxByNStateFactory())),
-                outputType);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(name, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
+                        new MinMaxByNStateFactory())));
     }
 }

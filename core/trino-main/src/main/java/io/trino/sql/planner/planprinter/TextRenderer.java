@@ -18,6 +18,8 @@ import io.airlift.units.DataSize;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 
@@ -27,6 +29,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -135,6 +139,8 @@ public class TextRenderer
         }
         output.append("\n");
 
+        printMetrics(output, "connector metrics:", BasicOperatorStats::getConnectorMetrics, nodeStats);
+        printMetrics(output, "metrics:", BasicOperatorStats::getMetrics, nodeStats);
         printDistributions(output, nodeStats);
         printCollisions(output, nodeStats);
 
@@ -143,6 +149,26 @@ public class TextRenderer
         }
 
         return output.toString();
+    }
+
+    private void printMetrics(StringBuilder output, String label, Function<BasicOperatorStats, Metrics> metricsGetter, PlanNodeStats stats)
+    {
+        if (!verbose) {
+            return;
+        }
+
+        Map<String, String> translatedOperatorTypes = translateOperatorTypes(stats.getOperatorTypes());
+        for (String operator : translatedOperatorTypes.keySet()) {
+            String translatedOperatorType = translatedOperatorTypes.get(operator);
+            Metrics metrics = metricsGetter.apply(stats.getOperatorStats().get(operator));
+            if (metrics.getMetrics().isEmpty()) {
+                continue;
+            }
+
+            output.append(translatedOperatorType + label).append("\n");
+            Map<String, Metric<?>> sortedMap = new TreeMap<>(metrics.getMetrics());
+            sortedMap.forEach((name, metric) -> output.append(format("  '%s' = %s\n", name, metric)));
+        }
     }
 
     private void printDistributions(StringBuilder output, PlanNodeStats stats)
@@ -156,8 +182,11 @@ public class TextRenderer
             double inputAverage = inputAverages.get(operator);
 
             output.append(translatedOperatorType);
-            output.append(format(Locale.US, "Input avg.: %s rows, Input std.dev.: %s%%\n",
-                    formatDouble(inputAverage), formatDouble(100.0d * inputStdDevs.get(operator) / inputAverage)));
+            output.append(format(
+                    Locale.US,
+                    "Input avg.: %s rows, Input std.dev.: %s%%\n",
+                    formatDouble(inputAverage),
+                    formatDouble(100.0d * inputStdDevs.get(operator) / inputAverage)));
         }
     }
 

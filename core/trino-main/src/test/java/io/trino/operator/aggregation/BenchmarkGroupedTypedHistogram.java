@@ -13,10 +13,9 @@
  */
 package io.trino.operator.aggregation;
 
-import com.google.common.primitives.Ints;
+import com.google.common.collect.ImmutableList;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.GroupByIdBlock;
-import io.trino.operator.aggregation.groupby.GroupByAggregationTestUtils;
 import io.trino.operator.aggregation.histogram.Histogram;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -111,15 +110,8 @@ public class BenchmarkGroupedTypedHistogram
                 groupByIdBlocks[j] = groupByIdBlock;
             }
 
-            InternalAggregationFunction aggregationFunction = getInternalAggregationFunctionVarChar();
-            groupedAccumulator = createGroupedAccumulator(aggregationFunction);
-        }
-
-        private GroupedAccumulator createGroupedAccumulator(InternalAggregationFunction function)
-        {
-            int[] args = GroupByAggregationTestUtils.createArgs(function);
-
-            return function.bind(Ints.asList(args), Optional.empty())
+            TestingAggregationFunction aggregationFunction = getInternalAggregationFunctionVarChar();
+            groupedAccumulator = aggregationFunction.bind(ImmutableList.of(0), Optional.empty())
                     .createGroupedAccumulator();
         }
     }
@@ -138,10 +130,10 @@ public class BenchmarkGroupedTypedHistogram
         return groupedAccumulator;
     }
 
-    private static InternalAggregationFunction getInternalAggregationFunctionVarChar()
+    private static TestingAggregationFunction getInternalAggregationFunctionVarChar()
     {
         TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-        return functionResolution.getAggregateFunctionImplementation(QualifiedName.of(Histogram.NAME), fromTypes(VARCHAR));
+        return functionResolution.getAggregateFunction(QualifiedName.of(Histogram.NAME), fromTypes(VARCHAR));
     }
 
     public static void main(String[] args)

@@ -43,6 +43,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.ResponseHandlerUtils.propagate;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.CANCEL_QUERY;
@@ -89,8 +90,8 @@ public class TestSqlCancel
         String sql = format("CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem", tableName);
 
         runAndCancelQuery(sql);
-        assertThat(() -> query("SELECT * from " + tableName))
-                .failsWithMessage(format("Table 'hive.default.%s' does not exist", tableName));
+        assertQueryFailure(() -> query("SELECT * from " + tableName))
+                .hasMessageContaining("Table 'hive.default.%s' does not exist", tableName);
     }
 
     @Test(groups = CANCEL_QUERY, timeOut = 60_000L)

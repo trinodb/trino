@@ -96,7 +96,7 @@ public class BenchmarkArrayAggregation
                 default:
                     throw new UnsupportedOperationException();
             }
-            InternalAggregationFunction function = new TestingFunctionResolution().getAggregateFunctionImplementation(QualifiedName.of("array_agg"), fromTypes(elementType));
+            TestingAggregationFunction function = new TestingFunctionResolution().getAggregateFunction(QualifiedName.of("array_agg"), fromTypes(elementType));
             accumulator = function.bind(ImmutableList.of(0), Optional.empty()).createAccumulator();
 
             block = createChannel(ARRAY_SIZE, elementType);

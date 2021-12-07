@@ -38,7 +38,6 @@ import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
-import io.trino.spi.connector.SystemTable;
 
 import javax.inject.Singleton;
 
@@ -91,6 +90,8 @@ public class HiveModule
                 .setDefault().to(DefaultHiveMaterializedViewMetadataFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, TransactionalMetadataFactory.class)
                 .setDefault().to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, HiveTableRedirectionsProvider.class)
+                .setDefault().to(DefaultHiveTableRedirectionsProvider.class);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generator -> generator.generatedNameOf(HiveSplitManager.class));
@@ -124,8 +125,6 @@ public class HiveModule
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
         fileWriterFactoryBinder.addBinding().to(ParquetFileWriterFactory.class).in(Scopes.SINGLETON);
-
-        newSetBinder(binder, SystemTable.class);
     }
 
     @Singleton

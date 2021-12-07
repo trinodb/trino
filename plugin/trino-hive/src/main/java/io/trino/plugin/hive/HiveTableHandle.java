@@ -53,8 +53,8 @@ public class HiveTableHandle
     private final Optional<HiveBucketFilter> bucketFilter;
     private final Optional<List<List<String>>> analyzePartitionValues;
     private final Optional<Set<String>> analyzeColumnNames;
-    private final Optional<Set<ColumnHandle>> constraintColumns;
-    private final Optional<Set<ColumnHandle>> projectedColumns;
+    private final Set<ColumnHandle> constraintColumns;
+    private final Set<ColumnHandle> projectedColumns;
     private final AcidTransaction transaction;
     private final boolean recordScannedFiles;
     private final Optional<Long> maxScannedFileSize;
@@ -86,8 +86,8 @@ public class HiveTableHandle
                 bucketFilter,
                 analyzePartitionValues,
                 analyzeColumnNames,
-                Optional.empty(),
-                Optional.empty(),
+                ImmutableSet.of(),
+                ImmutableSet.of(),
                 transaction,
                 false,
                 Optional.empty());
@@ -114,8 +114,8 @@ public class HiveTableHandle
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
+                ImmutableSet.of(),
+                ImmutableSet.of(),
                 NO_ACID_TRANSACTION,
                 false,
                 Optional.empty());
@@ -134,8 +134,8 @@ public class HiveTableHandle
             Optional<HiveBucketFilter> bucketFilter,
             Optional<List<List<String>>> analyzePartitionValues,
             Optional<Set<String>> analyzeColumnNames,
-            Optional<Set<ColumnHandle>> constraintColumns,
-            Optional<Set<ColumnHandle>> projectedColumns,
+            Set<ColumnHandle> constraintColumns,
+            Set<ColumnHandle> projectedColumns,
             AcidTransaction transaction,
             boolean recordScannedFiles,
             Optional<Long> maxSplitFileSize)
@@ -150,10 +150,10 @@ public class HiveTableHandle
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
         this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
-        this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null");
+        this.analyzePartitionValues = requireNonNull(analyzePartitionValues, "analyzePartitionValues is null").map(ImmutableList::copyOf);
         this.analyzeColumnNames = requireNonNull(analyzeColumnNames, "analyzeColumnNames is null").map(ImmutableSet::copyOf);
-        this.constraintColumns = requireNonNull(constraintColumns, "constraintColumns is null");
-        this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null");
+        this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
+        this.projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
@@ -264,7 +264,7 @@ public class HiveTableHandle
                 analyzePartitionValues,
                 analyzeColumnNames,
                 constraintColumns,
-                Optional.of(projectedColumns),
+                projectedColumns,
                 transaction,
                 recordScannedFiles,
                 maxScannedFileSize);
@@ -396,14 +396,14 @@ public class HiveTableHandle
 
     // do not serialize constraint columns as they are not needed on workers
     @JsonIgnore
-    public Optional<Set<ColumnHandle>> getConstraintColumns()
+    public Set<ColumnHandle> getConstraintColumns()
     {
         return constraintColumns;
     }
 
     // do not serialize projected columns as they are not needed on workers
     @JsonIgnore
-    public Optional<Set<ColumnHandle>> getProjectedColumns()
+    public Set<ColumnHandle> getProjectedColumns()
     {
         return projectedColumns;
     }

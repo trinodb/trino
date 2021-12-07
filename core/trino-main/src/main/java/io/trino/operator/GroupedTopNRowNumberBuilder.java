@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.trino.array.LongBigArray;
@@ -107,6 +108,12 @@ public class GroupedTopNRowNumberBuilder
         }
 
         pageManager.compactIfNeeded();
+    }
+
+    @VisibleForTesting
+    GroupByHash getGroupByHash()
+    {
+        return groupByHash;
     }
 
     private class ResultIterator

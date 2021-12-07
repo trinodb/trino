@@ -27,7 +27,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-final class HiveApplyProjectionUtil
+public final class HiveApplyProjectionUtil
 {
     private HiveApplyProjectionUtil() {}
 

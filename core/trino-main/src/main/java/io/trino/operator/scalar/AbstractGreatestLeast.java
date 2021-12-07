@@ -24,11 +24,11 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.type.Type;
@@ -87,8 +87,7 @@ public abstract class AbstractGreatestLeast
                         new TypeSignature("E"),
                         ImmutableList.of(new TypeSignature("E")),
                         true),
-                true,
-                ImmutableList.of(new FunctionArgumentDefinition(true)),
+                new FunctionNullability(true, ImmutableList.of(true)),
                 false,
                 true,
                 description,
@@ -103,14 +102,14 @@ public abstract class AbstractGreatestLeast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type type = functionBinding.getTypeVariable("E");
+        Type type = boundSignature.getReturnType();
         checkArgument(type.isOrderable(), "Type must be orderable");
 
         MethodHandle compareMethod = getMinMaxCompare(functionDependencies, type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL), min);
 
-        List<Class<?>> javaTypes = IntStream.range(0, functionBinding.getArity())
+        List<Class<?>> javaTypes = IntStream.range(0, boundSignature.getArity())
                 .mapToObj(i -> wrap(type.getJavaType()))
                 .collect(toImmutableList());
 
@@ -118,7 +117,7 @@ public abstract class AbstractGreatestLeast
         MethodHandle methodHandle = methodHandle(clazz, getFunctionMetadata().getSignature().getName(), javaTypes.toArray(new Class<?>[0]));
 
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 NULLABLE_RETURN,
                 nCopies(javaTypes.size(), BOXED_NULLABLE),
                 methodHandle);

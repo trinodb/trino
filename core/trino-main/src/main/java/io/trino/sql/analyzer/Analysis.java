@@ -32,7 +32,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
@@ -144,6 +144,8 @@ public class Analysis
 
     private final Map<NodeRef<WindowOperation>, MeasureDefinition> measureDefinitions = new LinkedHashMap<>();
 
+    private final Set<NodeRef<FunctionCall>> patternAggregations = new LinkedHashSet<>();
+
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, GroupingSetAnalysis> groupingSets = new LinkedHashMap<>();
@@ -204,7 +206,7 @@ public class Analysis
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
     private Optional<QualifiedObjectName> delegatedRefreshMaterializedView = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
-    private Optional<List<ColumnMetadata>> updatedColumns = Optional.empty();
+    private Optional<List<ColumnSchema>> updatedColumns = Optional.empty();
 
     private final QueryType queryType;
 
@@ -732,12 +734,12 @@ public class Analysis
         return insert;
     }
 
-    public void setUpdatedColumns(List<ColumnMetadata> updatedColumns)
+    public void setUpdatedColumns(List<ColumnSchema> updatedColumns)
     {
         this.updatedColumns = Optional.of(updatedColumns);
     }
 
-    public Optional<List<ColumnMetadata>> getUpdatedColumns()
+    public Optional<List<ColumnSchema>> getUpdatedColumns()
     {
         return updatedColumns;
     }
@@ -950,6 +952,16 @@ public class Analysis
         return measureDefinitions.get(NodeRef.of(measure));
     }
 
+    public void setPatternAggregations(Set<NodeRef<FunctionCall>> aggregations)
+    {
+        patternAggregations.addAll(aggregations);
+    }
+
+    public boolean isPatternAggregation(FunctionCall function)
+    {
+        return patternAggregations.contains(NodeRef.of(function));
+    }
+
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
     {
         return tableColumnReferences;
@@ -1021,6 +1033,7 @@ public class Analysis
     public List<TableInfo> getReferencedTables()
     {
         return tables.entrySet().stream()
+                .filter(entry -> isInputTable(entry.getKey().getNode()))
                 .map(entry -> {
                     NodeRef<Table> table = entry.getKey();
 
@@ -1129,6 +1142,20 @@ public class Analysis
         return tableExecuteHandle;
     }
 
+    private boolean isInputTable(Table table)
+    {
+        return !(isUpdateTarget(table) || isInsertTarget(table));
+    }
+
+    private boolean isInsertTarget(Table table)
+    {
+        requireNonNull(table, "table is null");
+        return insert
+                .map(Insert::getTable)
+                .map(tableReference -> tableReference == table) // intentional comparison by reference
+                .orElse(FALSE);
+    }
+
     @Immutable
     public static final class SelectExpression
     {
@@ -1207,16 +1234,23 @@ public class Analysis
     @Immutable
     public static final class Insert
     {
+        private final Table table;
         private final TableHandle target;
         private final List<ColumnHandle> columns;
         private final Optional<NewTableLayout> newTableLayout;
 
-        public Insert(TableHandle target, List<ColumnHandle> columns, Optional<NewTableLayout> newTableLayout)
+        public Insert(Table table, TableHandle target, List<ColumnHandle> columns, Optional<NewTableLayout> newTableLayout)
         {
+            this.table = requireNonNull(table, "table is null");
             this.target = requireNonNull(target, "target is null");
             this.columns = requireNonNull(columns, "columns is null");
             checkArgument(columns.size() > 0, "No columns given to insert");
             this.newTableLayout = requireNonNull(newTableLayout, "newTableLayout is null");
+        }
+
+        public Table getTable()
+        {
+            return table;
         }
 
         public List<ColumnHandle> getColumns()
@@ -1238,14 +1272,14 @@ public class Analysis
     @Immutable
     public static final class RefreshMaterializedViewAnalysis
     {
-        private final QualifiedObjectName materializedViewName;
+        private final Table table;
         private final TableHandle target;
         private final Query query;
         private final List<ColumnHandle> columns;
 
-        public RefreshMaterializedViewAnalysis(QualifiedObjectName materializedViewName, TableHandle target, Query query, List<ColumnHandle> columns)
+        public RefreshMaterializedViewAnalysis(Table table, TableHandle target, Query query, List<ColumnHandle> columns)
         {
-            this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
+            this.table = requireNonNull(table, "table is null");
             this.target = requireNonNull(target, "target is null");
             this.query = query;
             this.columns = requireNonNull(columns, "columns is null");
@@ -1267,9 +1301,9 @@ public class Analysis
             return target;
         }
 
-        public QualifiedObjectName getMaterializedViewName()
+        public Table getTable()
         {
-            return materializedViewName;
+            return table;
         }
     }
 

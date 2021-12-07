@@ -18,9 +18,9 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.FeaturesConfig;
+import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.sql.analyzer.FeaturesConfig;
-import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

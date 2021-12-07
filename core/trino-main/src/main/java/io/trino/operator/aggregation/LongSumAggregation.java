@@ -13,7 +13,6 @@
  */
 package io.trino.operator.aggregation;
 
-import io.trino.operator.aggregation.minmaxby.LongLongState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;

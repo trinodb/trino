@@ -29,7 +29,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterators;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.ObjectMapperProvider;
@@ -120,7 +120,7 @@ import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_RESPONSE;
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_QUERY_FAILURE;
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_SSL_INITIALIZATION_FAILURE;
-import static io.trino.plugin.elasticsearch.utility.ElasticsearchDataTypes.getWiderDataType;
+import static io.trino.plugin.elasticsearch.utility.ElasticsearchTypeCoercionHierarchy.getWiderDataType;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -143,6 +143,7 @@ public class ElasticsearchClient
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("((?<cname>[^/]+)/)?(?<ip>.+):(?<port>\\d+)");
+    private static final Set<String> NODE_ROLES = ImmutableSet.of("data", "data_content", "data_hot", "data_warm", "data_cold", "data_frozen");
 
     private final BackpressureRestHighLevelClient client;
     private final int scrollSize;
@@ -186,51 +187,6 @@ public class ElasticsearchClient
         this.failOnAliasSchemaMismatch = config.isFailOnAliasSchemaMismatch();
         indexMetaDataCache = newCacheBuilder(OptionalLong.of(config.getIndexMetaDataCacheTtl().toMillis()), config.getIndexMetaDataCacheMaximumSize())
                 .build(CacheLoader.asyncReloading(CacheLoader.from(this::loadIndexMetadata), Executors.newSingleThreadExecutor()));
-    }
-
-    @PostConstruct
-    public void initialize()
-    {
-        if (!started.getAndSet(true)) {
-            // do the first refresh eagerly
-            refreshNodes();
-
-            executor.scheduleWithFixedDelay(this::refreshNodes, refreshInterval.toMillis(), refreshInterval.toMillis(), MILLISECONDS);
-        }
-    }
-
-    @PreDestroy
-    public void close()
-            throws IOException
-    {
-        executor.shutdownNow();
-        client.close();
-    }
-
-    private void refreshNodes()
-    {
-        // discover other nodes in the cluster and add them to the client
-        try {
-            Set<ElasticsearchNode> nodes = fetchNodes();
-
-            HttpHost[] hosts = nodes.stream()
-                    .map(ElasticsearchNode::getAddress)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
-                    .toArray(HttpHost[]::new);
-
-            if (hosts.length > 0 && !ignorePublishAddress) {
-                client.getLowLevelClient().setHosts(hosts);
-            }
-
-            this.nodes.set(nodes);
-        }
-        catch (Throwable e) {
-            // Catch all exceptions here since throwing an exception from executor#scheduleWithFixedDelay method
-            // suppresses all future scheduled invocations
-            LOG.error(e, "Error refreshing nodes");
-        }
     }
 
     private static BackpressureRestHighLevelClient createClient(
@@ -418,6 +374,111 @@ public class ElasticsearchClient
         }
     }
 
+    private static String getFlattenedKey(String parent, String child)
+    {
+        return format("%s.%s", parent, child);
+    }
+
+    private static TrinoException propagate(ResponseException exception)
+    {
+        HttpEntity entity = exception.getResponse().getEntity();
+
+        if (entity != null && entity.getContentType() != null) {
+            try {
+                JsonNode reason = OBJECT_MAPPER.readTree(entity.getContent()).path("error")
+                        .path("root_cause")
+                        .path(0)
+                        .path("reason");
+
+                if (!reason.isMissingNode()) {
+                    throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, reason.asText(), exception);
+                }
+            }
+            catch (IOException e) {
+                TrinoException result = new TrinoException(ELASTICSEARCH_QUERY_FAILURE, exception);
+                result.addSuppressed(e);
+                throw result;
+            }
+        }
+
+        throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, exception);
+    }
+
+    private static CacheBuilder<Object, Object> newCacheBuilder(OptionalLong expiresAfterWriteMillis, long maximumSize)
+    {
+        CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder().softValues();
+        if (expiresAfterWriteMillis.isPresent()) {
+            cacheBuilder = cacheBuilder.expireAfterWrite(expiresAfterWriteMillis.getAsLong(), MILLISECONDS);
+        }
+        cacheBuilder = cacheBuilder.maximumSize(maximumSize);
+        return cacheBuilder;
+    }
+
+    @VisibleForTesting
+    static Optional<String> extractAddress(String address)
+    {
+        Matcher matcher = ADDRESS_PATTERN.matcher(address);
+
+        if (!matcher.matches()) {
+            return Optional.empty();
+        }
+
+        String cname = matcher.group("cname");
+        String ip = matcher.group("ip");
+        String port = matcher.group("port");
+
+        if (cname != null) {
+            return Optional.of(cname + ":" + port);
+        }
+
+        return Optional.of(ip + ":" + port);
+    }
+
+    @PostConstruct
+    public void initialize()
+    {
+        if (!started.getAndSet(true)) {
+            // do the first refresh eagerly
+            refreshNodes();
+
+            executor.scheduleWithFixedDelay(this::refreshNodes, refreshInterval.toMillis(), refreshInterval.toMillis(), MILLISECONDS);
+        }
+    }
+
+    @PreDestroy
+    public void close()
+            throws IOException
+    {
+        executor.shutdownNow();
+        client.close();
+    }
+
+    private void refreshNodes()
+    {
+        // discover other nodes in the cluster and add them to the client
+        try {
+            Set<ElasticsearchNode> nodes = fetchNodes();
+
+            HttpHost[] hosts = nodes.stream()
+                    .map(ElasticsearchNode::getAddress)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
+                    .toArray(HttpHost[]::new);
+
+            if (hosts.length > 0 && !ignorePublishAddress) {
+                client.getLowLevelClient().setHosts(hosts);
+            }
+
+            this.nodes.set(nodes);
+        }
+        catch (Throwable e) {
+            // Catch all exceptions here since throwing an exception from executor#scheduleWithFixedDelay method
+            // suppresses all future scheduled invocations
+            LOG.error(e, "Error refreshing nodes");
+        }
+    }
+
     private Set<ElasticsearchNode> fetchNodes()
     {
         NodesResponse nodesResponse = doRequest("/_nodes/http", NODES_RESPONSE_CODEC::fromJson);
@@ -427,7 +488,7 @@ public class ElasticsearchClient
             String nodeId = entry.getKey();
             NodesResponse.Node node = entry.getValue();
 
-            if (node.getRoles().contains("data")) {
+            if (!Sets.intersection(node.getRoles(), NODE_ROLES).isEmpty()) {
                 Optional<String> address = node.getAddress()
                         .flatMap(ElasticsearchClient::extractAddress);
 
@@ -579,10 +640,11 @@ public class ElasticsearchClient
 
         return doRequest(path, body -> {
             try {
-                Iterator<JsonNode> indicesIterator = OBJECT_MAPPER.readTree(body).elements();
-                if (maxNumberOfIndicesForAliasSchema > 0) {
-                    indicesIterator = Iterators.limit(indicesIterator, maxNumberOfIndicesForAliasSchema);
+                final JsonNode indices = OBJECT_MAPPER.readTree(body);
+                if (maxNumberOfIndicesForAliasSchema != 0 && indices.size() > maxNumberOfIndicesForAliasSchema) {
+                    throw new TrinoException(ELASTICSEARCH_INVALID_METADATA, format("alias has too many indices, max allowed indices is %s", maxNumberOfIndicesForAliasSchema));
                 }
+                Iterator<JsonNode> indicesIterator = indices.elements();
                 IndexMetadata.ObjectType outputSchema = new IndexMetadata.ObjectType(ImmutableList.of());
                 do {
                     JsonNode mappings = indicesIterator.next().get("mappings");
@@ -601,7 +663,14 @@ public class ElasticsearchClient
                     }
 
                     JsonNode metaNode = nullSafeNode(mappings, "_meta");
-                    IndexMetadata.ObjectType schema = parseType(mappings.get("properties"), nullSafeNode(metaNode, "presto"));
+
+                    JsonNode metaProperties = nullSafeNode(metaNode, "trino");
+
+                    //stay backwards compatible with _meta.presto namespace for meta properties for some releases
+                    if (metaProperties.isNull()) {
+                        metaProperties = nullSafeNode(metaNode, "presto");
+                    }
+                    IndexMetadata.ObjectType schema = parseType(mappings.get("properties"), metaProperties);
                     outputSchema = merge(index, "", outputSchema, schema);
                 }
                 while (unionSchemaIndicesForAlias && indicesIterator.hasNext());
@@ -660,11 +729,6 @@ public class ElasticsearchClient
                 .get();
         IndexMetadata.Field indexField = fields.iterator().next();
         return new IndexMetadata.Field(indexField.isArray(), indexField.getName(), type);
-    }
-
-    private static String getFlattenedKey(String parent, String child)
-    {
-        return format("%s.%s", parent, child);
     }
 
     private Set<IndexMetadata.Field> checkAndCorrectMismatchFields(String index, String parent, Set<IndexMetadata.Field> fields)
@@ -990,61 +1054,6 @@ public class ElasticsearchClient
         }
 
         return handler.process(body);
-    }
-
-    private static TrinoException propagate(ResponseException exception)
-    {
-        HttpEntity entity = exception.getResponse().getEntity();
-
-        if (entity != null && entity.getContentType() != null) {
-            try {
-                JsonNode reason = OBJECT_MAPPER.readTree(entity.getContent()).path("error")
-                        .path("root_cause")
-                        .path(0)
-                        .path("reason");
-
-                if (!reason.isMissingNode()) {
-                    throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, reason.asText(), exception);
-                }
-            }
-            catch (IOException e) {
-                TrinoException result = new TrinoException(ELASTICSEARCH_QUERY_FAILURE, exception);
-                result.addSuppressed(e);
-                throw result;
-            }
-        }
-
-        throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, exception);
-    }
-
-    private static CacheBuilder<Object, Object> newCacheBuilder(OptionalLong expiresAfterWriteMillis, long maximumSize)
-    {
-        CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder().softValues();
-        if (expiresAfterWriteMillis.isPresent()) {
-            cacheBuilder = cacheBuilder.expireAfterWrite(expiresAfterWriteMillis.getAsLong(), MILLISECONDS);
-        }
-        cacheBuilder = cacheBuilder.maximumSize(maximumSize);
-        return cacheBuilder;
-    }
-
-    @VisibleForTesting
-    static Optional<String> extractAddress(String address)
-    {
-        Matcher matcher = ADDRESS_PATTERN.matcher(address);
-
-        if (!matcher.matches()) {
-            return Optional.empty();
-        }
-
-        String cname = matcher.group("cname");
-        String ip = matcher.group("ip");
-        String port = matcher.group("port");
-
-        if (cname != null) {
-            return Optional.of(cname + ":" + port);
-        }
-
-        return Optional.of(ip + ":" + port);
     }
 
     private interface ResponseHandler<T>

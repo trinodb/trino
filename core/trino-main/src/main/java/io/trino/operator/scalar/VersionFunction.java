@@ -16,8 +16,9 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 
@@ -45,8 +46,7 @@ public final class VersionFunction
                         VARCHAR.getTypeSignature(),
                         ImmutableList.of(),
                         false),
-                false,
-                ImmutableList.of(),
+                new FunctionNullability(false, ImmutableList.of()),
                 true,
                 true,
                 "Return server version",
@@ -55,11 +55,11 @@ public final class VersionFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    public ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(nodeVersion);
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(),
                 methodHandle);

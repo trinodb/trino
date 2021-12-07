@@ -22,7 +22,8 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SetSchemaAuthorization;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,10 +34,21 @@ import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class SetSchemaAuthorizationTask
         implements DataDefinitionTask<SetSchemaAuthorization>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public SetSchemaAuthorizationTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -46,9 +58,6 @@ public class SetSchemaAuthorizationTask
     @Override
     public ListenableFuture<Void> execute(
             SetSchemaAuthorization statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
@@ -61,7 +70,7 @@ public class SetSchemaAuthorizationTask
             throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", source);
         }
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
-        checkRoleExists(session, statement, metadata, principal, Optional.of(source.getCatalogName()));
+        checkRoleExists(session, statement, metadata, principal, Optional.of(source.getCatalogName()).filter(catalog -> metadata.isCatalogManagedSecurity(session, catalog)));
 
         accessControl.checkCanSetSchemaAuthorization(session.toSecurityContext(), source, principal);
 

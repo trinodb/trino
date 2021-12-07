@@ -20,16 +20,23 @@ import io.trino.spi.type.Type;
 
 @AccumulatorStateMetadata(stateSerializerClass = NullableLongStateSerializer.class)
 public interface NullableLongState
-        extends AccumulatorState
+        extends AccumulatorState, NullableState
 {
-    long getLong();
+    long getValue();
 
-    void setLong(long value);
+    void setValue(long value);
 
+    @Override
     @InitialBooleanValue(true)
     boolean isNull();
 
     void setNull(boolean value);
+
+    default void set(NullableLongState state)
+    {
+        setValue(state.getValue());
+        setNull(state.isNull());
+    }
 
     static void write(Type type, NullableLongState state, BlockBuilder out)
     {
@@ -37,7 +44,7 @@ public interface NullableLongState
             out.appendNull();
         }
         else {
-            type.writeLong(out, state.getLong());
+            type.writeLong(out, state.getValue());
         }
     }
 }

@@ -10,6 +10,8 @@ Additional types can be provided by plugins.
     Connectors are not required to support all types.
     See connector documentation for details on supported types.
 
+.. _boolean-data-types:
+
 Boolean
 -------
 
@@ -17,6 +19,8 @@ Boolean
 ^^^^^^^^^^^
 
 This type captures boolean values ``true`` and ``false``.
+
+.. _integer-data-types:
 
 Integer
 -------
@@ -46,6 +50,8 @@ also available for this type.
 A 64-bit signed two's complement integer with a minimum value of
 ``-2^63`` and a maximum value of ``2^63 - 1``.
 
+.. _floating-point-data-types:
+
 Floating-point
 --------------
 
@@ -65,6 +71,8 @@ IEEE Standard 754 for Binary Floating-Point Arithmetic.
 
 Example literals: ``DOUBLE '10.3'``, ``DOUBLE '1.03e1'``, ``10.3e0``, ``1.03e1``
 
+.. _fixed-precision-data-types:
+
 Fixed-precision
 ---------------
 
@@ -83,6 +91,8 @@ The decimal type takes two literal parameters:
 Example type definitions: ``DECIMAL(10,3)``, ``DECIMAL(20)``
 
 Example literals: ``DECIMAL '10.3'``, ``DECIMAL '1234567890'``, ``1.1``
+
+.. _string-data-types:
 
 String
 ------
@@ -248,6 +258,8 @@ Example: ``INTERVAL '3' MONTH``
 Span of days, hours, minutes, seconds and milliseconds.
 
 Example: ``INTERVAL '2' DAY``
+
+.. _structural-data-types:
 
 Structural
 ----------

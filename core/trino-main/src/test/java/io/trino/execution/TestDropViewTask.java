@@ -36,10 +36,10 @@ public class TestDropViewTask
     {
         QualifiedObjectName viewName = qualifiedObjectName("existing_view");
         metadata.createView(testSession, viewName, someView(), false);
-        assertThat(metadata.getView(testSession, viewName)).isPresent();
+        assertThat(metadata.isView(testSession, viewName)).isTrue();
 
         getFutureValue(executeDropView(asQualifiedName(viewName), false));
-        assertThat(metadata.getView(testSession, viewName)).isEmpty();
+        assertThat(metadata.isView(testSession, viewName)).isFalse();
     }
 
     @Test
@@ -105,6 +105,6 @@ public class TestDropViewTask
 
     private ListenableFuture<Void> executeDropView(QualifiedName viewName, boolean exists)
     {
-        return new DropViewTask().execute(new DropView(viewName, exists), transactionManager, metadata, new AllowAllAccessControl(), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        return new DropViewTask(metadata, new AllowAllAccessControl()).execute(new DropView(viewName, exists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

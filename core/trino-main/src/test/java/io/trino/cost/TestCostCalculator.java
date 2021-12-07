@@ -791,7 +791,7 @@ public class TestCostCalculator
             assignments.put(symbol, new TpchColumnHandle("orderkey", BIGINT));
         }
 
-        TpchTableHandle tableHandle = new TpchTableHandle("orders", 1.0);
+        TpchTableHandle tableHandle = new TpchTableHandle("sf1", "orders", 1.0);
         return new TableScanNode(
                 new PlanNodeId(id),
                 new TableHandle(new CatalogName("tpch"), tableHandle, INSTANCE, Optional.of(new TpchTableLayoutHandle(tableHandle, TupleDomain.all()))),

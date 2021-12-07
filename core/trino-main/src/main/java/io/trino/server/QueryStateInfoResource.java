@@ -116,7 +116,7 @@ public class QueryStateInfoResource
     {
         try {
             BasicQueryInfo queryInfo = dispatchManager.getQueryInfo(new QueryId(queryId));
-            checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName), queryInfo.getSession().getUser(), accessControl);
+            checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName), queryInfo.getSession().toIdentity(), accessControl);
             return getQueryStateInfo(queryInfo);
         }
         catch (AccessDeniedException e) {

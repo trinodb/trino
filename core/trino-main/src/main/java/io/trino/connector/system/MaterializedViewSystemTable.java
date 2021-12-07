@@ -18,9 +18,9 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
+import io.trino.metadata.ViewInfo;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaTableName;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -58,7 +58,6 @@ public class MaterializedViewSystemTable
             .column("storage_schema", createUnboundedVarcharType())
             .column("storage_table", createUnboundedVarcharType())
             .column("is_fresh", BOOLEAN)
-            .column("owner", createUnboundedVarcharType())
             .column("comment", createUnboundedVarcharType())
             .column("definition", createUnboundedVarcharType())
             .build();
@@ -124,7 +123,7 @@ public class MaterializedViewSystemTable
     private static Object[] createMaterializedViewRow(
             QualifiedObjectName name,
             MaterializedViewFreshness freshness,
-            ConnectorMaterializedViewDefinition definition)
+            ViewInfo definition)
     {
         return new Object[] {
                 name.getCatalogName(),
@@ -140,7 +139,6 @@ public class MaterializedViewSystemTable
                         .map(storageTable -> storageTable.getSchemaTableName().getTableName())
                         .orElse(""),
                 freshness.isMaterializedViewFresh(),
-                definition.getOwner(),
                 definition.getComment().orElse(""),
                 definition.getOriginalSql()
         };

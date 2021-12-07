@@ -18,8 +18,6 @@ import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseMongoDistributedQueries
@@ -78,25 +76,12 @@ public abstract class BaseMongoDistributedQueries
     public void testColumnName(String columnName)
     {
         if (columnName.equals("a.dot")) {
-            // TODO (https://github.com/trinodb/trino/issues/3460)
             assertThatThrownBy(() -> super.testColumnName(columnName))
-                    .hasStackTraceContaining("TableWriterOperator") // during INSERT
-                    .hasMessage("Invalid BSON field name a.dot");
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("Column name must not contain '$' or '.' for INSERT: " + columnName);
             throw new SkipException("Insert would fail");
         }
 
         super.testColumnName(columnName);
-    }
-
-    @Override
-    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
-    {
-        String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("time")) {
-            // TODO this should either work or fail cleanly
-            return Optional.empty();
-        }
-
-        return Optional.of(dataMappingTestSetup);
     }
 }

@@ -22,6 +22,7 @@ import io.airlift.log.Logger;
 import io.trino.execution.Lifespan;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverContext;
+import io.trino.operator.HashArraySizeSupplier;
 import io.trino.operator.HashCollisionsCounter;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
@@ -80,6 +81,7 @@ public class HashBuilderOperator
         private final int expectedPositions;
         private final boolean spillEnabled;
         private final SingleStreamSpillerFactory singleStreamSpillerFactory;
+        private final HashArraySizeSupplier hashArraySizeSupplier;
 
         private final Map<Lifespan, Integer> partitionIndexManager = new HashMap<>();
 
@@ -98,7 +100,8 @@ public class HashBuilderOperator
                 int expectedPositions,
                 PagesIndex.Factory pagesIndexFactory,
                 boolean spillEnabled,
-                SingleStreamSpillerFactory singleStreamSpillerFactory)
+                SingleStreamSpillerFactory singleStreamSpillerFactory,
+                HashArraySizeSupplier hashArraySizeSupplier)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -116,6 +119,7 @@ public class HashBuilderOperator
             this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
             this.spillEnabled = spillEnabled;
             this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
+            this.hashArraySizeSupplier = requireNonNull(hashArraySizeSupplier, "hashArraySizeSupplier is null");
 
             this.expectedPositions = expectedPositions;
         }
@@ -142,7 +146,8 @@ public class HashBuilderOperator
                     expectedPositions,
                     pagesIndexFactory,
                     spillEnabled,
-                    singleStreamSpillerFactory);
+                    singleStreamSpillerFactory,
+                    hashArraySizeSupplier);
         }
 
         @Override
@@ -219,6 +224,7 @@ public class HashBuilderOperator
     private final List<JoinFilterFunctionFactory> searchFunctionFactories;
 
     private final PagesIndex index;
+    private final HashArraySizeSupplier hashArraySizeSupplier;
 
     private final boolean spillEnabled;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
@@ -250,7 +256,8 @@ public class HashBuilderOperator
             int expectedPositions,
             PagesIndex.Factory pagesIndexFactory,
             boolean spillEnabled,
-            SingleStreamSpillerFactory singleStreamSpillerFactory)
+            SingleStreamSpillerFactory singleStreamSpillerFactory,
+            HashArraySizeSupplier hashArraySizeSupplier)
     {
         requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
 
@@ -275,6 +282,7 @@ public class HashBuilderOperator
 
         this.spillEnabled = spillEnabled;
         this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
+        this.hashArraySizeSupplier = requireNonNull(hashArraySizeSupplier, "hashArraySizeSupplier is null");
     }
 
     @Override
@@ -615,7 +623,7 @@ public class HashBuilderOperator
 
     private LookupSourceSupplier buildLookupSource()
     {
-        LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels));
+        LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels), hashArraySizeSupplier);
         hashCollisionsCounter.recordHashCollision(partition.getHashCollisions(), partition.getExpectedHashCollisions());
         checkState(lookupSourceSupplier == null, "lookupSourceSupplier is already set");
         this.lookupSourceSupplier = partition;

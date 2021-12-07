@@ -21,7 +21,6 @@ import io.trino.operator.MarkDistinctHash;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.UpdateMemory;
 import io.trino.operator.Work;
-import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -53,7 +52,6 @@ import static java.util.Objects.requireNonNull;
 public class GenericAccumulatorFactory
         implements AccumulatorFactory
 {
-    private final List<AccumulatorStateDescriptor> stateDescriptors;
     private final Constructor<? extends Accumulator> accumulatorConstructor;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
     private final List<LambdaProvider> lambdaProviders;
@@ -75,7 +73,6 @@ public class GenericAccumulatorFactory
     private final PagesIndex.Factory pagesIndexFactory;
 
     public GenericAccumulatorFactory(
-            List<AccumulatorStateDescriptor> stateDescriptors,
             Constructor<? extends Accumulator> accumulatorConstructor,
             boolean accumulatorHasRemoveInput,
             Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor,
@@ -91,7 +88,6 @@ public class GenericAccumulatorFactory
             @Nullable Session session,
             boolean distinct)
     {
-        this.stateDescriptors = requireNonNull(stateDescriptors, "stateDescriptors is null");
         this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
         this.accumulatorHasRemoveInput = accumulatorHasRemoveInput;
         this.groupedAccumulatorConstructor = requireNonNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
@@ -157,7 +153,7 @@ public class GenericAccumulatorFactory
     public Accumulator createIntermediateAccumulator()
     {
         try {
-            return accumulatorConstructor.newInstance(stateDescriptors, ImmutableList.of(), Optional.empty(), lambdaProviders);
+            return accumulatorConstructor.newInstance(ImmutableList.of(), Optional.empty(), lambdaProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -199,7 +195,7 @@ public class GenericAccumulatorFactory
     public GroupedAccumulator createGroupedIntermediateAccumulator()
     {
         try {
-            return groupedAccumulatorConstructor.newInstance(stateDescriptors, ImmutableList.of(), Optional.empty(), lambdaProviders);
+            return groupedAccumulatorConstructor.newInstance(ImmutableList.of(), Optional.empty(), lambdaProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -221,7 +217,7 @@ public class GenericAccumulatorFactory
     private Accumulator instantiateAccumulator(List<Integer> inputs, Optional<Integer> mask)
     {
         try {
-            return accumulatorConstructor.newInstance(stateDescriptors, inputs, mask, lambdaProviders);
+            return accumulatorConstructor.newInstance(inputs, mask, lambdaProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -231,7 +227,7 @@ public class GenericAccumulatorFactory
     private GroupedAccumulator instantiateGroupedAccumulator(List<Integer> inputs, Optional<Integer> mask)
     {
         try {
-            return groupedAccumulatorConstructor.newInstance(stateDescriptors, inputs, mask, lambdaProviders);
+            return groupedAccumulatorConstructor.newInstance(inputs, mask, lambdaProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -276,6 +272,12 @@ public class GenericAccumulatorFactory
         public Type getIntermediateType()
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Accumulator copy()
+        {
+            return accumulator.copy();
         }
 
         @Override
@@ -506,6 +508,12 @@ public class GenericAccumulatorFactory
         public Type getIntermediateType()
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Accumulator copy()
+        {
+            return accumulator.copy();
         }
 
         @Override

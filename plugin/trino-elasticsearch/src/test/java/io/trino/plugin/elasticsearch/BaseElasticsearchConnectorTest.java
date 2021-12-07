@@ -347,7 +347,7 @@ public abstract class BaseElasticsearchConnectorTest
         String mapping = "" +
                 "{" +
                 "      \"_meta\": {" +
-                "        \"presto\": {" +
+                "        \"trino\": {" +
                 "          \"a\": {" +
                 "            \"b\": {" +
                 "              \"y\": {" +
@@ -475,7 +475,7 @@ public abstract class BaseElasticsearchConnectorTest
         String mapping = "" +
                 "{" +
                 "  \"_meta\": {" +
-                "    \"presto\": {" +
+                "    \"trino\": {" +
                 "      \"es_object\": {" +
                 "        \"array_of_string_arrays\": {" +
                 "          \"asRawJson\": true" +
@@ -725,7 +725,7 @@ public abstract class BaseElasticsearchConnectorTest
         String mapping = "" +
                 "{" +
                 "  \"_meta\": {" +
-                "    \"presto\": {" +
+                "    \"trino\": {" +
                 "      \"es_binary\": {" +
                 "        \"asRawJson\": true" +
                 "      }," +
@@ -813,7 +813,8 @@ public abstract class BaseElasticsearchConnectorTest
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
                 .row("\"dGVzdA==\"", "true", "123", "123", "123", "123", "123.0", "123.0")
                 .build();
-        rows.getTypes().forEach(VarcharType.class::isInstance);
+        assertThat(rows.getTypes())
+                .hasOnlyElementsOfType(VarcharType.class);
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
 
@@ -830,7 +831,7 @@ public abstract class BaseElasticsearchConnectorTest
         String mapping = "" +
                 "{" +
                 "  \"_meta\": {" +
-                "    \"presto\": {" +
+                "    \"trino\": {" +
                 "      \"es_binary\": {" +
                 "        \"asRawJson\": true" +
                 "      }," +
@@ -875,7 +876,8 @@ public abstract class BaseElasticsearchConnectorTest
                 .build();
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
-        rows.getTypes().forEach(VarcharType.class::isInstance);
+        assertThat(rows.getTypes())
+                .hasOnlyElementsOfType(VarcharType.class);
 
         deleteIndex(indexName);
     }
@@ -890,7 +892,7 @@ public abstract class BaseElasticsearchConnectorTest
         String mapping = "" +
                 "{" +
                 "  \"_meta\": {" +
-                "    \"presto\": {" +
+                "    \"trino\": {" +
                 "      \"array_raw_field\": {" +
                 "        \"asRawJson\": true," +
                 "        \"isArray\": true" +
@@ -926,7 +928,7 @@ public abstract class BaseElasticsearchConnectorTest
         String mapping = "" +
                 "{" +
                 "      \"_meta\": {" +
-                "        \"presto\": {" +
+                "        \"trino\": {" +
                 "          \"a\": {" +
                 "                \"isArray\": true" +
                 "          }" +
@@ -1725,7 +1727,7 @@ public abstract class BaseElasticsearchConnectorTest
                 "}";
         createIndex(indexName1, properties);
 
-        // Matches the index 'racks'
+        // Matches the index indexName1
         String indexName2 = format("index_%s", randomTableSuffix());
         properties = "" +
                 "{" +
@@ -1737,6 +1739,7 @@ public abstract class BaseElasticsearchConnectorTest
         createIndex(indexName2, properties);
 
         // Index that brings a new field 'bookid' that needs to be added & rackid that needs to be merged.
+        // Also merging is within the same bucket in ElasticsearchTypeCoercionHierarchy.
         String indexName3 = format("index_%s", randomTableSuffix());
         properties = "" +
                 "{" +
@@ -1764,6 +1767,7 @@ public abstract class BaseElasticsearchConnectorTest
         assertEquals(actualColumns, expectedColumns);
 
         // Index that brings a new field 'bookid' that needs to be added & rackid that needs to be merged.
+        // Also merging is across different buckets in ElasticsearchTypeCoercionHierarchy.
         String indexName4 = format("index_%s", randomTableSuffix());
         properties = "" +
                 "{" +
@@ -1861,13 +1865,8 @@ public abstract class BaseElasticsearchConnectorTest
                 .row("name", "varchar", "", "")
                 .row("rackid", "bigint", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual(session, "DESCRIBE " + aliasName);
-        try {
-            assertEquals(actualColumns, expectedRacksColumns);
-        }
-        catch (AssertionError e) {
-            assertEquals(actualColumns, expectedBooksColumns);
-        }
+        assertThatThrownBy(() -> computeActual(session, "DESCRIBE " + aliasName))
+                .hasMessage("alias has too many indices, max allowed indices is 1");
         deleteIndex(indexName1);
         deleteIndex(indexName2);
     }

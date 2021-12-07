@@ -15,12 +15,14 @@ package io.trino.operator.aggregation.state;
 
 import io.trino.array.BooleanBigArray;
 import io.trino.array.LongBigArray;
+import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.System.arraycopy;
 
 public class LongDecimalWithOverflowStateFactory
         implements AccumulatorStateFactory<LongDecimalWithOverflowState>
@@ -32,21 +34,9 @@ public class LongDecimalWithOverflowStateFactory
     }
 
     @Override
-    public Class<? extends LongDecimalWithOverflowState> getSingleStateClass()
-    {
-        return SingleLongDecimalWithOverflowState.class;
-    }
-
-    @Override
     public LongDecimalWithOverflowState createGroupedState()
     {
         return new GroupedLongDecimalWithOverflowState();
-    }
-
-    @Override
-    public Class<? extends LongDecimalWithOverflowState> getGroupedStateClass()
-    {
-        return GroupedLongDecimalWithOverflowState.class;
     }
 
     public static class GroupedLongDecimalWithOverflowState
@@ -150,6 +140,16 @@ public class LongDecimalWithOverflowStateFactory
         protected boolean isNotNull;
         protected long overflow;
 
+        public SingleLongDecimalWithOverflowState() {}
+
+        // for copying
+        private SingleLongDecimalWithOverflowState(long[] unscaledDecimal, boolean isNotNull, long overflow)
+        {
+            arraycopy(unscaledDecimal, 0, this.unscaledDecimal, 0, 2);
+            this.isNotNull = isNotNull;
+            this.overflow = overflow;
+        }
+
         @Override
         public boolean isNotNull()
         {
@@ -196,6 +196,12 @@ public class LongDecimalWithOverflowStateFactory
         public long getEstimatedSize()
         {
             return INSTANCE_SIZE + SIZE;
+        }
+
+        @Override
+        public AccumulatorState copy()
+        {
+            return new SingleLongDecimalWithOverflowState(unscaledDecimal, isNotNull, overflow);
         }
     }
 }

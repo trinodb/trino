@@ -17,9 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.SqlOperator;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.Type;
 import io.trino.type.Re2JRegexp;
 
 import java.lang.invoke.MethodHandle;
@@ -63,13 +64,15 @@ public class Re2JCastToRegexpFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
+        Type inputType = boundSignature.getArgumentType(0);
+        Long typeLength = inputType.getTypeSignature().getParameters().get(0).getLongLiteral();
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
-                insertArguments(METHOD_HANDLE, 0, dfaStatesLimit, dfaRetries, padSpaces, functionBinding.getLongVariable("x")));
+                insertArguments(METHOD_HANDLE, 0, dfaStatesLimit, dfaRetries, padSpaces, typeLength));
     }
 
     @UsedByGeneratedCode

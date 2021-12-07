@@ -16,9 +16,10 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
-import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
+import io.trino.FeaturesConfig;
+import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.FeaturesConfig.JoinDistributionType;
+import io.trino.FeaturesConfig.JoinReorderingStrategy;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -29,8 +30,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
+import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static io.trino.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
 import static io.trino.sql.analyzer.RegexLibrary.RE2J;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -106,7 +107,6 @@ public class TestFeaturesConfig
                 .setPredicatePushdownUseTableProperties(true)
                 .setIgnoreDownstreamPreferences(false)
                 .setOmitDateTimeTypePrecision(false)
-                .setIterativeRuleBasedColumnPruning(true)
                 .setRewriteFilteringSemiJoinToInnerJoin(true)
                 .setOptimizeDuplicateInsensitiveJoins(true)
                 .setUseLegacyWindowFilterPushdown(false)
@@ -114,7 +114,8 @@ public class TestFeaturesConfig
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.5)
                 .setMergeProjectWithValues(true)
                 .setLegacyCatalogRoles(false)
-                .setDisableSetPropertiesSecurityCheckForCreateDdl(false));
+                .setDisableSetPropertiesSecurityCheckForCreateDdl(false)
+                .setIncrementalHashArrayLoadFactorEnabled(true));
     }
 
     @Test
@@ -185,7 +186,6 @@ public class TestFeaturesConfig
                 .put("optimizer.predicate-pushdown-use-table-properties", "false")
                 .put("optimizer.ignore-downstream-preferences", "true")
                 .put("deprecated.omit-datetime-type-precision", "true")
-                .put("optimizer.iterative-rule-based-column-pruning", "false")
                 .put("optimizer.rewrite-filtering-semi-join-to-inner-join", "false")
                 .put("optimizer.optimize-duplicate-insensitive-joins", "false")
                 .put("optimizer.use-legacy-window-filter-pushdown", "true")
@@ -194,6 +194,7 @@ public class TestFeaturesConfig
                 .put("optimizer.merge-project-with-values", "false")
                 .put("deprecated.legacy-catalog-roles", "true")
                 .put("deprecated.disable-set-properties-security-check-for-create-ddl", "true")
+                .put("incremental-hash-array-load-factor.enabled", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -261,7 +262,6 @@ public class TestFeaturesConfig
                 .setPredicatePushdownUseTableProperties(false)
                 .setIgnoreDownstreamPreferences(true)
                 .setOmitDateTimeTypePrecision(true)
-                .setIterativeRuleBasedColumnPruning(false)
                 .setRewriteFilteringSemiJoinToInnerJoin(false)
                 .setOptimizeDuplicateInsensitiveJoins(false)
                 .setUseLegacyWindowFilterPushdown(true)
@@ -269,7 +269,8 @@ public class TestFeaturesConfig
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.0)
                 .setMergeProjectWithValues(false)
                 .setLegacyCatalogRoles(true)
-                .setDisableSetPropertiesSecurityCheckForCreateDdl(true);
+                .setDisableSetPropertiesSecurityCheckForCreateDdl(true)
+                .setIncrementalHashArrayLoadFactorEnabled(false);
         assertFullMapping(properties, expected);
     }
 }

@@ -113,7 +113,7 @@ public class WorkerResource
         Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
         if (queryInfo.isPresent()) {
             try {
-                checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName), queryInfo.get().getSession().getUser(), accessControl);
+                checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName), queryInfo.get().getSession().toIdentity(), accessControl);
                 return proxyJsonResponse(nodeId, "v1/task/" + task);
             }
             catch (AccessDeniedException e) {

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.FeaturesConfig;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
@@ -29,7 +30,6 @@ import io.trino.operator.SpillContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.FeaturesConfig;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -44,8 +44,8 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.FeaturesConfig.SPILLER_SPILL_PATH;
 import static io.trino.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
-import static io.trino.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;

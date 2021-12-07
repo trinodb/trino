@@ -18,6 +18,7 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.MapBinder;
+import com.google.inject.multibindings.Multibinder;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.HttpServerConfig;
@@ -82,12 +83,20 @@ import io.trino.server.ui.WebUiModule;
 import io.trino.server.ui.WorkerResource;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
-import io.trino.sql.analyzer.QueryExplainer;
+import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.planner.OptimizerStatsMBeanExporter;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizers;
 import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.RuleStatsRecorder;
+import io.trino.sql.rewrite.DescribeInputRewrite;
+import io.trino.sql.rewrite.DescribeOutputRewrite;
+import io.trino.sql.rewrite.ExplainRewrite;
+import io.trino.sql.rewrite.ShowQueriesRewrite;
+import io.trino.sql.rewrite.ShowStatsRewrite;
+import io.trino.sql.rewrite.StatementRewrite;
+import io.trino.sql.rewrite.StatementRewrite.Rewrite;
 import io.trino.transaction.ForTransactionManager;
 import io.trino.transaction.InMemoryTransactionManager;
 import io.trino.transaction.TransactionManager;
@@ -102,6 +111,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -210,6 +220,18 @@ public class CoordinatorModule
         // dynamic filtering service
         binder.bind(DynamicFilterService.class).in(Scopes.SINGLETON);
 
+        // analyzer
+        binder.bind(AnalyzerFactory.class).in(Scopes.SINGLETON);
+
+        // statement rewriter
+        binder.bind(StatementRewrite.class).in(Scopes.SINGLETON);
+        Multibinder<Rewrite> rewriteBinder = newSetBinder(binder, Rewrite.class);
+        rewriteBinder.addBinding().to(DescribeInputRewrite.class).in(Scopes.SINGLETON);
+        rewriteBinder.addBinding().to(DescribeOutputRewrite.class).in(Scopes.SINGLETON);
+        rewriteBinder.addBinding().to(ShowQueriesRewrite.class).in(Scopes.SINGLETON);
+        rewriteBinder.addBinding().to(ShowStatsRewrite.class).in(Scopes.SINGLETON);
+        rewriteBinder.addBinding().to(ExplainRewrite.class).in(Scopes.SINGLETON);
+
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, PlanOptimizersFactory.class)
@@ -220,7 +242,7 @@ public class CoordinatorModule
         binder.bind(OptimizerStatsMBeanExporter.class).in(Scopes.SINGLETON);
 
         // query explainer
-        binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);
+        binder.bind(QueryExplainerFactory.class).in(Scopes.SINGLETON);
 
         // explain analyze
         binder.bind(ExplainAnalyzeContext.class).in(Scopes.SINGLETON);

@@ -26,6 +26,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
+import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -965,6 +966,10 @@ public interface ConnectorMetadata
      * invocation, even if the connector generally supports pushdown. Doing otherwise can cause the optimizer
      * to loop indefinitely.
      * </p>
+     * <p>
+     * <b>Note</b>: Implementation must not maintain reference to {@code constraint}'s {@link Constraint#predicate()} after the
+     * call returns.
+     * </p>
      */
     default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
@@ -1294,5 +1299,21 @@ public interface ConnectorMetadata
     default Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Returns a table handle representing a versioned table. A versioned table differs by having an additional specifier for version.
+     */
+    default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+    }
+
+    /**
+     * Returns whether a specified version type is supported by the connector for a given travel type and table name
+     */
+    default boolean isSupportedVersionType(ConnectorSession session, SchemaTableName tableName, PointerType pointerType, Type versioning)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
     }
 }

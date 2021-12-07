@@ -16,9 +16,12 @@ package io.trino.operator;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
+import io.airlift.stats.TDigest;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.memory.QueryContextVisitor;
@@ -26,6 +29,7 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.OperationTimer.OperationTiming;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.metrics.Metrics;
@@ -46,7 +50,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -522,6 +525,13 @@ public class OperatorContext
                 .orElseGet(() -> ImmutableList.of(getOperatorStats()));
     }
 
+    public static Metrics getOperatorMetrics(Metrics operatorMetrics, long inputPositions)
+    {
+        TDigest digest = new TDigest();
+        digest.add(inputPositions);
+        return operatorMetrics.mergeWith(new Metrics(ImmutableMap.of("Input distribution", new TDigestHistogram(digest))));
+    }
+
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
     {
         return visitor.visitOperatorContext(this, context);
@@ -546,26 +556,26 @@ public class OperatorContext
                 addInputTiming.getCalls(),
                 new Duration(addInputTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                succinctBytes(physicalInputDataSize.getTotalCount()),
+                DataSize.ofBytes(physicalInputDataSize.getTotalCount()),
                 physicalInputPositions.getTotalCount(),
-                succinctBytes(internalNetworkInputDataSize.getTotalCount()),
+                DataSize.ofBytes(internalNetworkInputDataSize.getTotalCount()),
                 internalNetworkPositions.getTotalCount(),
-                succinctBytes(physicalInputDataSize.getTotalCount() + internalNetworkInputDataSize.getTotalCount()),
-                succinctBytes(inputDataSize.getTotalCount()),
+                DataSize.ofBytes(physicalInputDataSize.getTotalCount() + internalNetworkInputDataSize.getTotalCount()),
+                DataSize.ofBytes(inputDataSize.getTotalCount()),
                 inputPositionsCount,
                 (double) inputPositionsCount * inputPositionsCount,
 
                 getOutputTiming.getCalls(),
                 new Duration(getOutputTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                succinctBytes(outputDataSize.getTotalCount()),
+                DataSize.ofBytes(outputDataSize.getTotalCount()),
                 outputPositions.getTotalCount(),
 
                 dynamicFilterSplitsProcessed.get(),
-                metrics.get(),
+                getOperatorMetrics(metrics.get(), inputPositionsCount),
                 connectorMetrics.get(),
 
-                succinctBytes(physicalWrittenDataSize.get()),
+                DataSize.ofBytes(physicalWrittenDataSize.get()),
 
                 new Duration(blockedWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
@@ -573,16 +583,16 @@ public class OperatorContext
                 new Duration(finishTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
-                succinctBytes(operatorMemoryContext.getUserMemory()),
-                succinctBytes(getReservedRevocableBytes()),
-                succinctBytes(operatorMemoryContext.getSystemMemory()),
+                DataSize.ofBytes(operatorMemoryContext.getUserMemory()),
+                DataSize.ofBytes(getReservedRevocableBytes()),
+                DataSize.ofBytes(operatorMemoryContext.getSystemMemory()),
 
-                succinctBytes(peakUserMemoryReservation.get()),
-                succinctBytes(peakSystemMemoryReservation.get()),
-                succinctBytes(peakRevocableMemoryReservation.get()),
-                succinctBytes(peakTotalMemoryReservation.get()),
+                DataSize.ofBytes(peakUserMemoryReservation.get()),
+                DataSize.ofBytes(peakSystemMemoryReservation.get()),
+                DataSize.ofBytes(peakRevocableMemoryReservation.get()),
+                DataSize.ofBytes(peakTotalMemoryReservation.get()),
 
-                succinctBytes(spillContext.getSpilledBytes()),
+                DataSize.ofBytes(spillContext.getSpilledBytes()),
 
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);

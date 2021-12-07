@@ -44,7 +44,7 @@ public class TestDoubleHistogramAggregation
 
     public TestDoubleHistogramAggregation()
     {
-        InternalAggregationFunction function = new TestingFunctionResolution().getAggregateFunctionImplementation(
+        TestingAggregationFunction function = new TestingFunctionResolution().getAggregateFunction(
                 QualifiedName.of("numeric_histogram"),
                 fromTypes(BIGINT, DOUBLE, DOUBLE));
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());

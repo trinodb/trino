@@ -33,24 +33,24 @@ public final class CountAggregation
     @InputFunction
     public static void input(@AggregationState LongState state)
     {
-        state.setLong(state.getLong() + 1);
+        state.setValue(state.getValue() + 1);
     }
 
     @RemoveInputFunction
     public static void removeInput(@AggregationState LongState state)
     {
-        state.setLong(state.getLong() - 1);
+        state.setValue(state.getValue() - 1);
     }
 
     @CombineFunction
     public static void combine(@AggregationState LongState state, @AggregationState LongState otherState)
     {
-        state.setLong(state.getLong() + otherState.getLong());
+        state.setValue(state.getValue() + otherState.getValue());
     }
 
     @OutputFunction(StandardTypes.BIGINT)
     public static void output(@AggregationState LongState state, BlockBuilder out)
     {
-        BIGINT.writeLong(out, state.getLong());
+        BIGINT.writeLong(out, state.getValue());
     }
 }

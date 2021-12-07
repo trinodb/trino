@@ -128,6 +128,8 @@ Type mapping
 
 .. include:: jdbc-type-mapping.fragment
 
+.. _clickhouse-pushdown:
+
 Pushdown
 --------
 
@@ -142,6 +144,8 @@ The connector supports pushdown for a number of operations:
 * :func:`max`
 * :func:`min`
 * :func:`sum`
+
+.. include:: no-pushdown-text-type.fragment
 
 .. _clickhouse-sql-support:
 

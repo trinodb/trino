@@ -21,7 +21,6 @@ import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AllColumns;
@@ -119,7 +118,7 @@ public class TestPrepareTask
                 WarningCollector.NOOP,
                 Optional.empty());
         Prepare prepare = new Prepare(identifier(statementName), statement);
-        new PrepareTask(new SqlParser()).execute(prepare, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), WarningCollector.NOOP);
+        new PrepareTask(new SqlParser()).execute(prepare, stateMachine, emptyList(), WarningCollector.NOOP);
         return stateMachine.getAddedPreparedStatements();
     }
 }

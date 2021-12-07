@@ -24,6 +24,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
 import java.security.Principal;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -82,19 +83,19 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanViewQueryOwnedBy(Identity identity, String queryOwner)
+    public void checkCanViewQueryOwnedBy(Identity identity, Identity queryOwner)
     {
         delegate().checkCanViewQueryOwnedBy(identity, queryOwner);
     }
 
     @Override
-    public Set<String> filterQueriesOwnedBy(Identity identity, Set<String> queryOwners)
+    public Collection<Identity> filterQueriesOwnedBy(Identity identity, Collection<Identity> queryOwners)
     {
         return delegate().filterQueriesOwnedBy(identity, queryOwners);
     }
 
     @Override
-    public void checkCanKillQueryOwnedBy(Identity identity, String queryOwner)
+    public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner)
     {
         delegate().checkCanKillQueryOwnedBy(identity, queryOwner);
     }

@@ -13,7 +13,6 @@
  */
 package io.trino.operator.aggregation;
 
-import com.google.common.base.CaseFormat;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.operator.aggregation.state.CentralMomentsState;
 import io.trino.operator.aggregation.state.CorrelationState;
@@ -23,15 +22,11 @@ import io.trino.operator.aggregation.state.VarianceState;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CompilerOperations;
 
 import javax.annotation.Nullable;
 
-import java.util.List;
-
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Locale.ENGLISH;
 
 public final class AggregationUtils
 {
@@ -230,18 +225,6 @@ public final class AggregationUtils
         long nb = otherState.getCount();
         state.setM2X(state.getM2X() + otherState.getM2X() + na * nb * Math.pow(state.getMeanX() - otherState.getMeanX(), 2) / (double) (na + nb));
         updateCovarianceState(state, otherState);
-    }
-
-    public static String generateAggregationName(String baseName, TypeSignature outputType, List<TypeSignature> inputTypes)
-    {
-        StringBuilder sb = new StringBuilder();
-        sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, outputType.toString()));
-        for (TypeSignature inputType : inputTypes) {
-            sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, inputType.toString()));
-        }
-        sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, baseName.toLowerCase(ENGLISH)));
-
-        return sb.toString();
     }
 
     // used by aggregation compiler

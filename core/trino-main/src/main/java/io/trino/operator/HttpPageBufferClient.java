@@ -31,11 +31,11 @@ import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.server.remotetask.Backoff;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
-import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -635,7 +635,7 @@ public final class HttpPageBufferClient
                     catch (RuntimeException | IOException e) {
                         // Ignored. Just return whatever message we were able to decode
                     }
-                    throw new PageTransportErrorException(fromUri(uri), format("Expected response code to be 200, but was %s:%n%s", response.getStatusCode(), body.toString()));
+                    throw new PageTransportErrorException(fromUri(uri), format("Expected response code to be 200, but was %s:%n%s", response.getStatusCode(), body));
                 }
 
                 // invalid content type can happen when an error page is returned, but is unlikely given the above 200

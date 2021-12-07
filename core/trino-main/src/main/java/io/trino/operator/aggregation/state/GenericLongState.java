@@ -22,14 +22,20 @@ import io.trino.spi.type.Type;
 public interface GenericLongState
         extends AccumulatorState
 {
-    long getLong();
+    long getValue();
 
-    void setLong(long value);
+    void setValue(long value);
 
     @InitialBooleanValue(true)
     boolean isNull();
 
     void setNull(boolean value);
+
+    default void set(GenericLongState state)
+    {
+        setValue(state.getValue());
+        setNull(state.isNull());
+    }
 
     static void write(Type type, GenericLongState state, BlockBuilder out)
     {
@@ -37,7 +43,7 @@ public interface GenericLongState
             out.appendNull();
         }
         else {
-            type.writeLong(out, state.getLong());
+            type.writeLong(out, state.getValue());
         }
     }
 }

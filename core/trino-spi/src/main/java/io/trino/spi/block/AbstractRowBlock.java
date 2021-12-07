@@ -49,7 +49,7 @@ public abstract class AbstractRowBlock
     protected abstract boolean[] getRowIsNull();
 
     // the offset in each field block, it can also be viewed as the "entry-based" offset in the RowBlock
-    protected int getFieldBlockOffset(int position)
+    protected final int getFieldBlockOffset(int position)
     {
         return getFieldBlockOffsets()[position + getOffsetBase()];
     }
@@ -69,12 +69,11 @@ public abstract class AbstractRowBlock
     }
 
     @Override
-    public Block copyPositions(int[] positions, int offset, int length)
+    public final Block copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
 
         int[] newOffsets = new int[length + 1];
-        newOffsets[0] = 0;
 
         int[] fieldBlockPositions = new int[length];
         int fieldBlockPositionCount;
@@ -82,32 +81,41 @@ public abstract class AbstractRowBlock
         if (getRowIsNull() == null) {
             // No nulls are present
             newRowIsNull = null;
-            fieldBlockPositionCount = fieldBlockPositions.length;
             for (int i = 0; i < fieldBlockPositions.length; i++) {
+                newOffsets[i] = i; // No nulls, all offsets are just their index mapping
                 int position = positions[offset + i];
-                newOffsets[i + 1] = i + 1;
+                checkReadablePosition(position);
                 fieldBlockPositions[i] = getFieldBlockOffset(position);
             }
+            // Record last offset position
+            newOffsets[fieldBlockPositions.length] = fieldBlockPositions.length;
+            fieldBlockPositionCount = fieldBlockPositions.length;
         }
         else {
             newRowIsNull = new boolean[length];
             fieldBlockPositionCount = 0;
             for (int i = 0; i < length; i++) {
+                newOffsets[i] = fieldBlockPositionCount;
                 int position = positions[offset + i];
                 if (isNull(position)) {
                     newRowIsNull[i] = true;
-                    newOffsets[i + 1] = newOffsets[i];
                 }
                 else {
-                    newOffsets[i + 1] = newOffsets[i] + 1;
                     fieldBlockPositions[fieldBlockPositionCount++] = getFieldBlockOffset(position);
                 }
+            }
+            // Record last offset position
+            newOffsets[length] = fieldBlockPositionCount;
+            if (fieldBlockPositionCount == length) {
+                // No nulls encountered, discard the null mask
+                newRowIsNull = null;
             }
         }
 
         Block[] newBlocks = new Block[numFields];
+        Block[] rawBlocks = getRawFieldBlocks();
         for (int i = 0; i < newBlocks.length; i++) {
-            newBlocks[i] = getRawFieldBlocks()[i].copyPositions(fieldBlockPositions, 0, fieldBlockPositionCount);
+            newBlocks[i] = rawBlocks[i].copyPositions(fieldBlockPositions, 0, fieldBlockPositionCount);
         }
         return createRowBlockInternal(0, length, newRowIsNull, newOffsets, newBlocks);
     }

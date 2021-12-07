@@ -22,6 +22,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
@@ -39,18 +40,21 @@ public class Int64TimestampMillisColumnReader
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            long utcMillis = valuesReader.readLong();
+            long epochMillis = valuesReader.readLong();
             if (type instanceof TimestampWithTimeZoneType) {
-                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
+                type.writeLong(blockBuilder, packDateTimeWithZone(epochMillis, UTC_KEY));
             }
             else if (type instanceof TimestampType) {
-                long epochMicros = utcMillis * MICROSECONDS_PER_MILLISECOND;
+                long epochMicros = epochMillis * MICROSECONDS_PER_MILLISECOND;
                 if (((TimestampType) type).isShort()) {
                     type.writeLong(blockBuilder, epochMicros);
                 }
                 else {
                     type.writeObject(blockBuilder, new LongTimestamp(epochMicros, 0));
                 }
+            }
+            else if (type == BIGINT) {
+                type.writeLong(blockBuilder, epochMillis);
             }
             else {
                 throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, columnDescriptor));

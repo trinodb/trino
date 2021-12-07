@@ -71,6 +71,7 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.Instant;
@@ -106,8 +107,11 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTime;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longTimestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeReadFunction;
@@ -132,6 +136,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -342,21 +347,32 @@ public class SqlServerClient
             return WriteMapping.booleanMapping("bit", booleanWriteFunction());
         }
 
-        if (type == BIGINT) {
-            return WriteMapping.longMapping("bigint", bigintWriteFunction());
-        }
-        if (type == INTEGER) {
-            return WriteMapping.longMapping("integer", integerWriteFunction());
+        if (type == TINYINT) {
+            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
         }
         if (type == SMALLINT) {
             return WriteMapping.longMapping("smallint", smallintWriteFunction());
         }
-        if (type == TINYINT) {
-            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
+        if (type == INTEGER) {
+            return WriteMapping.longMapping("integer", integerWriteFunction());
+        }
+        if (type == BIGINT) {
+            return WriteMapping.longMapping("bigint", bigintWriteFunction());
         }
 
+        if (type == REAL) {
+            return WriteMapping.longMapping("real", realWriteFunction());
+        }
         if (type == DOUBLE) {
             return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            if (decimalType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
+            }
+            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType));
         }
 
         if (type instanceof VarcharType) {
@@ -408,8 +424,7 @@ public class SqlServerClient
             return WriteMapping.objectMapping(dataType, longTimestampWriteFunction(timestampType, precision));
         }
 
-        // TODO implement proper type mapping
-        return legacyToWriteMapping(session, type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     private LongWriteFunction sqlServerTimeWriteFunction(int precision)
@@ -634,12 +649,14 @@ public class SqlServerClient
     }
 
     @Override
-    public void abortReadConnection(Connection connection)
+    public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
-        // Abort connection before closing. Without this, the SQL Server driver
-        // attempts to drain the connection by reading all the results.
-        connection.abort(directExecutor());
+        if (!resultSet.isAfterLast()) {
+            // Abort connection before closing. Without this, the SQL Server driver
+            // attempts to drain the connection by reading all the results.
+            connection.abort(directExecutor());
+        }
     }
 
     @Override

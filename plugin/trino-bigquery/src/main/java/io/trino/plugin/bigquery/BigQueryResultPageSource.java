@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
-import com.google.cloud.bigquery.storage.v1beta1.Storage;
+import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -82,21 +82,21 @@ public class BigQueryResultPageSource
 
     private static final AvroDecimalConverter DECIMAL_CONVERTER = new AvroDecimalConverter();
 
-    private final BigQueryStorageClient bigQueryStorageClient;
+    private final BigQueryReadClient bigQueryReadClient;
     private final BigQuerySplit split;
     private final List<String> columnNames;
     private final List<Type> columnTypes;
     private final AtomicLong readBytes;
     private final PageBuilder pageBuilder;
-    private final Iterator<Storage.ReadRowsResponse> responses;
+    private final Iterator<ReadRowsResponse> responses;
 
     public BigQueryResultPageSource(
-            BigQueryStorageClientFactory bigQueryStorageClientFactory,
+            BigQueryReadClient bigQueryReadClient,
             int maxReadRowsRetries,
             BigQuerySplit split,
             List<BigQueryColumnHandle> columns)
     {
-        this.bigQueryStorageClient = requireNonNull(bigQueryStorageClientFactory, "bigQueryStorageClientFactory is null").createBigQueryStorageClient();
+        this.bigQueryReadClient = requireNonNull(bigQueryReadClient, "bigQueryReadClient is null");
         this.split = requireNonNull(split, "split is null");
         this.readBytes = new AtomicLong();
         requireNonNull(columns, "columns is null");
@@ -109,11 +109,7 @@ public class BigQueryResultPageSource
         this.pageBuilder = new PageBuilder(columnTypes);
 
         log.debug("Starting to read from %s", split.getStreamName());
-        Storage.ReadRowsRequest.Builder readRowsRequest = Storage.ReadRowsRequest.newBuilder()
-                .setReadPosition(Storage.StreamPosition.newBuilder()
-                        .setStream(Storage.Stream.newBuilder()
-                                .setName(split.getStreamName())));
-        responses = new ReadRowsHelper(bigQueryStorageClient, readRowsRequest, maxReadRowsRetries).readRows();
+        responses = new ReadRowsHelper(bigQueryReadClient, split.getStreamName(), maxReadRowsRetries).readRows();
     }
 
     @Override
@@ -138,7 +134,7 @@ public class BigQueryResultPageSource
     public Page getNextPage()
     {
         checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
-        Storage.ReadRowsResponse response = responses.next();
+        ReadRowsResponse response = responses.next();
         Iterable<GenericRecord> records = parse(response);
         for (GenericRecord record : records) {
             pageBuilder.declarePosition();
@@ -280,10 +276,10 @@ public class BigQueryResultPageSource
     @Override
     public void close()
     {
-        bigQueryStorageClient.close();
+        bigQueryReadClient.close();
     }
 
-    Iterable<GenericRecord> parse(Storage.ReadRowsResponse response)
+    Iterable<GenericRecord> parse(ReadRowsResponse response)
     {
         byte[] buffer = response.getAvroRows().getSerializedBinaryRows().toByteArray();
         readBytes.addAndGet(buffer.length);

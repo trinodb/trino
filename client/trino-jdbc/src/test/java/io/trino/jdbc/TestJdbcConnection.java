@@ -500,7 +500,8 @@ public class TestJdbcConnection
         }
     }
 
-    @Test(timeOut = 60_000, dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    // TODO https://github.com/trinodb/trino/issues/10096 - enable test once concurrent jdbc statements are supported
+    @Test(timeOut = 60_000, dataProviderClass = DataProviders.class, dataProvider = "trueFalse", enabled = false)
     public void testConcurrentCancellationOnConnectionClose(boolean autoCommit)
             throws Exception
     {

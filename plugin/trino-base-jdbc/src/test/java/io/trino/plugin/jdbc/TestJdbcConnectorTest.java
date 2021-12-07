@@ -26,6 +26,8 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 // Single-threaded because H2 DDL operations can sometimes take a global lock, leading to apparent deadlocks
 // like in https://github.com/trinodb/trino/issues/7209.
@@ -115,6 +117,12 @@ public class TestJdbcConnectorTest
         }
 
         return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
+    {
+        return format("NULL not allowed for column \"%s\"(?s).*", columnName.toUpperCase(ENGLISH));
     }
 
     @Override

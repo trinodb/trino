@@ -28,9 +28,9 @@ import java.time.ZonedDateTime;
 import java.util.regex.Pattern;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -221,6 +221,14 @@ public class TestDistributedEngineOnlyQueries
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
                 "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}");
+    }
+
+    @Test
+    public void testExplainAnalyzeVerbose()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
+                "'Input distribution' = \\{count=.*, p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, min=.*, max=.*}");
     }
 
     @Test

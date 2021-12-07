@@ -116,11 +116,6 @@ public abstract class BaseSqlServerConnectorTest
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
-        if (typeName.equals("varbinary")) {
-            // TODO this should either work or fail cleanly
-            return Optional.empty();
-        }
-
         return Optional.of(dataMappingTestSetup);
     }
 
@@ -456,6 +451,12 @@ public abstract class BaseSqlServerConnectorTest
                         ")");
 
         assertUpdate("DROP TABLE test_show_unique_constraint_table");
+    }
+
+    @Override
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
+    {
+        return format("Cannot insert the value NULL into column '%s'.*", columnName);
     }
 
     private String getLongInClause(int start, int length)

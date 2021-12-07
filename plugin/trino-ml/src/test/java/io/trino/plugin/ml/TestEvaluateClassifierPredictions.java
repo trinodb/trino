@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.RowPageBuilder;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.aggregation.Accumulator;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -41,7 +41,7 @@ public class TestEvaluateClassifierPredictions
     {
         TestingFunctionResolution functionResolution = new TestingFunctionResolution()
                 .addFunctions(extractFunctions(new MLPlugin().getFunctions()));
-        InternalAggregationFunction aggregation = functionResolution.getAggregateFunctionImplementation(
+        TestingAggregationFunction aggregation = functionResolution.getAggregateFunction(
                 QualifiedName.of("evaluate_classifier_predictions"),
                 fromTypes(BIGINT, BIGINT));
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator();

@@ -39,8 +39,8 @@ public class TestRenameViewTask
         metadata.createView(testSession, viewName, someView(), false);
 
         getFutureValue(executeRenameView(asQualifiedName(viewName), asQualifiedName(newViewName)));
-        assertThat(metadata.getView(testSession, viewName)).isEmpty();
-        assertThat(metadata.getView(testSession, newViewName)).isPresent();
+        assertThat(metadata.isView(testSession, viewName)).isFalse();
+        assertThat(metadata.isView(testSession, newViewName)).isTrue();
     }
 
     @Test
@@ -77,6 +77,7 @@ public class TestRenameViewTask
 
     private ListenableFuture<Void> executeRenameView(QualifiedName source, QualifiedName target)
     {
-        return new RenameViewTask().execute(new RenameView(source, target), transactionManager, metadata, new AllowAllAccessControl(), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        return new RenameViewTask(metadata, new AllowAllAccessControl())
+                .execute(new RenameView(source, target), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

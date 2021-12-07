@@ -121,6 +121,20 @@ variable length ``VARBINARY`` data type. There is no way to create a
 Phoenix table in Trino that uses the ``BINARY`` data type, as Trino
 does not have an equivalent type.
 
+Decimal type handling
+^^^^^^^^^^^^^^^^^^^^^
+
+``DECIMAL`` types with unspecified precision or scale are mapped to a Trino ``DECIMAL`` with a default precision of 38 and default scale of 0. The scale can
+be changed by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
+``allow_overflow``. The scale of the resulting type is controlled via the ``decimal-default-scale``
+configuration property or the ``decimal-rounding-mode`` session property. The precision is always 38.
+
+By default, values that require rounding or truncation to fit will cause a failure at runtime. This behavior
+is controlled via the ``decimal-rounding-mode`` configuration property or the ``decimal_rounding_mode`` session
+property, which can be set to ``UNNECESSARY`` (the default),
+``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
+(see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
+
 .. include:: jdbc-type-mapping.fragment
 
 Table properties - Phoenix

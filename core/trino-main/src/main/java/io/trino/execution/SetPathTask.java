@@ -18,13 +18,13 @@ import io.trino.Session;
 import io.trino.client.ClientCapabilities;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
-import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.sql.SqlPath;
 import io.trino.sql.SqlPathElement;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SetPath;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -35,10 +35,19 @@ import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class SetPathTask
         implements DataDefinitionTask<SetPath>
 {
+    private final Metadata metadata;
+
+    @Inject
+    public SetPathTask(Metadata metadata)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+    }
+
     @Override
     public String getName()
     {
@@ -48,9 +57,6 @@ public class SetPathTask
     @Override
     public ListenableFuture<Void> execute(
             SetPath statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)

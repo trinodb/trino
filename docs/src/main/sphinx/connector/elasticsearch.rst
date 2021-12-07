@@ -124,7 +124,7 @@ queries.
 
 Enable or disable merging of schemas of indices for governing the schema of an alias.
 If disabled, schema of the alias follows the schema of first index only.
-Same field with different data types in different indices for an alias casts
+Same field with different data types in different indices for an alias always casts
 as :ref:`raw JSON <elasticsearch-raw-json-transform>`.
 
 This property is optional; the default value is ``false``.
@@ -137,20 +137,11 @@ Enable or disable to fail the query if same field from different indices, for an
 This property is optional; the default value is ``false`` i.e.,
 casts mismatch column as :ref:`raw JSON <elasticsearch-raw-json-transform>`.
 
-``elasticsearch.datatype-for-alias-schema-mismatch``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Elasticsearch datatype to be used for datatype mismatch fields(i.e., same field from
-different indices, for an alias, have different data types).
-
-This property is optional; the default value is ``null`` i.e.,
-casts mismatch column as :ref:`raw JSON <elasticsearch-raw-json-transform>`.
-
-
 ``elasticsearch.max-number-of-indices-for-alias-schema``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Maximum number of indices to consider for merging to govern the schema of an alias.
+Maximum number of indices allowed for merging to govern the schema of an alias.
+Any alias having higher number of indices than this config can't be read.
 This property will be used only if ``elasticsearch.union-schema-indices-for-alias`` is ``true``.
 
 This property is optional; the default value is ``0`` i.e., merges all schemas to govern schema of an alias.
@@ -230,7 +221,7 @@ For example, you can have an Elasticsearch index that contains documents with th
 .. code-block:: json
 
     {
-        "array_string_field": ["trino","is","the","besto"],
+        "array_string_field": ["trino","the","lean","machine-ohs"],
         "long_field": 314159265359,
         "id_field": "564e6982-88ee-4498-aa98-df9e3f6b6109",
         "timestamp_field": "1987-09-17T06:22:48.000Z",
@@ -241,7 +232,7 @@ For example, you can have an Elasticsearch index that contains documents with th
     }
 
 The array fields of this structure can be defined by using the following command to add the field
-property definition to the ``_meta.presto`` property of the target index mapping.
+property definition to the ``_meta.trino`` property of the target index mapping.
 
 .. code-block:: shell
 
@@ -251,7 +242,7 @@ property definition to the ``_meta.presto`` property of the target index mapping
         --data '
     {
         "_meta": {
-            "presto":{
+            "trino":{
                 "array_string_field":{
                     "isArray":true
                 },

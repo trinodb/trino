@@ -30,12 +30,15 @@ import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.net.URISyntaxException;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.io.Resources.getResource;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -446,10 +449,15 @@ public class TestFileBasedAccessControl
 
     private ConnectorAccessControl createAccessControl(String fileName)
     {
-        String path = this.getClass().getClassLoader().getResource(fileName).getPath();
-        FileBasedAccessControlConfig config = new FileBasedAccessControlConfig();
-        config.setConfigFile(path);
-        return new FileBasedAccessControl(new CatalogName("test_catalog"), config);
+        try {
+            String path = new File(getResource(fileName).toURI()).getPath();
+            FileBasedAccessControlConfig config = new FileBasedAccessControlConfig();
+            config.setConfigFile(path);
+            return new FileBasedAccessControl(new CatalogName("test_catalog"), config);
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static void assertDenied(ThrowingRunnable runnable)

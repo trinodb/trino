@@ -91,6 +91,7 @@ import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
@@ -103,7 +104,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longTimestampWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
@@ -122,6 +122,7 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -134,6 +135,7 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -228,12 +230,14 @@ public class MySqlClient
     }
 
     @Override
-    public void abortReadConnection(Connection connection)
+    public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
-        // Abort connection before closing. Without this, the MySQL driver
-        // attempts to drain the connection by reading all the results.
-        connection.abort(directExecutor());
+        if (!resultSet.isAfterLast()) {
+            // Abort connection before closing. Without this, the MySQL driver
+            // attempts to drain the connection by reading all the results.
+            connection.abort(directExecutor());
+        }
     }
 
     @Override
@@ -304,7 +308,13 @@ public class MySqlClient
                 return Optional.of(bigintColumnMapping());
 
             case Types.REAL:
-                return Optional.of(realColumnMapping());
+                // Disable pushdown because floating-point values are approximate and not stored as exact values,
+                // attempts to treat them as exact in comparisons may lead to problems
+                return Optional.of(ColumnMapping.longMapping(
+                        REAL,
+                        (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
+                        realWriteFunction(),
+                        DISABLE_PUSHDOWN));
 
             case Types.DOUBLE:
                 return Optional.of(doubleColumnMapping());
@@ -380,6 +390,9 @@ public class MySqlClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
+        if (type == BOOLEAN) {
+            return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
+        }
         if (type == TINYINT) {
             return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
         }
@@ -466,7 +479,7 @@ public class MySqlClient
             return WriteMapping.sliceMapping("json", varcharWriteFunction());
         }
 
-        return legacyToWriteMapping(session, type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     @Override

@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -35,8 +36,8 @@ public class Database
 
     private final String databaseName;
     private final Optional<String> location;
-    private final String ownerName;
-    private final PrincipalType ownerType;
+    private final Optional<String> ownerName;
+    private final Optional<PrincipalType> ownerType;
     private final Optional<String> comment;
     private final Map<String, String> parameters;
 
@@ -44,15 +45,18 @@ public class Database
     public Database(
             @JsonProperty("databaseName") String databaseName,
             @JsonProperty("location") Optional<String> location,
-            @JsonProperty("ownerName") String ownerName,
-            @JsonProperty("ownerType") PrincipalType ownerType,
+            @JsonProperty("ownerName") Optional<String> ownerName,
+            @JsonProperty("ownerType") Optional<PrincipalType> ownerType,
             @JsonProperty("comment") Optional<String> comment,
             @JsonProperty("parameters") Map<String, String> parameters)
     {
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
-        this.location = requireNonNull(location, "location is null");
+        requireNonNull(location, "location is null");
+        checkArgument(location.isEmpty() || !location.get().isEmpty(), "location cannot be an empty string");
+        this.location = location;
         this.ownerName = requireNonNull(ownerName, "ownerName is null");
         this.ownerType = requireNonNull(ownerType, "ownerType is null");
+        checkArgument(ownerName.isPresent() == ownerType.isPresent(), "Both ownerName and ownerType must be present or empty");
         this.comment = requireNonNull(comment, "comment is null");
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
     }
@@ -70,13 +74,13 @@ public class Database
     }
 
     @JsonProperty
-    public String getOwnerName()
+    public Optional<String> getOwnerName()
     {
         return ownerName;
     }
 
     @JsonProperty
-    public PrincipalType getOwnerType()
+    public Optional<PrincipalType> getOwnerType()
     {
         return ownerType;
     }
@@ -107,8 +111,8 @@ public class Database
     {
         private String databaseName;
         private Optional<String> location = Optional.empty();
-        private String ownerName;
-        private PrincipalType ownerType;
+        private Optional<String> ownerName;
+        private Optional<PrincipalType> ownerType;
         private Optional<String> comment = Optional.empty();
         private Map<String, String> parameters = new LinkedHashMap<>();
 
@@ -138,14 +142,14 @@ public class Database
             return this;
         }
 
-        public Builder setOwnerName(String ownerName)
+        public Builder setOwnerName(Optional<String> ownerName)
         {
             requireNonNull(ownerName, "ownerName is null");
             this.ownerName = ownerName;
             return this;
         }
 
-        public Builder setOwnerType(PrincipalType ownerType)
+        public Builder setOwnerType(Optional<PrincipalType> ownerType)
         {
             requireNonNull(ownerType, "ownerType is null");
             this.ownerType = ownerType;
@@ -205,7 +209,7 @@ public class Database
         return Objects.equals(databaseName, database.databaseName) &&
                 Objects.equals(location, database.location) &&
                 Objects.equals(ownerName, database.ownerName) &&
-                ownerType == database.ownerType &&
+                Objects.equals(ownerType, database.ownerType) &&
                 Objects.equals(comment, database.comment) &&
                 Objects.equals(parameters, database.parameters);
     }

@@ -99,6 +99,9 @@ public class TestPhoenixConnectorTest
             case SUPPORTS_TRUNCATE:
                 return false;
 
+            case SUPPORTS_INSERT_NOT_NULL_COLUMN:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -330,6 +333,15 @@ public class TestPhoenixConnectorTest
                 "INSERT INTO test_timestamp VALUES (4, '2002-05-30 09:30:10.500')",
                 "Underlying type that is mapped to VARCHAR is not supported for INSERT: TIMESTAMP");
         assertUpdate("DROP TABLE tpch.test_timestamp");
+    }
+
+    @Test
+    public void testDefaultDecimalTable()
+            throws Exception
+    {
+        executeInPhoenix("CREATE TABLE tpch.test_null_decimal (pk bigint primary key, val1 decimal)");
+        executeInPhoenix("UPSERT INTO tpch.test_null_decimal (pk, val1) VALUES (1, 2)");
+        assertQuery("SELECT * FROM tpch.test_null_decimal", "VALUES (1, 2) ");
     }
 
     private Session withUnsupportedType(UnsupportedTypeHandling unsupportedTypeHandling)

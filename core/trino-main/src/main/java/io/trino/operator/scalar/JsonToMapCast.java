@@ -18,7 +18,7 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.SqlOperator;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -68,16 +68,16 @@ public class JsonToMapCast
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
-        MapType mapType = (MapType) functionBinding.getBoundSignature().getReturnType();
+        checkArgument(boundSignature.getArity() == 1, "Expected arity to be 1");
+        MapType mapType = (MapType) boundSignature.getReturnType();
         checkCondition(canCastFromJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", mapType);
 
         BlockBuilderAppender mapAppender = createBlockBuilderAppender(mapType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType).bindTo(mapAppender);
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);

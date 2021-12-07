@@ -21,8 +21,6 @@ import io.trino.tempto.AfterTestWithContext;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryExecutor;
-import io.trino.tempto.query.QueryResult;
-import org.assertj.core.api.Condition;
 import org.testng.annotations.Test;
 
 import java.util.Set;
@@ -54,6 +52,7 @@ public class TestGrantRevoke
     private String viewName;
     private QueryExecutor aliceExecutor;
     private QueryExecutor bobExecutor;
+    private QueryExecutor charlieExecutor;
 
     /*
      * Pre-requisites for the tests in this class:
@@ -62,6 +61,7 @@ public class TestGrantRevoke
      * (2) tempto-configuration.yaml file should have definitions for the following connections to Presto server:
      *          - "alice@presto" that has "jdbc_user: alice"
      *          - "bob@presto" that has "jdbc_user: bob"
+     *          - "charlie@presto" that has "jdbc_user: charlie"
      *     (all other values of the connection are same as that of the default "presto" connection).
      */
 
@@ -72,6 +72,7 @@ public class TestGrantRevoke
         viewName = "alice_view";
         aliceExecutor = connectToPresto("alice@presto");
         bobExecutor = connectToPresto("bob@presto");
+        charlieExecutor = connectToPresto("charlie@presto");
 
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint)", tableName));
@@ -113,7 +114,7 @@ public class TestGrantRevoke
     public void testGrantRevoke()
     {
         // test GRANT
-        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob WITH GRANT OPTION", tableName));
+        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
         aliceExecutor.executeQuery(format("GRANT INSERT, SELECT ON %s TO bob", tableName));
         assertThat(bobExecutor.executeQuery(format("INSERT INTO %s VALUES (3, 22)", tableName))).hasRowsCount(1);
@@ -129,6 +130,43 @@ public class TestGrantRevoke
         aliceExecutor.executeQuery(format("REVOKE INSERT, SELECT ON %s FROM bob", tableName));
         assertQueryFailure(() -> bobExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
                 .hasMessageContaining(format("Access Denied: Cannot select from table default.%s", tableName));
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testGrantOptionsOnGrantedPrivilege()
+    {
+        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
+        assertQueryFailure(() -> aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob WITH GRANT OPTION", tableName)))
+                // Updating a privilege with GRANT OPTION is not supported by Hive. https://issues.apache.org/jira/browse/HIVE-15689
+                .hasMessageContaining("Granting SELECT WITH GRANT OPTION is not supported while USER bob possesses SELECT");
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testGrantRevokeWithGrantOption()
+    {
+        onTrino().executeQuery("CREATE ROLE role1 IN hive");
+        onTrino().executeQuery("CREATE ROLE role2 IN hive");
+        onTrino().executeQuery("GRANT role1 TO USER charlie IN hive");
+
+        // test GRANT WITH GRANT OPTION
+        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob WITH GRANT OPTION", tableName));
+        assertQueryFailure(() -> charlieExecutor.executeQuery(format("SELECT * FROM %s", tableName)))
+                .hasMessageContaining(format("Access Denied: Cannot select from table default.%s", tableName));
+        bobExecutor.executeQuery(format("GRANT SELECT ON %s TO ROLE role1", tableName));
+        assertThat(charlieExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+
+        // test REVOKE WITH GRANT OPTION
+        aliceExecutor.executeQuery(format("REVOKE GRANT OPTION FOR SELECT ON %s FROM bob", tableName));
+        assertQueryFailure(() -> bobExecutor.executeQuery(format("GRANT SELECT ON %s TO ROLE role1 ", tableName)))
+                .hasMessageContaining(format("Access Denied: Cannot grant privilege SELECT on table default.%s", tableName));
+        assertThat(bobExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+        // Since Hive doesn't support REVOKE with CASCADE, charlie would still have access to table
+        assertThat(charlieExecutor.executeQuery(format("SELECT * FROM %s", tableName))).hasNoRows();
+
+        // test GRANT WITH GRANT OPTION post revoke
+        assertQueryFailure(() -> aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob WITH GRANT OPTION", tableName)))
+                // Updating a privilege with GRANT OPTION is not supported by Hive. https://issues.apache.org/jira/browse/HIVE-15689
+                .hasMessageContaining("Granting SELECT WITH GRANT OPTION is not supported while USER bob possesses SELECT");
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -245,14 +283,6 @@ public class TestGrantRevoke
                     .contains(row(tableName))
                     .contains(row(view.getName()));
         });
-    }
-
-    private Condition<? super QueryResult> expectedRow(Row row)
-    {
-        return new Condition<>(
-                (QueryResult qr) -> qr.rows().contains(row.getValues()),
-                "expected row %s",
-                row);
     }
 
     private ImmutableList<Row> ownerGrants()

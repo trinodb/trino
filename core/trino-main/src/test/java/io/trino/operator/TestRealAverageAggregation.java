@@ -14,18 +14,15 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.aggregation.AbstractTestAggregationFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createBlockOfReals;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.spi.type.RealType.REAL;
@@ -36,20 +33,13 @@ import static java.lang.Float.floatToRawIntBits;
 public class TestRealAverageAggregation
         extends AbstractTestAggregationFunction
 {
-    private ResolvedFunction avgFunction;
-
-    @BeforeClass
-    public void setUp()
-    {
-        avgFunction = metadata.resolveFunction(TEST_SESSION, QualifiedName.of("avg"), fromTypes(REAL));
-    }
-
     @Test
     public void averageOfNullIsNull()
     {
         assertAggregation(
-                metadata,
-                avgFunction,
+                functionResolution,
+                QualifiedName.of("avg"),
+                fromTypes(REAL),
                 null,
                 createBlockOfReals(null, null));
     }
@@ -58,8 +48,9 @@ public class TestRealAverageAggregation
     public void averageOfSingleValueEqualsThatValue()
     {
         assertAggregation(
-                metadata,
-                avgFunction,
+                functionResolution,
+                QualifiedName.of("avg"),
+                fromTypes(REAL),
                 1.23f,
                 createBlockOfReals(1.23f));
     }
@@ -68,8 +59,9 @@ public class TestRealAverageAggregation
     public void averageOfTwoMaxFloatsEqualsMaxFloat()
     {
         assertAggregation(
-                metadata,
-                avgFunction,
+                functionResolution,
+                QualifiedName.of("avg"),
+                fromTypes(REAL),
                 Float.MAX_VALUE,
                 createBlockOfReals(Float.MAX_VALUE, Float.MAX_VALUE));
     }

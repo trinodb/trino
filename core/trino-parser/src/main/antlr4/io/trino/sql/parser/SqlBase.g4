@@ -384,7 +384,7 @@ columnAliases
     ;
 
 relationPrimary
-    : qualifiedName                                                   #tableName
+    : qualifiedName queryPeriod?                                      #tableName
     | '(' query ')'                                                   #subqueryRelation
     | UNNEST '(' expression (',' expression)* ')' (WITH ORDINALITY)?  #unnest
     | LATERAL '(' query ')'                                           #lateral
@@ -439,7 +439,8 @@ primaryExpression
     | name=LISTAGG '(' setQuantifier? expression (',' string)?
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' ORDER BY sortItem (',' sortItem)* ')')                          #listagg
-    | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
+    | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
+        filter? over?                                                                     #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?
         (ORDER BY sortItem (',' sortItem)*)? ')' filter? (nullTreatment? over)?           #functionCall
     | identifier over                                                                     #measure
@@ -653,6 +654,15 @@ qualifiedName
     : identifier ('.' identifier)*
     ;
 
+queryPeriod
+    : FOR rangeType AS OF end=valueExpression
+    ;
+
+rangeType
+    : TIMESTAMP
+    | VERSION
+    ;
+
 grantor
     : principal             #specifiedPrincipal
     | CURRENT_USER          #currentUserGrantor
@@ -698,14 +708,14 @@ nonReserved
     | LAST | LATERAL | LEVEL | LIMIT | LOCAL | LOGICAL
     | MAP | MATCH | MATCHED | MATCHES | MATCH_RECOGNIZE | MATERIALIZED | MEASURES | MERGE | MINUTE | MONTH
     | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
-    | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW
+    | OF | OFFSET | OMIT | ONE | ONLY | OPTION | ORDINALITY | OUTPUT | OVER | OVERFLOW
     | PARTITION | PARTITIONS | PAST | PATH | PATTERN | PER | PERMUTE | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES
     | RANGE | READ | REFRESH | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS | RUNNING
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SEEK | SERIALIZABLE | SESSION | SET | SETS
     | SHOW | SOME | START | STATS | SUBSET | SUBSTRING | SYSTEM
     | TABLES | TABLESAMPLE | TEXT | TIES | TIME | TIMESTAMP | TO | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | UNMATCHED | UPDATE | USE | USER
-    | VALIDATE | VERBOSE | VIEW
+    | VALIDATE | VERBOSE | VERSION | VIEW
     | WINDOW | WITHIN | WITHOUT | WORK | WRITE
     | YEAR
     | ZONE
@@ -848,6 +858,7 @@ NULLIF: 'NULLIF';
 NULLS: 'NULLS';
 OFFSET: 'OFFSET';
 OMIT: 'OMIT';
+OF: 'OF';
 ON: 'ON';
 ONE: 'ONE';
 ONLY: 'ONLY';
@@ -935,6 +946,7 @@ USING: 'USING';
 VALIDATE: 'VALIDATE';
 VALUES: 'VALUES';
 VERBOSE: 'VERBOSE';
+VERSION: 'VERSION';
 VIEW: 'VIEW';
 WHEN: 'WHEN';
 WHERE: 'WHERE';

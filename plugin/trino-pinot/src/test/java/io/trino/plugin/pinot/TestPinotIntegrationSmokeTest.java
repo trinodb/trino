@@ -1603,7 +1603,7 @@ public class TestPinotIntegrationSmokeTest
                         "  FROM " + ALL_TYPES_TABLE +
                         "  WHERE string_col IS NOT null AND string_col != 'array_null'\""))
                 .withRootCauseInstanceOf(RuntimeException.class)
-                .withMessage("java.lang.NullPointerException");
+                .withMessage("column index for 'int_col2' was not found");
 
         assertThat(query("SELECT int_col2, count(*) FROM " +
                 "\"SELECT int_col AS int_col2, long_col AS long_col2" +

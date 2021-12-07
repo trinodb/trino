@@ -40,8 +40,8 @@ public class TestRenameMaterializedViewTask
         metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
 
         getFutureValue(executeRenameMaterializedView(asQualifiedName(materializedViewName), asQualifiedName(newMaterializedViewName)));
-        assertThat(metadata.getMaterializedView(testSession, materializedViewName)).isEmpty();
-        assertThat(metadata.getMaterializedView(testSession, newMaterializedViewName)).isPresent();
+        assertThat(metadata.isMaterializedView(testSession, materializedViewName)).isFalse();
+        assertThat(metadata.isMaterializedView(testSession, newMaterializedViewName)).isTrue();
     }
 
     @Test
@@ -140,6 +140,7 @@ public class TestRenameMaterializedViewTask
 
     private ListenableFuture<Void> executeRenameMaterializedView(QualifiedName source, QualifiedName target, boolean exists)
     {
-        return new RenameMaterializedViewTask().execute(new RenameMaterializedView(source, target, exists), transactionManager, metadata, new AllowAllAccessControl(), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        return new RenameMaterializedViewTask(metadata, new AllowAllAccessControl())
+                .execute(new RenameMaterializedView(source, target, exists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

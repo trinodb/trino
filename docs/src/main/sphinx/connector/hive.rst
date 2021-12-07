@@ -386,7 +386,7 @@ Property Name                                      Description                  
                                                    created directories will not be set by Trino.
 
 ``hive.query-partition-filter-required``           Set to ``true`` to force a query to use a partition filter.   ``false``
-                                                   You can use the ``query_partition_filter_required`` catalog 
+                                                   You can use the ``query_partition_filter_required`` catalog
                                                    session property for temporary, catalog specific use.
 ================================================== ============================================================ ============
 
@@ -666,6 +666,7 @@ features:
   * :ref:`sql-views-management`
 
 * :ref:`sql-security-operations`, see also :ref:`hive-sql-standard-based-authorization`
+* :ref:`sql-transactions`
 
 .. _hive-alter-table-execute:
 

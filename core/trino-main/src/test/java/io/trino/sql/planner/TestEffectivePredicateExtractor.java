@@ -25,6 +25,7 @@ import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionInvoker;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
@@ -98,6 +99,7 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionId.toFunctionId;
+import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -1208,7 +1210,14 @@ public class TestEffectivePredicateExtractor
     private static ResolvedFunction fakeFunction(String name)
     {
         BoundSignature boundSignature = new BoundSignature(name, UNKNOWN, ImmutableList.of());
-        return new ResolvedFunction(boundSignature, toFunctionId(boundSignature.toSignature()), ImmutableMap.of(), ImmutableSet.of());
+        return new ResolvedFunction(
+                boundSignature,
+                toFunctionId(boundSignature.toSignature()),
+                SCALAR,
+                true,
+                new FunctionNullability(false, ImmutableList.of()),
+                ImmutableMap.of(),
+                ImmutableSet.of());
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)

@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.FeaturesConfig;
 import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.system.StaticSystemTablesProvider;
@@ -36,7 +37,6 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.transaction.IsolationLevel;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.SetRole;
@@ -107,7 +107,7 @@ public class TestSetRoleTask
         Connector systemRoleConnector = new Connector()
         {
             @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
             {
                 return new ConnectorTransactionHandle() {};
             }
@@ -204,7 +204,7 @@ public class TestSetRoleTask
                 metadata,
                 WarningCollector.NOOP,
                 Optional.empty());
-        new SetRoleTask().execute(setRole, transactionManager, metadata, accessControl, stateMachine, ImmutableList.of(), WarningCollector.NOOP);
+        new SetRoleTask(metadata, accessControl).execute(setRole, stateMachine, ImmutableList.of(), WarningCollector.NOOP);
         return stateMachine;
     }
 }

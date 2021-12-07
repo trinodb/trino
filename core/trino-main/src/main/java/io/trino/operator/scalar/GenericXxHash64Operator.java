@@ -14,7 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionInvoker;
 import io.trino.metadata.SqlOperator;
 import io.trino.spi.function.OperatorType;
@@ -46,9 +46,9 @@ public class GenericXxHash64Operator
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        Type type = functionBinding.getTypeVariable("T");
+        Type type = boundSignature.getArgumentType(0);
         return invocationConvention -> {
             MethodHandle methodHandle = typeOperators.getXxHash64Operator(type, invocationConvention);
             return new FunctionInvoker(methodHandle, Optional.empty());

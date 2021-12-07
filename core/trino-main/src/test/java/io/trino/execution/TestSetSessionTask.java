@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.FeaturesConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
@@ -25,7 +26,6 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.session.PropertyMetadata;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
@@ -198,7 +198,7 @@ public class TestSetSessionTask
                 metadata,
                 WarningCollector.NOOP,
                 Optional.empty());
-        getFutureValue(new SetSessionTask().execute(new SetSession(qualifiedPropName, expression), transactionManager, metadata, accessControl, stateMachine, parameters, WarningCollector.NOOP));
+        getFutureValue(new SetSessionTask(metadata, accessControl).execute(new SetSession(qualifiedPropName, expression), stateMachine, parameters, WarningCollector.NOOP));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
         assertEquals(sessionProperties, ImmutableMap.of(qualifiedPropName.toString(), expectedValue));

@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
@@ -42,6 +43,7 @@ import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
@@ -242,8 +244,8 @@ public class FileHiveMetastore
         Database database = getRequiredDatabase(databaseName);
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
         Database newDatabase = Database.builder(database)
-                .setOwnerName(principal.getName())
-                .setOwnerType(principal.getType())
+                .setOwnerName(Optional.of(principal.getName()))
+                .setOwnerType(Optional.of(principal.getType()))
                 .build();
 
         writeSchemaFile(DATABASE, databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, newDatabase), true);
@@ -356,7 +358,7 @@ public class FileHiveMetastore
         Table table = getRequiredTable(databaseName, tableName);
         Path tableMetadataDirectory = getTableMetadataDirectory(table);
         Table newTable = Table.builder(table)
-                .setOwner(principal.getName())
+                .setOwner(Optional.of(principal.getName()))
                 .build();
 
         writeSchemaFile(TABLE, tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, newTable), true);
@@ -1093,19 +1095,18 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
+    public synchronized Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
     {
         Table table = getRequiredTable(databaseName, tableName);
         Path permissionsDirectory = getPermissionsDirectory(table);
         if (principal.isEmpty()) {
-            HivePrincipal owner = new HivePrincipal(USER, tableOwner);
-            return ImmutableSet.<HivePrivilegeInfo>builder()
-                    .addAll(readAllPermissions(permissionsDirectory))
-                    .add(new HivePrivilegeInfo(OWNERSHIP, true, owner, owner))
-                    .build();
+            Builder<HivePrivilegeInfo> privileges = ImmutableSet.<HivePrivilegeInfo>builder()
+                    .addAll(readAllPermissions(permissionsDirectory));
+            tableOwner.ifPresent(owner -> privileges.add(new HivePrivilegeInfo(OWNERSHIP, true, new HivePrincipal(USER, owner), new HivePrincipal(USER, owner))));
+            return privileges.build();
         }
         ImmutableSet.Builder<HivePrivilegeInfo> result = ImmutableSet.builder();
-        if (principal.get().getType() == USER && table.getOwner().equals(principal.get().getName())) {
+        if (principal.get().getType() == USER && table.getOwner().orElseThrow().equals(principal.get().getName())) {
             result.add(new HivePrivilegeInfo(OWNERSHIP, true, principal.get(), principal.get()));
         }
         result.addAll(readPermissionsFile(getPermissionsPath(permissionsDirectory, principal.get())));
@@ -1113,17 +1114,23 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public synchronized void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
-        setTablePrivileges(grantee, databaseName, tableName, privileges);
+        setTablePrivileges(
+                grantee,
+                databaseName,
+                tableName,
+                privileges.stream()
+                        .map(privilege -> new HivePrivilegeInfo(privilege, grantOption, grantor, grantee))
+                        .collect(toImmutableList()));
     }
 
     @Override
-    public synchronized void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public synchronized void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
-        Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(databaseName, tableName, tableOwner, Optional.of(grantee));
+        Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(databaseName, tableName, Optional.of(tableOwner), Optional.of(grantee));
         Set<HivePrivilegeInfo> privilegesToRemove = privileges.stream()
-                .map(p -> new HivePrivilegeInfo(p.getHivePrivilege(), p.isGrantOption(), p.getGrantor(), grantee))
+                .map(p -> new HivePrivilegeInfo(p, grantOption, grantor, grantee))
                 .collect(toImmutableSet());
 
         setTablePrivileges(grantee, databaseName, tableName, Sets.difference(currentPrivileges, privilegesToRemove));

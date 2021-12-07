@@ -16,11 +16,11 @@ package io.trino.operator.window.matcher;
 import com.google.common.collect.ImmutableList;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.PagesIndex;
-import io.trino.operator.window.PagesWindowIndex;
 import io.trino.operator.window.pattern.LabelEvaluator;
-import io.trino.operator.window.pattern.PhysicalValuePointer;
+import io.trino.operator.window.pattern.MatchAggregation;
+import io.trino.operator.window.pattern.PhysicalValueAccessor;
+import io.trino.operator.window.pattern.ProjectingPagesWindowIndex;
 import io.trino.spi.Page;
-import io.trino.spi.function.WindowIndex;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import org.assertj.core.api.AbstractAssert;
@@ -47,8 +47,8 @@ public class MatchAssert
     public static AssertProvider<MatchAssert> match(IrRowPattern pattern, String input, Map<IrLabel, Integer> labelMapping)
     {
         Program program = IrRowPatternToProgramRewriter.rewrite(pattern, labelMapping);
-        List<List<PhysicalValuePointer>> dummyPointers = ImmutableList.of(ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
-        Matcher matcher = new Matcher(program, dummyPointers);
+        List<List<PhysicalValueAccessor>> dummyPointers = ImmutableList.of(ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+        Matcher matcher = new Matcher(program, dummyPointers, ImmutableList.of(), ImmutableList.of());
 
         int[] mappedInput = new int[input.length()];
         char[] chars = input.toCharArray();
@@ -56,7 +56,7 @@ public class MatchAssert
             mappedInput[i] = labelMapping.get(new IrLabel(String.valueOf(chars[i])));
         }
 
-        return () -> new MatchAssert(matcher.run(identityEvaluator(mappedInput), new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "dummy")), labelMapping);
+        return () -> new MatchAssert(matcher.run(identityEvaluator(mappedInput), new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "dummy"), newSimpleAggregatedMemoryContext()), labelMapping);
     }
 
     @CanIgnoreReturnValue
@@ -92,7 +92,7 @@ public class MatchAssert
         // create dummy WindowIndex for the LabelEvaluator
         PagesIndex pagesIndex = new PagesIndex.TestingFactory(false).newPagesIndex(ImmutableList.of(), 1);
         pagesIndex.addPage(new Page(1));
-        return new IdentityEvaluator(input, new PagesWindowIndex(pagesIndex, 0, 1));
+        return new IdentityEvaluator(input, new ProjectingPagesWindowIndex(pagesIndex, 0, 1, ImmutableList.of(), ImmutableList.of()));
     }
 
     private static class IdentityEvaluator
@@ -100,7 +100,7 @@ public class MatchAssert
     {
         private final int[] input;
 
-        public IdentityEvaluator(int[] input, WindowIndex dummy)
+        public IdentityEvaluator(int[] input, ProjectingPagesWindowIndex dummy)
         {
             super(0, 0, 0, 0, 1, ImmutableList.of(), dummy);
             this.input = input;
@@ -119,9 +119,10 @@ public class MatchAssert
         }
 
         @Override
-        public boolean evaluateLabel(int label, ArrayView matchedLabels)
+        public boolean evaluateLabel(ArrayView matchedLabels, MatchAggregation[] aggregations)
         {
-            return input[matchedLabels.length()] == label;
+            int position = matchedLabels.length() - 1;
+            return input[position] == matchedLabels.get(position);
         }
     }
 }

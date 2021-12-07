@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedTablePrefix;
+import io.trino.metadata.ViewInfo;
 import io.trino.security.AccessControl;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -25,7 +26,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GrantInfo;
@@ -299,7 +299,7 @@ public class InformationSchemaPageSource
 
     private void addViewsRecords(QualifiedTablePrefix prefix)
     {
-        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, metadata, accessControl, prefix).entrySet()) {
+        for (Map.Entry<SchemaTableName, ViewInfo> entry : getViews(session, metadata, accessControl, prefix).entrySet()) {
             addRecord(
                     prefix.getCatalogName(),
                     entry.getKey().getSchemaName(),

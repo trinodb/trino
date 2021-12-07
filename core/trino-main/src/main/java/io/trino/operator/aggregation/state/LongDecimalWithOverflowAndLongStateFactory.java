@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation.state;
 
 import io.trino.array.LongBigArray;
+import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -27,21 +28,9 @@ public class LongDecimalWithOverflowAndLongStateFactory
     }
 
     @Override
-    public Class<? extends LongDecimalWithOverflowAndLongState> getSingleStateClass()
-    {
-        return SingleLongDecimalWithOverflowAndLongState.class;
-    }
-
-    @Override
     public LongDecimalWithOverflowAndLongState createGroupedState()
     {
         return new GroupedLongDecimalWithOverflowAndLongState();
-    }
-
-    @Override
-    public Class<? extends LongDecimalWithOverflowAndLongState> getGroupedStateClass()
-    {
-        return GroupedLongDecimalWithOverflowAndLongState.class;
     }
 
     public static class GroupedLongDecimalWithOverflowAndLongState
@@ -91,6 +80,14 @@ public class LongDecimalWithOverflowAndLongStateFactory
 
         protected long longValue;
 
+        public SingleLongDecimalWithOverflowAndLongState() {}
+
+        // for copying
+        private SingleLongDecimalWithOverflowAndLongState(long longValue)
+        {
+            this.longValue = longValue;
+        }
+
         @Override
         public long getLong()
         {
@@ -113,6 +110,12 @@ public class LongDecimalWithOverflowAndLongStateFactory
         public long getEstimatedSize()
         {
             return INSTANCE_SIZE + SIZE;
+        }
+
+        @Override
+        public AccumulatorState copy()
+        {
+            return new SingleLongDecimalWithOverflowAndLongState(longValue);
         }
     }
 }

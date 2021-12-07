@@ -144,9 +144,10 @@ public class DriverContext
 
     public void startProcessTimer()
     {
-        if (startNanos.compareAndSet(0, System.nanoTime())) {
-            pipelineContext.start();
+        // Must update startNanos first so that the value is valid once executionStartTime is not null
+        if (executionStartTime.get() == null && startNanos.compareAndSet(0, System.nanoTime())) {
             executionStartTime.set(DateTime.now());
+            pipelineContext.start();
         }
     }
 
@@ -175,8 +176,9 @@ public class DriverContext
             // already finished
             return;
         }
-        executionEndTime.set(DateTime.now());
+        // Must update endNanos first, so that the value is valid after executionEndTime is not null
         endNanos.set(System.nanoTime());
+        executionEndTime.set(DateTime.now());
 
         pipelineContext.driverFinished(this);
     }
@@ -322,6 +324,14 @@ public class DriverContext
             totalBlockedTime += blockedMonitor.getBlockedTime();
         }
 
+        // startNanos is always valid once executionStartTime is not null
+        DateTime executionStartTime = this.executionStartTime.get();
+        Duration queuedTime = new Duration(nanosBetween(createNanos, executionStartTime == null ? System.nanoTime() : startNanos.get()), NANOSECONDS);
+
+        // endNanos is always valid once executionStartTime is not null
+        DateTime executionEndTime = this.executionEndTime.get();
+        Duration elapsedTime = new Duration(nanosBetween(createNanos, executionEndTime == null ? System.nanoTime() : endNanos.get()), NANOSECONDS);
+
         List<OperatorStats> operators = getOperatorStats();
         OperatorStats inputOperator = getFirst(operators, null);
 
@@ -381,29 +391,10 @@ public class DriverContext
             outputPositions = 0;
         }
 
-        long physicalWrittenDataSize = operators.stream()
-                .map(OperatorStats::getPhysicalWrittenDataSize)
-                .mapToLong(DataSize::toBytes)
-                .sum();
-
-        long startNanos = this.startNanos.get();
-        if (startNanos < createNanos) {
-            startNanos = System.nanoTime();
-        }
-        Duration queuedTime = new Duration(startNanos - createNanos, NANOSECONDS);
-
-        long endNanos = this.endNanos.get();
-        Duration elapsedTime;
-        if (endNanos >= startNanos) {
-            elapsedTime = new Duration(endNanos - createNanos, NANOSECONDS);
-        }
-        else {
-            elapsedTime = new Duration(System.nanoTime() - createNanos, NANOSECONDS);
-        }
-
         ImmutableSet.Builder<BlockedReason> builder = ImmutableSet.builder();
-
+        long physicalWrittenDataSize = 0;
         for (OperatorStats operator : operators) {
+            physicalWrittenDataSize += operator.getPhysicalWrittenDataSize().toBytes();
             if (operator.getBlockedReason().isPresent()) {
                 builder.add(operator.getBlockedReason().get());
             }
@@ -412,8 +403,8 @@ public class DriverContext
         return new DriverStats(
                 lifespan,
                 createdTime,
-                executionStartTime.get(),
-                executionEndTime.get(),
+                executionStartTime,
+                executionEndTime,
                 queuedTime.convertToMostSuccinctTimeUnit(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 succinctBytes(driverMemoryContext.getUserMemory()),

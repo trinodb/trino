@@ -222,7 +222,7 @@ public class TestJdbcVendorCompatibility
                 });
 
         checkRepresentation(
-                "TIMESTAMP '2018-02-13 13:14:15.123 +03:15'", // Presto
+                "TIMESTAMP '2018-02-13 13:14:15.123 +03:15'", // Trino
                 ImmutableList.of(
                         "TIMESTAMP WITH TIME ZONE '2018-02-13 13:14:15.123 +03:15'", // PostgreSQL
                         "from_tz(TIMESTAMP '2018-02-13 13:14:15.123', '+03:15')"), // Oracle
@@ -244,7 +244,7 @@ public class TestJdbcVendorCompatibility
                 });
 
         checkRepresentation(
-                "TIMESTAMP '2018-02-13 13:14:15.123 Europe/Warsaw'", // Presto
+                "TIMESTAMP '2018-02-13 13:14:15.123 Europe/Warsaw'", // Trino
                 ImmutableList.of(
                         "TIMESTAMP WITH TIME ZONE '2018-02-13 13:14:15.123 Europe/Warsaw'", // PostgreSQL
                         "from_tz(TIMESTAMP '2018-02-13 13:14:15.123', 'Europe/Warsaw')"), // Oracle

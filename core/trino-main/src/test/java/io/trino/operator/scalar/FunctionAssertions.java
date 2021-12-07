@@ -21,12 +21,14 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Lifespan;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.FilterAndProjectOperator;
@@ -60,7 +62,6 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.split.PageSourceProvider;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
@@ -75,6 +76,7 @@ import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
+import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -138,6 +140,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -213,6 +216,7 @@ public final class FunctionAssertions
     private final LocalQueryRunner runner;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
+    private final TestingFunctionResolution testingFunctionResolution;
     private final ExpressionCompiler compiler;
 
     public FunctionAssertions()
@@ -233,12 +237,18 @@ public final class FunctionAssertions
                 .build();
         transactionManager = runner.getTransactionManager();
         metadata = runner.getMetadata();
+        testingFunctionResolution = new TestingFunctionResolution(transactionManager, metadata);
         compiler = runner.getExpressionCompiler();
     }
 
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    public TestingFunctionResolution getFunctionResolution()
+    {
+        return testingFunctionResolution;
     }
 
     public TypeOperators getTypeOperators()
@@ -329,6 +339,13 @@ public final class FunctionAssertions
     {
         assertTrinoExceptionThrownBy(() -> evaluateInvalid(projection))
                 .hasErrorCode(expectedErrorCode);
+    }
+
+    public void assertFunctionThrowsIncorrectly(@Language("SQL") String projection, Class<? extends Throwable> throwableClass, @Language("RegExp") String message)
+    {
+        assertThatThrownBy(() -> evaluateInvalid(projection))
+                .isInstanceOf(throwableClass)
+                .hasMessageMatching(message);
     }
 
     public void assertNumericOverflow(String projection, String message)

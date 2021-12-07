@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
@@ -79,6 +80,7 @@ import io.trino.spi.connector.ConnectorTableLayoutResult;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
@@ -119,7 +121,6 @@ import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.ConnectorExpressions;
 import io.trino.sql.planner.PartitioningHandle;
@@ -178,7 +179,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
-import static io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -383,6 +383,12 @@ public final class MetadataManager
     @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table)
     {
+        return getTableHandle(session, table, Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    {
         requireNonNull(table, "table is null");
 
         if (table.getCatalogName().isEmpty() || table.getSchemaName().isEmpty() || table.getObjectName().isEmpty()) {
@@ -395,6 +401,21 @@ public final class MetadataManager
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+
+            // GetTableHandle with the optional version handle field will throw an error if it is not implemented, so only try calling it when we have a version
+            if (startVersion.isPresent() || endVersion.isPresent()) {
+                ConnectorTableHandle versionedTableHandle = metadata.getTableHandle(
+                        connectorSession,
+                        table.asSchemaTableName(),
+                        toConnectorVersion(startVersion),
+                        toConnectorVersion(endVersion));
+                return Optional.ofNullable(versionedTableHandle)
+                        .map(connectorTableHandle -> new TableHandle(
+                                catalogName,
+                                connectorTableHandle,
+                                catalogMetadata.getTransactionHandleFor(catalogName),
+                                Optional.empty()));
+            }
 
             return Optional.ofNullable(metadata.getTableHandle(connectorSession, table.asSchemaTableName()))
                     .map(connectorTableHandle -> new TableHandle(
@@ -701,10 +722,10 @@ public final class MetadataManager
 
     private boolean isExistingRelation(Session session, QualifiedObjectName name)
     {
-        if (getMaterializedView(session, name).isPresent()) {
+        if (isMaterializedView(session, name)) {
             return true;
         }
-        if (getView(session, name).isPresent()) {
+        if (isView(session, name)) {
             return true;
         }
 
@@ -738,7 +759,7 @@ public final class MetadataManager
                         .forEach(columnsMetadata -> tableColumns.put(columnsMetadata.getTable(), columnsMetadata.getColumns()));
 
                 // Collect column metadata from views. if table and view names overlap, the view wins
-                for (Entry<QualifiedObjectName, ConnectorViewDefinition> entry : getViews(session, prefix).entrySet()) {
+                for (Entry<QualifiedObjectName, ViewInfo> entry : getViews(session, prefix).entrySet()) {
                     ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
                     for (ViewColumn column : entry.getValue().getColumns()) {
                         try {
@@ -752,9 +773,9 @@ public final class MetadataManager
                 }
 
                 // if view and materialized view names overlap, the materialized view wins
-                for (Entry<QualifiedObjectName, ConnectorMaterializedViewDefinition> entry : getMaterializedViews(session, prefix).entrySet()) {
+                for (Entry<QualifiedObjectName, ViewInfo> entry : getMaterializedViews(session, prefix).entrySet()) {
                     ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-                    for (ConnectorMaterializedViewDefinition.Column column : entry.getValue().getColumns()) {
+                    for (ViewColumn column : entry.getValue().getColumns()) {
                         try {
                             columns.add(new ColumnMetadata(column.getName(), getType(column.getType())));
                         }
@@ -780,6 +801,9 @@ public final class MetadataManager
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         metadata.createSchema(session.toConnectorSession(catalogName), schema.getSchemaName(), properties, principal);
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.schemaCreated(session, schema);
+        }
     }
 
     @Override
@@ -789,6 +813,9 @@ public final class MetadataManager
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         metadata.dropSchema(session.toConnectorSession(catalogName), schema.getSchemaName());
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.schemaDropped(session, schema);
+        }
     }
 
     @Override
@@ -798,6 +825,9 @@ public final class MetadataManager
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         metadata.renameSchema(session.toConnectorSession(catalogName), source.getSchemaName(), target);
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.schemaRenamed(session, source, new CatalogSchemaName(source.getCatalogName(), target));
+        }
     }
 
     @Override
@@ -806,7 +836,12 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, source.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.setSchemaAuthorization(session.toConnectorSession(catalogName), source.getSchemaName(), principal);
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.setSchemaOwner(session, source, principal);
+        }
+        else {
+            metadata.setSchemaAuthorization(session.toConnectorSession(catalogName), source.getSchemaName(), principal);
+        }
     }
 
     @Override
@@ -816,6 +851,9 @@ public final class MetadataManager
         CatalogName catalog = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         metadata.createTable(session.toConnectorSession(catalog), tableMetadata, ignoreExisting);
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.tableCreated(session, new CatalogSchemaTableName(catalogName, tableMetadata.getTable()));
+        }
     }
 
     @Override
@@ -827,9 +865,11 @@ public final class MetadataManager
         if (!tableHandle.getCatalogName().equals(catalog)) {
             throw new TrinoException(SYNTAX_ERROR, "Cannot rename tables across catalogs");
         }
+        Optional<CatalogSchemaTableName> sourceTableName = getTableNameIfSystemSecurity(session, catalogMetadata, tableHandle);
 
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         metadata.renameTable(session.toConnectorSession(catalog), tableHandle.getConnectorHandle(), newTableName.asSchemaTableName());
+        sourceTableName.ifPresent(name -> systemSecurityMetadata.tableRenamed(session, name, newTableName.asCatalogSchemaTableName()));
     }
 
     @Override
@@ -884,16 +924,25 @@ public final class MetadataManager
     public void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
     {
         CatalogName catalogName = new CatalogName(table.getCatalogName());
-        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
-        metadata.setTableAuthorization(session.toConnectorSession(catalogName), table.getSchemaTableName(), principal);
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.setTableOwner(session, table, principal);
+        }
+        else {
+            metadata.setTableAuthorization(session.toConnectorSession(catalogName), table.getSchemaTableName(), principal);
+        }
     }
 
     @Override
     public void dropTable(Session session, TableHandle tableHandle)
     {
         CatalogName catalogName = tableHandle.getCatalogName();
-        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        Optional<CatalogSchemaTableName> tableName = getTableNameIfSystemSecurity(session, catalogMetadata, tableHandle);
         metadata.dropTable(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
+        tableName.ifPresent(name -> systemSecurityMetadata.tableDropped(session, name));
     }
 
     @Override
@@ -985,6 +1034,10 @@ public final class MetadataManager
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalog);
         ConnectorSession connectorSession = session.toConnectorSession(catalog);
         ConnectorOutputTableHandle handle = metadata.beginCreateTable(connectorSession, tableMetadata, layout.map(NewTableLayout::getLayout));
+        // TODO this should happen after finish but there is no way to get table name in finish step
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.tableCreated(session, new CatalogSchemaTableName(catalogName, tableMetadata.getTable()));
+        }
         return new OutputTableHandle(catalog, transactionHandle, handle);
     }
 
@@ -1228,13 +1281,13 @@ public final class MetadataManager
     }
 
     @Override
-    public Map<QualifiedObjectName, ConnectorViewDefinition> getViews(Session session, QualifiedTablePrefix prefix)
+    public Map<QualifiedObjectName, ViewInfo> getViews(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
 
-        Map<QualifiedObjectName, ConnectorViewDefinition> views = new LinkedHashMap<>();
+        Map<QualifiedObjectName, ViewInfo> views = new LinkedHashMap<>();
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
 
@@ -1258,7 +1311,7 @@ public final class MetadataManager
                             prefix.getCatalogName(),
                             entry.getKey().getSchemaName(),
                             entry.getKey().getTableName());
-                    views.put(viewName, entry.getValue());
+                    views.put(viewName, new ViewInfo(entry.getValue()));
                 }
             }
         }
@@ -1286,15 +1339,36 @@ public final class MetadataManager
             throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
         }
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(schemaName.getCatalogName()));
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            return systemSecurityMetadata.getSchemaOwner(session, schemaName);
+        }
         CatalogName catalogName = catalogMetadata.getConnectorIdForSchema(schemaName);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
-
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.getSchemaOwner(connectorSession, schemaName);
     }
 
     @Override
-    public Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName)
+    public boolean isView(Session session, QualifiedObjectName viewName)
+    {
+        return getViewInternal(session, viewName).isPresent();
+    }
+
+    @Override
+    public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
+    {
+        Optional<ConnectorViewDefinition> connectorView = getViewInternal(session, viewName);
+        if (connectorView.isEmpty() || connectorView.get().isRunAsInvoker() || isCatalogManagedSecurity(session, viewName.getCatalogName())) {
+            return connectorView.map(view -> new ViewDefinition(viewName, view));
+        }
+
+        Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName())
+                .or(() -> connectorView.get().getOwner().map(Identity::ofUser))
+                .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Catalog does not support run-as DEFINER views: " + viewName));
+        return Optional.of(new ViewDefinition(viewName, connectorView.get(), runAsIdentity));
+    }
+
+    private Optional<ConnectorViewDefinition> getViewInternal(Session session, QualifiedObjectName viewName)
     {
         if (viewName.getCatalogName().isEmpty() || viewName.getSchemaName().isEmpty() || viewName.getObjectName().isEmpty()) {
             // View cannot exist
@@ -1314,13 +1388,16 @@ public final class MetadataManager
     }
 
     @Override
-    public void createView(Session session, QualifiedObjectName viewName, ConnectorViewDefinition definition, boolean replace)
+    public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, boolean replace)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.createView(session.toConnectorSession(catalogName), viewName.asSchemaTableName(), definition, replace);
+        metadata.createView(session.toConnectorSession(catalogName), viewName.asSchemaTableName(), definition.toConnectorViewDefinition(), replace);
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.tableCreated(session, viewName.asCatalogSchemaTableName());
+        }
     }
 
     @Override
@@ -1334,6 +1411,9 @@ public final class MetadataManager
         }
 
         metadata.renameView(session.toConnectorSession(catalogName), source.asSchemaTableName(), target.asSchemaTableName());
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.tableRenamed(session, source.asCatalogSchemaTableName(), target.asCatalogSchemaTableName());
+        }
     }
 
     @Override
@@ -1343,7 +1423,12 @@ public final class MetadataManager
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.setViewAuthorization(session.toConnectorSession(catalogName), view.getSchemaTableName(), principal);
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.setViewOwner(session, view, principal);
+        }
+        else {
+            metadata.setViewAuthorization(session.toConnectorSession(catalogName), view.getSchemaTableName(), principal);
+        }
     }
 
     @Override
@@ -1354,16 +1439,27 @@ public final class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
         metadata.dropView(session.toConnectorSession(catalogName), viewName.asSchemaTableName());
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.tableDropped(session, viewName.asCatalogSchemaTableName());
+        }
     }
 
     @Override
-    public void createMaterializedView(Session session, QualifiedObjectName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.createMaterializedView(session.toConnectorSession(catalogName), viewName.asSchemaTableName(), definition, replace, ignoreExisting);
+        metadata.createMaterializedView(
+                session.toConnectorSession(catalogName),
+                viewName.asSchemaTableName(),
+                definition.toConnectorMaterializedViewDefinition(),
+                replace,
+                ignoreExisting);
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.tableCreated(session, viewName.asCatalogSchemaTableName());
+        }
     }
 
     @Override
@@ -1374,6 +1470,9 @@ public final class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
         metadata.dropMaterializedView(session.toConnectorSession(catalogName), viewName.asSchemaTableName());
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.tableDropped(session, viewName.asCatalogSchemaTableName());
+        }
     }
 
     @Override
@@ -1383,9 +1482,7 @@ public final class MetadataManager
 
         Optional<QualifiedObjectName> objectName = prefix.asQualifiedObjectName();
         if (objectName.isPresent()) {
-            return getMaterializedView(session, objectName.get())
-                    .map(handle -> ImmutableList.of(objectName.get()))
-                    .orElseGet(ImmutableList::of);
+            return isMaterializedView(session, objectName.get()) ? ImmutableList.of(objectName.get()) : ImmutableList.of();
         }
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
@@ -1407,13 +1504,13 @@ public final class MetadataManager
     }
 
     @Override
-    public Map<QualifiedObjectName, ConnectorMaterializedViewDefinition> getMaterializedViews(Session session, QualifiedTablePrefix prefix)
+    public Map<QualifiedObjectName, ViewInfo> getMaterializedViews(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
 
-        Map<QualifiedObjectName, ConnectorMaterializedViewDefinition> views = new LinkedHashMap<>();
+        Map<QualifiedObjectName, ViewInfo> views = new LinkedHashMap<>();
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
 
@@ -1437,7 +1534,7 @@ public final class MetadataManager
                             prefix.getCatalogName(),
                             entry.getKey().getSchemaName(),
                             entry.getKey().getTableName());
-                    views.put(viewName, entry.getValue());
+                    views.put(viewName, new ViewInfo(entry.getValue()));
                 }
             }
         }
@@ -1445,7 +1542,29 @@ public final class MetadataManager
     }
 
     @Override
-    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+    public boolean isMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        return getMaterializedViewInternal(session, viewName).isPresent();
+    }
+
+    @Override
+    public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        Optional<ConnectorMaterializedViewDefinition> connectorView = getMaterializedViewInternal(session, viewName);
+        if (connectorView.isEmpty() || isCatalogManagedSecurity(session, viewName.getCatalogName())) {
+            return connectorView.map(view -> {
+                String runAsUser = view.getOwner().orElseThrow(() -> new TrinoException(INVALID_VIEW, "Owner not set for a run-as invoker view: " + viewName));
+                return new MaterializedViewDefinition(view, Identity.ofUser(runAsUser));
+            });
+        }
+
+        Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName())
+                .or(() -> connectorView.get().getOwner().map(Identity::ofUser))
+                .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Materialized view does not have an owner: " + viewName));
+        return Optional.of(new MaterializedViewDefinition(connectorView.get(), runAsIdentity));
+    }
+
+    private Optional<ConnectorMaterializedViewDefinition> getMaterializedViewInternal(Session session, QualifiedObjectName viewName)
     {
         if (viewName.getCatalogName().isEmpty() || viewName.getSchemaName().isEmpty() || viewName.getObjectName().isEmpty()) {
             // View cannot exist
@@ -1490,6 +1609,9 @@ public final class MetadataManager
         }
 
         metadata.renameMaterializedView(session.toConnectorSession(catalogName), source.asSchemaTableName(), target.asSchemaTableName());
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.tableRenamed(session, source.asCatalogSchemaTableName(), target.asCatalogSchemaTableName());
+        }
     }
 
     @Override
@@ -1552,12 +1674,18 @@ public final class MetadataManager
     @Override
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName)
     {
+        return getRedirectionAwareTableHandle(session, tableName, Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    {
         QualifiedObjectName targetTableName = getRedirectedTableName(session, tableName);
         if (targetTableName.equals(tableName)) {
-            return noRedirection(getTableHandle(session, tableName));
+            return noRedirection(getTableHandle(session, tableName, startVersion, endVersion));
         }
 
-        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName);
+        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion);
         if (tableHandle.isPresent()) {
             return withRedirectionTo(targetTableName, tableHandle.get());
         }
@@ -2392,12 +2520,13 @@ public final class MetadataManager
 
     private ResolvedFunction resolve(Session session, FunctionBinding functionBinding)
     {
+        FunctionMetadata functionMetadata = getFunctionMetadata(functionBinding.getFunctionId(), functionBinding.getBoundSignature());
         FunctionDependencyDeclaration declaration = functions.getFunctionDependencies(functionBinding);
-        return resolve(session, functionBinding, declaration);
+        return resolve(session, functionBinding, functionMetadata, declaration);
     }
 
     @VisibleForTesting
-    public ResolvedFunction resolve(Session session, FunctionBinding functionBinding, FunctionDependencyDeclaration declaration)
+    public ResolvedFunction resolve(Session session, FunctionBinding functionBinding, FunctionMetadata functionMetadata, FunctionDependencyDeclaration declaration)
     {
         Map<TypeSignature, Type> dependentTypes = declaration.getTypeDependencies().stream()
                 .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
@@ -2456,6 +2585,9 @@ public final class MetadataManager
         return new ResolvedFunction(
                 functionBinding.getBoundSignature(),
                 functionBinding.getFunctionId(),
+                functionMetadata.getKind(),
+                functionMetadata.isDeterministic(),
+                functionMetadata.getFunctionNullability(),
                 dependentTypes,
                 functions.build());
     }
@@ -2471,27 +2603,29 @@ public final class MetadataManager
     @Override
     public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
     {
-        FunctionMetadata functionMetadata = functions.get(resolvedFunction.getFunctionId());
+        return getFunctionMetadata(resolvedFunction.getFunctionId(), resolvedFunction.getSignature());
+    }
+
+    private FunctionMetadata getFunctionMetadata(FunctionId functionId, BoundSignature signature)
+    {
+        FunctionMetadata functionMetadata = functions.get(functionId);
 
         // specialize function metadata to resolvedFunction
-        List<FunctionArgumentDefinition> argumentDefinitions;
+        List<Boolean> argumentNullability = functionMetadata.getFunctionNullability().getArgumentNullable();
         if (functionMetadata.getSignature().isVariableArity()) {
-            List<FunctionArgumentDefinition> fixedArguments = functionMetadata.getArgumentDefinitions().subList(0, functionMetadata.getArgumentDefinitions().size() - 1);
-            int variableArgumentCount = resolvedFunction.getSignature().getArgumentTypes().size() - fixedArguments.size();
-            argumentDefinitions = ImmutableList.<FunctionArgumentDefinition>builder()
-                    .addAll(fixedArguments)
-                    .addAll(nCopies(variableArgumentCount, functionMetadata.getArgumentDefinitions().get(functionMetadata.getArgumentDefinitions().size() - 1)))
+            List<Boolean> fixedArgumentNullability = argumentNullability.subList(0, argumentNullability.size() - 1);
+            int variableArgumentCount = signature.getArgumentTypes().size() - fixedArgumentNullability.size();
+            argumentNullability = ImmutableList.<Boolean>builder()
+                    .addAll(fixedArgumentNullability)
+                    .addAll(nCopies(variableArgumentCount, argumentNullability.get(argumentNullability.size() - 1)))
                     .build();
         }
-        else {
-            argumentDefinitions = functionMetadata.getArgumentDefinitions();
-        }
+
         return new FunctionMetadata(
                 functionMetadata.getFunctionId(),
-                resolvedFunction.getSignature().toSignature(),
+                signature.toSignature(),
                 functionMetadata.getCanonicalName(),
-                functionMetadata.isNullable(),
-                argumentDefinitions,
+                new FunctionNullability(functionMetadata.getFunctionNullability().isReturnNullable(), argumentNullability),
                 functionMetadata.isHidden(),
                 functionMetadata.isDeterministic(),
                 functionMetadata.getDescription(),
@@ -2503,33 +2637,35 @@ public final class MetadataManager
     public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
     {
         AggregationFunctionMetadata aggregationFunctionMetadata = functions.getAggregationFunctionMetadata(resolvedFunction.getFunctionId());
-        return new AggregationFunctionMetadata(
-                aggregationFunctionMetadata.isOrderSensitive(),
-                aggregationFunctionMetadata.getIntermediateType().map(typeSignature -> {
-                    FunctionBinding functionBinding = toFunctionBinding(resolvedFunction);
-                    return applyBoundVariables(typeSignature, functionBinding);
-                }));
+        List<TypeSignature> intermediateTypes = aggregationFunctionMetadata.getIntermediateTypes();
+        if (!intermediateTypes.isEmpty()) {
+            FunctionBinding functionBinding = toFunctionBinding(resolvedFunction);
+            intermediateTypes = aggregationFunctionMetadata.getIntermediateTypes().stream()
+                    .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
+                    .collect(toImmutableList());
+        }
+        return new AggregationFunctionMetadata(aggregationFunctionMetadata.isOrderSensitive(), intermediateTypes);
     }
 
     @Override
     public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
     {
         FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        return functions.getWindowFunctionImplementation(toFunctionBinding(resolvedFunction), functionDependencies);
+        return functions.getWindowFunctionImplementation(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionDependencies);
     }
 
     @Override
     public InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
     {
         FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        return functions.getAggregateFunctionImplementation(toFunctionBinding(resolvedFunction), functionDependencies);
+        return functions.getAggregateFunctionImplementation(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionDependencies);
     }
 
     @Override
     public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
     {
         FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        FunctionInvoker functionInvoker = functions.getScalarFunctionInvoker(toFunctionBinding(resolvedFunction), functionDependencies, invocationConvention);
+        FunctionInvoker functionInvoker = functions.getScalarFunctionInvoker(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionDependencies, invocationConvention);
         verifyMethodHandleSignature(resolvedFunction.getSignature(), functionInvoker, invocationConvention);
         return functionInvoker;
     }
@@ -2725,6 +2861,15 @@ public final class MetadataManager
     // Helpers
     //
 
+    private static Optional<CatalogSchemaTableName> getTableNameIfSystemSecurity(Session session, CatalogMetadata catalogMetadata, TableHandle tableHandle)
+    {
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.CONNECTOR) {
+            return Optional.empty();
+        }
+        ConnectorTableSchema tableSchema = catalogMetadata.getMetadata().getTableSchema(session.toConnectorSession(tableHandle.getCatalogName()), tableHandle.getConnectorHandle());
+        return Optional.of(new CatalogSchemaTableName(tableHandle.getCatalogName().getCatalogName(), tableSchema.getTable()));
+    }
+
     private Optional<CatalogMetadata> getOptionalCatalogMetadata(Session session, String catalogName)
     {
         Optional<CatalogMetadata> optionalCatalogMetadata = transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName);
@@ -2811,6 +2956,31 @@ public final class MetadataManager
                 catalogMetadata.getMetadata().cleanupQuery(connectorSession);
             }
         }
+    }
+
+    @Override
+    public boolean isValidTableVersion(Session session, QualifiedObjectName tableName, TableVersion version)
+    {
+        requireNonNull(version, "Version must not be null for table " + tableName);
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
+        if (!catalog.isPresent()) {
+            return false;
+        }
+
+        CatalogMetadata catalogMetadata = catalog.get();
+        CatalogName connectorId = catalogMetadata.getConnectorId(session, tableName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+        return metadata.isSupportedVersionType(session.toConnectorSession(), tableName.asSchemaTableName(), version.getPointerType(), version.getObjectType());
+    }
+
+    private Optional<ConnectorTableVersion> toConnectorVersion(Optional<TableVersion> version)
+    {
+        Optional<ConnectorTableVersion> connectorVersion = Optional.empty();
+        if (version.isPresent()) {
+            connectorVersion = Optional.of(new ConnectorTableVersion(version.get().getPointerType(), version.get().getObjectType(), version.get().getPointer()));
+        }
+        return connectorVersion;
     }
 
     private static class OperatorCacheKey

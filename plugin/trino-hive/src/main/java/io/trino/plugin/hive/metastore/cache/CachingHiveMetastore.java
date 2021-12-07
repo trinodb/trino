@@ -35,6 +35,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePartitionName;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.HiveTableName;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionFilter;
@@ -887,10 +888,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
         try {
-            delegate.grantTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
+            delegate.grantTablePrivileges(databaseName, tableName, tableOwner, grantee, grantor, privileges, grantOption);
         }
         finally {
             invalidateTablePrivilegeCacheEntries(databaseName, tableName, tableOwner, grantee);
@@ -898,10 +899,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
         try {
-            delegate.revokeTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
+            delegate.revokeTablePrivileges(databaseName, tableName, tableOwner, grantee, grantor, privileges, grantOption);
         }
         finally {
             invalidateTablePrivilegeCacheEntries(databaseName, tableName, tableOwner, grantee);
@@ -911,12 +912,12 @@ public class CachingHiveMetastore
     private void invalidateTablePrivilegeCacheEntries(String databaseName, String tableName, String tableOwner, HivePrincipal grantee)
     {
         // some callers of xxxxTablePrivileges use Optional.of(grantee), some Optional.empty() (to get all privileges), so have to invalidate them both
-        tablePrivilegesCache.invalidate(new UserTableKey(Optional.of(grantee), databaseName, tableName, tableOwner));
-        tablePrivilegesCache.invalidate(new UserTableKey(Optional.empty(), databaseName, tableName, tableOwner));
+        tablePrivilegesCache.invalidate(new UserTableKey(Optional.of(grantee), databaseName, tableName, Optional.of(tableOwner)));
+        tablePrivilegesCache.invalidate(new UserTableKey(Optional.empty(), databaseName, tableName, Optional.of(tableOwner)));
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
     {
         return get(tablePrivilegesCache, new UserTableKey(principal, databaseName, tableName, tableOwner));
     }
@@ -968,7 +969,7 @@ public class CachingHiveMetastore
         return delegate.isImpersonationEnabled();
     }
 
-    private Set<HivePrivilegeInfo> loadTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
+    private Set<HivePrivilegeInfo> loadTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
     {
         return delegate.listTablePrivileges(databaseName, tableName, tableOwner, principal);
     }

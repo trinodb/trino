@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
-import static io.trino.operator.UpdateMemory.NOOP;
 import static io.trino.spi.type.BigintType.BIGINT;
 
 public interface GroupByHash
@@ -37,9 +36,10 @@ public interface GroupByHash
             Optional<Integer> inputHashChannel,
             int expectedSize,
             JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators)
+            BlockTypeOperators blockTypeOperators,
+            UpdateMemory updateMemory)
     {
-        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session), joinCompiler, blockTypeOperators, NOOP);
+        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session), joinCompiler, blockTypeOperators, updateMemory);
     }
 
     static GroupByHash createGroupByHash(

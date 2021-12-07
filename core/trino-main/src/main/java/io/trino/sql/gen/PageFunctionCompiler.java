@@ -50,7 +50,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.relational.ConstantExpression;
-import io.trino.sql.relational.DeterminismEvaluator;
 import io.trino.sql.relational.Expressions;
 import io.trino.sql.relational.InputReferenceExpression;
 import io.trino.sql.relational.LambdaDefinitionExpression;
@@ -93,6 +92,7 @@ import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.sql.gen.BytecodeUtils.generateWrite;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
+import static io.trino.sql.relational.DeterminismEvaluator.isDeterministic;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Reflection.constructorMethodHandle;
@@ -101,7 +101,6 @@ import static java.util.Objects.requireNonNull;
 public class PageFunctionCompiler
 {
     private final Metadata metadata;
-    private final DeterminismEvaluator determinismEvaluator;
 
     private final LoadingCache<RowExpression, Supplier<PageProjection>> projectionCache;
     private final LoadingCache<RowExpression, Supplier<PageFilter>> filterCache;
@@ -118,7 +117,6 @@ public class PageFunctionCompiler
     public PageFunctionCompiler(Metadata metadata, int expressionCacheSize)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.determinismEvaluator = new DeterminismEvaluator(metadata);
 
         if (expressionCacheSize > 0) {
             projectionCache = CacheBuilder.newBuilder()
@@ -206,7 +204,7 @@ public class PageFunctionCompiler
 
         return () -> new GeneratedPageProjection(
                 result.getRewrittenExpression(),
-                determinismEvaluator.isDeterministic(result.getRewrittenExpression()),
+                isDeterministic(result.getRewrittenExpression()),
                 result.getInputChannels(),
                 constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, Page.class, SelectedPositions.class));
     }
@@ -341,7 +339,7 @@ public class PageFunctionCompiler
                         .add(position)
                         .build());
 
-        method.comment("Projection: %s", projection.toString());
+        method.comment("Projection: %s", projection);
 
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
@@ -427,7 +425,7 @@ public class PageFunctionCompiler
         // isDeterministic
         classDefinition.declareMethod(a(PUBLIC), "isDeterministic", type(boolean.class))
                 .getBody()
-                .append(constantBoolean(determinismEvaluator.isDeterministic(filter)))
+                .append(constantBoolean(isDeterministic(filter)))
                 .retBoolean();
 
         // getInputChannels
@@ -520,7 +518,7 @@ public class PageFunctionCompiler
                         .add(position)
                         .build());
 
-        method.comment("Filter: %s", filter.toString());
+        method.comment("Filter: %s", filter);
 
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();

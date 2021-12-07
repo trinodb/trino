@@ -20,28 +20,39 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public class DereferenceExpression
         extends Expression
 {
     private final Expression base;
-    private final Identifier field;
+    private final Optional<Identifier> field;
 
     public DereferenceExpression(Expression base, Identifier field)
     {
-        this(Optional.empty(), base, field);
+        this(Optional.empty(), base, Optional.of(field));
     }
 
     public DereferenceExpression(NodeLocation location, Expression base, Identifier field)
     {
-        this(Optional.of(location), base, field);
+        this(Optional.of(location), base, Optional.of(field));
     }
 
-    private DereferenceExpression(Optional<NodeLocation> location, Expression base, Identifier field)
+    public DereferenceExpression(Identifier label)
+    {
+        this(Optional.empty(), label, Optional.empty());
+    }
+
+    public DereferenceExpression(NodeLocation location, Identifier label)
+    {
+        this(Optional.of(location), label, Optional.empty());
+    }
+
+    private DereferenceExpression(Optional<NodeLocation> location, Expression base, Optional<Identifier> field)
     {
         super(location);
         checkArgument(base != null, "base is null");
-        checkArgument(field != null, "fieldName is null");
+        requireNonNull(field, "field is null");
         this.base = base;
         this.field = field;
     }
@@ -55,7 +66,10 @@ public class DereferenceExpression
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of(base, field);
+        ImmutableList.Builder<Node> children = ImmutableList.builder();
+        children.add(base);
+        field.ifPresent(children::add);
+        return children.build();
     }
 
     public Expression getBase()
@@ -63,7 +77,7 @@ public class DereferenceExpression
         return base;
     }
 
-    public Identifier getField()
+    public Optional<Identifier> getField()
     {
         return field;
     }
@@ -74,16 +88,22 @@ public class DereferenceExpression
      */
     public static QualifiedName getQualifiedName(DereferenceExpression expression)
     {
+        if (!expression.field.isPresent()) {
+            return null;
+        }
+
+        Identifier field = expression.field.get();
+
         List<Identifier> parts = null;
         if (expression.base instanceof Identifier) {
-            parts = ImmutableList.of((Identifier) expression.base, expression.field);
+            parts = ImmutableList.of((Identifier) expression.base, field);
         }
         else if (expression.base instanceof DereferenceExpression) {
             QualifiedName baseQualifiedName = getQualifiedName((DereferenceExpression) expression.base);
             if (baseQualifiedName != null) {
                 ImmutableList.Builder<Identifier> builder = ImmutableList.builder();
                 builder.addAll(baseQualifiedName.getOriginalParts());
-                builder.add(expression.field);
+                builder.add(field);
                 parts = builder.build();
             }
         }
@@ -105,6 +125,11 @@ public class DereferenceExpression
         }
 
         return result;
+    }
+
+    public static boolean isQualifiedAllFieldsReference(Expression expression)
+    {
+        return expression instanceof DereferenceExpression && !((DereferenceExpression) expression).field.isPresent();
     }
 
     @Override

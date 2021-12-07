@@ -74,7 +74,7 @@ public final class TypeSignature
         for (TypeSignatureParameter parameter : parameters) {
             if (parameter.getKind() != ParameterKind.TYPE) {
                 throw new IllegalStateException(
-                        format("Expected all parameters to be TypeSignatures but [%s] was found", parameter.toString()));
+                        format("Expected all parameters to be TypeSignatures but [%s] was found", parameter));
             }
             result.add(parameter.getTypeSignature());
         }

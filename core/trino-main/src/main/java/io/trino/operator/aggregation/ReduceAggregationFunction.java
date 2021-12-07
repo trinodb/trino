@@ -14,15 +14,13 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import io.trino.operator.aggregation.state.GenericBooleanState;
 import io.trino.operator.aggregation.state.GenericBooleanStateSerializer;
 import io.trino.operator.aggregation.state.GenericDoubleState;
@@ -37,14 +35,12 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TypeSignature.functionType;
 import static io.trino.util.Reflection.methodHandle;
@@ -83,12 +79,7 @@ public class ReduceAggregationFunction
                                         functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")),
                                         functionType(new TypeSignature("S"), new TypeSignature("S"), new TypeSignature("S"))),
                                 false),
-                        true,
-                        ImmutableList.of(
-                                new FunctionArgumentDefinition(false),
-                                new FunctionArgumentDefinition(false),
-                                new FunctionArgumentDefinition(false),
-                                new FunctionArgumentDefinition(false)),
+                        new FunctionNullability(true, ImmutableList.of(false, false, false, false)),
                         false,
                         true,
                         "Reduce input elements into a single value",
@@ -99,48 +90,46 @@ public class ReduceAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
-        Type inputType = functionBinding.getTypeVariable("T");
-        Type stateType = functionBinding.getTypeVariable("S");
+        Type inputType = boundSignature.getArgumentTypes().get(0);
+        Type stateType = boundSignature.getArgumentTypes().get(1);
         return generateAggregation(inputType, stateType);
     }
 
-    private InternalAggregationFunction generateAggregation(Type inputType, Type stateType)
+    private AggregationMetadata generateAggregation(Type inputType, Type stateType)
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(ReduceAggregationFunction.class.getClassLoader());
-
         MethodHandle inputMethodHandle;
         MethodHandle combineMethodHandle;
         MethodHandle outputMethodHandle;
-        AccumulatorStateDescriptor stateDescriptor;
+        AccumulatorStateDescriptor<?> stateDescriptor;
 
         if (stateType.getJavaType() == long.class) {
             inputMethodHandle = LONG_STATE_INPUT_FUNCTION;
             combineMethodHandle = LONG_STATE_COMBINE_FUNCTION;
             outputMethodHandle = LONG_STATE_OUTPUT_FUNCTION.bindTo(stateType);
-            stateDescriptor = new AccumulatorStateDescriptor(
+            stateDescriptor = new AccumulatorStateDescriptor<>(
                     GenericLongState.class,
                     new GenericLongStateSerializer(stateType),
-                    StateCompiler.generateStateFactory(GenericLongState.class, classLoader));
+                    StateCompiler.generateStateFactory(GenericLongState.class));
         }
         else if (stateType.getJavaType() == double.class) {
             inputMethodHandle = DOUBLE_STATE_INPUT_FUNCTION;
             combineMethodHandle = DOUBLE_STATE_COMBINE_FUNCTION;
             outputMethodHandle = DOUBLE_STATE_OUTPUT_FUNCTION.bindTo(stateType);
-            stateDescriptor = new AccumulatorStateDescriptor(
+            stateDescriptor = new AccumulatorStateDescriptor<>(
                     GenericDoubleState.class,
                     new GenericDoubleStateSerializer(stateType),
-                    StateCompiler.generateStateFactory(GenericDoubleState.class, classLoader));
+                    StateCompiler.generateStateFactory(GenericDoubleState.class));
         }
         else if (stateType.getJavaType() == boolean.class) {
             inputMethodHandle = BOOLEAN_STATE_INPUT_FUNCTION;
             combineMethodHandle = BOOLEAN_STATE_COMBINE_FUNCTION;
             outputMethodHandle = BOOLEAN_STATE_OUTPUT_FUNCTION.bindTo(stateType);
-            stateDescriptor = new AccumulatorStateDescriptor(
+            stateDescriptor = new AccumulatorStateDescriptor<>(
                     GenericBooleanState.class,
                     new GenericBooleanStateSerializer(stateType),
-                    StateCompiler.generateStateFactory(GenericBooleanState.class, classLoader));
+                    StateCompiler.generateStateFactory(GenericBooleanState.class));
         }
         else {
             // State with Slice or Block as native container type is intentionally not supported yet,
@@ -149,92 +138,67 @@ public class ReduceAggregationFunction
             throw new TrinoException(NOT_SUPPORTED, format("State type not supported for %s: %s", NAME, stateType.getDisplayName()));
         }
 
-        String name = getFunctionMetadata().getSignature().getName();
-        AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(name, inputType.getTypeSignature(), ImmutableList.of(inputType.getTypeSignature())),
-                createInputParameterMetadata(inputType, stateType),
-                inputMethodHandle.asType(
-                        inputMethodHandle.type()
-                                .changeParameterType(1, inputType.getJavaType())),
+        return new AggregationMetadata(
+                ImmutableList.of(STATE, INPUT_CHANNEL, INPUT_CHANNEL),
+                inputMethodHandle.asType(inputMethodHandle.type().changeParameterType(1, inputType.getJavaType())),
                 Optional.empty(),
                 combineMethodHandle,
                 outputMethodHandle,
                 ImmutableList.of(stateDescriptor),
-                inputType,
                 ImmutableList.of(BinaryFunctionInterface.class, BinaryFunctionInterface.class));
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(
-                name,
-                ImmutableList.of(inputType),
-                ImmutableList.of(stateType),
-                stateType,
-                factory,
-                ImmutableList.of(BinaryFunctionInterface.class, BinaryFunctionInterface.class));
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(Type inputType, Type stateType)
-    {
-        return ImmutableList.of(
-                new ParameterMetadata(STATE),
-                new ParameterMetadata(INPUT_CHANNEL, inputType),
-                new ParameterMetadata(INPUT_CHANNEL, stateType));
     }
 
     public static void input(GenericLongState state, Object value, long initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
             state.setNull(false);
-            state.setLong(initialStateValue);
+            state.setValue(initialStateValue);
         }
-        state.setLong((long) inputFunction.apply(state.getLong(), value));
+        state.setValue((long) inputFunction.apply(state.getValue(), value));
     }
 
     public static void input(GenericDoubleState state, Object value, double initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
             state.setNull(false);
-            state.setDouble(initialStateValue);
+            state.setValue(initialStateValue);
         }
-        state.setDouble((double) inputFunction.apply(state.getDouble(), value));
+        state.setValue((double) inputFunction.apply(state.getValue(), value));
     }
 
     public static void input(GenericBooleanState state, Object value, boolean initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
             state.setNull(false);
-            state.setBoolean(initialStateValue);
+            state.setValue(initialStateValue);
         }
-        state.setBoolean((boolean) inputFunction.apply(state.getBoolean(), value));
+        state.setValue((boolean) inputFunction.apply(state.getValue(), value));
     }
 
     public static void combine(GenericLongState state, GenericLongState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
-            state.setNull(false);
-            state.setLong(otherState.getLong());
+            state.set(otherState);
             return;
         }
-        state.setLong((long) combineFunction.apply(state.getLong(), otherState.getLong()));
+        state.setValue((long) combineFunction.apply(state.getValue(), otherState.getValue()));
     }
 
     public static void combine(GenericDoubleState state, GenericDoubleState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
-            state.setNull(false);
-            state.setDouble(otherState.getDouble());
+            state.set(otherState);
             return;
         }
-        state.setDouble((double) combineFunction.apply(state.getDouble(), otherState.getDouble()));
+        state.setValue((double) combineFunction.apply(state.getValue(), otherState.getValue()));
     }
 
     public static void combine(GenericBooleanState state, GenericBooleanState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
-            state.setNull(false);
-            state.setBoolean(otherState.getBoolean());
+            state.set(otherState);
             return;
         }
-        state.setBoolean((boolean) combineFunction.apply(state.getBoolean(), otherState.getBoolean()));
+        state.setValue((boolean) combineFunction.apply(state.getValue(), otherState.getValue()));
     }
 }

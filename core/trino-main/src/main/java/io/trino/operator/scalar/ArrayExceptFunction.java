@@ -57,17 +57,17 @@ public final class ArrayExceptFunction
         int leftPositionCount = leftArray.getPositionCount();
         int rightPositionCount = rightArray.getPositionCount();
 
-        if (leftPositionCount == 0) {
+        if (leftPositionCount == 0 || rightPositionCount == 0) {
             return leftArray;
         }
-        TypedSet typedSet = createEqualityTypedSet(type, elementEqual, elementHashCode, leftPositionCount + rightPositionCount, "array_except");
+
+        TypedSet typedSet = createEqualityTypedSet(type, elementEqual, elementHashCode, leftPositionCount, "array_except");
         BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, leftPositionCount);
         for (int i = 0; i < rightPositionCount; i++) {
             typedSet.add(rightArray, i);
         }
         for (int i = 0; i < leftPositionCount; i++) {
-            if (!typedSet.contains(leftArray, i)) {
-                typedSet.add(leftArray, i);
+            if (typedSet.add(leftArray, i)) {
                 type.appendTo(leftArray, i, distinctElementBlockBuilder);
             }
         }

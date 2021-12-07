@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
@@ -68,12 +69,14 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Lists.reverse;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
+import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -162,7 +165,15 @@ public final class IcebergUtil
     public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)
     {
         return schema.columns().stream()
-                .map(column -> IcebergColumnHandle.create(column, typeManager))
+                .map(column -> {
+                    Type type = toTrinoType(column.type(), typeManager);
+                    return new IcebergColumnHandle(
+                            createColumnIdentity(column),
+                            type,
+                            ImmutableList.of(),
+                            type,
+                            Optional.ofNullable(column.doc()));
+                })
                 .collect(toImmutableList());
     }
 

@@ -25,8 +25,8 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.DBRef;
-import com.mongodb.MongoClient;
 import com.mongodb.client.FindIterable;
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
@@ -34,6 +34,7 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -72,6 +73,7 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
+import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -142,6 +144,13 @@ public class MongoSession
     public void shutdown()
     {
         client.close();
+    }
+
+    public List<HostAddress> getAddresses()
+    {
+        return client.getClusterDescription().getServerDescriptions().stream()
+                .map(description -> fromParts(description.getAddress().getHost(), description.getAddress().getPort()))
+                .collect(toImmutableList());
     }
 
     public List<String> getAllSchemas()
@@ -509,7 +518,6 @@ public class MongoSession
     }
 
     private void createTableMetadata(SchemaTableName schemaTableName, List<MongoColumnHandle> columns)
-            throws TableNotFoundException
     {
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();

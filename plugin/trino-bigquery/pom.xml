@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>365-SNAPSHOT</version>
+        <version>366-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -102,7 +102,7 @@
 
         <dependency>
             <groupId>com.google.api.grpc</groupId>
-            <artifactId>proto-google-cloud-bigquerystorage-v1beta1</artifactId>
+            <artifactId>proto-google-cloud-bigquerystorage-v1</artifactId>
             <exclusions>
                 <exclusion>
                     <groupId>com.google.guava</groupId>
@@ -334,6 +334,7 @@
                                 <!-- If you are adding entry here also add an entry to cloud-tests or cloud-tests-case-insensitive-mapping profile below -->
                                 <exclude>**/TestBigQueryIntegrationSmokeTest.java</exclude>
                                 <exclude>**/TestBigQueryTypeMapping.java</exclude>
+                                <exclude>**/TestBigQueryMetadata.java</exclude>
                                 <exclude>**/TestBigQueryInstanceCleaner.java</exclude>
                                 <exclude>**/TestBigQueryCaseInsensitiveMapping.java</exclude>
                             </excludes>
@@ -357,6 +358,7 @@
                             <includes>
                                 <include>**/TestBigQueryIntegrationSmokeTest.java</include>
                                 <include>**/TestBigQueryTypeMapping.java</include>
+                                <include>**/TestBigQueryMetadata.java</include>
                                 <include>**/TestBigQueryInstanceCleaner.java</include>
                             </includes>
                         </configuration>

@@ -211,7 +211,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
-import static io.trino.plugin.hive.HiveMetadata.convertToPredicate;
 import static io.trino.plugin.hive.HiveSessionProperties.getTemporaryStagingDirectoryPath;
 import static io.trino.plugin.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
@@ -228,6 +227,7 @@ import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static io.trino.plugin.hive.HiveTableRedirectionsProvider.NO_REDIRECTIONS;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
@@ -253,6 +253,7 @@ import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDecimalC
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
+import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -850,11 +851,12 @@ public abstract class AbstractTestHive
                                 Optional.empty(),
                                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("abc", TypeId.of("type"))),
                                 Optional.empty(),
-                                "alice",
+                                Optional.of("alice"),
                                 ImmutableMap.of()));
                     }
                 },
-                SqlStandardAccessControlMetadata::new);
+                SqlStandardAccessControlMetadata::new,
+                NO_REDIRECTIONS);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionHandle -> transactionManager.get(transactionHandle).getMetastore(),
@@ -941,7 +943,7 @@ public abstract class AbstractTestHive
 
     protected Transaction newTransaction()
     {
-        return new HiveTransaction(transactionManager, (HiveMetadata) metadataFactory.create());
+        return new HiveTransaction(transactionManager, (HiveMetadata) metadataFactory.create(false));
     }
 
     protected interface Transaction
@@ -2293,21 +2295,21 @@ public abstract class AbstractTestHive
         assertEmptyFile(TEXTFILE);
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Error opening Hive split .* not a SequenceFile")
+    @Test
     public void testEmptySequenceFile()
             throws Exception
     {
         assertEmptyFile(SEQUENCEFILE);
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "RCFile is empty: .*")
+    @Test
     public void testEmptyRcTextFile()
             throws Exception
     {
         assertEmptyFile(RCTEXT);
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "RCFile is empty: .*")
+    @Test
     public void testEmptyRcBinaryFile()
             throws Exception
     {
@@ -2355,7 +2357,7 @@ public abstract class AbstractTestHive
                 assertEquals(listDirectory(context, location), ImmutableList.of("empty-file"));
 
                 // read table with empty file
-                MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.of(1), Optional.empty());
+                MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.of(0), Optional.empty());
                 assertEquals(result.getRowCount(), 0);
             }
         }
@@ -2534,7 +2536,7 @@ public abstract class AbstractTestHive
         return Table.builder()
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
-                .setOwner(tableOwner)
+                .setOwner(Optional.of(tableOwner))
                 .setTableType(TableType.MANAGED_TABLE.name())
                 .setParameters(ImmutableMap.of(
                         PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
@@ -2868,7 +2870,7 @@ public abstract class AbstractTestHive
         Table.Builder table = Table.builder()
                 .setDatabaseName(tableName.getSchemaName())
                 .setTableName(tableName.getTableName())
-                .setOwner(session.getUser())
+                .setOwner(Optional.of(session.getUser()))
                 .setTableType(MANAGED_TABLE.name())
                 .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())))
                 .setParameter(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER);
@@ -2880,8 +2882,7 @@ public abstract class AbstractTestHive
                         hdfsEnvironment,
                         tableName.getSchemaName(),
                         tableName.getTableName()).toString());
-        PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
-        metastoreClient.createTable(identity, table.build(), principalPrivileges);
+        metastoreClient.createTable(identity, table.build(), NO_PRIVILEGES);
 
         try {
             // Verify the table was created as a Delta Lake table
@@ -3071,7 +3072,7 @@ public abstract class AbstractTestHive
             Table.Builder tableBuilder = Table.builder()
                     .setDatabaseName(schemaName)
                     .setTableName(tableName)
-                    .setOwner(tableOwner)
+                    .setOwner(Optional.of(tableOwner))
                     .setTableType(TableType.MANAGED_TABLE.name())
                     .setParameters(ImmutableMap.of(
                             PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
@@ -3492,7 +3493,7 @@ public abstract class AbstractTestHive
 
         assertEquals(actualAssignments.size(), expectedAssignments.size());
         assertEquals(
-                Optional.of(actualAssignments.values().stream().map(Assignment::getColumn).collect(toImmutableSet())),
+                actualAssignments.values().stream().map(Assignment::getColumn).collect(toImmutableSet()),
                 ((HiveTableHandle) result.getHandle()).getProjectedColumns());
     }
 
@@ -5092,7 +5093,7 @@ public abstract class AbstractTestHive
             Table.Builder tableBuilder = Table.builder()
                     .setDatabaseName(schemaName)
                     .setTableName(tableName)
-                    .setOwner(tableOwner)
+                    .setOwner(Optional.of(tableOwner))
                     .setTableType(TableType.MANAGED_TABLE.name())
                     .setParameters(ImmutableMap.of(
                             PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
@@ -5492,7 +5493,7 @@ public abstract class AbstractTestHive
                             testCase.getConflictTrigger());
                 }
                 catch (AssertionError e) {
-                    throw new AssertionError(format("Test case: %s", testCase.toString()), e);
+                    throw new AssertionError(format("Test case: %s", testCase), e);
                 }
             }
             finally {
@@ -5611,6 +5612,11 @@ public abstract class AbstractTestHive
         if (expectedTag == tag) {
             throw new TestingRollbackException();
         }
+    }
+
+    protected static Predicate<Map<ColumnHandle, NullableValue>> convertToPredicate(TupleDomain<ColumnHandle> tupleDomain)
+    {
+        return bindings -> tupleDomain.contains(TupleDomain.fromFixedValues(bindings));
     }
 
     private static class TestingRollbackException

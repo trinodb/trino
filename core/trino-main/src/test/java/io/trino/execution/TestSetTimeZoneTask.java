@@ -255,14 +255,12 @@ public class TestSetTimeZoneTask
 
     private void executeSetTimeZone(SetTimeZone setTimeZone, QueryStateMachine stateMachine)
     {
-        getFutureValue(new SetTimeZoneTask(localQueryRunner.getSqlParser(), localQueryRunner.getGroupProvider(), localQueryRunner.getStatsCalculator())
-                .execute(
-                        setTimeZone,
-                        localQueryRunner.getTransactionManager(),
-                        localQueryRunner.getMetadata(),
-                        localQueryRunner.getAccessControl(),
-                        stateMachine,
-                        emptyList(),
-                        WarningCollector.NOOP));
+        SetTimeZoneTask task = new SetTimeZoneTask(
+                localQueryRunner.getMetadata(),
+                localQueryRunner.getAccessControl(),
+                localQueryRunner.getSqlParser(),
+                localQueryRunner.getAnalyzerFactory(),
+                localQueryRunner.getGroupProvider());
+        getFutureValue(task.execute(setTimeZone, stateMachine, emptyList(), WarningCollector.NOOP));
     }
 }
