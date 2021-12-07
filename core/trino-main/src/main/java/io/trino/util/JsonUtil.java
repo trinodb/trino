@@ -89,6 +89,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.DateTimeUtils.printDate;
@@ -671,7 +672,7 @@ public final class JsonUtil
                 return Slices.utf8Slice(parser.getText());
             case VALUE_NUMBER_FLOAT:
                 // Avoidance of loss of precision does not seem to be possible here because of Jackson implementation.
-                return DoubleOperators.castToVarchar(parser.getDoubleValue());
+                return DoubleOperators.castToVarchar(UNBOUNDED_LENGTH, parser.getDoubleValue());
             case VALUE_NUMBER_INT:
                 // An alternative is calling getLongValue and then BigintOperators.castToVarchar.
                 // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
