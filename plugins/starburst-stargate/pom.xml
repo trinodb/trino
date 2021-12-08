@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-enterprise-root</artifactId>
-        <version>365-e-SNAPSHOT</version>
+        <version>366-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -221,18 +221,6 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- conflicts with starburst-ranger-client; native code prevents it from being shaded -->
-                    <groupId>net.java.dev.jna</groupId>
-                    <artifactId>jna</artifactId>
-                </exclusion>
-                <exclusion>
-                    <!-- conflicts with starburst-ranger-client; native code prevents it from being shaded -->
-                    <groupId>net.java.dev.jna</groupId>
-                    <artifactId>jna-platform</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -320,18 +308,6 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <!-- conflicts with starburst-ranger-client; native code prevents it from being shaded -->
-                    <groupId>net.java.dev.jna</groupId>
-                    <artifactId>jna</artifactId>
-                </exclusion>
-                <exclusion>
-                    <!-- conflicts with starburst-ranger-client; native code prevents it from being shaded -->
-                    <groupId>net.java.dev.jna</groupId>
-                    <artifactId>jna-platform</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
