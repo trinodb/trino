@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 
@@ -27,18 +28,19 @@ import static java.util.Objects.requireNonNull;
 public class KuduSplit
         implements ConnectorSplit
 {
-    private final KuduTableHandle tableHandle;
+    private final SchemaTableName schemaTableName;
     private final int primaryKeyColumnCount;
     private final byte[] serializedScanToken;
     private final int bucketNumber;
 
     @JsonCreator
-    public KuduSplit(@JsonProperty("tableHandle") KuduTableHandle tableHandle,
+    public KuduSplit(
+            @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
             @JsonProperty("primaryKeyColumnCount") int primaryKeyColumnCount,
             @JsonProperty("serializedScanToken") byte[] serializedScanToken,
             @JsonProperty("bucketNumber") int bucketNumber)
     {
-        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.primaryKeyColumnCount = primaryKeyColumnCount;
         this.serializedScanToken = requireNonNull(serializedScanToken, "serializedScanToken is null");
         checkArgument(bucketNumber >= 0, "bucketNumber is negative");
@@ -46,9 +48,9 @@ public class KuduSplit
     }
 
     @JsonProperty
-    public KuduTableHandle getTableHandle()
+    public SchemaTableName getSchemaTableName()
     {
-        return tableHandle;
+        return schemaTableName;
     }
 
     @JsonProperty
