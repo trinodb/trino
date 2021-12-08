@@ -31,11 +31,11 @@ class RootAggregatedMemoryContext
     }
 
     @Override
-    synchronized ListenableFuture<Void> updateBytes(String allocationTag, long bytes)
+    synchronized ListenableFuture<Void> updateBytes(String allocationTag, long delta)
     {
         checkState(!isClosed(), "RootAggregatedMemoryContext is already closed");
-        ListenableFuture<Void> future = reservationHandler.reserveMemory(allocationTag, bytes);
-        addBytes(bytes);
+        ListenableFuture<Void> future = reservationHandler.reserveMemory(allocationTag, delta);
+        addBytes(delta);
         // make sure we never block queries below guaranteedMemory
         if (getBytes() < guaranteedMemory) {
             future = NOT_BLOCKED;
