@@ -36,6 +36,12 @@ import java.util.stream.Collectors;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.PART;
+import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -130,7 +136,7 @@ public class DruidQueryRunner
         DistributedQueryRunner queryRunner = createDruidQueryRunnerTpch(
                 new TestingDruidServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableList.of());
+                ImmutableList.of(ORDERS, LINE_ITEM, NATION, REGION, PART, CUSTOMER));
 
         Logger log = Logger.get(DruidQueryRunner.class);
         log.info("======== SERVER STARTED ========");
