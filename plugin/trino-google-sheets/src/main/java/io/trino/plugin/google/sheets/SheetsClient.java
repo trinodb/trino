@@ -47,6 +47,7 @@ import java.util.Set;
 import static com.google.api.client.googleapis.javanet.GoogleNetHttpTransport.newTrustedTransport;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.cache.CacheLoader.from;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_BAD_CREDENTIALS_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_METASTORE_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_TABLE_LOAD_ERROR;
@@ -111,15 +112,15 @@ public class SheetsClient
 
     public Optional<SheetsTable> getTable(String tableName)
     {
-        List<List<Object>> values = readAllValues(tableName);
+        List<List<String>> values = convertToStringValues(readAllValues(tableName));
         if (values.size() > 0) {
             ImmutableList.Builder<SheetsColumn> columns = ImmutableList.builder();
             Set<String> columnNames = new HashSet<>();
             // Assuming 1st line is always header
-            List<Object> header = values.get(0);
+            List<String> header = values.get(0);
             int count = 0;
-            for (Object column : header) {
-                String columnValue = column.toString().toLowerCase(ENGLISH);
+            for (String column : header) {
+                String columnValue = column.toLowerCase(ENGLISH);
                 // when empty or repeated column header, adding a placeholder column name
                 if (columnValue.isEmpty() || columnNames.contains(columnValue)) {
                     columnValue = "column_" + ++count;
@@ -127,7 +128,7 @@ public class SheetsClient
                 columnNames.add(columnValue);
                 columns.add(new SheetsColumn(columnValue, VarcharType.VARCHAR));
             }
-            List<List<Object>> dataValues = values.subList(1, values.size()); // removing header info
+            List<List<String>> dataValues = values.subList(1, values.size()); // removing header info
             return Optional.of(new SheetsTable(tableName, columns.build(), dataValues));
         }
         return Optional.empty();
@@ -164,6 +165,13 @@ public class SheetsClient
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new TrinoException(SHEETS_TABLE_LOAD_ERROR, "Error loading data for table: " + tableName, e);
         }
+    }
+
+    public static List<List<String>> convertToStringValues(List<List<Object>> values)
+    {
+        return values.stream()
+                .map(columns -> columns.stream().map(String::valueOf).collect(toImmutableList()))
+                .collect(toImmutableList());
     }
 
     private Optional<String> getSheetExpressionForTable(String tableName)
