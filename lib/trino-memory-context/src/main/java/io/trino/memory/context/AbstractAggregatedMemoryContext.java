@@ -87,7 +87,7 @@ abstract class AbstractAggregatedMemoryContext
         usedBytes = addExact(usedBytes, bytes);
     }
 
-    abstract ListenableFuture<Void> updateBytes(String allocationTag, long bytes);
+    abstract ListenableFuture<Void> updateBytes(String allocationTag, long delta);
 
     abstract boolean tryUpdateBytes(String allocationTag, long delta);
 

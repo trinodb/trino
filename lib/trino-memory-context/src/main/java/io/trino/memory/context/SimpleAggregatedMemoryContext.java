@@ -24,10 +24,10 @@ class SimpleAggregatedMemoryContext
         extends AbstractAggregatedMemoryContext
 {
     @Override
-    synchronized ListenableFuture<Void> updateBytes(String allocationTag, long bytes)
+    synchronized ListenableFuture<Void> updateBytes(String allocationTag, long delta)
     {
         checkState(!isClosed(), "SimpleAggregatedMemoryContext is already closed");
-        addBytes(bytes);
+        addBytes(delta);
         return NOT_BLOCKED;
     }
 
