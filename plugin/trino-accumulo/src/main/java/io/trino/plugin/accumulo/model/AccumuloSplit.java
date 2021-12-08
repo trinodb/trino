@@ -33,11 +33,11 @@ public class AccumuloSplit
 {
     private final Optional<String> hostPort;
     private final List<HostAddress> addresses;
-    private final List<WrappedRange> ranges;
+    private final List<SerializedRange> ranges;
 
     @JsonCreator
     public AccumuloSplit(
-            @JsonProperty("ranges") List<WrappedRange> ranges,
+            @JsonProperty("ranges") List<SerializedRange> ranges,
             @JsonProperty("hostPort") Optional<String> hostPort)
     {
         this.hostPort = requireNonNull(hostPort, "hostPort is null");
@@ -59,7 +59,7 @@ public class AccumuloSplit
     }
 
     @JsonProperty("ranges")
-    public List<WrappedRange> getWrappedRanges()
+    public List<SerializedRange> getSerializedRanges()
     {
         return ranges;
     }
@@ -67,7 +67,7 @@ public class AccumuloSplit
     @JsonIgnore
     public List<Range> getRanges()
     {
-        return ranges.stream().map(WrappedRange::getRange).collect(Collectors.toList());
+        return ranges.stream().map(SerializedRange::deserialize).collect(Collectors.toList());
     }
 
     @Override

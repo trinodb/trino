@@ -14,44 +14,55 @@
 package io.trino.plugin.accumulo.model;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
 import org.apache.accumulo.core.data.Range;
 
 import java.io.DataInput;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
-public class WrappedRange
+import static java.util.Objects.requireNonNull;
+
+public class SerializedRange
 {
-    private final Range range;
+    private final byte[] bytes;
 
-    public WrappedRange(Range range)
-    {
-        this.range = range;
-    }
-
-    public Range getRange()
-    {
-        return range;
-    }
-
-    @JsonValue
-    public byte[] toBytes()
-            throws IOException
+    public static SerializedRange serialize(Range range)
     {
         ByteArrayDataOutput out = ByteStreams.newDataOutput();
-        range.write(out);
-        return out.toByteArray();
+        try {
+            range.write(out);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return new SerializedRange(out.toByteArray());
     }
 
     @JsonCreator
-    public static WrappedRange fromBytes(byte[] bytes)
-            throws IOException
+    public SerializedRange(@JsonProperty("data") byte[] bytes)
+    {
+        this.bytes = requireNonNull(bytes, "bytes is null");
+    }
+
+    @JsonProperty
+    public byte[] getBytes()
+    {
+        return bytes;
+    }
+
+    public Range deserialize()
     {
         DataInput in = ByteStreams.newDataInput(bytes);
         Range range = new Range();
-        range.readFields(in);
-        return new WrappedRange(range);
+        try {
+            range.readFields(in);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return range;
     }
 }
