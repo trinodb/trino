@@ -66,6 +66,7 @@ public final class SortedRangeSet
     private final MethodHandle equalOperator;
     private final MethodHandle hashCodeOperator;
     private final MethodHandle comparisonOperator;
+    private final MethodHandle rangeComparisonOperator;
 
     private final boolean[] inclusive;
     private final Block sortedRanges;
@@ -83,6 +84,8 @@ public final class SortedRangeSet
         this.hashCodeOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
         // choice of placing unordered values first or last does not matter for this code
         this.comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        // Calculating the comparison operator once instead of per range to avoid lock contention in cases of large number of ranges
+        this.rangeComparisonOperator = Range.getComparisonOperator(type);
 
         requireNonNull(inclusive, "inclusive is null");
         requireNonNull(sortedRanges, "sortedRanges is null");
@@ -371,6 +374,7 @@ public final class SortedRangeSet
         RangeView valueRange = new RangeView(
                 type,
                 comparisonOperator,
+                rangeComparisonOperator,
                 true,
                 valueAsBlock,
                 0,
@@ -408,6 +412,7 @@ public final class SortedRangeSet
         return new RangeView(
                 type,
                 comparisonOperator,
+                rangeComparisonOperator,
                 inclusive[0],
                 sortedRanges,
                 0,
@@ -429,6 +434,7 @@ public final class SortedRangeSet
         return new RangeView(
                 type,
                 comparisonOperator,
+                rangeComparisonOperator,
                 inclusive[rangeLeft],
                 sortedRanges,
                 rangeLeft,
@@ -1000,6 +1006,7 @@ public final class SortedRangeSet
     {
         private final Type type;
         private final MethodHandle comparisonOperator;
+        private final MethodHandle rangeComparisonOperator;
 
         private final boolean lowInclusive;
         private final Block lowValueBlock;
@@ -1012,6 +1019,7 @@ public final class SortedRangeSet
         RangeView(
                 Type type,
                 MethodHandle comparisonOperator,
+                MethodHandle rangeComparisonOperator,
                 boolean lowInclusive,
                 Block lowValueBlock,
                 int lowValuePosition,
@@ -1021,6 +1029,7 @@ public final class SortedRangeSet
         {
             this.type = type;
             this.comparisonOperator = comparisonOperator;
+            this.rangeComparisonOperator = rangeComparisonOperator;
             this.lowInclusive = lowInclusive;
             this.lowValueBlock = lowValueBlock;
             this.lowValuePosition = lowValuePosition;
@@ -1033,7 +1042,7 @@ public final class SortedRangeSet
         {
             Object low = readNativeValue(type, lowValueBlock, lowValuePosition);
             Object high = readNativeValue(type, highValueBlock, highValuePosition);
-            return new Range(type, lowInclusive, Optional.ofNullable(low), highInclusive, Optional.ofNullable(high));
+            return new Range(type, lowInclusive, Optional.ofNullable(low), highInclusive, Optional.ofNullable(high), rangeComparisonOperator);
         }
 
         @Override
@@ -1105,6 +1114,7 @@ public final class SortedRangeSet
                 return Optional.of(new RangeView(
                         this.type,
                         this.comparisonOperator,
+                        this.rangeComparisonOperator,
                         this.lowInclusive,
                         this.lowValueBlock,
                         this.lowValuePosition,
@@ -1166,6 +1176,7 @@ public final class SortedRangeSet
             return Optional.of(new RangeView(
                     type,
                     comparisonOperator,
+                    rangeComparisonOperator,
                     // max of low bounds
                     compareLowBound <= 0 ? that.lowInclusive : this.lowInclusive,
                     compareLowBound <= 0 ? that.lowValueBlock : this.lowValueBlock,
