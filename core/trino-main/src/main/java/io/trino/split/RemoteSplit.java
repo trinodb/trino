@@ -30,10 +30,10 @@ public class RemoteSplit
         implements ConnectorSplit
 {
     private final TaskId taskId;
-    private final URI location;
+    private final String location;
 
     @JsonCreator
-    public RemoteSplit(@JsonProperty("taskId") TaskId taskId, @JsonProperty("location") URI location)
+    public RemoteSplit(@JsonProperty("taskId") TaskId taskId, @JsonProperty("location") String location)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.location = requireNonNull(location, "location is null");
@@ -46,7 +46,7 @@ public class RemoteSplit
     }
 
     @JsonProperty
-    public URI getLocation()
+    public String getLocation()
     {
         return location;
     }

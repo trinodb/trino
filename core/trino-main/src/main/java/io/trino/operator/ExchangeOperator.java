@@ -24,6 +24,7 @@ import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.net.URI;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -124,7 +125,7 @@ public class ExchangeOperator
         checkArgument(split.getCatalogName().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
 
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
-        exchangeClient.addLocation(remoteSplit.getTaskId(), remoteSplit.getLocation());
+        exchangeClient.addLocation(remoteSplit.getTaskId(), URI.create(remoteSplit.getLocation()));
 
         return Optional::empty;
     }
