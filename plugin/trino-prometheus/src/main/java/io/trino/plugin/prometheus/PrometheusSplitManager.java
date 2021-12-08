@@ -101,7 +101,7 @@ public class PrometheusSplitManager
                                 prometheusURI,
                                 time,
                                 table.getName(),
-                                queryChunkSizeDuration));
+                                queryChunkSizeDuration).toString());
                     }
                     catch (URISyntaxException e) {
                         throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "split URI invalid: " + e.getMessage());
