@@ -305,29 +305,6 @@ public class TestResourceSecurity
         }
     }
 
-    @javax.ws.rs.Path("/identity")
-    public static class TestResource
-    {
-        private final HttpRequestSessionContextFactory sessionContextFactory;
-
-        @Inject
-        public TestResource(AccessControl accessControl)
-        {
-            this.sessionContextFactory = new HttpRequestSessionContextFactory(createTestMetadataManager(), ImmutableSet::of, accessControl);
-        }
-
-        @ResourceSecurity(AUTHENTICATED_USER)
-        @GET
-        public javax.ws.rs.core.Response echoToken(@Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
-        {
-            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty());
-            return javax.ws.rs.core.Response.ok()
-                    .header("user", identity.getUser())
-                    .header("principal", identity.getPrincipal().map(Principal::getName).orElse(null))
-                    .build();
-        }
-    }
-
     @Test
     public void testPasswordAuthenticatorWithInsecureHttp()
             throws Exception
@@ -741,6 +718,29 @@ public class TestResourceSecurity
         try (Response response = client.newCall(request).execute()) {
             String body = requireNonNull(response.body()).string();
             return json.readValue(body, TokenDTO.class).token;
+        }
+    }
+
+    @javax.ws.rs.Path("/identity")
+    public static class TestResource
+    {
+        private final HttpRequestSessionContextFactory sessionContextFactory;
+
+        @Inject
+        public TestResource(AccessControl accessControl)
+        {
+            this.sessionContextFactory = new HttpRequestSessionContextFactory(createTestMetadataManager(), ImmutableSet::of, accessControl);
+        }
+
+        @ResourceSecurity(AUTHENTICATED_USER)
+        @GET
+        public javax.ws.rs.core.Response echoToken(@Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
+        {
+            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty());
+            return javax.ws.rs.core.Response.ok()
+                    .header("user", identity.getUser())
+                    .header("principal", identity.getPrincipal().map(Principal::getName).orElse(null))
+                    .build();
         }
     }
 
