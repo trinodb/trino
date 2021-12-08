@@ -27,22 +27,21 @@ import static java.util.Objects.requireNonNull;
 public class ExampleSplit
         implements ConnectorSplit
 {
-    private final URI uri;
+    private final String uri;
     private final boolean remotelyAccessible;
     private final List<HostAddress> addresses;
 
     @JsonCreator
-    public ExampleSplit(
-            @JsonProperty("uri") URI uri)
+    public ExampleSplit(@JsonProperty("uri") String uri)
     {
         this.uri = requireNonNull(uri, "uri is null");
 
         remotelyAccessible = true;
-        addresses = ImmutableList.of(HostAddress.fromUri(uri));
+        addresses = ImmutableList.of(HostAddress.fromUri(URI.create(uri)));
     }
 
     @JsonProperty
-    public URI getUri()
+    public String getUri()
     {
         return uri;
     }
