@@ -118,9 +118,9 @@ public class TestRevokeOnTable
     @Test(dataProvider = "privileges")
     public void testAccessDenied(String privilege)
     {
-        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE %s ON SCHEMA default FROM %s", privilege, randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE %s ON TABLE table_one FROM %s", privilege, randomUsername())))
                 .hasMessageContaining(format(
-                        "Access Denied: Cannot revoke privilege %s on schema default",
+                        "Access Denied: Cannot revoke privilege %s on table default.table_one",
                         privilege.equals("ALL PRIVILEGES") ? "SELECT" : privilege));
     }
 
