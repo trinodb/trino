@@ -31,17 +31,18 @@ public class AtopSplit
         implements ConnectorSplit
 {
     private final HostAddress host;
-    private final ZonedDateTime date;
+    private final long epochSeconds;
+    private final String timeZoneId;
 
     @JsonCreator
     public AtopSplit(
             @JsonProperty("host") HostAddress host,
             @JsonProperty("epochSeconds") long epochSeconds,
-            @JsonProperty("timeZone") ZoneId timeZone)
+            @JsonProperty("timeZoneId") String timeZoneId)
     {
         this.host = requireNonNull(host, "host is null");
-        requireNonNull(timeZone, "timeZone is null");
-        this.date = ZonedDateTime.ofInstant(ofEpochSecond(epochSeconds), timeZone);
+        this.epochSeconds = epochSeconds;
+        this.timeZoneId = requireNonNull(timeZoneId, "timeZoneId  is null");
     }
 
     @JsonProperty
@@ -53,18 +54,18 @@ public class AtopSplit
     @JsonProperty
     public long getEpochSeconds()
     {
-        return date.toEpochSecond();
+        return epochSeconds;
     }
 
     @JsonProperty
-    public ZoneId getTimeZone()
+    public String getTimeZoneId()
     {
-        return date.getZone();
+        return timeZoneId;
     }
 
     public ZonedDateTime getDate()
     {
-        return date;
+        return ZonedDateTime.ofInstant(ofEpochSecond(epochSeconds), ZoneId.of(timeZoneId));
     }
 
     @Override
@@ -91,7 +92,8 @@ public class AtopSplit
     {
         return toStringHelper(this)
                 .add("host", host)
-                .add("date", date)
+                .add("epochSeconds", epochSeconds)
+                .add("timeZoneId", timeZoneId)
                 .toString();
     }
 }
