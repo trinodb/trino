@@ -29,16 +29,16 @@ public class PhoenixSplit
         extends JdbcSplit
 {
     private final List<HostAddress> addresses;
-    private final WrappedPhoenixInputSplit phoenixInputSplit;
+    private final SerializedPhoenixInputSplit serializedPhoenixInputSplit;
 
     @JsonCreator
     public PhoenixSplit(
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("phoenixInputSplit") WrappedPhoenixInputSplit wrappedPhoenixInputSplit)
+            @JsonProperty("serializedPhoenixInputSplit") SerializedPhoenixInputSplit serializedPhoenixInputSplit)
     {
         super(Optional.empty());
         this.addresses = requireNonNull(addresses, "addresses is null");
-        this.phoenixInputSplit = requireNonNull(wrappedPhoenixInputSplit, "wrappedPhoenixInputSplit is null");
+        this.serializedPhoenixInputSplit = requireNonNull(serializedPhoenixInputSplit, "serializedPhoenixInputSplit is null");
     }
 
     @JsonProperty
@@ -48,15 +48,15 @@ public class PhoenixSplit
         return addresses;
     }
 
-    @JsonProperty("phoenixInputSplit")
-    public WrappedPhoenixInputSplit getWrappedPhoenixInputSplit()
+    @JsonProperty
+    public SerializedPhoenixInputSplit getSerializedPhoenixInputSplit()
     {
-        return phoenixInputSplit;
+        return serializedPhoenixInputSplit;
     }
 
     @JsonIgnore
     public PhoenixInputSplit getPhoenixInputSplit()
     {
-        return phoenixInputSplit.getPhoenixInputSplit();
+        return serializedPhoenixInputSplit.deserialize();
     }
 }
