@@ -330,7 +330,7 @@ public class PlanPrinter
             double sdAmongTasks = Math.sqrt(squaredDifferences / stageInfo.get().getTasks().size());
 
             builder.append(indentString(1))
-                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
+                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s), per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
                             stageStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
                             stageStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
                             formatPositions(stageStats.getProcessedInputPositions()),
