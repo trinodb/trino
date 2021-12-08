@@ -72,6 +72,26 @@ Date and time functions
 
     This is an alias for ``CAST(x AS date)``.
 
+.. function:: date(year, days) -> date
+
+    Generate a date based on the year and days passed in.
+
+        SELECT date(2021, 10);
+        -- 2021-01-10
+
+        SELECT date(2021, 100);
+        -- 2021-04-10
+
+        SELECT date(2021, 400);
+        -- 2022-02-04
+
+.. function:: date(year, month, day) -> date
+
+    Generate a date based on the year, month and day passed in.
+
+        SELECT date(2021, 1, 10);
+        -- 2021-01-10
+
 .. function:: last_day_of_month(x) -> date
 
     Returns the last day of the month.

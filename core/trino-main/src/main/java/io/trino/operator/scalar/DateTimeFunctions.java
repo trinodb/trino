@@ -265,6 +265,36 @@ public final class DateTimeFunctions
         return MILLISECONDS.toDays(millis);
     }
 
+    @Description("Generate a date based on the year, month and day passed in")
+    @ScalarFunction("date")
+    @SqlType(StandardTypes.DATE)
+    public static long toDate(@SqlType(StandardTypes.BIGINT) long year, @SqlType(StandardTypes.BIGINT) long month, @SqlType(StandardTypes.BIGINT) long day)
+    {
+        try {
+            return MILLISECONDS.toDays(UTC_CHRONOLOGY.getDateTimeMillis(toIntExact(year), toIntExact(month), toIntExact(day), 0));
+        }
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, String.format("year:%s, month:%s and day:%s can not make a valid date", year, month, day));
+        }
+    }
+
+    @Description("Generate a date based on the year and days passed in")
+    @ScalarFunction("date")
+    @SqlType(StandardTypes.DATE)
+    public static long toDate(@SqlType(StandardTypes.BIGINT) long year, @SqlType(StandardTypes.BIGINT) long days)
+    {
+        if (days <= 0) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Days must be greater than zero");
+        }
+        try {
+            long millis = UTC_CHRONOLOGY.getDateTimeMillis(toIntExact(year), 1, 1, 0);
+            return MILLISECONDS.toDays(millis + (days - 1) * 24 * 3600 * 1000);
+        }
+        catch (Exception e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, String.format("year:%s and days:%s can not make a valid date", year, days));
+        }
+    }
+
     @Description("Add the specified amount of date to the given date")
     @LiteralParameters("x")
     @ScalarFunction("date_add")

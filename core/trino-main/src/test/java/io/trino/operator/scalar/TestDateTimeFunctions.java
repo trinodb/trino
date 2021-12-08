@@ -304,6 +304,16 @@ public class TestDateTimeFunctions
         assertFunction("date('" + DATE_ISO8601_STRING + "')", DateType.DATE, toDate(DATE));
         assertFunction("date(" + WEIRD_TIMESTAMP_LITERAL + ")", DateType.DATE, toDate(DATE));
         assertFunction("date(" + TIMESTAMP_LITERAL + ")", DateType.DATE, toDate(DATE));
+
+        assertFunction("date(2021, 100)", DateType.DATE, toDate(LocalDate.of(2021, 4, 10)));
+        assertFunction("date(2021, 400)", DateType.DATE, toDate(LocalDate.of(2022, 2, 4)));
+        assertFunction("date(2021, 4, 10)", DateType.DATE, toDate(LocalDate.of(2021, 4, 10)));
+        assertFunction("date(1752, 9, 3)", DateType.DATE, toDate(LocalDate.of(1752, 9, 3)));
+        assertFunction("date(-10, 1, 1)", DateType.DATE, toDate(LocalDate.of(-10, 1, 1)));
+        assertInvalidFunction("date(2021, -1)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("date(2021, 1, -1)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("date(2021, 13, 1)", INVALID_FUNCTION_ARGUMENT);
+
     }
 
     @Test
