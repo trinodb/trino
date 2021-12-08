@@ -18,18 +18,17 @@ import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestWrappedRange
+public class TestSerializedRange
 {
     @Test
     public void testJsonRoundTrip()
-            throws Exception
     {
         Range exact = new Range("foo");
         Range range = new Range("bar", "foo");
         Range exclusiveRange = new Range("asiago", false, "bagel", false);
 
-        assertEquals(WrappedRange.fromBytes(new WrappedRange(exact).toBytes()).getRange(), exact);
-        assertEquals(WrappedRange.fromBytes(new WrappedRange(range).toBytes()).getRange(), range);
-        assertEquals(WrappedRange.fromBytes(new WrappedRange(exclusiveRange).toBytes()).getRange(), exclusiveRange);
+        assertEquals(SerializedRange.serialize(exact).deserialize(), exact);
+        assertEquals(SerializedRange.serialize(range).deserialize(), range);
+        assertEquals(SerializedRange.serialize(exclusiveRange).deserialize(), exclusiveRange);
     }
 }
