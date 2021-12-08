@@ -34,6 +34,7 @@ import io.trino.metadata.SqlFunction;
 import io.trino.plugin.thrift.ThriftPlugin;
 import io.trino.plugin.thrift.server.ThriftIndexedTpchService;
 import io.trino.plugin.thrift.server.ThriftTpchService;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.Plugin;
 import io.trino.split.PageSourceManager;
@@ -138,6 +139,9 @@ public final class ThriftQueryRunner
                 .put("trino-thrift.lookup-requests-concurrency", "2")
                 .build();
         queryRunner.createCatalog("thrift", "trino-thrift", connectorProperties);
+
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog("tpch", "tpch");
 
         return queryRunner;
     }
