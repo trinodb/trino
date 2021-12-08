@@ -157,7 +157,7 @@ public class SuiteDescribe
             testRunOptions.extraOptions = suiteTestRun.getExtraOptions();
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments();
             testRunOptions.testJar = testJar;
-            testRunOptions.reportsDir = Paths.get(format("presto-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName()));
+            testRunOptions.reportsDir = Paths.get(format("testing/trino-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName()));
             testRunOptions.startupRetries = null;
             testRunOptions.logsDirBase = Optional.empty();
             return testRunOptions;
