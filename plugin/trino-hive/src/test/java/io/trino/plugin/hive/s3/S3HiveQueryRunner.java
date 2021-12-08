@@ -30,9 +30,11 @@ import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.testing.DistributedQueryRunner;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class S3HiveQueryRunner
@@ -51,7 +53,7 @@ public final class S3HiveQueryRunner
 
     public static DistributedQueryRunner create(
             HostAndPort hiveMetastoreEndpoint,
-            HostAndPort s3Endpoint,
+            String s3Endpoint,
             String s3AccessKey,
             String s3SecretKey,
             String bucketName,
@@ -72,7 +74,7 @@ public final class S3HiveQueryRunner
     {
         return builder()
                 .setHiveMetastoreEndpoint(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
-                .setS3Endpoint(hiveMinioDataLake.getMinio().getMinioApiEndpoint())
+                .setS3Endpoint("http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
                 .setS3AccessKey(HiveMinioDataLake.ACCESS_KEY)
                 .setS3SecretKey(HiveMinioDataLake.SECRET_KEY)
                 .setBucketName(hiveMinioDataLake.getBucketName());
@@ -87,7 +89,7 @@ public final class S3HiveQueryRunner
             extends HiveQueryRunner.Builder<Builder>
     {
         private HostAndPort hiveMetastoreEndpoint;
-        private HostAndPort s3Endpoint;
+        private String s3Endpoint;
         private String s3AccessKey;
         private String s3SecretKey;
         private String bucketName;
@@ -98,7 +100,7 @@ public final class S3HiveQueryRunner
             return this;
         }
 
-        public Builder setS3Endpoint(HostAndPort s3Endpoint)
+        public Builder setS3Endpoint(String s3Endpoint)
         {
             this.s3Endpoint = requireNonNull(s3Endpoint, "s3Endpoint is null");
             return this;
@@ -131,8 +133,10 @@ public final class S3HiveQueryRunner
             requireNonNull(s3AccessKey, "s3AccessKey is null");
             requireNonNull(s3SecretKey, "s3SecretKey is null");
             requireNonNull(bucketName, "bucketName is null");
+            String lowerCaseS3Endpoint = s3Endpoint.toLowerCase(Locale.ENGLISH);
+            checkArgument(lowerCaseS3Endpoint.startsWith("http://") || lowerCaseS3Endpoint.startsWith("https://"), "Exoected http URI for S3 endpoint; got %s", s3Endpoint);
 
-            addHiveProperty("hive.s3.endpoint", "http://" + s3Endpoint);
+            addHiveProperty("hive.s3.endpoint", s3Endpoint);
             addHiveProperty("hive.s3.aws-access-key", s3AccessKey);
             addHiveProperty("hive.s3.aws-secret-key", s3SecretKey);
             setMetastore(distributedQueryRunner -> new BridgingHiveMetastore(
