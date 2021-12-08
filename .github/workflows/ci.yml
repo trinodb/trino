@@ -507,5 +507,5 @@ jobs:
         with:
           name: result pt (${{ matrix.config }}, ${{ matrix.suite }})
           path: |
-            presto-product-tests/target/*
+            testing/trino-product-tests/target/*
             logs/*
