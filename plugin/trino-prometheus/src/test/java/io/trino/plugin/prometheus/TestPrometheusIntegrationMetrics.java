@@ -25,8 +25,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.net.URI;
-
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.plugin.prometheus.PrometheusQueryRunner.createPrometheusClient;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -123,7 +121,7 @@ public class TestPrometheusIntegrationMetrics
     @Test
     public void testGetColumnTypes()
     {
-        URI dataUri = server.getUri();
+        String dataUri = server.getUri().toString();
         RecordSet recordSet = new PrometheusRecordSet(
                 client,
                 new PrometheusSplit(dataUri),

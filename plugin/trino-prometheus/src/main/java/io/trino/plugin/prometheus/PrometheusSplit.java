@@ -27,20 +27,19 @@ import static java.util.Objects.requireNonNull;
 public class PrometheusSplit
         implements ConnectorSplit
 {
-    private final URI uri;
+    private final String uri;
     private final List<HostAddress> addresses;
 
     @JsonCreator
-    public PrometheusSplit(
-            @JsonProperty("uri") URI uri)
+    public PrometheusSplit(@JsonProperty("uri") String uri)
     {
         this.uri = requireNonNull(uri, "uri is null");
 
-        addresses = ImmutableList.of(HostAddress.fromUri(uri));
+        addresses = ImmutableList.of(HostAddress.fromUri(URI.create(uri)));
     }
 
     @JsonProperty
-    public URI getUri()
+    public String getUri()
     {
         return uri;
     }
