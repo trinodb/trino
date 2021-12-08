@@ -24,6 +24,7 @@ import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchPartitioningHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorNewTableLayout;
+import io.trino.spi.security.ViewExpression;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.MatchResult;
 import io.trino.sql.planner.assertions.Matcher;
@@ -89,7 +90,7 @@ public class TestInsert
                             return Optional.empty();
                         })
                         .withGetNewTableLayout((session, tableMetadata) -> {
-                            if (tableMetadata.getTable().getTableName().equals("new_test_table_preferred_partitioning")) {
+                            if (tableMetadata.getTable().getTableName().contains("new_test_table_preferred_partitioning")) {
                                 return Optional.of(new ConnectorNewTableLayout(ImmutableList.of("column1")));
                             }
 
@@ -102,6 +103,12 @@ public class TestInsert
                             }
 
                             return Optional.empty();
+                        })
+                        .withRowFilter(schemaTableName -> {
+                            if (schemaTableName.getTableName().equals("new_test_table_preferred_partitioning_with_row_filter")) {
+                                return new ViewExpression("user", Optional.of("tpch"), Optional.of("tiny"), "EXISTS (SELECT 1 FROM nation WHERE name = test_varchar)");
+                            }
+                            return null;
                         })
                         .build(),
                 ImmutableMap.of());
@@ -154,6 +161,19 @@ public class TestInsert
                                                 values("column1", "column2"))
                                                 .with(exchangeWithoutSystemPartitioning()))
                                         .with(exchangeWithoutSystemPartitioning()))));
+    }
+
+    @Test
+    public void testInsertWithRowFilterForConnectorThatSupportsMissingColumns() {
+        assertDistributedPlan(
+                "CREATE TABLE new_test_table_preferred_partitioning_with_row_filter (column1, column2) AS SELECT * FROM (VALUES (1, 2)) t(column1, column2)",
+                withForcedPreferredPartitioning(),
+                anyTree(
+                        node(TableWriterNode.class,
+                                anyTree(
+                                        exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                                        anyTree(values("column1", "column2"))))))));
     }
 
     @Test
