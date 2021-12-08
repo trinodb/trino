@@ -214,7 +214,7 @@ public class LocalExchange
             List<Type> partitionChannelTypes,
             Optional<Integer> partitionHashChannel)
     {
-        checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
+        checkArgument(partitionCount > 0, "partitionCount must be more than 0");
 
         if (isSystemPartitioning(partitioning)) {
             HashGenerator hashGenerator;

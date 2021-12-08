@@ -36,6 +36,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
 import static java.lang.Integer.numberOfTrailingZeros;
 import static java.lang.Math.toIntExact;
 
@@ -98,8 +99,8 @@ public class PartitionedLookupSource
         // the hash channels are always packed in a page without extra columns
         this.partitionGenerator = new LocalPartitionGenerator(InterpretedHashGenerator.createPositionalWithTypes(hashChannelTypes, blockTypeOperators), lookupSources.size());
 
-        this.partitionMask = lookupSources.size() - 1;
-        this.shiftSize = numberOfTrailingZeros(lookupSources.size()) + 1;
+        this.partitionMask = nextPowerOfTwo(lookupSources.size()) - 1;
+        this.shiftSize = numberOfTrailingZeros(nextPowerOfTwo(lookupSources.size())) + 1;
         this.outerPositionTracker = outerPositionTracker.orElse(null);
     }
 

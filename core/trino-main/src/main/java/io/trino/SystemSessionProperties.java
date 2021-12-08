@@ -253,7 +253,6 @@ public final class SystemSessionProperties
                         TASK_CONCURRENCY,
                         "Default number of local parallel jobs per worker",
                         taskManagerConfig.getTaskConcurrency(),
-                        value -> validateValueIsPowerOfTwo(value, TASK_CONCURRENCY),
                         false),
                 booleanProperty(
                         TASK_SHARE_INDEX_LOADING,

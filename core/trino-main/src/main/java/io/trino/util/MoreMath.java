@@ -110,4 +110,11 @@ public final class MoreMath
         }
         throw new IllegalArgumentException("All values are NaN");
     }
+
+    // This function reduces the 32-bit value to [0, partitionCount) uniformly.
+    // It normalizes value to x / 2^32 * partitionCount to reduce the range of x from [0, 2^32) to [0, partitionCount)
+    public static int partitionUniformly(int value, int partitionCount)
+    {
+        return (int) ((Integer.toUnsignedLong(value) * partitionCount) >>> 32);
+    }
 }

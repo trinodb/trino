@@ -110,12 +110,11 @@ public final class PartitionedLookupSourceFactory
 
     public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Type> hashChannelTypes, int partitionCount, boolean outer, BlockTypeOperators blockTypeOperators)
     {
-        checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
+        checkArgument(partitionCount > 0, "partitionCount must be more than 0");
 
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
         this.hashChannelTypes = ImmutableList.copyOf(hashChannelTypes);
-        checkArgument(partitionCount > 0);
         //noinspection unchecked
         this.partitions = (Supplier<LookupSource>[]) new Supplier<?>[partitionCount];
         this.outer = outer;

@@ -18,21 +18,18 @@ import io.trino.operator.HashGenerator;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.Page;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.util.MoreMath.partitionUniformly;
 
 public class LocalPartitionGenerator
         implements PartitionFunction
 {
     private final HashGenerator hashGenerator;
     private final int partitionCount;
-    private final int hashMask;
 
     public LocalPartitionGenerator(HashGenerator hashGenerator, int partitionCount)
     {
         this.hashGenerator = hashGenerator;
-        checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
         this.partitionCount = partitionCount;
-        hashMask = partitionCount - 1;
     }
 
     @Override
@@ -45,7 +42,7 @@ public class LocalPartitionGenerator
     public int getPartition(Page page, int position)
     {
         long rawHash = getRawHash(page, position);
-        return processRawHash(rawHash) & hashMask;
+        return partitionUniformly(processRawHash(rawHash), partitionCount);
     }
 
     public long getRawHash(Page page, int position)
@@ -55,7 +52,7 @@ public class LocalPartitionGenerator
 
     public int getPartition(long rawHash)
     {
-        return processRawHash(rawHash) & hashMask;
+        return partitionUniformly(processRawHash(rawHash), partitionCount);
     }
 
     private static int processRawHash(long rawHash)

@@ -6,8 +6,7 @@ Task properties
 ^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-integer`
-* **Restrictions:** Must be a power of two
-* **Default value:** ``16``
+* **Default value:** ``number of physical CPU cores, capped to 32``
 
 Default local concurrency for parallel operators, such as joins and aggregations.
 This value should be adjusted up or down based on the query concurrency and worker

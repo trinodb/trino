@@ -15,6 +15,8 @@ package io.trino.operator;
 
 import io.trino.spi.Page;
 
+import static io.trino.util.MoreMath.partitionUniformly;
+
 public interface HashGenerator
 {
     long hashPosition(int position, Page page);
@@ -22,8 +24,6 @@ public interface HashGenerator
     default int getPartition(int partitionCount, int position, Page page)
     {
         long rawHash = hashPosition(position, page);
-        // This function reduces the 64 bit rawHash to [0, partitionCount) uniformly. It first reduces the rawHash to 32 bit
-        // integer x then normalize it to x / 2^32 * partitionCount to reduce the range of x from [0, 2^32) to [0, partitionCount)
-        return (int) ((Integer.toUnsignedLong(Long.hashCode(rawHash)) * partitionCount) >>> 32);
+        return partitionUniformly(Long.hashCode(rawHash), partitionCount);
     }
 }

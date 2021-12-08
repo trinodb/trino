@@ -31,7 +31,6 @@ import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.util.MachineInfo.getAvailablePhysicalProcessorCount;
-import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
 import static java.lang.Math.min;
 
 @DefunctConfig({
@@ -72,7 +71,7 @@ public class TaskManagerConfig
 
     private int writerCount = 1;
     // cap task concurrency to 32 in order to avoid small pages produced by local partitioning exchanges
-    private int taskConcurrency = min(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 32);
+    private int taskConcurrency = min(getAvailablePhysicalProcessorCount(), 32);
     private int httpResponseThreads = 100;
     private int httpTimeoutThreads = 3;
 
@@ -396,7 +395,6 @@ public class TaskManagerConfig
     }
 
     @Min(1)
-    @PowerOfTwo
     public int getTaskConcurrency()
     {
         return taskConcurrency;
