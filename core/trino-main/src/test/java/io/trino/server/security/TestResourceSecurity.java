@@ -293,18 +293,19 @@ public class TestResourceSecurity
             // Normally this would result in an impersonation check to the X-Trino-User, but the password
             // authenticator has a hack to clear X-Trino-User in this case.
             Request request = new Request.Builder()
-                    .url(getLocation(httpServerInfo.getHttpsUri(), "/username"))
+                    .url(getLocation(httpServerInfo.getHttpsUri(), "/identity"))
                     .addHeader("Authorization", Credentials.basic(TEST_USER_LOGIN, TEST_PASSWORD))
                     .addHeader("X-Trino-User", TEST_USER_LOGIN)
                     .build();
             try (Response response = client.newCall(request).execute()) {
                 assertEquals(response.code(), SC_OK);
                 assertEquals(response.header("user"), TEST_USER);
+                assertEquals(response.header("principal"), TEST_USER_LOGIN);
             }
         }
     }
 
-    @javax.ws.rs.Path("/username")
+    @javax.ws.rs.Path("/identity")
     public static class TestResource
     {
         private final HttpRequestSessionContextFactory sessionContextFactory;
@@ -322,6 +323,7 @@ public class TestResourceSecurity
             Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty());
             return javax.ws.rs.core.Response.ok()
                     .header("user", identity.getUser())
+                    .header("principal", identity.getPrincipal().map(Principal::getName).orElse(null))
                     .build();
         }
     }
