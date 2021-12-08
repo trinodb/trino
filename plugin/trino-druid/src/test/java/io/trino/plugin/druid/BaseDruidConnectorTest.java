@@ -31,6 +31,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
+import static io.trino.plugin.druid.DruidTpchTables.SELECT_FROM_ORDERS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -40,79 +41,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseDruidConnectorTest
         extends BaseJdbcConnectorTest
 {
-    protected static final String SELECT_FROM_ORDERS = "SELECT " +
-            "orderdate, " +
-            "orderdate AS orderdate_druid_ts, " + // Druid stores the orderdate_druid_ts column as __time column.
-            "orderkey, " +
-            "custkey, " +
-            "orderstatus, " +
-            "totalprice, " +
-            "orderpriority, " +
-            "clerk, " +
-            "shippriority, " +
-            "comment " +
-            "FROM tpch.tiny.orders";
-
-    protected static final String SELECT_FROM_LINEITEM = " SELECT " +
-            "orderkey, " +
-            "partkey, " +
-            "suppkey, " +
-            "linenumber, " +
-            "quantity, " +
-            "extendedprice, " +
-            "discount, " +
-            "tax, " +
-            "returnflag, " +
-            "linestatus, " +
-            "shipdate, " +
-            "shipdate AS shipdate_druid_ts, " +  // Druid stores the shipdate_druid_ts column as __time column.
-            "commitdate, " +
-            "receiptdate, " +
-            "shipinstruct, " +
-            "shipmode, " +
-            "comment " +
-            "FROM tpch.tiny.lineitem";
-
-    protected static final String SELECT_FROM_NATION = " SELECT " +
-            "nationkey, " +
-            "name, " +
-            "regionkey, " +
-            "comment, " +
-            "'1995-01-02' AS nation_druid_dummy_ts " + // Dummy timestamp for Druid __time column
-            "FROM tpch.tiny.nation";
-
-    protected static final String SELECT_FROM_REGION = " SELECT " +
-            "regionkey, " +
-            "name, " +
-            "comment, " +
-            "'1995-01-02' AS region_druid_dummy_ts " + // Dummy timestamp for Druid __time column
-            "FROM tpch.tiny.region";
-
-    protected static final String SELECT_FROM_PART = " SELECT " +
-            "partkey, " +
-            "name, " +
-            "mfgr, " +
-            "brand, " +
-            "type, " +
-            "size, " +
-            "container, " +
-            "retailprice, " +
-            "comment, " +
-            "'1995-01-02' AS part_druid_dummy_ts " + // Dummy timestamp for Druid __time column;
-            "FROM tpch.tiny.part";
-
-    protected static final String SELECT_FROM_CUSTOMER = " SELECT " +
-            "custkey, " +
-            "name, " +
-            "address, " +
-            "nationkey, " +
-            "phone, " +
-            "acctbal, " +
-            "mktsegment, " +
-            "comment, " +
-            "'1995-01-02' AS customer_druid_dummy_ts " +  // Dummy timestamp for Druid __time column
-            "FROM tpch.tiny.customer";
-
     protected TestingDruidServer druidServer;
 
     @AfterClass(alwaysRun = true)

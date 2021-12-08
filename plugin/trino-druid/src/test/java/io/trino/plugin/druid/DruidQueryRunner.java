@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.druid;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -21,6 +22,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.tpch.TpchTable;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -32,14 +34,20 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.airlift.units.Duration.nanosSince;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class DruidQueryRunner
 {
+    private static final Logger log = Logger.get(DruidQueryRunner.class);
+
+    private static final String SCHEMA = "druid";
+
     private DruidQueryRunner() {}
 
-    public static DistributedQueryRunner createDruidQueryRunnerTpch(TestingDruidServer testingDruidServer, Map<String, String> extraProperties)
+    public static DistributedQueryRunner createDruidQueryRunnerTpch(TestingDruidServer testingDruidServer, Map<String, String> extraProperties, Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -54,6 +62,18 @@ public class DruidQueryRunner
             connectorProperties.putIfAbsent("connection-url", testingDruidServer.getJdbcUrl());
             queryRunner.installPlugin(new DruidJdbcPlugin());
             queryRunner.createCatalog("druid", "druid", connectorProperties);
+
+            log.info("Loading data from druid.%s...", SCHEMA);
+            long startTime = System.nanoTime();
+            for (TpchTable<?> table : tables) {
+                long start = System.nanoTime();
+                log.info("Running import for %s", table.getTableName());
+                MaterializedResult rows = queryRunner.execute(DruidTpchTables.getSelectQuery(table.getTableName()));
+                copyAndIngestTpchData(rows, testingDruidServer, table.getTableName());
+                log.info("Imported %s rows for %s in %s", rows.getRowCount(), table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+            }
+            log.info("Loading from druid.%s complete in %s", SCHEMA, nanosSince(startTime).toString(SECONDS));
+
             return queryRunner;
         }
         catch (Throwable e) {
@@ -79,7 +99,7 @@ public class DruidQueryRunner
     {
         return testSessionBuilder()
                 .setCatalog("druid")
-                .setSchema("druid")
+                .setSchema(SCHEMA)
                 .build();
     }
 
@@ -109,7 +129,8 @@ public class DruidQueryRunner
 
         DistributedQueryRunner queryRunner = createDruidQueryRunnerTpch(
                 new TestingDruidServer(),
-                ImmutableMap.of("http-server.http.port", "8080"));
+                ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableList.of());
 
         Logger log = Logger.get(DruidQueryRunner.class);
         log.info("======== SERVER STARTED ========");
