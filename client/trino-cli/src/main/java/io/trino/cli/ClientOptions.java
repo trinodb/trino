@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
+import io.trino.client.auth.external.ExternalRedirectStrategy;
 import okhttp3.logging.HttpLoggingInterceptor;
 
 import java.net.URI;
@@ -104,6 +105,9 @@ public class ClientOptions
 
     @Option(names = "--external-authentication", paramLabel = "<externalAuthentication>", description = "Enable external authentication")
     public boolean externalAuthentication;
+
+    @Option(names = "--external-authentication-redirect-handler", paramLabel = "<externalAuthenticationRedirectHandler>", description = "External authentication redirect handlers: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "ALL")
+    public List<ExternalRedirectStrategy> externalAuthenticationRedirectHandler = new ArrayList<>();
 
     @Option(names = "--source", paramLabel = "<source>", defaultValue = "trino-cli", description = "Name of source making query " + DEFAULT_VALUE)
     public String source;

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
+import io.trino.client.auth.external.ExternalRedirectStrategy;
 
 import java.io.File;
 import java.util.List;
@@ -28,8 +29,10 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.StreamSupport;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.immutableEntry;
 import static io.trino.client.ClientSelectedRole.Type.ALL;
@@ -75,6 +78,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
     public static final ConnectionProperty<Boolean> EXTERNAL_AUTHENTICATION = new ExternalAuthentication();
     public static final ConnectionProperty<Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
+    public static final ConnectionProperty<List<ExternalRedirectStrategy>> EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS = new ExternalAuthenticationRedirectHandlers();
     public static final ConnectionProperty<KnownTokenCache> EXTERNAL_AUTHENTICATION_TOKEN_CACHE = new ExternalAuthenticationTokenCache();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
     public static final ConnectionProperty<String> CLIENT_INFO = new ClientInfo();
@@ -119,6 +123,7 @@ final class ConnectionProperties
             .add(EXTERNAL_AUTHENTICATION)
             .add(EXTERNAL_AUTHENTICATION_TIMEOUT)
             .add(EXTERNAL_AUTHENTICATION_TOKEN_CACHE)
+            .add(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -475,6 +480,24 @@ final class ConnectionProperties
         public ExternalAuthentication()
         {
             super("externalAuthentication", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class ExternalAuthenticationRedirectHandlers
+            extends AbstractConnectionProperty<List<ExternalRedirectStrategy>>
+    {
+        private static final Splitter ENUM_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
+        public ExternalAuthenticationRedirectHandlers()
+        {
+            super("externalAuthenticationRedirectHandlers", Optional.of("OPEN"), NOT_REQUIRED, ALLOWED, ExternalAuthenticationRedirectHandlers::parse);
+        }
+
+        public static List<ExternalRedirectStrategy> parse(String value)
+        {
+            return StreamSupport.stream(ENUM_SPLITTER.split(value).spliterator(), false)
+                    .map(ExternalRedirectStrategy::valueOf)
+                    .collect(toImmutableList());
         }
     }
 
