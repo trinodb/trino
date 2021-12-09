@@ -28,7 +28,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tests.product.TestGroups.HDFS_IMPERSONATION;
 import static io.trino.tests.product.TestGroups.HDFS_NO_IMPERSONATION;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.utils.QueryExecutors.connectToPresto;
+import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -54,7 +54,7 @@ public class TestImpersonation
     @BeforeTestWithContext
     public void setup()
     {
-        aliceExecutor = connectToPresto("alice@presto");
+        aliceExecutor = connectToTrino("alice@presto");
     }
 
     @Test(groups = {HDFS_NO_IMPERSONATION, PROFILE_SPECIFIC_TESTS})

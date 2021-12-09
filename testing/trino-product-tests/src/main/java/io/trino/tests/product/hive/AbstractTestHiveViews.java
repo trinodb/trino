@@ -384,7 +384,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("DROP VIEW IF EXISTS no_catalog_schema_view");
         onHive().executeQuery("CREATE VIEW no_catalog_schema_view AS SELECT * FROM nation WHERE n_nationkey = 1");
 
-        QueryExecutor executor = connectToPresto("presto_no_default_catalog");
+        QueryExecutor executor = connectToTrino("presto_no_default_catalog");
         assertQueryFailure(() -> executor.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
                 .hasMessageMatching(".*Schema must be specified when session schema is not set.*");
         assertThat(executor.executeQuery("SELECT count(*) FROM hive.default.no_catalog_schema_view"))
@@ -439,7 +439,7 @@ public abstract class AbstractTestHiveViews
 
         String testQuery = "SELECT cu FROM current_user_hive_view";
         assertThat(query(testQuery)).containsOnly(row("hive"));
-        assertThat(connectToPresto("alice@presto").executeQuery(testQuery)).containsOnly(row("alice"));
+        assertThat(connectToTrino("alice@presto").executeQuery(testQuery)).containsOnly(row("alice"));
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -542,9 +542,9 @@ public abstract class AbstractTestHiveViews
         return Date.valueOf(LocalDate.of(year, month, day));
     }
 
-    protected QueryExecutor connectToPresto(String catalog)
+    protected QueryExecutor connectToTrino(String catalog)
     {
-        return QueryExecutors.connectToPresto(catalog);
+        return QueryExecutors.connectToTrino(catalog);
     }
 
     protected void setSessionProperty(String key, String value)

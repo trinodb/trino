@@ -22,7 +22,7 @@ import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.AUTHORIZATION;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.utils.QueryExecutors.connectToPresto;
+import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
@@ -39,10 +39,10 @@ public class TestSqlStandardAccessControlChecks
     @BeforeTestWithContext
     public void setup()
     {
-        aliceExecutor = connectToPresto("alice@presto");
-        bobExecutor = connectToPresto("bob@presto");
-        charlieExecutor = connectToPresto("charlie@presto");
-        caseSensitiveUserNameExecutor = connectToPresto("CaseSensitiveUserName@presto");
+        aliceExecutor = connectToTrino("alice@presto");
+        bobExecutor = connectToTrino("bob@presto");
+        charlieExecutor = connectToTrino("charlie@presto");
+        caseSensitiveUserNameExecutor = connectToTrino("CaseSensitiveUserName@presto");
 
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint) WITH (partitioned_by = ARRAY['day'])", tableName));
@@ -255,7 +255,7 @@ public class TestSqlStandardAccessControlChecks
         onHive().executeQuery("CREATE TABLE test_hive_table (col1 int)");
         onHive().executeQuery("CREATE VIEW test_hive_view AS SELECT * FROM test_hive_table");
 
-        QueryExecutor hdfsExecutor = connectToPresto("hdfs@presto");
+        QueryExecutor hdfsExecutor = connectToTrino("hdfs@presto");
 
         assertQueryFailure(() -> bobExecutor.executeQuery("ALTER VIEW test_hive_view SET AUTHORIZATION bob"))
                 .hasMessageContaining("Access Denied: Cannot set authorization for view default.test_hive_view to USER bob");
