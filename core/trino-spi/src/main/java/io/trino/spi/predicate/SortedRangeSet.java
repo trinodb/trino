@@ -84,7 +84,7 @@ public final class SortedRangeSet
         this.hashCodeOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
         // choice of placing unordered values first or last does not matter for this code
         this.comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
-        // Calculating the comparison operator once instead of per range to avoid lock contention in cases of large number of ranges
+        // Calculating the comparison operator once instead of per range to avoid hitting TypeOperators cache
         this.rangeComparisonOperator = Range.getComparisonOperator(type);
 
         requireNonNull(inclusive, "inclusive is null");
