@@ -33,7 +33,7 @@ import static io.trino.tempto.context.ContextDsl.executeWith;
 import static io.trino.tempto.sql.SqlContexts.createViewAs;
 import static io.trino.tests.product.TestGroups.AUTHORIZATION;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.utils.QueryExecutors.connectToPresto;
+import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -70,9 +70,9 @@ public class TestGrantRevoke
     {
         tableName = "alice_owned_table";
         viewName = "alice_view";
-        aliceExecutor = connectToPresto("alice@presto");
-        bobExecutor = connectToPresto("bob@presto");
-        charlieExecutor = connectToPresto("charlie@presto");
+        aliceExecutor = connectToTrino("alice@presto");
+        bobExecutor = connectToTrino("bob@presto");
+        charlieExecutor = connectToTrino("charlie@presto");
 
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint)", tableName));
