@@ -35,7 +35,7 @@ import static io.trino.tempto.assertions.QueryAssert.anyOf;
 import static io.trino.tests.product.TestGroups.AUTHORIZATION;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.ROLES;
-import static io.trino.tests.product.utils.QueryExecutors.connectToPresto;
+import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -823,11 +823,11 @@ public class TestRoles
 
     private static QueryExecutor onPrestoAlice()
     {
-        return connectToPresto("alice@presto");
+        return connectToTrino("alice@presto");
     }
 
     private static QueryExecutor onPrestoBob()
     {
-        return connectToPresto("bob@presto");
+        return connectToTrino("bob@presto");
     }
 }

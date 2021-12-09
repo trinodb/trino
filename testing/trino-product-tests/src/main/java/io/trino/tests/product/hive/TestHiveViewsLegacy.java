@@ -152,9 +152,9 @@ public class TestHiveViewsLegacy
     }
 
     @Override
-    protected QueryExecutor connectToPresto(String catalog)
+    protected QueryExecutor connectToTrino(String catalog)
     {
-        QueryExecutor executor = super.connectToPresto(catalog);
+        QueryExecutor executor = super.connectToTrino(catalog);
         executor.executeQuery("SET SESSION hive.legacy_hive_view_translation = true");
         return executor;
     }

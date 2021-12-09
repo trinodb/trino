@@ -27,19 +27,25 @@ public final class QueryExecutors
 {
     public static QueryExecutor onTrino()
     {
-        return connectToPresto("presto");
+        return connectToTrino("presto");
     }
 
     public static QueryExecutor onCompatibilityTestServer()
     {
-        return connectToPresto("compatibility-test-server");
+        return connectToTrino("compatibility-test-server");
     }
 
+    @Deprecated
     public static QueryExecutor connectToPresto(String prestoConfig)
+    {
+        return connectToTrino(prestoConfig);
+    }
+
+    public static QueryExecutor connectToTrino(String trinoConfig)
     {
         return new QueryExecutor()
         {
-            private final QueryExecutor delegate = testContext().getDependency(QueryExecutor.class, prestoConfig);
+            private final QueryExecutor delegate = testContext().getDependency(QueryExecutor.class, trinoConfig);
 
             @Override
             public QueryResult executeQuery(String sql, QueryParam... params)
