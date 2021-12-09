@@ -71,6 +71,12 @@ public final class CachingIdentifierMapping
         this.baseJdbcClient = requireNonNull(baseJdbcClient, "baseJdbcClient is null");
     }
 
+    public void flushCache()
+    {
+        remoteSchemaNames.invalidateAll();
+        remoteTableNames.invalidateAll();
+    }
+
     @Override
     public String fromRemoteSchemaName(String remoteSchemaName)
     {
