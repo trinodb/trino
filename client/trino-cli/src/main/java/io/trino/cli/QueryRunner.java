@@ -17,7 +17,9 @@ import com.google.common.net.HostAndPort;
 import io.trino.client.ClientSession;
 import io.trino.client.OkHttpUtil;
 import io.trino.client.StatementClient;
+import io.trino.client.auth.external.CompositeRedirectHandler;
 import io.trino.client.auth.external.ExternalAuthenticator;
+import io.trino.client.auth.external.ExternalRedirectStrategy;
 import io.trino.client.auth.external.HttpTokenPoller;
 import io.trino.client.auth.external.KnownToken;
 import io.trino.client.auth.external.RedirectHandler;
@@ -28,6 +30,7 @@ import okhttp3.logging.HttpLoggingInterceptor;
 import java.io.Closeable;
 import java.io.File;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -43,7 +46,6 @@ import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.OkHttpUtil.setupTimeouts;
 import static io.trino.client.OkHttpUtil.tokenAuth;
 import static io.trino.client.StatementClientFactory.newStatementClient;
-import static java.lang.System.out;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -79,7 +81,8 @@ public class QueryRunner
             Optional<String> kerberosCredentialCachePath,
             boolean kerberosUseCanonicalHostname,
             boolean delegatedKerberos,
-            boolean externalAuthentication)
+            boolean externalAuthentication,
+            List<ExternalRedirectStrategy> externalRedirectHandlers)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.debug = debug;
@@ -99,7 +102,7 @@ public class QueryRunner
         setupHttpProxy(builder, httpProxy);
         setupBasicAuth(builder, session, user, password);
         setupTokenAuth(builder, session, accessToken);
-        setupExternalAuth(builder, session, externalAuthentication, sslSetup);
+        setupExternalAuth(builder, session, externalAuthentication, externalRedirectHandlers, sslSetup);
 
         builder.addNetworkInterceptor(new HttpLoggingInterceptor(System.err::println).setLevel(networkLogging));
 
@@ -179,6 +182,7 @@ public class QueryRunner
             OkHttpClient.Builder builder,
             ClientSession session,
             boolean enabled,
+            List<ExternalRedirectStrategy> externalRedirectHandlers,
             Consumer<OkHttpClient.Builder> sslSetup)
     {
         if (!enabled) {
@@ -187,10 +191,8 @@ public class QueryRunner
         checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
                 "Authentication using externalAuthentication requires HTTPS to be enabled");
 
-        RedirectHandler redirectHandler = uri -> {
-            out.println("External authentication required. Please go to:");
-            out.println(uri.toString());
-        };
+        RedirectHandler redirectHandler = new CompositeRedirectHandler(externalRedirectHandlers);
+
         TokenPoller poller = new HttpTokenPoller(builder.build(), sslSetup);
 
         ExternalAuthenticator authenticator = new ExternalAuthenticator(
