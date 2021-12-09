@@ -443,6 +443,52 @@ public class TestTaskExecutor
         }
     }
 
+    @Test
+    public void testMinDriversPerTaskWhenTargetConcurrencyIncreases()
+    {
+        MultilevelSplitQueue splitQueue = new MultilevelSplitQueue(2);
+        TestingTicker ticker = new TestingTicker();
+        // create a task executor with min/max drivers per task to be 2
+        TaskExecutor taskExecutor = new TaskExecutor(4, 1, 2, 2, splitQueue, ticker);
+        taskExecutor.start();
+
+        try {
+            TaskHandle testTaskHandle = taskExecutor.addTask(
+                    new TaskId("test", 0, 0),
+                    // make sure buffer is underutilized
+                    () -> 0,
+                    1,
+                    new Duration(1, MILLISECONDS),
+                    OptionalInt.of(2));
+
+            // create 3 splits
+            int batchCount = 3;
+            TestingJob[] splits = new TestingJob[3];
+            Phaser[] phasers = new Phaser[batchCount];
+            for (int batch = 0; batch < batchCount; batch++) {
+                phasers[batch] = new Phaser();
+                phasers[batch].register();
+                TestingJob split = new TestingJob(ticker, new Phaser(), new Phaser(), phasers[batch], 1, 0);
+                splits[batch] = split;
+            }
+
+            taskExecutor.enqueueSplits(testTaskHandle, false, ImmutableList.copyOf(splits));
+            // wait until first split starts
+            waitUntilSplitsStart(ImmutableList.of(splits[0]));
+            // remaining splits shouldn't start because initial split concurrency is 1
+            assertSplitStates(0, splits);
+
+            // complete first split (SplitConcurrencyController for TaskHandle should increase concurrency since buffer is underutilized)
+            phasers[0].arriveAndDeregister();
+
+            // 2 remaining splits should be started
+            waitUntilSplitsStart(ImmutableList.of(splits[1], splits[2]));
+        }
+        finally {
+            taskExecutor.stop();
+        }
+    }
+
     private void assertSplitStates(int endIndex, TestingJob[] splits)
     {
         // assert that splits up to and including endIndex are all started
