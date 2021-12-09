@@ -811,7 +811,7 @@ public class TestResourceSecurity
         @Inject
         public TestResource(AccessControl accessControl)
         {
-            this.sessionContextFactory = new HttpRequestSessionContextFactory(createTestMetadataManager(), ImmutableSet::of, accessControl);
+            this.sessionContextFactory = new HttpRequestSessionContextFactory(createTestMetadataManager(), user -> ImmutableSet.of(), accessControl);
         }
 
         @ResourceSecurity(AUTHENTICATED_USER)
