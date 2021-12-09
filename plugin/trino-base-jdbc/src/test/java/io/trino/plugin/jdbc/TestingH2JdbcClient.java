@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.expression.AggregateFunctionRewriter;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -74,7 +75,12 @@ class TestingH2JdbcClient
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        super(config, "\"", connectionFactory, new DefaultIdentifierMapping());
+        this(config, connectionFactory, new DefaultIdentifierMapping());
+    }
+
+    public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
+    {
+        super(config, "\"", connectionFactory, identifierMapping);
     }
 
     @Override
