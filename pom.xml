@@ -65,7 +65,6 @@
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
         <dep.coral.version>1.0.121</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
-        <dep.parquet.version>1.11.1</dep.parquet.version>
 
         <!-- TODO(https://github.com/airlift/airbase/pull/281): Required by testcontainers, remove when pulled from Airbase -->
         <dep.slf4j.version>1.7.32</dep.slf4j.version>
