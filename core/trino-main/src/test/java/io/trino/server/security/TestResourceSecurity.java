@@ -73,9 +73,11 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -820,7 +822,13 @@ public class TestResourceSecurity
             return javax.ws.rs.core.Response.ok()
                     .header("user", identity.getUser())
                     .header("principal", identity.getPrincipal().map(Principal::getName).orElse(null))
+                    .header("groups", toHeader(identity.getGroups()))
                     .build();
+        }
+
+        public static String toHeader(Set<String> groups)
+        {
+            return groups.stream().sorted().collect(Collectors.joining(","));
         }
     }
 
