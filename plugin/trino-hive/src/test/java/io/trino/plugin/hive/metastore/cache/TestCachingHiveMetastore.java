@@ -101,7 +101,7 @@ public class TestCachingHiveMetastore
         mockClient = new MockThriftMetastoreClient();
         ThriftHiveMetastore thriftHiveMetastore = createThriftHiveMetastore();
         executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s")));
-        metastore = (CachingHiveMetastore) cachingHiveMetastore(
+        metastore = cachingHiveMetastore(
                 new BridgingHiveMetastore(thriftHiveMetastore),
                 executor,
                 new Duration(5, TimeUnit.MINUTES),
