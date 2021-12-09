@@ -25,12 +25,6 @@ import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE
 
 public final class QueryExecutors
 {
-    @Deprecated
-    public static QueryExecutor onPresto()
-    {
-        return onTrino();
-    }
-
     public static QueryExecutor onTrino()
     {
         return connectToPresto("presto");
