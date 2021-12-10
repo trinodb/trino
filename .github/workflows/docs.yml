@@ -25,7 +25,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  path-filters:
+    runs-on: ubuntu-latest
+    outputs:
+      docs: ${{ steps.filter.outputs.docs }}
+      other: ${{ steps.filter.outputs.other }}
+    steps:
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            docs: 'docs/**'
+            other: '!docs/**'
+
   docs-checks:
+    needs: path-filters
+    if: ${{ needs.path-filters.outputs.docs == 'true' && needs.path-filters.outputs.other == 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -40,6 +55,8 @@ jobs:
           $RETRY $MAVEN install -B --strict-checksums -V -T C1 -DskipTests -P ci -am -pl ':trino-docs'
 
   test-docs:
+    needs: path-filters
+    if: ${{ needs.path-filters.outputs.docs == 'true' && needs.path-filters.outputs.other == 'false' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
