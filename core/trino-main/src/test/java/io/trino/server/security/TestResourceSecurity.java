@@ -15,6 +15,7 @@ package io.trino.server.security;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
@@ -38,13 +39,17 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SystemSecurityContext;
+import okhttp3.Cookie;
+import okhttp3.CookieJar;
 import okhttp3.Credentials;
 import okhttp3.Headers;
+import okhttp3.HttpUrl;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import javax.crypto.SecretKey;
@@ -90,7 +95,10 @@ import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
+import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
+import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.trino.testing.assertions.Assert.assertEquals;
@@ -130,6 +138,7 @@ public class TestResourceSecurity
     private static final String MANAGEMENT_PASSWORD = "management-password";
     private static final String HMAC_KEY = Resources.getResource("hmac_key.txt").getPath();
     private static final String JWK_KEY_ID = "test-rsa";
+    private static final String GROUPS_CLAIM = "groups";
     private static final PrivateKey JWK_PRIVATE_KEY;
     private static final ObjectMapper json = new ObjectMapper();
 
@@ -655,6 +664,86 @@ public class TestResourceSecurity
         }
     }
 
+    @Test(dataProvider = "groups")
+    public void testOAuth2Groups(Optional<Set<String>> groups)
+            throws Exception
+    {
+        try (TokenServer tokenServer = new TokenServer(Optional.empty());
+                TestingTrinoServer server = TestingTrinoServer.builder()
+                        .setProperties(ImmutableMap.<String, String>builder()
+                                .putAll(SECURE_PROPERTIES)
+                                .put("web-ui.enabled", "true")
+                                .putAll(getOAuth2Properties(tokenServer))
+                                .put("http-server.authentication.oauth2.groups-field", GROUPS_CLAIM)
+                                .build())
+                        .setAdditionalModule(oauth2Module(tokenServer))
+                        .build()) {
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION);
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+
+            String accessToken = tokenServer.issueAccessToken(groups);
+            OkHttpClient clientWithOAuthToken = client.newBuilder()
+                    .authenticator((route, response) -> response.request().newBuilder()
+                            .header(AUTHORIZATION, "Bearer " + accessToken)
+                            .build())
+                    .build();
+
+            assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithOAuthToken);
+
+            try (Response response = clientWithOAuthToken.newCall(new Request.Builder()
+                            .url(getLocation(httpServerInfo.getHttpsUri(), "/protocol/identity"))
+                            .build())
+                    .execute()) {
+                assertEquals(response.code(), SC_OK);
+                assertEquals(response.header("user"), TEST_USER);
+                assertEquals(response.header("principal"), TEST_USER);
+                assertEquals(response.header("groups"), groups.map(TestResource::toHeader).orElse(""));
+            }
+
+            OkHttpClient clientWithOAuthCookie = client.newBuilder()
+                    .cookieJar(new CookieJar()
+                    {
+                        @Override
+                        public void saveFromResponse(HttpUrl url, List<Cookie> cookies)
+                        {
+                        }
+
+                        @Override
+                        public List<Cookie> loadForRequest(HttpUrl url)
+                        {
+                            return ImmutableList.of(new Cookie.Builder()
+                                    .domain(httpServerInfo.getHttpsUri().getHost())
+                                    .path(UI_LOCATION)
+                                    .name(OAUTH2_COOKIE)
+                                    .value(accessToken)
+                                    .httpOnly()
+                                    .secure()
+                                    .build());
+                        }
+                    })
+                    .build();
+            try (Response response = clientWithOAuthCookie.newCall(new Request.Builder()
+                            .url(getLocation(httpServerInfo.getHttpsUri(), "/ui/api/identity"))
+                            .build())
+                    .execute()) {
+                assertEquals(response.code(), SC_OK);
+                assertEquals(response.header("user"), TEST_USER);
+                assertEquals(response.header("principal"), TEST_USER);
+                assertEquals(response.header("groups"), groups.map(TestResource::toHeader).orElse(""));
+            }
+        }
+    }
+
+    @DataProvider(name = "groups")
+    public static Object[][] groups()
+    {
+        return new Object[][] {
+                {Optional.empty()},
+                {Optional.of(ImmutableSet.of())},
+                {Optional.of(ImmutableSet.of("admin", "public"))}
+        };
+    }
+
     private static Module oauth2Module(TokenServer tokenServer)
     {
         return binder -> {
@@ -707,7 +796,7 @@ public class TestResourceSecurity
             this.principalField = requireNonNull(principalField, "principalField is null");
             jwkServer = createTestingJwkServer();
             jwkServer.start();
-            accessToken = issueAccessToken();
+            accessToken = issueAccessToken(Optional.empty());
         }
 
         @Override
@@ -767,7 +856,7 @@ public class TestResourceSecurity
             return accessToken;
         }
 
-        private String issueAccessToken()
+        public String issueAccessToken(Optional<Set<String>> groups)
         {
             JwtBuilder accessToken = Jwts.builder()
                     .signWith(JWK_PRIVATE_KEY)
@@ -781,6 +870,7 @@ public class TestResourceSecurity
             else {
                 accessToken.setSubject(TEST_USER);
             }
+            groups.ifPresent(groupsClaim -> accessToken.claim(GROUPS_CLAIM, groupsClaim));
             return accessToken.compact();
         }
 

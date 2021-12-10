@@ -81,6 +81,7 @@ public class HydraIdentityProvider
                 .withEnv("SERVE_TLS_CERT_PATH", "/tmp/certs/hydra.pem")
                 .withEnv("STRATEGIES_ACCESS_TOKEN", "jwt")
                 .withEnv("TTL_ACCESS_TOKEN", TTL_ACCESS_TOKEN_IN_SECONDS + "s")
+                .withEnv("OAUTH2_ALLOWED_TOP_LEVEL_CLAIMS", "groups")
                 .withCommand("serve", "all")
                 .withCopyFileToContainer(forHostPath(configDir.getPath("cert/hydra.pem")), "/tmp/certs/hydra.pem")
                 .waitingFor(new WaitAllStrategy()
