@@ -39,37 +39,30 @@ public class Int64TimestampMillisColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            long epochMillis = valuesReader.readLong();
-            if (type instanceof TimestampWithTimeZoneType) {
-                type.writeLong(blockBuilder, packDateTimeWithZone(epochMillis, UTC_KEY));
-            }
-            else if (type instanceof TimestampType) {
-                long epochMicros = epochMillis * MICROSECONDS_PER_MILLISECOND;
-                if (((TimestampType) type).isShort()) {
-                    type.writeLong(blockBuilder, epochMicros);
-                }
-                else {
-                    type.writeObject(blockBuilder, new LongTimestamp(epochMicros, 0));
-                }
-            }
-            else if (type == BIGINT) {
-                type.writeLong(blockBuilder, epochMillis);
+        long epochMillis = valuesReader.readLong();
+        if (type instanceof TimestampWithTimeZoneType) {
+            type.writeLong(blockBuilder, packDateTimeWithZone(epochMillis, UTC_KEY));
+        }
+        else if (type instanceof TimestampType) {
+            long epochMicros = epochMillis * MICROSECONDS_PER_MILLISECOND;
+            if (((TimestampType) type).isShort()) {
+                type.writeLong(blockBuilder, epochMicros);
             }
             else {
-                throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, columnDescriptor));
+                type.writeObject(blockBuilder, new LongTimestamp(epochMicros, 0));
             }
         }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
+        else if (type == BIGINT) {
+            type.writeLong(blockBuilder, epochMillis);
+        }
+        else {
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, columnDescriptor));
         }
     }
 
     @Override
     protected void skipValue()
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readLong();
-        }
+        valuesReader.readLong();
     }
 }
