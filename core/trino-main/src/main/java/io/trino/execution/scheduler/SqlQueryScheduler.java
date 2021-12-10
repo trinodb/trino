@@ -97,7 +97,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -175,6 +174,7 @@ public class SqlQueryScheduler
     private final QueryStateMachine queryStateMachine;
     private final NodePartitioningManager nodePartitioningManager;
     private final NodeScheduler nodeScheduler;
+    private final NodeAllocatorService nodeAllocatorService;
     private final int splitBatchSize;
     private final ExecutorService executor;
     private final ScheduledExecutorService schedulerExecutor;
@@ -210,6 +210,7 @@ public class SqlQueryScheduler
             SubPlan plan,
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
+            NodeAllocatorService nodeAllocatorService,
             RemoteTaskFactory remoteTaskFactory,
             boolean summarizeTaskInfo,
             int splitBatchSize,
@@ -231,6 +232,7 @@ public class SqlQueryScheduler
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
+        this.nodeAllocatorService = requireNonNull(nodeAllocatorService, "nodeAllocatorService is null");
         this.splitBatchSize = splitBatchSize;
         this.executor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
@@ -342,7 +344,7 @@ public class SqlQueryScheduler
                         maxRetryAttempts,
                         schedulerExecutor,
                         schedulerStats,
-                        nodeScheduler);
+                        nodeAllocatorService);
                 break;
             case QUERY:
             case NONE:
@@ -1727,7 +1729,6 @@ public class SqlQueryScheduler
         private final List<FaultTolerantStageScheduler> schedulers;
         private final SplitSchedulerStats schedulerStats;
         private final NodeAllocator nodeAllocator;
-        private final ScheduledFuture<?> nodeUpdateTask;
 
         private final AtomicBoolean started = new AtomicBoolean();
 
@@ -1743,7 +1744,7 @@ public class SqlQueryScheduler
                 int retryAttempts,
                 ScheduledExecutorService scheduledExecutorService,
                 SplitSchedulerStats schedulerStats,
-                NodeScheduler nodeScheduler)
+                NodeAllocatorService nodeAllocatorService)
         {
             taskDescriptorStorage.initialize(queryStateMachine.getQueryId());
             queryStateMachine.addStateChangeListener(state -> {
@@ -1760,9 +1761,7 @@ public class SqlQueryScheduler
 
             ImmutableList.Builder<FaultTolerantStageScheduler> schedulers = ImmutableList.builder();
             Map<PlanFragmentId, Exchange> exchanges = new HashMap<>();
-
-            FixedCountNodeAllocator nodeAllocator = new FixedCountNodeAllocator(nodeScheduler, session, 1);
-            ScheduledFuture<?> nodeUpdateTask = scheduledExecutorService.scheduleAtFixedRate(nodeAllocator::updateNodes, 5, 5, SECONDS);
+            NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(session);
 
             try {
                 // root to children order
@@ -1830,8 +1829,7 @@ public class SqlQueryScheduler
                         queryStateMachine,
                         schedulers.build(),
                         schedulerStats,
-                        nodeAllocator,
-                        nodeUpdateTask);
+                        nodeAllocator);
             }
             catch (Throwable t) {
                 for (FaultTolerantStageScheduler scheduler : schedulers.build()) {
@@ -1845,7 +1843,6 @@ public class SqlQueryScheduler
                     }
                 }
 
-                nodeUpdateTask.cancel(true);
                 try {
                     nodeAllocator.close();
                 }
@@ -1933,15 +1930,13 @@ public class SqlQueryScheduler
                 QueryStateMachine queryStateMachine,
                 List<FaultTolerantStageScheduler> schedulers,
                 SplitSchedulerStats schedulerStats,
-                NodeAllocator nodeAllocator,
-                ScheduledFuture<?> nodeUpdateTask)
+                NodeAllocator nodeAllocator)
         {
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
             this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
             this.schedulers = requireNonNull(schedulers, "schedulers is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.nodeAllocator = requireNonNull(nodeAllocator, "nodeAllocator is null");
-            this.nodeUpdateTask = requireNonNull(nodeUpdateTask, "nodeUpdateTask is null");
         }
 
         @Override
@@ -2051,7 +2046,6 @@ public class SqlQueryScheduler
 
         private void closeNodeAllocator()
         {
-            nodeUpdateTask.cancel(true);
             try {
                 nodeAllocator.close();
             }
