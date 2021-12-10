@@ -57,70 +57,65 @@ public class ShortDecimalColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type trinoType)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            if (!((trinoType instanceof DecimalType) || isIntegerType(trinoType))) {
-                throw new ParquetDecodingException(format("Unsupported Trino column type (%s) for Parquet column (%s)", trinoType, columnDescriptor));
-            }
+        if (!((trinoType instanceof DecimalType) || isIntegerType(trinoType))) {
+            throw new ParquetDecodingException(format("Unsupported Trino column type (%s) for Parquet column (%s)", trinoType, columnDescriptor));
+        }
 
-            long value;
+        long value;
 
-            // When decimals are encoded with primitive types Parquet stores unscaled values
-            if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT32) {
-                value = valuesReader.readInteger();
-            }
-            else if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT64) {
-                value = valuesReader.readLong();
-            }
-            else {
-                byte[] bytes = valuesReader.readBytes().getBytes();
-                if (typeLength <= Long.BYTES) {
-                    value = getShortDecimalValue(bytes);
-                }
-                else {
-                    int startOffset = bytes.length - Long.BYTES;
-                    checkBytesFitInShortDecimal(bytes, startOffset, trinoType);
-                    value = getShortDecimalValue(bytes, startOffset, Long.BYTES);
-                }
-            }
-
-            if (trinoType instanceof DecimalType) {
-                DecimalType trinoDecimalType = (DecimalType) trinoType;
-
-                if (isShortDecimal(trinoDecimalType)) {
-                    long rescale = longTenToNth(Math.abs(trinoDecimalType.getScale() - parquetDecimalType.getScale()));
-                    long convertedValue = shortToShortCast(
-                            value,
-                            parquetDecimalType.getPrecision(),
-                            parquetDecimalType.getScale(),
-                            trinoDecimalType.getPrecision(),
-                            trinoDecimalType.getScale(),
-                            rescale,
-                            rescale / 2);
-
-                    trinoType.writeLong(blockBuilder, convertedValue);
-                }
-                else if (isLongDecimal(trinoDecimalType)) {
-                    trinoType.writeSlice(blockBuilder, shortToLongCast(
-                            value,
-                            parquetDecimalType.getPrecision(),
-                            parquetDecimalType.getScale(),
-                            trinoDecimalType.getPrecision(),
-                            trinoDecimalType.getScale()));
-                }
+        // When decimals are encoded with primitive types Parquet stores unscaled values
+        if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT32) {
+            value = valuesReader.readInteger();
+        }
+        else if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT64) {
+            value = valuesReader.readLong();
+        }
+        else {
+            byte[] bytes = valuesReader.readBytes().getBytes();
+            if (typeLength <= Long.BYTES) {
+                value = getShortDecimalValue(bytes);
             }
             else {
-                if (parquetDecimalType.getScale() != 0) {
-                    throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", trinoType, columnDescriptor));
-                }
-
-                if (!isInValidNumberRange(trinoType, value)) {
-                    throw new TrinoException(NOT_SUPPORTED, format("Could not coerce from %s to %s: %s", parquetDecimalType, trinoType, value));
-                }
-                trinoType.writeLong(blockBuilder, value);
+                int startOffset = bytes.length - Long.BYTES;
+                checkBytesFitInShortDecimal(bytes, startOffset, trinoType);
+                value = getShortDecimalValue(bytes, startOffset, Long.BYTES);
             }
         }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
+
+        if (trinoType instanceof DecimalType) {
+            DecimalType trinoDecimalType = (DecimalType) trinoType;
+
+            if (isShortDecimal(trinoDecimalType)) {
+                long rescale = longTenToNth(Math.abs(trinoDecimalType.getScale() - parquetDecimalType.getScale()));
+                long convertedValue = shortToShortCast(
+                        value,
+                        parquetDecimalType.getPrecision(),
+                        parquetDecimalType.getScale(),
+                        trinoDecimalType.getPrecision(),
+                        trinoDecimalType.getScale(),
+                        rescale,
+                        rescale / 2);
+
+                trinoType.writeLong(blockBuilder, convertedValue);
+            }
+            else if (isLongDecimal(trinoDecimalType)) {
+                trinoType.writeSlice(blockBuilder, shortToLongCast(
+                        value,
+                        parquetDecimalType.getPrecision(),
+                        parquetDecimalType.getScale(),
+                        trinoDecimalType.getPrecision(),
+                        trinoDecimalType.getScale()));
+            }
+        }
+        else {
+            if (parquetDecimalType.getScale() != 0) {
+                throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", trinoType, columnDescriptor));
+            }
+
+            if (!isInValidNumberRange(trinoType, value)) {
+                throw new TrinoException(NOT_SUPPORTED, format("Could not coerce from %s to %s: %s", parquetDecimalType, trinoType, value));
+            }
+            trinoType.writeLong(blockBuilder, value);
         }
     }
 
@@ -150,16 +145,14 @@ public class ShortDecimalColumnReader
     @Override
     protected void skipValue()
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT32) {
-                valuesReader.readInteger();
-            }
-            else if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT64) {
-                valuesReader.readLong();
-            }
-            else {
-                valuesReader.readBytes();
-            }
+        if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT32) {
+            valuesReader.readInteger();
+        }
+        else if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT64) {
+            valuesReader.readLong();
+        }
+        else {
+            valuesReader.readBytes();
         }
     }
 

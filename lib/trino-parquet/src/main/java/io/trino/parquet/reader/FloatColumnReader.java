@@ -30,19 +30,12 @@ public class FloatColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            type.writeLong(blockBuilder, floatToRawIntBits(valuesReader.readFloat()));
-        }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
-        }
+        type.writeLong(blockBuilder, floatToRawIntBits(valuesReader.readFloat()));
     }
 
     @Override
     protected void skipValue()
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readFloat();
-        }
+        valuesReader.readFloat();
     }
 }
