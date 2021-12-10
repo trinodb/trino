@@ -16,7 +16,7 @@ import io.trino.tpch.TpchTable;
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
 
 public class TestSapHanaPooledConnectorTest
-        extends TestSapHanaConnectorTest
+        extends BaseSapHanaConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()

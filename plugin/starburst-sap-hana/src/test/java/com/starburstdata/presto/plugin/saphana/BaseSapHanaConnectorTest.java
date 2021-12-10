@@ -10,44 +10,25 @@
 package com.starburstdata.presto.plugin.saphana;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.trino.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
-import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestSapHanaConnectorTest
+public abstract class BaseSapHanaConnectorTest
         extends BaseJdbcConnectorTest
 {
     protected TestingSapHanaServer server;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        server = closeAfterClass(TestingSapHanaServer.create());
-        return createSapHanaQueryRunner(
-                server,
-                ImmutableMap.<String, String>builder()
-                        .put("metadata.cache-ttl", "0m")
-                        .put("metadata.cache-missing", "false")
-                        .build(),
-                ImmutableMap.of(),
-                TpchTable.getTables());
-    }
 
     @Override
     @SuppressWarnings("DuplicateBranchesInSwitch") // options here are grouped per-feature
