@@ -22,6 +22,7 @@ import java.util.Optional;
 import static com.google.common.base.Verify.verify;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -305,6 +306,12 @@ public abstract class BaseSapHanaConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
+    }
+
+    @Override
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
+    {
+        return format(".*cannot insert NULL or update to NULL: %s.*", columnName.toUpperCase(ENGLISH));
     }
 
     @Override
