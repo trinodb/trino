@@ -173,6 +173,7 @@ public class HivePageSinkProvider
         return new HivePageSink(
                 writerFactory,
                 handle.getInputColumns(),
+                handle.isTransactional(),
                 handle.getBucketProperty(),
                 pageIndexerFactory,
                 hdfsEnvironment,
