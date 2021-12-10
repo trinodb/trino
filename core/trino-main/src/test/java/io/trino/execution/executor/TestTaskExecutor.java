@@ -21,6 +21,7 @@ import io.airlift.units.Duration;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.spi.QueryId;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -455,7 +456,7 @@ public class TestTaskExecutor
 
         try {
             TaskHandle testTaskHandle = taskExecutor.addTask(
-                    new TaskId("test", 0, 0),
+                    new TaskId(new StageId(new QueryId("test"), 0), 0, 0),
                     // make sure buffer is underutilized
                     () -> 0,
                     1,
