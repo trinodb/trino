@@ -81,6 +81,13 @@ public class HivePartitioningHandle
     }
 
     @Override
+    public boolean isSingleNode()
+    {
+        // empty hiveTypes means there is no bucketing
+        return hiveTypes.isEmpty() && !usePartitionedBucketing;
+    }
+
+    @Override
     public String toString()
     {
         ToStringHelper helper = toStringHelper(this)

@@ -103,4 +103,18 @@ public class TestHive
             // TODO: combine this with tests for successful translation (currently in TestHiveViews product test)
         }
     }
+
+    @Test
+    public void testInsertBucketedTransactionalTableLayout()
+            throws Exception
+    {
+        insertBucketedTableLayout(true);
+    }
+
+    @Test
+    public void testInsertPartitionedBucketedTransactionalTableLayout()
+            throws Exception
+    {
+        insertPartitionedBucketedTableLayout(true);
+    }
 }

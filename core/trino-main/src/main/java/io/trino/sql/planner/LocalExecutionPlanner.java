@@ -3109,7 +3109,15 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            context.setDriverInstanceCount(getTaskWriterCount(session));
+            // being a single node means there is one node and one writer so
+            // this setting should take precedence over task_writer_count property
+            if (node.getPartitioningScheme().isPresent() &&
+                    node.getPartitioningScheme().get().getPartitioning().getHandle().isSingleNode()) {
+                context.setDriverInstanceCount(1);
+            }
+            else {
+                context.setDriverInstanceCount(getTaskWriterCount(session));
+            }
 
             PhysicalOperation source = node.getSource().accept(this, context);
 
