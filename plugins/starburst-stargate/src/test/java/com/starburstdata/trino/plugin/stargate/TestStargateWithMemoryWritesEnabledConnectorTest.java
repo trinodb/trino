@@ -61,6 +61,10 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
                 // memory connector does not support deletes
                 return false;
 
+            case SUPPORTS_INSERT_NOT_NULL_COLUMN:
+                // memory connector does not support not-null in create-table
+                return false;
+
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
