@@ -28,19 +28,12 @@ public class IntColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            type.writeLong(blockBuilder, valuesReader.readInteger());
-        }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
-        }
+        type.writeLong(blockBuilder, valuesReader.readInteger());
     }
 
     @Override
     protected void skipValue()
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readInteger();
-        }
+        valuesReader.readInteger();
     }
 }

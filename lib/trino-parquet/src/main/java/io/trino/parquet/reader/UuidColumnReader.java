@@ -36,21 +36,14 @@ public class UuidColumnReader
     {
         checkArgument(trinoType == UUID, "Unsupported type: %s", trinoType);
 
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            Binary binary = valuesReader.readBytes();
-            Slice slice = wrappedBuffer(binary.getBytes());
-            trinoType.writeSlice(blockBuilder, slice);
-        }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
-        }
+        Binary binary = valuesReader.readBytes();
+        Slice slice = wrappedBuffer(binary.getBytes());
+        trinoType.writeSlice(blockBuilder, slice);
     }
 
     @Override
     protected void skipValue()
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBytes();
-        }
+        valuesReader.readBytes();
     }
 }
