@@ -68,6 +68,7 @@ public class HivePageSink
 
     private final HiveWriterFactory writerFactory;
 
+    private final boolean isTransactional;
     private final int[] dataColumnInputIndex; // ordinal of columns (not counting sample weight column)
     private final int[] partitionColumnsInputIndex; // ordinal of columns (not counting sample weight column)
 
@@ -98,6 +99,7 @@ public class HivePageSink
     public HivePageSink(
             HiveWriterFactory writerFactory,
             List<HiveColumnHandle> inputColumns,
+            boolean isTransactional,
             Optional<HiveBucketProperty> bucketProperty,
             PageIndexerFactory pageIndexerFactory,
             HdfsEnvironment hdfsEnvironment,
@@ -112,6 +114,7 @@ public class HivePageSink
 
         requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
 
+        this.isTransactional = isTransactional;
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.maxOpenWriters = maxOpenWriters;
         this.writeVerificationExecutor = requireNonNull(writeVerificationExecutor, "writeVerificationExecutor is null");
@@ -361,7 +364,9 @@ public class HivePageSink
             HiveWriter writer = writers.get(writerIndex);
             if (writer != null) {
                 // if current file not too big continue with the current writer
-                if (bucketFunction != null || writer.getWrittenBytes() <= targetMaxFileSize.orElse(Long.MAX_VALUE)) {
+                // for transactional tables we don't want to split output files because there is an explicit or implicit bucketing
+                // and file names have no random component (e.g. bucket_00000)
+                if (bucketFunction != null || isTransactional || writer.getWrittenBytes() <= targetMaxFileSize.orElse(Long.MAX_VALUE)) {
                     continue;
                 }
                 // close current writer

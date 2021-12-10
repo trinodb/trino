@@ -72,6 +72,8 @@ import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestHiveTransactionalTable
         extends HiveProductTest
@@ -1897,6 +1899,58 @@ public class TestHiveTransactionalTable
             compactTableAndWait(MAJOR, tableName, "", new Duration(3, MINUTES));
             onTrino().executeQuery(format("DELETE FROM %s", tableName));
             verifySelectForTrinoAndHive(format("SELECT COUNT(*) FROM %s", tableName), "true", row(0));
+        });
+    }
+
+    @Test
+    public void testUnbucketedPartitionedTransactionalTableWithTaskWriterCountGreaterThanOne()
+    {
+        unbucketedTransactionalTableWithTaskWriterCountGreaterThanOne(true);
+    }
+
+    @Test
+    public void testUnbucketedTransactionalTableWithTaskWriterCountGreaterThanOne()
+    {
+        unbucketedTransactionalTableWithTaskWriterCountGreaterThanOne(false);
+    }
+
+    private void unbucketedTransactionalTableWithTaskWriterCountGreaterThanOne(boolean isPartitioned)
+    {
+        withTemporaryTable(format("test_unbucketed%s_transactional_table_with_task_writer_count_greater_than_one", isPartitioned ? "_partitioned" : ""), true, isPartitioned, NONE, tableName -> {
+            onTrino().executeQuery(format(
+                    "CREATE TABLE %s " +
+                            "WITH (" +
+                            "format='ORC', " +
+                            "transactional=true " +
+                            "%s" +
+                            ") AS SELECT orderkey, orderstatus, totalprice, orderdate, clerk, shippriority, \"comment\", custkey, orderpriority " +
+                            "FROM tpch.sf1000.orders LIMIT 0", tableName, isPartitioned ? ", partitioned_by = ARRAY['orderpriority']" : ""));
+            onTrino().executeQuery("SET SESSION scale_writers = true");
+            onTrino().executeQuery("SET SESSION writer_min_size = '4kB'");
+            onTrino().executeQuery("SET SESSION task_writer_count = 4");
+            onTrino().executeQuery("SET SESSION hive.target_max_file_size = '1MB'");
+
+            onTrino().executeQuery(
+                    format(
+                            "INSERT INTO %s SELECT orderkey, orderstatus, totalprice, orderdate, clerk, shippriority, \"comment\", custkey, orderpriority " +
+                                    "FROM tpch.sf1000.orders LIMIT 100000", tableName));
+            assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s", tableName))).containsOnly(row(100000));
+            int numberOfCreatedFiles = onTrino().executeQuery(format("SELECT DISTINCT \"$path\" FROM %s", tableName)).getRowsCount();
+            int expectedNumberOfPartitions = isPartitioned ? 5 : 1;
+            assertEquals(numberOfCreatedFiles, expectedNumberOfPartitions, format("There should be only %s files created", expectedNumberOfPartitions));
+
+            int sizeBeforeDeletion = onTrino().executeQuery(format("SELECT orderkey FROM %s", tableName)).rows().size();
+
+            onTrino().executeQuery(format("DELETE FROM %s WHERE (orderkey %% 2) = 0", tableName));
+            assertThat(onTrino().executeQuery(format("SELECT COUNT (orderkey) FROM %s WHERE orderkey %% 2 = 0", tableName))).containsOnly(row(0));
+
+            int sizeOnTrinoWithWhere = onTrino().executeQuery(format("SELECT orderkey FROM %s WHERE orderkey %% 2 = 1", tableName)).rows().size();
+            int sizeOnHiveWithWhere = onHive().executeQuery(format("SELECT orderkey FROM %s WHERE orderkey %% 2 = 1", tableName)).rows().size();
+            int sizeOnTrinoWithoutWhere = onTrino().executeQuery(format("SELECT orderkey FROM %s", tableName)).rows().size();
+
+            assertEquals(sizeOnHiveWithWhere, sizeOnTrinoWithWhere);
+            assertEquals(sizeOnTrinoWithWhere, sizeOnTrinoWithoutWhere);
+            assertTrue(sizeBeforeDeletion > sizeOnTrinoWithoutWhere);
         });
     }
 

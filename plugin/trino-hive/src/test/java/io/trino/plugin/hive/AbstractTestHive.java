@@ -171,6 +171,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.builder;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
@@ -227,6 +228,7 @@ import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static io.trino.plugin.hive.HiveTableProperties.TRANSACTIONAL;
 import static io.trino.plugin.hive.HiveTableRedirectionsProvider.NO_REDIRECTIONS;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
@@ -5094,10 +5096,27 @@ public abstract class AbstractTestHive
     private void createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns)
             throws Exception
     {
-        createEmptyTable(schemaTableName, hiveStorageFormat, columns, partitionColumns, Optional.empty());
+        createEmptyTable(schemaTableName, hiveStorageFormat, columns, partitionColumns, Optional.empty(), false);
     }
 
-    private void createEmptyTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns, Optional<HiveBucketProperty> bucketProperty)
+    private void createEmptyTable(
+            SchemaTableName schemaTableName,
+            HiveStorageFormat hiveStorageFormat,
+            List<Column> columns,
+            List<Column> partitionColumns,
+            Optional<HiveBucketProperty> bucketProperty)
+            throws Exception
+    {
+        createEmptyTable(schemaTableName, hiveStorageFormat, columns, partitionColumns, bucketProperty, false);
+    }
+
+    protected void createEmptyTable(
+            SchemaTableName schemaTableName,
+            HiveStorageFormat hiveStorageFormat,
+            List<Column> columns,
+            List<Column> partitionColumns,
+            Optional<HiveBucketProperty> bucketProperty,
+            boolean isTransactional)
             throws Exception
     {
         Path targetPath;
@@ -5113,14 +5132,18 @@ public abstract class AbstractTestHive
             LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
             targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
 
+            ImmutableMap.Builder<String, String> tableParamBuilder = ImmutableMap.<String, String>builder()
+                    .put(PRESTO_VERSION_NAME, TEST_SERVER_VERSION)
+                    .put(PRESTO_QUERY_ID_NAME, session.getQueryId());
+            if (isTransactional) {
+                tableParamBuilder.put(TRANSACTIONAL, "true");
+            }
             Table.Builder tableBuilder = Table.builder()
                     .setDatabaseName(schemaName)
                     .setTableName(tableName)
                     .setOwner(Optional.of(tableOwner))
                     .setTableType(TableType.MANAGED_TABLE.name())
-                    .setParameters(ImmutableMap.of(
-                            PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
-                            PRESTO_QUERY_ID_NAME, session.getQueryId()))
+                    .setParameters(tableParamBuilder.build())
                     .setDataColumns(columns)
                     .setPartitionColumns(partitionColumns);
 
@@ -5242,13 +5265,26 @@ public abstract class AbstractTestHive
     public void testInsertBucketedTableLayout()
             throws Exception
     {
+        insertBucketedTableLayout(false);
+    }
+
+    @Test
+    public void testInsertBucketedTransactionalTableLayout()
+            throws Exception
+    {
+        insertBucketedTableLayout(true);
+    }
+
+    protected void insertBucketedTableLayout(boolean transactional)
+            throws Exception
+    {
         SchemaTableName tableName = temporaryTable("empty_bucketed_table");
         try {
             List<Column> columns = ImmutableList.of(
                     new Column("column1", HIVE_STRING, Optional.empty()),
                     new Column("column2", HIVE_LONG, Optional.empty()));
             HiveBucketProperty bucketProperty = new HiveBucketProperty(ImmutableList.of("column1"), BUCKETING_V1, 4, ImmutableList.of());
-            createEmptyTable(tableName, ORC, columns, ImmutableList.of(), Optional.of(bucketProperty));
+            createEmptyTable(tableName, ORC, columns, ImmutableList.of(), Optional.of(bucketProperty), transactional);
 
             try (Transaction transaction = newTransaction()) {
                 ConnectorMetadata metadata = transaction.getMetadata();
@@ -5278,6 +5314,19 @@ public abstract class AbstractTestHive
     public void testInsertPartitionedBucketedTableLayout()
             throws Exception
     {
+        insertPartitionedBucketedTableLayout(false);
+    }
+
+    @Test
+    public void testInsertPartitionedBucketedTransactionalTableLayout()
+            throws Exception
+    {
+        insertPartitionedBucketedTableLayout(true);
+    }
+
+    protected void insertPartitionedBucketedTableLayout(boolean transactional)
+            throws Exception
+    {
         SchemaTableName tableName = temporaryTable("empty_partitioned_table");
         try {
             Column partitioningColumn = new Column("column2", HIVE_LONG, Optional.empty());
@@ -5285,7 +5334,7 @@ public abstract class AbstractTestHive
                     new Column("column1", HIVE_STRING, Optional.empty()),
                     partitioningColumn);
             HiveBucketProperty bucketProperty = new HiveBucketProperty(ImmutableList.of("column1"), BUCKETING_V1, 4, ImmutableList.of());
-            createEmptyTable(tableName, ORC, columns, ImmutableList.of(partitioningColumn), Optional.of(bucketProperty));
+            createEmptyTable(tableName, ORC, columns, ImmutableList.of(partitioningColumn), Optional.of(bucketProperty), transactional);
 
             try (Transaction transaction = newTransaction()) {
                 ConnectorMetadata metadata = transaction.getMetadata();
