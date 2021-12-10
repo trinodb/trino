@@ -51,6 +51,11 @@ public class InputChannels
         return page.getColumns(inputChannels);
     }
 
+    public Page getLoadedInputChannels(Page page)
+    {
+        return page.getLoadedPage(inputChannels);
+    }
+
     @Override
     public String toString()
     {
