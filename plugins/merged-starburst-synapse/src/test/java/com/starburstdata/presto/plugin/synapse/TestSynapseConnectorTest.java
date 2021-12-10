@@ -279,4 +279,10 @@ public class TestSynapseConnectorTest
         assertQuery("SELECT COUNT(*) from " + tableName, "SELECT 0");
         assertUpdate("DROP TABLE " + tableName);
     }
+
+    @Override
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
+    {
+        return format("(?s)Cannot insert the value NULL into column '%s'.*", columnName);
+    }
 }
