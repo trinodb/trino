@@ -23,6 +23,7 @@ import io.trino.connector.CatalogName;
 import io.trino.execution.scheduler.TestingNodeSelectorFactory.TestingNodeSupplier;
 import io.trino.metadata.InternalNode;
 import io.trino.spi.HostAddress;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -35,6 +36,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+// uses mutable state
+@Test(singleThreaded = true)
 public class TestFixedCountNodeAllocator
 {
     private static final Session SESSION = testSessionBuilder().build();
@@ -50,13 +53,31 @@ public class TestFixedCountNodeAllocator
     private static final CatalogName CATALOG_1 = new CatalogName("catalog1");
     private static final CatalogName CATALOG_2 = new CatalogName("catalog2");
 
+    private FixedCountNodeAllocatorService nodeAllocatorService;
+
+    private void setupNodeAllocatorService(TestingNodeSupplier testingNodeSupplier)
+    {
+        shutdownNodeAllocatorService(); // just in case
+        nodeAllocatorService = new FixedCountNodeAllocatorService(new NodeScheduler(new TestingNodeSelectorFactory(NODE_1, testingNodeSupplier)));
+    }
+
+    @AfterMethod(alwaysRun = true)
+    public void shutdownNodeAllocatorService()
+    {
+        if (nodeAllocatorService != null) {
+            nodeAllocatorService.stop();
+        }
+        nodeAllocatorService = null;
+    }
+
     @Test
     public void testSingleNode()
             throws Exception
     {
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(NODE_1, ImmutableList.of()));
+        setupNodeAllocatorService(nodeSupplier);
 
-        try (NodeAllocator nodeAllocator = createNodeAllocator(nodeSupplier, 1)) {
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             ListenableFuture<InternalNode> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
             assertTrue(acquire1.isDone());
             assertEquals(acquire1.get(), NODE_1);
@@ -70,7 +91,7 @@ public class TestFixedCountNodeAllocator
             assertEquals(acquire2.get(), NODE_1);
         }
 
-        try (NodeAllocator nodeAllocator = createNodeAllocator(nodeSupplier, 2)) {
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 2)) {
             ListenableFuture<InternalNode> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
             assertTrue(acquire1.isDone());
             assertEquals(acquire1.get(), NODE_1);
@@ -100,8 +121,9 @@ public class TestFixedCountNodeAllocator
             throws Exception
     {
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(NODE_1, ImmutableList.of(), NODE_2, ImmutableList.of()));
+        setupNodeAllocatorService(nodeSupplier);
 
-        try (NodeAllocator nodeAllocator = createNodeAllocator(nodeSupplier, 1)) {
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             ListenableFuture<InternalNode> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
             assertTrue(acquire1.isDone());
             assertEquals(acquire1.get(), NODE_1);
@@ -132,7 +154,7 @@ public class TestFixedCountNodeAllocator
             assertEquals(acquire5.get(), NODE_1);
         }
 
-        try (NodeAllocator nodeAllocator = createNodeAllocator(nodeSupplier, 2)) {
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 2)) {
             ListenableFuture<InternalNode> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
             assertTrue(acquire1.isDone());
             assertEquals(acquire1.get(), NODE_1);
@@ -189,7 +211,9 @@ public class TestFixedCountNodeAllocator
                 NODE_2, ImmutableList.of(CATALOG_2),
                 NODE_3, ImmutableList.of(CATALOG_1, CATALOG_2)));
 
-        try (NodeAllocator nodeAllocator = createNodeAllocator(nodeSupplier, 1)) {
+        setupNodeAllocatorService(nodeSupplier);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             ListenableFuture<InternalNode> catalog1acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_1), ImmutableSet.of()));
             assertTrue(catalog1acquire1.isDone());
             assertEquals(catalog1acquire1.get(), NODE_1);
@@ -239,8 +263,9 @@ public class TestFixedCountNodeAllocator
             throws Exception
     {
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(NODE_1, ImmutableList.of()));
+        setupNodeAllocatorService(nodeSupplier);
 
-        try (NodeAllocator nodeAllocator = createNodeAllocator(nodeSupplier, 1)) {
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             ListenableFuture<InternalNode> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
             assertTrue(acquire1.isDone());
             assertEquals(acquire1.get(), NODE_1);
@@ -264,8 +289,9 @@ public class TestFixedCountNodeAllocator
             throws Exception
     {
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(NODE_1, ImmutableList.of()));
+        setupNodeAllocatorService(nodeSupplier);
 
-        try (NodeAllocator nodeAllocator = createNodeAllocator(nodeSupplier, 1)) {
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             ListenableFuture<InternalNode> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
             assertTrue(acquire1.isDone());
             assertEquals(acquire1.get(), NODE_1);
@@ -274,7 +300,7 @@ public class TestFixedCountNodeAllocator
             assertFalse(acquire2.isDone());
 
             nodeSupplier.addNode(NODE_2, ImmutableList.of());
-            nodeAllocator.updateNodes();
+            nodeAllocatorService.updateNodes();
 
             assertEquals(acquire2.get(10, SECONDS), NODE_2);
         }
@@ -285,8 +311,9 @@ public class TestFixedCountNodeAllocator
             throws Exception
     {
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(NODE_1, ImmutableList.of()));
+        setupNodeAllocatorService(nodeSupplier);
 
-        try (NodeAllocator nodeAllocator = createNodeAllocator(nodeSupplier, 1)) {
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             ListenableFuture<InternalNode> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
             assertTrue(acquire1.isDone());
             assertEquals(acquire1.get(), NODE_1);
@@ -296,7 +323,7 @@ public class TestFixedCountNodeAllocator
 
             nodeSupplier.removeNode(NODE_1);
             nodeSupplier.addNode(NODE_2, ImmutableList.of());
-            nodeAllocator.updateNodes();
+            nodeAllocatorService.updateNodes();
 
             assertEquals(acquire2.get(10, SECONDS), NODE_2);
 
@@ -313,7 +340,9 @@ public class TestFixedCountNodeAllocator
             throws Exception
     {
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(NODE_1, ImmutableList.of(), NODE_2, ImmutableList.of()));
-        try (FixedCountNodeAllocator nodeAllocator = createNodeAllocator(nodeSupplier, 1)) {
+        setupNodeAllocatorService(nodeSupplier);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
             ListenableFuture<InternalNode> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_2_ADDRESS)));
             assertTrue(acquire1.isDone());
             assertEquals(acquire1.get(), NODE_2);
@@ -332,7 +361,7 @@ public class TestFixedCountNodeAllocator
                     .hasMessageContaining("No nodes available to run query");
 
             nodeSupplier.addNode(NODE_3, ImmutableList.of());
-            nodeAllocator.updateNodes();
+            nodeAllocatorService.updateNodes();
 
             ListenableFuture<InternalNode> acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_3_ADDRESS)));
             assertTrue(acquire4.isDone());
@@ -342,17 +371,12 @@ public class TestFixedCountNodeAllocator
             assertFalse(acquire5.isDone());
 
             nodeSupplier.removeNode(NODE_3);
-            nodeAllocator.updateNodes();
+            nodeAllocatorService.updateNodes();
 
             assertTrue(acquire5.isDone());
             assertThatThrownBy(acquire5::get)
                     .hasMessageContaining("No nodes available to run query");
         }
-    }
-
-    private FixedCountNodeAllocator createNodeAllocator(TestingNodeSupplier testingNodeSupplier, int maximumAllocationsPerNode)
-    {
-        return new FixedCountNodeAllocator(createNodeScheduler(testingNodeSupplier), SESSION, maximumAllocationsPerNode);
     }
 
     private NodeScheduler createNodeScheduler(TestingNodeSupplier testingNodeSupplier)

@@ -13,18 +13,9 @@
  */
 package io.trino.execution.scheduler;
 
-import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.metadata.InternalNode;
+import io.trino.Session;
 
-import java.io.Closeable;
-
-public interface NodeAllocator
-        extends Closeable
+public interface NodeAllocatorService
 {
-    ListenableFuture<InternalNode> acquire(NodeRequirements requirements);
-
-    void release(InternalNode node);
-
-    @Override
-    void close();
+    NodeAllocator getNodeAllocator(Session session);
 }
