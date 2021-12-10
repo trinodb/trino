@@ -297,7 +297,7 @@ public class TestResourceSecurity
             // Normally this would result in an impersonation check to the X-Trino-User, but the password
             // authenticator has a hack to clear X-Trino-User in this case.
             Request request = new Request.Builder()
-                    .url(getLocation(httpServerInfo.getHttpsUri(), "/identity"))
+                    .url(getLocation(httpServerInfo.getHttpsUri(), "/protocol/identity"))
                     .addHeader("Authorization", Credentials.basic(TEST_USER_LOGIN, TEST_PASSWORD))
                     .addHeader("X-Trino-User", TEST_USER_LOGIN)
                     .build();
@@ -803,7 +803,7 @@ public class TestResourceSecurity
         }
     }
 
-    @javax.ws.rs.Path("/identity")
+    @javax.ws.rs.Path("/")
     public static class TestResource
     {
         private final HttpRequestSessionContextFactory sessionContextFactory;
@@ -816,7 +816,21 @@ public class TestResourceSecurity
 
         @ResourceSecurity(AUTHENTICATED_USER)
         @GET
-        public javax.ws.rs.core.Response echoToken(@Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
+        @javax.ws.rs.Path("/protocol/identity")
+        public javax.ws.rs.core.Response protocolIdentity(@Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
+        {
+            return echoIdentity(servletRequest, httpHeaders);
+        }
+
+        @ResourceSecurity(WEB_UI)
+        @GET
+        @javax.ws.rs.Path("/ui/api/identity")
+        public javax.ws.rs.core.Response webUiIdentity(@Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
+        {
+            return echoIdentity(servletRequest, httpHeaders);
+        }
+
+        public javax.ws.rs.core.Response echoIdentity(HttpServletRequest servletRequest, HttpHeaders httpHeaders)
         {
             Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty());
             return javax.ws.rs.core.Response.ok()
