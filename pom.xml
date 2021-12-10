@@ -34,6 +34,7 @@
     </scm>
 
     <properties>
+        <dep.jmh.version>1.32</dep.jmh.version>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
@@ -181,6 +182,18 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- jmh -->
+            <dependency>
+                <groupId>org.openjdk.jmh</groupId>
+                <artifactId>jmh-core</artifactId>
+                <version>${dep.jmh.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.openjdk.jmh</groupId>
+                <artifactId>jmh-generator-annprocess</artifactId>
+                <version>${dep.jmh.version}</version>
+            </dependency>
             <!-- Trino -->
             <dependency>
                 <groupId>io.trino</groupId>

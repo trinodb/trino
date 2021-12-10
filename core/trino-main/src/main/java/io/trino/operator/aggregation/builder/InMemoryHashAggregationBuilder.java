@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.trino.array.IntBigArray;
 import io.trino.operator.GroupByHash;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.HashCollisionsCounter;
@@ -38,9 +37,6 @@ import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.type.BlockTypeOperators;
-import it.unimi.dsi.fastutil.ints.AbstractIntIterator;
-import it.unimi.dsi.fastutil.ints.IntIterator;
-import it.unimi.dsi.fastutil.ints.IntIterators;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -245,12 +241,12 @@ public class InMemoryHashAggregationBuilder
         for (Aggregator aggregator : aggregators) {
             aggregator.prepareFinal();
         }
-        return buildResult(consecutiveGroupIds());
+        return buildResult(groupByHash.consecutiveGroups());
     }
 
     public WorkProcessor<Page> buildHashSortedResult()
     {
-        return buildResult(hashSortedGroupIds());
+        return buildResult(groupByHash.hashSortedGroups());
     }
 
     public List<Type> buildIntermediateTypes()
@@ -268,7 +264,7 @@ public class InMemoryHashAggregationBuilder
         return groupByHash.getCapacity();
     }
 
-    private WorkProcessor<Page> buildResult(IntIterator groupIds)
+    private WorkProcessor<Page> buildResult(GroupByHash.GroupCursor groupIds)
     {
         PageBuilder pageBuilder = new PageBuilder(buildTypes());
         return WorkProcessor.create(() -> {
@@ -278,19 +274,7 @@ public class InMemoryHashAggregationBuilder
 
             pageBuilder.reset();
 
-            List<Type> types = groupByHash.getTypes();
-            while (!pageBuilder.isFull() && groupIds.hasNext()) {
-                int groupId = groupIds.nextInt();
-
-                groupByHash.appendValuesTo(groupId, pageBuilder, 0);
-
-                pageBuilder.declarePosition();
-                for (int i = 0; i < aggregators.size(); i++) {
-                    Aggregator aggregator = aggregators.get(i);
-                    BlockBuilder output = pageBuilder.getBlockBuilder(types.size() + i);
-                    aggregator.evaluate(groupId, output);
-                }
-            }
+            groupIds.evaluatePage(pageBuilder, aggregators);
 
             return ProcessState.ofResult(pageBuilder.build());
         });
@@ -305,42 +289,7 @@ public class InMemoryHashAggregationBuilder
         return types;
     }
 
-    private IntIterator consecutiveGroupIds()
-    {
-        return IntIterators.fromTo(0, groupByHash.getGroupCount());
-    }
-
-    private IntIterator hashSortedGroupIds()
-    {
-        IntBigArray groupIds = new IntBigArray();
-        groupIds.ensureCapacity(groupByHash.getGroupCount());
-        for (int i = 0; i < groupByHash.getGroupCount(); i++) {
-            groupIds.set(i, i);
-        }
-
-        groupIds.sort(0, groupByHash.getGroupCount(), (leftGroupId, rightGroupId) ->
-                Long.compare(groupByHash.getRawHash(leftGroupId), groupByHash.getRawHash(rightGroupId)));
-
-        return new AbstractIntIterator()
-        {
-            private final int totalPositions = groupByHash.getGroupCount();
-            private int position;
-
-            @Override
-            public boolean hasNext()
-            {
-                return position < totalPositions;
-            }
-
-            @Override
-            public int nextInt()
-            {
-                return groupIds.get(position++);
-            }
-        };
-    }
-
-    private static class Aggregator
+    public static class Aggregator
     {
         private final GroupedAccumulator aggregation;
         private AggregationNode.Step step;

@@ -38,10 +38,9 @@ public final class Benchmarks
     {
         ChainedOptionsBuilder optionsBuilder = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include("^\\Q" + benchmarkClass.getName() + ".\\E")
                 .resultFormat(ResultFormatType.JSON)
                 .result(format("%s/%s-result-%s.json", System.getProperty("java.io.tmpdir"), benchmarkClass.getSimpleName(), ISO_DATE_TIME.format(LocalDateTime.now())));
-        return new BenchmarkBuilder(optionsBuilder);
+        return new BenchmarkBuilder(optionsBuilder, benchmarkClass);
     }
 
     public static BenchmarkBuilder benchmark(Class<?> benchmarkClass, WarmupMode warmupMode)
@@ -53,10 +52,12 @@ public final class Benchmarks
     public static class BenchmarkBuilder
     {
         private final ChainedOptionsBuilder optionsBuilder;
+        private final Class<?> benchmarkClass;
 
-        private BenchmarkBuilder(ChainedOptionsBuilder optionsBuilder)
+        private BenchmarkBuilder(ChainedOptionsBuilder optionsBuilder, Class<?> benchmarkClass)
         {
             this.optionsBuilder = requireNonNull(optionsBuilder, "optionsBuilder is null");
+            this.benchmarkClass = benchmarkClass;
         }
 
         public BenchmarkBuilder withOptions(Consumer<ChainedOptionsBuilder> optionsConsumer)
@@ -65,9 +66,24 @@ public final class Benchmarks
             return this;
         }
 
+        public BenchmarkBuilder includeAll()
+        {
+            optionsBuilder.include("^\\Q" + benchmarkClass.getName() + ".\\E");
+            return this;
+        }
+
+        public BenchmarkBuilder includeMethod(String benchmarkMethod)
+        {
+            optionsBuilder.include("^\\Q" + benchmarkClass.getName() + "." + benchmarkMethod + "\\E$");
+            return this;
+        }
+
         public Collection<RunResult> run()
                 throws RunnerException
         {
+            if (optionsBuilder.build().getIncludes().isEmpty()) {
+                includeAll();
+            }
             return new Runner(optionsBuilder.build()).run();
         }
     }

@@ -144,6 +144,7 @@ public class FeaturesConfig
     private boolean legacyCatalogRoles;
     private boolean disableSetPropertiesSecurityCheckForCreateDdl;
     private boolean incrementalHashArrayLoadFactorEnabled = true;
+    private boolean useEnhancedGroupBy = true;
 
     public enum JoinReorderingStrategy
     {
@@ -517,6 +518,17 @@ public class FeaturesConfig
     {
         this.dictionaryAggregation = dictionaryAggregation;
         return this;
+    }
+
+    public boolean isUseEnhancedGroupBy()
+    {
+        return useEnhancedGroupBy;
+    }
+
+    @Config("optimizer.use-enhanced-group-by")
+    public void setUseEnhancedGroupBy(boolean useEnhancedGroupBy)
+    {
+        this.useEnhancedGroupBy = useEnhancedGroupBy;
     }
 
     @Min(2)

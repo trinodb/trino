@@ -16,7 +16,9 @@ package io.trino.operator;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.trino.array.IntBigArray;
 import io.trino.array.LongBigArray;
+import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -27,6 +29,9 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
+import it.unimi.dsi.fastutil.ints.AbstractIntIterator;
+import it.unimi.dsi.fastutil.ints.IntIterator;
+import it.unimi.dsi.fastutil.ints.IntIterators;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -156,7 +161,6 @@ public class MultiChannelGroupByHash
         this.updateMemory = requireNonNull(updateMemory, "updateMemory is null");
     }
 
-    @Override
     public long getRawHash(int groupId)
     {
         long address = groupAddressByGroupId.get(groupId);
@@ -203,13 +207,59 @@ public class MultiChannelGroupByHash
         return nextGroupId;
     }
 
-    @Override
     public void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset)
     {
         long address = groupAddressByGroupId.get(groupId);
         int blockIndex = decodeSliceIndex(address);
         int position = decodePosition(address);
         hashStrategy.appendTo(blockIndex, position, pageBuilder, outputChannelOffset);
+    }
+
+    @Override
+    public GroupCursor consecutiveGroups()
+    {
+        return new GroupIdGroupCursor(consecutiveGroupIds());
+    }
+
+    @Override
+    public GroupCursor hashSortedGroups()
+    {
+        return new GroupIdGroupCursor(hashSortedGroupIds());
+    }
+
+    private IntIterator consecutiveGroupIds()
+    {
+        return IntIterators.fromTo(0, getGroupCount());
+    }
+
+    private IntIterator hashSortedGroupIds()
+    {
+        IntBigArray groupIds = new IntBigArray();
+        groupIds.ensureCapacity(getGroupCount());
+        for (int i = 0; i < getGroupCount(); i++) {
+            groupIds.set(i, i);
+        }
+
+        groupIds.sort(0, getGroupCount(), (leftGroupId, rightGroupId) ->
+                Long.compare(getRawHash(leftGroupId), getRawHash(rightGroupId)));
+
+        return new AbstractIntIterator()
+        {
+            private final int totalPositions = getGroupCount();
+            private int position;
+
+            @Override
+            public boolean hasNext()
+            {
+                return position < totalPositions;
+            }
+
+            @Override
+            public int nextInt()
+            {
+                return groupIds.get(position++);
+            }
+        };
     }
 
     @Override
@@ -848,6 +898,60 @@ public class MultiChannelGroupByHash
                     new RunLengthEncodedBlock(
                             BIGINT.createFixedSizeBlockBuilder(1).writeLong(groupId).build(),
                             page.getPositionCount()));
+        }
+    }
+
+    private class GroupIdGroupCursor
+            implements GroupCursor
+    {
+        private final IntIterator groupIds;
+        private int currentGroupId;
+
+        public GroupIdGroupCursor(IntIterator groupIds)
+        {
+            this.groupIds = groupIds;
+        }
+
+        @Override
+        public boolean hasNext()
+        {
+            return groupIds.hasNext();
+        }
+
+        @Override
+        public void next()
+        {
+            currentGroupId = groupIds.nextInt();
+        }
+
+        @Override
+        public void appendValuesTo(PageBuilder pageBuilder, int outputChannelOffset)
+        {
+            MultiChannelGroupByHash.this.appendValuesTo(currentGroupId, pageBuilder, outputChannelOffset);
+        }
+
+        @Override
+        public int getGroupId()
+        {
+            return currentGroupId;
+        }
+
+        @Override
+        public void evaluatePage(PageBuilder pageBuilder, List<InMemoryHashAggregationBuilder.Aggregator> aggregators)
+        {
+            List<Type> types = getTypes();
+            while (!pageBuilder.isFull() && hasNext()) {
+                next();
+
+                appendValuesTo(pageBuilder, 0);
+
+                pageBuilder.declarePosition();
+                for (int i = 0; i < aggregators.size(); i++) {
+                    InMemoryHashAggregationBuilder.Aggregator aggregator = aggregators.get(i);
+                    BlockBuilder output = pageBuilder.getBlockBuilder(types.size() + i);
+                    aggregator.evaluate(getGroupId(), output);
+                }
+            }
         }
     }
 }

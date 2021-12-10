@@ -72,9 +72,15 @@ public class CyclingGroupByHash
     }
 
     @Override
-    public void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset)
+    public GroupCursor hashSortedGroups()
     {
-        throw new UnsupportedOperationException("Not yet supported");
+        throw new UnsupportedOperationException("NoChannelGroupByHash does not support groups");
+    }
+
+    @Override
+    public GroupCursor consecutiveGroups()
+    {
+        throw new UnsupportedOperationException("NoChannelGroupByHash does not support groups");
     }
 
     @Override
@@ -97,12 +103,6 @@ public class CyclingGroupByHash
 
     @Override
     public boolean contains(int position, Page page, int[] hashChannels)
-    {
-        throw new UnsupportedOperationException("Not yet supported");
-    }
-
-    @Override
-    public long getRawHash(int groupyId)
     {
         throw new UnsupportedOperationException("Not yet supported");
     }

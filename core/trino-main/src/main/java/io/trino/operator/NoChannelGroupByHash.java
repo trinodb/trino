@@ -15,7 +15,6 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
@@ -62,12 +61,6 @@ public class NoChannelGroupByHash
     }
 
     @Override
-    public void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset)
-    {
-        throw new UnsupportedOperationException("NoChannelGroupByHash does not support appendValuesTo");
-    }
-
-    @Override
     public Work<?> addPage(Page page)
     {
         updateGroupCount(page);
@@ -89,15 +82,21 @@ public class NoChannelGroupByHash
     }
 
     @Override
-    public long getRawHash(int groupyId)
-    {
-        throw new UnsupportedOperationException("NoChannelGroupByHash does not support getHashCollisions");
-    }
-
-    @Override
     public int getCapacity()
     {
         return 2;
+    }
+
+    @Override
+    public GroupCursor hashSortedGroups()
+    {
+        throw new UnsupportedOperationException("NoChannelGroupByHash does not support groups");
+    }
+
+    @Override
+    public GroupCursor consecutiveGroups()
+    {
+        throw new UnsupportedOperationException("NoChannelGroupByHash does not support groups");
     }
 
     private void updateGroupCount(Page page)

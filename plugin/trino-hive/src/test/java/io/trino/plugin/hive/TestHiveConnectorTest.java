@@ -184,6 +184,16 @@ public class TestHiveConnectorTest
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
     }
 
+    @Test
+    public void testAggr()
+    {
+        assertQuery(
+                "SELECT orderkey, count(*) " +
+                        "FROM orders " +
+                        "WHERE orderkey <= 3 " +
+                        "GROUP BY orderkey ");
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception

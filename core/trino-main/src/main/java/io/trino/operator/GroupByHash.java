@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.Session;
+import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static io.trino.SystemSessionProperties.isUseEnhancedGroupByEnabled;
 import static io.trino.spi.type.BigintType.BIGINT;
 
 public interface GroupByHash
@@ -39,7 +41,16 @@ public interface GroupByHash
             BlockTypeOperators blockTypeOperators,
             UpdateMemory updateMemory)
     {
-        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session), joinCompiler, blockTypeOperators, updateMemory);
+        return createGroupByHash(
+                hashTypes,
+                hashChannels,
+                inputHashChannel,
+                expectedSize,
+                isDictionaryAggregationEnabled(session),
+                isUseEnhancedGroupByEnabled(session),
+                joinCompiler,
+                blockTypeOperators,
+                updateMemory);
     }
 
     static GroupByHash createGroupByHash(
@@ -52,7 +63,24 @@ public interface GroupByHash
             BlockTypeOperators blockTypeOperators,
             UpdateMemory updateMemory)
     {
+        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, false, joinCompiler, blockTypeOperators, updateMemory);
+    }
+
+    static GroupByHash createGroupByHash(
+            List<? extends Type> hashTypes,
+            int[] hashChannels,
+            Optional<Integer> inputHashChannel,
+            int expectedSize,
+            boolean processDictionary,
+            boolean useEnhancedGroupBy,
+            JoinCompiler joinCompiler,
+            BlockTypeOperators blockTypeOperators,
+            UpdateMemory updateMemory)
+    {
         if (hashTypes.size() == 1 && hashTypes.get(0).equals(BIGINT) && hashChannels.length == 1) {
+            if (useEnhancedGroupBy) {
+                return new BigintGroupByHashEncodedGID(hashChannels[0], inputHashChannel.isPresent(), expectedSize, updateMemory);
+            }
             return new BigintGroupByHash(hashChannels[0], inputHashChannel.isPresent(), expectedSize, updateMemory);
         }
         return new MultiChannelGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, joinCompiler, blockTypeOperators, updateMemory);
@@ -68,8 +96,6 @@ public interface GroupByHash
 
     int getGroupCount();
 
-    void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset);
-
     Work<?> addPage(Page page);
 
     Work<GroupByIdBlock> getGroupIds(Page page);
@@ -81,8 +107,29 @@ public interface GroupByHash
         return contains(position, page, hashChannels);
     }
 
-    long getRawHash(int groupyId);
-
     @VisibleForTesting
     int getCapacity();
+
+    default GroupCursor hashSortedGroups()
+    {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support groups");
+    }
+
+    default GroupCursor consecutiveGroups()
+    {
+        throw new UnsupportedOperationException(getClass().getName() + " does not support groups");
+    }
+
+    interface GroupCursor
+    {
+        boolean hasNext();
+
+        void next();
+
+        void appendValuesTo(PageBuilder pageBuilder, int outputChannelOffset);
+
+        int getGroupId();
+
+        void evaluatePage(PageBuilder pageBuilder, List<InMemoryHashAggregationBuilder.Aggregator> aggregators);
+    }
 }
