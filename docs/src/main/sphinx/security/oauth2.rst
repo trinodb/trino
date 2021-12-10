@@ -108,6 +108,8 @@ The following configuration properties are available:
        for more information.
    * - ``http-server.authentication.oauth2.principal-field``
      - The field of the access token used for the Trino user principal. Defaults to ``sub``. Other commonly used fields include ``sAMAccountName``, ``name``, ``upn``, and ``email``.
+   * - ``http-server.authentication.oauth2.groups-field``
+     - The field of the access token used for Trino groups. The corresponding claim value must be an array.
 
 
 Troubleshooting
