@@ -73,13 +73,15 @@ public abstract class AbstractTestBlock
         assertBlockSize(block);
         assertRetainedSize(block);
 
-        assertThatThrownBy(() -> block.isNull(-1))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageMatching(format("(position is not valid|Invalid position -1 in block with %d positions)", block.getPositionCount()));
+        if (block.mayHaveNull()) {
+            assertThatThrownBy(() -> block.isNull(-1))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position -1 in block with %d positions)", block.getPositionCount()));
 
-        assertThatThrownBy(() -> block.isNull(block.getPositionCount()))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageMatching(format("(position is not valid|Invalid position %d in block with %d positions)", block.getPositionCount(), block.getPositionCount()));
+            assertThatThrownBy(() -> block.isNull(block.getPositionCount()))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position %d in block with %d positions)", block.getPositionCount(), block.getPositionCount()));
+        }
     }
 
     private void assertRetainedSize(Block block)

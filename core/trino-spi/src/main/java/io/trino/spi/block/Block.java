@@ -289,7 +289,8 @@ public interface Block
     /**
      * Is the specified position null?
      *
-     * @throws IllegalArgumentException if this position is not valid
+     * @throws IllegalArgumentException if this position is not valid. The method may return false
+     * without throwing exception when there are no nulls in the block, even if the position is invalid
      */
     boolean isNull(int position);
 
