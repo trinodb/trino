@@ -691,8 +691,6 @@ public final class StreamPropertyDerivations
 
             checkArgument(distribution != SINGLE || this.partitioningColumns.equals(Optional.of(ImmutableList.of())),
                     "Single stream must be partitioned on empty set");
-            checkArgument(distribution == SINGLE || !this.partitioningColumns.equals(Optional.of(ImmutableList.of())),
-                    "Multiple streams must not be partitioned on empty set");
 
             this.ordered = ordered;
             checkArgument(!ordered || distribution == SINGLE, "Ordered must be a single stream");

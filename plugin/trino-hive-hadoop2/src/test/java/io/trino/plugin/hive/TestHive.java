@@ -61,6 +61,20 @@ public class TestHive
     }
 
     @Test
+    public void testInsertBucketedTransactionalTableLayout()
+            throws Exception
+    {
+        insertBucketedTableLayout(true);
+    }
+
+    @Test
+    public void testInsertPartitionedBucketedTransactionalTableLayout()
+            throws Exception
+    {
+        insertPartitionedBucketedTableLayout(true);
+    }
+
+    @Test
     public void forceTestNgToRespectSingleThreaded()
     {
         // TODO: Remove after updating TestNG to 7.4.0+ (https://github.com/trinodb/trino/issues/8571)

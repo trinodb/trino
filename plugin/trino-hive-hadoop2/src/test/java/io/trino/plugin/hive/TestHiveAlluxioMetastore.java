@@ -352,4 +352,16 @@ public class TestHiveAlluxioMetastore
     {
         // Alluxio metastore does not support create operations
     }
+
+    @Test
+    public void testInsertBucketedTransactionalTableLayout()
+    {
+        // Alluxio metastore does not support insert/update/delete operations
+    }
+
+    @Test
+    public void testInsertPartitionedBucketedTransactionalTableLayout()
+    {
+        // Alluxio metastore does not support insert/update/delete operations
+    }
 }
