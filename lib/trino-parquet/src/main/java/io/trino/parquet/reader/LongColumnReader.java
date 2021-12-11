@@ -30,10 +30,4 @@ public class LongColumnReader
     {
         type.writeLong(blockBuilder, valuesReader.readLong());
     }
-
-    @Override
-    protected void skipValue()
-    {
-        valuesReader.readLong();
-    }
 }

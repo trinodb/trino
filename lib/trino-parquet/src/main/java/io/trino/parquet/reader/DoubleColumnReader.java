@@ -30,10 +30,4 @@ public class DoubleColumnReader
     {
         type.writeDouble(blockBuilder, valuesReader.readDouble());
     }
-
-    @Override
-    protected void skipValue()
-    {
-        valuesReader.readDouble();
-    }
 }

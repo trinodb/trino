@@ -40,10 +40,4 @@ public class UuidColumnReader
         Slice slice = wrappedBuffer(binary.getBytes());
         trinoType.writeSlice(blockBuilder, slice);
     }
-
-    @Override
-    protected void skipValue()
-    {
-        valuesReader.readBytes();
-    }
 }

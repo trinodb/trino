@@ -142,20 +142,6 @@ public class ShortDecimalColumnReader
         throw new IllegalArgumentException("Unsupported type: " + type);
     }
 
-    @Override
-    protected void skipValue()
-    {
-        if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT32) {
-            valuesReader.readInteger();
-        }
-        else if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT64) {
-            valuesReader.readLong();
-        }
-        else {
-            valuesReader.readBytes();
-        }
-    }
-
     private void checkBytesFitInShortDecimal(byte[] bytes, int endOffset, Type trinoType)
     {
         // Equivalent to expectedValue = bytes[endOffset] < 0 ? -1 : 0
