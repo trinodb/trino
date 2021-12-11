@@ -55,10 +55,4 @@ public class TimestampColumnReader
             trinoTimestampEncoder.write(decodeInt96Timestamp(valuesReader.readBytes()), blockBuilder);
         }
     }
-
-    @Override
-    protected void skipValue()
-    {
-        valuesReader.readBytes();
-    }
 }

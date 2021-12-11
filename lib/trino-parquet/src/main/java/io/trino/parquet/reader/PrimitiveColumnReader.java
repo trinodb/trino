@@ -85,12 +85,10 @@ public abstract class PrimitiveColumnReader
 
     protected abstract void readValue(BlockBuilder blockBuilder, Type type);
 
-    protected abstract void skipValue();
-
     private void skipSingleValue()
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            skipValue();
+            valuesReader.skip();
         }
     }
 

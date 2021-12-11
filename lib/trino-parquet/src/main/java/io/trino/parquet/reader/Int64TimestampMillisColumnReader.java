@@ -59,10 +59,4 @@ public class Int64TimestampMillisColumnReader
             throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, columnDescriptor));
         }
     }
-
-    @Override
-    protected void skipValue()
-    {
-        valuesReader.readLong();
-    }
 }

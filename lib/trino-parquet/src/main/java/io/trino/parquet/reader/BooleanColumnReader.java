@@ -30,10 +30,4 @@ public class BooleanColumnReader
     {
         type.writeBoolean(blockBuilder, valuesReader.readBoolean());
     }
-
-    @Override
-    protected void skipValue()
-    {
-        valuesReader.readBoolean();
-    }
 }
