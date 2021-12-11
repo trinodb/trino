@@ -37,6 +37,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.operator.OperatorStats;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -574,6 +575,24 @@ public abstract class AbstractTestQueryFramework
                 .stream()
                 .filter(summary -> nodeId.equals(summary.getPlanNodeId()) && summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
                 .collect(MoreCollectors.onlyElement());
+    }
+
+    protected DynamicFiltersStats getDynamicFilteringStats(QueryId queryId)
+    {
+        return getDistributedQueryRunner().getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(queryId)
+                .getQueryStats()
+                .getDynamicFiltersStats();
+    }
+
+    protected QualifiedObjectName getQualifiedTableName(String tableName)
+    {
+        Session session = getQueryRunner().getDefaultSession();
+        return new QualifiedObjectName(
+                session.getCatalog().orElseThrow(),
+                session.getSchema().orElseThrow(),
+                tableName);
     }
 
     private TableMetadata getTableMetadata(TableHandle tableHandle)
