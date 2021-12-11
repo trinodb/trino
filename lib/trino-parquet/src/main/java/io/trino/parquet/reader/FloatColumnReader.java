@@ -32,10 +32,4 @@ public class FloatColumnReader
     {
         type.writeLong(blockBuilder, floatToRawIntBits(valuesReader.readFloat()));
     }
-
-    @Override
-    protected void skipValue()
-    {
-        valuesReader.readFloat();
-    }
 }

@@ -69,10 +69,4 @@ public class LongDecimalColumnReader
                     trinoDecimalType.getScale()));
         }
     }
-
-    @Override
-    protected void skipValue()
-    {
-        valuesReader.readBytes();
-    }
 }

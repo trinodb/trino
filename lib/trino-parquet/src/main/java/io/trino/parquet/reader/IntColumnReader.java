@@ -30,10 +30,4 @@ public class IntColumnReader
     {
         type.writeLong(blockBuilder, valuesReader.readInteger());
     }
-
-    @Override
-    protected void skipValue()
-    {
-        valuesReader.readInteger();
-    }
 }
