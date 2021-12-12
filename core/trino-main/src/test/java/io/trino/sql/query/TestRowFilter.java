@@ -38,6 +38,7 @@ import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
 import static io.trino.connector.MockConnectorEntities.TPCH_WITH_HIDDEN_COLUMN_DATA;
+import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_OPTIONAL_COLUMN;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -89,6 +90,9 @@ public class TestRowFilter
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_hidden_column"))) {
                         return TPCH_NATION_WITH_HIDDEN_COLUMN;
                     }
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {
+                        return TPCH_NATION_WITH_OPTIONAL_COLUMN;
+                    }
                     throw new UnsupportedOperationException();
                 })
                 .withData(schemaTableName -> {
@@ -98,8 +102,12 @@ public class TestRowFilter
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_hidden_column"))) {
                         return TPCH_WITH_HIDDEN_COLUMN_DATA;
                     }
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {
+                        return TPCH_NATION_DATA;
+                    }
                     throw new UnsupportedOperationException();
                 })
+                .withallowMissingColumnsOnInsert(true)
                 .build();
 
         runner.createCatalog(MOCK_CATALOG, mock, ImmutableMap.of());
@@ -553,5 +561,25 @@ public class TestRowFilter
                 .assertThat()
                 .skippingTypesCheck()
                 .matches("SELECT BIGINT '25'");
+    }
+
+    @Test
+    public void testRowFilterOnOptionalColumn() {
+        accessControl.reset();
+        accessControl.rowFilter(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_optional_column"),
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "optional is null"));
+
+        assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation_with_optional_column VALUES (101, 'POLAND', 0, 'No comment', 'some string')"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
+        assertions.query("INSERT INTO mock.tiny.nation_with_optional_column VALUES (0, 'POLAND', 0, 'No comment', null)")
+                .assertThat()
+                .skippingTypesCheck()
+                .matches("VALUES BIGINT '1'");
+        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation_with_optional_column SET name = 'POLAND'"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Updating a table with a row filter is not supported");
     }
 }

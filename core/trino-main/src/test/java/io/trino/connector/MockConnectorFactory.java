@@ -92,6 +92,7 @@ public class MockConnectorFactory
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Set<Procedure> procedures;
+    private final Boolean allowMissingColumnsOnInsert;
 
     // access control
     private final ListRoleGrants roleGrants;
@@ -121,7 +122,7 @@ public class MockConnectorFactory
             Function<SchemaTableName, List<List<?>>> data,
             Set<Procedure> procedures,
             ListRoleGrants roleGrants,
-            Optional<ConnectorAccessControl> accessControl)
+            Optional<ConnectorAccessControl> accessControl, boolean allowMissingColumnsOnInsert)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -147,6 +148,7 @@ public class MockConnectorFactory
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
+        this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
     }
 
     @Override
@@ -188,7 +190,8 @@ public class MockConnectorFactory
                 roleGrants,
                 accessControl,
                 data,
-                procedures);
+                procedures,
+                allowMissingColumnsOnInsert);
     }
 
     public static Builder builder()
@@ -291,6 +294,7 @@ public class MockConnectorFactory
         private Grants<SchemaTableName> tableGrants = new AllowAllGrants<>();
         private Function<SchemaTableName, ViewExpression> rowFilter = (tableName) -> null;
         private BiFunction<SchemaTableName, String, ViewExpression> columnMask = (tableName, columnName) -> null;
+        private boolean allowMissingColumnsOnInsert = false;
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -470,6 +474,11 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withallowMissingColumnsOnInsert(boolean allowMissingColumnsOnInsert) {
+            this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
             Optional<ConnectorAccessControl> accessControl = Optional.empty();
@@ -500,7 +509,8 @@ public class MockConnectorFactory
                     data,
                     procedures,
                     roleGrants,
-                    accessControl);
+                    accessControl,
+                    allowMissingColumnsOnInsert);
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()
