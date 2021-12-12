@@ -63,6 +63,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -1020,20 +1021,10 @@ public abstract class BaseIcebergConnectorTest
                 .getOnlyValue();
     }
 
-    @Test
-    public void testInsertIntoNotNullColumn()
+    @Override
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        assertUpdate("CREATE TABLE test_not_null_table (c1 INTEGER, c2 INTEGER NOT NULL)");
-        assertUpdate("INSERT INTO test_not_null_table (c2) VALUES (2)", 1);
-        assertQuery("SELECT * FROM test_not_null_table", "VALUES (NULL, 2)");
-        assertQueryFails("INSERT INTO test_not_null_table (c1) VALUES (1)", "NULL value not allowed for NOT NULL column: c2");
-        dropTable("test_not_null_table");
-
-        assertUpdate("CREATE TABLE test_commuted_not_null_table (a BIGINT, b BIGINT NOT NULL)");
-        assertUpdate("INSERT INTO test_commuted_not_null_table (b) VALUES (2)", 1);
-        assertQuery("SELECT * FROM test_commuted_not_null_table", "VALUES (NULL, 2)");
-        assertQueryFails("INSERT INTO test_commuted_not_null_table (b, a) VALUES (NULL, 3)", "NULL value not allowed for NOT NULL column: b");
-        dropTable("test_commuted_not_null_table");
+        return "NULL value not allowed for NOT NULL column: " + columnName;
     }
 
     @Test
@@ -1681,8 +1672,44 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testBucketTransform()
     {
-        String select = "SELECT partition.d_bucket, record_count, data.d.min AS d_min, data.d.max AS d_max, data.b.min AS b_min, data.b.max AS b_max FROM \"test_bucket_transform$partitions\"";
+        testBucketTransformForType("DATE", "DATE '2020-05-19'", "DATE '2020-08-19'", "DATE '2020-11-19'");
+        testBucketTransformForType("VARCHAR", "CAST('abcd' AS VARCHAR)", "CAST('mommy' AS VARCHAR)", "CAST('abxy' AS VARCHAR)");
+        testBucketTransformForType("BIGINT", "CAST(100000000 AS BIGINT)", "CAST(200000002 AS BIGINT)", "CAST(400000001 AS BIGINT)");
+        testBucketTransformForType(
+                "UUID",
+                "CAST('206caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)",
+                "CAST('906caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)",
+                "CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)");
+    }
 
+    protected void testBucketTransformForType(
+            String type,
+            String value,
+            String greaterValueInSameBucket,
+            String valueInOtherBucket)
+    {
+        String tableName = format("test_bucket_transform%s", type.toLowerCase(Locale.ENGLISH));
+
+        assertUpdate(format("CREATE TABLE %s (d %s) WITH (partitioning = ARRAY['bucket(d, 2)'])", tableName, type));
+        assertUpdate(format("INSERT INTO %s VALUES (%s), (%s), (%s)", tableName, value, greaterValueInSameBucket, valueInOtherBucket), 3);
+        assertThat(query(format("SELECT * FROM %s", tableName))).matches(format("VALUES (%s), (%s), (%s)", value, greaterValueInSameBucket, valueInOtherBucket));
+
+        String selectFromPartitions = format("SELECT partition.d_bucket, record_count, data.d.min AS d_min, data.d.max AS d_max FROM \"%s$partitions\"", tableName);
+
+        if (supportsIcebergFileStatistics(type)) {
+            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 0", format("VALUES(0, %d, %s, %s)", 2, value, greaterValueInSameBucket));
+            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 1", format("VALUES(1, %d, %s, %s)", 1, valueInOtherBucket, valueInOtherBucket));
+        }
+        else {
+            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 0", format("VALUES(0, %d, null, null)", 2));
+            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 1", format("VALUES(1, %d, null, null)", 1));
+        }
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testApplyFilterWithNonEmptyConstraintPredicate()
+    {
         assertUpdate("CREATE TABLE test_bucket_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['bucket(d, 2)'])");
         assertUpdate(
                 "INSERT INTO test_bucket_transform VALUES" +
@@ -1695,13 +1722,6 @@ public abstract class BaseIcebergConnectorTest
                         "('Grozny', 7)",
                 7);
 
-        assertQuery("SELECT COUNT(*) FROM \"test_bucket_transform$partitions\"", "SELECT 2");
-
-        assertQuery(select + " WHERE partition.d_bucket = 0", "VALUES(0, 3, 'Grozny', 'mommy', 1, 7)");
-
-        assertQuery(select + " WHERE partition.d_bucket = 1", "VALUES(1, 4, 'Greece', 'moscow', 2, 6)");
-
-        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
         assertQuery(
                 "SELECT * FROM test_bucket_transform WHERE length(d) = 4 AND b % 7 = 2",
                 "VALUES ('abxy', 2)");
@@ -1713,8 +1733,6 @@ public abstract class BaseIcebergConnectorTest
                         "  ('d', NULL, 0e0, NULL, NULL, NULL), " +
                         "  ('b', NULL, 0e0, NULL, '1', '7'), " +
                         "  (NULL, NULL, NULL, 7e0, NULL, NULL)");
-
-        dropTable("test_bucket_transform");
     }
 
     @Test
@@ -2957,8 +2975,8 @@ public abstract class BaseIcebergConnectorTest
             String tableName = table.getName();
             String values =
                     Stream.concat(
-                                    nCopies(100, testSetup.getSampleValueLiteral()).stream(),
-                                    nCopies(100, testSetup.getHighValueLiteral()).stream())
+                                nCopies(100, testSetup.getSampleValueLiteral()).stream(),
+                                nCopies(100, testSetup.getHighValueLiteral()).stream())
                             .map(value -> "(" + value + ", rand())")
                             .collect(Collectors.joining(", "));
             assertUpdate(withSmallRowGroups(getSession()), "INSERT INTO " + tableName + " VALUES " + values, 200);

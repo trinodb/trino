@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino;
+package io.trino.operator;
 
-import io.trino.operator.PagesIndex;
 import io.trino.spi.Page;
 import io.trino.spi.PageSorter;
 import io.trino.spi.connector.SortOrder;

@@ -15,9 +15,9 @@ package io.trino.plugin.raptor.legacy.storage.organization;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.trino.PagesIndexPageSorter;
 import io.trino.SequencePageBuilder;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.PagesIndexPageSorter;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.raptor.legacy.metadata.ColumnInfo;
 import io.trino.plugin.raptor.legacy.metadata.ShardInfo;

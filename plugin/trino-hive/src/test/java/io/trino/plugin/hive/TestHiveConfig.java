@@ -105,6 +105,7 @@ public class TestHiveConfig
                 .setTimestampPrecision(HiveTimestampPrecision.DEFAULT_PRECISION)
                 .setOptimizeSymlinkListing(true)
                 .setLegacyHiveViewTranslation(false)
+                .setIcebergCatalogName(null)
                 .setSizeBasedSplitWeightsEnabled(true)
                 .setMinimumAssignedSplitWeight(0.05));
     }
@@ -182,6 +183,7 @@ public class TestHiveConfig
                 .put("hive.timestamp-precision", "NANOSECONDS")
                 .put("hive.optimize-symlink-listing", "false")
                 .put("hive.legacy-hive-view-translation", "true")
+                .put("hive.iceberg-catalog-name", "iceberg")
                 .put("hive.size-based-split-weights-enabled", "false")
                 .put("hive.minimum-assigned-split-weight", "1.0")
                 .build();
@@ -256,6 +258,7 @@ public class TestHiveConfig
                 .setTimestampPrecision(HiveTimestampPrecision.NANOSECONDS)
                 .setOptimizeSymlinkListing(false)
                 .setLegacyHiveViewTranslation(true)
+                .setIcebergCatalogName("iceberg")
                 .setSizeBasedSplitWeightsEnabled(false)
                 .setMinimumAssignedSplitWeight(1.0);
 

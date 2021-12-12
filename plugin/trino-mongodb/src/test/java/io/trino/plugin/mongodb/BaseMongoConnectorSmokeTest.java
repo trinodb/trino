@@ -29,6 +29,9 @@ public abstract class BaseMongoConnectorSmokeTest
             case SUPPORTS_RENAME_TABLE:
                 return false;
 
+            case SUPPORTS_INSERT_NOT_NULL_COLUMN:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

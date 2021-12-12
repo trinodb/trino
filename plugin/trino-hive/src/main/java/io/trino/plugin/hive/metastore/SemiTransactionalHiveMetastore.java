@@ -1938,7 +1938,7 @@ public class SemiTransactionalHiveMetastore
         {
             for (DirectoryDeletionTask deletionTask : deletionTasksForFinish) {
                 if (!deleteRecursivelyIfExists(deletionTask.getContext(), hdfsEnvironment, deletionTask.getPath())) {
-                    logCleanupFailure("Error deleting directory %s", deletionTask.getPath().toString());
+                    logCleanupFailure("Error deleting directory %s", deletionTask.getPath());
                 }
             }
         }

@@ -24,7 +24,7 @@ import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.GroupByHashPageIndexerFactory;
+import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.LocationService.WriteInfo;
@@ -211,7 +211,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
-import static io.trino.plugin.hive.HiveMetadata.convertToPredicate;
 import static io.trino.plugin.hive.HiveSessionProperties.getTemporaryStagingDirectoryPath;
 import static io.trino.plugin.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
@@ -4478,7 +4477,7 @@ public abstract class AbstractTestHive
             // delete ds=2015-07-03
             session = newSession();
             TupleDomain<ColumnHandle> tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(dsColumnHandle, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2015-07-03"))));
-            Constraint constraint = new Constraint(tupleDomain, convertToPredicate(tupleDomain), tupleDomain.getDomains().orElseThrow().keySet());
+            Constraint constraint = new Constraint(tupleDomain, tupleDomain.asPredicate(), tupleDomain.getDomains().orElseThrow().keySet());
             tableHandle = applyFilter(metadata, tableHandle, constraint);
             tableHandle = metadata.applyDelete(session, tableHandle).get();
             metadata.executeDelete(session, tableHandle);
@@ -4513,7 +4512,7 @@ public abstract class AbstractTestHive
             session = newSession();
             TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(
                     ImmutableMap.of(dsColumnHandle, Domain.create(ValueSet.ofRanges(Range.range(createUnboundedVarcharType(), utf8Slice("2015-07-01"), true, utf8Slice("2015-07-02"), true)), false)));
-            Constraint constraint2 = new Constraint(tupleDomain2, convertToPredicate(tupleDomain2), tupleDomain2.getDomains().orElseThrow().keySet());
+            Constraint constraint2 = new Constraint(tupleDomain2, tupleDomain2.asPredicate(), tupleDomain2.getDomains().orElseThrow().keySet());
             tableHandle = applyFilter(metadata, tableHandle, constraint2);
             tableHandle = metadata.applyDelete(session, tableHandle).get();
             metadata.executeDelete(session, tableHandle);
@@ -5494,7 +5493,7 @@ public abstract class AbstractTestHive
                             testCase.getConflictTrigger());
                 }
                 catch (AssertionError e) {
-                    throw new AssertionError(format("Test case: %s", testCase.toString()), e);
+                    throw new AssertionError(format("Test case: %s", testCase), e);
                 }
             }
             finally {
@@ -5529,7 +5528,7 @@ public abstract class AbstractTestHive
                 HiveColumnHandle dsColumnHandle = (HiveColumnHandle) metadata.getColumnHandles(session, tableHandle).get("pk2");
                 TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                         dsColumnHandle, domainToDrop));
-                Constraint constraint = new Constraint(tupleDomain, convertToPredicate(tupleDomain), tupleDomain.getDomains().orElseThrow().keySet());
+                Constraint constraint = new Constraint(tupleDomain, tupleDomain.asPredicate(), tupleDomain.getDomains().orElseThrow().keySet());
                 tableHandle = applyFilter(metadata, tableHandle, constraint);
                 tableHandle = metadata.applyDelete(session, tableHandle).get();
                 metadata.executeDelete(session, tableHandle);

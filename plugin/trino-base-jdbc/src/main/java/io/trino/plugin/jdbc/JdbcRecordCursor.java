@@ -142,7 +142,7 @@ public class JdbcRecordCursor
         try {
             if (resultSet == null) {
                 Future<ResultSet> resultSetFuture = executor.submit(() -> {
-                    log.debug("Executing: %s", statement.toString());
+                    log.debug("Executing: %s", statement);
                     return statement.executeQuery();
                 });
                 try {

@@ -141,6 +141,109 @@ public class TestSimplifyExpressions
         assertSimplifies("CAST(12300000000 AS varchar(3)) = '12300000000'", "CAST(12300000000 AS varchar(3)) = '12300000000'");
     }
 
+    @Test
+    public void testCastIntegerToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(1234 AS varchar(4))", "'1234'");
+        assertSimplifies("CAST(-1234 AS varchar(50))", "CAST('-1234' AS varchar(50))");
+
+        // cast from integer to varchar fails, so the expression is not modified
+        assertSimplifies("CAST(1234 AS varchar(3))", "CAST(1234 AS varchar(3))");
+        assertSimplifies("CAST(-1234 AS varchar(3))", "CAST(-1234 AS varchar(3))");
+        assertSimplifies("CAST(1234 AS varchar(3)) = '1234'", "CAST(1234 AS varchar(3)) = '1234'");
+    }
+
+    @Test
+    public void testCastSmallintToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(SMALLINT '1234' AS varchar(4))", "'1234'");
+        assertSimplifies("CAST(SMALLINT '-1234' AS varchar(50))", "CAST('-1234' AS varchar(50))");
+
+        // cast from smallint to varchar fails, so the expression is not modified
+        assertSimplifies("CAST(SMALLINT '1234' AS varchar(3))", "CAST(SMALLINT '1234' AS varchar(3))");
+        assertSimplifies("CAST(SMALLINT '-1234' AS varchar(3))", "CAST(SMALLINT '-1234' AS varchar(3))");
+        assertSimplifies("CAST(SMALLINT '1234' AS varchar(3)) = '1234'", "CAST(SMALLINT '1234' AS varchar(3)) = '1234'");
+    }
+
+    @Test
+    public void testCastTinyintToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(TINYINT '123' AS varchar(3))", "'123'");
+        assertSimplifies("CAST(TINYINT '-123' AS varchar(50))", "CAST('-123' AS varchar(50))");
+
+        // cast from smallint to varchar fails, so the expression is not modified
+        assertSimplifies("CAST(TINYINT '123' AS varchar(2))", "CAST(TINYINT '123' AS varchar(2))");
+        assertSimplifies("CAST(TINYINT '-123' AS varchar(2))", "CAST(TINYINT '-123' AS varchar(2))");
+        assertSimplifies("CAST(TINYINT '123' AS varchar(2)) = '123'", "CAST(TINYINT '123' AS varchar(2)) = '123'");
+    }
+
+    @Test
+    public void testCastShortDecimalToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(DECIMAL '12.4' AS varchar(4))", "'12.4'");
+        assertSimplifies("CAST(DECIMAL '-12.4' AS varchar(50))", "CAST('-12.4' AS varchar(50))");
+
+        // cast from short decimal to varchar fails, so the expression is not modified
+        assertSimplifies("CAST(DECIMAL '12.4' AS varchar(3))", "CAST(DECIMAL '12.4' AS varchar(3))");
+        assertSimplifies("CAST(DECIMAL '-12.4' AS varchar(3))", "CAST(DECIMAL '-12.4' AS varchar(3))");
+        assertSimplifies("CAST(DECIMAL '12.4' AS varchar(3)) = '12.4'", "CAST(DECIMAL '12.4' AS varchar(3)) = '12.4'");
+    }
+
+    @Test
+    public void testCastLongDecimalToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(DECIMAL '100000000000000000.1' AS varchar(20))", "'100000000000000000.1'");
+        assertSimplifies("CAST(DECIMAL '-100000000000000000.1' AS varchar(50))", "CAST('-100000000000000000.1' AS varchar(50))");
+
+        // cast from long decimal to varchar fails, so the expression is not modified
+        assertSimplifies("CAST(DECIMAL '100000000000000000.1' AS varchar(3))", "CAST(DECIMAL '100000000000000000.1' AS varchar(3))");
+        assertSimplifies("CAST(DECIMAL '-100000000000000000.1' AS varchar(3))", "CAST(DECIMAL '-100000000000000000.1' AS varchar(3))");
+        assertSimplifies("CAST(DECIMAL '100000000000000000.1' AS varchar(3)) = '100000000000000000.1'", "CAST(DECIMAL '100000000000000000.1' AS varchar(3)) = '100000000000000000.1'");
+    }
+
+    @Test
+    public void testCastDoubleToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(0e0 AS varchar(3))", "'0.0'");
+        assertSimplifies("CAST(-0e0 AS varchar(4))", "'-0.0'");
+        assertSimplifies("CAST(0e0 / 0e0 AS varchar(3))", "'NaN'");
+        assertSimplifies("CAST(DOUBLE 'Infinity' AS varchar(8))", "'Infinity'");
+        assertSimplifies("CAST(12e2 AS varchar(6))", "'1200.0'");
+        assertSimplifies("CAST(-12e2 AS varchar(50))", "CAST('-1200.0' AS varchar(50))");
+
+        // cast from double to varchar fails, so the expression is not modified
+        assertSimplifies("CAST(12e2 AS varchar(3))", "CAST(12e2 AS varchar(3))");
+        assertSimplifies("CAST(-12e2 AS varchar(3))", "CAST(-12e2 AS varchar(3))");
+        assertSimplifies("CAST(DOUBLE 'NaN' AS varchar(2))", "CAST(DOUBLE 'NaN' AS varchar(2))");
+        assertSimplifies("CAST(DOUBLE 'Infinity' AS varchar(7))", "CAST(DOUBLE 'Infinity' AS varchar(7))");
+        assertSimplifies("CAST(12e2 AS varchar(3)) = '1200.0'", "CAST(12e2 AS varchar(3)) = '1200.0'");
+    }
+
+    @Test
+    public void testCastRealToBoundedVarchar()
+    {
+        // the varchar type length is enough to contain the number's representation
+        assertSimplifies("CAST(REAL '0e0' AS varchar(3))", "'0.0'");
+        assertSimplifies("CAST(REAL '-0e0' AS varchar(4))", "'-0.0'");
+        assertSimplifies("CAST(REAL '0e0' / REAL '0e0' AS varchar(3))", "'NaN'");
+        assertSimplifies("CAST(REAL 'Infinity' AS varchar(8))", "'Infinity'");
+        assertSimplifies("CAST(REAL '12e2' AS varchar(6))", "'1200.0'");
+        assertSimplifies("CAST(REAL '-12e2' AS varchar(50))", "CAST('-1200.0' AS varchar(50))");
+
+        // cast from real to varchar fails, so the expression is not modified
+        assertSimplifies("CAST(REAL '12e2' AS varchar(3))", "CAST(REAL '12e2' AS varchar(3))");
+        assertSimplifies("CAST(REAL '-12e2' AS varchar(3))", "CAST(REAL '-12e2' AS varchar(3))");
+        assertSimplifies("CAST(REAL 'NaN' AS varchar(2))", "CAST(REAL 'NaN' AS varchar(2))");
+        assertSimplifies("CAST(REAL 'Infinity' AS varchar(7))", "CAST(REAL 'Infinity' AS varchar(7))");
+        assertSimplifies("CAST(REAL '12e2' AS varchar(3)) = '1200.0'", "CAST(REAL '12e2' AS varchar(3)) = '1200.0'");
+    }
+
     private static void assertSimplifies(String expression, String expected)
     {
         ParsingOptions parsingOptions = new ParsingOptions();

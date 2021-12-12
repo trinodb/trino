@@ -141,7 +141,6 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -2442,12 +2441,6 @@ public class HiveMetadata
         }
         // it is too expensive to determine the exact number of deleted rows
         return OptionalLong.empty();
-    }
-
-    @VisibleForTesting
-    static Predicate<Map<ColumnHandle, NullableValue>> convertToPredicate(TupleDomain<ColumnHandle> tupleDomain)
-    {
-        return bindings -> tupleDomain.contains(TupleDomain.fromFixedValues(bindings));
     }
 
     @Override

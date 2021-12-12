@@ -15,10 +15,13 @@ package io.trino.plugin.sqlserver;
 
 import com.google.common.base.Enums;
 import com.google.common.base.Joiner;
+import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.microsoft.sqlserver.jdbc.SQLServerException;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.expression.AggregateFunctionRewriter;
 import io.trino.plugin.base.expression.AggregateFunctionRule;
@@ -64,6 +67,8 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
@@ -166,6 +171,8 @@ import static java.util.stream.Collectors.joining;
 public class SqlServerClient
         extends BaseJdbcClient
 {
+    private static final Logger log = Logger.get(SqlServerClient.class);
+
     // SqlServer supports 2100 parameters in prepared statement, let's create a space for about 4 big IN predicates
     public static final int SQL_SERVER_MAX_LIST_EXPRESSIONS = 500;
 
@@ -639,7 +646,7 @@ public class SqlServerClient
         }
         try (Connection connection = configureConnectionTransactionIsolation(connectionFactory.openConnection(session));
                 Handle handle = Jdbi.open(connection)) {
-            return getTableDataCompression(handle, tableHandle)
+            return getTableDataCompressionWithRetries(handle, tableHandle)
                     .map(dataCompression -> ImmutableMap.<String, Object>of(DATA_COMPRESSION, dataCompression))
                     .orElseGet(ImmutableMap::of);
         }
@@ -780,6 +787,26 @@ public class SqlServerClient
                 .mapTo(String.class)
                 .findOne()
                 .flatMap(dataCompression -> Enums.getIfPresent(DataCompression.class, dataCompression).toJavaUtil());
+    }
+
+    private static Optional<DataCompression> getTableDataCompressionWithRetries(Handle handle, JdbcTableHandle table)
+    {
+        // DDL operations can take out locks against system tables causing the `getTableDataCompression` query to deadlock
+        final int maxAttemptCount = 3;
+        RetryPolicy<Optional<DataCompression>> retryPolicy = new RetryPolicy<Optional<DataCompression>>()
+                .withMaxAttempts(maxAttemptCount)
+                .handleIf(throwable ->
+                {
+                    final int deadlockErrorCode = 1205;
+                    Throwable rootCause = Throwables.getRootCause(throwable);
+                    return rootCause instanceof SQLServerException &&
+                            ((SQLServerException) (rootCause)).getSQLServerError().getErrorNumber() == deadlockErrorCode;
+                })
+                .onFailedAttempt(event -> log.warn(event.getLastFailure(), "Attempt %d of %d: error when getting table compression info for '%s'", event.getAttemptCount(), maxAttemptCount, table));
+
+        return Failsafe
+                .with(retryPolicy)
+                .get(() -> getTableDataCompression(handle, table));
     }
 
     private enum SnapshotIsolationEnabledCacheKey
