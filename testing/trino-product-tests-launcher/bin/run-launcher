@@ -17,4 +17,4 @@ if ! test -x "${launcher_jar[0]}"; then
     exit 3
 fi
 
-exec java $launcher_opts -jar "${launcher_jar[0]}" "$@"
+exec java -Djava.util.logging.config.file=${target}/classes/docker/presto-product-tests/conf/tempto/logging.properties $launcher_opts -jar "${launcher_jar[0]}" "$@"
