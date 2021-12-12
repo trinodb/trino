@@ -17,6 +17,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -49,6 +50,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static io.trino.operator.OperatorContext.getOperatorMetrics;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.ProcessState.Type.BLOCKED;
 import static io.trino.operator.WorkProcessor.ProcessState.Type.FINISHED;
@@ -218,6 +220,8 @@ public class WorkProcessorPipelineSourceOperator
         WorkProcessorOperatorContext context = workProcessorOperatorContexts.get(operatorIndex);
         timer.recordOperationComplete(context.operatorTiming);
 
+        context.metrics.set(context.operator.getMetrics());
+
         if (operatorIndex == 0) {
             // update input stats for source operator
             WorkProcessorSourceOperator sourceOperator = (WorkProcessorSourceOperator) context.operator;
@@ -233,15 +237,12 @@ public class WorkProcessorPipelineSourceOperator
 
             long deltaReadTimeNanos = deltaAndSet(context.readTimeNanos, sourceOperator.getReadTime().roundTo(NANOSECONDS));
 
-            long deltaDynamicFilterSplitsProcessed = deltaAndSet(context.dynamicFilterSplitsProcessed, sourceOperator.getDynamicFilterSplitsProcessed());
-            Metrics metrics = sourceOperator.getConnectorMetrics();
-            context.connectorMetrics.set(metrics);
+            context.dynamicFilterSplitsProcessed.set(sourceOperator.getDynamicFilterSplitsProcessed());
+            context.connectorMetrics.set(sourceOperator.getConnectorMetrics());
 
             operatorContext.recordPhysicalInputWithTiming(deltaPhysicalInputDataSize, deltaPhysicalInputPositions, deltaReadTimeNanos);
             operatorContext.recordNetworkInput(deltaInternalNetworkInputDataSize, deltaInternalNetworkInputPositions);
             operatorContext.recordProcessedInput(deltaInputDataSize, deltaInputPositions);
-            operatorContext.recordDynamicFilterSplitProcessed(deltaDynamicFilterSplitsProcessed);
-            operatorContext.setLatestMetrics(metrics);
         }
 
         if (state.getType() == FINISHED) {
@@ -332,7 +333,7 @@ public class WorkProcessorPipelineSourceOperator
 
                         succinctBytes(context.inputDataSize.get()),
                         context.inputPositions.get(),
-                        context.inputPositions.get() * context.inputPositions.get(),
+                        (double) context.inputPositions.get() * context.inputPositions.get(),
 
                         context.operatorTiming.getCalls(),
                         new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS),
@@ -342,6 +343,7 @@ public class WorkProcessorPipelineSourceOperator
                         context.outputPositions.get(),
 
                         context.dynamicFilterSplitsProcessed.get(),
+                        getOperatorMetrics(context.metrics.get(), context.inputPositions.get()),
                         context.connectorMetrics.get(),
 
                         DataSize.ofBytes(0),
@@ -537,6 +539,11 @@ public class WorkProcessorPipelineSourceOperator
                             operatorContext.getDriverContext().getTaskId());
                 }
                 finally {
+                    workProcessorOperatorContext.metrics.set(operator.getMetrics());
+                    if (operator instanceof WorkProcessorSourceOperator) {
+                        WorkProcessorSourceOperator sourceOperator = (WorkProcessorSourceOperator) operator;
+                        workProcessorOperatorContext.connectorMetrics.set(sourceOperator.getConnectorMetrics());
+                    }
                     workProcessorOperatorContext.memoryTrackingContext.close();
                     workProcessorOperatorContext.finalOperatorInfo = operator.getOperatorInfo().orElse(null);
                     workProcessorOperatorContext.operator = null;
@@ -555,6 +562,7 @@ public class WorkProcessorPipelineSourceOperator
         }
     }
 
+    @FormatMethod
     private static Throwable handleOperatorCloseError(Throwable inFlightException, Throwable newException, String message, Object... args)
     {
         if (newException instanceof Error) {
@@ -682,6 +690,7 @@ public class WorkProcessorPipelineSourceOperator
         final AtomicLong outputPositions = new AtomicLong();
 
         final AtomicLong dynamicFilterSplitsProcessed = new AtomicLong();
+        final AtomicReference<Metrics> metrics = new AtomicReference<>(Metrics.EMPTY);
         final AtomicReference<Metrics> connectorMetrics = new AtomicReference<>(Metrics.EMPTY);
 
         final AtomicLong peakUserMemoryReservation = new AtomicLong();

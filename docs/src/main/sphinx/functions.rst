@@ -6,8 +6,9 @@ This chapter describes the SQL functions and operators supported by Trino. They
 allow you to implement complex functionality and behavior of the SQL executed by
 Trino operating on the underlying data sources.
 
-If you are looking for a specific function or operator,
-see the :doc:`full list</functions/list>`.
+If you are looking for a specific function or operator, see the :doc:`full
+alphabetical list</functions/list>` or the :doc:`full list by
+topic</functions/list-by-topic>`.
 
 Also see the :doc:`SQL data types</language>`
 and the :doc:`SQL statement and syntax reference</sql>`.
@@ -27,6 +28,7 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     Decimal             <functions/decimal>
     Geospatial          <functions/geospatial>
     HyperLogLog         <functions/hyperloglog>
+    IP Address          <functions/ipaddress>
     JSON                <functions/json>
     Lambda              <functions/lambda>
     Logical             <functions/logical>
@@ -36,6 +38,7 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     Quantile digest     <functions/qdigest>
     Regular expression  <functions/regexp>
     Session             <functions/session>
+    Set Digest          <functions/setdigest>
     String              <functions/string>
     System              <functions/system>
     Teradata            <functions/teradata>
@@ -44,3 +47,4 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     UUID                <functions/uuid>
     Window              <functions/window>
     functions/list
+    functions/list-by-topic

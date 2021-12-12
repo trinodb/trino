@@ -38,6 +38,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -46,6 +47,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestValidateAggregationsWithDefaultValues
         extends BasePlanTest
@@ -60,11 +62,11 @@ public class TestValidateAggregationsWithDefaultValues
     public void setup()
     {
         metadata = getQueryRunner().getMetadata();
-        builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
+        builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata, TEST_SESSION);
         CatalogName catalogName = getCurrentConnectorId();
         TableHandle nationTableHandle = new TableHandle(
                 catalogName,
-                new TpchTableHandle("nation", 1.0),
+                new TpchTableHandle("sf1", "nation", 1.0),
                 TestingTransactionHandle.create(),
                 Optional.empty());
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
@@ -72,7 +74,7 @@ public class TestValidateAggregationsWithDefaultValues
         tableScanNode = builder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, nationkeyColumnHandle));
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Final aggregation with default value not separated from partial aggregation by remote hash exchange")
+    @Test
     public void testGloballyDistributedFinalAggregationInTheSameStageAsPartialAggregation()
     {
         PlanNode root = builder.aggregation(
@@ -82,10 +84,12 @@ public class TestValidateAggregationsWithDefaultValues
                                 .step(PARTIAL)
                                 .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
                                 .source(tableScanNode))));
-        validatePlan(root, false);
+        assertThatThrownBy(() -> validatePlan(root, false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Final aggregation with default value not separated from partial aggregation by remote hash exchange");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Final aggregation with default value not separated from partial aggregation by local hash exchange")
+    @Test
     public void testSingleNodeFinalAggregationInTheSameStageAsPartialAggregation()
     {
         PlanNode root = builder.aggregation(
@@ -95,7 +99,9 @@ public class TestValidateAggregationsWithDefaultValues
                                 .step(PARTIAL)
                                 .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
                                 .source(tableScanNode))));
-        validatePlan(root, true);
+        assertThatThrownBy(() -> validatePlan(root, true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Final aggregation with default value not separated from partial aggregation by local hash exchange");
     }
 
     @Test
@@ -171,7 +177,7 @@ public class TestValidateAggregationsWithDefaultValues
         validatePlan(root, true);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Final aggregation with default value not separated from partial aggregation by local hash exchange")
+    @Test
     public void testWithPartialAggregationBelowJoinWithoutSeparatingExchange()
     {
         Symbol symbol = new Symbol("symbol");
@@ -185,7 +191,9 @@ public class TestValidateAggregationsWithDefaultValues
                                         .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
                                         .source(tableScanNode)),
                                 builder.values())));
-        validatePlan(root, true);
+        assertThatThrownBy(() -> validatePlan(root, true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Final aggregation with default value not separated from partial aggregation by local hash exchange");
     }
 
     private void validatePlan(PlanNode root, boolean forceSingleNode)

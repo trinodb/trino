@@ -19,9 +19,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.LongVariableConstraint;
 import io.trino.metadata.Signature;
 import io.trino.operator.ParametricImplementation;
@@ -66,6 +66,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static io.trino.operator.ParametricFunctionHelpers.bindDependencies;
+import static io.trino.operator.ParametricFunctionHelpers.signatureWithName;
 import static io.trino.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
 import static io.trino.operator.annotations.FunctionsParserHelper.containsLegacyNullable;
 import static io.trino.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
@@ -102,8 +103,7 @@ public class ParametricScalarImplementation
     private final Map<String, Class<?>> specializedTypeParameters;
     private final Class<?> returnNativeContainerType;
     private final List<ParametricScalarImplementationChoice> choices;
-    private final boolean nullable;
-    private final List<FunctionArgumentDefinition> argumentDefinitions;
+    private final FunctionNullability functionNullability;
 
     private ParametricScalarImplementation(
             Signature signature,
@@ -128,29 +128,24 @@ public class ParametricScalarImplementation
                 .noneMatch(BLOCK_POSITION::equals);
         checkArgument(expression, "default choice can not use the BLOCK_AND_POSITION calling convention: %s", signature);
 
-        this.nullable = defaultChoice.getReturnConvention().isNullable();
-        checkArgument(choices.stream().allMatch(choice -> choice.getReturnConvention().isNullable() == this.nullable), "all choices must have the same nullable flag: %s", signature);
+        boolean returnNullability = defaultChoice.getReturnConvention().isNullable();
+        checkArgument(choices.stream().allMatch(choice -> choice.getReturnConvention().isNullable() == returnNullability), "all choices must have the same nullable flag: %s", signature);
 
-        argumentDefinitions = defaultChoice.getArgumentConventions().stream()
+        List<Boolean> argumentNullability = defaultChoice.getArgumentConventions().stream()
                 .map(InvocationArgumentConvention::isNullable)
-                .map(FunctionArgumentDefinition::new)
                 .collect(toImmutableList());
+        functionNullability = new FunctionNullability(returnNullability, argumentNullability);
+
         checkArgument(
-                choices.stream().allMatch(choice -> matches(argumentDefinitions, choice.getArgumentConventions())),
+                choices.stream().allMatch(choice -> matches(argumentNullability, choice.getArgumentConventions())),
                 "all choices must have the same nullable parameter flags: %s",
                 signature);
     }
 
     @Override
-    public boolean isNullable()
+    public FunctionNullability getFunctionNullability()
     {
-        return nullable;
-    }
-
-    @Override
-    public List<FunctionArgumentDefinition> getArgumentDefinitions()
-    {
-        return argumentDefinitions;
+        return functionNullability;
     }
 
     public Optional<ScalarFunctionImplementation> specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
@@ -205,7 +200,7 @@ public class ParametricScalarImplementation
                     boundMethodHandle.asType(javaMethodType(choice, boundSignature)),
                     boundConstructor));
         }
-        return Optional.of(new ChoicesScalarFunctionImplementation(functionBinding, implementationChoices));
+        return Optional.of(new ChoicesScalarFunctionImplementation(boundSignature, implementationChoices));
     }
 
     @Override
@@ -224,6 +219,17 @@ public class ParametricScalarImplementation
     public List<ParametricScalarImplementationChoice> getChoices()
     {
         return choices;
+    }
+
+    @Override
+    public ParametricScalarImplementation withAlias(String alias)
+    {
+        return new ParametricScalarImplementation(
+                signatureWithName(alias, signature),
+                argumentNativeContainerTypes,
+                specializedTypeParameters,
+                choices,
+                returnNativeContainerType);
     }
 
     private static MethodType javaMethodType(ParametricScalarImplementationChoice choice, BoundSignature signature)
@@ -277,13 +283,13 @@ public class ParametricScalarImplementation
         return MethodType.methodType(methodHandleReturnType, methodHandleParameterTypes.build());
     }
 
-    private static boolean matches(List<FunctionArgumentDefinition> argumentDefinitions, List<InvocationArgumentConvention> argumentConventions)
+    private static boolean matches(List<Boolean> argumentNullability, List<InvocationArgumentConvention> argumentConventions)
     {
-        if (argumentDefinitions.size() != argumentConventions.size()) {
+        if (argumentNullability.size() != argumentConventions.size()) {
             return false;
         }
-        for (int i = 0; i < argumentDefinitions.size(); i++) {
-            boolean expectedNullable = argumentDefinitions.get(i).isNullable();
+        for (int i = 0; i < argumentNullability.size(); i++) {
+            boolean expectedNullable = argumentNullability.get(i);
             InvocationArgumentConvention argumentConvention = argumentConventions.get(i);
             if (argumentConvention == FUNCTION) {
                 // functions are never null

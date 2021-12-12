@@ -16,43 +16,45 @@ package io.trino.plugin.hive.security;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.security.ConnectorAccessControlModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
-import static io.airlift.configuration.ConfigurationModule.installModules;
-import static java.util.Objects.requireNonNull;
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class HiveSecurityModule
         extends AbstractConfigurationAwareModule
 {
-    private final String catalogName;
-
-    public HiveSecurityModule(String catalogName)
-    {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
-    }
+    public static final String LEGACY = "legacy";
+    public static final String FILE = "file";
+    public static final String READ_ONLY = "read-only";
+    public static final String SQL_STANDARD = "sql-standard";
+    public static final String ALLOW_ALL = "allow-all";
+    public static final String SYSTEM = "system";
 
     @Override
     protected void setup(Binder binder)
     {
+        install(new ConnectorAccessControlModule());
         bindSecurityModule(
-                "legacy",
-                installModules(
+                LEGACY,
+                combine(
                         new LegacySecurityModule(),
                         new StaticAccessControlMetadataModule()));
         bindSecurityModule(
-                "file",
-                installModules(
-                        new FileBasedAccessControlModule(catalogName),
+                FILE,
+                combine(
+                        new FileBasedAccessControlModule(),
                         new StaticAccessControlMetadataModule()));
         bindSecurityModule(
-                "read-only",
-                installModules(
+                READ_ONLY,
+                combine(
                         new ReadOnlySecurityModule(),
                         new StaticAccessControlMetadataModule()));
-        bindSecurityModule("sql-standard", new SqlStandardSecurityModule());
-        bindSecurityModule("allow-all", new AllowAllSecurityModule());
+        bindSecurityModule(SQL_STANDARD, new SqlStandardSecurityModule());
+        bindSecurityModule(ALLOW_ALL, new AllowAllSecurityModule());
+        bindSecurityModule(SYSTEM, new SystemSecurityModule());
     }
 
     private void bindSecurityModule(String name, Module module)

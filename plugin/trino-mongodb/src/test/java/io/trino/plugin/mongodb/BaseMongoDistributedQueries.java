@@ -18,13 +18,17 @@ import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseMongoDistributedQueries
         extends AbstractTestDistributedQueries
 {
+    @Override
+    protected boolean supportsCreateSchema()
+    {
+        return false;
+    }
+
     @Override
     protected boolean supportsDelete()
     {
@@ -50,15 +54,9 @@ public abstract class BaseMongoDistributedQueries
     }
 
     @Override
-    public void testCreateSchema()
+    protected boolean supportsRenameTable()
     {
-        // the connector does not support creating schemas
-    }
-
-    @Override
-    public void testRenameTable()
-    {
-        // the connector does not support renaming tables
+        return false;
     }
 
     @Override
@@ -78,25 +76,12 @@ public abstract class BaseMongoDistributedQueries
     public void testColumnName(String columnName)
     {
         if (columnName.equals("a.dot")) {
-            // TODO (https://github.com/trinodb/trino/issues/3460)
             assertThatThrownBy(() -> super.testColumnName(columnName))
-                    .hasStackTraceContaining("TableWriterOperator") // during INSERT
-                    .hasMessage("Invalid BSON field name a.dot");
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("Column name must not contain '$' or '.' for INSERT: " + columnName);
             throw new SkipException("Insert would fail");
         }
 
         super.testColumnName(columnName);
-    }
-
-    @Override
-    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
-    {
-        String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("time")) {
-            // TODO this should either work or fail cleanly
-            return Optional.empty();
-        }
-
-        return Optional.of(dataMappingTestSetup);
     }
 }

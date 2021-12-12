@@ -61,22 +61,24 @@ public final class ArrayUnionFunction
     {
         int leftArrayCount = leftArray.getPositionCount();
         int rightArrayCount = rightArray.getPositionCount();
-        TypedSet typedSet = createEqualityTypedSet(type, elementEqual, elementHashCode, leftArrayCount + rightArrayCount, "array_union");
         BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, leftArrayCount + rightArrayCount);
-        appendTypedArray(leftArray, type, typedSet, distinctElementBlockBuilder);
-        appendTypedArray(rightArray, type, typedSet, distinctElementBlockBuilder);
+        TypedSet typedSet = createEqualityTypedSet(
+                type,
+                elementEqual,
+                elementHashCode,
+                distinctElementBlockBuilder,
+                leftArrayCount + rightArrayCount,
+                "array_union");
+
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            typedSet.add(leftArray, i);
+        }
+
+        for (int i = 0; i < rightArray.getPositionCount(); i++) {
+            typedSet.add(rightArray, i);
+        }
 
         return distinctElementBlockBuilder.build();
-    }
-
-    private static void appendTypedArray(Block array, Type type, TypedSet typedSet, BlockBuilder blockBuilder)
-    {
-        for (int i = 0; i < array.getPositionCount(); i++) {
-            if (!typedSet.contains(array, i)) {
-                typedSet.add(array, i);
-                type.appendTo(array, i, blockBuilder);
-            }
-        }
     }
 
     @SqlType("array(bigint)")

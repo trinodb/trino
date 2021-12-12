@@ -27,16 +27,16 @@ public class Metrics
 {
     public static final Metrics EMPTY = new Metrics(Map.of());
 
-    private final Map<String, Metric> metrics;
+    private final Map<String, Metric<?>> metrics;
 
     @JsonCreator
-    public Metrics(Map<String, Metric> metrics)
+    public Metrics(Map<String, Metric<?>> metrics)
     {
         this.metrics = Map.copyOf(requireNonNull(metrics, "metrics is null"));
     }
 
     @JsonValue
-    public Map<String, Metric> getMetrics()
+    public Map<String, Metric<?>> getMetrics()
     {
         return metrics;
     }
@@ -54,7 +54,7 @@ public class Metrics
 
     public static class Accumulator
     {
-        private final Map<String, Metric> merged = new HashMap<>();
+        private final Map<String, Metric<?>> merged = new HashMap<>();
 
         private Accumulator()
         {
@@ -63,12 +63,21 @@ public class Metrics
         public Accumulator add(Metrics metrics)
         {
             metrics.getMetrics().forEach((key, value) ->
-                    merged.merge(key, value, (left, right) -> (Metric) left.mergeWith(right)));
+                    merged.merge(key, value, Accumulator::merge));
             return this;
+        }
+
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        private static Metric<?> merge(Metric<?> a, Metric<?> b)
+        {
+            return (Metric<?>) ((Metric) a).mergeWith(b);
         }
 
         public Metrics get()
         {
+            if (merged.isEmpty()) {
+                return EMPTY;
+            }
             return new Metrics(merged);
         }
     }

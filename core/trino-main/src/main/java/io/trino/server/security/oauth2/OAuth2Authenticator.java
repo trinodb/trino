@@ -13,19 +13,20 @@
  */
 package io.trino.server.security.oauth2;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import io.trino.server.security.AbstractBearerAuthenticator;
 import io.trino.server.security.AuthenticationException;
+import io.trino.spi.security.BasicPrincipal;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 
 import java.net.URI;
+import java.security.Principal;
+import java.util.Optional;
 import java.util.UUID;
 
 import static io.trino.server.security.UserMapping.createUserMapping;
-import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
+import static io.trino.server.security.oauth2.OAuth2TokenExchangeResource.getInitiateUri;
 import static io.trino.server.security.oauth2.OAuth2TokenExchangeResource.getTokenUri;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -34,26 +35,36 @@ public class OAuth2Authenticator
         extends AbstractBearerAuthenticator
 {
     private final OAuth2Service service;
+    private final String principalField;
 
     @Inject
     public OAuth2Authenticator(OAuth2Service service, OAuth2Config config)
     {
-        super(config.getPrincipalField(), createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile()));
+        super(createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile()));
         this.service = requireNonNull(service, "service is null");
+        this.principalField = config.getPrincipalField();
     }
 
     @Override
-    protected Jws<Claims> parseClaimsJws(String jws)
+    protected Optional<Principal> extractPrincipalFromToken(String token)
     {
-        return service.parseClaimsJws(jws);
+        try {
+            return service.convertTokenToClaims(token)
+                    .map(claims -> claims.get(principalField))
+                    .map(String.class::cast)
+                    .map(BasicPrincipal::new);
+        }
+        catch (ChallengeFailedException e) {
+            return Optional.empty();
+        }
     }
 
     @Override
     protected AuthenticationException needAuthentication(ContainerRequestContext request, String message)
     {
         UUID authId = UUID.randomUUID();
-        URI redirectUri = service.startRestChallenge(request.getUriInfo().getBaseUri().resolve(CALLBACK_ENDPOINT), authId);
+        URI initiateUri = request.getUriInfo().getBaseUri().resolve(getInitiateUri(authId));
         URI tokenUri = request.getUriInfo().getBaseUri().resolve(getTokenUri(authId));
-        return new AuthenticationException(message, format("Bearer x_redirect_server=\"%s\", x_token_server=\"%s\"", redirectUri, tokenUri));
+        return new AuthenticationException(message, format("Bearer x_redirect_server=\"%s\", x_token_server=\"%s\"", initiateUri, tokenUri));
     }
 }

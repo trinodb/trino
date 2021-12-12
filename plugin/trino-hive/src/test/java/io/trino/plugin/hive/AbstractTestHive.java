@@ -24,7 +24,7 @@ import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.GroupByHashPageIndexerFactory;
+import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.LocationService.WriteInfo;
@@ -98,6 +98,7 @@ import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortingProperty;
+import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.ViewNotFoundException;
@@ -210,7 +211,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
-import static io.trino.plugin.hive.HiveMetadata.convertToPredicate;
 import static io.trino.plugin.hive.HiveSessionProperties.getTemporaryStagingDirectoryPath;
 import static io.trino.plugin.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
@@ -227,6 +227,7 @@ import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static io.trino.plugin.hive.HiveTableRedirectionsProvider.NO_REDIRECTIONS;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
@@ -252,6 +253,7 @@ import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDecimalC
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
+import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -317,6 +319,8 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+// staging directory is shared mutable state
+@Test(singleThreaded = true)
 public abstract class AbstractTestHive
 {
     private static final Logger log = Logger.get(AbstractTestHive.class);
@@ -671,7 +675,7 @@ public abstract class AbstractTestHive
                 deleteRecursively(temporaryStagingDirectory, ALLOW_INSECURE);
             }
             catch (Exception e) {
-                log.warn(e, "Error deleting " + temporaryStagingDirectory);
+                log.warn(e, "Error deleting %s", temporaryStagingDirectory);
             }
         }
     }
@@ -847,11 +851,12 @@ public abstract class AbstractTestHive
                                 Optional.empty(),
                                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("abc", TypeId.of("type"))),
                                 Optional.empty(),
-                                "alice",
+                                Optional.of("alice"),
                                 ImmutableMap.of()));
                     }
                 },
-                SqlStandardAccessControlMetadata::new);
+                SqlStandardAccessControlMetadata::new,
+                NO_REDIRECTIONS);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionHandle -> transactionManager.get(transactionHandle).getMetastore(),
@@ -938,7 +943,7 @@ public abstract class AbstractTestHive
 
     protected Transaction newTransaction()
     {
-        return new HiveTransaction(transactionManager, (HiveMetadata) metadataFactory.create());
+        return new HiveTransaction(transactionManager, (HiveMetadata) metadataFactory.create(false));
     }
 
     protected interface Transaction
@@ -1062,7 +1067,7 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(newSession(), new SchemaTablePrefix());
+            Map<SchemaTableName, List<ColumnMetadata>> allColumns = listTableColumns(metadata, newSession(), new SchemaTablePrefix());
             assertTrue(allColumns.containsKey(tablePartitionFormat));
             assertTrue(allColumns.containsKey(tableUnpartitioned));
         }
@@ -1073,7 +1078,7 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(newSession(), new SchemaTablePrefix(database));
+            Map<SchemaTableName, List<ColumnMetadata>> allColumns = listTableColumns(metadata, newSession(), new SchemaTablePrefix(database));
             assertTrue(allColumns.containsKey(tablePartitionFormat));
             assertTrue(allColumns.containsKey(tableUnpartitioned));
         }
@@ -1087,7 +1092,7 @@ public abstract class AbstractTestHive
             ConnectorSession session = newSession();
             assertNull(metadata.getTableHandle(session, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE)));
             assertEquals(metadata.listTables(session, Optional.of(INVALID_DATABASE)), ImmutableList.of());
-            assertEquals(metadata.listTableColumns(session, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
+            assertEquals(listTableColumns(metadata, session, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
             assertEquals(metadata.listViews(session, Optional.of(INVALID_DATABASE)), ImmutableList.of());
             assertEquals(metadata.getViews(session, Optional.of(INVALID_DATABASE)), ImmutableMap.of());
             assertEquals(metadata.getView(session, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE)), Optional.empty());
@@ -1336,7 +1341,7 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            Map<SchemaTableName, List<ColumnMetadata>> columns = metadata.listTableColumns(newSession(), tableOffline.toSchemaTablePrefix());
+            Map<SchemaTableName, List<ColumnMetadata>> columns = listTableColumns(metadata, newSession(), tableOffline.toSchemaTablePrefix());
             assertEquals(columns.size(), 1);
             Map<String, ColumnMetadata> map = uniqueIndex(getOnlyElement(columns.values()), ColumnMetadata::getName);
 
@@ -2290,21 +2295,21 @@ public abstract class AbstractTestHive
         assertEmptyFile(TEXTFILE);
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Error opening Hive split .* not a SequenceFile")
+    @Test
     public void testEmptySequenceFile()
             throws Exception
     {
         assertEmptyFile(SEQUENCEFILE);
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "RCFile is empty: .*")
+    @Test
     public void testEmptyRcTextFile()
             throws Exception
     {
         assertEmptyFile(RCTEXT);
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "RCFile is empty: .*")
+    @Test
     public void testEmptyRcBinaryFile()
             throws Exception
     {
@@ -2352,7 +2357,7 @@ public abstract class AbstractTestHive
                 assertEquals(listDirectory(context, location), ImmutableList.of("empty-file"));
 
                 // read table with empty file
-                MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.of(1), Optional.empty());
+                MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.of(0), Optional.empty());
                 assertEquals(result.getRowCount(), 0);
             }
         }
@@ -2366,7 +2371,7 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            assertEquals(metadata.listTableColumns(newSession(), new SchemaTablePrefix(view.getSchemaName(), view.getTableName())), ImmutableMap.of());
+            assertEquals(listTableColumns(metadata, newSession(), new SchemaTablePrefix(view.getSchemaName(), view.getTableName())), ImmutableMap.of());
         }
     }
 
@@ -2531,7 +2536,7 @@ public abstract class AbstractTestHive
         return Table.builder()
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
-                .setOwner(tableOwner)
+                .setOwner(Optional.of(tableOwner))
                 .setTableType(TableType.MANAGED_TABLE.name())
                 .setParameters(ImmutableMap.of(
                         PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
@@ -2865,7 +2870,7 @@ public abstract class AbstractTestHive
         Table.Builder table = Table.builder()
                 .setDatabaseName(tableName.getSchemaName())
                 .setTableName(tableName.getTableName())
-                .setOwner(session.getUser())
+                .setOwner(Optional.of(session.getUser()))
                 .setTableType(MANAGED_TABLE.name())
                 .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())))
                 .setParameter(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER);
@@ -2877,8 +2882,7 @@ public abstract class AbstractTestHive
                         hdfsEnvironment,
                         tableName.getSchemaName(),
                         tableName.getTableName()).toString());
-        PrincipalPrivileges principalPrivileges = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
-        metastoreClient.createTable(identity, table.build(), principalPrivileges);
+        metastoreClient.createTable(identity, table.build(), NO_PRIVILEGES);
 
         try {
             // Verify the table was created as a Delta Lake table
@@ -2905,15 +2909,15 @@ public abstract class AbstractTestHive
                         .doesNotContain(tableName);
 
                 // list all columns
-                assertThat(metadata.listTableColumns(session, new SchemaTablePrefix()).keySet())
+                assertThat(listTableColumns(metadata, session, new SchemaTablePrefix()).keySet())
                         .doesNotContain(tableName);
 
                 // list all columns in a schema
-                assertThat(metadata.listTableColumns(session, new SchemaTablePrefix(tableName.getSchemaName())).keySet())
+                assertThat(listTableColumns(metadata, session, new SchemaTablePrefix(tableName.getSchemaName())).keySet())
                         .doesNotContain(tableName);
 
                 // list all columns in a table
-                assertThat(metadata.listTableColumns(session, new SchemaTablePrefix(tableName.getSchemaName(), tableName.getTableName())).keySet())
+                assertThat(listTableColumns(metadata, session, new SchemaTablePrefix(tableName.getSchemaName(), tableName.getTableName())).keySet())
                         .doesNotContain(tableName);
             }
         }
@@ -3068,7 +3072,7 @@ public abstract class AbstractTestHive
             Table.Builder tableBuilder = Table.builder()
                     .setDatabaseName(schemaName)
                     .setTableName(tableName)
-                    .setOwner(tableOwner)
+                    .setOwner(Optional.of(tableOwner))
                     .setTableType(TableType.MANAGED_TABLE.name())
                     .setParameters(ImmutableMap.of(
                             PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
@@ -3087,12 +3091,20 @@ public abstract class AbstractTestHive
         // to make sure it can still be retrieved instead of throwing exception.
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(newSession(), new SchemaTablePrefix(schemaTableName.getSchemaName()));
+            Map<SchemaTableName, List<ColumnMetadata>> allColumns = listTableColumns(metadata, newSession(), new SchemaTablePrefix(schemaTableName.getSchemaName()));
             assertTrue(allColumns.containsKey(schemaTableName));
         }
         finally {
             dropTable(schemaTableName);
         }
+    }
+
+    private static Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorMetadata metadata, ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return metadata.streamTableColumns(session, prefix)
+                .collect(toImmutableMap(
+                        TableColumnsMetadata::getTable,
+                        tableColumns -> tableColumns.getColumns().orElseThrow(() -> new IllegalStateException("Table " + tableColumns.getTable() + " reported as redirected"))));
     }
 
     private void createDummyTable(SchemaTableName tableName)
@@ -3463,7 +3475,7 @@ public abstract class AbstractTestHive
 
         assertTrue(projectionResult.isPresent(), "expected non-empty projection result");
 
-        ProjectionApplicationResult result = projectionResult.get();
+        ProjectionApplicationResult<ConnectorTableHandle> result = projectionResult.get();
 
         // Verify projections
         assertEquals(expectedProjections, result.getProjections());
@@ -3481,7 +3493,7 @@ public abstract class AbstractTestHive
 
         assertEquals(actualAssignments.size(), expectedAssignments.size());
         assertEquals(
-                Optional.of(actualAssignments.values().stream().map(Assignment::getColumn).collect(toImmutableSet())),
+                actualAssignments.values().stream().map(Assignment::getColumn).collect(toImmutableSet()),
                 ((HiveTableHandle) result.getHandle()).getProjectedColumns());
     }
 
@@ -4465,7 +4477,7 @@ public abstract class AbstractTestHive
             // delete ds=2015-07-03
             session = newSession();
             TupleDomain<ColumnHandle> tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(dsColumnHandle, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2015-07-03"))));
-            Constraint constraint = new Constraint(tupleDomain, convertToPredicate(tupleDomain));
+            Constraint constraint = new Constraint(tupleDomain, tupleDomain.asPredicate(), tupleDomain.getDomains().orElseThrow().keySet());
             tableHandle = applyFilter(metadata, tableHandle, constraint);
             tableHandle = metadata.applyDelete(session, tableHandle).get();
             metadata.executeDelete(session, tableHandle);
@@ -4500,7 +4512,7 @@ public abstract class AbstractTestHive
             session = newSession();
             TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(
                     ImmutableMap.of(dsColumnHandle, Domain.create(ValueSet.ofRanges(Range.range(createUnboundedVarcharType(), utf8Slice("2015-07-01"), true, utf8Slice("2015-07-02"), true)), false)));
-            Constraint constraint2 = new Constraint(tupleDomain2, convertToPredicate(tupleDomain2));
+            Constraint constraint2 = new Constraint(tupleDomain2, tupleDomain2.asPredicate(), tupleDomain2.getDomains().orElseThrow().keySet());
             tableHandle = applyFilter(metadata, tableHandle, constraint2);
             tableHandle = metadata.applyDelete(session, tableHandle).get();
             metadata.executeDelete(session, tableHandle);
@@ -5081,7 +5093,7 @@ public abstract class AbstractTestHive
             Table.Builder tableBuilder = Table.builder()
                     .setDatabaseName(schemaName)
                     .setTableName(tableName)
-                    .setOwner(tableOwner)
+                    .setOwner(Optional.of(tableOwner))
                     .setTableType(TableType.MANAGED_TABLE.name())
                     .setParameters(ImmutableMap.of(
                             PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
@@ -5368,6 +5380,49 @@ public abstract class AbstractTestHive
         }
     }
 
+    @Test
+    public void testNewDirectoryPermissions()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("empty_file");
+        List<Column> columns = ImmutableList.of(new Column("test", HIVE_STRING, Optional.empty()));
+        createEmptyTable(tableName, ORC, columns, ImmutableList.of(), Optional.empty());
+        try {
+            Transaction transaction = newTransaction();
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            metadata.beginQuery(session);
+
+            Table table = transaction.getMetastore()
+                    .getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
+                    .orElseThrow();
+
+            // create new directory and set directory permission after creation
+            HdfsContext context = new HdfsContext(session);
+            Path location = new Path(table.getStorage().getLocation());
+            Path defaultPath = new Path(location + "/defaultperms");
+            createDirectory(context, hdfsEnvironment, defaultPath);
+            FileStatus defaultFsStatus = hdfsEnvironment.getFileSystem(context, defaultPath).getFileStatus(defaultPath);
+            assertEquals(defaultFsStatus.getPermission().toOctal(), 777);
+
+            // use hdfs config that skips setting directory permissions after creation
+            HdfsConfig configWithSkip = new HdfsConfig();
+            configWithSkip.setNewDirectoryPermissions(HdfsConfig.SKIP_DIR_PERMISSIONS);
+            HdfsEnvironment hdfsEnvironmentWithSkip = new HdfsEnvironment(
+                    createTestHdfsConfiguration(),
+                    configWithSkip,
+                    new NoHdfsAuthentication());
+
+            Path skipPath = new Path(location + "/skipperms");
+            createDirectory(context, hdfsEnvironmentWithSkip, skipPath);
+            FileStatus skipFsStatus = hdfsEnvironmentWithSkip.getFileSystem(context, skipPath).getFileStatus(skipPath);
+            assertEquals(skipFsStatus.getPermission().toOctal(), 755);
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     protected void doTestTransactionDeleteInsert(HiveStorageFormat storageFormat, boolean allowInsertExisting, List<TransactionDeleteInsertTestCase> testCases)
             throws Exception
     {
@@ -5438,7 +5493,7 @@ public abstract class AbstractTestHive
                             testCase.getConflictTrigger());
                 }
                 catch (AssertionError e) {
-                    throw new AssertionError(format("Test case: %s", testCase.toString()), e);
+                    throw new AssertionError(format("Test case: %s", testCase), e);
                 }
             }
             finally {
@@ -5473,7 +5528,7 @@ public abstract class AbstractTestHive
                 HiveColumnHandle dsColumnHandle = (HiveColumnHandle) metadata.getColumnHandles(session, tableHandle).get("pk2");
                 TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                         dsColumnHandle, domainToDrop));
-                Constraint constraint = new Constraint(tupleDomain, convertToPredicate(tupleDomain));
+                Constraint constraint = new Constraint(tupleDomain, tupleDomain.asPredicate(), tupleDomain.getDomains().orElseThrow().keySet());
                 tableHandle = applyFilter(metadata, tableHandle, constraint);
                 tableHandle = metadata.applyDelete(session, tableHandle).get();
                 metadata.executeDelete(session, tableHandle);

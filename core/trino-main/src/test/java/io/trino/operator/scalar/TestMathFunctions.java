@@ -14,7 +14,8 @@
 package io.trino.operator.scalar;
 
 import com.google.common.base.Joiner;
-import io.trino.spi.TrinoException;
+import com.google.common.collect.ImmutableList;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.VarcharType;
@@ -30,6 +31,7 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
@@ -952,6 +954,18 @@ public class TestMathFunctions
         assertFunction("round(DECIMAL '9.99', 1)", createDecimalType(4, 2), SqlDecimal.of("10.00"));
         assertFunction("round(DECIMAL '-9.99', 1)", createDecimalType(4, 2), SqlDecimal.of("-10.00"));
 
+        assertFunction("round(DECIMAL '0.3', 0)", createDecimalType(2, 1), SqlDecimal.of("0.0"));
+        assertFunction("round(DECIMAL '0.7', 0)", createDecimalType(2, 1), SqlDecimal.of("1.0"));
+        assertFunction("round(DECIMAL '1.7', 0)", createDecimalType(3, 1), SqlDecimal.of("2.0"));
+        assertFunction("round(DECIMAL '-0.3', 0)", createDecimalType(2, 1), SqlDecimal.of("0.0"));
+        assertFunction("round(DECIMAL '-0.7', 0)", createDecimalType(2, 1), SqlDecimal.of("-1.0"));
+        assertFunction("round(DECIMAL '-1.7', 0)", createDecimalType(3, 1), SqlDecimal.of("-2.0"));
+        assertFunction("round(DECIMAL '0.7', -1)", createDecimalType(2, 1), SqlDecimal.of("0.0"));
+        assertFunction("round(DECIMAL '1.7', -1)", createDecimalType(3, 1), SqlDecimal.of("0.0"));
+        assertFunction("round(DECIMAL '7.1', -1)", createDecimalType(3, 1), SqlDecimal.of("10.0"));
+        assertFunction("round(DECIMAL '0.3', -1)", createDecimalType(2, 1), SqlDecimal.of("0.0"));
+        assertFunction("round(DECIMAL '33.3', -2)", createDecimalType(4, 1), SqlDecimal.of("0.0"));
+        assertFunction("round(CAST(DECIMAL '0.7' AS decimal(20, 1)), -19)", createDecimalType(21, 1), SqlDecimal.of("0.0"));
         assertFunction("round(DECIMAL '0.00', 1)", createDecimalType(3, 2), SqlDecimal.of("0.00"));
         assertFunction("round(DECIMAL '1234', 7)", createDecimalType(5, 0), SqlDecimal.of("1234"));
         assertFunction("round(DECIMAL '-1234', 7)", createDecimalType(5, 0), SqlDecimal.of("-1234"));
@@ -1211,6 +1225,54 @@ public class TestMathFunctions
                 "greatest(" + Joiner.on(", ").join(nCopies(128, "rand()")) + ")",
                 TOO_MANY_ARGUMENTS,
                 "line 1:1: Too many arguments for function call greatest()");
+
+        // row(double)
+        assertFunction("greatest(ROW(1.5E0), ROW(2.3E0))", anonymousRow(DOUBLE), ImmutableList.of(2.3));
+        assertFunction("greatest(ROW(-1.5E0), ROW(-2.3E0))", anonymousRow(DOUBLE), ImmutableList.of(-1.5));
+        assertFunction("greatest(ROW(-1.5E0), ROW(-2.3E0), ROW(-5/3))", anonymousRow(DOUBLE), ImmutableList.of(-1.0));
+        assertFunction("greatest(ROW(1.5E0), ROW(-infinity()), ROW(infinity()))", anonymousRow(DOUBLE), ImmutableList.of(Double.POSITIVE_INFINITY));
+        assertFunction("greatest(ROW(5), ROW(4), CAST(NULL as ROW(DOUBLE)), ROW(3))", anonymousRow(DOUBLE), null);
+        assertFunction("greatest(ROW(NaN()), ROW(5), ROW(4), ROW(3))", anonymousRow(DOUBLE), ImmutableList.of(5.0));
+        assertFunction("greatest(ROW(5), ROW(4), ROW(NaN()), ROW(3))", anonymousRow(DOUBLE), ImmutableList.of(5.0));
+        assertFunction("greatest(ROW(5), ROW(4), ROW(3), ROW(NaN()))", anonymousRow(DOUBLE), ImmutableList.of(5.0));
+        assertFunction("greatest(ROW(NaN()))", anonymousRow(DOUBLE), ImmutableList.of(Double.NaN));
+        assertFunction("greatest(ROW(NaN()), ROW(NaN()), ROW(NaN()))", anonymousRow(DOUBLE), ImmutableList.of(Double.NaN));
+
+        // row(real)
+        assertFunction("greatest(ROW(REAL '1.5'), ROW(REAL '2.3'))", anonymousRow(REAL), ImmutableList.of(2.3f));
+        assertFunction("greatest(ROW(REAL '-1.5'), ROW(REAL '-2.3'))", anonymousRow(REAL), ImmutableList.of(-1.5f));
+        assertFunction("greatest(ROW(REAL '-1.5'), ROW(REAL '-2.3'), ROW(CAST(-5/3 AS REAL)))", anonymousRow(REAL), ImmutableList.of(-1.0f));
+        assertFunction("greatest(ROW(REAL '1.5'), ROW(CAST(infinity() AS REAL)))", anonymousRow(REAL), ImmutableList.of(Float.POSITIVE_INFINITY));
+        assertFunction("greatest(ROW(REAL '5'), ROW(REAL '4'), CAST(NULL as ROW(REAL)), ROW(REAL '3'))", anonymousRow(REAL), null);
+        assertFunction("greatest(ROW(CAST(NaN() as REAL)), ROW(REAL '5'), ROW(REAL '4'), ROW(REAL '3'))", anonymousRow(REAL), ImmutableList.of(5.0f));
+        assertFunction("greatest(ROW(REAL '5'), ROW(REAL '4'), ROW(CAST(NaN() as REAL)), ROW(REAL '3'))", anonymousRow(REAL), ImmutableList.of(5.0f));
+        assertFunction("greatest(ROW(REAL '5'), ROW(REAL '4'), ROW(REAL '3'), ROW(CAST(NaN() as REAL)))", anonymousRow(REAL), ImmutableList.of(5.0f));
+        assertFunction("greatest(ROW(CAST(NaN() as REAL)))", anonymousRow(REAL), ImmutableList.of(Float.NaN));
+        assertFunction("greatest(ROW(CAST(NaN() as REAL)), ROW(CAST(NaN() as REAL)), ROW(CAST(NaN() as REAL)))", anonymousRow(REAL), ImmutableList.of(Float.NaN));
+
+        // row(double)
+        assertFunction("greatest(ARRAY[1.5E0], ARRAY[2.3E0])", new ArrayType(DOUBLE), ImmutableList.of(2.3));
+        assertFunction("greatest(ARRAY[-1.5E0], ARRAY[-2.3E0])", new ArrayType(DOUBLE), ImmutableList.of(-1.5));
+        assertFunction("greatest(ARRAY[-1.5E0], ARRAY[-2.3E0], ARRAY[-5/3])", new ArrayType(DOUBLE), ImmutableList.of(-1.0));
+        assertFunction("greatest(ARRAY[1.5E0], ARRAY[-infinity()], ARRAY[infinity()])", new ArrayType(DOUBLE), ImmutableList.of(Double.POSITIVE_INFINITY));
+        assertFunction("greatest(ARRAY[5], ARRAY[4], CAST(NULL as ARRAY(DOUBLE)), ARRAY[3])", new ArrayType(DOUBLE), null);
+        assertFunction("greatest(ARRAY[NaN()], ARRAY[5], ARRAY[4], ARRAY[3])", new ArrayType(DOUBLE), ImmutableList.of(5.0));
+        assertFunction("greatest(ARRAY[5], ARRAY[4], ARRAY[NaN()], ARRAY[3])", new ArrayType(DOUBLE), ImmutableList.of(5.0));
+        assertFunction("greatest(ARRAY[5], ARRAY[4], ARRAY[3], ARRAY[NaN()])", new ArrayType(DOUBLE), ImmutableList.of(5.0));
+        assertFunction("greatest(ARRAY[NaN()])", new ArrayType(DOUBLE), ImmutableList.of(Double.NaN));
+        assertFunction("greatest(ARRAY[NaN()], ARRAY[NaN()], ARRAY[NaN()])", new ArrayType(DOUBLE), ImmutableList.of(Double.NaN));
+
+        // row(real)
+        assertFunction("greatest(ARRAY[REAL '1.5'], ARRAY[REAL '2.3'])", new ArrayType(REAL), ImmutableList.of(2.3f));
+        assertFunction("greatest(ARRAY[REAL '-1.5'], ARRAY[REAL '-2.3'])", new ArrayType(REAL), ImmutableList.of(-1.5f));
+        assertFunction("greatest(ARRAY[REAL '-1.5'], ARRAY[REAL '-2.3'], ARRAY[CAST(-5/3 AS REAL)])", new ArrayType(REAL), ImmutableList.of(-1.0f));
+        assertFunction("greatest(ARRAY[REAL '1.5'], ARRAY[CAST(infinity() AS REAL)])", new ArrayType(REAL), ImmutableList.of(Float.POSITIVE_INFINITY));
+        assertFunction("greatest(ARRAY[REAL '5'], ARRAY[REAL '4'], CAST(NULL as ARRAY(REAL)), ARRAY[REAL '3'])", new ArrayType(REAL), null);
+        assertFunction("greatest(ARRAY[CAST(NaN() as REAL)], ARRAY[REAL '5'], ARRAY[REAL '4'], ARRAY[REAL '3'])", new ArrayType(REAL), ImmutableList.of(5.0f));
+        assertFunction("greatest(ARRAY[REAL '5'], ARRAY[REAL '4'], ARRAY[CAST(NaN() as REAL)], ARRAY[REAL '3'])", new ArrayType(REAL), ImmutableList.of(5.0f));
+        assertFunction("greatest(ARRAY[REAL '5'], ARRAY[REAL '4'], ARRAY[REAL '3'], ARRAY[CAST(NaN() as REAL)])", new ArrayType(REAL), ImmutableList.of(5.0f));
+        assertFunction("greatest(ARRAY[CAST(NaN() as REAL)])", new ArrayType(REAL), ImmutableList.of(Float.NaN));
+        assertFunction("greatest(ARRAY[CAST(NaN() as REAL)], ARRAY[CAST(NaN() as REAL)], ARRAY[CAST(NaN() as REAL)])", new ArrayType(REAL), ImmutableList.of(Float.NaN));
     }
 
     @Test
@@ -1283,6 +1345,54 @@ public class TestMathFunctions
         assertFunction("least(5.0E0, 4, CAST(NULL as BIGINT), 3)", DOUBLE, null);
         assertFunction("least(1.0, 2.0E0)", DOUBLE, 1.0);
         assertDecimalFunction("least(5, 4, 3.0, 2)", decimal("0000000002.0"));
+
+        // row(double)
+        assertFunction("least(ROW(1.5E0), ROW(2.3E0))", anonymousRow(DOUBLE), ImmutableList.of(1.5));
+        assertFunction("least(ROW(-1.5E0), ROW(-2.3E0))", anonymousRow(DOUBLE), ImmutableList.of(-2.3));
+        assertFunction("least(ROW(-1.5E0), ROW(-2.3E0), ROW(-5/3))", anonymousRow(DOUBLE), ImmutableList.of(-2.3));
+        assertFunction("least(ROW(1.5E0), ROW(-infinity()), ROW(infinity()))", anonymousRow(DOUBLE), ImmutableList.of(Double.NEGATIVE_INFINITY));
+        assertFunction("least(ROW(5), ROW(4), CAST(NULL as ROW(DOUBLE)), ROW(3))", anonymousRow(DOUBLE), null);
+        assertFunction("least(ROW(NaN()), ROW(5), ROW(4), ROW(3))", anonymousRow(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("least(ROW(5), ROW(4), ROW(NaN()), ROW(3))", anonymousRow(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("least(ROW(5), ROW(4), ROW(3), ROW(NaN()))", anonymousRow(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("least(ROW(NaN()))", anonymousRow(DOUBLE), ImmutableList.of(Double.NaN));
+        assertFunction("least(ROW(NaN()), ROW(NaN()), ROW(NaN()))", anonymousRow(DOUBLE), ImmutableList.of(Double.NaN));
+
+        // row(real)
+        assertFunction("least(ROW(REAL '1.5'), ROW(REAL '2.3'))", anonymousRow(REAL), ImmutableList.of(1.5f));
+        assertFunction("least(ROW(REAL '-1.5'), ROW(REAL '-2.3'))", anonymousRow(REAL), ImmutableList.of(-2.3f));
+        assertFunction("least(ROW(REAL '-1.5'), ROW(REAL '-2.3'), ROW(CAST(-5/3 AS REAL)))", anonymousRow(REAL), ImmutableList.of(-2.3f));
+        assertFunction("least(ROW(REAL '1.5'), ROW(CAST(-infinity() AS REAL)), ROW(CAST(infinity() AS REAL)))", anonymousRow(REAL), ImmutableList.of(Float.NEGATIVE_INFINITY));
+        assertFunction("least(ROW(REAL '5'), ROW(REAL '4'), CAST(NULL as ROW(REAL)), ROW(REAL '3'))", anonymousRow(REAL), null);
+        assertFunction("least(ROW(CAST(NaN() as REAL)), ROW(REAL '5'), ROW(REAL '4'), ROW(REAL '3'))", anonymousRow(REAL), ImmutableList.of(3.0f));
+        assertFunction("least(ROW(REAL '5'), ROW(REAL '4'), ROW(CAST(NaN() as REAL)), ROW(REAL '3'))", anonymousRow(REAL), ImmutableList.of(3.0f));
+        assertFunction("least(ROW(REAL '5'), ROW(REAL '4'), ROW(REAL '3'), ROW(CAST(NaN() as REAL)))", anonymousRow(REAL), ImmutableList.of(3.0f));
+        assertFunction("least(ROW(CAST(NaN() as REAL)))", anonymousRow(REAL), ImmutableList.of(Float.NaN));
+        assertFunction("least(ROW(CAST(NaN() as REAL)), ROW(CAST(NaN() as REAL)), ROW(CAST(NaN() as REAL)))", anonymousRow(REAL), ImmutableList.of(Float.NaN));
+
+        // row(double)
+        assertFunction("least(ARRAY[1.5E0], ARRAY[2.3E0])", new ArrayType(DOUBLE), ImmutableList.of(1.5));
+        assertFunction("least(ARRAY[-1.5E0], ARRAY[-2.3E0])", new ArrayType(DOUBLE), ImmutableList.of(-2.3));
+        assertFunction("least(ARRAY[-1.5E0], ARRAY[-2.3E0], ARRAY[-5/3])", new ArrayType(DOUBLE), ImmutableList.of(-2.3));
+        assertFunction("least(ARRAY[1.5E0], ARRAY[-infinity()], ARRAY[infinity()])", new ArrayType(DOUBLE), ImmutableList.of(Double.NEGATIVE_INFINITY));
+        assertFunction("least(ARRAY[5], ARRAY[4], CAST(NULL as ARRAY(DOUBLE)), ARRAY[3])", new ArrayType(DOUBLE), null);
+        assertFunction("least(ARRAY[NaN()], ARRAY[5], ARRAY[4], ARRAY[3])", new ArrayType(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("least(ARRAY[5], ARRAY[4], ARRAY[NaN()], ARRAY[3])", new ArrayType(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("least(ARRAY[5], ARRAY[4], ARRAY[3], ARRAY[NaN()])", new ArrayType(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("least(ARRAY[NaN()])", new ArrayType(DOUBLE), ImmutableList.of(Double.NaN));
+        assertFunction("least(ARRAY[NaN()], ARRAY[NaN()], ARRAY[NaN()])", new ArrayType(DOUBLE), ImmutableList.of(Double.NaN));
+
+        // row(real)
+        assertFunction("least(ARRAY[REAL '1.5'], ARRAY[REAL '2.3'])", new ArrayType(REAL), ImmutableList.of(1.5f));
+        assertFunction("least(ARRAY[REAL '-1.5'], ARRAY[REAL '-2.3'])", new ArrayType(REAL), ImmutableList.of(-2.3f));
+        assertFunction("least(ARRAY[REAL '-1.5'], ARRAY[REAL '-2.3'], ARRAY[CAST(-5/3 AS REAL)])", new ArrayType(REAL), ImmutableList.of(-2.3f));
+        assertFunction("least(ARRAY[REAL '1.5'], ARRAY[CAST(-infinity() AS REAL)], ARRAY[CAST(infinity() AS REAL)])", new ArrayType(REAL), ImmutableList.of(Float.NEGATIVE_INFINITY));
+        assertFunction("least(ARRAY[REAL '5'], ARRAY[REAL '4'], CAST(NULL as ARRAY(REAL)), ARRAY[REAL '3'])", new ArrayType(REAL), null);
+        assertFunction("least(ARRAY[CAST(NaN() as REAL)], ARRAY[REAL '5'], ARRAY[REAL '4'], ARRAY[REAL '3'])", new ArrayType(REAL), ImmutableList.of(3.0f));
+        assertFunction("least(ARRAY[REAL '5'], ARRAY[REAL '4'], ARRAY[CAST(NaN() as REAL)], ARRAY[REAL '3'])", new ArrayType(REAL), ImmutableList.of(3.0f));
+        assertFunction("least(ARRAY[REAL '5'], ARRAY[REAL '4'], ARRAY[REAL '3'], ARRAY[CAST(NaN() as REAL)])", new ArrayType(REAL), ImmutableList.of(3.0f));
+        assertFunction("least(ARRAY[CAST(NaN() as REAL)])", new ArrayType(REAL), ImmutableList.of(Float.NaN));
+        assertFunction("least(ARRAY[CAST(NaN() as REAL)], ARRAY[CAST(NaN() as REAL)], ARRAY[CAST(NaN() as REAL)])", new ArrayType(REAL), ImmutableList.of(Float.NaN));
     }
 
     @Test
@@ -1342,18 +1452,18 @@ public class TestMathFunctions
         assertInvalidFunction("width_bucket(3.14E0, -1, infinity(), 3)", "second bound must be finite");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Bucket for value Infinity is out of range")
+    @Test
     public void testWidthBucketOverflowAscending()
     {
-        functionAssertions.tryEvaluate("width_bucket(infinity(), 0, 4, " + Long.MAX_VALUE + ")", DOUBLE);
-        functionAssertions.tryEvaluate("width_bucket(CAST(infinity() as REAL), 0, 4, " + Long.MAX_VALUE + ")", DOUBLE);
+        assertInvalidFunction("width_bucket(infinity(), 0, 4, " + Long.MAX_VALUE + ")", NUMERIC_VALUE_OUT_OF_RANGE, "Bucket for value Infinity is out of range");
+        assertInvalidFunction("width_bucket(CAST(infinity() as REAL), 0, 4, " + Long.MAX_VALUE + ")", NUMERIC_VALUE_OUT_OF_RANGE, "Bucket for value Infinity is out of range");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Bucket for value Infinity is out of range")
+    @Test
     public void testWidthBucketOverflowDescending()
     {
-        functionAssertions.tryEvaluate("width_bucket(infinity(), 4, 0, " + Long.MAX_VALUE + ")", DOUBLE);
-        functionAssertions.tryEvaluate("width_bucket(CAST(infinity() as REAL), 4, 0, " + Long.MAX_VALUE + ")", DOUBLE);
+        assertInvalidFunction("width_bucket(infinity(), 4, 0, " + Long.MAX_VALUE + ")", NUMERIC_VALUE_OUT_OF_RANGE, "Bucket for value Infinity is out of range");
+        assertInvalidFunction("width_bucket(CAST(infinity() as REAL), 4, 0, " + Long.MAX_VALUE + ")", NUMERIC_VALUE_OUT_OF_RANGE, "Bucket for value Infinity is out of range");
     }
 
     @Test

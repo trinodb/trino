@@ -66,14 +66,12 @@ public class MetadataQueryOptimizer
     private static final Set<String> ALLOWED_FUNCTIONS = ImmutableSet.of("max", "min", "approx_distinct");
 
     private final Metadata metadata;
-    private final LiteralEncoder literalEncoder;
 
     public MetadataQueryOptimizer(Metadata metadata)
     {
         requireNonNull(metadata, "metadata is null");
 
         this.metadata = metadata;
-        this.literalEncoder = new LiteralEncoder(metadata);
     }
 
     @Override
@@ -82,7 +80,7 @@ public class MetadataQueryOptimizer
         if (!SystemSessionProperties.isOptimizeMetadataQueries(session)) {
             return plan;
         }
-        return SimplePlanRewriter.rewriteWith(new Optimizer(session, metadata, literalEncoder, idAllocator), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Optimizer(session, metadata, idAllocator), plan, null);
     }
 
     private static class Optimizer
@@ -93,11 +91,11 @@ public class MetadataQueryOptimizer
         private final Metadata metadata;
         private final LiteralEncoder literalEncoder;
 
-        private Optimizer(Session session, Metadata metadata, LiteralEncoder literalEncoder, PlanNodeIdAllocator idAllocator)
+        private Optimizer(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator)
         {
             this.session = session;
             this.metadata = metadata;
-            this.literalEncoder = literalEncoder;
+            this.literalEncoder = new LiteralEncoder(session, metadata);
             this.idAllocator = idAllocator;
         }
 

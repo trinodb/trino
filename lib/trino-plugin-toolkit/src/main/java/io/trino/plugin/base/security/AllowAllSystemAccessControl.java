@@ -19,6 +19,7 @@ import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
@@ -28,6 +29,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
 import java.security.Principal;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -86,13 +88,29 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanViewQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
+    {
+    }
+
+    @Override
     public void checkCanViewQueryOwnedBy(SystemSecurityContext context, String queryOwner)
+    {
+    }
+
+    @Override
+    public void checkCanKillQueryOwnedBy(SystemSecurityContext context, Identity queryOwner)
     {
     }
 
     @Override
     public void checkCanKillQueryOwnedBy(SystemSecurityContext context, String queryOwner)
     {
+    }
+
+    @Override
+    public Collection<Identity> filterViewQueryOwnedBy(SystemSecurityContext context, Collection<Identity> queryOwners)
+    {
+        return queryOwners;
     }
 
     @Override
@@ -164,12 +182,22 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+    {
+    }
+
+    @Override
     public void checkCanDropTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
 
     @Override
     public void checkCanRenameTable(SystemSecurityContext context, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
+    {
+    }
+
+    @Override
+    public void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
     {
     }
 
@@ -241,6 +269,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanTruncateTable(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
     public void checkCanUpdateTableColumns(SystemSecurityContext securityContext, CatalogSchemaTableName table, Set<String> updatedColumnNames)
     {
     }
@@ -286,6 +319,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanRenameMaterializedView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
+    {
+    }
+
+    @Override
     public void checkCanGrantExecuteFunctionPrivilege(SystemSecurityContext context, String functionName, TrinoPrincipal grantee, boolean grantOption)
     {
     }
@@ -301,6 +339,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanDenySchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal grantee)
+    {
+    }
+
+    @Override
     public void checkCanRevokeSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, TrinoPrincipal revokee, boolean grantOption)
     {
     }
@@ -311,12 +354,62 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanDenyTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, TrinoPrincipal grantee)
+    {
+    }
+
+    @Override
     public void checkCanRevokeTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, TrinoPrincipal revokee, boolean grantOption)
     {
     }
 
     @Override
-    public void checkCanShowRoles(SystemSecurityContext context, String catalogName)
+    public void checkCanShowRoles(SystemSecurityContext context)
+    {
+    }
+
+    @Override
+    public void checkCanCreateRole(SystemSecurityContext context, String role, Optional<TrinoPrincipal> grantor)
+    {
+    }
+
+    @Override
+    public void checkCanDropRole(SystemSecurityContext context, String role)
+    {
+    }
+
+    @Override
+    public void checkCanGrantRoles(
+            SystemSecurityContext context,
+            Set<String> roles,
+            Set<TrinoPrincipal> grantees,
+            boolean adminOption,
+            Optional<TrinoPrincipal> grantor)
+    {
+    }
+
+    @Override
+    public void checkCanRevokeRoles(
+            SystemSecurityContext context,
+            Set<String> roles,
+            Set<TrinoPrincipal> grantees,
+            boolean adminOption,
+            Optional<TrinoPrincipal> grantor)
+    {
+    }
+
+    @Override
+    public void checkCanShowRoleAuthorizationDescriptors(SystemSecurityContext context)
+    {
+    }
+
+    @Override
+    public void checkCanShowCurrentRoles(SystemSecurityContext context)
+    {
+    }
+
+    @Override
+    public void checkCanShowRoleGrants(SystemSecurityContext context)
     {
     }
 
@@ -327,6 +420,11 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanExecuteFunction(SystemSecurityContext systemSecurityContext, String functionName)
+    {
+    }
+
+    @Override
+    public void checkCanExecuteTableProcedure(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName table, String procedure)
     {
     }
 

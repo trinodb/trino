@@ -31,6 +31,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlManager;
+import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
@@ -46,6 +47,7 @@ import okhttp3.Response;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import javax.crypto.SecretKey;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -65,6 +67,8 @@ import java.nio.file.Paths;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -77,20 +81,27 @@ import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
-import static io.trino.server.HttpRequestSessionContext.extractAuthorizedIdentity;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
+import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
+import static io.trino.server.security.oauth2.OAuth2Service.hashNonce;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static javax.servlet.http.HttpServletResponse.SC_FORBIDDEN;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
+import static javax.servlet.http.HttpServletResponse.SC_SEE_OTHER;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
+import static javax.ws.rs.core.HttpHeaders.LOCATION;
+import static javax.ws.rs.core.HttpHeaders.SET_COOKIE;
 import static javax.ws.rs.core.HttpHeaders.WWW_AUTHENTICATE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertNotNull;
@@ -296,19 +307,19 @@ public class TestResourceSecurity
     @javax.ws.rs.Path("/username")
     public static class TestResource
     {
-        private final AccessControl accessControl;
+        private final HttpRequestSessionContextFactory sessionContextFactory;
 
         @Inject
         public TestResource(AccessControl accessControl)
         {
-            this.accessControl = accessControl;
+            this.sessionContextFactory = new HttpRequestSessionContextFactory(createTestMetadataManager(), ImmutableSet::of, accessControl);
         }
 
         @ResourceSecurity(AUTHENTICATED_USER)
         @GET
         public javax.ws.rs.core.Response echoToken(@Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
         {
-            Identity identity = extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty(), accessControl, user -> ImmutableSet.of());
+            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty());
             return javax.ws.rs.core.Response.ok()
                     .header("user", identity.getUser())
                     .build();
@@ -464,9 +475,9 @@ public class TestResourceSecurity
 
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
 
-            String hmac = Files.readString(Paths.get(HMAC_KEY));
+            SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
             JwtBuilder tokenBuilder = Jwts.builder()
-                    .signWith(SignatureAlgorithm.HS256, hmac)
+                    .signWith(hmac)
                     .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()));
             if (principalField.isPresent()) {
                 tokenBuilder.claim(principalField.get(), "test-user");
@@ -504,7 +515,7 @@ public class TestResourceSecurity
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
 
             String token = Jwts.builder()
-                    .signWith(SignatureAlgorithm.RS256, JWK_PRIVATE_KEY)
+                    .signWith(JWK_PRIVATE_KEY)
                     .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
                     .setSubject("test-user")
                     .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
@@ -540,19 +551,30 @@ public class TestResourceSecurity
                 .cookieJar(new JavaNetCookieJar(cookieManager))
                 .build();
 
+        String clientId = "client";
         Date tokenExpiration = Date.from(ZonedDateTime.now().plusMinutes(5).toInstant());
-        JwtBuilder tokenBuilder = Jwts.builder()
-                .signWith(SignatureAlgorithm.RS256, JWK_PRIVATE_KEY)
-                .setAudience("trino_oauth_rest")
+        String issuer = "http://example.com/";
+        JwtBuilder accessTokenBuilder = Jwts.builder()
+                .signWith(JWK_PRIVATE_KEY)
                 .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
+                .setIssuer(issuer)
+                .setAudience(clientId)
+                .setExpiration(tokenExpiration);
+        JwtBuilder idTokenBuilder = Jwts.builder()
+                .signWith(SignatureAlgorithm.RS256, JWK_PRIVATE_KEY)
+                .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
+                .setIssuer(issuer)
+                .setAudience(clientId)
                 .setExpiration(tokenExpiration);
         if (principalField.isPresent()) {
-            tokenBuilder.claim(principalField.get(), "test-user");
+            accessTokenBuilder.claim(principalField.get(), "test-user");
+            idTokenBuilder.claim(principalField.get(), "test-user");
         }
         else {
-            tokenBuilder.setSubject("test-user");
+            accessTokenBuilder.setSubject("test-user");
+            idTokenBuilder.setSubject("test-user");
         }
-        String token = tokenBuilder.compact();
+        String accessToken = accessTokenBuilder.compact();
 
         TestingHttpServer jwkServer = createTestingJwkServer();
         jwkServer.start();
@@ -561,11 +583,12 @@ public class TestResourceSecurity
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "oauth2")
                         .put("web-ui.enabled", String.valueOf(webUiEnabled))
+                        .put("http-server.authentication.oauth2.issuer", issuer)
                         .put("http-server.authentication.oauth2.jwks-url", jwkServer.getBaseUrl().toString())
                         .put("http-server.authentication.oauth2.state-key", "test-state-key")
-                        .put("http-server.authentication.oauth2.auth-url", "http://example.com/")
-                        .put("http-server.authentication.oauth2.token-url", "http://example.com/")
-                        .put("http-server.authentication.oauth2.client-id", "client")
+                        .put("http-server.authentication.oauth2.auth-url", issuer)
+                        .put("http-server.authentication.oauth2.token-url", issuer)
+                        .put("http-server.authentication.oauth2.client-id", clientId)
                         .put("http-server.authentication.oauth2.client-secret", "client-secret")
                         .put("http-server.authentication.oauth2.principal-field", principalField.orElse("sub"))
                         .build())
@@ -580,12 +603,12 @@ public class TestResourceSecurity
                             }
 
                             @Override
-                            public AccessToken getAccessToken(String code, URI callbackUri)
+                            public OAuth2Response getOAuth2Response(String code, URI callbackUri)
                             {
                                 if (!"TEST_CODE".equals(code)) {
                                     throw new IllegalArgumentException("Expected TEST_CODE");
                                 }
-                                return new AccessToken(token, Optional.empty(), Optional.empty());
+                                return new OAuth2Response(accessToken, Optional.of(now().plus(5, ChronoUnit.MINUTES)), Optional.of(idTokenBuilder.compact()));
                             }
                         }))
                 .build()) {
@@ -601,6 +624,10 @@ public class TestResourceSecurity
             assertAuthenticateOAuth2Bearer(client, getManagementLocation(baseUri), "http://example.com/authorize");
             assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN);
 
+            // We must add the nonce to the ID token we will soon generate.
+            idTokenBuilder.claim(NONCE, hashNonce(bearer.getNonceCookie().getValue()));
+            // The second call to `assertAuthenticateOAuth2Bearer` above overwrites the nonce cookie we need.
+            cookieManager.getCookieStore().add(cookieManager.getCookieStore().getURIs().get(0), bearer.getNonceCookie());
             // login with the callback endpoint
             assertOk(
                     client,
@@ -609,12 +636,12 @@ public class TestResourceSecurity
                             .addParameter("code", "TEST_CODE")
                             .addParameter("state", bearer.getState())
                             .toString());
-            assertEquals(getOauthToken(client, bearer.getTokenServer()), token);
+            assertEquals(getOauthToken(client, bearer.getTokenServer()), accessToken);
 
             // if Web UI is using oauth so we should get a cookie
             if (webUiEnabled) {
                 HttpCookie cookie = getOnlyElement(cookieManager.getCookieStore().getCookies());
-                assertEquals(cookie.getValue(), token);
+                assertEquals(cookie.getValue(), accessToken);
                 assertEquals(cookie.getPath(), "/ui/");
                 assertEquals(cookie.getDomain(), baseUri.getHost());
                 assertTrue(cookie.getMaxAge() > 0 && cookie.getMaxAge() < MINUTES.toSeconds(5));
@@ -628,7 +655,7 @@ public class TestResourceSecurity
 
             OkHttpClient clientWithOAuthToken = client.newBuilder()
                     .authenticator((route, response) -> response.request().newBuilder()
-                            .header(AUTHORIZATION, "Bearer " + token)
+                            .header(AUTHORIZATION, "Bearer " + accessToken)
                             .build())
                     .build();
             assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithOAuthToken);
@@ -644,14 +671,33 @@ public class TestResourceSecurity
         Request request = new Request.Builder()
                 .url(url)
                 .build();
+        String redirectTo;
+        String tokenServer;
         try (Response response = client.newCall(request).execute()) {
             assertEquals(response.code(), SC_UNAUTHORIZED, url);
             String authenticateHeader = response.header(WWW_AUTHENTICATE);
             assertNotNull(authenticateHeader);
-            Pattern oauth2BearerPattern = Pattern.compile(format("Bearer x_redirect_server=\"%s\\?(.+)\", x_token_server=\"(https://127.0.0.1:[0-9]+/oauth2/token/.+)\"", expectedRedirect));
+            Pattern oauth2BearerPattern = Pattern.compile("Bearer x_redirect_server=\"(https://127.0.0.1:[0-9]+/oauth2/token/initiate/.+)\", x_token_server=\"(https://127.0.0.1:[0-9]+/oauth2/token/.+)\"");
             Matcher matcher = oauth2BearerPattern.matcher(authenticateHeader);
             assertTrue(matcher.matches(), format("Invalid authentication header.\nExpected: %s\nPattern: %s", authenticateHeader, oauth2BearerPattern));
-            return new OAuthBearer(matcher.group(1), matcher.group(2));
+            redirectTo = matcher.group(1);
+            tokenServer = matcher.group(2);
+        }
+
+        request = new Request.Builder()
+                .url(redirectTo)
+                .build();
+        try (Response response = client.newCall(request).execute()) {
+            assertEquals(response.code(), SC_SEE_OTHER);
+            String locationHeader = response.header(LOCATION);
+            assertNotNull(locationHeader);
+            Pattern locationPattern = Pattern.compile(format("%s\\?(.+)", expectedRedirect));
+            Matcher matcher = locationPattern.matcher(locationHeader);
+            assertTrue(matcher.matches(), format("Invalid location header.\nExpected: %s\nPattern: %s", expectedRedirect, locationPattern));
+
+            HttpCookie nonceCookie = HttpCookie.parse(requireNonNull(response.header(SET_COOKIE))).get(0);
+            nonceCookie.setDomain(request.url().host());
+            return new OAuthBearer(matcher.group(1), tokenServer, nonceCookie);
         }
     }
 
@@ -659,11 +705,13 @@ public class TestResourceSecurity
     {
         private final String state;
         private final String tokenServer;
+        private final HttpCookie nonceCookie;
 
-        public OAuthBearer(String state, String tokenServer)
+        public OAuthBearer(String state, String tokenServer, HttpCookie nonceCookie)
         {
             this.state = requireNonNull(state, "state is null");
             this.tokenServer = requireNonNull(tokenServer, "tokenServer is null");
+            this.nonceCookie = requireNonNull(nonceCookie, "nonce is null");
         }
 
         public String getState()
@@ -674,6 +722,11 @@ public class TestResourceSecurity
         public String getTokenServer()
         {
             return tokenServer;
+        }
+
+        public HttpCookie getNonceCookie()
+        {
+            return nonceCookie;
         }
     }
 

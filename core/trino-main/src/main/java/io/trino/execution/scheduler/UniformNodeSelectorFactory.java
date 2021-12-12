@@ -26,6 +26,7 @@ import io.trino.execution.NodeTaskMap;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.HostAddress;
+import io.trino.spi.SplitWeight;
 
 import javax.inject.Inject;
 
@@ -56,8 +57,8 @@ public class UniformNodeSelectorFactory
     private final InternalNodeManager nodeManager;
     private final int minCandidates;
     private final boolean includeCoordinator;
-    private final int maxSplitsPerNode;
-    private final int maxPendingSplitsPerTask;
+    private final long maxSplitsWeightPerNode;
+    private final long maxPendingSplitsWeightPerTask;
     private final boolean optimizedLocalScheduling;
     private final NodeTaskMap nodeTaskMap;
     private final Duration nodeMapMemoizationDuration;
@@ -85,11 +86,13 @@ public class UniformNodeSelectorFactory
         this.nodeManager = nodeManager;
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
-        this.maxSplitsPerNode = config.getMaxSplitsPerNode();
-        this.maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
         this.optimizedLocalScheduling = config.getOptimizedLocalScheduling();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        int maxSplitsPerNode = config.getMaxSplitsPerNode();
+        int maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
         checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
+        this.maxSplitsWeightPerNode = SplitWeight.rawValueForStandardSplitCount(maxSplitsPerNode);
+        this.maxPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxPendingSplitsPerTask);
         this.nodeMapMemoizationDuration = nodeMapMemoizationDuration;
     }
 
@@ -116,8 +119,8 @@ public class UniformNodeSelectorFactory
                 includeCoordinator,
                 nodeMap,
                 minCandidates,
-                maxSplitsPerNode,
-                maxPendingSplitsPerTask,
+                maxSplitsWeightPerNode,
+                maxPendingSplitsWeightPerTask,
                 getMaxUnacknowledgedSplitsPerTask(session),
                 optimizedLocalScheduling);
     }
@@ -137,9 +140,7 @@ public class UniformNodeSelectorFactory
         for (InternalNode node : nodes) {
             try {
                 byHostAndPort.put(node.getHostAndPort(), node);
-
-                InetAddress host = InetAddress.getByName(node.getInternalUri().getHost());
-                byHost.put(host, node);
+                byHost.put(node.getInternalAddress(), node);
             }
             catch (UnknownHostException e) {
                 if (inaccessibleNodeLogCache.getIfPresent(node) == null) {

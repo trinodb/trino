@@ -13,11 +13,6 @@ steps:
 #. the user's browser is redirected back to the Trino coordinator with an authorization code
 #. the Trino coordinator exchanges the authorization code for a token
 
-.. note::
-
-    OAuth 2.0 authentication currently supports JWT access tokens only, and
-    therefore does not support opaque access tokens.
-
 To enable OAuth 2.0 authentication for Trino, configuration changes are made on
 the Trino coordinator. No changes are required to the worker configuration;
 only the communication from the clients to the coordinator is authenticated.
@@ -42,6 +37,7 @@ to the coordinator's ``config.properties`` file:
     http-server.https.port=8443
     http-server.https.enabled=true
 
+    http-server.authentication.oauth2.issuer=https://authorization-server.com
     http-server.authentication.oauth2.auth-url=https://authorization-server.com/authorize
     http-server.authentication.oauth2.token-url=https://authorization-server.com/token
     http-server.authentication.oauth2.jwks-url=https://authorization-server.com/.well-known/jwks.json
@@ -66,6 +62,11 @@ The following configuration properties are available:
    * - ``http-server.authentication.type``
      - The type of authentication to use. Must  be set to ``oauth2`` to enable
        OAuth2 authentication for the Trino coordinator.
+   * - ``http-server.authentication.oauth2.issuer``
+     - The issuer URL of the IdP. All issued tokens must have this in the ``iss`` field.
+   * - ``http-server.authentication.oauth2.access-token-issuer``
+     - The issuer URL of the IdP for access tokens, if different. All issued access tokens must
+       have this in the ``iss`` field. Defaults to ``http-server.authentication.oauth2.issuer``.
    * - ``http-server.authentication.oauth2.auth-url``
      - The authorization URL. The URL a user's browser will be redirected to in
        order to begin the OAuth 2.0 authorization process.
@@ -76,14 +77,17 @@ The following configuration properties are available:
      - The URL of the JSON Web Key Set (JWKS) endpoint on the authorization
        server. It provides Trino the set of keys containing the public key
        to verify any JSON Web Token (JWT) from the authorization server.
+   * - ``http-server.authentication.oauth2.userinfo-url``
+     - The URL of the IdPs ``/userinfo`` endpoint. If supplied then this URL is used
+       to validate the OAuth access token and retrieve any associated claims. This
+       is required if the IdP issues opaque tokens.
    * - ``http-server.authentication.oauth2.client-id``
      - The public identifier of the Trino client.
    * - ``http-server.authentication.oauth2.client-secret``
      - The secret used to authorize Trino client with the authorization server.
-   * - ``http-server.authentication.oauth2.audience``
-     - The audience of a JSON Web Token is used as the target audience of an
-       access token requested by the Trino coordinator as well as the required
-       audience of an access token included in user requests to the coordinator.
+   * - ``http-server.authentication.oauth2.additional-audiences``
+     - Additional audiences to trust in addition to the client ID which is
+       always a trusted audience.
    * - ``http-server.authentication.oauth2.scopes``
      - Scopes requested by the server during the authorization challenge. See:
        https://tools.ietf.org/html/rfc6749#section-3.3

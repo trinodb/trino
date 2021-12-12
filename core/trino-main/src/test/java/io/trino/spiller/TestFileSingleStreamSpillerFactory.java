@@ -143,24 +143,28 @@ public class TestFileSingleStreamSpillerFactory
         return new Page(col1.build());
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "No free or healthy space available for spill")
+    @Test
     public void throwsIfNoDiskSpace()
     {
         List<Type> types = ImmutableList.of(BIGINT);
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths, 0.0);
 
-        spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+        assertThatThrownBy(() -> spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test")))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("No free or healthy space available for spill");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "No spill paths configured")
+    @Test
     public void throwIfNoSpillPaths()
     {
         List<Path> spillPaths = emptyList();
         List<Type> types = ImmutableList.of(BIGINT);
         FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
 
-        spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+        assertThatThrownBy(() -> spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test")))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("No spill paths configured");
     }
 
     @Test

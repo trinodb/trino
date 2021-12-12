@@ -30,11 +30,12 @@ import java.util.UUID;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.block.Int128ArrayBlock.INT128_BYTES;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Long.reverseBytes;
+import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 
 /**
@@ -154,6 +155,23 @@ public class UuidType
                 block.getLong(position, SIZE_OF_LONG));
     }
 
+    public static Slice javaUuidToTrinoUuid(UUID uuid)
+    {
+        return Slices.wrappedLongArray(
+                reverseBytes(uuid.getMostSignificantBits()),
+                reverseBytes(uuid.getLeastSignificantBits()));
+    }
+
+    public static UUID trinoUuidToJavaUuid(Slice uuid)
+    {
+        if (uuid.length() != INT128_BYTES) {
+            throw new IllegalStateException(format("Expected value to be exactly %d bytes but was %d", INT128_BYTES, uuid.length()));
+        }
+        return new UUID(
+                reverseBytes(uuid.getLong(0)),
+                reverseBytes(uuid.getLong(SIZE_OF_LONG)));
+    }
+
     @ScalarOperator(EQUAL)
     private static boolean equalOperator(Slice left, Slice right)
     {
@@ -196,7 +214,7 @@ public class UuidType
         return XxHash64.hash(low) ^ XxHash64.hash(high);
     }
 
-    @ScalarOperator(COMPARISON)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(Slice left, Slice right)
     {
         return compareLittleEndian(
@@ -206,7 +224,7 @@ public class UuidType
                 right.getLong(SIZE_OF_LONG));
     }
 
-    @ScalarOperator(COMPARISON)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
     {
         return compareLittleEndian(

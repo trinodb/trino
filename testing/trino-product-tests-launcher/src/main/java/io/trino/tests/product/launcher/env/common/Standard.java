@@ -19,7 +19,9 @@ import io.trino.tests.product.launcher.env.Debug;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
+import io.trino.tests.product.launcher.env.EnvironmentContainers;
 import io.trino.tests.product.launcher.env.ServerPackage;
+import io.trino.tests.product.launcher.env.SupportedTrinoJdk;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
@@ -52,9 +54,11 @@ import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
-// Use io.trino.tests.product.launcher.env.common.StandardMultinode instead
-// Product tests should mimic production like use case.
-// Single node environment does not do it well enough and some issues are only exposed with multi node installations.
+/**
+ * @deprecated Product tests should mimic production like use case.
+ * Single node environment does not do it well enough and some issues are
+ * only exposed with multi node installations. Use {@link StandardMultinode} instead.
+ */
 @Deprecated
 public final class Standard
         implements EnvironmentExtender
@@ -67,12 +71,16 @@ public final class Standard
     public static final String CONTAINER_PRESTO_JVM_CONFIG = CONTAINER_PRESTO_ETC + "/jvm.config";
     public static final String CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES = CONTAINER_PRESTO_ETC + "/access-control.properties";
     public static final String CONTAINER_PRESTO_CONFIG_PROPERTIES = CONTAINER_PRESTO_ETC + "/config.properties";
+    /**
+     * @deprecated please use {@link EnvironmentContainers#configureTempto} instead.
+     */
     public static final String CONTAINER_TEMPTO_PROFILE_CONFIG = "/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml";
 
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
 
     private final String imagesVersion;
+    private final SupportedTrinoJdk jdkVersion;
     private final File serverPackage;
     private final boolean debug;
 
@@ -82,11 +90,13 @@ public final class Standard
             PortBinder portBinder,
             EnvironmentConfig environmentConfig,
             @ServerPackage File serverPackage,
+            SupportedTrinoJdk jdkVersion,
             @Debug boolean debug)
     {
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
+        this.jdkVersion = requireNonNull(jdkVersion, "jdkVersion is null");
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
         this.debug = debug;
         checkArgument(serverPackage.getName().endsWith(".tar.gz"), "Currently only server .tar.gz package is supported");
@@ -102,18 +112,18 @@ public final class Standard
     private DockerContainer createPrestoMaster()
     {
         DockerContainer container =
-                createPrestoContainer(dockerFiles, serverPackage, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, COORDINATOR)
+                createPrestoContainer(dockerFiles, serverPackage, jdkVersion, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, COORDINATOR)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.properties")), CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
 
-        portBinder.exposePort(container, 8080); // Presto default port
+        portBinder.exposePort(container, 8080); // Trino default port
         return container;
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createTestsContainer()
     {
-        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/centos7-oj8:" + imagesVersion, TESTS)
+        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, TESTS)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withCommand("bash", "-xeuc", "echo 'No command provided' >&2; exit 69")
                 .waitingFor(new WaitAllStrategy()) // don't wait
@@ -123,7 +133,7 @@ public final class Standard
     }
 
     @SuppressWarnings("resource")
-    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, File serverPackage, boolean debug, String dockerImageName, String logicalName)
+    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, File serverPackage, SupportedTrinoJdk jdkVersion, boolean debug, String dockerImageName, String logicalName)
     {
         DockerContainer container = new DockerContainer(dockerImageName, logicalName)
                 .withNetworkAliases(logicalName + ".docker.cluster")
@@ -133,6 +143,7 @@ public final class Standard
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/trino-health-check.sh")), CONTAINER_HEALTH_D + "trino-health-check.sh")
                 // the server package is hundreds MB and file system bind is much more efficient
                 .withFileSystemBind(serverPackage.getPath(), "/docker/presto-server.tar.gz", READ_ONLY)
+                .withEnv("JAVA_HOME", jdkVersion.getJavaHome())
                 .withCommand("/docker/presto-product-tests/run-presto.sh")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())

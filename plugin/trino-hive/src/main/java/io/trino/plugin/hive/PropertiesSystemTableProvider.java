@@ -26,7 +26,6 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.List;
 import java.util.Map;
@@ -58,7 +57,7 @@ public class PropertiesSystemTableProvider
 
         SchemaTableName sourceTableName = PROPERTIES.getSourceTableName(tableName);
         Optional<Table> table = metadata.getMetastore().getTable(new HiveIdentity(session), sourceTableName.getSchemaName(), sourceTableName.getTableName());
-        if (table.isEmpty() || table.get().getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
+        if (table.isEmpty()) {
             throw new TableNotFoundException(tableName);
         }
         Map<String, String> sortedTableParameters = ImmutableSortedMap.copyOf(table.get().getParameters());

@@ -34,12 +34,10 @@ import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.trino.plugin.hive.s3select.S3SelectRecordCursorProvider;
 import io.trino.plugin.hive.s3select.TrinoS3ClientFactory;
-import io.trino.plugin.hive.security.SystemTableAwareAccessControl;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
-import io.trino.spi.connector.SystemTable;
 
 import javax.inject.Singleton;
 
@@ -86,13 +84,14 @@ public class HiveModule
         Multibinder<SystemTableProvider> systemTableProviders = newSetBinder(binder, SystemTableProvider.class);
         systemTableProviders.addBinding().to(PartitionsSystemTableProvider.class).in(Scopes.SINGLETON);
         systemTableProviders.addBinding().to(PropertiesSystemTableProvider.class).in(Scopes.SINGLETON);
-        binder.bind(SystemTableAwareAccessControl.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, HiveRedirectionsProvider.class)
                 .setDefault().to(NoneHiveRedirectionsProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, HiveMaterializedViewMetadataFactory.class)
                 .setDefault().to(DefaultHiveMaterializedViewMetadataFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, TransactionalMetadataFactory.class)
                 .setDefault().to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, HiveTableRedirectionsProvider.class)
+                .setDefault().to(DefaultHiveTableRedirectionsProvider.class);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generator -> generator.generatedNameOf(HiveSplitManager.class));
@@ -126,8 +125,6 @@ public class HiveModule
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
         fileWriterFactoryBinder.addBinding().to(ParquetFileWriterFactory.class).in(Scopes.SINGLETON);
-
-        newSetBinder(binder, SystemTable.class);
     }
 
     @Singleton

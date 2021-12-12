@@ -23,8 +23,11 @@ import com.google.common.io.Resources;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
 import io.airlift.http.server.testing.TestingHttpServer;
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.airlift.node.NodeInfo;
 import io.trino.server.testing.TestingTrinoServer;
+import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
 import io.trino.server.ui.WebUiModule;
 import io.trino.util.AutoCloseableCloser;
 import okhttp3.Credentials;
@@ -35,8 +38,10 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
@@ -62,33 +67,55 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 public class TestingHydraIdentityProvider
         implements AutoCloseable
 {
-    private static final String HYDRA_IMAGE = "oryd/hydra:v1.9.0-sqlite";
+    private static final String HYDRA_IMAGE = "oryd/hydra:v1.10.6";
+    private static final String ISSUER = "https://localhost:4444/";
+    private static final String DSN = "postgres://hydra:mysecretpassword@database:5432/hydra?sslmode=disable";
 
     private final Network network = Network.newNetwork();
+
+    private final PostgreSQLContainer<?> databaseContainer = new PostgreSQLContainer<>()
+            .withNetwork(network)
+            .withNetworkAliases("database")
+            .withUsername("hydra")
+            .withPassword("mysecretpassword")
+            .withDatabaseName("hydra");
+
+    private final GenericContainer<?> migrationContainer = createHydraContainer()
+            .withCommand("migrate", "sql", "--yes", DSN)
+            .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofMinutes(5)));
+
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
     private final ObjectMapper mapper = new ObjectMapper();
     private final Duration ttlAccessToken;
+    private final boolean useJwt;
+    private final boolean exposeFixedPorts;
     private final OkHttpClient httpClient;
-    private GenericContainer<?> hydraContainer;
+    private FixedHostPortGenericContainer<?> hydraContainer;
 
     public TestingHydraIdentityProvider()
     {
-        this(Duration.ofMinutes(30));
+        this(Duration.ofMinutes(30), true, false);
     }
 
-    public TestingHydraIdentityProvider(Duration ttlAccessToken)
+    public TestingHydraIdentityProvider(Duration ttlAccessToken, boolean useJwt, boolean exposeFixedPorts)
     {
         this.ttlAccessToken = requireNonNull(ttlAccessToken, "ttlAccessToken is null");
+        this.useJwt = useJwt;
+        this.exposeFixedPorts = exposeFixedPorts;
         OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder();
         setupInsecureSsl(httpClientBuilder);
         httpClientBuilder.followRedirects(false);
         httpClient = httpClientBuilder.build();
         closer.register(network);
+        closer.register(databaseContainer);
+        closer.register(migrationContainer);
     }
 
     public void start()
             throws Exception
     {
+        databaseContainer.start();
+        migrationContainer.start();
         TestingHttpServer loginAndConsentServer = createTestingLoginAndConsentServer();
         closer.register(loginAndConsentServer::stop);
         loginAndConsentServer.start();
@@ -97,26 +124,32 @@ public class TestingHydraIdentityProvider
         hydraContainer = createHydraContainer()
                 .withNetworkAliases("hydra")
                 .withExposedPorts(4444, 4445)
-                .withEnv("DSN", "memory")
-                .withEnv("URLS_SELF_ISSUER", "https://localhost:4444/")
+                .withEnv("DSN", DSN)
+                .withEnv("URLS_SELF_ISSUER", ISSUER)
                 .withEnv("URLS_CONSENT", loginAndConsentBaseUrl + "/consent")
                 .withEnv("URLS_LOGIN", loginAndConsentBaseUrl + "/login")
                 .withEnv("SERVE_TLS_KEY_PATH", "/tmp/certs/localhost.pem")
                 .withEnv("SERVE_TLS_CERT_PATH", "/tmp/certs/localhost.pem")
-                .withEnv("STRATEGIES_ACCESS_TOKEN", "jwt")
                 .withEnv("TTL_ACCESS_TOKEN", ttlAccessToken.getSeconds() + "s")
+                .withEnv("STRATEGIES_ACCESS_TOKEN", useJwt ? "jwt" : null)
+                .withEnv("LOG_LEAK_SENSITIVE_VALUES", "true")
                 .withCommand("serve", "all")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("/cert"), "/tmp/certs")
                 .waitingFor(new WaitAllStrategy()
                         .withStrategy(Wait.forLogMessage(".*Setting up http server on :4444.*", 1))
                         .withStrategy(Wait.forLogMessage(".*Setting up http server on :4445.*", 1)));
+        if (exposeFixedPorts) {
+            hydraContainer = hydraContainer
+                    .withFixedExposedPort(4444, 4444)
+                    .withFixedExposedPort(4445, 4445);
+        }
         closer.register(hydraContainer);
         hydraContainer.start();
     }
 
-    public GenericContainer<?> createHydraContainer()
+    public FixedHostPortGenericContainer<?> createHydraContainer()
     {
-        return new GenericContainer<>(HYDRA_IMAGE).withNetwork(network);
+        return new FixedHostPortGenericContainer<>(HYDRA_IMAGE).withNetwork(network);
     }
 
     public void createClient(
@@ -241,12 +274,12 @@ public class TestingHydraIdentityProvider
                 throws IOException
         {
             return httpClient.newCall(
-                    new Request.Builder()
-                            .url("https://localhost:" + getAdminPort() + "/oauth2/auth/requests/login/accept?login_challenge=" + loginChallenge)
-                            .put(RequestBody.create(
-                                    MediaType.get(APPLICATION_JSON),
-                                    mapper.writeValueAsString(mapper.createObjectNode().put("subject", "foo@bar.com"))))
-                            .build())
+                            new Request.Builder()
+                                    .url("https://localhost:" + getAdminPort() + "/oauth2/auth/requests/login/accept?login_challenge=" + loginChallenge)
+                                    .put(RequestBody.create(
+                                            MediaType.get(APPLICATION_JSON),
+                                            mapper.writeValueAsString(mapper.createObjectNode().put("subject", "foo@bar.com"))))
+                                    .build())
                     .execute();
         }
 
@@ -254,10 +287,10 @@ public class TestingHydraIdentityProvider
                 throws IOException
         {
             try (Response response = httpClient.newCall(
-                    new Request.Builder()
-                            .url("https://localhost:" + getAdminPort() + "/oauth2/auth/requests/consent?consent_challenge=" + consentChallenge)
-                            .get()
-                            .build())
+                            new Request.Builder()
+                                    .url("https://localhost:" + getAdminPort() + "/oauth2/auth/requests/consent?consent_challenge=" + consentChallenge)
+                                    .get()
+                                    .build())
                     .execute()) {
                 requireNonNull(response.body());
                 return mapper.readTree(response.body().byteStream());
@@ -268,14 +301,14 @@ public class TestingHydraIdentityProvider
                 throws IOException
         {
             return httpClient.newCall(
-                    new Request.Builder()
-                            .url("https://localhost:" + getAdminPort() + "/oauth2/auth/requests/consent/accept?consent_challenge=" + consentChallenge)
-                            .put(RequestBody.create(
-                                    MediaType.get(APPLICATION_JSON),
-                                    mapper.writeValueAsString(mapper.createObjectNode()
-                                            .<ObjectNode>set("grant_scope", consentRequest.get("requested_scope"))
-                                            .<ObjectNode>set("grant_access_token_audience", consentRequest.get("requested_access_token_audience")))))
-                            .build())
+                            new Request.Builder()
+                                    .url("https://localhost:" + getAdminPort() + "/oauth2/auth/requests/consent/accept?consent_challenge=" + consentChallenge)
+                                    .put(RequestBody.create(
+                                            MediaType.get(APPLICATION_JSON),
+                                            mapper.writeValueAsString(mapper.createObjectNode()
+                                                    .<ObjectNode>set("grant_scope", consentRequest.get("requested_scope"))
+                                                    .<ObjectNode>set("grant_access_token_audience", consentRequest.get("requested_access_token_audience")))))
+                                    .build())
                     .execute();
         }
 
@@ -298,42 +331,58 @@ public class TestingHydraIdentityProvider
         }
     }
 
-    public static void main(String[] args)
+    private static void runTestServer(boolean useJwt)
             throws Exception
     {
-        try (TestingHydraIdentityProvider service = new TestingHydraIdentityProvider()) {
+        try (TestingHydraIdentityProvider service = new TestingHydraIdentityProvider(Duration.ofMinutes(30), useJwt, true)) {
             service.start();
-            String authServerUrl = "https://localhost:" + service.getAuthPort();
             service.createClient(
                     "trino-client",
                     "trino-secret",
                     CLIENT_SECRET_BASIC,
                     ImmutableList.of("https://localhost:8443/ui"),
                     "https://localhost:8443/oauth2/callback");
+            ImmutableMap.Builder<String, String> config = ImmutableMap.<String, String>builder()
+                    .put("web-ui.enabled", "true")
+                    .put("web-ui.authentication.type", "oauth2")
+                    .put("http-server.https.port", "8443")
+                    .put("http-server.https.enabled", "true")
+                    .put("http-server.https.keystore.path", Resources.getResource("cert/localhost.pem").getPath())
+                    .put("http-server.https.keystore.key", "")
+                    .put("http-server.authentication.type", "oauth2")
+                    .put("http-server.authentication.oauth2.issuer", ISSUER)
+                    .put("http-server.authentication.oauth2.auth-url", ISSUER + "oauth2/auth")
+                    .put("http-server.authentication.oauth2.token-url", ISSUER + "oauth2/token")
+                    .put("http-server.authentication.oauth2.jwks-url", ISSUER + ".well-known/jwks.json")
+                    .put("http-server.authentication.oauth2.client-id", "trino-client")
+                    .put("http-server.authentication.oauth2.client-secret", "trino-secret")
+                    .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@.*")
+                    .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath());
+            if (!useJwt) {
+                config.put("http-server.authentication.oauth2.userinfo-url", ISSUER + "userinfo");
+            }
             try (TestingTrinoServer ignored = TestingTrinoServer.builder()
                     .setCoordinator(true)
                     .setAdditionalModule(new WebUiModule())
-                    .setProperties(
-                            ImmutableMap.<String, String>builder()
-                                    .put("web-ui.enabled", "true")
-                                    .put("web-ui.authentication.type", "oauth2")
-                                    .put("http-server.https.port", "8443")
-                                    .put("http-server.https.enabled", "true")
-                                    .put("http-server.https.keystore.path", Resources.getResource("cert/localhost.pem").getPath())
-                                    .put("http-server.https.keystore.key", "")
-                                    .put("http-server.authentication.type", "oauth2")
-                                    .put("http-server.authentication.oauth2.auth-url", authServerUrl + "/oauth2/auth")
-                                    .put("http-server.authentication.oauth2.token-url", authServerUrl + "/oauth2/token")
-                                    .put("http-server.authentication.oauth2.jwks-url", authServerUrl + "/.well-known/jwks.json")
-                                    .put("http-server.authentication.oauth2.client-id", "trino-client")
-                                    .put("http-server.authentication.oauth2.client-secret", "trino-secret")
-                                    .put("http-server.authentication.oauth2.audience", "https://localhost:8443/ui")
-                                    .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@.*")
-                                    .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath())
-                                    .build())
+                    .setProperties(config.build())
                     .build()) {
                 Thread.sleep(Long.MAX_VALUE);
             }
+        }
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging logging = Logging.initialize();
+        try {
+            logging.setLevel(OAuth2WebUiAuthenticationFilter.class.getName(), Level.DEBUG);
+            logging.setLevel(OAuth2Service.class.getName(), Level.DEBUG);
+            runTestServer(false);
+        }
+        finally {
+            logging.clearLevel(OAuth2WebUiAuthenticationFilter.class.getName());
+            logging.clearLevel(OAuth2Service.class.getName());
         }
     }
 }

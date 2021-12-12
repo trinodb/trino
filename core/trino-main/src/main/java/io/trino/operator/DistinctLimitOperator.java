@@ -32,7 +32,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.trino.operator.GroupByHash.createGroupByHash;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -133,11 +132,11 @@ public class DistinctLimitOperator
         }
 
         this.groupByHash = createGroupByHash(
+                operatorContext.getSession(),
                 distinctTypes,
                 distinctChannelInts,
                 hashChannel,
                 toIntExact(Math.min(limit, 10_000)),
-                isDictionaryAggregationEnabled(operatorContext.getSession()),
                 joinCompiler,
                 blockTypeOperators,
                 this::updateMemoryReservation);

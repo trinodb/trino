@@ -15,7 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -27,13 +27,13 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static io.trino.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.util.StructuralTestUtil.mapType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -44,9 +44,9 @@ public class TestDoubleHistogramAggregation
 
     public TestDoubleHistogramAggregation()
     {
-        Metadata metadata = createTestMetadataManager();
-        InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("numeric_histogram"), fromTypes(BIGINT, DOUBLE, DOUBLE)));
+        TestingAggregationFunction function = new TestingFunctionResolution().getAggregateFunction(
+                QualifiedName.of("numeric_histogram"),
+                fromTypes(BIGINT, DOUBLE, DOUBLE));
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
 
         input = makeInput(10);
@@ -102,11 +102,13 @@ public class TestDoubleHistogramAggregation
         assertTrue(result.isNull(0));
     }
 
-    @Test(expectedExceptions = TrinoException.class)
+    @Test
     public void testBadNumberOfBuckets()
     {
         Accumulator singleStep = factory.createAccumulator();
-        singleStep.addInput(makeInput(0));
+        assertThatThrownBy(() -> singleStep.addInput(makeInput(0)))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("numeric_histogram bucket count must be greater than one");
         getFinalBlock(singleStep);
     }
 

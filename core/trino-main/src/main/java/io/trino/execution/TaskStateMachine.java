@@ -13,13 +13,20 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.trino.execution.StateMachine.StateChangeListener;
 import org.joda.time.DateTime;
 
+import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -39,12 +46,19 @@ public class TaskStateMachine
     private final DateTime createdTime = DateTime.now();
 
     private final TaskId taskId;
+    private final Executor executor;
     private final StateMachine<TaskState> taskState;
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
+
+    @GuardedBy("this")
+    private final Map<TaskId, Throwable> sourceTaskFailures = new HashMap<>();
+    @GuardedBy("this")
+    private final List<TaskFailureListener> sourceTaskFailureListeners = new ArrayList<>();
 
     public TaskStateMachine(TaskId taskId, Executor executor)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
+        this.executor = requireNonNull(executor, "executor is null");
         taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING, TERMINAL_TASK_STATES);
         taskState.addStateChangeListener(newState -> log.debug("Task %s is %s", taskId, newState));
     }
@@ -124,6 +138,32 @@ public class TaskStateMachine
     public void addStateChangeListener(StateChangeListener<TaskState> stateChangeListener)
     {
         taskState.addStateChangeListener(stateChangeListener);
+    }
+
+    public void addSourceTaskFailureListener(TaskFailureListener listener)
+    {
+        Map<TaskId, Throwable> failures;
+        synchronized (this) {
+            sourceTaskFailureListeners.add(listener);
+            failures = ImmutableMap.copyOf(sourceTaskFailures);
+        }
+        executor.execute(() -> {
+            failures.forEach(listener::onTaskFailed);
+        });
+    }
+
+    public void sourceTaskFailed(TaskId taskId, Throwable failure)
+    {
+        List<TaskFailureListener> listeners;
+        synchronized (this) {
+            sourceTaskFailures.putIfAbsent(taskId, failure);
+            listeners = ImmutableList.copyOf(sourceTaskFailureListeners);
+        }
+        executor.execute(() -> {
+            for (TaskFailureListener listener : listeners) {
+                listener.onTaskFailed(taskId, failure);
+            }
+        });
     }
 
     @Override

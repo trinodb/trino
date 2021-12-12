@@ -18,9 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
@@ -38,6 +41,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
@@ -51,12 +55,11 @@ import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 public class TestPrunePattenRecognitionColumns
         extends BaseRuleTest
 {
-    private static final ResolvedFunction RANK = createTestMetadataManager().resolveFunction(QualifiedName.of("rank"), ImmutableList.of());
-    private static final ResolvedFunction LAG = createTestMetadataManager().resolveFunction(QualifiedName.of("lag"), fromTypes(BIGINT));
-
     @Test
     public void testRemovePatternRecognitionNode()
     {
+        ResolvedFunction rank = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("rank"), ImmutableList.of());
+
         // MATCH_RECOGNIZE with options: AFTER MATCH SKIP PAST LAST ROW, ALL ROWS WITH UNMATCHED ROW
         tester().assertThat(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
@@ -93,7 +96,7 @@ public class TestPrunePattenRecognitionColumns
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("b")),
                         p.patternRecognition(builder -> builder
-                                .addWindowFunction(p.symbol("rank"), new WindowNode.Function(RANK, ImmutableList.of(), DEFAULT_FRAME, false))
+                                .addWindowFunction(p.symbol("rank"), new WindowNode.Function(rank, ImmutableList.of(), DEFAULT_FRAME, false))
                                 .addMeasure(p.symbol("measure"), "LAST(X.a)", BIGINT)
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
@@ -110,12 +113,14 @@ public class TestPrunePattenRecognitionColumns
     @Test
     public void testPruneUnreferencedWindowFunctionAndSources()
     {
+        ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
+
         // remove window function "lag" and input symbol "b" used only by that function
         tester().assertThat(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("measure")),
                         p.patternRecognition(builder -> builder
-                                .addWindowFunction(p.symbol("lag"), new WindowNode.Function(LAG, ImmutableList.of(p.symbol("b").toSymbolReference()), DEFAULT_FRAME, false))
+                                .addWindowFunction(p.symbol("lag"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b").toSymbolReference()), DEFAULT_FRAME, false))
                                 .addMeasure(p.symbol("measure"), "LAST(X.a)", BIGINT)
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
@@ -141,12 +146,14 @@ public class TestPrunePattenRecognitionColumns
     @Test
     public void testPruneUnreferencedMeasureAndSources()
     {
+        ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
+
         // remove row pattern measure "measure" and input symbol "a" used only by that measure
         tester().assertThat(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("lag")),
                         p.patternRecognition(builder -> builder
-                                .addWindowFunction(p.symbol("lag"), new WindowNode.Function(LAG, ImmutableList.of(p.symbol("b").toSymbolReference()), DEFAULT_FRAME, false))
+                                .addWindowFunction(p.symbol("lag"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("b").toSymbolReference()), DEFAULT_FRAME, false))
                                 .addMeasure(p.symbol("measure"), "LAST(X.a)", BIGINT)
                                 .rowsPerMatch(WINDOW)
                                 .frame(new WindowNode.Frame(ROWS, CURRENT_ROW, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
@@ -190,6 +197,30 @@ public class TestPrunePattenRecognitionColumns
                                         strictProject(
                                                 ImmutableMap.of("a", expression("a")),
                                                 values("a", "b")))));
+
+        // inputs "a", "b" are used as aggregation arguments
+        QualifiedName maxBy = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("max_by"), fromTypes(BIGINT, BIGINT)).toQualifiedName();
+        tester().assertThat(new PrunePattenRecognitionColumns())
+                .on(p -> p.project(
+                        Assignments.of(),
+                        p.patternRecognition(builder -> builder
+                                .addMeasure(p.symbol("measure"), "1", BIGINT)
+                                .pattern(new IrLabel("X"))
+                                .addVariableDefinition(
+                                        new IrLabel("X"),
+                                        new ComparisonExpression(GREATER_THAN, new FunctionCall(maxBy, ImmutableList.of(PlanBuilder.expression("a"), PlanBuilder.expression("b"))), PlanBuilder.expression("5")))
+                                .source(p.values(p.symbol("a"), p.symbol("b"), p.symbol("c"))))))
+                .matches(
+                        strictProject(
+                                ImmutableMap.of(),
+                                patternRecognition(builder -> builder
+                                                .pattern(new IrLabel("X"))
+                                                .addVariableDefinition(
+                                                        new IrLabel("X"),
+                                                        new ComparisonExpression(GREATER_THAN, new FunctionCall(maxBy, ImmutableList.of(PlanBuilder.expression("a"), PlanBuilder.expression("b"))), PlanBuilder.expression("5"))),
+                                        strictProject(
+                                                ImmutableMap.of("a", expression("a"), "b", expression("b")),
+                                                values("a", "b", "c")))));
     }
 
     @Test

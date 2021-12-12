@@ -25,15 +25,14 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.runner.RunnerException;
 
-import java.io.IOException;
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.io.Resources.getResource;
 import static io.trino.jmh.Benchmarks.benchmark;
 
 @State(Scope.Thread)
@@ -65,9 +64,9 @@ public class BenchmarkGeometryToBingTiles
 
         @Setup
         public void setup()
-                throws IOException
+                throws Exception
         {
-            Path filePath = Paths.get(this.getClass().getClassLoader().getResource("large_polygon.txt").getPath());
+            Path filePath = new File(getResource("large_polygon.txt").toURI()).toPath();
             List<String> lines = Files.readAllLines(filePath);
             String line = lines.get(0);
             String[] parts = line.split("\\|");
@@ -79,7 +78,7 @@ public class BenchmarkGeometryToBingTiles
     }
 
     public static void main(String[] args)
-            throws IOException, RunnerException
+            throws Exception
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();

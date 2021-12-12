@@ -64,7 +64,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -207,7 +206,7 @@ public class SqlTaskManager
         }
         currentMemoryPoolAssignmentVersion = assignments.getVersion();
         if (coordinatorId != null && !coordinatorId.equals(assignments.getCoordinatorId())) {
-            log.warn("Switching coordinator affinity from " + coordinatorId + " to " + assignments.getCoordinatorId());
+            log.warn("Switching coordinator affinity from %s to %s", coordinatorId, assignments.getCoordinatorId());
         }
         coordinatorId = assignments.getCoordinatorId();
 
@@ -376,11 +375,10 @@ public class SqlTaskManager
             Optional<PlanFragment> fragment,
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
-            OptionalInt totalPartitions,
             Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
         try {
-            return versionEmbedder.embedVersion(() -> doUpdateTask(session, taskId, fragment, sources, outputBuffers, totalPartitions, dynamicFilterDomains)).call();
+            return versionEmbedder.embedVersion(() -> doUpdateTask(session, taskId, fragment, sources, outputBuffers, dynamicFilterDomains)).call();
         }
         catch (Exception e) {
             throwIfUnchecked(e);
@@ -395,7 +393,6 @@ public class SqlTaskManager
             Optional<PlanFragment> fragment,
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
-            OptionalInt totalPartitions,
             Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
         requireNonNull(session, "session is null");
@@ -417,7 +414,7 @@ public class SqlTaskManager
         }
 
         sqlTask.recordHeartbeat();
-        return sqlTask.updateTask(session, fragment, sources, outputBuffers, totalPartitions, dynamicFilterDomains);
+        return sqlTask.updateTask(session, fragment, sources, outputBuffers, dynamicFilterDomains);
     }
 
     @Override
@@ -464,6 +461,15 @@ public class SqlTaskManager
         requireNonNull(taskId, "taskId is null");
 
         return tasks.getUnchecked(taskId).abort();
+    }
+
+    @Override
+    public TaskInfo failTask(TaskId taskId, Throwable failure)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(failure, "failure is null");
+
+        return tasks.getUnchecked(taskId).failed(failure);
     }
 
     public void removeOldTasks()
@@ -534,6 +540,18 @@ public class SqlTaskManager
     {
         requireNonNull(taskId, "taskId is null");
         tasks.getUnchecked(taskId).addStateChangeListener(stateChangeListener);
+    }
+
+    @Override
+    public void addSourceTaskFailureListener(TaskId taskId, TaskFailureListener listener)
+    {
+        tasks.getUnchecked(taskId).addSourceTaskFailureListener(listener);
+    }
+
+    @Override
+    public Optional<String> getTraceToken(TaskId taskId)
+    {
+        return tasks.getUnchecked(taskId).getTraceToken();
     }
 
     @VisibleForTesting

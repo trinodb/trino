@@ -22,7 +22,8 @@ import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.Expression;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,10 +32,21 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class DropTableTask
         implements DataDefinitionTask<DropTable>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public DropTableTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -44,15 +56,32 @@ public class DropTableTask
     @Override
     public ListenableFuture<Void> execute(
             DropTable statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
+
+        if (metadata.isMaterializedView(session, tableName)) {
+            if (!statement.isExists()) {
+                throw semanticException(
+                        TABLE_NOT_FOUND,
+                        statement,
+                        "Table '%s' does not exist, but a materialized view with that name exists. Did you mean DROP MATERIALIZED VIEW %s?", tableName, tableName);
+            }
+            return immediateVoidFuture();
+        }
+
+        if (metadata.isView(session, tableName)) {
+            if (!statement.isExists()) {
+                throw semanticException(
+                        TABLE_NOT_FOUND,
+                        statement,
+                        "Table '%s' does not exist, but a view with that name exists. Did you mean DROP VIEW %s?", tableName, tableName);
+            }
+            return immediateVoidFuture();
+        }
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isEmpty()) {

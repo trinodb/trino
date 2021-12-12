@@ -11,7 +11,7 @@
 package io.trino.plugin.jdbc.mapping;
 
 import com.google.common.collect.Table;
-import io.trino.plugin.jdbc.JdbcIdentity;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.sql.Connection;
 import java.util.Map;
@@ -80,7 +80,7 @@ public class RuleBasedIdentifierMapping
     }
 
     @Override
-    public String toRemoteSchemaName(JdbcIdentity identity, Connection connection, String schemaName)
+    public String toRemoteSchemaName(ConnectorIdentity identity, Connection connection, String schemaName)
     {
         String remoteSchemaName = toRemoteSchema.get(schemaName);
         if (remoteSchemaName == null) {
@@ -90,7 +90,7 @@ public class RuleBasedIdentifierMapping
     }
 
     @Override
-    public String toRemoteTableName(JdbcIdentity identity, Connection connection, String remoteSchema, String tableName)
+    public String toRemoteTableName(ConnectorIdentity identity, Connection connection, String remoteSchema, String tableName)
     {
         String remoteTableName = toRemoteTable.get(remoteSchema, tableName);
         if (remoteTableName == null) {

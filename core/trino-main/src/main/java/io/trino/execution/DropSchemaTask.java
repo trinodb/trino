@@ -17,12 +17,14 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.Expression;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,12 +32,24 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class DropSchemaTask
         implements DataDefinitionTask<DropSchema>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public DropSchemaTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -43,17 +57,8 @@ public class DropSchemaTask
     }
 
     @Override
-    public String explain(DropSchema statement, List<Expression> parameters)
-    {
-        return "DROP SCHEMA " + statement.getSchemaName();
-    }
-
-    @Override
     public ListenableFuture<Void> execute(
             DropSchema statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
@@ -72,10 +77,34 @@ public class DropSchemaTask
             return immediateVoidFuture();
         }
 
+        if (!isSchemaEmpty(session, schema, metadata)) {
+            throw semanticException(SCHEMA_NOT_EMPTY, statement, "Cannot drop non-empty schema '%s'", schema.getSchemaName());
+        }
+
         accessControl.checkCanDropSchema(session.toSecurityContext(), schema);
 
         metadata.dropSchema(session, schema);
 
         return immediateVoidFuture();
+    }
+
+    private static boolean isSchemaEmpty(Session session, CatalogSchemaName schema, Metadata metadata)
+    {
+        QualifiedTablePrefix tablePrefix = new QualifiedTablePrefix(schema.getCatalogName(), schema.getSchemaName());
+
+        // These are best efforts checks that don't provide any guarantees against concurrent DDL operations
+        if (!metadata.listTables(session, tablePrefix).isEmpty()) {
+            return false;
+        }
+
+        if (!metadata.listViews(session, tablePrefix).isEmpty()) {
+            return false;
+        }
+
+        if (!metadata.listMaterializedViews(session, tablePrefix).isEmpty()) {
+            return false;
+        }
+
+        return true;
     }
 }

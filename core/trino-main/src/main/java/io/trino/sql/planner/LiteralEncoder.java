@@ -19,6 +19,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.SliceUtf8;
+import io.trino.Session;
 import io.trino.block.BlockSerdeUtil;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -70,14 +71,17 @@ import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class LiteralEncoder
 {
+    private final Session session;
     private final Metadata metadata;
 
-    public LiteralEncoder(Metadata metadata)
+    public LiteralEncoder(Session session, Metadata metadata)
     {
+        this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
@@ -139,17 +143,17 @@ public final class LiteralEncoder
             // if you remove this, you will need to update the TupleDomainOrcPredicate
             // When changing this, don't forget about similar code for REAL below
             if (value.isNaN()) {
-                return new FunctionCallBuilder(metadata)
+                return FunctionCallBuilder.resolve(session, metadata)
                         .setName(QualifiedName.of("nan"))
                         .build();
             }
             if (value.equals(Double.NEGATIVE_INFINITY)) {
-                return ArithmeticUnaryExpression.negative(new FunctionCallBuilder(metadata)
+                return ArithmeticUnaryExpression.negative(FunctionCallBuilder.resolve(session, metadata)
                         .setName(QualifiedName.of("infinity"))
                         .build());
             }
             if (value.equals(Double.POSITIVE_INFINITY)) {
-                return new FunctionCallBuilder(metadata)
+                return FunctionCallBuilder.resolve(session, metadata)
                         .setName(QualifiedName.of("infinity"))
                         .build();
             }
@@ -161,21 +165,21 @@ public final class LiteralEncoder
             // WARNING for ORC predicate code as above (for double)
             if (value.isNaN()) {
                 return new Cast(
-                        new FunctionCallBuilder(metadata)
+                        FunctionCallBuilder.resolve(session, metadata)
                                 .setName(QualifiedName.of("nan"))
                                 .build(),
                         toSqlType(REAL));
             }
             if (value.equals(Float.NEGATIVE_INFINITY)) {
                 return ArithmeticUnaryExpression.negative(new Cast(
-                        new FunctionCallBuilder(metadata)
+                        FunctionCallBuilder.resolve(session, metadata)
                                 .setName(QualifiedName.of("infinity"))
                                 .build(),
                         toSqlType(REAL)));
             }
             if (value.equals(Float.POSITIVE_INFINITY)) {
                 return new Cast(
-                        new FunctionCallBuilder(metadata)
+                        FunctionCallBuilder.resolve(session, metadata)
                                 .setName(QualifiedName.of("infinity"))
                                 .build(),
                         toSqlType(REAL));
@@ -201,10 +205,15 @@ public final class LiteralEncoder
                 return new GenericLiteral("VARCHAR", value.toStringUtf8());
             }
             StringLiteral stringLiteral = new StringLiteral(value.toStringUtf8());
-            if (varcharType.getBoundedLength() == SliceUtf8.countCodePoints(value)) {
+            int boundedLength = varcharType.getBoundedLength();
+            int valueLength = SliceUtf8.countCodePoints(value);
+            if (boundedLength == valueLength) {
                 return stringLiteral;
             }
-            return new Cast(stringLiteral, toSqlType(type), false, true);
+            if (boundedLength > valueLength) {
+                return new Cast(stringLiteral, toSqlType(type), false, true);
+            }
+            throw new IllegalArgumentException(format("Value [%s] does not fit in type %s", value.toStringUtf8(), varcharType));
         }
 
         if (type instanceof CharType) {
@@ -274,7 +283,7 @@ public final class LiteralEncoder
             // able to encode it in the plan that gets sent to workers.
             // We do this by transforming the in-memory varbinary into a call to from_base64(<base64-encoded value>)
             Slice encoded = VarbinaryFunctions.toBase64((Slice) object);
-            argument = new FunctionCallBuilder(metadata)
+            argument = FunctionCallBuilder.resolve(session, metadata)
                     .setName(QualifiedName.of("from_base64"))
                     .addArgument(VARCHAR, new StringLiteral(encoded.toStringUtf8()))
                     .build();
@@ -283,8 +292,8 @@ public final class LiteralEncoder
             argument = toExpression(object, argumentType);
         }
 
-        ResolvedFunction resolvedFunction = metadata.getCoercion(QualifiedName.of(LITERAL_FUNCTION_NAME), argumentType, type);
-        return new FunctionCallBuilder(metadata)
+        ResolvedFunction resolvedFunction = metadata.getCoercion(session, QualifiedName.of(LITERAL_FUNCTION_NAME), argumentType, type);
+        return FunctionCallBuilder.resolve(session, metadata)
                 .setName(resolvedFunction.toQualifiedName())
                 .addArgument(argumentType, argument)
                 .build();

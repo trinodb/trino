@@ -76,34 +76,34 @@ public class FunctionDependencies
         return type;
     }
 
-    public FunctionMetadata getFunctionMetadata(QualifiedName name, List<Type> parameterTypes)
+    public FunctionNullability getFunctionNullability(QualifiedName name, List<Type> parameterTypes)
     {
         FunctionKey functionKey = new FunctionKey(name, toTypeSignatures(parameterTypes));
         ResolvedFunction resolvedFunction = functions.get(functionKey);
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(functionKey.toString());
         }
-        return metadata.getFunctionMetadata(resolvedFunction);
+        return resolvedFunction.getFunctionNullability();
     }
 
-    public FunctionMetadata getOperatorMetadata(OperatorType operatorType, List<Type> parameterTypes)
+    public FunctionNullability getOperatorNullability(OperatorType operatorType, List<Type> parameterTypes)
     {
         OperatorKey operatorKey = new OperatorKey(operatorType, toTypeSignatures(parameterTypes));
         ResolvedFunction resolvedFunction = operators.get(operatorKey);
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(operatorKey.toString());
         }
-        return metadata.getFunctionMetadata(resolvedFunction);
+        return resolvedFunction.getFunctionNullability();
     }
 
-    public FunctionMetadata getCastMetadata(Type fromType, Type toType)
+    public FunctionNullability getCastNullability(Type fromType, Type toType)
     {
         CastKey castKey = new CastKey(fromType.getTypeSignature(), toType.getTypeSignature());
         ResolvedFunction resolvedFunction = casts.get(castKey);
         if (resolvedFunction == null) {
             throw new UndeclaredDependencyException(castKey.toString());
         }
-        return metadata.getFunctionMetadata(resolvedFunction);
+        return resolvedFunction.getFunctionNullability();
     }
 
     public FunctionInvoker getFunctionInvoker(QualifiedName name, List<Type> parameterTypes, InvocationConvention invocationConvention)

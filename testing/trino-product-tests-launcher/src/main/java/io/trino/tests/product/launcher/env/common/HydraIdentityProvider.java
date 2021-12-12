@@ -18,9 +18,14 @@ import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
+import io.trino.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -28,7 +33,8 @@ public class HydraIdentityProvider
         implements EnvironmentExtender
 {
     private static final int TTL_ACCESS_TOKEN_IN_SECONDS = 5;
-    private static final String HYDRA_IMAGE = "oryd/hydra:v1.9.0-sqlite";
+    private static final String HYDRA_IMAGE = "oryd/hydra:v1.10.6";
+    private static final String DSN = "postgres://hydra:mysecretpassword@hydra-db:5432/hydra?sslmode=disable";
     private final PortBinder binder;
     private final DockerFiles.ResourceProvider configDir;
 
@@ -43,6 +49,18 @@ public class HydraIdentityProvider
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
+        DockerContainer databaseContainer = new DockerContainer("postgres:14.0", "hydra-db")
+                .withEnv("POSTGRES_USER", "hydra")
+                .withEnv("POSTGRES_PASSWORD", "mysecretpassword")
+                .withEnv("POSTGRES_DB", "hydra")
+                .withExposedPorts(5432)
+                .waitingFor(new SelectedPortWaitStrategy(5432));
+
+        DockerContainer migrationContainer = new DockerContainer(HYDRA_IMAGE, "hydra-db-migration")
+                .withCommand("migrate", "sql", "--yes", DSN)
+                .dependsOn(databaseContainer)
+                .setTemporary(true);
+
         DockerContainer hydraConsent = new DockerContainer("oryd/hydra-login-consent-node:v1.4.2", "hydra-consent")
                 .withEnv("HYDRA_ADMIN_URL", "https://hydra:4445")
                 .withEnv("NODE_TLS_REJECT_UNAUTHORIZED", "0")
@@ -52,7 +70,7 @@ public class HydraIdentityProvider
 
         DockerContainer hydra = new DockerContainer(HYDRA_IMAGE, "hydra")
                 .withEnv("LOG_LEAK_SENSITIVE_VALUES", "true")
-                .withEnv("DSN", "memory")
+                .withEnv("DSN", DSN)
                 .withEnv("URLS_SELF_ISSUER", "https://hydra:4444/")
                 .withEnv("URLS_CONSENT", "http://hydra-consent:3000/consent")
                 .withEnv("URLS_LOGIN", "http://hydra-consent:3000/login")
@@ -69,10 +87,24 @@ public class HydraIdentityProvider
         binder.exposePort(hydra, 4444);
         binder.exposePort(hydra, 4445);
 
-        builder.addContainer(hydraConsent);
-        builder.addContainer(hydra);
+        builder.addContainers(databaseContainer, migrationContainer, hydraConsent, hydra);
 
         builder.containerDependsOn(hydra.getLogicalName(), hydraConsent.getLogicalName());
+        builder.containerDependsOn(hydra.getLogicalName(), migrationContainer.getLogicalName());
+        builder.containerDependsOn(hydra.getLogicalName(), databaseContainer.getLogicalName());
+
+        builder.configureContainers(dockerContainer -> {
+            if (isPrestoContainer(dockerContainer.getLogicalName())) {
+                dockerContainer
+                        .withCopyFileToContainer(
+                                forHostPath(configDir.getPath("cert")),
+                                CONTAINER_PRESTO_ETC + "/hydra/cert");
+            }
+        });
+
+        builder.configureContainer(TESTS, dockerContainer -> dockerContainer.withCopyFileToContainer(
+                forHostPath(configDir.getPath("tempto-configuration-for-docker-oauth2.yaml")),
+                CONTAINER_TEMPTO_PROFILE_CONFIG));
     }
 
     public DockerContainer createClient(

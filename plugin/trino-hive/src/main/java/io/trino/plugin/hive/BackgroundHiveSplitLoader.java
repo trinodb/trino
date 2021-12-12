@@ -83,6 +83,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 import java.util.function.IntPredicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -148,7 +149,7 @@ public class BackgroundHiveSplitLoader
     private final AcidTransaction transaction;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
     private final DynamicFilter dynamicFilter;
-    private final long dynamicFilteringProbeBlockingTimeoutMillis;
+    private final long dynamicFilteringWaitTimeoutMillis;
     private final TypeManager typeManager;
     private final Optional<BucketSplitInfo> tableBucketInfo;
     private final HdfsEnvironment hdfsEnvironment;
@@ -164,6 +165,7 @@ public class BackgroundHiveSplitLoader
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
     private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
     private final Optional<ValidWriteIdList> validWriteIds;
+    private final Optional<Long> maxSplitFileSize;
 
     // Purpose of this lock:
     // * Write lock: when you need a consistent view across partitions, fileIterators, and hiveSplitSource.
@@ -192,7 +194,7 @@ public class BackgroundHiveSplitLoader
             Iterable<HivePartitionMetadata> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
             DynamicFilter dynamicFilter,
-            Duration dynamicFilteringProbeBlockingTimeout,
+            Duration dynamicFilteringWaitTimeout,
             TypeManager typeManager,
             Optional<BucketSplitInfo> tableBucketInfo,
             ConnectorSession session,
@@ -204,13 +206,14 @@ public class BackgroundHiveSplitLoader
             boolean recursiveDirWalkerEnabled,
             boolean ignoreAbsentPartitions,
             boolean optimizeSymlinkListing,
-            Optional<ValidWriteIdList> validWriteIds)
+            Optional<ValidWriteIdList> validWriteIds,
+            Optional<Long> maxSplitFileSize)
     {
         this.table = table;
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.compactEffectivePredicate = compactEffectivePredicate;
         this.dynamicFilter = dynamicFilter;
-        this.dynamicFilteringProbeBlockingTimeoutMillis = dynamicFilteringProbeBlockingTimeout.toMillis();
+        this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeout.toMillis();
         this.typeManager = typeManager;
         this.tableBucketInfo = tableBucketInfo;
         this.loaderConcurrency = loaderConcurrency;
@@ -226,6 +229,7 @@ public class BackgroundHiveSplitLoader
         this.partitions = new ConcurrentLazyQueue<>(partitions);
         this.hdfsContext = new HdfsContext(session);
         this.validWriteIds = requireNonNull(validWriteIds, "validWriteIds is null");
+        this.maxSplitFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
     }
 
     @Override
@@ -259,9 +263,12 @@ public class BackgroundHiveSplitLoader
                 // Block until one of below conditions is met:
                 // 1. Completion of DynamicFilter
                 // 2. Timeout after waiting for the configured time
-                long timeLeft = dynamicFilteringProbeBlockingTimeoutMillis - stopwatch.elapsed(MILLISECONDS);
+                long timeLeft = dynamicFilteringWaitTimeoutMillis - stopwatch.elapsed(MILLISECONDS);
                 if (timeLeft > 0 && dynamicFilter.isAwaitable()) {
-                    future = asVoid(toListenableFuture(dynamicFilter.isBlocked().orTimeout(timeLeft, MILLISECONDS)));
+                    future = asVoid(toListenableFuture(dynamicFilter.isBlocked()
+                            // As isBlocked() returns unmodifiableFuture, we need to create new future for correct propagation of the timeout
+                            .thenApply(Function.identity())
+                            .orTimeout(timeLeft, MILLISECONDS)));
                     return TaskStatus.continueOn(future);
                 }
                 taskExecutionLock.readLock().lock();
@@ -367,7 +374,10 @@ public class BackgroundHiveSplitLoader
         TupleDomain<HiveColumnHandle> effectivePredicate = compactEffectivePredicate.transformKeys(HiveColumnHandle.class::cast);
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table, typeManager);
-        BooleanSupplier partitionMatchSupplier = () -> partitionMatches(partitionColumns, dynamicFilter.getCurrentPredicate(), hivePartition);
+        BooleanSupplier partitionMatchSupplier =
+                partitionColumns.stream().noneMatch(dynamicFilter.getColumnsCovered()::contains)
+                        ? () -> true
+                        : () -> partitionMatches(partitionColumns, dynamicFilter.getCurrentPredicate(), hivePartition);
         if (!partitionMatchSupplier.getAsBoolean()) {
             // Avoid listing files and creating splits from a partition if it has been pruned due to dynamic filters
             return COMPLETED_FUTURE;
@@ -390,7 +400,7 @@ public class BackgroundHiveSplitLoader
             }
             InputFormat<?, ?> targetInputFormat = getInputFormat(configuration, schema, true);
             List<Path> targetPaths = hdfsEnvironment.doAs(
-                    hdfsContext.getIdentity().getUser(),
+                    hdfsContext.getIdentity(),
                     () -> getTargetPathsFromSymlink(fs, path));
             Set<Path> parents = targetPaths.stream()
                     .map(Path::getParent)
@@ -465,7 +475,8 @@ public class BackgroundHiveSplitLoader
                 getMaxInitialSplitSize(session),
                 isForceLocalScheduling(session),
                 s3SelectPushdownEnabled,
-                transaction);
+                transaction,
+                maxSplitFileSize);
 
         // To support custom input formats, we want to call getSplits()
         // on the input format to obtain file splits.
@@ -482,7 +493,7 @@ public class BackgroundHiveSplitLoader
             FileInputFormat.setInputPaths(jobConf, path);
             // Pass SerDes and Table parameters into input format configuration
             fromProperties(schema).forEach(jobConf::set);
-            InputSplit[] splits = hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> inputFormat.getSplits(jobConf, 0));
+            InputSplit[] splits = hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> inputFormat.getSplits(jobConf, 0));
 
             return addSplitsToSource(splits, splitFactory);
         }
@@ -492,7 +503,7 @@ public class BackgroundHiveSplitLoader
         AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(path);
         boolean isFullAcid = AcidUtils.isFullAcidTable(table.getParameters());
         if (AcidUtils.isTransactionalTable(table.getParameters())) {
-            AcidUtils.Directory directory = hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> AcidUtils.getAcidState(
+            AcidUtils.Directory directory = hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> AcidUtils.getAcidState(
                     path,
                     configuration,
                     validWriteIds.orElseThrow(() -> new IllegalStateException("No validWriteIds present")),
@@ -636,7 +647,7 @@ public class BackgroundHiveSplitLoader
             }
             FileInputFormat.setInputPaths(targetJob, targetPath);
             InputSplit[] targetSplits = hdfsEnvironment.doAs(
-                    hdfsContext.getIdentity().getUser(),
+                    hdfsContext.getIdentity(),
                     () -> targetInputFormat.getSplits(targetJob, 0));
 
             InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
@@ -653,7 +664,8 @@ public class BackgroundHiveSplitLoader
                     getMaxInitialSplitSize(session),
                     isForceLocalScheduling(session),
                     s3SelectPushdownEnabled,
-                    transaction);
+                    transaction,
+                    maxSplitFileSize);
             lastResult = addSplitsToSource(targetSplits, splitFactory);
             if (stopped) {
                 return COMPLETED_FUTURE;
@@ -709,7 +721,8 @@ public class BackgroundHiveSplitLoader
                 getMaxInitialSplitSize(session),
                 isForceLocalScheduling(session),
                 s3SelectPushdownEnabled,
-                transaction);
+                transaction,
+                maxSplitFileSize);
         return Optional.of(locatedFileStatuses.stream()
                 .map(locatedFileStatus -> splitFactory.createInternalHiveSplit(locatedFileStatus, OptionalInt.empty(), splittable, Optional.empty()))
                 .filter(Optional::isPresent)

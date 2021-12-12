@@ -91,6 +91,7 @@ import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticAggregationsDescriptor;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
+import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -102,9 +103,11 @@ import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
+import io.trino.sql.planner.rowpattern.AggregationValuePointer;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
-import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ValuePointer;
 import io.trino.sql.planner.rowpattern.LogicalIndexPointer;
+import io.trino.sql.planner.rowpattern.ScalarValuePointer;
+import io.trino.sql.planner.rowpattern.ValuePointer;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
@@ -116,7 +119,6 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SkipTo.Position;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.util.GraphvizPrinter;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -275,6 +277,8 @@ public class PlanPrinter
         Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats = queryStats.getDynamicFiltersStats()
                 .getDynamicFilterDomainStats().stream()
                 .collect(toImmutableMap(DynamicFilterDomainStats::getDynamicFilterId, identity()));
+        TypeProvider typeProvider = getTypeProvider(allFragments);
+
         for (StageInfo stageInfo : allStages) {
             builder.append(formatFragment(
                     tableScanNode -> tableInfos.get(tableScanNode.getId()),
@@ -284,7 +288,7 @@ public class PlanPrinter
                     Optional.of(stageInfo),
                     Optional.of(aggregatedStats),
                     verbose,
-                    allFragments));
+                    typeProvider));
         }
 
         return builder.toString();
@@ -295,8 +299,9 @@ public class PlanPrinter
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, session);
         StringBuilder builder = new StringBuilder();
+        TypeProvider typeProvider = getTypeProvider(plan.getAllFragments());
         for (PlanFragment fragment : plan.getAllFragments()) {
-            builder.append(formatFragment(tableInfoSupplier, ImmutableMap.of(), valuePrinter, fragment, Optional.empty(), Optional.empty(), verbose, plan.getAllFragments()));
+            builder.append(formatFragment(tableInfoSupplier, ImmutableMap.of(), valuePrinter, fragment, Optional.empty(), Optional.empty(), verbose, typeProvider));
         }
 
         return builder.toString();
@@ -310,7 +315,7 @@ public class PlanPrinter
             Optional<StageInfo> stageInfo,
             Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats,
             boolean verbose,
-            List<PlanFragment> allFragments)
+            TypeProvider typeProvider)
     {
         StringBuilder builder = new StringBuilder();
         builder.append(format("Fragment %s [%s]\n",
@@ -367,10 +372,6 @@ public class PlanPrinter
         }
         builder.append(indentString(1)).append(format("Stage Execution Strategy: %s\n", fragment.getStageExecutionDescriptor().getStageExecutionStrategy()));
 
-        TypeProvider typeProvider = TypeProvider.copyOf(allFragments.stream()
-                .flatMap(f -> f.getSymbols().entrySet().stream())
-                .distinct()
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
         builder.append(
                 new PlanPrinter(
                         fragment.getRoot(),
@@ -384,6 +385,14 @@ public class PlanPrinter
                 .append("\n");
 
         return builder.toString();
+    }
+
+    private static TypeProvider getTypeProvider(List<PlanFragment> fragments)
+    {
+        return TypeProvider.copyOf(fragments.stream()
+                .flatMap(f -> f.getSymbols().entrySet().stream())
+                .distinct()
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
     }
 
     public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types)
@@ -570,7 +579,7 @@ public class PlanPrinter
         {
             String type = "";
             if (node.getStep() != AggregationNode.Step.SINGLE) {
-                type = format("(%s)", node.getStep().toString());
+                type = format("(%s)", node.getStep());
             }
             if (node.isStreamable()) {
                 type = format("%s(STREAMING)", type);
@@ -762,8 +771,25 @@ public class PlanPrinter
                     continue;
                 }
                 ValuePointer pointer = expressionAndPointers.getValuePointers().get(i);
-                String sourceSymbolName = expressionAndPointers.getClassifierSymbols().contains(symbol) ? "classifier" : pointer.getInputSymbol().getName();
-                nodeOutput.appendDetailsLine(indentString(1) + symbol + " := " + sourceSymbolName + "[" + formatLogicalIndexPointer(pointer.getLogicalIndexPointer()) + "]");
+
+                if (pointer instanceof ScalarValuePointer) {
+                    ScalarValuePointer scalarPointer = (ScalarValuePointer) pointer;
+                    String sourceSymbolName = expressionAndPointers.getClassifierSymbols().contains(symbol) ? "classifier" : scalarPointer.getInputSymbol().getName();
+                    nodeOutput.appendDetailsLine(indentString(1) + symbol + " := " + sourceSymbolName + "[" + formatLogicalIndexPointer(scalarPointer.getLogicalIndexPointer()) + "]");
+                }
+                else if (pointer instanceof AggregationValuePointer) {
+                    AggregationValuePointer aggregationPointer = (AggregationValuePointer) pointer;
+                    String processingMode = aggregationPointer.getSetDescriptor().isRunning() ? "RUNNING " : "FINAL ";
+                    String name = aggregationPointer.getFunction().getSignature().getName();
+                    String arguments = Joiner.on(", ").join(aggregationPointer.getArguments());
+                    String labels = aggregationPointer.getSetDescriptor().getLabels().stream()
+                            .map(IrLabel::getName)
+                            .collect(joining(", ", "{", "}"));
+                    nodeOutput.appendDetailsLine(indentString(1) + symbol + " := " + processingMode + name + "(" + arguments + ")" + labels);
+                }
+                else {
+                    throw new UnsupportedOperationException("unexpected ValuePointer type: " + pointer.getClass().getSimpleName());
+                }
             }
         }
 
@@ -1116,7 +1142,7 @@ public class PlanPrinter
                     node,
                     name,
                     format("[replicate=%s, unnest=%s", formatOutputs(types, node.getReplicateSymbols()), formatOutputs(types, unnestInputs))
-                            + (node.getFilter().isPresent() ? format(", filter=%s]", node.getFilter().get().toString()) : "]"));
+                            + (node.getFilter().isPresent() ? format(", filter=%s]", node.getFilter().get()) : "]"));
             return processChildren(node, context);
         }
 
@@ -1344,6 +1370,19 @@ public class PlanPrinter
                 nodeOutput.appendDetailsLine("%s := %s", columnName, node.getColumnValueAndRowIdSymbols().get(index).getName());
                 index++;
             }
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitTableExecute(TableExecuteNode node, Void context)
+        {
+            NodeRepresentation nodeOutput = addNode(node, "TableExecute");
+            for (int i = 0; i < node.getColumnNames().size(); i++) {
+                String name = node.getColumnNames().get(i);
+                Symbol symbol = node.getColumns().get(i);
+                nodeOutput.appendDetailsLine("%s := %s", name, symbol);
+            }
+
             return processChildren(node, context);
         }
 

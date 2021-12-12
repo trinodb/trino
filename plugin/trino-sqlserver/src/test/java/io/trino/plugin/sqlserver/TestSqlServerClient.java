@@ -74,19 +74,19 @@ public class TestSqlServerClient
         testImplementAggregation(
                 new AggregateFunction("count", BIGINT, List.of(), List.of(), false, Optional.empty()),
                 Map.of(),
-                Optional.of("count(*)"));
+                Optional.of("count_big(*)"));
 
         // count(bigint)
         testImplementAggregation(
                 new AggregateFunction("count", BIGINT, List.of(bigintVariable), List.of(), false, Optional.empty()),
                 Map.of(bigintVariable.getName(), BIGINT_COLUMN),
-                Optional.of("count(\"c_bigint\")"));
+                Optional.of("count_big(\"c_bigint\")"));
 
         // count(double)
         testImplementAggregation(
                 new AggregateFunction("count", BIGINT, List.of(doubleVariable), List.of(), false, Optional.empty()),
                 Map.of(doubleVariable.getName(), DOUBLE_COLUMN),
-                Optional.of("count(\"c_double\")"));
+                Optional.of("count_big(\"c_double\")"));
 
         // count(DISTINCT bigint)
         testImplementAggregation(

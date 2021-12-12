@@ -29,7 +29,6 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 public interface TaskManager
 {
@@ -95,7 +94,6 @@ public interface TaskManager
             Optional<PlanFragment> fragment,
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
-            OptionalInt totalPartitions,
             Map<DynamicFilterId, Domain> dynamicFilterDomains);
 
     /**
@@ -109,6 +107,12 @@ public interface TaskManager
      * aborted.
      */
     TaskInfo abortTask(TaskId taskId);
+
+    /**
+     * Fail a task.  If the task does not already exist, it is created and then
+     * failed.
+     */
+    TaskInfo failTask(TaskId taskId, Throwable failure);
 
     /**
      * Gets results from a task either immediately or in the future.  If the
@@ -142,4 +146,14 @@ public interface TaskManager
      * possible notifications are observed out of order due to the asynchronous execution.
      */
     void addStateChangeListener(TaskId taskId, StateChangeListener<TaskState> stateChangeListener);
+
+    /**
+     * Add a listener that notifies about failures of any source tasks for a given task
+     */
+    void addSourceTaskFailureListener(TaskId taskId, TaskFailureListener listener);
+
+    /**
+     * Return trace token for a given task (see Session#traceToken)
+     */
+    Optional<String> getTraceToken(TaskId taskId);
 }

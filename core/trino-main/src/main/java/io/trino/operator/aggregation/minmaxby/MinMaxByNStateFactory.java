@@ -16,6 +16,7 @@ package io.trino.operator.aggregation.minmaxby;
 import io.trino.array.ObjectBigArray;
 import io.trino.operator.aggregation.TypedKeyValueHeap;
 import io.trino.operator.aggregation.state.AbstractGroupedAccumulatorState;
+import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -29,21 +30,9 @@ public class MinMaxByNStateFactory
     }
 
     @Override
-    public Class<? extends MinMaxByNState> getSingleStateClass()
-    {
-        return SingleMinMaxByNState.class;
-    }
-
-    @Override
     public MinMaxByNState createGroupedState()
     {
         return new GroupedMinMaxByNState();
-    }
-
-    @Override
-    public Class<? extends MinMaxByNState> getGroupedStateClass()
-    {
-        return GroupedMinMaxByNState.class;
     }
 
     public static class GroupedMinMaxByNState
@@ -96,6 +85,14 @@ public class MinMaxByNStateFactory
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMinMaxByNState.class).instanceSize();
         private TypedKeyValueHeap typedKeyValueHeap;
 
+        public SingleMinMaxByNState() {}
+
+        // for copying
+        private SingleMinMaxByNState(TypedKeyValueHeap typedKeyValueHeap)
+        {
+            this.typedKeyValueHeap = typedKeyValueHeap;
+        }
+
         @Override
         public long getEstimatedSize()
         {
@@ -121,6 +118,16 @@ public class MinMaxByNStateFactory
         @Override
         public void addMemoryUsage(long memory)
         {
+        }
+
+        @Override
+        public AccumulatorState copy()
+        {
+            TypedKeyValueHeap typedKeyValueHeapCopy = null;
+            if (typedKeyValueHeap != null) {
+                typedKeyValueHeapCopy = typedKeyValueHeap.copy();
+            }
+            return new SingleMinMaxByNState(typedKeyValueHeapCopy);
         }
     }
 }

@@ -31,13 +31,14 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Jdbi;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -69,7 +70,7 @@ public class RaptorConnector
     private final List<PropertyMetadata<?>> tableProperties;
     private final Set<SystemTable> systemTables;
     private final MetadataDao dao;
-    private final ConnectorAccessControl accessControl;
+    private final Optional<ConnectorAccessControl> accessControl;
     private final boolean coordinator;
 
     private final ConcurrentMap<ConnectorTransactionHandle, RaptorMetadata> transactions = new ConcurrentHashMap<>();
@@ -91,8 +92,8 @@ public class RaptorConnector
             RaptorSessionProperties sessionProperties,
             RaptorTableProperties tableProperties,
             Set<SystemTable> systemTables,
-            ConnectorAccessControl accessControl,
-            @ForMetadata IDBI dbi)
+            Optional<ConnectorAccessControl> accessControl,
+            @ForMetadata Jdbi dbi)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
@@ -117,13 +118,7 @@ public class RaptorConnector
     }
 
     @Override
-    public boolean isSingleStatementWritesOnly()
-    {
-        return true;
-    }
-
-    @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);
         RaptorTransactionHandle transaction = new RaptorTransactionHandle();
@@ -200,7 +195,7 @@ public class RaptorConnector
     @Override
     public ConnectorAccessControl getAccessControl()
     {
-        return accessControl;
+        return accessControl.orElseThrow(UnsupportedOperationException::new);
     }
 
     @Override

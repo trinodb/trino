@@ -15,7 +15,6 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 import io.trino.array.BlockBigArray;
 import io.trino.array.BooleanBigArray;
@@ -70,7 +69,7 @@ public class TestStateCompiler
         NullableLongState state = factory.createSingleState();
         NullableLongState deserializedState = factory.createSingleState();
 
-        state.setLong(2);
+        state.setValue(2);
         state.setNull(false);
 
         BlockBuilder builder = BIGINT.createBlockBuilder(null, 2);
@@ -81,9 +80,9 @@ public class TestStateCompiler
         Block block = builder.build();
 
         assertEquals(block.isNull(0), false);
-        assertEquals(BIGINT.getLong(block, 0), state.getLong());
+        assertEquals(BIGINT.getLong(block, 0), state.getValue());
         serializer.deserialize(block, 0, deserializedState);
-        assertEquals(deserializedState.getLong(), state.getLong());
+        assertEquals(deserializedState.getValue(), state.getValue());
 
         assertEquals(block.isNull(1), true);
     }
@@ -96,16 +95,16 @@ public class TestStateCompiler
         LongState state = factory.createSingleState();
         LongState deserializedState = factory.createSingleState();
 
-        state.setLong(2);
+        state.setValue(2);
 
         BlockBuilder builder = BIGINT.createBlockBuilder(null, 1);
         serializer.serialize(state, builder);
 
         Block block = builder.build();
 
-        assertEquals(BIGINT.getLong(block, 0), state.getLong());
+        assertEquals(BIGINT.getLong(block, 0), state.getValue());
         serializer.deserialize(block, 0, deserializedState);
-        assertEquals(deserializedState.getLong(), state.getLong());
+        assertEquals(deserializedState.getValue(), state.getValue());
     }
 
     @Test
@@ -203,8 +202,8 @@ public class TestStateCompiler
         Type arrayType = new ArrayType(BIGINT);
         Type mapType = mapType(BIGINT, VARCHAR);
         Map<String, Type> fieldMap = ImmutableMap.of("Block", arrayType, "AnotherBlock", mapType);
-        AccumulatorStateFactory<TestComplexState> factory = StateCompiler.generateStateFactory(TestComplexState.class, fieldMap, new DynamicClassLoader(TestComplexState.class.getClassLoader()));
-        AccumulatorStateSerializer<TestComplexState> serializer = StateCompiler.generateStateSerializer(TestComplexState.class, fieldMap, new DynamicClassLoader(TestComplexState.class.getClassLoader()));
+        AccumulatorStateFactory<TestComplexState> factory = StateCompiler.generateStateFactory(TestComplexState.class, fieldMap);
+        AccumulatorStateSerializer<TestComplexState> serializer = StateCompiler.generateStateSerializer(TestComplexState.class, fieldMap);
         TestComplexState singleState = factory.createSingleState();
         TestComplexState deserializedState = factory.createSingleState();
 
@@ -220,7 +219,7 @@ public class TestStateCompiler
         singleState.setBlock(array);
         singleState.setAnotherBlock(mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(123L, "testBlock")));
 
-        BlockBuilder builder = RowType.anonymous(ImmutableList.of(BOOLEAN, TINYINT, DOUBLE, INTEGER, BIGINT, mapType, VARBINARY, arrayType, VARBINARY, VARBINARY))
+        BlockBuilder builder = RowType.anonymous(ImmutableList.of(mapType, VARBINARY, arrayType, BOOLEAN, TINYINT, DOUBLE, INTEGER, BIGINT, VARBINARY, VARBINARY))
                 .createBlockBuilder(null, 1);
         serializer.serialize(singleState, builder);
 
@@ -294,7 +293,7 @@ public class TestStateCompiler
     public void testComplexStateEstimatedSize()
     {
         Map<String, Type> fieldMap = ImmutableMap.of("Block", new ArrayType(BIGINT), "AnotherBlock", mapType(BIGINT, VARCHAR));
-        AccumulatorStateFactory<TestComplexState> factory = StateCompiler.generateStateFactory(TestComplexState.class, fieldMap, new DynamicClassLoader(TestComplexState.class.getClassLoader()));
+        AccumulatorStateFactory<TestComplexState> factory = StateCompiler.generateStateFactory(TestComplexState.class, fieldMap);
 
         TestComplexState groupedState = factory.createGroupedState();
         long initialRetainedSize = getComplexStateRetainedSize(groupedState);

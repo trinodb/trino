@@ -14,7 +14,6 @@
 package io.trino.plugin.hive;
 
 import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -22,8 +21,6 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.InMemoryRecordSet;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
-import io.trino.spi.predicate.NullableValue;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
@@ -31,13 +28,11 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
-import static io.trino.plugin.hive.HiveMetadata.convertToPredicate;
 import static io.trino.plugin.hive.SystemTableHandler.PARTITIONS;
 import static io.trino.plugin.hive.util.SystemTables.createSystemTable;
 import static java.util.Objects.requireNonNull;
@@ -105,9 +100,7 @@ public class PartitionsSystemTableProvider
         return Optional.of(createSystemTable(
                 new ConnectorTableMetadata(tableName, partitionSystemTableColumns),
                 constraint -> {
-                    TupleDomain<ColumnHandle> targetTupleDomain = constraint.transformKeys(fieldIdToColumnHandle::get);
-                    Predicate<Map<ColumnHandle, NullableValue>> targetPredicate = convertToPredicate(targetTupleDomain);
-                    Constraint targetConstraint = new Constraint(targetTupleDomain, targetPredicate);
+                    Constraint targetConstraint = new Constraint(constraint.transformKeys(fieldIdToColumnHandle::get));
                     Iterable<List<Object>> records = () ->
                             stream(partitionManager.getPartitions(metadata.getMetastore(), new HiveIdentity(session), sourceTableHandle, targetConstraint).getPartitions())
                                     .map(hivePartition ->

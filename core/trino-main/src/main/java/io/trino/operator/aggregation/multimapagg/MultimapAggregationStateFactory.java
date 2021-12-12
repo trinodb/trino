@@ -37,20 +37,8 @@ public class MultimapAggregationStateFactory
     }
 
     @Override
-    public Class<? extends MultimapAggregationState> getSingleStateClass()
-    {
-        return SingleMultimapAggregationState.class;
-    }
-
-    @Override
     public MultimapAggregationState createGroupedState()
     {
         return new GroupedMultimapAggregationState(keyType, valueType);
-    }
-
-    @Override
-    public Class<? extends MultimapAggregationState> getGroupedStateClass()
-    {
-        return GroupedMultimapAggregationState.class;
     }
 }

@@ -170,7 +170,7 @@ public class WindowOperator
                     spillerFactory,
                     orderingCompiler,
                     measureTypes,
-                    partitionerSupplier.get());
+                    partitionerSupplier.get(operatorContext.aggregateUserMemoryContext()));
         }
 
         @Override
@@ -607,7 +607,8 @@ public class WindowOperator
                         windowFunctions,
                         frames,
                         pagesIndexWithHashStrategies.peerGroupHashStrategy,
-                        pagesIndexWithHashStrategies.frameBoundComparators);
+                        pagesIndexWithHashStrategies.frameBoundComparators,
+                        operatorContext.aggregateUserMemoryContext());
 
                 windowInfo.addPartition(partition);
                 partitionStart = partitionEnd;

@@ -69,6 +69,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildColumnMappings;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.CSV;
 import static io.trino.plugin.hive.HiveStorageFormat.JSON;
@@ -444,7 +445,7 @@ public class TestHiveFileFormats
                 .withSession(session)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
-                .withFileWriterFactory(new ParquetFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER))
+                .withFileWriterFactory(new ParquetFileWriterFactory(HDFS_ENVIRONMENT, new NodeVersion("test-version"), TYPE_MANAGER))
                 .isReadableByPageSource(new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new ParquetReaderConfig(), new HiveConfig()));
     }
 
@@ -922,6 +923,19 @@ public class TestHiveFileFormats
 
         Configuration configuration = new Configuration(false);
         configuration.set("io.compression.codecs", LzoCodec.class.getName() + "," + LzopCodec.class.getName());
+
+        List<HiveColumnHandle> columnHandles = getColumnHandles(testReadColumns);
+        List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
+                partitionName,
+                partitionKeys,
+                columnHandles,
+                ImmutableList.of(),
+                TableToPartitionMapping.empty(),
+                split.getPath(),
+                OptionalInt.empty(),
+                fileSize,
+                Instant.now().toEpochMilli());
+
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(),
                 ImmutableSet.of(cursorProvider),
@@ -932,20 +946,17 @@ public class TestHiveFileFormats
                 split.getStart(),
                 split.getLength(),
                 fileSize,
-                Instant.now().toEpochMilli(),
                 splitProperties,
                 TupleDomain.all(),
-                getColumnHandles(testReadColumns),
-                partitionName,
-                partitionKeys,
+                columnHandles,
                 TYPE_MANAGER,
-                TableToPartitionMapping.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty(),
                 false,
-                NO_ACID_TRANSACTION);
+                NO_ACID_TRANSACTION,
+                columnMappings);
 
         return pageSource.get();
     }
@@ -992,6 +1003,17 @@ public class TestHiveFileFormats
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(testReadColumns);
 
+        List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
+                partitionName,
+                partitionKeys,
+                columnHandles,
+                ImmutableList.of(),
+                TableToPartitionMapping.empty(),
+                split.getPath(),
+                OptionalInt.empty(),
+                fileSize,
+                Instant.now().toEpochMilli());
+
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(sourceFactory),
                 ImmutableSet.of(),
@@ -1002,20 +1024,17 @@ public class TestHiveFileFormats
                 split.getStart(),
                 split.getLength(),
                 fileSize,
-                Instant.now().toEpochMilli(),
                 splitProperties,
                 TupleDomain.all(),
                 columnHandles,
-                partitionName,
-                partitionKeys,
                 TYPE_MANAGER,
-                TableToPartitionMapping.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty(),
                 false,
-                NO_ACID_TRANSACTION);
+                NO_ACID_TRANSACTION,
+                columnMappings);
 
         assertTrue(pageSource.isPresent());
 

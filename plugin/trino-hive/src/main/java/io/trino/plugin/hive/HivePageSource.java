@@ -37,19 +37,17 @@ import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RecordCursor;
-import io.trino.spi.type.CharType;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
-import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
 
@@ -58,12 +56,12 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
@@ -81,45 +79,17 @@ import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToReal
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDoubleToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucket;
-import static io.trino.plugin.hive.util.HiveUtil.bigintPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.booleanPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.charPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.datePartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.doublePartitionKey;
 import static io.trino.plugin.hive.util.HiveUtil.extractStructFieldTypes;
-import static io.trino.plugin.hive.util.HiveUtil.floatPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.integerPartitionKey;
 import static io.trino.plugin.hive.util.HiveUtil.isArrayType;
-import static io.trino.plugin.hive.util.HiveUtil.isHiveNull;
 import static io.trino.plugin.hive.util.HiveUtil.isMapType;
 import static io.trino.plugin.hive.util.HiveUtil.isRowType;
-import static io.trino.plugin.hive.util.HiveUtil.longDecimalPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.shortDecimalPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.smallintPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.timestampPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.tinyintPartitionKey;
-import static io.trino.plugin.hive.util.HiveUtil.varcharPartitionKey;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
-import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class HivePageSource
@@ -163,7 +133,6 @@ public class HivePageSource
             ColumnMapping columnMapping = columnMappings.get(columnIndex);
             HiveColumnHandle column = columnMapping.getHiveColumnHandle();
 
-            String name = column.getName();
             Type type = column.getType();
             types[columnIndex] = type;
 
@@ -183,64 +152,7 @@ public class HivePageSource
                 prefilledValues[columnIndex] = null;
             }
             else if (columnMapping.getKind() == PREFILLED) {
-                String columnValue = columnMapping.getPrefilledValue();
-                byte[] bytes = columnValue.getBytes(UTF_8);
-
-                Object prefilledValue;
-                if (isHiveNull(bytes)) {
-                    prefilledValue = null;
-                }
-                else if (type.equals(BOOLEAN)) {
-                    prefilledValue = booleanPartitionKey(columnValue, name);
-                }
-                else if (type.equals(BIGINT)) {
-                    prefilledValue = bigintPartitionKey(columnValue, name);
-                }
-                else if (type.equals(INTEGER)) {
-                    prefilledValue = integerPartitionKey(columnValue, name);
-                }
-                else if (type.equals(SMALLINT)) {
-                    prefilledValue = smallintPartitionKey(columnValue, name);
-                }
-                else if (type.equals(TINYINT)) {
-                    prefilledValue = tinyintPartitionKey(columnValue, name);
-                }
-                else if (type.equals(REAL)) {
-                    prefilledValue = floatPartitionKey(columnValue, name);
-                }
-                else if (type.equals(DOUBLE)) {
-                    prefilledValue = doublePartitionKey(columnValue, name);
-                }
-                else if (type instanceof VarcharType) {
-                    prefilledValue = varcharPartitionKey(columnValue, name, type);
-                }
-                else if (type instanceof CharType) {
-                    prefilledValue = charPartitionKey(columnValue, name, type);
-                }
-                else if (type.equals(DATE)) {
-                    prefilledValue = datePartitionKey(columnValue, name);
-                }
-                else if (type.equals(TIMESTAMP_MILLIS)) {
-                    prefilledValue = timestampPartitionKey(columnValue, name);
-                }
-                else if (type.equals(TIMESTAMP_TZ_MILLIS)) {
-                    // used for $file_modified_time
-                    prefilledValue = packDateTimeWithZone(floorDiv(timestampPartitionKey(columnValue, name), MICROSECONDS_PER_MILLISECOND), DateTimeZone.getDefault().getID());
-                }
-                else if (isShortDecimal(type)) {
-                    prefilledValue = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);
-                }
-                else if (isLongDecimal(type)) {
-                    prefilledValue = longDecimalPartitionKey(columnValue, (DecimalType) type, name);
-                }
-                else if (type.equals(VarbinaryType.VARBINARY)) {
-                    prefilledValue = utf8Slice(columnValue);
-                }
-                else {
-                    throw new TrinoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));
-                }
-
-                prefilledValues[columnIndex] = prefilledValue;
+                prefilledValues[columnIndex] = columnMapping.getPrefilledValue().getValue();
             }
         }
         this.coercers = coercers.build();
@@ -255,6 +167,12 @@ public class HivePageSource
     public long getCompletedBytes()
     {
         return delegate.getCompletedBytes();
+    }
+
+    @Override
+    public OptionalLong getCompletedPositions()
+    {
+        return delegate.getCompletedPositions();
     }
 
     @Override
@@ -355,6 +273,12 @@ public class HivePageSource
     public long getSystemMemoryUsage()
     {
         return delegate.getSystemMemoryUsage();
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return delegate.getMetrics();
     }
 
     protected void closeWithSuppression(Throwable throwable)
@@ -568,11 +492,14 @@ public class HivePageSource
                     fields[i] = new DictionaryBlock(nullBlocks[i], ids);
                 }
             }
-            boolean[] valueIsNull = new boolean[rowBlock.getPositionCount()];
-            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                valueIsNull[i] = rowBlock.isNull(i);
+            boolean[] valueIsNull = null;
+            if (rowBlock.mayHaveNull()) {
+                valueIsNull = new boolean[rowBlock.getPositionCount()];
+                for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+                    valueIsNull[i] = rowBlock.isNull(i);
+                }
             }
-            return RowBlock.fromFieldBlocks(valueIsNull.length, Optional.of(valueIsNull), fields);
+            return RowBlock.fromFieldBlocks(rowBlock.getPositionCount(), Optional.ofNullable(valueIsNull), fields);
         }
     }
 

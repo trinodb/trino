@@ -27,6 +27,7 @@ import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentFactory;
 import io.trino.tests.product.launcher.env.EnvironmentModule;
 import io.trino.tests.product.launcher.env.EnvironmentOptions;
+import io.trino.tests.product.launcher.env.SupportedTrinoJdk;
 import io.trino.tests.product.launcher.testcontainers.ExistingNetwork;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.Timeout;
@@ -56,6 +57,7 @@ import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandar
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static io.trino.tests.product.launcher.testcontainers.PortBinder.unsafelyExposePort;
 import static java.lang.StrictMath.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
@@ -120,6 +122,9 @@ public final class TestRun
         @Option(names = "--attach", description = "attach to an existing environment")
         public boolean attach;
 
+        @Option(names = "--debug-suspend-tests", description = "Wait for client to connect in debug mode. Product Tests process only.")
+        public boolean debugSuspend;
+
         @Option(names = "--reports-dir", paramLabel = "<dir>", description = "Location of the reports directory " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/reports")
         public Path reportsDir;
 
@@ -147,6 +152,8 @@ public final class TestRun
         private static final String CONTAINER_REPORTS_DIR = "/docker/test-reports";
         private final EnvironmentFactory environmentFactory;
         private final boolean debug;
+        private final boolean debugSuspend;
+        private final SupportedTrinoJdk jdkVersion;
         private final File testJar;
         private final File cliJar;
         private final List<String> testArguments;
@@ -166,6 +173,8 @@ public final class TestRun
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             requireNonNull(environmentOptions, "environmentOptions is null");
             this.debug = environmentOptions.debug;
+            this.debugSuspend = requireNonNull(testRunOptions, "testRunOptions is null").debugSuspend;
+            this.jdkVersion = requireNonNull(environmentOptions.jdkVersion, "environmentOptions.jdkVersion is null");
             this.testJar = requireNonNull(testRunOptions.testJar, "testRunOptions.testJar is null");
             this.cliJar = requireNonNull(testRunOptions.cliJar, "testRunOptions.cliJar is null");
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testRunOptions.testArguments is null"));
@@ -233,7 +242,7 @@ public final class TestRun
                         .collect(toImmutableList());
                 testsContainer.dependsOn(environmentContainers);
 
-                log.info("Starting environment '%s' with config '%s' and options '%s'", this.environment, environmentConfig.getConfigName(), extraOptions);
+                log.info("Starting environment '%s' with config '%s' and options '%s'. Trino will be started using JAVA_HOME: %s.", this.environment, environmentConfig.getConfigName(), extraOptions, jdkVersion.getJavaHome());
                 environment.start();
             }
             else {
@@ -259,7 +268,7 @@ public final class TestRun
 
                 if (debug) {
                     temptoJavaOptions = new ArrayList<>(temptoJavaOptions);
-                    temptoJavaOptions.add("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:5007");
+                    temptoJavaOptions.add(format("-agentlib:jdwp=transport=dt_socket,server=y,suspend=%s,address=0.0.0.0:5007", debugSuspend ? "y" : "n"));
                     unsafelyExposePort(container, 5007); // debug port
                 }
 
@@ -272,16 +281,19 @@ public final class TestRun
                         .withFileSystemBind(testJar.getPath(), "/docker/test.jar", READ_ONLY)
                         .withFileSystemBind(cliJar.getPath(), "/docker/trino-cli", READ_ONLY)
                         .withCopyFileToContainer(forClasspathResource("docker/presto-product-tests/common/standard/set-trino-cli.sh"), "/etc/profile.d/set-trino-cli.sh")
+                        .withEnv("JAVA_HOME", jdkVersion.getJavaHome())
                         .withCommand(ImmutableList.<String>builder()
                                 .add(
-                                        "/usr/lib/jvm/zulu-11/bin/java",
+                                        jdkVersion.getJavaCommand(),
                                         "-Xmx1g",
                                         // Force Parallel GC to ensure MaxHeapFreeRatio is respected
                                         "-XX:+UseParallelGC",
                                         "-XX:MinHeapFreeRatio=10",
                                         "-XX:MaxHeapFreeRatio=10",
                                         "-Djava.util.logging.config.file=/docker/presto-product-tests/conf/tempto/logging.properties",
-                                        "-Duser.timezone=Asia/Kathmandu")
+                                        "-Duser.timezone=Asia/Kathmandu",
+                                        // Tempto has progress logging built in
+                                        "-DProgressLoggingListener.enabled=false")
                                 .addAll(temptoJavaOptions)
                                 .add(
                                         "-jar", "/docker/test.jar",

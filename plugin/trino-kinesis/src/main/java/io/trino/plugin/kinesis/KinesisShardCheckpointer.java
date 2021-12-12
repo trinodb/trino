@@ -105,7 +105,7 @@ public class KinesisShardCheckpointer
     // storing last read sequence no. in dynamodb table
     public void checkpoint(String lastReadSequenceNumber)
     {
-        log.info("Trying to checkpoint at " + lastReadSequenceNumber);
+        log.info("Trying to checkpoint at %s", lastReadSequenceNumber);
         try {
             ExtendedSequenceNumber esn = new ExtendedSequenceNumber(lastReadSequenceNumber);
             kinesisClientLease.setCheckpoint(esn);
@@ -141,7 +141,7 @@ public class KinesisShardCheckpointer
             log.info("Previous checkpoint not found. Starting from beginning of shard");
         }
         else {
-            log.info("Resuming from " + lastReadSeqNumber);
+            log.info("Resuming from %s", lastReadSeqNumber);
         }
         return lastReadSeqNumber;
     }

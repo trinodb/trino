@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.tpch.util;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -27,8 +27,11 @@ public final class PredicateUtils
 
     public static Predicate<NullableValue> convertToPredicate(TupleDomain<ColumnHandle> predicate, TpchColumnHandle columnHandle)
     {
-        TupleDomain<ColumnHandle> columnPredicate = filterColumns(predicate, columnHandle::equals);
-        return nullableValue -> columnPredicate.contains(TupleDomain.fromFixedValues(ImmutableMap.of(columnHandle, nullableValue)));
+        Domain columnDomain = predicate.getDomains()
+                .map(domains -> domains.getOrDefault(columnHandle, Domain.all(columnHandle.getType())))
+                .orElseGet(() -> Domain.none(columnHandle.getType()));
+
+        return nullableValue -> columnDomain.includesNullableValue(nullableValue.getValue());
     }
 
     public static TupleDomain<ColumnHandle> filterOutColumnFromPredicate(TupleDomain<ColumnHandle> predicate, TpchColumnHandle columnHandle)
@@ -36,7 +39,7 @@ public final class PredicateUtils
         return filterColumns(predicate, tpchColumnHandle -> !tpchColumnHandle.equals(columnHandle));
     }
 
-    public static TupleDomain<ColumnHandle> filterColumns(TupleDomain<ColumnHandle> predicate, Predicate<TpchColumnHandle> filterPredicate)
+    private static TupleDomain<ColumnHandle> filterColumns(TupleDomain<ColumnHandle> predicate, Predicate<TpchColumnHandle> filterPredicate)
     {
         return predicate.filter((columnHandle, domain) -> filterPredicate.test((TpchColumnHandle) columnHandle));
     }

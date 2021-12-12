@@ -260,7 +260,7 @@ public class SortingFileWriter
             }
         }
         catch (IOException e) {
-            log.warn(e, "Failed to delete temporary file: " + file);
+            log.warn(e, "Failed to delete temporary file: %s", file);
         }
     }
 

@@ -21,12 +21,14 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Lifespan;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.FilterAndProjectOperator;
@@ -38,6 +40,7 @@ import io.trino.operator.SourceOperatorFactory;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
@@ -59,7 +62,6 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.split.PageSourceProvider;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
@@ -72,7 +74,9 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
+import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -130,11 +134,13 @@ import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -208,7 +214,9 @@ public final class FunctionAssertions
 
     private final Session session;
     private final LocalQueryRunner runner;
+    private final TransactionManager transactionManager;
     private final Metadata metadata;
+    private final TestingFunctionResolution testingFunctionResolution;
     private final ExpressionCompiler compiler;
 
     public FunctionAssertions()
@@ -227,13 +235,20 @@ public final class FunctionAssertions
         runner = LocalQueryRunner.builder(session)
                 .withFeaturesConfig(featuresConfig)
                 .build();
+        transactionManager = runner.getTransactionManager();
         metadata = runner.getMetadata();
+        testingFunctionResolution = new TestingFunctionResolution(transactionManager, metadata);
         compiler = runner.getExpressionCompiler();
     }
 
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    public TestingFunctionResolution getFunctionResolution()
+    {
+        return testingFunctionResolution;
     }
 
     public TypeOperators getTypeOperators()
@@ -326,6 +341,13 @@ public final class FunctionAssertions
                 .hasErrorCode(expectedErrorCode);
     }
 
+    public void assertFunctionThrowsIncorrectly(@Language("SQL") String projection, Class<? extends Throwable> throwableClass, @Language("RegExp") String message)
+    {
+        assertThatThrownBy(() -> evaluateInvalid(projection))
+                .isInstanceOf(throwableClass)
+                .hasMessageMatching(message);
+    }
+
     public void assertNumericOverflow(String projection, String message)
     {
         assertTrinoExceptionThrownBy(() -> evaluateInvalid(projection))
@@ -354,6 +376,18 @@ public final class FunctionAssertions
 
     public void assertCachedInstanceHasBoundedRetainedSize(String projection)
     {
+        transaction(transactionManager, new AllowAllAccessControl())
+                .singleStatement()
+                .execute(session, txSession -> {
+                    // metadata.getCatalogHandle() registers the catalog for the transaction
+                    txSession.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(txSession, catalog));
+                    assertCachedInstanceHasBoundedRetainedSizeInTx(projection, txSession);
+                    return null;
+                });
+    }
+
+    private void assertCachedInstanceHasBoundedRetainedSizeInTx(String projection, Session session)
+    {
         requireNonNull(projection, "projection is null");
 
         Expression projectionExpression = createExpression(session, projection, metadata, INPUT_TYPES);
@@ -377,7 +411,8 @@ public final class FunctionAssertions
                     newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                     SOURCE_PAGE);
             // consume the iterator
-            Iterators.getOnlyElement(output);
+            @SuppressWarnings("unused")
+            Optional<Page> ignored = Iterators.getOnlyElement(output);
 
             long retainedSize = processor.getProjections().stream()
                     .mapToLong(this::getRetainedSizeOfCachedInstance)
@@ -467,6 +502,17 @@ public final class FunctionAssertions
 
     private List<Object> executeProjectionWithAll(String projection, Type expectedType, Session session, ExpressionCompiler compiler)
     {
+        return transaction(transactionManager, new AllowAllAccessControl())
+                .singleStatement()
+                .execute(session, txSession -> {
+                    // metadata.getCatalogHandle() registers the catalog for the transaction
+                    txSession.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(txSession, catalog));
+                    return executeProjectionWithAllInTx(projection, expectedType, txSession, compiler);
+                });
+    }
+
+    private List<Object> executeProjectionWithAllInTx(String projection, Type expectedType, Session session, ExpressionCompiler compiler)
+    {
         requireNonNull(projection, "projection is null");
 
         Expression projectionExpression = createExpression(session, projection, metadata, INPUT_TYPES);
@@ -520,7 +566,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Session session, Expression projectionExpression)
     {
-        return toRowExpression(projectionExpression, getTypes(session, metadata, INPUT_TYPES, projectionExpression), INPUT_MAPPING);
+        return toRowExpression(session, projectionExpression, getTypes(session, metadata, INPUT_TYPES, projectionExpression), INPUT_MAPPING);
     }
 
     private Object selectSingleValue(OperatorFactory operatorFactory, Type type, Session session)
@@ -795,7 +841,7 @@ public final class FunctionAssertions
         }
     }
 
-    private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<Symbol, Integer> layout)
+    private RowExpression toRowExpression(Session session, Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<Symbol, Integer> layout)
     {
         return translate(projection, expressionTypes, layout, metadata, session, false);
     }

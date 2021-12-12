@@ -1,0 +1,13 @@
+Non-transactional INSERT
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector supports adding rows using :doc:`INSERT statements </sql/insert>`.
+By default, data insertion is performed by writing data to a temporary table.
+You can skip this step to improve performance and write directly to the target
+table. Set the ``insert.non-transactional-insert.enabled`` catalog property
+or the corresponding ``non_transactional_insert`` catalog session property to
+``true``.
+
+Note that with this property enabled, data can be corrupted in rare cases where
+exceptions occur during the insert operation. With transactions disabled, no
+rollback can be performed.

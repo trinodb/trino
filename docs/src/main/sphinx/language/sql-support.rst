@@ -14,13 +14,13 @@ write operations, then a :doc:`/sql/delete` statement cannot be executed against
 the data source.
 
 Similarly, if the underlying system does not have any security concepts, SQL
-statements like :doc:`/sql/create-role` can not be supported by Trino and the
+statements like :doc:`/sql/create-role` cannot be supported by Trino and the
 connector.
 
 The categories of these different topics are related to :ref:`read operations
 <sql-read-operations>`, :ref:`write operations <sql-write-operations>`,
 :ref:`security operations <sql-security-operations>` and :ref:`transactions
-<sql-security-transactions>`.
+<sql-transactions>`.
 
 Details of the support for specific statements is available with the
 documentation for each connector.
@@ -76,7 +76,7 @@ connector accessing a data source. They are supported by all connectors:
 Write operations
 ----------------
 
-The following statements provide write access to data and meta data exposed by
+The following statements provide write access to data and meta data exposed
 by a connector accessing a data source. Availability varies widely from
 connector to connector:
 
@@ -88,6 +88,7 @@ Data management
 * :doc:`/sql/insert`
 * :doc:`/sql/update`
 * :doc:`/sql/delete`
+* :doc:`/sql/truncate`
 
 .. _sql-materialized-views-management:
 
@@ -95,6 +96,7 @@ Materialized views management
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * :doc:`/sql/create-materialized-view`
+* :doc:`/sql/alter-materialized-view`
 * :doc:`/sql/drop-materialized-view`
 * :doc:`/sql/refresh-materialized-view`
 
@@ -144,13 +146,13 @@ Grants management:
 * :doc:`/sql/grant`
 * :doc:`/sql/revoke`
 
-.. _sql-security-transactions:
+.. _sql-transactions:
 
 Transactions
 ------------
 
 The following statements manage transactions. Most connectors do not support
-transactions. Most connectors do not support transactions:
+transactions:
 
 * :doc:`/sql/start-transaction`
 * :doc:`/sql/commit`

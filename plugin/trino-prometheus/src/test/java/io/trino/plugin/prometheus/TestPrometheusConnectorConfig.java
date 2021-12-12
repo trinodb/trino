@@ -41,7 +41,8 @@ public class TestPrometheusConnectorConfig
                 .setQueryChunkSizeDuration(new Duration(1, DAYS))
                 .setMaxQueryRangeDuration(new Duration(21, DAYS))
                 .setCacheDuration(new Duration(30, SECONDS))
-                .setBearerTokenFile(null));
+                .setBearerTokenFile(null)
+                .setReadTimeout(new Duration(10, SECONDS)));
     }
 
     @Test
@@ -53,6 +54,7 @@ public class TestPrometheusConnectorConfig
                 .put("prometheus.max.query.range.duration", "1095d")
                 .put("prometheus.cache.ttl", "60s")
                 .put("prometheus.bearer.token.file", "/tmp/bearer_token.txt")
+                .put("prometheus.read-timeout", "30s")
                 .build();
 
         URI uri = URI.create("file://test.json");
@@ -62,6 +64,7 @@ public class TestPrometheusConnectorConfig
         expected.setMaxQueryRangeDuration(new Duration(1095, DAYS));
         expected.setCacheDuration(new Duration(60, SECONDS));
         expected.setBearerTokenFile(new File("/tmp/bearer_token.txt"));
+        expected.setReadTimeout(new Duration(30, SECONDS));
 
         assertFullMapping(properties, expected);
     }

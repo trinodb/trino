@@ -33,7 +33,7 @@ public class WindowPlanNodeStats
             long planNodeOutputPositions,
             DataSize planNodeOutputDataSize,
             DataSize planNodeSpilledDataSize,
-            Map<String, OperatorInputStats> operatorInputStats,
+            Map<String, BasicOperatorStats> operatorStats,
             WindowOperatorStats windowOperatorStats)
     {
         super(
@@ -45,7 +45,7 @@ public class WindowPlanNodeStats
                 planNodeOutputPositions,
                 planNodeOutputDataSize,
                 planNodeSpilledDataSize,
-                operatorInputStats);
+                operatorStats);
         this.windowOperatorStats = windowOperatorStats;
     }
 
@@ -57,7 +57,6 @@ public class WindowPlanNodeStats
     @Override
     public PlanNodeStats mergeWith(PlanNodeStats other)
     {
-        checkMergeable(other);
         PlanNodeStats merged = super.mergeWith(other);
 
         return new WindowPlanNodeStats(
@@ -69,7 +68,7 @@ public class WindowPlanNodeStats
                 merged.getPlanNodeOutputPositions(),
                 merged.getPlanNodeOutputDataSize(),
                 merged.getPlanNodeSpilledDataSize(),
-                merged.operatorInputStats,
+                merged.operatorStats,
                 windowOperatorStats);
     }
 }

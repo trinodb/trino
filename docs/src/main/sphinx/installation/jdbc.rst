@@ -10,8 +10,11 @@ as those used for reporting and database development, use the JDBC driver.
 Requirements
 ------------
 
-The JDBC driver is compatible with Java versions 8 or higher, and can be used with
-applications running on Java virtual machines version 8 or higher.
+The Trino JDBC driver has the following requirements:
+
+* Java version 8 or higher.
+* All users that connect to Trino with the JDBC driver must be granted access to
+  query tables in the ``system.jdbc`` schema.
 
 Installing
 ----------
@@ -120,6 +123,7 @@ Name                                                         Description
 ============================================================ =======================================================================
 ``user``                                                     Username to use for authentication and authorization.
 ``password``                                                 Password to use for LDAP authentication.
+``sessionUser``                                              Session username override, used for impersonation.
 ``socksProxy``                                               SOCKS proxy host and port. Example: ``localhost:1080``
 ``httpProxy``                                                HTTP proxy host and port. Example: ``localhost:8888``
 ``clientInfo``                                               Extra information about the client.
@@ -134,14 +138,17 @@ Name                                                         Description
                                                              property nor ``ApplicationName`` or ``source`` are set, the source
                                                              name for the query is ``trino-jdbc``.
 ``accessToken``                                              :doc:`JWT </security/jwt>` access token for token based authentication.
-``SSL``                                                      Use HTTPS for connections
-``SSLVerification``                                          The method of SSL verification. There are three modes: ``FULL``
+``SSL``                                                      Set ``true`` to specify using HTTPS/TLS for connections.
+``SSLVerification``                                          The method of TLS verification. There are three modes: ``FULL``
                                                              (default), ``CA`` and ``NONE``. For ``FULL``, the normal TLS
                                                              verification is performed. For ``CA``, only the CA is verified but
                                                              hostname mismatch is allowed. For ``NONE``, there is no verification.
-``SSLKeyStorePath``                                          The location of the Java KeyStore file that contains the certificate
-                                                             and private key to use for authentication.
-``SSLKeyStorePassword``                                      The password for the KeyStore.
+``SSLKeyStorePath``                                          Use only when connecting to a Trino cluster that has :doc:`certificate
+                                                             authentication </security/certificate>` enabled.
+                                                             Specifies the path to a :doc:`PEM </security/inspect-pem>` or :doc:`JKS
+                                                             </security/inspect-jks>` file, which must contain a certificate that
+                                                             is trusted by the Trino cluster you connect to.
+``SSLKeyStorePassword``                                      The password for the KeyStore, if any.
 ``SSLKeyStoreType``                                          The type of the KeyStore. The default type is provided by the Java
                                                              ``keystore.type`` security property or ``jks`` if none exists.
 ``SSLTrustStorePath``                                        The location of the Java TrustStore file to use.
@@ -163,6 +170,9 @@ Name                                                         Description
 ``KerberosConfigPath``                                       Kerberos configuration file.
 ``KerberosKeytabPath``                                       Kerberos keytab file.
 ``KerberosCredentialCachePath``                              Kerberos credential cache.
+``KerberosDelegation``                                       Set to ``true`` to use the token from an existing Kerberos context.
+                                                             This allows client to use Kerberos authentication without passing
+                                                             the Keytab or credential cache. Defaults to ``false``.
 ``extraCredentials``                                         Extra credentials for connecting to external services,
                                                              specified as a list of key-value pairs. For example,
                                                              ``foo:bar;abc:xyz`` creates the credential named ``abc``
@@ -183,7 +193,9 @@ Name                                                         Description
                                                              connections for the same authenticated user until the cache is
                                                              invalidated, such as when a client is restarted or when the classloader
                                                              reloads the JDBC driver. This is disabled by default, with a value of
-                                                             ``NONE``. To enable, set the value to ``MEMORY``.
+                                                             ``NONE``. To enable, set the value to ``MEMORY``. If the JDBC driver is used
+                                                             in a shared mode by different users, the first registered token is stored
+                                                             and authenticates all users.
 ``disableCompression``                                       Whether compression should be enabled.
 ``assumeLiteralNamesInMetadataCallsForNonConformingClients`` When enabled, the name patterns passed to ``DatabaseMetaData`` methods
                                                              are treated as literals. You can use this as a workaround for

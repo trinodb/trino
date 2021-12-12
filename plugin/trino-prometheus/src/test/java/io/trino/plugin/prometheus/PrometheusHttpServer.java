@@ -51,7 +51,6 @@ public class PrometheusHttpServer
                 new PrometheusHttpServerModule());
 
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .initialize();
 

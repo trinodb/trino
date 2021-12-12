@@ -60,7 +60,7 @@ public class TestHiveCaching
         long initialAsyncDownloadedMb = beforeCacheStats.getAsyncDownloadedMb();
 
         assertThat(query("SELECT * FROM " + cachedTableName))
-                .containsExactly(tableData);
+                .containsExactlyInOrder(tableData);
 
         assertEventually(
                 new Duration(20, SECONDS),
@@ -82,13 +82,13 @@ public class TestHiveCaching
                     long beforeQueryNonLocalReads = beforeQueryCacheStats.getNonLocalReads();
 
                     assertThat(query("SELECT * FROM " + cachedTableName))
-                            .containsExactly(tableData);
+                            .containsExactlyInOrder(tableData);
 
                     // query via caching catalog should read exclusively from cache
                     CacheStats afterQueryCacheStats = getCacheStats();
                     assertGreaterThan(afterQueryCacheStats.getCachedReads(), beforeQueryCachedReads);
                     assertEquals(afterQueryCacheStats.getRemoteReads(), beforeQueryRemoteReads);
-                    // all reads should be local as Presto would schedule splits on nodes with cached data
+                    // all reads should be local as Trino would schedule splits on nodes with cached data
                     assertEquals(afterQueryCacheStats.getNonLocalReads(), beforeQueryNonLocalReads);
                 });
 

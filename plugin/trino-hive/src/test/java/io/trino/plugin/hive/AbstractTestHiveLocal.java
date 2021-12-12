@@ -62,7 +62,6 @@ import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static java.lang.String.format;
 import static java.nio.file.Files.copy;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -99,8 +98,8 @@ public abstract class AbstractTestHiveLocal
         metastore.createDatabase(HIVE_IDENTITY,
                 Database.builder()
                         .setDatabaseName(testDbName)
-                        .setOwnerName("public")
-                        .setOwnerType(PrincipalType.ROLE)
+                        .setOwnerName(Optional.of("public"))
+                        .setOwnerType(Optional.of(PrincipalType.ROLE))
                         .build());
 
         HiveConfig hiveConfig = new HiveConfig()
@@ -242,7 +241,7 @@ public abstract class AbstractTestHiveLocal
             Table.Builder tableBuilder = Table.builder()
                     .setDatabaseName(schemaName)
                     .setTableName(tableName)
-                    .setOwner(tableOwner)
+                    .setOwner(Optional.of(tableOwner))
                     .setTableType(TableType.EXTERNAL_TABLE.name())
                     .setParameters(ImmutableMap.of(
                             PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
@@ -267,7 +266,7 @@ public abstract class AbstractTestHiveLocal
             throws IOException
     {
         java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory(getClass().getSimpleName()).normalize();
-        log.info(format("Copying resource dir '%s' to %s", resourceName, tempDir));
+        log.info("Copying resource dir '%s' to %s", resourceName, tempDir);
         ClassPath.from(getClass().getClassLoader())
                 .getResources().stream()
                 .filter(resourceInfo -> resourceInfo.getResourceName().startsWith(resourceName))

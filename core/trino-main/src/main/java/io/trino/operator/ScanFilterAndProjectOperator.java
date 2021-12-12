@@ -34,6 +34,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.RecordCursor;
@@ -78,6 +79,7 @@ public class ScanFilterAndProjectOperator
     private long processedPositions;
     private long processedBytes;
     private long physicalBytes;
+    private long physicalPositions;
     private long readTimeNanos;
     private long dynamicFilterSplitsProcessed;
     private Metrics metrics = Metrics.EMPTY;
@@ -135,7 +137,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public long getPhysicalInputPositions()
     {
-        return processedPositions;
+        return physicalPositions;
     }
 
     @Override
@@ -286,11 +288,12 @@ public class ScanFilterAndProjectOperator
 
         WorkProcessor<Page> processPageSource()
         {
+            ConnectorSession connectorSession = session.toConnectorSession();
             return WorkProcessor
                     .create(new ConnectorPageSourceToPages(pageSourceMemoryContext))
                     .yielding(yieldSignal::isSet)
                     .flatMap(page -> pageProcessor.createWorkProcessor(
-                            session.toConnectorSession(),
+                            connectorSession,
                             yieldSignal,
                             outputMemoryContext,
                             page,
@@ -303,7 +306,7 @@ public class ScanFilterAndProjectOperator
     private class RecordCursorToPages
             implements WorkProcessor.Process<Page>
     {
-        final Session session;
+        final ConnectorSession session;
         final DriverYieldSignal yieldSignal;
         final CursorProcessor cursorProcessor;
         final PageBuilder pageBuilder;
@@ -320,7 +323,7 @@ public class ScanFilterAndProjectOperator
                 LocalMemoryContext pageSourceMemoryContext,
                 LocalMemoryContext outputMemoryContext)
         {
-            this.session = session;
+            this.session = session.toConnectorSession();
             this.yieldSignal = yieldSignal;
             this.cursorProcessor = cursorProcessor;
             this.pageBuilder = new PageBuilder(types);
@@ -332,13 +335,14 @@ public class ScanFilterAndProjectOperator
         public ProcessState<Page> process()
         {
             if (!finished) {
-                CursorProcessorOutput output = cursorProcessor.process(session.toConnectorSession(), yieldSignal, cursor, pageBuilder);
+                CursorProcessorOutput output = cursorProcessor.process(session, yieldSignal, cursor, pageBuilder);
                 pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
 
                 processedPositions += output.getProcessedRows();
                 // TODO: derive better values for cursors
                 processedBytes = cursor.getCompletedBytes();
                 physicalBytes = cursor.getCompletedBytes();
+                physicalPositions = processedPositions;
                 readTimeNanos = cursor.getReadTimeNanos();
                 if (output.isNoMoreRows()) {
                     finished = true;
@@ -358,7 +362,7 @@ public class ScanFilterAndProjectOperator
             }
             else {
                 outputMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
-                return ProcessState.yield();
+                return ProcessState.yielded();
             }
         }
     }
@@ -393,7 +397,7 @@ public class ScanFilterAndProjectOperator
                     return ProcessState.finished();
                 }
                 else {
-                    return ProcessState.yield();
+                    return ProcessState.yielded();
                 }
             }
 
@@ -402,6 +406,7 @@ public class ScanFilterAndProjectOperator
             // update operator stats
             processedPositions += page.getPositionCount();
             physicalBytes = pageSource.getCompletedBytes();
+            physicalPositions = pageSource.getCompletedPositions().orElse(processedPositions);
             readTimeNanos = pageSource.getReadTimeNanos();
             metrics = pageSource.getMetrics();
 

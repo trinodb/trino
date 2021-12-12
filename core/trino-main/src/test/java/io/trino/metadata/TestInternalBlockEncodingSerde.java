@@ -38,7 +38,7 @@ public class TestInternalBlockEncodingSerde
     private final BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodings::get, testingTypeManager::getType);
 
     @Test
-    public void BlockRoundTrip()
+    public void blockRoundTrip()
     {
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 2);
         VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice("hello"));

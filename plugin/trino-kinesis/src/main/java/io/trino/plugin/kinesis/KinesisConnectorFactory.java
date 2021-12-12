@@ -65,7 +65,7 @@ public class KinesisConnectorFactory
                         binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KinesisStreamDescription>>>() {}).to(KinesisTableDescriptionSupplier.class).in(Scopes.SINGLETON);
                     });
 
-            Injector injector = app.strictConfig()
+            Injector injector = app
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

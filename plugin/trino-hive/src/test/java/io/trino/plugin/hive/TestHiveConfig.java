@@ -46,9 +46,10 @@ public class TestHiveConfig
                 .setMaxPartitionBatchSize(100)
                 .setMaxInitialSplits(200)
                 .setMaxInitialSplitSize(DataSize.of(32, Unit.MEGABYTE))
-                .setSplitLoaderConcurrency(4)
+                .setSplitLoaderConcurrency(64)
                 .setMaxSplitsPerSecond(null)
                 .setDomainCompactionThreshold(100)
+                .setTargetMaxFileSize(DataSize.of(1, Unit.GIGABYTE))
                 .setWriterSortBufferSize(DataSize.of(64, Unit.MEGABYTE))
                 .setForceLocalScheduling(false)
                 .setMaxConcurrentFileRenames(20)
@@ -89,6 +90,7 @@ public class TestHiveConfig
                 .setS3SelectPushdownMaxConnections(500)
                 .setTemporaryStagingDirectoryEnabled(true)
                 .setTemporaryStagingDirectoryPath("/tmp/presto-${USER}")
+                .setDelegateTransactionalManagedTableLocationToMetastore(false)
                 .setFileStatusCacheExpireAfterWrite(new Duration(1, TimeUnit.MINUTES))
                 .setFileStatusCacheMaxSize(1000 * 1000)
                 .setFileStatusCacheTables("")
@@ -97,11 +99,15 @@ public class TestHiveConfig
                 .setHiveTransactionHeartbeatThreads(5)
                 .setAllowRegisterPartition(false)
                 .setQueryPartitionFilterRequired(false)
+                .setQueryPartitionFilterRequiredSchemas("")
                 .setProjectionPushdownEnabled(true)
-                .setDynamicFilteringProbeBlockingTimeout(new Duration(0, TimeUnit.MINUTES))
+                .setDynamicFilteringWaitTimeout(new Duration(0, TimeUnit.MINUTES))
                 .setTimestampPrecision(HiveTimestampPrecision.DEFAULT_PRECISION)
                 .setOptimizeSymlinkListing(true)
-                .setLegacyHiveViewTranslation(false));
+                .setLegacyHiveViewTranslation(false)
+                .setIcebergCatalogName(null)
+                .setSizeBasedSplitWeightsEnabled(true)
+                .setMinimumAssignedSplitWeight(0.05));
     }
 
     @Test
@@ -121,6 +127,7 @@ public class TestHiveConfig
                 .put("hive.split-loader-concurrency", "1")
                 .put("hive.max-splits-per-second", "1")
                 .put("hive.domain-compaction-threshold", "42")
+                .put("hive.target-max-file-size", "72MB")
                 .put("hive.writer-sort-buffer-size", "13MB")
                 .put("hive.recursive-directories", "true")
                 .put("hive.ignore-absent-partitions", "true")
@@ -161,6 +168,7 @@ public class TestHiveConfig
                 .put("hive.s3select-pushdown.max-connections", "1234")
                 .put("hive.temporary-staging-directory-enabled", "false")
                 .put("hive.temporary-staging-directory-path", "updated")
+                .put("hive.delegate-transactional-managed-table-location-to-metastore", "true")
                 .put("hive.file-status-cache-tables", "foo.bar1, foo.bar2")
                 .put("hive.file-status-cache-size", "1000")
                 .put("hive.file-status-cache-expire-time", "30m")
@@ -169,11 +177,15 @@ public class TestHiveConfig
                 .put("hive.transaction-heartbeat-threads", "10")
                 .put("hive.allow-register-partition-procedure", "true")
                 .put("hive.query-partition-filter-required", "true")
+                .put("hive.query-partition-filter-required-schemas", "foo, bar")
                 .put("hive.projection-pushdown-enabled", "false")
-                .put("hive.dynamic-filtering-probe-blocking-timeout", "10s")
+                .put("hive.dynamic-filtering.wait-timeout", "10s")
                 .put("hive.timestamp-precision", "NANOSECONDS")
                 .put("hive.optimize-symlink-listing", "false")
                 .put("hive.legacy-hive-view-translation", "true")
+                .put("hive.iceberg-catalog-name", "iceberg")
+                .put("hive.size-based-split-weights-enabled", "false")
+                .put("hive.minimum-assigned-split-weight", "1.0")
                 .build();
 
         HiveConfig expected = new HiveConfig()
@@ -190,6 +202,7 @@ public class TestHiveConfig
                 .setSplitLoaderConcurrency(1)
                 .setMaxSplitsPerSecond(1)
                 .setDomainCompactionThreshold(42)
+                .setTargetMaxFileSize(DataSize.of(72, Unit.MEGABYTE))
                 .setWriterSortBufferSize(DataSize.of(13, Unit.MEGABYTE))
                 .setForceLocalScheduling(true)
                 .setMaxConcurrentFileRenames(100)
@@ -230,6 +243,7 @@ public class TestHiveConfig
                 .setS3SelectPushdownMaxConnections(1234)
                 .setTemporaryStagingDirectoryEnabled(false)
                 .setTemporaryStagingDirectoryPath("updated")
+                .setDelegateTransactionalManagedTableLocationToMetastore(true)
                 .setFileStatusCacheTables("foo.bar1,foo.bar2")
                 .setFileStatusCacheMaxSize(1000)
                 .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES))
@@ -238,11 +252,15 @@ public class TestHiveConfig
                 .setHiveTransactionHeartbeatThreads(10)
                 .setAllowRegisterPartition(true)
                 .setQueryPartitionFilterRequired(true)
+                .setQueryPartitionFilterRequiredSchemas("foo, bar")
                 .setProjectionPushdownEnabled(false)
-                .setDynamicFilteringProbeBlockingTimeout(new Duration(10, TimeUnit.SECONDS))
+                .setDynamicFilteringWaitTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setTimestampPrecision(HiveTimestampPrecision.NANOSECONDS)
                 .setOptimizeSymlinkListing(false)
-                .setLegacyHiveViewTranslation(true);
+                .setLegacyHiveViewTranslation(true)
+                .setIcebergCatalogName("iceberg")
+                .setSizeBasedSplitWeightsEnabled(false)
+                .setMinimumAssignedSplitWeight(1.0);
 
         assertFullMapping(properties, expected);
     }

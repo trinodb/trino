@@ -44,6 +44,12 @@ with a different name, making sure it ends in ``.properties``. For example,
 if you name the property file ``sales.properties``, Trino creates a
 catalog named ``sales`` using the configured connector.
 
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: jdbc-case-insensitive-matching.fragment
+
+.. include:: non-transactional-insert.fragment
+
 Querying Redshift
 -----------------
 
@@ -77,12 +83,24 @@ Type mapping
 
 .. include:: jdbc-type-mapping.fragment
 
-Limitations
+.. _redshift-sql-support:
+
+SQL support
 -----------
 
-The following SQL statements are not yet supported:
+The connector provides read access and write access to data and metadata in
+Redshift. In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
 
+* :doc:`/sql/insert`
 * :doc:`/sql/delete`
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
-* :doc:`/sql/show-grants`
+* :doc:`/sql/truncate`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
+* :doc:`/sql/comment`
+
+.. include:: sql-delete-limitation.fragment

@@ -1396,4 +1396,123 @@ public class TestRowPatternMatchingInWindow
                 "                              ) ASC NULLS FIRST"))
                 .matches("VALUES 6, 3, 4, 5, 1, 2");
     }
+
+    @Test
+    public void testSubqueries()
+    {
+        // NOTE: Subquery in pattern recognition context can always be handled prior to pattern recognition planning, because
+        // by analysis it cannot contain labeled column references, navigations, `CLASSIFIER()`, or `MATCH_NUMBER()` calls,
+        // which mustn't be pre-projected.
+        String query = "SELECT id, val OVER w " +
+                "          FROM (VALUES " +
+                "                   (1, 100), " +
+                "                   (2, 200), " +
+                "                   (3, 300), " +
+                "                   (4, 400) " +
+                "               ) t(id, value) " +
+                "                 WINDOW w AS ( " +
+                "                   ORDER BY id " +
+                "                   MEASURES %s AS val " +
+                "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                "                   AFTER MATCH SKIP TO NEXT ROW " +
+                "                   PATTERN (A+) " +
+                "                   DEFINE A AS %s " +
+                "                )";
+
+        assertThat(assertions.query(format(query, "(SELECT 'x')", "(SELECT true)")))
+                .matches("VALUES " +
+                        "     (1, 'x'), " +
+                        "     (2, 'x'), " +
+                        "     (3, 'x'), " +
+                        "     (4, 'x') ");
+
+        // subquery nested in navigation
+        assertThat(assertions.query(format(query, "LAST(A.value + (SELECT 1000))", "FIRST(A.value < 0 OR (SELECT true))")))
+                .matches("VALUES " +
+                        "     (1, 1400), " +
+                        "     (2, 1400), " +
+                        "     (3, 1400), " +
+                        "     (4, 1400) ");
+
+        // IN-predicate: value and value list without column references
+        assertThat(assertions.query(format(query, "LAST(A.id < 0 OR 1 IN (SELECT 1))", "FIRST(A.id > 0 AND 1 IN (SELECT 1))")))
+                .matches("VALUES " +
+                        "     (1, true), " +
+                        "     (2, true), " +
+                        "     (3, true), " +
+                        "     (4, true) ");
+
+        // IN-predicate: unlabeled column reference in value
+        assertThat(assertions.query(format(query, "LAST(id + 50 IN (SELECT 100))", "LAST(id NOT IN (SELECT 100))")))
+                .matches("VALUES " +
+                        "     (1, false), " +
+                        "     (2, false), " +
+                        "     (3, false), " +
+                        "     (4, false) ");
+
+        // EXISTS-predicate
+        assertThat(assertions.query(format(query, "LAST(A.value < 0 OR EXISTS(SELECT 1))", "FIRST(A.value < 0 OR EXISTS(SELECT 1))")))
+                .matches("VALUES " +
+                        "     (1, true), " +
+                        "     (2, true), " +
+                        "     (3, true), " +
+                        "     (4, true) ");
+
+        // no pattern measures
+        assertThat(assertions.query("SELECT id, max(value) OVER w " +
+                "          FROM (VALUES " +
+                "                   (1, 100), " +
+                "                   (2, 200), " +
+                "                   (3, 300), " +
+                "                   (4, 400) " +
+                "               ) t(id, value) " +
+                "                 WINDOW w AS ( " +
+                "                   ORDER BY id " +
+                "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                "                   AFTER MATCH SKIP TO NEXT ROW " +
+                "                   PATTERN (A+) " +
+                "                   DEFINE A AS (SELECT true) " +
+                "                )"))
+                .matches("VALUES " +
+                        "     (1, 400), " +
+                        "     (2, 400), " +
+                        "     (3, 400), " +
+                        "     (4, 400) ");
+    }
+
+    @Test
+    public void testInPredicateWithoutSubquery()
+    {
+        String query = "SELECT id, val OVER w " +
+                "          FROM (VALUES " +
+                "                   (1, 100), " +
+                "                   (2, 200), " +
+                "                   (3, 300), " +
+                "                   (4, 400) " +
+                "               ) t(id, value) " +
+                "                 WINDOW w AS ( " +
+                "                   ORDER BY id " +
+                "                   MEASURES %s AS val " +
+                "                   ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING " +
+                "                   AFTER MATCH SKIP TO NEXT ROW " +
+                "                   PATTERN (A+) " +
+                "                   DEFINE A AS true " +
+                "                )";
+
+        // navigations and labeled column references
+        assertThat(assertions.query(format(query, "FIRST(A.value) IN (300, LAST(A.value))")))
+                .matches("VALUES " +
+                        "     (1, false), " +
+                        "     (2, false), " +
+                        "     (3, true), " +
+                        "     (4, true) ");
+
+        // CLASSIFIER()
+        assertThat(assertions.query(format(query, "CLASSIFIER() IN ('X', lower(CLASSIFIER()))")))
+                .matches("VALUES " +
+                        "     (1, false), " +
+                        "     (2, false), " +
+                        "     (3, false), " +
+                        "     (4, false) ");
+    }
 }

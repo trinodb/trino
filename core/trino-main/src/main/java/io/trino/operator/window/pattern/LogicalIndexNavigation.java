@@ -15,6 +15,7 @@ package io.trino.operator.window.pattern;
 
 import io.trino.operator.window.matcher.ArrayView;
 
+import java.util.Objects;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -42,87 +43,28 @@ public class LogicalIndexNavigation
         this.physicalOffset = physicalOffset;
     }
 
-    /**
-     * This method is used for resolving positions during pattern matching. The `newLabel` is the label currently being matched.
-     * For the purpose of match evaluation, the new label is considered as matched in the next position after all `matchedLabels`.
-     *
-     * @return position within partition, or -1 if matching position was not found
-     */
-    public int resolvePosition(ArrayView matchedLabels, int newLabel, int searchStart, int searchEnd, int patternStart)
+    public Set<Integer> getLabels()
     {
-        int relativePosition;
-        if (last) {
-            relativePosition = findLastAndBackwards(matchedLabels, newLabel);
-        }
-        else {
-            relativePosition = findFirstAndForward(matchedLabels, newLabel);
-        }
-        return adjustPosition(relativePosition, patternStart, searchStart, searchEnd);
+        return labels;
     }
 
-    // LAST(A.price, 3): find the last occurrence of label "A" and go 3 occurrences backwards
-    private int findLastAndBackwards(ArrayView matchedLabels, int newLabel)
+    public boolean isLast()
     {
-        int position = matchedLabels.length();
-        int found = 0;
-        // the new label is considered as matched for the purpose of navigation
-        if (labels.isEmpty() || labels.contains(newLabel)) { // empty label denotes "universal row pattern variable", which always matches
-            found++;
-        }
-        while (found <= logicalOffset && position > 0) {
-            position--;
-            if (labels.isEmpty() || labels.contains(matchedLabels.get(position))) {
-                found++;
-            }
-        }
-        if (found == logicalOffset + 1) {
-            return position;
-        }
-        return -1;
+        return last;
     }
 
-    // FIRST(A.price, 3): find the first occurrence of label "A" and go 3 occurrences forward
-    private int findFirstAndForward(ArrayView matchedLabels, int newLabel)
+    public int getLogicalOffset()
     {
-        int position = -1;
-        int found = 0;
-        while (found <= logicalOffset && position < matchedLabels.length() - 1) {
-            position++;
-            if (labels.isEmpty() || labels.contains(matchedLabels.get(position))) {
-                found++;
-            }
-        }
-        // the new label is considered as matched for the purpose of navigation
-        if (found <= logicalOffset) {
-            position++;
-            if (labels.isEmpty() || labels.contains(newLabel)) {
-                found++;
-            }
-        }
-        if (found == logicalOffset + 1) {
-            return position;
-        }
-        return -1;
+        return logicalOffset;
     }
 
-    // adjust position by patternStart to reflect position within partition
-    // adjust position by physical offset: skip a certain number of rows, regardless of labels
-    // check if the new position is within partition bound by: partitionStart - inclusive, partitionEnd - exclusive
-    private int adjustPosition(int relativePosition, int patternStart, int searchStart, int searchEnd)
+    public int getPhysicalOffset()
     {
-        if (relativePosition == -1) {
-            return -1;
-        }
-        int start = relativePosition + patternStart;
-        int target = start + physicalOffset;
-        if (target < searchStart || target >= searchEnd) {
-            return -1;
-        }
-        return target;
+        return physicalOffset;
     }
 
     /**
-     * This method is used when computing row pattern measures and SKIP TO position after finding a match. Array of matched labels is complete.
+     * This method is used when evaluating labels during pattern matching, computing row pattern measures, and computing SKIP TO position after finding a match.
      * Search is limited up to the current row in case of running semantics and to the entire match in case of final semantics.
      *
      * @return position within partition, or -1 if matching position was not found
@@ -180,5 +122,65 @@ public class LogicalIndexNavigation
             return position;
         }
         return -1;
+    }
+
+    // adjust position by patternStart to reflect position within partition
+    // adjust position by physical offset: skip a certain number of rows, regardless of labels
+    // check if the new position is within partition bound by: partitionStart - inclusive, partitionEnd - exclusive
+    private int adjustPosition(int relativePosition, int patternStart, int searchStart, int searchEnd)
+    {
+        if (relativePosition == -1) {
+            return -1;
+        }
+        int start = relativePosition + patternStart;
+        int target = start + physicalOffset;
+        if (target < searchStart || target >= searchEnd) {
+            return -1;
+        }
+        return target;
+    }
+
+    // for thread equivalence
+    public LogicalIndexNavigation withoutLogicalOffset()
+    {
+        return withLogicalOffset(0);
+    }
+
+    public LogicalIndexNavigation withLogicalOffset(int logicalOffset)
+    {
+        return new LogicalIndexNavigation(labels, last, running, logicalOffset, physicalOffset);
+    }
+
+    public LogicalIndexNavigation withoutPhysicalOffset()
+    {
+        return withPhysicalOffset(0);
+    }
+
+    public LogicalIndexNavigation withPhysicalOffset(int physicalOffset)
+    {
+        return new LogicalIndexNavigation(labels, last, running, logicalOffset, physicalOffset);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        LogicalIndexNavigation that = (LogicalIndexNavigation) o;
+        return last == that.last &&
+                running == that.running &&
+                logicalOffset == that.logicalOffset &&
+                physicalOffset == that.physicalOffset &&
+                Objects.equals(labels, that.labels);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(labels, last, running, logicalOffset, physicalOffset);
     }
 }

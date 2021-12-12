@@ -21,6 +21,7 @@ import io.trino.connector.system.StaticSystemTablesProvider;
 import io.trino.connector.system.SystemTablesMetadata;
 import io.trino.execution.QueryIdGenerator;
 import io.trino.metadata.Catalog;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -32,7 +33,6 @@ import io.trino.sql.SqlPath;
 
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
 import static java.util.Locale.ENGLISH;
@@ -70,7 +70,6 @@ public final class TestingSession
                 .setPath(new SqlPath(Optional.of("path")))
                 .setTimeZoneKey(DEFAULT_TIME_ZONE_KEY)
                 .setLocale(ENGLISH)
-                .setSystemProperty(IGNORE_STATS_CALCULATOR_FAILURES, "false")
                 .setRemoteUserAddress("address")
                 .setUserAgent("agent");
     }
@@ -81,7 +80,9 @@ public final class TestingSession
         return new Catalog(
                 catalogName,
                 catalog,
+                "test",
                 createTestSessionConnector(),
+                SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
                 createTestSessionConnector(),
                 createSystemTablesCatalogName(catalog),
@@ -93,7 +94,7 @@ public final class TestingSession
         return new Connector()
         {
             @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
             {
                 return new ConnectorTransactionHandle() {};
             }

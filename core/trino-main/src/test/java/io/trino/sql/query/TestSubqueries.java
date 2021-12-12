@@ -24,6 +24,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -31,15 +32,21 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -108,15 +115,142 @@ public class TestSubqueries
     }
 
     @Test
-    public void testUnsupportedSubqueriesWithCoercions()
+    public void testSubqueriesWithGroupByAndCoercions()
     {
+        // In the following examples, t.a is determined to be constant
         // coercion FROM subquery symbol type to correlation type
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT EXISTS(SELECT 1 FROM (VALUES (1, null)) t(a, b) WHERE t.a=t2.b GROUP BY t.b) FROM (VALUES 1.0, 2.0) t2(b)"))
-                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                .matches("VALUES true, false");
         // coercion from t.a (null) to integer
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT EXISTS(SELECT 1 FROM (VALUES (null, null)) t(a, b) WHERE t.a=t2.b GROUP BY t.b) FROM (VALUES 1, 2) t2(b)"))
+                .matches("VALUES false, false");
+        // coercion FROM subquery symbol type to correlation type. Aggregation grouped by a constant.
+        assertThat(assertions.query(
+                "SELECT (SELECT count(*) FROM (VALUES 1, 2, 2) t(a) WHERE t.a=t2.b GROUP BY t.a LIMIT 1) FROM (VALUES 1.0) t2(b)"))
+                .matches("VALUES BIGINT '1'");
+        // non-injective coercion bigint -> double
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT EXISTS(SELECT 1 FROM (VALUES (BIGINT '1', null)) t(a, b) WHERE t.a=t2.b GROUP BY t.b) FROM (VALUES 1e0, 2e0) t2(b)"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+    }
+
+    @Test
+    public void testSubqueriesWithGroupByAndConstantExpression()
+    {
+        // In the following examples, t.a is determined to be constant
+        assertThat(assertions.query(
+                "SELECT EXISTS(SELECT 1 FROM (VALUES (1, null)) t(a, b) WHERE t.a = t2.b * t2.c - 1 GROUP BY t.b) FROM (VALUES (1, 2), (2, 3)) t2(b, c)"))
+                .matches("VALUES true, false");
+
+        assertThat(assertions.query(
+                "SELECT EXISTS(SELECT 1 FROM (VALUES (null, null)) t(a, b) WHERE t.a = t2.b * t2.c - 1 GROUP BY t.b) FROM (VALUES (1, 2), (2, 3)) t2(b, c)"))
+                .matches("VALUES false, false");
+
+        assertThat(assertions.query(
+                "SELECT (SELECT count(*) FROM (VALUES 1, 3, 3) t(a) WHERE t.a = t2.b * t2.c - 1 GROUP BY t.a LIMIT 1) FROM (VALUES (1, 2), (2, 2)) t2(b, c)"))
+                .matches("VALUES BIGINT '1', BIGINT '2'");
+    }
+
+    @Test
+    public void testCorrelatedSubqueriesWithLimitOne()
+    {
+        // In the following examples, t.a is determined to be constant
+        // coercion of subquery symbol
+        assertThat(assertions.query(
+                "SELECT (SELECT t.a FROM (VALUES 1, 2, 3) t(a) WHERE t.a = t2.b LIMIT 1) FROM (VALUES 1.0, 2.0) t2(b)"))
+                .matches("VALUES 1, 2");
+
+        // subquery symbol is equal to constant expression
+        assertThat(assertions.query(
+                "SELECT (SELECT t.a FROM (VALUES 1, 2, 3, 4, 5, 6) t(a) WHERE t.a = t2.b * t2.c - 1 LIMIT 1) FROM (VALUES (1, 2), (2, 3)) t2(b, c)"))
+                .matches("VALUES 1, 5");
+
+        // non-injective coercion bigint -> double
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT t.a FROM (VALUES BIGINT '1', BIGINT '2') t(a) WHERE t.a = t2.b LIMIT 1) FROM (VALUES 1e0, 2e0) t2(b)"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+    }
+
+    @Test
+    public void testCorrelatedSubqueriesWithLimitGreaterThanOne()
+    {
+        // In the following examples, t.a is determined to be constant
+        // coercion of subquery symbol
+        assertThat(assertions.query(
+                "SELECT (SELECT t.a FROM (VALUES 1, 2, 3) t(a) WHERE t.a = t2.b LIMIT 2) FROM (VALUES 1.0, 2.0) t2(b)"))
+                .matches("VALUES 1, 2");
+
+        // subquery symbol is equal to constant expression
+        assertThat(assertions.query(
+                "SELECT (SELECT t.a FROM (VALUES 1, 2, 3, 4, 5, 6) t(a) WHERE t.a = t2.b * t2.c - 1 LIMIT 2) FROM (VALUES (1, 2), (2, 3)) t2(b, c)"))
+                .matches("VALUES 1, 5");
+
+        // non-injective coercion bigint -> double
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT t.a FROM (VALUES BIGINT '1', BIGINT '2', BIGINT '3') t(a) WHERE t.a = t2.b LIMIT 2) FROM (VALUES 1e0, 2e0) t2(b)"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+    }
+
+    @Test
+    public void testCorrelatedSubqueriesWithTopN()
+    {
+        // In the following examples, the ordering symbol is determined to be constant, so correlated TopN is rewritten to RowNumberNode instead of TopNRankingNode
+        // coercion of subquery symbol
+        assertions.assertQueryAndPlan(
+                "SELECT (SELECT t.a FROM (VALUES 1, 2, 3) t(a) WHERE t.a = t2.b ORDER BY a LIMIT 1) FROM (VALUES 1.0, 2.0) t2(b)",
+                "VALUES 1, 2",
+                output(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("cast_b", "cast_a")),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                any(
+                                        project(
+                                                ImmutableMap.of("cast_b", expression("CAST(b AS decimal(11, 1))")),
+                                                any(
+                                                        values("b")))),
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("cast_a", expression("CAST(a AS decimal(11, 1))")),
+                                                any(
+                                                        rowNumber(
+                                                                builder -> builder
+                                                                        .maxRowCountPerPartition(Optional.of(1))
+                                                                        .partitionBy(ImmutableList.of("a")),
+                                                                anyTree(
+                                                                        values("a")))))))));
+
+        // subquery symbol is equal to constant expression
+        assertions.assertQueryAndPlan(
+                "SELECT (SELECT t.a FROM (VALUES 1, 2, 3, 4, 5) t(a) WHERE t.a = t2.b * t2.c - 1 ORDER BY a LIMIT 1) FROM (VALUES (1, 2), (2, 3)) t2(b, c)",
+                "VALUES 1, 5",
+                output(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("expr", "a")),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                any(
+                                        project(
+                                                ImmutableMap.of("expr", expression("b * c - 1")),
+                                                any(
+                                                        values("b", "c")))),
+                                any(
+                                        rowNumber(
+                                                builder -> builder
+                                                        .maxRowCountPerPartition(Optional.of(1))
+                                                        .partitionBy(ImmutableList.of("a")),
+                                                anyTree(
+                                                        values("a")))))));
+
+        // non-injective coercion bigint -> double
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT t.a FROM (VALUES BIGINT '1', BIGINT '2') t(a) WHERE t.a = t2.b ORDER BY a LIMIT 1) FROM (VALUES 1e0, 2e0) t2(b)"))
                 .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 

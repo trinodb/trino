@@ -5,16 +5,25 @@ on:
     branches:
       - master
   pull_request:
+    paths-ignore:
+      - 'docs/**'
 
 env:
   # An envar that signals to tests we are executing in the CI environment
   CONTINUOUS_INTEGRATION: true
+  # allow overriding Maven command
+  MAVEN: ./mvnw
   # maven.wagon.rto is in millis, defaults to 30m
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
   MAVEN_TEST: "-B --strict-checksums -Dair.check.skip-all --fail-at-end"
   RETRY: .github/bin/retry
+  # Testcontainers kills image pulls if they don't make progress for > 30s and retries for 2m before failing. This means
+  # that if an image doesn't download all it's layers within ~2m then any other concurrent pull will be killed because
+  # the Docker daemon only downloads 3 layers concurrently which prevents the other pull from making any progress.
+  # This value should be greater than the time taken for the longest image pull.
+  TESTCONTAINERS_PULL_PAUSE_TIMEOUT: 600
 
 # Cancel previous PR builds.
 concurrency:
@@ -31,29 +40,25 @@ jobs:
       matrix:
         java-version:
           - 11
-          - 16
+          - 17
     timeout-minutes: 45
     steps:
-      - name: Free Disk Space
-        run: |
-          df -h
-          sudo apt-get clean
-          df -h
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
           java-version: ${{ matrix.java-version }}
+          cache: 'maven'
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
+          $RETRY $MAVEN install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY bash -c './mvnw verify -B --strict-checksums -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +'
+          $RETRY bash -c "$MAVEN verify -B --strict-checksums -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +"
       - name: Clean Maven Output
-        run: ./mvnw clean -pl '!:trino-server,!:trino-cli'
+        run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
       - uses: docker/setup-qemu-action@v1
         with:
           platforms: arm64
@@ -69,17 +74,18 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # Run Error Prone on one module with a retry to ensure all runtime dependencies are fetched
-          $RETRY ./mvnw ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler -pl ':trino-spi'
+          $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler -pl ':trino-spi'
           # The main Error Prone run
-          ./mvnw ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler \
+          $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
 
   web-ui-checks:
@@ -101,15 +107,16 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:trino-test-jdbc-compatibility-old-driver,!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-test-jdbc-compatibility-old-driver,!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Test old JDBC vs current server
         run: testing/trino-test-jdbc-compatibility-old-driver/bin/run_tests.sh
       - name: Test current JDBC vs old server
         if: always()
-        run: ./mvnw test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
+        run: $MAVEN test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
 
   hive-tests:
     runs-on: ubuntu-latest
@@ -120,6 +127,7 @@ jobs:
           - config-empty
           - config-hdp3
           # TODO: config-cdh5
+          # TODO: config-apache-hive3
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
@@ -127,13 +135,14 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :trino-hive-hadoop2
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-hive-hadoop2
       - name: Run Hive Tests
         run: |
-          source testing/trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+          source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
             plugin/trino-hive-hadoop2/bin/run_hive_tests.sh
       - name: Run Hive S3 Tests
         env:
@@ -143,7 +152,7 @@ jobs:
           S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
-            source testing/trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+            source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
               plugin/trino-hive-hadoop2/bin/run_hive_s3_tests.sh
           fi
       - name: Run Hive Glue Tests
@@ -153,7 +162,7 @@ jobs:
           AWS_REGION: us-east-2
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
-            ./mvnw test ${MAVEN_TEST} -pl :trino-hive -P test-hive-glue
+            $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P test-hive-glue
           fi
       - name: Run Hive Azure ABFS Access Key Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
@@ -163,7 +172,7 @@ jobs:
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
         run: |
           if [ "${ABFS_CONTAINER}" != "" ]; then
-            source testing/trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+            source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
               plugin/trino-hive-hadoop2/bin/run_hive_abfs_access_key_tests.sh
           fi
       - name: Run Hive Azure ABFS OAuth Tests
@@ -176,7 +185,7 @@ jobs:
           ABFS_OAUTH_SECRET: ${{ secrets.AZURE_ABFS_OAUTH_SECRET }}
         run: |
           if [ -n "$ABFS_CONTAINER" ]; then
-            source testing/trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+            source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
               plugin/trino-hive-hadoop2/bin/run_hive_abfs_oauth_tests.sh
           fi
       - name: Run Hive Azure WASB Tests
@@ -187,7 +196,7 @@ jobs:
           WASB_ACCESS_KEY: ${{ secrets.AZURE_WASB_ACCESSKEY }}
         run: |
           if [ "${WASB_CONTAINER}" != "" ]; then
-            source testing/trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+            source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
               plugin/trino-hive-hadoop2/bin/run_hive_wasb_tests.sh
           fi
       - name: Run Hive Azure ADL Tests
@@ -199,13 +208,21 @@ jobs:
           ADL_REFRESH_URL: ${{ secrets.AZURE_ADL_REFRESHURL }}
         run: |
           if [ "${ADL_NAME}" != "" ]; then
-            source testing/trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+            source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
               plugin/trino-hive-hadoop2/bin/run_hive_adl_tests.sh
           fi
       - name: Run Hive Alluxio Tests
         run: |
-          source testing/trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+          source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
             plugin/trino-hive-hadoop2/bin/run_hive_alluxio_tests.sh
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: result hive-tests
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
 
   test-other-modules:
     runs-on: ubuntu-latest
@@ -216,18 +233,20 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Maven Tests
         run: |
-          ./mvnw test ${MAVEN_TEST} -pl '
+          $MAVEN test ${MAVEN_TEST} -pl '
             !:trino-main,
             !:trino-tests,
             !:trino-raptor-legacy,
             !:trino-accumulo,
             !:trino-cassandra,
+            !:trino-clickhouse,
             !:trino-hive,!:trino-orc,!:trino-parquet,
             !:trino-mongodb,!:trino-kafka,!:trino-elasticsearch,
             !:trino-redis,
@@ -239,6 +258,14 @@ jobs:
             !:trino-docs,!:trino-server,!:trino-server-rpm,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-bigquery'
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: result test-other-modules
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
 
   test:
     runs-on: ubuntu-latest
@@ -251,8 +278,10 @@ jobs:
           - ":trino-raptor-legacy"
           - ":trino-accumulo"
           - ":trino-cassandra"
+          - ":trino-clickhouse"
           - ":trino-hive,:trino-orc"
           - ":trino-hive,:trino-parquet -P test-parquet"
+          - ":trino-hive -P test-failure-recovery"
           - ":trino-mongodb,:trino-kafka,:trino-elasticsearch"
           - ":trino-elasticsearch -P test-stats"
           - ":trino-redis"
@@ -268,12 +297,29 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
-        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }}
+        run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }}
+      - name: Sanitize artifact name
+        if: always()
+        run: |
+          # Generate a valid artifact name and make it available to next steps as
+          # an environment variable ARTIFACT_NAME
+          # ", :, <, >, |, *, ?, \, / are not allowed in artifact names but we only use : so we remove it
+          name=$(echo -n "${{ matrix.modules }}" | sed -e 's/[:]//g')
+          echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: result ${{ env.ARTIFACT_NAME }}
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
 
   test-memsql:
     runs-on: ubuntu-latest
@@ -284,20 +330,29 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Cleanup node
         # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
         run: .github/bin/cleanup-node.sh
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :trino-memsql
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-memsql
       - name: Memsql Tests
         env:
           MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
         run: |
           if [ "${MEMSQL_LICENSE}" != "" ]; then
-            ./mvnw test ${MAVEN_TEST} -pl :trino-memsql -Dmemsql.license=${MEMSQL_LICENSE}
+            $MAVEN test ${MAVEN_TEST} -pl :trino-memsql -Dmemsql.license=${MEMSQL_LICENSE}
           fi
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: result test-memsql
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
 
   test-bigquery:
     runs-on: ubuntu-latest
@@ -308,26 +363,35 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :trino-bigquery
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-bigquery
       - name: Basic BigQuery Tests
-        run: ./mvnw test ${MAVEN_TEST} -pl :trino-bigquery
+        run: $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery
       - name: Cloud BigQuery Tests
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
         run: |
           if [ "${BIGQUERY_CREDENTIALS_KEY}" != "" ]; then
-            ./mvnw test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
+            $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
           fi
       - name: Cloud BigQuery Case Insensitive Mapping Tests
         env:
-          BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
+          BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
         run: |
           if [ "${BIGQUERY_CREDENTIALS_KEY}" != "" ]; then
-            ./mvnw test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
+            $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
           fi
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: result test-bigquery
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
 
   pt:
     runs-on: ubuntu-latest
@@ -338,12 +402,15 @@ jobs:
           - default
           - hdp3
           - cdh5
+          # TODO: config-apache-hive3
         suite:
           - suite-1
           - suite-2
           - suite-3
           # suite-4 does not exist
           - suite-5
+        jdk:
+          - 11
         exclude:
           - config: cdh5
             ignore exclusion if: >-
@@ -374,21 +441,43 @@ jobs:
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-6-non-generic
+            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-7-non-generic
+            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-8-non-generic
+            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-tpcds
+            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-oauth2
+            jdk: 11
+          # this suite is not meant to be run with different configs
+          - config: default
+            suite: suite-ldap
+            jdk: 11
           # this suite is not meant to be run with different configs
           - config: default
             suite: suite-compatibility
+            jdk: 11
+          # this suite is designed specifically for apache-hive3. TODO remove the suite once we can run all regular tests on apache-hive3.
+          - config: apache-hive3
+            suite: suite-hms-only
+            jdk: 11
+          # suite-1 does not contain Kerberos/encrypted Hive environments
+          - config: hdp3
+            suite: suite-1
+            jdk: 17
+          # suite-2 contains Kerberos/encrypted Hive environments
+          - config: hdp3
+            suite: suite-2
+            jdk: 17
     # PT Launcher's timeout defaults to 2h, account for preparation steps (compilation) and add some margin
     timeout-minutes: 140
     steps:
@@ -397,10 +486,11 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 11
+          cache: 'maven'
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
       - name: Free Disk Space
         run: |
           docker image prune -af
@@ -408,5 +498,14 @@ jobs:
           rm -rf ~/.m2/repository
       - name: Product Tests
         run: |
-          bin/ptl suite run \
-            --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --no-bind --logs-dir logs/ --timeout 2h
+          testing/bin/ptl suite run \
+            --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --bind=off --logs-dir logs/ --timeout 2h \
+            --trino-jdk-version zulu_${{ matrix.jdk }}
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: result pt (${{ matrix.config }}, ${{ matrix.suite }})
+          path: |
+            presto-product-tests/target/*
+            logs/*

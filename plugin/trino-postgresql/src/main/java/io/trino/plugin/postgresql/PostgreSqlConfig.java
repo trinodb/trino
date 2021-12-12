@@ -22,6 +22,7 @@ public class PostgreSqlConfig
 {
     private ArrayMapping arrayMapping = ArrayMapping.DISABLED;
     private boolean includeSystemTables;
+    private boolean enableStringPushdownWithCollate;
 
     public enum ArrayMapping
     {
@@ -53,6 +54,18 @@ public class PostgreSqlConfig
     public PostgreSqlConfig setIncludeSystemTables(boolean includeSystemTables)
     {
         this.includeSystemTables = includeSystemTables;
+        return this;
+    }
+
+    public boolean isEnableStringPushdownWithCollate()
+    {
+        return enableStringPushdownWithCollate;
+    }
+
+    @Config("postgresql.experimental.enable-string-pushdown-with-collate")
+    public PostgreSqlConfig setEnableStringPushdownWithCollate(boolean enableStringPushdownWithCollate)
+    {
+        this.enableStringPushdownWithCollate = enableStringPushdownWithCollate;
         return this;
     }
 }

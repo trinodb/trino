@@ -16,11 +16,11 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
@@ -30,6 +30,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.type.UnknownType;
@@ -96,11 +97,7 @@ public final class ArrayJoin
                             VARCHAR.getTypeSignature(),
                             ImmutableList.of(arrayType(new TypeSignature("T")), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
                             false),
-                    false,
-                    ImmutableList.of(
-                            new FunctionArgumentDefinition(false),
-                            new FunctionArgumentDefinition(false),
-                            new FunctionArgumentDefinition(false)),
+                    new FunctionNullability(false, ImmutableList.of(false, false, false)),
                     false,
                     true,
                     DESCRIPTION,
@@ -114,9 +111,9 @@ public final class ArrayJoin
         }
 
         @Override
-        public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+        public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
         {
-            return specializeArrayJoin(functionBinding, functionDependencies, METHOD_HANDLE);
+            return specializeArrayJoin(boundSignature, functionDependencies, METHOD_HANDLE);
         }
     }
 
@@ -130,10 +127,7 @@ public final class ArrayJoin
                         VARCHAR.getTypeSignature(),
                         ImmutableList.of(arrayType(new TypeSignature("T")), VARCHAR.getTypeSignature()),
                         false),
-                false,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, ImmutableList.of(false, false)),
                 false,
                 true,
                 DESCRIPTION,
@@ -160,22 +154,22 @@ public final class ArrayJoin
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        return specializeArrayJoin(functionBinding, functionDependencies, METHOD_HANDLE);
+        return specializeArrayJoin(boundSignature, functionDependencies, METHOD_HANDLE);
     }
 
     private static ChoicesScalarFunctionImplementation specializeArrayJoin(
-            FunctionBinding functionBinding,
+            BoundSignature boundSignature,
             FunctionDependencies functionDependencies,
             MethodHandle methodHandle)
     {
-        List<InvocationArgumentConvention> argumentConventions = Collections.nCopies(functionBinding.getArity(), NEVER_NULL);
+        List<InvocationArgumentConvention> argumentConventions = Collections.nCopies(boundSignature.getArity(), NEVER_NULL);
 
-        Type type = functionBinding.getTypeVariable("T");
+        Type type = ((ArrayType) boundSignature.getArgumentTypes().get(0)).getElementType();
         if (type instanceof UnknownType) {
             return new ChoicesScalarFunctionImplementation(
-                    functionBinding,
+                    boundSignature,
                     FAIL_ON_NULL,
                     argumentConventions,
                     methodHandle.bindTo(null),
@@ -193,7 +187,7 @@ public final class ArrayJoin
 
                 MethodHandle target = MethodHandles.insertArguments(methodHandle, 0, cast);
                 return new ChoicesScalarFunctionImplementation(
-                        functionBinding,
+                        boundSignature,
                         FAIL_ON_NULL,
                         argumentConventions,
                         target,

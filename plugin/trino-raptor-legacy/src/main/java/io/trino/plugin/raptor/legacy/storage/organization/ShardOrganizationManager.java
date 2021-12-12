@@ -27,7 +27,7 @@ import io.trino.plugin.raptor.legacy.metadata.ShardMetadata;
 import io.trino.plugin.raptor.legacy.metadata.Table;
 import io.trino.plugin.raptor.legacy.storage.StorageManagerConfig;
 import io.trino.spi.NodeManager;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Jdbi;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -67,7 +67,7 @@ public class ShardOrganizationManager
     private final ScheduledExecutorService discoveryService = newScheduledThreadPool(1, daemonThreadsNamed("shard-organization-discovery"));
     private final AtomicBoolean started = new AtomicBoolean();
 
-    private final IDBI dbi;
+    private final Jdbi dbi;
     private final MetadataDao metadataDao;
     private final ShardOrganizerDao organizerDao;
     private final ShardManager shardManager;
@@ -83,7 +83,7 @@ public class ShardOrganizationManager
 
     @Inject
     public ShardOrganizationManager(
-            @ForMetadata IDBI dbi,
+            @ForMetadata Jdbi dbi,
             NodeManager nodeManager,
             ShardManager shardManager,
             ShardOrganizer organizer,
@@ -99,7 +99,7 @@ public class ShardOrganizationManager
     }
 
     public ShardOrganizationManager(
-            IDBI dbi,
+            Jdbi dbi,
             String currentNodeIdentifier,
             ShardManager shardManager,
             ShardOrganizer organizer,

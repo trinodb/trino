@@ -22,6 +22,7 @@ import io.trino.metadata.MetadataManager;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.security.CertificateAuthenticatorManager;
+import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.spi.Plugin;
 import io.trino.spi.block.BlockEncoding;
@@ -31,6 +32,7 @@ import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
 import io.trino.spi.security.GroupProviderFactory;
+import io.trino.spi.security.HeaderAuthenticatorFactory;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
@@ -49,6 +51,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.metadata.FunctionExtractor.extractFunctions;
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -70,6 +73,7 @@ public class PluginManager
     private final AccessControlManager accessControlManager;
     private final Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager;
     private final CertificateAuthenticatorManager certificateAuthenticatorManager;
+    private final Optional<HeaderAuthenticatorManager> headerAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
     private final GroupProviderManager groupProviderManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
@@ -85,6 +89,7 @@ public class PluginManager
             AccessControlManager accessControlManager,
             Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager,
             CertificateAuthenticatorManager certificateAuthenticatorManager,
+            Optional<HeaderAuthenticatorManager> headerAuthenticatorManager,
             EventListenerManager eventListenerManager,
             GroupProviderManager groupProviderManager,
             SessionPropertyDefaults sessionPropertyDefaults)
@@ -96,6 +101,7 @@ public class PluginManager
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
         this.certificateAuthenticatorManager = requireNonNull(certificateAuthenticatorManager, "certificateAuthenticatorManager is null");
+        this.headerAuthenticatorManager = requireNonNull(headerAuthenticatorManager, "headerAuthenticatorManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.groupProviderManager = requireNonNull(groupProviderManager, "groupProviderManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
@@ -136,7 +142,7 @@ public class PluginManager
     {
         ServiceLoader<Plugin> serviceLoader = ServiceLoader.load(Plugin.class, pluginClassLoader);
         List<Plugin> plugins = ImmutableList.copyOf(serviceLoader);
-        checkState(!plugins.isEmpty(), "No service providers of type %s", Plugin.class.getName());
+        checkState(!plugins.isEmpty(), "No service providers of type %s in the classpath: %s", Plugin.class.getName(), asList(pluginClassLoader.getURLs()));
 
         for (Plugin plugin : plugins) {
             log.info("Installing %s", plugin.getClass().getName());
@@ -203,6 +209,13 @@ public class PluginManager
             log.info("Registering certificate authenticator %s", authenticatorFactory.getName());
             certificateAuthenticatorManager.addCertificateAuthenticatorFactory(authenticatorFactory);
         }
+
+        headerAuthenticatorManager.ifPresent(authenticationManager -> {
+            for (HeaderAuthenticatorFactory authenticatorFactory : plugin.getHeaderAuthenticatorFactories()) {
+                log.info("Registering header authenticator %s", authenticatorFactory.getName());
+                authenticationManager.addHeaderAuthenticatorFactory(authenticatorFactory);
+            }
+        });
 
         for (EventListenerFactory eventListenerFactory : plugin.getEventListenerFactories()) {
             log.info("Registering event listener %s", eventListenerFactory.getName());

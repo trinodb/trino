@@ -25,6 +25,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
@@ -34,13 +35,13 @@ import static java.lang.String.format;
 public class TestCsv
         extends ProductTest
 {
-    @Test(groups = STORAGE_FORMATS)
+    @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
     public void testInsertIntoCsvTable()
     {
         testInsertIntoCsvTable("storage_formats_test_insert_into_csv", "");
     }
 
-    @Test(groups = STORAGE_FORMATS)
+    @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
     public void testInsertIntoCsvTableWithCustomProperties()
     {
         testInsertIntoCsvTable("storage_formats_test_insert_into_csv_with_custom_properties", ", csv_escape = 'e', csv_separator='s', csv_quote='q'");
@@ -64,14 +65,14 @@ public class TestCsv
         query("DROP TABLE " + tableName);
     }
 
-    @Test(groups = STORAGE_FORMATS)
+    @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreateCsvTableAs()
     {
         testCreateCsvTableAs("");
     }
 
-    @Test(groups = STORAGE_FORMATS)
+    @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreateCsvTableAsWithCustomProperties()
     {
@@ -96,14 +97,14 @@ public class TestCsv
         query("DROP TABLE " + tableName);
     }
 
-    @Test(groups = STORAGE_FORMATS)
+    @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoPartitionedCsvTable()
     {
         testInsertIntoPartitionedCsvTable("test_partitioned_csv_table", "");
     }
 
-    @Test(groups = STORAGE_FORMATS)
+    @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoPartitionedCsvTableWithCustomProperties()
     {
@@ -130,14 +131,14 @@ public class TestCsv
         query("DROP TABLE " + tableName);
     }
 
-    @Test(groups = STORAGE_FORMATS)
+    @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreatePartitionedCsvTableAs()
     {
         testCreatePartitionedCsvTableAs("storage_formats_test_create_table_as_select_partitioned_csv", "");
     }
 
-    @Test(groups = STORAGE_FORMATS)
+    @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreatePartitionedCsvTableAsWithCustomParamters()
     {

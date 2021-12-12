@@ -28,9 +28,9 @@ import java.time.ZonedDateTime;
 import java.util.regex.Pattern;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -110,11 +110,18 @@ public class TestDistributedEngineOnlyQueries
     public void testRoles()
     {
         Session invalid = Session.builder(getSession()).setCatalog("invalid").build();
-        assertQueryFails(invalid, "CREATE ROLE test", "Catalog does not exist: invalid");
-        assertQueryFails(invalid, "DROP ROLE test", "Catalog does not exist: invalid");
-        assertQueryFails(invalid, "GRANT bar TO USER foo", "Catalog does not exist: invalid");
-        assertQueryFails(invalid, "REVOKE bar FROM USER foo", "Catalog does not exist: invalid");
-        assertQueryFails(invalid, "SET ROLE test", "Catalog does not exist: invalid");
+        assertQueryFails(invalid, "CREATE ROLE test", "System roles are not enabled");
+        assertQueryFails(invalid, "CREATE ROLE test", "System roles are not enabled");
+        assertQueryFails(invalid, "DROP ROLE test", "line 1:1: Role 'test' does not exist");
+        assertQueryFails(invalid, "GRANT test TO USER foo", "line 1:1: Role 'test' does not exist");
+        assertQueryFails(invalid, "REVOKE test FROM USER foo", "line 1:1: Role 'test' does not exist");
+        assertQueryFails(invalid, "SET ROLE test", "line 1:1: Role 'test' does not exist");
+
+        assertQueryFails(invalid, "CREATE ROLE test IN invalid", "line 1:1: Catalog 'invalid' does not exist");
+        assertQueryFails(invalid, "DROP ROLE test IN invalid", "line 1:1: Catalog 'invalid' does not exist");
+        assertQueryFails(invalid, "GRANT test TO USER foo IN invalid", "line 1:1: Catalog 'invalid' does not exist");
+        assertQueryFails(invalid, "REVOKE test FROM USER foo IN invalid", "line 1:1: Catalog 'invalid' does not exist");
+        assertQueryFails(invalid, "SET ROLE test IN invalid", "line 1:1: Catalog 'invalid' does not exist");
     }
 
     @Test
@@ -177,7 +184,8 @@ public class TestDistributedEngineOnlyQueries
     {
         assertExplain(
                 "explain select name from nation where abs(nationkey) = 22",
-                Pattern.quote("abs(\"nationkey\")"));
+                Pattern.quote("abs(\"nationkey\")"),
+                "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}");
     }
 
     // explain analyze can only run on coordinator
@@ -209,6 +217,18 @@ public class TestDistributedEngineOnlyQueries
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT nationkey FROM nation GROUP BY nationkey",
                 "Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
+
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
+                "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}");
+    }
+
+    @Test
+    public void testExplainAnalyzeVerbose()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
+                "'Input distribution' = \\{count=.*, p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, min=.*, max=.*}");
     }
 
     @Test
@@ -267,5 +287,49 @@ public class TestDistributedEngineOnlyQueries
         assertThatThrownBy(() -> query("SELECT min(row_number) FROM n"))
                 .hasMessage("line 1:12: Column 'row_number' cannot be resolved");
         assertUpdate(getSession(), "DROP TABLE n");
+    }
+
+    @Test
+    public void testInsertTableIntoTable()
+    {
+        // Ensure INSERT works when the source table exposes hidden fields
+        // First, verify that the table 'nation' contains the expected hidden column 'row_number'
+        assertThat(query("SELECT count(*) FROM information_schema.columns " +
+                "WHERE table_catalog = 'tpch' and table_schema = 'tiny' and table_name = 'nation' and column_name = 'row_number'"))
+                .matches("VALUES BIGINT '0'");
+        assertThat(query("SELECT min(row_number) FROM tpch.tiny.nation"))
+                .matches("VALUES BIGINT '0'");
+
+        // Create empty target table for INSERT
+        assertUpdate(getSession(), "CREATE TABLE n AS TABLE tpch.tiny.nation WITH NO DATA", 0);
+        assertThat(query("SELECT * FROM n"))
+                .matches("SELECT * FROM tpch.tiny.nation LIMIT 0");
+
+        // Verify that the hidden column is not present in the created table
+        assertThatThrownBy(() -> query("SELECT row_number FROM n"))
+                .hasMessage("line 1:8: Column 'row_number' cannot be resolved");
+
+        // Insert values from the original table into the created table
+        assertUpdate(getSession(), "INSERT INTO n TABLE tpch.tiny.nation", 25);
+        assertThat(query("SELECT * FROM n"))
+                .matches("SELECT * FROM tpch.tiny.nation");
+
+        assertUpdate(getSession(), "DROP TABLE n");
+    }
+
+    @Test
+    public void testImplicitCastToRowWithFieldsRequiringDelimitation()
+    {
+        // source table uses char(4) as ROW fields
+        assertUpdate("CREATE TABLE source_table(r ROW(a char(4), b char(4)))");
+
+        // target table uses varchar as ROW fields which will enforce implicit CAST on INSERT
+        // field names in target table require delimitation
+        //  - "a b" has whitespace
+        //  - "from" is a reserved key word
+        assertUpdate("CREATE TABLE target_table(r ROW(\"a b\" varchar, \"from\" varchar))");
+
+        // run INSERT to verify that field names in generated CAST expressions are properly delimited
+        assertUpdate("INSERT INTO target_table SELECT * from source_table", 0);
     }
 }

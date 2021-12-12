@@ -21,10 +21,10 @@ import io.trino.operator.MarkDistinctHash;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.UpdateMemory;
 import io.trino.operator.Work;
-import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
@@ -52,7 +52,6 @@ import static java.util.Objects.requireNonNull;
 public class GenericAccumulatorFactory
         implements AccumulatorFactory
 {
-    private final List<AccumulatorStateDescriptor> stateDescriptors;
     private final Constructor<? extends Accumulator> accumulatorConstructor;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
     private final List<LambdaProvider> lambdaProviders;
@@ -74,7 +73,6 @@ public class GenericAccumulatorFactory
     private final PagesIndex.Factory pagesIndexFactory;
 
     public GenericAccumulatorFactory(
-            List<AccumulatorStateDescriptor> stateDescriptors,
             Constructor<? extends Accumulator> accumulatorConstructor,
             boolean accumulatorHasRemoveInput,
             Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor,
@@ -90,7 +88,6 @@ public class GenericAccumulatorFactory
             @Nullable Session session,
             boolean distinct)
     {
-        this.stateDescriptors = requireNonNull(stateDescriptors, "stateDescriptors is null");
         this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
         this.accumulatorHasRemoveInput = accumulatorHasRemoveInput;
         this.groupedAccumulatorConstructor = requireNonNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
@@ -156,7 +153,7 @@ public class GenericAccumulatorFactory
     public Accumulator createIntermediateAccumulator()
     {
         try {
-            return accumulatorConstructor.newInstance(stateDescriptors, ImmutableList.of(), Optional.empty(), lambdaProviders);
+            return accumulatorConstructor.newInstance(ImmutableList.of(), Optional.empty(), lambdaProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -198,7 +195,7 @@ public class GenericAccumulatorFactory
     public GroupedAccumulator createGroupedIntermediateAccumulator()
     {
         try {
-            return groupedAccumulatorConstructor.newInstance(stateDescriptors, ImmutableList.of(), Optional.empty(), lambdaProviders);
+            return groupedAccumulatorConstructor.newInstance(ImmutableList.of(), Optional.empty(), lambdaProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -220,7 +217,7 @@ public class GenericAccumulatorFactory
     private Accumulator instantiateAccumulator(List<Integer> inputs, Optional<Integer> mask)
     {
         try {
-            return accumulatorConstructor.newInstance(stateDescriptors, inputs, mask, lambdaProviders);
+            return accumulatorConstructor.newInstance(inputs, mask, lambdaProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -230,7 +227,7 @@ public class GenericAccumulatorFactory
     private GroupedAccumulator instantiateGroupedAccumulator(List<Integer> inputs, Optional<Integer> mask)
     {
         try {
-            return groupedAccumulatorConstructor.newInstance(stateDescriptors, inputs, mask, lambdaProviders);
+            return groupedAccumulatorConstructor.newInstance(inputs, mask, lambdaProviders);
         }
         catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
@@ -242,7 +239,7 @@ public class GenericAccumulatorFactory
     {
         private final Accumulator accumulator;
         private final MarkDistinctHash hash;
-        private final Optional<Integer> maskChannel;
+        private final int maskChannel;
 
         private DistinctingAccumulator(
                 Accumulator accumulator,
@@ -254,7 +251,7 @@ public class GenericAccumulatorFactory
                 BlockTypeOperators blockTypeOperators)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
-            this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
+            this.maskChannel = requireNonNull(maskChannel, "maskChannel is null").orElse(-1);
 
             hash = new MarkDistinctHash(session, inputTypes, Ints.toArray(inputs), Optional.empty(), joinCompiler, blockTypeOperators, UpdateMemory.NOOP);
         }
@@ -278,12 +275,22 @@ public class GenericAccumulatorFactory
         }
 
         @Override
+        public Accumulator copy()
+        {
+            return accumulator.copy();
+        }
+
+        @Override
         public void addInput(Page page)
         {
             // 1. filter out positions based on mask, if present
-            Page filtered = maskChannel
-                    .map(channel -> filter(page, page.getBlock(channel)))
-                    .orElse(page);
+            Page filtered;
+            if (maskChannel >= 0) {
+                filtered = filter(page, page.getBlock(maskChannel));
+            }
+            else {
+                filtered = page;
+            }
 
             if (filtered.getPositionCount() == 0) {
                 return;
@@ -331,14 +338,29 @@ public class GenericAccumulatorFactory
 
     private static Page filter(Page page, Block mask)
     {
-        int[] ids = new int[mask.getPositionCount()];
+        int positions = mask.getPositionCount();
+        if (positions > 0 && mask instanceof RunLengthEncodedBlock) {
+            // must have at least 1 position to be able to check the value at position 0
+            if (!mask.isNull(0) && BOOLEAN.getBoolean(mask, 0)) {
+                return page;
+            }
+            else {
+                return page.getPositions(new int[0], 0, 0);
+            }
+        }
+        boolean mayHaveNull = mask.mayHaveNull();
+        int[] ids = new int[positions];
         int next = 0;
-        for (int i = 0; i < page.getPositionCount(); ++i) {
-            if (BOOLEAN.getBoolean(mask, i)) {
+        for (int i = 0; i < ids.length; ++i) {
+            boolean isNull = mayHaveNull && mask.isNull(i);
+            if (!isNull && BOOLEAN.getBoolean(mask, i)) {
                 ids[next++] = i;
             }
         }
 
+        if (next == ids.length) {
+            return page; // no rows were eliminated by the filter
+        }
         return page.getPositions(ids, 0, next);
     }
 
@@ -347,7 +369,7 @@ public class GenericAccumulatorFactory
     {
         private final GroupedAccumulator accumulator;
         private final MarkDistinctHash hash;
-        private final Optional<Integer> maskChannel;
+        private final int maskChannel;
 
         private DistinctingGroupedAccumulator(
                 GroupedAccumulator accumulator,
@@ -359,7 +381,7 @@ public class GenericAccumulatorFactory
                 BlockTypeOperators blockTypeOperators)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
-            this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
+            this.maskChannel = requireNonNull(maskChannel, "maskChannel is null").orElse(-1);
 
             List<Type> types = ImmutableList.<Type>builder()
                     .add(BIGINT) // group id column
@@ -399,9 +421,13 @@ public class GenericAccumulatorFactory
             Page withGroup = page.prependColumn(groupIdsBlock);
 
             // 1. filter out positions based on mask, if present
-            Page filtered = maskChannel
-                    .map(channel -> filter(withGroup, withGroup.getBlock(channel + 1))) // offset by one because of group id in column 0
-                    .orElse(withGroup);
+            Page filtered;
+            if (maskChannel >= 0) {
+                filtered = filter(withGroup, withGroup.getBlock(maskChannel + 1)); // offset by one because of group id in column 0
+            }
+            else {
+                filtered = withGroup;
+            }
 
             // 2. compute a mask for the distinct rows (including the group id)
             Work<Block> work = hash.markDistinctRows(filtered);
@@ -482,6 +508,12 @@ public class GenericAccumulatorFactory
         public Type getIntermediateType()
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Accumulator copy()
+        {
+            return accumulator.copy();
         }
 
         @Override

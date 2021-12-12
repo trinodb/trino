@@ -237,7 +237,7 @@ public class TestAllDatatypesFromHiveConnector
                         ")",
                 tableName));
 
-        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactly(
+        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                 row("c_int", "integer"),
                 row("c_bigint", "bigint"),
                 row("c_float", "real"),
@@ -290,7 +290,7 @@ public class TestAllDatatypesFromHiveConnector
 
     private void assertProperAllDatatypesSchema(String tableName)
     {
-        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactly(
+        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                 row("c_tinyint", "tinyint"),
                 row("c_smallint", "smallint"),
                 row("c_int", "integer"),
@@ -370,7 +370,7 @@ public class TestAllDatatypesFromHiveConnector
                 "'kot binarny'" +
                 ")", tableName));
 
-        assertThat(query(format("SHOW COLUMNS FROM %s", tableName)).project(1, 2)).containsExactly(
+        assertThat(query(format("SHOW COLUMNS FROM %s", tableName)).project(1, 2)).containsExactlyInOrder(
                 row("c_tinyint", "tinyint"),
                 row("c_smallint", "smallint"),
                 row("c_int", "integer"),

@@ -25,13 +25,27 @@ properties in the file:
 .. code-block:: text
 
     connector.name=oracle
-    connection-url=jdbc:oracle:thin:@example.net:1521/ORCLCDB
+    // The exact format of connection-url varies by Oracle version. Refer to
+    // the Oracle Database documentation for version-specific information on the
+    // JDBC Thin driver.
+    connection-url=jdbc:oracle:thin:@//example.net:1521/ORCLCDB
     connection-user=root
     connection-password=secret
 
+The ``connection-url`` defines the connection information and parameters to pass
+to the Oracle JDBC Thin driver. See the `Oracle Database JDBC driver
+documentation <https://docs.oracle.com/cd/B28359_01/java.111/b31224/urls.htm#BEIDHCBA>`_
+for more information.
+
+The ``connection-user`` and ``connection-password`` are typically required and
+determine the user credentials for the connection, often a service user. You can
+use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
+properties files.
+
 .. note::
     Oracle does not expose metadata comment via ``REMARKS`` column by default
-    in JDBC driver. You can enable it using ``oracle.remarks-reporting.enabled`` config option. See `Additional Oracle Performance Extensions
+    in JDBC driver. You can enable it using ``oracle.remarks-reporting.enabled``
+    config option. See `Additional Oracle Performance Extensions
     <https://docs.oracle.com/en/database/oracle/oracle-database/19/jjdbc/performance-extensions.html#GUID-96A38C6D-A288-4E0B-9F03-E711C146632B>`_
     for more details.
 
@@ -59,7 +73,13 @@ the Oracle connector as a separate catalog.
 
 To add another Oracle catalog, create a new properties file. For example, if
 you name the property file ``sales.properties``, Trino creates a catalog named
-sales.
+``sales``.
+
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: jdbc-case-insensitive-matching.fragment
+
+.. include:: non-transactional-insert.fragment
 
 Querying Oracle
 ---------------
@@ -274,8 +294,8 @@ to Trino ``TIMESTAMP``.
 Mapping character types
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Trino's ``VARCHAR(n)`` maps to ``VARCHAR2(n CHAR)`` if ``n`` is no greater than
-4000. A larger or unbounded ``VARCHAR`` maps to ``NCLOB``.
+Trino's ``VARCHAR(n)`` maps to ``VARCHAR2(n CHAR)`` if ``n`` is no greater
+than 4000. A larger or unbounded ``VARCHAR`` maps to ``NCLOB``.
 
 Trino's ``CHAR(n)`` maps to ``CHAR(n CHAR)`` if ``n`` is no greater than 2000.
 A larger ``CHAR`` maps to ``NCLOB``.
@@ -368,15 +388,25 @@ The connector supports pushdown for a number of operations:
 * :ref:`limit-pushdown`
 * :ref:`topn-pushdown`
 
-Limitations
+.. _oracle-sql-support:
+
+SQL support
 -----------
 
-The following SQL statements are not supported:
+The connector provides read access and write access to data and metadata in
+Oracle. In addition to the :ref:`globally available <sql-globally-available>`
+and :ref:`read operation <sql-read-operations>` statements, the connector
+supports the following statements:
 
+* :doc:`/sql/insert`
 * :doc:`/sql/delete`
+* :doc:`/sql/truncate`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
 * :doc:`/sql/alter-table`
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
-* :doc:`/sql/show-grants`
-* :doc:`/sql/show-roles`
-* :doc:`/sql/show-role-grants`
+* :doc:`/sql/comment`
+
+.. include:: sql-delete-limitation.fragment
+
+.. include:: alter-table-limitation.fragment

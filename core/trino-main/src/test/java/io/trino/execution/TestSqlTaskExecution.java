@@ -47,8 +47,8 @@ import io.trino.operator.SourceOperator;
 import io.trino.operator.SourceOperatorFactory;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.operator.TaskContext;
-import io.trino.operator.TaskOutputOperator.TaskOutputOperatorFactory;
 import io.trino.operator.ValuesOperator.ValuesOperatorFactory;
+import io.trino.operator.output.TaskOutputOperator.TaskOutputOperatorFactory;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
@@ -115,7 +115,7 @@ public class TestSqlTaskExecution
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
     private static final CatalogName CONNECTOR_ID = new CatalogName("test");
     private static final Duration ASSERT_WAIT_TIMEOUT = new Duration(1, HOURS);
-    public static final TaskId TASK_ID = new TaskId("query", 0, 0);
+    public static final TaskId TASK_ID = new TaskId(new StageId("query", 0), 0, 0);
 
     @DataProvider
     public static Object[][] executionStrategies()
@@ -172,7 +172,6 @@ public class TestSqlTaskExecution
                     taskStateMachine,
                     taskContext,
                     outputBuffer,
-                    ImmutableList.of(),
                     localExecutionPlan,
                     taskExecutor,
                     taskNotificationExecutor,
@@ -423,7 +422,6 @@ public class TestSqlTaskExecution
                     taskStateMachine,
                     taskContext,
                     outputBuffer,
-                    ImmutableList.of(),
                     localExecutionPlan,
                     taskExecutor,
                     taskNotificationExecutor,
@@ -605,7 +603,7 @@ public class TestSqlTaskExecution
                 driverYieldExecutor,
                 DataSize.of(1, MEGABYTE),
                 new SpillSpaceTracker(DataSize.of(1, GIGABYTE)));
-        return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, () -> {}, false, false, OptionalInt.empty());
+        return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, () -> {}, false, false);
     }
 
     private PartitionedOutputBuffer newTestingOutputBuffer(ScheduledExecutorService taskNotificationExecutor)

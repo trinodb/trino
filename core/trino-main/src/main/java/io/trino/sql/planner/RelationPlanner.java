@@ -113,6 +113,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.QueryPlanner.coerce;
 import static io.trino.sql.planner.QueryPlanner.coerceIfNecessary;
+import static io.trino.sql.planner.QueryPlanner.extractPatternRecognitionExpressions;
 import static io.trino.sql.planner.QueryPlanner.planWindowSpecification;
 import static io.trino.sql.planner.QueryPlanner.pruneInvisibleFields;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
@@ -248,6 +249,16 @@ class RelationPlanner
 
     private RelationPlan addRowFilters(Table node, RelationPlan plan)
     {
+        return addRowFilters(node, plan, Function.identity());
+    }
+
+    public RelationPlan addRowFilters(Table node, RelationPlan plan, Function<Expression, Expression> predicateTransformation)
+    {
+        return addRowFilters(node, plan, predicateTransformation, analysis::getAccessControlScope);
+    }
+
+    public RelationPlan addRowFilters(Table node, RelationPlan plan, Function<Expression, Expression> predicateTransformation, Function<Table, Scope> accessControlScope)
+    {
         List<Expression> filters = analysis.getRowFilters(node);
 
         if (filters.isEmpty()) {
@@ -255,15 +266,17 @@ class RelationPlanner
         }
 
         PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap)
-                .withScope(analysis.getAccessControlScope(node), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
+                .withScope(accessControlScope.apply(node), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
 
         for (Expression filter : filters) {
             planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, analysis.getSubqueries(filter));
 
+            Expression predicate = planBuilder.rewrite(filter);
+            predicate = predicateTransformation.apply(predicate);
             planBuilder = planBuilder.withNewRoot(new FilterNode(
                     idAllocator.getNextId(),
                     planBuilder.getRoot(),
-                    planBuilder.rewrite(filter)));
+                    predicate));
         }
 
         return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings(), outerContext);
@@ -286,7 +299,7 @@ class RelationPlanner
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
             Field field = plan.getDescriptor().getFieldByIndex(i);
 
-            for (Expression mask : columnMasks.getOrDefault(field.getName().get(), ImmutableList.of())) {
+            for (Expression mask : columnMasks.getOrDefault(field.getName().orElseThrow(), ImmutableList.of())) {
                 planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, analysis.getSubqueries(mask));
 
                 Map<Symbol, Expression> assignments = new LinkedHashMap<>();
@@ -360,6 +373,8 @@ class RelationPlanner
                     .forEach(outputLayout::add);
         }
 
+        planBuilder = subqueryPlanner.handleSubqueries(planBuilder, extractPatternRecognitionExpressions(node.getVariableDefinitions(), node.getMeasures()), analysis.getSubqueries(node));
+
         PatternRecognitionComponents components = planPatternRecognitionComponents(
                 planBuilder::rewrite,
                 node.getSubsets(),
@@ -413,10 +428,20 @@ class RelationPlanner
         for (SubsetDefinition subsetDefinition : subsets) {
             IrLabel label = irLabel(subsetDefinition.getName());
             Set<IrLabel> elements = subsetDefinition.getIdentifiers().stream()
-                    .map(this::irLabel)
+                    .map(RelationPlanner::irLabel)
                     .collect(toImmutableSet());
             rewrittenSubsets.put(label, elements);
         }
+
+        // NOTE: There might be aggregate functions in measure definitions and variable definitions.
+        // They are handled different than top level aggregations in a query:
+        // 1. Their arguments are not pre-projected and replaced with single symbols. This is because the arguments might
+        //    not be eligible for pre-projection, when they contain references to CLASSIFIER() or MATCH_NUMBER() functions
+        //    which are evaluated at runtime. If some aggregation arguments can be pre-projected, it will be done in the
+        //    Optimizer.
+        // 2. Their arguments do not need to be coerced by hand. Since the pattern aggregation arguments are rewritten as
+        //    parts of enclosing expressions, and not as standalone expressions, all necessary coercions will be applied by the
+        //    TranslationMap.
 
         // rewrite measures
         ImmutableMap.Builder<Symbol, Measure> rewrittenMeasures = ImmutableMap.builder();
@@ -425,7 +450,7 @@ class RelationPlanner
             Type type = analysis.getType(measureDefinition.getExpression());
             Symbol symbol = symbolAllocator.newSymbol(measureDefinition.getName().getValue().toLowerCase(ENGLISH), type);
             Expression expression = expressionRewrite.apply(measureDefinition.getExpression());
-            ExpressionAndValuePointers measure = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.build(), symbolAllocator);
+            ExpressionAndValuePointers measure = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.build(), symbolAllocator, metadata);
             rewrittenMeasures.put(symbol, new Measure(measure, type));
             measureOutputs.add(symbol);
         }
@@ -438,7 +463,7 @@ class RelationPlanner
         for (VariableDefinition variableDefinition : variableDefinitions) {
             IrLabel label = irLabel(variableDefinition.getName());
             Expression expression = expressionRewrite.apply(variableDefinition.getExpression());
-            ExpressionAndValuePointers definition = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.build(), symbolAllocator);
+            ExpressionAndValuePointers definition = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.build(), symbolAllocator, metadata);
             rewrittenVariableDefinitions.put(label, definition);
         }
         // add `true` definition for undefined labels
@@ -450,19 +475,19 @@ class RelationPlanner
                 rewrittenSubsets.build(),
                 rewrittenMeasures.build(),
                 measureOutputs.build(),
-                skipTo.flatMap(SkipTo::getIdentifier).map(this::irLabel),
+                skipTo.flatMap(SkipTo::getIdentifier).map(RelationPlanner::irLabel),
                 skipTo.map(SkipTo::getPosition).orElse(PAST_LAST),
                 searchMode.map(mode -> mode.getMode() == INITIAL).orElse(TRUE),
                 rewrittenPattern,
                 rewrittenVariableDefinitions.build());
     }
 
-    private IrLabel irLabel(Identifier identifier)
+    private static IrLabel irLabel(Identifier identifier)
     {
         return new IrLabel(identifier.getCanonicalValue());
     }
 
-    private IrLabel irLabel(String label)
+    private static IrLabel irLabel(String label)
     {
         return new IrLabel(label);
     }
@@ -711,7 +736,7 @@ class RelationPlanner
             they will be removed by optimization passes.
         */
 
-        List<Identifier> joinColumns = ((JoinUsing) node.getCriteria().get()).getColumns();
+        List<Identifier> joinColumns = ((JoinUsing) node.getCriteria().orElseThrow()).getColumns();
 
         Analysis.JoinUsingAnalysis joinAnalysis = analysis.getJoinUsing(node);
 
@@ -804,7 +829,7 @@ class RelationPlanner
                 outerContext);
     }
 
-    private Optional<Unnest> getUnnest(Relation relation)
+    private static Optional<Unnest> getUnnest(Relation relation)
     {
         if (relation instanceof AliasedRelation) {
             return getUnnest(((AliasedRelation) relation).getRelation());
@@ -815,7 +840,7 @@ class RelationPlanner
         return Optional.empty();
     }
 
-    private Optional<Lateral> getLateral(Relation relation)
+    private static Optional<Lateral> getLateral(Relation relation)
     {
         if (relation instanceof AliasedRelation) {
             return getLateral(((AliasedRelation) relation).getRelation());
@@ -1026,7 +1051,8 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new UnionNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
+        PlanNode planNode = new UnionNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping()
+                .keySet()));
         if (node.isDistinct()) {
             planNode = distinct(planNode);
         }
@@ -1040,7 +1066,8 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()), node.isDistinct());
+        PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping()
+                .keySet()), node.isDistinct());
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext);
     }
 
@@ -1051,7 +1078,8 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()), node.isDistinct());
+        PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping()
+                .keySet()), node.isDistinct());
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext);
     }
 
@@ -1100,7 +1128,7 @@ class RelationPlanner
                 Optional.empty());
     }
 
-    private static class SetOperationPlan
+    private static final class SetOperationPlan
     {
         private final List<PlanNode> sources;
         private final ListMultimap<Symbol, Symbol> symbolMapping;

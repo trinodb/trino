@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.trino.FeaturesConfig;
+import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.ApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.ApproximateDoublePercentileAggregations;
 import io.trino.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
@@ -35,6 +37,8 @@ import io.trino.operator.aggregation.BigintApproximateMostFrequent;
 import io.trino.operator.aggregation.BitwiseAndAggregation;
 import io.trino.operator.aggregation.BitwiseOrAggregation;
 import io.trino.operator.aggregation.BooleanAndAggregation;
+import io.trino.operator.aggregation.BooleanApproximateCountDistinctAggregation;
+import io.trino.operator.aggregation.BooleanDefaultApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.BooleanOrAggregation;
 import io.trino.operator.aggregation.CentralMomentsAggregation;
 import io.trino.operator.aggregation.ChecksumAggregationFunction;
@@ -52,6 +56,9 @@ import io.trino.operator.aggregation.IntervalDayToSecondAverageAggregation;
 import io.trino.operator.aggregation.IntervalDayToSecondSumAggregation;
 import io.trino.operator.aggregation.IntervalYearToMonthAverageAggregation;
 import io.trino.operator.aggregation.IntervalYearToMonthSumAggregation;
+import io.trino.operator.aggregation.LegacyApproximateDoublePercentileAggregations;
+import io.trino.operator.aggregation.LegacyApproximateLongPercentileAggregations;
+import io.trino.operator.aggregation.LegacyApproximateRealPercentileAggregations;
 import io.trino.operator.aggregation.LongSumAggregation;
 import io.trino.operator.aggregation.MapAggregationFunction;
 import io.trino.operator.aggregation.MapUnionAggregation;
@@ -98,6 +105,7 @@ import io.trino.operator.scalar.ArrayShuffleFunction;
 import io.trino.operator.scalar.ArraySliceFunction;
 import io.trino.operator.scalar.ArraySortComparatorFunction;
 import io.trino.operator.scalar.ArraySortFunction;
+import io.trino.operator.scalar.ArrayToArrayCast;
 import io.trino.operator.scalar.ArrayUnionFunction;
 import io.trino.operator.scalar.ArraysOverlapFunction;
 import io.trino.operator.scalar.BitwiseFunctions;
@@ -110,7 +118,8 @@ import io.trino.operator.scalar.DateTimeFunctions;
 import io.trino.operator.scalar.EmptyMapConstructor;
 import io.trino.operator.scalar.FailureFunction;
 import io.trino.operator.scalar.FormatNumberFunction;
-import io.trino.operator.scalar.GenericComparisonOperator;
+import io.trino.operator.scalar.GenericComparisonUnorderedFirstOperator;
+import io.trino.operator.scalar.GenericComparisonUnorderedLastOperator;
 import io.trino.operator.scalar.GenericDistinctFromOperator;
 import io.trino.operator.scalar.GenericEqualOperator;
 import io.trino.operator.scalar.GenericHashCodeOperator;
@@ -120,6 +129,7 @@ import io.trino.operator.scalar.GenericLessThanOrEqualOperator;
 import io.trino.operator.scalar.GenericXxHash64Operator;
 import io.trino.operator.scalar.HmacFunctions;
 import io.trino.operator.scalar.HyperLogLogFunctions;
+import io.trino.operator.scalar.IpAddressFunctions;
 import io.trino.operator.scalar.JoniRegexpCasts;
 import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
@@ -234,7 +244,6 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.DynamicFilters;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.type.BigintOperators;
 import io.trino.type.BlockTypeOperators;
@@ -266,9 +275,11 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -287,6 +298,7 @@ import static io.trino.operator.aggregation.QuantileDigestAggregationFunction.QD
 import static io.trino.operator.aggregation.RealAverageAggregation.REAL_AVERAGE_AGGREGATION;
 import static io.trino.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG;
 import static io.trino.operator.aggregation.arrayagg.ArrayAggregationFunction.ARRAY_AGG;
+import static io.trino.operator.aggregation.listagg.ListaggAggregationFunction.LISTAGG;
 import static io.trino.operator.aggregation.minmaxby.MaxByAggregationFunction.MAX_BY;
 import static io.trino.operator.aggregation.minmaxby.MinByAggregationFunction.MIN_BY;
 import static io.trino.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
@@ -296,7 +308,6 @@ import static io.trino.operator.scalar.ArrayJoin.ARRAY_JOIN;
 import static io.trino.operator.scalar.ArrayJoin.ARRAY_JOIN_WITH_NULL_REPLACEMENT;
 import static io.trino.operator.scalar.ArrayReduceFunction.ARRAY_REDUCE_FUNCTION;
 import static io.trino.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
-import static io.trino.operator.scalar.ArrayToArrayCast.ARRAY_TO_ARRAY_CAST;
 import static io.trino.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
 import static io.trino.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
 import static io.trino.operator.scalar.ArrayToJsonCast.LEGACY_ARRAY_TO_JSON;
@@ -366,14 +377,15 @@ import static io.trino.type.DecimalSaturatedFloorCasts.INTEGER_TO_DECIMAL_SATURA
 import static io.trino.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.trino.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.trino.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 public class FunctionRegistry
 {
-    private final Cache<FunctionBinding, ScalarFunctionImplementation> specializedScalarCache;
-    private final Cache<FunctionBinding, InternalAggregationFunction> specializedAggregationCache;
-    private final Cache<FunctionBinding, WindowFunctionSupplier> specializedWindowCache;
+    private final Cache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
+    private final Cache<FunctionKey, InternalAggregationFunction> specializedAggregationCache;
+    private final Cache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private volatile FunctionMap functions = new FunctionMap();
 
     public FunctionRegistry(
@@ -416,18 +428,23 @@ public class FunctionRegistry
                 .window(NthValueFunction.class)
                 .window(LagFunction.class)
                 .window(LeadFunction.class)
-                .aggregate(ApproximateCountDistinctAggregation.class)
-                .aggregate(DefaultApproximateCountDistinctAggregation.class)
-                .aggregate(SumDataSizeForStats.class)
-                .aggregate(MaxDataSizeForStats.class)
+                .aggregates(ApproximateCountDistinctAggregation.class)
+                .aggregates(DefaultApproximateCountDistinctAggregation.class)
+                .aggregates(BooleanApproximateCountDistinctAggregation.class)
+                .aggregates(BooleanDefaultApproximateCountDistinctAggregation.class)
+                .aggregates(SumDataSizeForStats.class)
+                .aggregates(MaxDataSizeForStats.class)
                 .aggregates(CountAggregation.class)
                 .aggregates(VarianceAggregation.class)
                 .aggregates(CentralMomentsAggregation.class)
                 .aggregates(ApproximateLongPercentileAggregations.class)
+                .aggregates(LegacyApproximateLongPercentileAggregations.class)
                 .aggregates(ApproximateLongPercentileArrayAggregations.class)
                 .aggregates(ApproximateDoublePercentileAggregations.class)
+                .aggregates(LegacyApproximateDoublePercentileAggregations.class)
                 .aggregates(ApproximateDoublePercentileArrayAggregations.class)
                 .aggregates(ApproximateRealPercentileAggregations.class)
+                .aggregates(LegacyApproximateRealPercentileAggregations.class)
                 .aggregates(ApproximateRealPercentileArrayAggregations.class)
                 .aggregates(CountIfAggregation.class)
                 .aggregates(BooleanAndAggregation.class)
@@ -445,7 +462,7 @@ public class FunctionRegistry
                 .aggregates(RealGeometricMeanAggregations.class)
                 .aggregates(MergeHyperLogLogAggregation.class)
                 .aggregates(ApproximateSetAggregation.class)
-                .aggregate(ApproximateSetGenericAggregation.class)
+                .aggregates(ApproximateSetGenericAggregation.class)
                 .aggregates(TDigestAggregationFunction.class)
                 .functions(QDIGEST_AGG, QDIGEST_AGG_WITH_WEIGHT, QDIGEST_AGG_WITH_WEIGHT_AND_ERROR)
                 .function(MergeQuantileDigestFunction.MERGE)
@@ -502,6 +519,7 @@ public class FunctionRegistry
                 .scalars(QuantileDigestOperators.class)
                 .scalars(TDigestOperators.class)
                 .scalars(IpAddressOperators.class)
+                .scalars(IpAddressFunctions.class)
                 .scalars(UuidOperators.class)
                 .scalars(LikeFunctions.class)
                 .scalars(ArrayFunctions.class)
@@ -551,10 +569,11 @@ public class FunctionRegistry
                 .scalar(TryFunction.class)
                 .scalar(ConcatWsFunction.ConcatArrayWs.class)
                 .scalar(DynamicFilters.Function.class)
+                .scalar(DynamicFilters.NullableFunction.class)
                 .functions(ZIP_WITH_FUNCTION, MAP_ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
                 .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
-                .functions(ARRAY_TO_ARRAY_CAST)
+                .scalar(ArrayToArrayCast.class)
                 .functions(ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .function(MAP_ELEMENT_AT)
                 .function(new MapConcatFunction(blockTypeOperators))
@@ -563,6 +582,7 @@ public class FunctionRegistry
                 .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
                 .function(ARRAY_AGG)
+                .function(LISTAGG)
                 .functions(new MapSubscriptOperator())
                 .functions(MAP_CONSTRUCTOR, JSON_TO_MAP, JSON_STRING_TO_MAP)
                 .functions(new MapAggregationFunction(blockTypeOperators), new MapUnionAggregation(blockTypeOperators))
@@ -603,17 +623,18 @@ public class FunctionRegistry
                 .function(new GenericXxHash64Operator(typeOperators))
                 .function(new GenericDistinctFromOperator(typeOperators))
                 .function(new GenericIndeterminateOperator(typeOperators))
-                .function(new GenericComparisonOperator(typeOperators))
+                .function(new GenericComparisonUnorderedLastOperator(typeOperators))
+                .function(new GenericComparisonUnorderedFirstOperator(typeOperators))
                 .function(new GenericLessThanOperator(typeOperators))
                 .function(new GenericLessThanOrEqualOperator(typeOperators))
                 .function(new VersionFunction(nodeVersion))
-                .aggregate(MergeSetDigestAggregation.class)
-                .aggregate(BuildSetDigestAggregation.class)
+                .aggregates(MergeSetDigestAggregation.class)
+                .aggregates(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
                 .scalars(SetDigestOperators.class)
                 .scalars(WilsonInterval.class)
-                .aggregate(BigintApproximateMostFrequent.class)
-                .aggregate(VarcharApproximateMostFrequent.class);
+                .aggregates(BigintApproximateMostFrequent.class)
+                .aggregates(VarcharApproximateMostFrequent.class);
 
         // timestamp operators and functions
         builder
@@ -764,7 +785,8 @@ public class FunctionRegistry
                     !(function instanceof GenericXxHash64Operator) &&
                     !(function instanceof GenericDistinctFromOperator) &&
                     !(function instanceof GenericIndeterminateOperator) &&
-                    !(function instanceof GenericComparisonOperator) &&
+                    !(function instanceof GenericComparisonUnorderedLastOperator) &&
+                    !(function instanceof GenericComparisonUnorderedFirstOperator) &&
                     !(function instanceof GenericLessThanOperator) &&
                     !(function instanceof GenericLessThanOrEqualOperator)) {
                 OperatorType operatorType = unmangleOperator(name);
@@ -773,7 +795,8 @@ public class FunctionRegistry
                                 operatorType != OperatorType.XX_HASH_64 &&
                                 operatorType != OperatorType.IS_DISTINCT_FROM &&
                                 operatorType != OperatorType.INDETERMINATE &&
-                                operatorType != OperatorType.COMPARISON &&
+                                operatorType != OperatorType.COMPARISON_UNORDERED_LAST &&
+                                operatorType != OperatorType.COMPARISON_UNORDERED_FIRST &&
                                 operatorType != OperatorType.LESS_THAN &&
                                 operatorType != OperatorType.LESS_THAN_OR_EQUAL,
                         "Can not register %s function: %s", operatorType, function.getFunctionMetadata().getSignature());
@@ -804,24 +827,24 @@ public class FunctionRegistry
         return functions.get(functionId).getFunctionMetadata();
     }
 
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(FunctionBinding functionBinding)
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(FunctionId functionId)
     {
-        SqlFunction function = functions.get(functionBinding.getFunctionId());
-        checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", functionBinding.getBoundSignature());
+        SqlFunction function = functions.get(functionId);
+        checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", function.getFunctionMetadata().getSignature());
 
         SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) function;
-        return aggregationFunction.getAggregationMetadata(functionBinding);
+        return aggregationFunction.getAggregationMetadata();
     }
 
-    public WindowFunctionSupplier getWindowFunctionImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public WindowFunctionSupplier getWindowFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlFunction function = functions.get(functionBinding.getFunctionId());
+        SqlFunction function = functions.get(functionId);
         try {
             if (function instanceof SqlAggregationFunction) {
-                InternalAggregationFunction aggregationFunction = specializedAggregationCache.get(functionBinding, () -> specializedAggregation(functionBinding, functionDependencies));
+                InternalAggregationFunction aggregationFunction = specializedAggregationCache.get(new FunctionKey(functionId, boundSignature), () -> specializedAggregation(functionId, boundSignature, functionDependencies));
                 return supplier(function.getFunctionMetadata().getSignature(), aggregationFunction);
             }
-            return specializedWindowCache.get(functionBinding, () -> specializeWindow(functionBinding, functionDependencies));
+            return specializedWindowCache.get(new FunctionKey(functionId, boundSignature), () -> specializeWindow(functionId, boundSignature, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -829,16 +852,16 @@ public class FunctionRegistry
         }
     }
 
-    private WindowFunctionSupplier specializeWindow(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    private WindowFunctionSupplier specializeWindow(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlWindowFunction function = (SqlWindowFunction) functions.get(functionBinding.getFunctionId());
-        return function.specialize(functionBinding, functionDependencies);
+        SqlWindowFunction function = (SqlWindowFunction) functions.get(functionId);
+        return function.specialize(boundSignature, functionDependencies);
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         try {
-            return specializedAggregationCache.get(functionBinding, () -> specializedAggregation(functionBinding, functionDependencies));
+            return specializedAggregationCache.get(new FunctionKey(functionId, boundSignature), () -> specializedAggregation(functionId, boundSignature, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -846,26 +869,28 @@ public class FunctionRegistry
         }
     }
 
-    private InternalAggregationFunction specializedAggregation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    private InternalAggregationFunction specializedAggregation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlAggregationFunction function = (SqlAggregationFunction) functions.get(functionBinding.getFunctionId());
-        return function.specialize(functionBinding, functionDependencies);
+        SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) functions.get(functionId);
+        AggregationMetadata aggregationMetadata = aggregationFunction.specialize(boundSignature, functionDependencies);
+        return new InternalAggregationFunction(boundSignature, aggregationMetadata);
     }
 
     public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
     {
         SqlFunction function = functions.get(functionBinding.getFunctionId());
-        return function.getFunctionDependencies(functionBinding);
+        return function.getFunctionDependencies(functionBinding.getBoundSignature());
     }
 
     public FunctionInvoker getScalarFunctionInvoker(
-            FunctionBinding functionBinding,
+            FunctionId functionId,
+            BoundSignature boundSignature,
             FunctionDependencies functionDependencies,
             InvocationConvention invocationConvention)
     {
         ScalarFunctionImplementation scalarFunctionImplementation;
         try {
-            scalarFunctionImplementation = specializedScalarCache.get(functionBinding, () -> specializeScalarFunction(functionBinding, functionDependencies));
+            scalarFunctionImplementation = specializedScalarCache.get(new FunctionKey(functionId, boundSignature), () -> specializeScalarFunction(functionId, boundSignature, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -874,10 +899,10 @@ public class FunctionRegistry
         return scalarFunctionImplementation.getScalarFunctionInvoker(invocationConvention);
     }
 
-    private ScalarFunctionImplementation specializeScalarFunction(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    private ScalarFunctionImplementation specializeScalarFunction(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlScalarFunction function = (SqlScalarFunction) functions.get(functionBinding.getFunctionId());
-        return function.specialize(functionBinding, functionDependencies);
+        SqlScalarFunction function = (SqlScalarFunction) functions.get(functionId);
+        return function.specialize(boundSignature, functionDependencies);
     }
 
     private static class FunctionMap
@@ -902,7 +927,7 @@ public class FunctionRegistry
                     .putAll(map.functionsByName);
             functions.stream()
                     .map(SqlFunction::getFunctionMetadata)
-                    .forEach(functionMetadata -> functionsByName.put(QualifiedName.of(functionMetadata.getActualName()), functionMetadata));
+                    .forEach(functionMetadata -> functionsByName.put(QualifiedName.of(functionMetadata.getSignature().getName()), functionMetadata));
             this.functionsByName = functionsByName.build();
 
             // Make sure all functions with the same name are aggregations or none of them are
@@ -931,6 +956,57 @@ public class FunctionRegistry
             SqlFunction sqlFunction = functions.get(functionId);
             checkArgument(sqlFunction != null, "Unknown function implementation: %s", functionId);
             return sqlFunction;
+        }
+    }
+
+    private static class FunctionKey
+    {
+        private final FunctionId functionId;
+        private final BoundSignature boundSignature;
+
+        public FunctionKey(FunctionId functionId, BoundSignature boundSignature)
+        {
+            this.functionId = requireNonNull(functionId, "functionId is null");
+            this.boundSignature = requireNonNull(boundSignature, "boundSignature is null");
+        }
+
+        public FunctionId getFunctionId()
+        {
+            return functionId;
+        }
+
+        public BoundSignature getBoundSignature()
+        {
+            return boundSignature;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            FunctionKey that = (FunctionKey) o;
+            return functionId.equals(that.functionId) &&
+                    boundSignature.equals(that.boundSignature);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(functionId, boundSignature);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("functionId", functionId)
+                    .add("boundSignature", boundSignature)
+                    .toString();
         }
     }
 }

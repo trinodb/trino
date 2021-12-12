@@ -539,13 +539,13 @@ public class TestFilterStatsCalculator
                                 .nullsFraction(0.0));
 
         // Casted literals as value
-        assertExpression(format("mediumVarchar IN (CAST('abc' AS %s))", MEDIUM_VARCHAR_TYPE.toString()))
+        assertExpression(format("mediumVarchar IN (CAST('abc' AS %s))", MEDIUM_VARCHAR_TYPE))
                 .outputRowsCount(4)
                 .symbolStats("mediumVarchar", symbolStats ->
                         symbolStats.distinctValuesCount(1)
                                 .nullsFraction(0.0));
 
-        assertExpression(format("mediumVarchar IN (CAST('abc' AS %1$s), CAST('def' AS %1$s))", MEDIUM_VARCHAR_TYPE.toString()))
+        assertExpression(format("mediumVarchar IN (CAST('abc' AS %1$s), CAST('def' AS %1$s))", MEDIUM_VARCHAR_TYPE))
                 .outputRowsCount(8)
                 .symbolStats("mediumVarchar", symbolStats ->
                         symbolStats.distinctValuesCount(2)

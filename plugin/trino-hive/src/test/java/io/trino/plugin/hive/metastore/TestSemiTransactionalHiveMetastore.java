@@ -52,7 +52,7 @@ public class TestSemiTransactionalHiveMetastore
             Optional.of("comment"));
     private static final Storage TABLE_STORAGE = new Storage(
             StorageFormat.create("serde", "input", "output"),
-            "location",
+            Optional.of("location"),
             Optional.of(new HiveBucketProperty(ImmutableList.of("column"), BUCKETING_V1, 10, ImmutableList.of(new SortingColumn("column", SortingColumn.Order.ASCENDING)))),
             true,
             ImmutableMap.of("param", "value2"));
@@ -136,7 +136,7 @@ public class TestSemiTransactionalHiveMetastore
                 return Optional.of(new Table(
                         "database",
                         tableName,
-                        "owner",
+                        Optional.of("owner"),
                         "table_type",
                         TABLE_STORAGE,
                         ImmutableList.of(TABLE_COLUMN),

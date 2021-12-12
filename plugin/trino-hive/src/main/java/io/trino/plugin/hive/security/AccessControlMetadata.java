@@ -30,6 +30,19 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface AccessControlMetadata
 {
+    default boolean isUsingSystemSecurity()
+    {
+        return false;
+    }
+
+    /**
+     * Does the specified role exist.
+     */
+    default boolean roleExists(ConnectorSession session, String role)
+    {
+        return listRoles(session).contains(role);
+    }
+
     /**
      * Creates the specified role.
      *

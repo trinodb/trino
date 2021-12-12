@@ -52,7 +52,6 @@ public class SheetsConnectorFactory
                 new SheetsModule());
 
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(config)
                 .initialize();

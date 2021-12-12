@@ -14,9 +14,9 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
@@ -52,12 +52,7 @@ public class StatefulSleepingSum
                         BIGINT.getTypeSignature(),
                         ImmutableList.of(DOUBLE.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature()),
                         false),
-                false,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, ImmutableList.of(false, false, false, false)),
                 true,
                 true,
                 "testing not thread safe function",
@@ -65,11 +60,11 @@ public class StatefulSleepingSum
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
         int args = 4;
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 nCopies(args, NEVER_NULL),
                 methodHandle(StatefulSleepingSum.class, "statefulSleepingSum", State.class, double.class, long.class, long.class, long.class),

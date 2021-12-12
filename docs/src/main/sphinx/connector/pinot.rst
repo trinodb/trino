@@ -10,7 +10,7 @@ Requirements
 
 To connect to Pinot, you need:
 
-* Pinot 0.1.0 or higher.
+* Pinot 0.8.0 or higher.
 * Network access from the Trino coordinator and workers to the Pinot controller
   nodes. Port 8098 is the default port.
 
@@ -114,3 +114,38 @@ Pinot                        Trino
 ``STRING_ARRAY``             ``VARCHAR``
 ==========================   ============
 
+.. _pinot-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata in Pinot.
+
+.. _pinot-pushdown:
+
+Pushdown
+--------
+
+The connector supports pushdown for a number of operations:
+
+* :ref:`limit-pushdown`
+
+:ref:`Aggregate pushdown <aggregation-pushdown>` for the following functions:
+
+* :func:`avg`
+* :func:`approx_distinct`
+* ``count(*)`` and ``count(distinct)`` variations of :func:`count`
+* :func:`max`
+* :func:`min`
+* :func:`sum`
+
+Aggregate function pushdown is enabled by default, but can be disabled with the
+catalog property ``pinot.aggregation-pushdown.enabled`` or the catalog session
+property ``aggregation_pushdown_enabled``.
+
+A ``count(distint)`` pushdown may cause Pinot to run a full table scan with
+significant performance impact. If you encounter this problem, you can disable
+it with the catalog property ``pinot.count-distinct-pushdown.enabled`` or the
+catalog session property ``count_distinct_pushdown_enabled``.

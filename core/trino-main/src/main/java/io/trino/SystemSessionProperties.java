@@ -16,17 +16,17 @@ package io.trino;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.FeaturesConfig.JoinDistributionType;
+import io.trino.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
-import io.trino.sql.analyzer.FeaturesConfig;
-import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 
 import javax.inject.Inject;
 
@@ -38,6 +38,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
@@ -121,7 +122,6 @@ public final class SystemSessionProperties
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
-    public static final String UNWRAP_CASTS = "unwrap_casts";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_PUSHDOWN_INTO_CONNECTORS = "allow_pushdown_into_connectors";
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
@@ -132,7 +132,6 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE = "query_max_total_memory_per_node";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
-    public static final String ITERATIVE_COLUMN_PRUNING = "iterative_rule_based_column_pruning";
     public static final String FILTERING_SEMI_JOIN_TO_INNER = "rewrite_filtering_semi_join_to_inner_join";
     public static final String OPTIMIZE_DUPLICATE_INSENSITIVE_JOINS = "optimize_duplicate_insensitive_joins";
     public static final String REQUIRED_WORKERS_COUNT = "required_workers_count";
@@ -143,6 +142,13 @@ public final class SystemSessionProperties
     public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
     public static final String MERGE_PROJECT_WITH_VALUES = "merge_project_with_values";
     public static final String TIME_ZONE_ID = "time_zone_id";
+    public static final String LEGACY_CATALOG_ROLES = "legacy_catalog_roles";
+    public static final String INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED = "incremental_hash_array_load_factor_enabled";
+    public static final String MAX_PARTIAL_TOP_N_MEMORY = "max_partial_top_n_memory";
+    public static final String RETRY_POLICY = "retry_policy";
+    public static final String RETRY_ATTEMPTS = "retry_attempts";
+    public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
+    public static final String RETRY_MAX_DELAY = "retry_max_delay";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -542,11 +548,6 @@ public final class SystemSessionProperties
                         featuresConfig.isDefaultFilterFactorEnabled(),
                         false),
                 booleanProperty(
-                        UNWRAP_CASTS,
-                        "Enable optimization to unwrap CAST expression",
-                        featuresConfig.isUnwrapCasts(),
-                        false),
-                booleanProperty(
                         SKIP_REDUNDANT_SORT,
                         "Skip redundant sort operations",
                         featuresConfig.isSkipRedundantSort(),
@@ -596,11 +597,6 @@ public final class SystemSessionProperties
                         IGNORE_DOWNSTREAM_PREFERENCES,
                         "Ignore Parent's PreferredProperties in AddExchange optimizer",
                         featuresConfig.isIgnoreDownstreamPreferences(),
-                        false),
-                booleanProperty(
-                        ITERATIVE_COLUMN_PRUNING,
-                        "Use iterative rules to prune unreferenced columns",
-                        featuresConfig.isIterativeRuleBasedColumnPruning(),
                         false),
                 booleanProperty(
                         FILTERING_SEMI_JOIN_TO_INNER,
@@ -660,7 +656,43 @@ public final class SystemSessionProperties
                                 getTimeZoneKey(value);
                             }
                         },
-                        true));
+                        true),
+                booleanProperty(
+                        LEGACY_CATALOG_ROLES,
+                        "Enable legacy role management syntax that assumed all roles are catalog scoped",
+                        featuresConfig.isLegacyCatalogRoles(),
+                        true),
+                booleanProperty(
+                        INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED,
+                        "Use smaller load factor for small hash arrays in order to improve performance",
+                        featuresConfig.isIncrementalHashArrayLoadFactorEnabled(),
+                        false),
+                dataSizeProperty(
+                        MAX_PARTIAL_TOP_N_MEMORY,
+                        "Max memory size for partial Top N aggregations. This can be turned off by setting it with '0'.",
+                        taskManagerConfig.getMaxPartialTopNMemory(),
+                        false),
+                enumProperty(
+                        RETRY_POLICY,
+                        "Retry policy",
+                        RetryPolicy.class,
+                        featuresConfig.getRetryPolicy(),
+                        false),
+                integerProperty(
+                        RETRY_ATTEMPTS,
+                        "Maximum number of retry attempts",
+                        featuresConfig.getRetryAttempts(),
+                        false),
+                durationProperty(
+                        RETRY_INITIAL_DELAY,
+                        "Initial delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt up to 'retry_max_delay'",
+                        featuresConfig.getRetryInitialDelay(),
+                        false),
+                durationProperty(
+                        RETRY_MAX_DELAY,
+                        "Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'",
+                        featuresConfig.getRetryMaxDelay(),
+                        false));
     }
 
     @Override
@@ -1064,11 +1096,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(DEFAULT_FILTER_FACTOR_ENABLED, Boolean.class);
     }
 
-    public static boolean isUnwrapCasts(Session session)
-    {
-        return session.getSystemProperty(UNWRAP_CASTS, Boolean.class);
-    }
-
     public static boolean isSkipRedundantSort(Session session)
     {
         return session.getSystemProperty(SKIP_REDUNDANT_SORT, Boolean.class);
@@ -1119,11 +1146,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, Boolean.class);
     }
 
-    public static boolean isIterativeRuleBasedColumnPruning(Session session)
-    {
-        return session.getSystemProperty(ITERATIVE_COLUMN_PRUNING, Boolean.class);
-    }
-
     public static boolean isRewriteFilteringSemiJoinToInnerJoin(Session session)
     {
         return session.getSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, Boolean.class);
@@ -1172,5 +1194,49 @@ public final class SystemSessionProperties
     public static Optional<String> getTimeZoneId(Session session)
     {
         return Optional.ofNullable(session.getSystemProperty(TIME_ZONE_ID, String.class));
+    }
+
+    public static boolean isLegacyCatalogRoles(Session session)
+    {
+        return session.getSystemProperty(LEGACY_CATALOG_ROLES, Boolean.class);
+    }
+
+    public static boolean isIncrementalHashArrayLoadFactorEnabled(Session session)
+    {
+        return session.getSystemProperty(INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED, Boolean.class);
+    }
+
+    public static DataSize getMaxPartialTopNMemory(Session session)
+    {
+        return session.getSystemProperty(MAX_PARTIAL_TOP_N_MEMORY, DataSize.class);
+    }
+
+    public static RetryPolicy getRetryPolicy(Session session)
+    {
+        RetryPolicy retryPolicy = session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
+        if (retryPolicy != RetryPolicy.NONE) {
+            if (isEnableDynamicFiltering(session)) {
+                throw new TrinoException(NOT_SUPPORTED, "Dynamic filtering is not supported with automatic retries enabled");
+            }
+            if (isDistributedSortEnabled(session)) {
+                throw new TrinoException(NOT_SUPPORTED, "Distributed sort is not supported with automatic retries enabled");
+            }
+        }
+        return retryPolicy;
+    }
+
+    public static int getRetryAttempts(Session session)
+    {
+        return session.getSystemProperty(RETRY_ATTEMPTS, Integer.class);
+    }
+
+    public static Duration getRetryInitialDelay(Session session)
+    {
+        return session.getSystemProperty(RETRY_INITIAL_DELAY, Duration.class);
+    }
+
+    public static Duration getRetryMaxDelay(Session session)
+    {
+        return session.getSystemProperty(RETRY_MAX_DELAY, Duration.class);
     }
 }

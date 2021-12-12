@@ -25,6 +25,21 @@ import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.DateTimeType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.ObjectType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.PrimitiveType;
+import io.trino.plugin.elasticsearch.client.IndexMetadata.ScaledFloatType;
+import io.trino.plugin.elasticsearch.decoders.ArrayDecoder;
+import io.trino.plugin.elasticsearch.decoders.BigintDecoder;
+import io.trino.plugin.elasticsearch.decoders.BooleanDecoder;
+import io.trino.plugin.elasticsearch.decoders.DoubleDecoder;
+import io.trino.plugin.elasticsearch.decoders.IntegerDecoder;
+import io.trino.plugin.elasticsearch.decoders.IpAddressDecoder;
+import io.trino.plugin.elasticsearch.decoders.RawJsonDecoder;
+import io.trino.plugin.elasticsearch.decoders.RealDecoder;
+import io.trino.plugin.elasticsearch.decoders.RowDecoder;
+import io.trino.plugin.elasticsearch.decoders.SmallintDecoder;
+import io.trino.plugin.elasticsearch.decoders.TimestampDecoder;
+import io.trino.plugin.elasticsearch.decoders.TinyintDecoder;
+import io.trino.plugin.elasticsearch.decoders.VarbinaryDecoder;
+import io.trino.plugin.elasticsearch.decoders.VarcharDecoder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -57,6 +72,8 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
@@ -92,7 +109,11 @@ public class ElasticsearchMetadata
 
     private static final Map<String, ColumnHandle> PASSTHROUGH_QUERY_COLUMNS = ImmutableMap.of(
             PASSTHROUGH_QUERY_RESULT_COLUMN_NAME,
-            new ElasticsearchColumnHandle(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME, VARCHAR, false));
+            new ElasticsearchColumnHandle(
+                    PASSTHROUGH_QUERY_RESULT_COLUMN_NAME,
+                    VARCHAR,
+                    new VarcharDecoder.Descriptor(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME),
+                    false));
 
     private final Type ipAddressType;
     private final ElasticsearchClient client;
@@ -194,19 +215,13 @@ public class ElasticsearchMetadata
 
     private List<IndexMetadata.Field> getColumnFields(IndexMetadata metadata)
     {
-        ImmutableList.Builder<IndexMetadata.Field> result = ImmutableList.builder();
         Map<String, Long> counts = metadata.getSchema()
                 .getFields().stream()
                 .collect(Collectors.groupingBy(f -> f.getName().toLowerCase(ENGLISH), Collectors.counting()));
 
-        for (IndexMetadata.Field field : metadata.getSchema().getFields()) {
-            Type type = toTrinoType(field);
-            if (type == null || counts.get(field.getName().toLowerCase(ENGLISH)) > 1) {
-                continue;
-            }
-            result.add(field);
-        }
-        return result.build();
+        return metadata.getSchema().getFields().stream()
+                .filter(field -> toTrino(field) != null && counts.get(field.getName().toLowerCase(ENGLISH)) <= 1)
+                .collect(toImmutableList());
     }
 
     private List<ColumnMetadata> makeColumnMetadata(List<IndexMetadata.Field> fields)
@@ -220,7 +235,7 @@ public class ElasticsearchMetadata
         for (IndexMetadata.Field field : fields) {
             result.add(ColumnMetadata.builder()
                     .setName(field.getName())
-                    .setType(toTrinoType(field))
+                    .setType(toTrino(field).getType())
                     .build());
         }
         return result.build();
@@ -235,9 +250,11 @@ public class ElasticsearchMetadata
         }
 
         for (IndexMetadata.Field field : fields) {
+            TypeAndDecoder converted = toTrino(field);
             result.put(field.getName(), new ElasticsearchColumnHandle(
                     field.getName(),
-                    toTrinoType(field),
+                    converted.getType(),
+                    converted.getDecoderDescriptor(),
                     supportsPredicates(field.getType())));
         }
 
@@ -267,70 +284,100 @@ public class ElasticsearchMetadata
         return false;
     }
 
-    private Type toTrinoType(IndexMetadata.Field metaDataField)
+    private TypeAndDecoder toTrino(IndexMetadata.Field field)
     {
-        return toTrinoType(metaDataField, metaDataField.isArray());
+        return toTrino("", field);
     }
 
-    private Type toTrinoType(IndexMetadata.Field metaDataField, boolean isArray)
+    private TypeAndDecoder toTrino(String prefix, IndexMetadata.Field field)
     {
-        IndexMetadata.Type type = metaDataField.getType();
-        if (isArray) {
-            Type elementType = toTrinoType(metaDataField, false);
-            return new ArrayType(elementType);
+        String path = appendPath(prefix, field.getName());
+
+        checkArgument(!field.asRawJson() || !field.isArray(), format("A column, (%s) cannot be declared as a Trino array and also be rendered as json.", path));
+
+        if (field.asRawJson()) {
+            return new TypeAndDecoder(VARCHAR, new RawJsonDecoder.Descriptor(path));
         }
+
+        if (field.isArray()) {
+            TypeAndDecoder element = toTrino(path, elementField(field));
+            return new TypeAndDecoder(new ArrayType(element.getType()), new ArrayDecoder.Descriptor(element.getDecoderDescriptor()));
+        }
+
+        IndexMetadata.Type type = field.getType();
         if (type instanceof PrimitiveType) {
             switch (((PrimitiveType) type).getName()) {
                 case "float":
-                    return REAL;
+                    return new TypeAndDecoder(REAL, new RealDecoder.Descriptor(path));
                 case "double":
-                    return DOUBLE;
+                    return new TypeAndDecoder(DOUBLE, new DoubleDecoder.Descriptor(path));
                 case "byte":
-                    return TINYINT;
+                    return new TypeAndDecoder(TINYINT, new TinyintDecoder.Descriptor(path));
                 case "short":
-                    return SMALLINT;
+                    return new TypeAndDecoder(SMALLINT, new SmallintDecoder.Descriptor(path));
                 case "integer":
-                    return INTEGER;
+                    return new TypeAndDecoder(INTEGER, new IntegerDecoder.Descriptor(path));
                 case "long":
-                    return BIGINT;
+                    return new TypeAndDecoder(BIGINT, new BigintDecoder.Descriptor(path));
                 case "text":
                 case "keyword":
-                    return VARCHAR;
+                    return new TypeAndDecoder(VARCHAR, new VarcharDecoder.Descriptor(path));
                 case "ip":
-                    return ipAddressType;
+                    return new TypeAndDecoder(ipAddressType, new IpAddressDecoder.Descriptor(path, ipAddressType));
                 case "boolean":
-                    return BOOLEAN;
+                    return new TypeAndDecoder(BOOLEAN, new BooleanDecoder.Descriptor(path));
                 case "binary":
-                    return VARBINARY;
+                    return new TypeAndDecoder(VARBINARY, new VarbinaryDecoder.Descriptor(path));
             }
+        }
+        else if (type instanceof ScaledFloatType) {
+            return new TypeAndDecoder(DOUBLE, new DoubleDecoder.Descriptor(path));
         }
         else if (type instanceof DateTimeType) {
             if (((DateTimeType) type).getFormats().isEmpty()) {
-                return TIMESTAMP_MILLIS;
+                return new TypeAndDecoder(TIMESTAMP_MILLIS, new TimestampDecoder.Descriptor(path));
             }
             // otherwise, skip -- we don't support custom formats, yet
         }
         else if (type instanceof ObjectType) {
             ObjectType objectType = (ObjectType) type;
 
-            ImmutableList.Builder<RowType.Field> builder = ImmutableList.builder();
-            for (IndexMetadata.Field field : objectType.getFields()) {
-                Type trinoType = toTrinoType(field);
-                if (trinoType != null) {
-                    builder.add(RowType.field(field.getName(), trinoType));
+            ImmutableList.Builder<RowType.Field> rowFieldsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<RowDecoder.NameAndDescriptor> decoderFields = ImmutableList.builder();
+            for (IndexMetadata.Field rowField : objectType.getFields()) {
+                String name = rowField.getName();
+                TypeAndDecoder child = toTrino(appendPath(path, name), rowField);
+
+                if (child != null) {
+                    decoderFields.add(new RowDecoder.NameAndDescriptor(name, child.getDecoderDescriptor()));
+                    rowFieldsBuilder.add(RowType.field(name, child.getType()));
                 }
             }
 
-            List<RowType.Field> fields = builder.build();
-
-            if (!fields.isEmpty()) {
-                return RowType.from(fields);
+            List<RowType.Field> rowFields = rowFieldsBuilder.build();
+            if (!rowFields.isEmpty()) {
+                return new TypeAndDecoder(RowType.from(rowFields), new RowDecoder.Descriptor(path, decoderFields.build()));
             }
 
             // otherwise, skip -- row types must have at least 1 field
         }
 
         return null;
+    }
+
+    private static String appendPath(String base, String element)
+    {
+        if (base.isEmpty()) {
+            return element;
+        }
+
+        return base + "." + element;
+    }
+
+    public static IndexMetadata.Field elementField(IndexMetadata.Field field)
+    {
+        checkArgument(field.isArray(), "Cannot get element field from a non-array field");
+        return new IndexMetadata.Field(field.asRawJson(), false, field.getName(), field.getType());
     }
 
     @Override
@@ -529,6 +576,28 @@ public class ElasticsearchMetadata
         public Map<String, ColumnHandle> getColumnHandles()
         {
             return columnHandles;
+        }
+    }
+
+    private static class TypeAndDecoder
+    {
+        private final Type type;
+        private final DecoderDescriptor decoderDescriptor;
+
+        public TypeAndDecoder(Type type, DecoderDescriptor decoderDescriptor)
+        {
+            this.type = type;
+            this.decoderDescriptor = decoderDescriptor;
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        public DecoderDescriptor getDecoderDescriptor()
+        {
+            return decoderDescriptor;
         }
     }
 }

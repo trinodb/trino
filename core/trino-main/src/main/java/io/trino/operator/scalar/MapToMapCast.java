@@ -16,10 +16,10 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
-import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.SqlOperator;
 import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.TrinoException;
@@ -27,6 +27,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.type.BlockTypeOperators;
@@ -103,21 +104,22 @@ public final class MapToMapCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
-        Type fromKeyType = functionBinding.getTypeVariable("FK");
-        Type fromValueType = functionBinding.getTypeVariable("FV");
-        Type toKeyType = functionBinding.getTypeVariable("TK");
-        Type toValueType = functionBinding.getTypeVariable("TV");
-        Type toMapType = functionBinding.getBoundSignature().getReturnType();
+        checkArgument(boundSignature.getArity() == 1, "Expected arity to be 1");
+        MapType fromMapType = (MapType) boundSignature.getArgumentType(0);
+        Type fromKeyType = fromMapType.getKeyType();
+        Type fromValueType = fromMapType.getValueType();
+        MapType toMapType = (MapType) boundSignature.getReturnType();
+        Type toKeyType = toMapType.getKeyType();
+        Type toValueType = toMapType.getValueType();
 
         MethodHandle keyProcessor = buildProcessor(functionDependencies, fromKeyType, toKeyType, true);
         MethodHandle valueProcessor = buildProcessor(functionDependencies, fromValueType, toValueType, false);
         BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(toKeyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(toKeyType);
         MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType, keyEqual, keyHashCode);
-        return new ChoicesScalarFunctionImplementation(functionBinding, NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
+        return new ChoicesScalarFunctionImplementation(boundSignature, NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
     }
 
     /**
@@ -127,8 +129,8 @@ public final class MapToMapCast
     private MethodHandle buildProcessor(FunctionDependencies functionDependencies, Type fromType, Type toType, boolean isKey)
     {
         // Get block position cast, with optional connector session
-        FunctionMetadata functionMetadata = functionDependencies.getCastMetadata(fromType, toType);
-        InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), functionMetadata.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL, true, false);
+        FunctionNullability functionNullability = functionDependencies.getCastNullability(fromType, toType);
+        InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), functionNullability.isReturnNullable() ? NULLABLE_RETURN : FAIL_ON_NULL, true, false);
         MethodHandle cast = functionDependencies.getCastInvoker(fromType, toType, invocationConvention).getMethodHandle();
         // Normalize cast to have connector session as first argument
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {
@@ -138,7 +140,7 @@ public final class MapToMapCast
         cast = permuteArguments(cast, methodType(cast.type().returnType(), Block.class, int.class, ConnectorSession.class), 2, 0, 1);
 
         // If the key cast function is nullable, check the result is not null
-        if (isKey && functionMetadata.isNullable()) {
+        if (isKey && functionNullability.isReturnNullable()) {
             cast = compose(nullChecker(cast.type().returnType()), cast);
         }
 
@@ -235,15 +237,17 @@ public final class MapToMapCast
     public static Block mapCast(
             MethodHandle keyProcessFunction,
             MethodHandle valueProcessFunction,
-            Type toMapType,
+            Type targetType,
             BlockPositionEqual keyEqual,
             BlockPositionHashCode keyHashCode,
             ConnectorSession session,
             Block fromMap)
     {
-        checkState(toMapType.getTypeParameters().size() == 2, "Expect two type parameters for toMapType");
-        Type toKeyType = toMapType.getTypeParameters().get(0);
-        TypedSet typedSet = createEqualityTypedSet(toKeyType, keyEqual, keyHashCode, fromMap.getPositionCount() / 2, "map-to-map cast");
+        checkState(targetType.getTypeParameters().size() == 2, "Expect two type parameters for targetType");
+        Type toKeyType = targetType.getTypeParameters().get(0);
+        TypedSet resultKeys = createEqualityTypedSet(toKeyType, keyEqual, keyHashCode, fromMap.getPositionCount() / 2, "map-to-map cast");
+
+        // Cast the keys into a new block
         BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(null, fromMap.getPositionCount() / 2);
         for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
             try {
@@ -255,11 +259,10 @@ public final class MapToMapCast
         }
         Block keyBlock = keyBlockBuilder.build();
 
-        BlockBuilder mapBlockBuilder = toMapType.createBlockBuilder(null, 1);
+        BlockBuilder mapBlockBuilder = targetType.createBlockBuilder(null, 1);
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
         for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
-            if (!typedSet.contains(keyBlock, i / 2)) {
-                typedSet.add(keyBlock, i / 2);
+            if (resultKeys.add(keyBlock, i / 2)) {
                 toKeyType.appendTo(keyBlock, i / 2, blockBuilder);
                 if (fromMap.isNull(i + 1)) {
                     blockBuilder.appendNull();
@@ -280,6 +283,6 @@ public final class MapToMapCast
         }
 
         mapBlockBuilder.closeEntry();
-        return (Block) toMapType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
+        return (Block) targetType.getObject(mapBlockBuilder, mapBlockBuilder.getPositionCount() - 1);
     }
 }

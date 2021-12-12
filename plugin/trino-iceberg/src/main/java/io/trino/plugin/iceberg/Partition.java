@@ -24,11 +24,13 @@ import org.apache.iceberg.types.Types;
 import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
@@ -65,11 +67,14 @@ class Partition
         this.fileCount = 1;
         this.size = size;
         if (minValues == null || maxValues == null || nullCounts == null) {
-            this.minValues = null;
-            this.maxValues = null;
-            this.nullCounts = null;
-            this.columnSizes = null;
-            corruptedStats = null;
+            // This class initialization is asymmetric with respect to first file
+            // TODO (https://github.com/trinodb/trino/issues/9716) rethink stats collection process to ensure results are correct, and in particular do not depent on ordering
+            this.minValues = new HashMap<>();
+            this.maxValues = new HashMap<>();
+            this.nullCounts = new HashMap<>();
+            this.columnSizes = new HashMap<>();
+            this.corruptedStats = new HashSet<>();
+            this.hasValidColumnMetrics = false;
         }
         else {
             this.minValues = new HashMap<>(minValues);
@@ -227,7 +232,7 @@ class Partition
                 this.nullCounts.merge(key, counts, Long::sum));
     }
 
-    public static Map<Integer, Object> toMap(Map<Integer, Type.PrimitiveType> idToTypeMapping, Map<Integer, ByteBuffer> idToMetricMap)
+    public static Map<Integer, Object> convertBounds(Map<Integer, Type.PrimitiveType> idToTypeMapping, Map<Integer, ByteBuffer> idToMetricMap)
     {
         if (idToMetricMap == null) {
             return null;
@@ -235,6 +240,7 @@ class Partition
         ImmutableMap.Builder<Integer, Object> map = ImmutableMap.builder();
         idToMetricMap.forEach((id, value) -> {
             Type.PrimitiveType type = idToTypeMapping.get(id);
+            verify(type != null, "No type for column id %s, known types: %s", id, idToTypeMapping);
             map.put(id, Conversions.fromByteBuffer(type, value));
         });
         return map.build();

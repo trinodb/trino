@@ -23,6 +23,7 @@ import io.trino.tempto.configuration.Configuration;
 import io.trino.tempto.fulfillment.table.MutableTableRequirement;
 import io.trino.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.trino.tempto.fulfillment.table.hive.InlineDataSource;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -700,7 +701,7 @@ public class TestHiveTableStatistics
                 row("c_int", null, null, null, null, null, null),
                 row(null, null, null, null, 2.0, null, null));
 
-        assertThat(query("ANALYZE " + tableName)).containsExactly(row(2));
+        assertThat(query("ANALYZE " + tableName)).containsExactlyInOrder(row(2));
         assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(
                 row("c_string", 4.0, 1.0, 0.0, null, null, null),
                 row("c_int", null, 2.0, 0.0, null, "1", "2"),
@@ -733,7 +734,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 0.0, null, null));
         }
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(25));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(25));
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("n_nationkey", null, 25.0, 0.0, null, "0", "24"),
@@ -771,7 +772,7 @@ public class TestHiveTableStatistics
 
         // analyze for single partition
 
-        assertThat(query("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['1']])")).containsExactly(row(5));
+        assertThat(query("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['1']])")).containsExactlyInOrder(row(5));
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -796,7 +797,7 @@ public class TestHiveTableStatistics
 
         // analyze for all partitions
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(15));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(15));
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -848,7 +849,7 @@ public class TestHiveTableStatistics
 
         // analyze for single partition
 
-        assertThat(query("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['AMERICA']])")).containsExactly(row(5));
+        assertThat(query("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['AMERICA']])")).containsExactlyInOrder(row(5));
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -873,7 +874,7 @@ public class TestHiveTableStatistics
 
         // column analysis for all partitions
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(15));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(15));
 
         assertThat(query(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
@@ -943,7 +944,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 0.0, null, null));
         }
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(2));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(2));
 
         // SHOW STATS FORMAT: column_name, data_size, distinct_values_count, nulls_fraction, row_count
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
@@ -1012,7 +1013,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 0.0, null, null));
         }
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(0));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(0));
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", 0.0, 0.0, 1.0, null, null, null),
@@ -1039,7 +1040,7 @@ public class TestHiveTableStatistics
     {
         String tableNameInDatabase = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
 
-        // insert from hive to prevent Presto collecting statistics on insert
+        // insert from Hive to prevent Trino collecting statistics on insert
         onHive().executeQuery("INSERT INTO TABLE " + tableNameInDatabase + " VALUES(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)");
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
@@ -1060,7 +1061,7 @@ public class TestHiveTableStatistics
                 row("c_binary", null, null, null, null, null, null),
                 row(null, null, null, null, 1.0, null, null));
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactly(row(1));
+        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(1));
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", 0.0, 0.0, 1.0, null, null, null),
@@ -1467,6 +1468,7 @@ public class TestHiveTableStatistics
     }
 
     @Test
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testMixedHiveAndPrestoStatistics()
     {
         String tableName = "test_mixed_hive_and_presto_statistics";
@@ -1498,7 +1500,7 @@ public class TestHiveTableStatistics
                     row("a", null, null, null, null, null, null),
                     row(null, null, null, null, null, null, null));
 
-            // analyze first partition with Presto and second with Hive
+            // analyze first partition with Trino and second with Hive
             query(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['1']])", tableName));
             onHive().executeQuery(format("ANALYZE TABLE %s PARTITION (p = \"2\") COMPUTE STATISTICS", tableName));
             onHive().executeQuery(format("ANALYZE TABLE %s PARTITION (p = \"2\") COMPUTE STATISTICS FOR COLUMNS", tableName));

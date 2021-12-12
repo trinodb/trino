@@ -57,11 +57,16 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.FeaturesConfig.JoinDistributionType;
+import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static io.trino.FeaturesConfig.JoinDistributionType.PARTITIONED;
+import static io.trino.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.SystemSessionProperties.ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -74,10 +79,6 @@ import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingSplit.createRemoteSplit;
 import static java.util.Objects.requireNonNull;
@@ -90,10 +91,12 @@ import static org.testng.Assert.assertTrue;
 public class TestCoordinatorDynamicFiltering
         extends AbstractTestQueryFramework
 {
+    private static final TestingMetadata.TestingColumnHandle ORDERKEY_HANDLE = new TestingMetadata.TestingColumnHandle("orderkey", 0, BIGINT);
     private static final TestingMetadata.TestingColumnHandle SUPP_KEY_HANDLE = new TestingMetadata.TestingColumnHandle("suppkey", 2, BIGINT);
     private static final TestingMetadata.TestingColumnHandle ADDRESS_KEY_HANDLE = new TestingMetadata.TestingColumnHandle("address", 2, createVarcharType(40));
     private static final TestingMetadata.TestingColumnHandle SS_SOLD_SK_HANDLE = new TestingMetadata.TestingColumnHandle("ss_sold_date_sk", 0, BIGINT);
 
+    private volatile Set<ColumnHandle> expectedDynamicFilterColumnsCovered;
     private volatile TupleDomain<ColumnHandle> expectedCoordinatorDynamicFilter;
     private volatile TupleDomain<ColumnHandle> expectedTableScanDynamicFilter;
 
@@ -143,6 +146,7 @@ public class TestCoordinatorDynamicFiltering
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.none());
     }
 
@@ -152,6 +156,7 @@ public class TestCoordinatorDynamicFiltering
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
                 "SELECT * FROM lineitem JOIN tpch.tiny.orders ON lineitem.orderkey = orders.orderkey",
+                Set.of(ORDERKEY_HANDLE),
                 TupleDomain.all());
     }
 
@@ -161,6 +166,7 @@ public class TestCoordinatorDynamicFiltering
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'Supplier#000000001'",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         singleValue(BIGINT, 1L))));
@@ -171,21 +177,25 @@ public class TestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey <= supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 2L)), false))));
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey < supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 2L)), false))));
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey >= supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 1L)), false))));
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey > supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L)), false))));
@@ -196,16 +206,19 @@ public class TestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk = store.s_closed_date_sk",
+                Set.of(SS_SOLD_SK_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SS_SOLD_SK_HANDLE,
                         Domain.create(ValueSet.of(BIGINT, 2451189L), false))));
         assertQueryDynamicFilters(
                 "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk IS NOT DISTINCT FROM store.s_closed_date_sk",
+                Set.of(SS_SOLD_SK_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SS_SOLD_SK_HANDLE,
                         Domain.create(ValueSet.of(BIGINT, 2451189L), true))));
         assertQueryDynamicFilters(
                 "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk IS NOT DISTINCT FROM store.s_closed_date_sk AND store.s_closed_date_sk < 0",
+                Set.of(SS_SOLD_SK_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SS_SOLD_SK_HANDLE,
                         Domain.onlyNull(BIGINT))));
@@ -219,6 +232,7 @@ public class TestCoordinatorDynamicFiltering
 
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem JOIN memory.default.supplier_decimal s ON lineitem.suppkey = s.suppkey_decimal AND s.name >= 'Supplier#000000080'",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         multipleValues(BIGINT, LongStream.rangeClosed(80L, 100L).boxed().collect(toImmutableList())))));
@@ -232,6 +246,7 @@ public class TestCoordinatorDynamicFiltering
 
         assertQueryDynamicFilters(
                 "SELECT * FROM customer JOIN memory.default.supplier_varchar s ON customer.address = s.address AND s.name >= 'Supplier#000000080'",
+                Set.of(ADDRESS_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         ADDRESS_KEY_HANDLE,
                         multipleValues(createVarcharType(40), values))));
@@ -243,6 +258,7 @@ public class TestCoordinatorDynamicFiltering
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
@@ -258,6 +274,7 @@ public class TestCoordinatorDynamicFiltering
                         "SELECT supplier.suppkey FROM " +
                         "lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')" +
                         ") t JOIN tpch.tiny.partsupp ON t.suppkey = partsupp.suppkey AND partsupp.suppkey IN (2, 3)",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         singleValue(BIGINT, 2L))));
@@ -268,6 +285,7 @@ public class TestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem RIGHT JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey WHERE supplier.name = 'abc'",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.none());
     }
 
@@ -276,6 +294,7 @@ public class TestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem RIGHT JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
@@ -286,6 +305,7 @@ public class TestCoordinatorDynamicFiltering
     {
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem RIGHT JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey WHERE supplier.name = 'Supplier#000000001'",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         singleValue(BIGINT, 1L))));
@@ -297,6 +317,7 @@ public class TestCoordinatorDynamicFiltering
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
                 "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'abc')",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.none());
     }
 
@@ -306,6 +327,7 @@ public class TestCoordinatorDynamicFiltering
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
                 "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM tpch.tiny.orders)",
+                Set.of(ORDERKEY_HANDLE),
                 TupleDomain.all());
     }
 
@@ -315,6 +337,7 @@ public class TestCoordinatorDynamicFiltering
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
                 "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'Supplier#000000001')",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         singleValue(BIGINT, 1L))));
@@ -326,6 +349,7 @@ public class TestCoordinatorDynamicFiltering
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
                 "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier)",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
@@ -341,6 +365,7 @@ public class TestCoordinatorDynamicFiltering
                         "SELECT lineitem.suppkey FROM lineitem WHERE lineitem.suppkey IN " +
                         "(SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name IN ('Supplier#000000001', 'Supplier#000000002'))) t " +
                         "WHERE t.suppkey IN (SELECT partsupp.suppkey FROM tpch.tiny.partsupp WHERE partsupp.suppkey IN (2, 3))",
+                Set.of(SUPP_KEY_HANDLE),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         singleValue(BIGINT, 2L))));
@@ -362,13 +387,14 @@ public class TestCoordinatorDynamicFiltering
                 .build();
     }
 
-    private void assertQueryDynamicFilters(@Language("SQL") String query, TupleDomain<ColumnHandle> expectedTupleDomain)
+    private void assertQueryDynamicFilters(@Language("SQL") String query, Set<ColumnHandle> expectedColumnsCovered, TupleDomain<ColumnHandle> expectedTupleDomain)
     {
-        assertQueryDynamicFilters(getSession(), query, expectedTupleDomain);
+        assertQueryDynamicFilters(getSession(), query, expectedColumnsCovered, expectedTupleDomain);
     }
 
-    private void assertQueryDynamicFilters(Session session, @Language("SQL") String query, TupleDomain<ColumnHandle> expectedTupleDomain)
+    private void assertQueryDynamicFilters(Session session, @Language("SQL") String query, Set<ColumnHandle> expectedColumnsCovered, TupleDomain<ColumnHandle> expectedTupleDomain)
     {
+        expectedDynamicFilterColumnsCovered = expectedColumnsCovered;
         expectedCoordinatorDynamicFilter = expectedTupleDomain;
         if (!isEnableCoordinatorDynamicFiltersDistribution(session) && getJoinDistributionType(session).equals(PARTITIONED)) {
             expectedTableScanDynamicFilter = TupleDomain.all();
@@ -422,7 +448,7 @@ public class TestCoordinatorDynamicFiltering
         }
 
         @Override
-        public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+        public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
         {
             return TestingTransactionHandle.create();
         }
@@ -448,6 +474,7 @@ public class TestCoordinatorDynamicFiltering
                 {
                     AtomicBoolean splitProduced = new AtomicBoolean();
 
+                    assertEquals(dynamicFilter.getColumnsCovered(), expectedDynamicFilterColumnsCovered, "columns covered");
                     assertFalse(dynamicFilter.isBlocked().isDone(), "Dynamic filter should be initially blocked");
 
                     return new ConnectorSplitSource()
@@ -476,6 +503,8 @@ public class TestCoordinatorDynamicFiltering
                         @Override
                         public boolean isFinished()
                         {
+                            assertEquals(dynamicFilter.getColumnsCovered(), expectedDynamicFilterColumnsCovered, "columns covered");
+
                             if (!dynamicFilter.isComplete() || !splitProduced.get()) {
                                 return false;
                             }
@@ -504,6 +533,8 @@ public class TestCoordinatorDynamicFiltering
                         List<ColumnHandle> columns,
                         DynamicFilter dynamicFilter)
                 {
+                    assertEquals(dynamicFilter.getColumnsCovered(), expectedDynamicFilterColumnsCovered, "columns covered");
+
                     return new EmptyPageSource() {
                         @Override
                         public CompletableFuture<?> isBlocked()
@@ -514,6 +545,8 @@ public class TestCoordinatorDynamicFiltering
                         @Override
                         public boolean isFinished()
                         {
+                            assertEquals(dynamicFilter.getColumnsCovered(), expectedDynamicFilterColumnsCovered, "columns covered");
+
                             if (!dynamicFilter.isComplete()) {
                                 return false;
                             }

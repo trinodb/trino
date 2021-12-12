@@ -33,10 +33,12 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import org.apache.iceberg.FileContent;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.MAX_DRIVERS_PER_TASK;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
@@ -79,7 +81,7 @@ public class TestIcebergOrcMetricsCollection
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(metastore, false));
+        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(metastore), Optional.empty()));
         queryRunner.createCatalog("iceberg", "iceberg");
 
         queryRunner.installPlugin(new TpchPlugin());
@@ -98,6 +100,9 @@ public class TestIcebergOrcMetricsCollection
         assertEquals(materializedResult.getRowCount(), 1);
         DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
 
+        // check content
+        assertEquals(datafile.getContent(), FileContent.DATA.id());
+
         // Check file format
         assertEquals(datafile.getFileFormat(), "ORC");
 
@@ -109,6 +114,10 @@ public class TestIcebergOrcMetricsCollection
 
         // Check per-column null value count
         datafile.getNullValueCounts().values().forEach(nullValueCount -> assertEquals(nullValueCount, (Long) 0L));
+
+        // Check NaN value count
+        // TODO: add more checks after NaN info is collected
+        assertNull(datafile.getNanValueCounts());
 
         // Check per-column lower bound
         Map<Integer, String> lowerBounds = datafile.getLowerBounds();
@@ -140,8 +149,12 @@ public class TestIcebergOrcMetricsCollection
     @Test
     public void testWithNulls()
     {
-        assertUpdate("CREATE TABLE test_with_nulls (_integer INTEGER, _real REAL, _string VARCHAR)");
-        assertUpdate("INSERT INTO test_with_nulls VALUES (7, 3.4, 'aaa'), (3, 4.5, 'bbb'), (4, null, 'ccc'), (null, null, 'ddd')", 4);
+        assertUpdate("CREATE TABLE test_with_nulls (_integer INTEGER, _real REAL, _string VARCHAR, _timestamp TIMESTAMP(6))");
+        assertUpdate("INSERT INTO test_with_nulls VALUES " +
+                "(7, 3.4, 'aaa', TIMESTAMP '2020-01-01 00:00:00.123456')," +
+                "(3, 4.5, 'bbb', TIMESTAMP '2021-02-01 00:23:10.398102')," +
+                "(4, null, 'ccc', null)," +
+                "(null, null, 'ddd', null)", 4);
         MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_with_nulls$files\"");
         assertEquals(materializedResult.getRowCount(), 1);
         DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
@@ -153,11 +166,13 @@ public class TestIcebergOrcMetricsCollection
         assertEquals(datafile.getNullValueCounts().get(1), (Long) 1L);
         assertEquals(datafile.getNullValueCounts().get(2), (Long) 2L);
         assertEquals(datafile.getNullValueCounts().get(3), (Long) 0L);
+        assertEquals(datafile.getNullValueCounts().get(4), (Long) 2L);
 
         // Check per-column lower bound
         assertEquals(datafile.getLowerBounds().get(1), "3");
         assertEquals(datafile.getLowerBounds().get(2), "3.4");
         assertEquals(datafile.getLowerBounds().get(3), "aaa");
+        assertEquals(datafile.getLowerBounds().get(4), "2020-01-01T00:00:00.123");
 
         assertUpdate("DROP TABLE test_with_nulls");
 
@@ -178,6 +193,28 @@ public class TestIcebergOrcMetricsCollection
         assertNull(datafile.getUpperBounds());
 
         assertUpdate("DROP TABLE test_all_nulls");
+    }
+
+    @Test
+    public void testWithNaNs()
+    {
+        assertUpdate("CREATE TABLE test_with_nans (_int INTEGER, _real REAL, _double DOUBLE)");
+        assertUpdate("INSERT INTO test_with_nans VALUES (1, 1.1, 1.1), (2, nan(), 4.5), (3, 4.6, -nan())", 3);
+        MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_with_nans$files\"");
+        assertEquals(materializedResult.getRowCount(), 1);
+        DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
+
+        // Check per-column value count
+        datafile.getValueCounts().values().forEach(valueCount -> assertEquals(valueCount, (Long) 3L));
+
+        // TODO: add more checks after NaN info is collected
+        assertNull(datafile.getNanValueCounts());
+        assertNull(datafile.getLowerBounds().get(2));
+        assertNull(datafile.getLowerBounds().get(3));
+        assertNull(datafile.getUpperBounds().get(2));
+        assertNull(datafile.getUpperBounds().get(3));
+
+        assertUpdate("DROP TABLE test_with_nans");
     }
 
     @Test
@@ -218,8 +255,44 @@ public class TestIcebergOrcMetricsCollection
         assertUpdate("DROP TABLE test_nested_types");
     }
 
+    @Test
+    public void testWithTimestamps()
+    {
+        assertUpdate("CREATE TABLE test_timestamp (_timestamp TIMESTAMP(6)) WITH (format = 'ORC')");
+        assertUpdate("INSERT INTO test_timestamp VALUES" +
+                "(TIMESTAMP '2021-01-01 00:00:00.111111'), " +
+                "(TIMESTAMP '2021-01-01 00:00:00.222222'), " +
+                "(TIMESTAMP '2021-01-31 00:00:00.333333')", 3);
+        MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_timestamp$files\"");
+        assertEquals(materializedResult.getRowCount(), 1);
+        DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
+
+        // Check file format
+        assertEquals(datafile.getFileFormat(), "ORC");
+
+        // Check file row count
+        assertEquals(datafile.getRecordCount(), 3L);
+
+        // Check per-column value count
+        datafile.getValueCounts().values().forEach(valueCount -> assertEquals(valueCount, (Long) 3L));
+
+        // Check per-column null value count
+        datafile.getNullValueCounts().values().forEach(nullValueCount -> assertEquals(nullValueCount, (Long) 0L));
+
+        // Check column lower bound. Min timestamp doesn't rely on file-level statistics and will not be truncated to milliseconds.
+        assertEquals(datafile.getLowerBounds().get(1), "2021-01-01T00:00:00.111");
+        assertQuery("SELECT min(_timestamp) FROM test_timestamp", "VALUES '2021-01-01 00:00:00.111111'");
+
+        // Check column upper bound. Max timestamp doesn't rely on file-level statistics and will not be truncated to milliseconds.
+        assertEquals(datafile.getUpperBounds().get(1), "2021-01-31T00:00:00.333999");
+        assertQuery("SELECT max(_timestamp) FROM test_timestamp", "VALUES '2021-01-31 00:00:00.333333'");
+
+        assertUpdate("DROP TABLE test_timestamp");
+    }
+
     public static class DataFileRecord
     {
+        private final int content;
         private final String filePath;
         private final String fileFormat;
         private final long recordCount;
@@ -227,25 +300,29 @@ public class TestIcebergOrcMetricsCollection
         private final Map<Integer, Long> columnSizes;
         private final Map<Integer, Long> valueCounts;
         private final Map<Integer, Long> nullValueCounts;
+        private final Map<Integer, Long> nanValueCounts;
         private final Map<Integer, String> lowerBounds;
         private final Map<Integer, String> upperBounds;
 
         public static DataFileRecord toDataFileRecord(MaterializedRow row)
         {
-            assertEquals(row.getFieldCount(), 11);
+            assertEquals(row.getFieldCount(), 14);
             return new DataFileRecord(
-                    (String) row.getField(0),
+                    (int) row.getField(0),
                     (String) row.getField(1),
-                    (long) row.getField(2),
+                    (String) row.getField(2),
                     (long) row.getField(3),
-                    row.getField(4) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(4)) : null,
+                    (long) row.getField(4),
                     row.getField(5) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(5)) : null,
                     row.getField(6) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(6)) : null,
-                    row.getField(7) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(7)) : null,
-                    row.getField(8) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(8)) : null);
+                    row.getField(7) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(7)) : null,
+                    row.getField(8) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(8)) : null,
+                    row.getField(9) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(9)) : null,
+                    row.getField(10) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(10)) : null);
         }
 
         private DataFileRecord(
+                int content,
                 String filePath,
                 String fileFormat,
                 long recordCount,
@@ -253,9 +330,11 @@ public class TestIcebergOrcMetricsCollection
                 Map<Integer, Long> columnSizes,
                 Map<Integer, Long> valueCounts,
                 Map<Integer, Long> nullValueCounts,
+                Map<Integer, Long> nanValueCounts,
                 Map<Integer, String> lowerBounds,
                 Map<Integer, String> upperBounds)
         {
+            this.content = content;
             this.filePath = filePath;
             this.fileFormat = fileFormat;
             this.recordCount = recordCount;
@@ -263,8 +342,14 @@ public class TestIcebergOrcMetricsCollection
             this.columnSizes = columnSizes;
             this.valueCounts = valueCounts;
             this.nullValueCounts = nullValueCounts;
+            this.nanValueCounts = nanValueCounts;
             this.lowerBounds = lowerBounds;
             this.upperBounds = upperBounds;
+        }
+
+        public int getContent()
+        {
+            return content;
         }
 
         public String getFilePath()
@@ -300,6 +385,11 @@ public class TestIcebergOrcMetricsCollection
         public Map<Integer, Long> getNullValueCounts()
         {
             return nullValueCounts;
+        }
+
+        public Map<Integer, Long> getNanValueCounts()
+        {
+            return nanValueCounts;
         }
 
         public Map<Integer, String> getLowerBounds()

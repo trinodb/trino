@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Booleans;
 import io.trino.metadata.PolymorphicScalarFunction.PolymorphicScalarFunctionChoice;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
@@ -45,7 +46,7 @@ public final class PolymorphicScalarFunctionBuilder
     private final Class<?> clazz;
     private Signature signature;
     private boolean nullableResult;
-    private List<FunctionArgumentDefinition> argumentDefinitions;
+    private List<Boolean> argumentNullability;
     private String description = "";
     private Optional<Boolean> hidden = Optional.empty();
     private Boolean deterministic;
@@ -69,11 +70,11 @@ public final class PolymorphicScalarFunctionBuilder
         return this;
     }
 
-    public PolymorphicScalarFunctionBuilder argumentDefinitions(FunctionArgumentDefinition... argumentDefinitions)
+    public PolymorphicScalarFunctionBuilder argumentNullability(boolean... argumentNullability)
     {
-        requireNonNull(argumentDefinitions, "argumentDefinitions is null");
-        checkState(this.argumentDefinitions == null, "The argumentDefinitions method must be invoked only once, and must be invoked before the choice method");
-        this.argumentDefinitions = ImmutableList.copyOf(argumentDefinitions);
+        requireNonNull(argumentNullability, "argumentNullability is null");
+        checkState(this.argumentNullability == null, "The argumentNullability method must be invoked only once, and must be invoked before the choice method");
+        this.argumentNullability = ImmutableList.copyOf(Booleans.asList(argumentNullability));
         return this;
     }
 
@@ -98,8 +99,8 @@ public final class PolymorphicScalarFunctionBuilder
     public PolymorphicScalarFunctionBuilder choice(Function<ChoiceBuilder, ChoiceBuilder> choiceSpecification)
     {
         // if the argumentProperties is not set yet. We assume it is set to the default value.
-        if (argumentDefinitions == null) {
-            argumentDefinitions = nCopies(signature.getArgumentTypes().size(), new FunctionArgumentDefinition(false));
+        if (argumentNullability == null) {
+            argumentNullability = nCopies(signature.getArgumentTypes().size(), false);
         }
         ChoiceBuilder choiceBuilder = new ChoiceBuilder(clazz, signature);
         choiceBuilder = choiceSpecification.apply(choiceBuilder);
@@ -111,12 +112,12 @@ public final class PolymorphicScalarFunctionBuilder
     {
         checkState(signature != null, "signature is null");
         checkState(deterministic != null, "deterministic is null");
+        checkState(argumentNullability != null, "argumentNullability is null");
 
         return new PolymorphicScalarFunction(
                 new FunctionMetadata(
                         signature,
-                        nullableResult,
-                        argumentDefinitions,
+                        new FunctionNullability(nullableResult, argumentNullability),
                         hidden.orElse(false),
                         deterministic,
                         description,
@@ -155,14 +156,10 @@ public final class PolymorphicScalarFunctionBuilder
     public static final class SpecializeContext
     {
         private final FunctionBinding functionBinding;
-        private final List<Type> parameterTypes;
-        private final Type returnType;
 
-        SpecializeContext(FunctionBinding functionBinding, List<Type> parameterTypes, Type returnType)
+        SpecializeContext(FunctionBinding functionBinding)
         {
             this.functionBinding = requireNonNull(functionBinding, "functionBinding is null");
-            this.parameterTypes = requireNonNull(parameterTypes, "parameterTypes is null");
-            this.returnType = requireNonNull(returnType, "returnType is null");
         }
 
         public Type getType(String name)
@@ -177,12 +174,12 @@ public final class PolymorphicScalarFunctionBuilder
 
         public List<Type> getParameterTypes()
         {
-            return parameterTypes;
+            return functionBinding.getBoundSignature().getArgumentTypes();
         }
 
         public Type getReturnType()
         {
-            return returnType;
+            return functionBinding.getBoundSignature().getReturnType();
         }
     }
 

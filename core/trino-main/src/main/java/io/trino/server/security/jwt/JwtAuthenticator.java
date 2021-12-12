@@ -13,16 +13,19 @@
  */
 package io.trino.server.security.jwt;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtParser;
+import io.jsonwebtoken.JwtParserBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.trino.server.security.AbstractBearerAuthenticator;
 import io.trino.server.security.AuthenticationException;
+import io.trino.spi.security.BasicPrincipal;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
+
+import java.security.Principal;
+import java.util.Optional;
 
 import static io.trino.server.security.UserMapping.createUserMapping;
 
@@ -30,13 +33,15 @@ public class JwtAuthenticator
         extends AbstractBearerAuthenticator
 {
     private final JwtParser jwtParser;
+    private final String principalField;
 
     @Inject
     public JwtAuthenticator(JwtAuthenticatorConfig config, SigningKeyResolver signingKeyResolver)
     {
-        super(config.getPrincipalField(), createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile()));
+        super(createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile()));
+        principalField = config.getPrincipalField();
 
-        JwtParser jwtParser = Jwts.parser()
+        JwtParserBuilder jwtParser = Jwts.parserBuilder()
                 .setSigningKeyResolver(signingKeyResolver);
 
         if (config.getRequiredIssuer() != null) {
@@ -45,13 +50,16 @@ public class JwtAuthenticator
         if (config.getRequiredAudience() != null) {
             jwtParser.requireAudience(config.getRequiredAudience());
         }
-        this.jwtParser = jwtParser;
+        this.jwtParser = jwtParser.build();
     }
 
     @Override
-    protected Jws<Claims> parseClaimsJws(String jws)
+    protected Optional<Principal> extractPrincipalFromToken(String token)
     {
-        return jwtParser.parseClaimsJws(jws);
+        return Optional.ofNullable(jwtParser.parseClaimsJws(token)
+                .getBody()
+                .get(principalField, String.class))
+                .map(BasicPrincipal::new);
     }
 
     @Override

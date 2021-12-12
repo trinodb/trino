@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Catalog;
@@ -23,7 +24,6 @@ import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.ResetSession;
 import io.trino.transaction.TransactionManager;
@@ -106,11 +106,8 @@ public class TestResetSessionTask
                 WarningCollector.NOOP,
                 Optional.empty());
 
-        getFutureValue(new ResetSessionTask().execute(
+        getFutureValue(new ResetSessionTask(metadata).execute(
                 new ResetSession(QualifiedName.of(CATALOG_NAME, "baz")),
-                transactionManager,
-                metadata,
-                accessControl,
                 stateMachine,
                 emptyList(),
                 WarningCollector.NOOP));

@@ -13,11 +13,9 @@
  */
 package io.trino.sql.parser;
 
-import com.google.common.base.Joiner;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -40,17 +38,17 @@ public class TestSqlParserErrorHandling
     {
         return new Object[][] {
                 {"",
-                        "line 1:1: mismatched input '<EOF>'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', " +
-                                "'INSERT', 'MERGE', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'UPDATE', 'USE', <query>"},
+                        "line 1:1: mismatched input '<EOF>'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DENY', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', " +
+                                "'INSERT', 'MERGE', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'UPDATE', 'USE', <query>"},
                 {"@select",
-                        "line 1:1: mismatched input '@'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', " +
-                                "'INSERT', 'MERGE', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'UPDATE', 'USE', <query>"},
+                        "line 1:1: mismatched input '@'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DENY', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', " +
+                                "'INSERT', 'MERGE', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'UPDATE', 'USE', <query>"},
                 {"select * from foo where @what",
                         "line 1:25: mismatched input '@'. Expecting: <expression>"},
                 {"select * from 'oops",
                         "line 1:15: mismatched input '''. Expecting: '(', 'LATERAL', 'UNNEST', <identifier>"},
                 {"select *\nfrom x\nfrom",
-                        "line 3:1: mismatched input 'from'. Expecting: ',', '.', 'AS', 'CROSS', 'EXCEPT', 'FETCH', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', " +
+                        "line 3:1: mismatched input 'from'. Expecting: ',', '.', 'AS', 'CROSS', 'EXCEPT', 'FETCH', 'FOR', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', " +
                                 "'LIMIT', 'MATCH_RECOGNIZE', 'NATURAL', 'OFFSET', 'ORDER', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', 'WINDOW', <EOF>, <identifier>"},
                 {"select *\nfrom x\nwhere from",
                         "line 3:7: mismatched input 'from'. Expecting: <expression>"},
@@ -144,7 +142,13 @@ public class TestSqlParserErrorHandling
                 {"SHOW FUNCTIONS LIKE '%$_%' ESCAPE",
                         "line 1:34: mismatched input '<EOF>'. Expecting: <string>"},
                 {"SHOW SESSION LIKE '%$_%' ESCAPE",
-                        "line 1:32: mismatched input '<EOF>'. Expecting: <string>"}
+                        "line 1:32: mismatched input '<EOF>'. Expecting: <string>"},
+                {"SELECT * FROM t FOR TIMESTAMP ",
+                        "line 1:31: mismatched input '<EOF>'. Expecting: 'AS'"},
+                {"SELECT * FROM t FOR TIMESTAMP AS OF TIMESTAMP WHERE",
+                        "line 1:52: mismatched input '<EOF>'. Expecting: <expression>"},
+                {"SELECT * FROM t FOR VERSION AS OF TIMESTAMP WHERE",
+                        "line 1:50: mismatched input '<EOF>'. Expecting: <expression>"}
         };
     }
 
@@ -227,7 +231,11 @@ public class TestSqlParserErrorHandling
     public void testStackOverflowExpression()
     {
         for (int size = 3000; size <= 100_000; size *= 2) {
-            SQL_PARSER.createExpression(Joiner.on(" OR ").join(nCopies(size, "x = y")), new ParsingOptions());
+            String expression = "x = y";
+            for (int i = 1; i < size; i++) {
+                expression = "(" + expression + ") OR x = y";
+            }
+            SQL_PARSER.createExpression(expression, new ParsingOptions());
         }
     }
 
@@ -235,7 +243,11 @@ public class TestSqlParserErrorHandling
     public void testStackOverflowStatement()
     {
         for (int size = 6000; size <= 100_000; size *= 2) {
-            SQL_PARSER.createStatement("SELECT " + Joiner.on(" OR ").join(nCopies(size, "x = y")), PARSING_OPTIONS);
+            String expression = "x = y";
+            for (int i = 1; i < size; i++) {
+                expression = "(" + expression + ") OR x = y";
+            }
+            SQL_PARSER.createStatement("SELECT " + expression, PARSING_OPTIONS);
         }
     }
 }

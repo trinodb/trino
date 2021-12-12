@@ -22,7 +22,8 @@ import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RenameTable;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,10 +35,21 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class RenameTableTask
         implements DataDefinitionTask<RenameTable>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public RenameTableTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -47,15 +59,33 @@ public class RenameTableTask
     @Override
     public ListenableFuture<Void> execute(
             RenameTable statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource());
+
+        if (metadata.isMaterializedView(session, tableName)) {
+            if (!statement.isExists()) {
+                throw semanticException(
+                        TABLE_NOT_FOUND,
+                        statement,
+                        "Table '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW %s RENAME ...?", tableName, tableName);
+            }
+            return immediateVoidFuture();
+        }
+
+        if (metadata.isView(session, tableName)) {
+            if (!statement.isExists()) {
+                throw semanticException(
+                        TABLE_NOT_FOUND,
+                        statement,
+                        "Table '%s' does not exist, but a view with that name exists. Did you mean ALTER VIEW %s RENAME ...?", tableName, tableName);
+            }
+            return immediateVoidFuture();
+        }
+
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isEmpty()) {
             if (!statement.isExists()) {

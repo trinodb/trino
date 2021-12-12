@@ -128,6 +128,30 @@ public final class TypeCoercion
         return false;
     }
 
+    // based on `UnwrapCastInComparison.Visitor.hasInjectiveImplicitCoercion()`
+    public boolean isInjectiveCoercion(Type source, Type result)
+    {
+        if ((source.equals(BIGINT) && result.equals(DOUBLE)) ||
+                (source.equals(BIGINT) && result.equals(REAL)) ||
+                (source.equals(INTEGER) && result.equals(REAL)) ||
+                result instanceof TimestampWithTimeZoneType ||
+                result instanceof TimeWithTimeZoneType) {
+            return false;
+        }
+
+        if (source instanceof DecimalType) {
+            int precision = ((DecimalType) source).getPrecision();
+            if (precision > 15 && result.equals(DOUBLE)) {
+                return false;
+            }
+            if (precision > 7 && result.equals(REAL)) {
+                return false;
+            }
+        }
+
+        return canCoerce(source, result);
+    }
+
     public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
     {
         TypeCompatibility compatibility = compatibility(firstType, secondType);

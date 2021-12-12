@@ -48,6 +48,9 @@ public class TestHiveConnectorSmokeTest
             case SUPPORTS_DELETE:
                 return true;
 
+            case SUPPORTS_MULTI_STATEMENT_WRITES:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

@@ -80,6 +80,7 @@ import static io.trino.SystemSessionProperties.isSpatialJoinEnabled;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -434,7 +435,7 @@ public class ExtractSpatialJoins
             }
         }
 
-        Expression newSpatialFunction = new FunctionCallBuilder(metadata)
+        Expression newSpatialFunction = FunctionCallBuilder.resolve(context.getSession(), metadata)
                 .setName(spatialFunction.getName())
                 .addArgument(GEOMETRY_TYPE_SIGNATURE, newFirstArgument)
                 .addArgument(GEOMETRY_TYPE_SIGNATURE, newSecondArgument)
@@ -467,7 +468,7 @@ public class ExtractSpatialJoins
         ColumnHandle kdbTreeColumn = Iterables.getOnlyElement(visibleColumnHandles);
 
         Optional<KdbTree> kdbTree = Optional.empty();
-        try (SplitSource splitSource = splitManager.getSplits(session, tableHandle, UNGROUPED_SCHEDULING, EMPTY)) {
+        try (SplitSource splitSource = splitManager.getSplits(session, tableHandle, UNGROUPED_SCHEDULING, EMPTY, alwaysTrue())) {
             while (!Thread.currentThread().isInterrupted()) {
                 SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000));
                 List<Split> splits = splitBatch.getSplits();
@@ -595,7 +596,7 @@ public class ExtractSpatialJoins
         }
 
         TypeSignature typeSignature = new TypeSignature(KDB_TREE_TYPENAME);
-        FunctionCallBuilder spatialPartitionsCall = new FunctionCallBuilder(metadata)
+        FunctionCallBuilder spatialPartitionsCall = FunctionCallBuilder.resolve(context.getSession(), metadata)
                 .setName(QualifiedName.of("spatial_partitions"))
                 .addArgument(typeSignature, new Cast(new StringLiteral(KdbTreeUtils.toJson(kdbTree)), toSqlType(metadata.getType(typeSignature))))
                 .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry);

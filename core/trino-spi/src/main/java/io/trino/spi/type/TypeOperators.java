@@ -22,7 +22,6 @@ import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.function.OperatorMethodHandle;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunctionAdapter;
-import io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -45,10 +44,12 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.RETURN_NULL_ON_NULL;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -62,13 +63,20 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 public class TypeOperators
 {
-    private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(NullAdaptationPolicy.UNSUPPORTED);
+    private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(RETURN_NULL_ON_NULL);
     private final BiFunction<Object, Supplier<Object>, Object> cache;
 
     public TypeOperators()
     {
         ConcurrentHashMap<Object, Object> cache = new ConcurrentHashMap<>();
-        this.cache = (operatorConvention, supplier) -> cache.computeIfAbsent(operatorConvention, key -> supplier.get());
+        this.cache = (operatorConvention, supplier) -> {
+            // preform explicit get before calling computeIfAbsent since computeIfAbsent cause lock contention
+            Object operator = cache.get(operatorConvention);
+            if (operator != null) {
+                return operator;
+            }
+            return cache.computeIfAbsent(operatorConvention, key -> supplier.get());
+        };
     }
 
     public TypeOperators(BiFunction<Object, Supplier<Object>, Object> cache)
@@ -116,12 +124,20 @@ public class TypeOperators
         return getOperatorAdaptor(type, callingConvention, OperatorType.INDETERMINATE).get();
     }
 
-    public MethodHandle getComparisonOperator(Type type, InvocationConvention callingConvention)
+    public MethodHandle getComparisonUnorderedLastOperator(Type type, InvocationConvention callingConvention)
     {
         if (!type.isOrderable()) {
             throw new UnsupportedOperationException(type + " is not orderable");
         }
-        return getOperatorAdaptor(type, callingConvention, COMPARISON).get();
+        return getOperatorAdaptor(type, callingConvention, COMPARISON_UNORDERED_LAST).get();
+    }
+
+    public MethodHandle getComparisonUnorderedFirstOperator(Type type, InvocationConvention callingConvention)
+    {
+        if (!type.isOrderable()) {
+            throw new UnsupportedOperationException(type + " is not orderable");
+        }
+        return getOperatorAdaptor(type, callingConvention, COMPARISON_UNORDERED_FIRST).get();
     }
 
     public MethodHandle getOrderingOperator(Type type, SortOrder sortOrder, InvocationConvention callingConvention)
@@ -129,7 +145,8 @@ public class TypeOperators
         if (!type.isOrderable()) {
             throw new UnsupportedOperationException(type + " is not orderable");
         }
-        return getOperatorAdaptor(type, Optional.of(sortOrder), callingConvention, COMPARISON).get();
+        OperatorType comparisonType = sortOrder.isNullsFirst() ? COMPARISON_UNORDERED_FIRST : COMPARISON_UNORDERED_LAST;
+        return getOperatorAdaptor(type, Optional.of(sortOrder), callingConvention, comparisonType).get();
     }
 
     public MethodHandle getLessThanOperator(Type type, InvocationConvention callingConvention)
@@ -245,11 +262,26 @@ public class TypeOperators
                         return List.of(defaultIndeterminateOperator(operatorConvention.getType().getJavaType()));
                     }
                     return indeterminateOperators;
-                case COMPARISON:
+                case COMPARISON_UNORDERED_LAST:
                     if (operatorConvention.getSortOrder().isPresent()) {
                         return List.of(generateOrderingOperator(operatorConvention));
                     }
-                    return typeOperatorDeclaration.getComparisonOperators();
+                    Collection<OperatorMethodHandle> comparisonUnorderedLastOperators = typeOperatorDeclaration.getComparisonUnorderedLastOperators();
+                    if (comparisonUnorderedLastOperators.isEmpty()) {
+                        // if a type only provides one comparison operator it is assumed that the type does not have unordered values
+                        return typeOperatorDeclaration.getComparisonUnorderedFirstOperators();
+                    }
+                    return comparisonUnorderedLastOperators;
+                case COMPARISON_UNORDERED_FIRST:
+                    if (operatorConvention.getSortOrder().isPresent()) {
+                        return List.of(generateOrderingOperator(operatorConvention));
+                    }
+                    Collection<OperatorMethodHandle> comparisonUnorderedFirstOperators = typeOperatorDeclaration.getComparisonUnorderedFirstOperators();
+                    if (comparisonUnorderedFirstOperators.isEmpty()) {
+                        // if a type only provides one comparison operator it is assumed that the type does not have unordered values
+                        return typeOperatorDeclaration.getComparisonUnorderedLastOperators();
+                    }
+                    return comparisonUnorderedFirstOperators;
                 case LESS_THAN:
                     Collection<OperatorMethodHandle> lessThanOperators = typeOperatorDeclaration.getLessThanOperators();
                     if (lessThanOperators.isEmpty()) {
@@ -290,7 +322,7 @@ public class TypeOperators
                 comparisonCallingConvention = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
             }
 
-            OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.getType(), COMPARISON, Optional.empty(), comparisonCallingConvention);
+            OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.getType(), COMPARISON_UNORDERED_LAST, Optional.empty(), comparisonCallingConvention);
             MethodHandle comparisonMethod = adaptOperator(comparisonOperator);
             if (orEqual) {
                 return adaptComparisonToLessThanOrEqual(new OperatorMethodHandle(comparisonCallingConvention, comparisonMethod));
@@ -301,13 +333,14 @@ public class TypeOperators
         private OperatorMethodHandle generateOrderingOperator(OperatorConvention operatorConvention)
         {
             SortOrder sortOrder = operatorConvention.getSortOrder().orElseThrow(() -> new IllegalArgumentException("Operator convention does not contain a sort order"));
+            OperatorType comparisonType = operatorConvention.getOperatorType();
             if (operatorConvention.getCallingConvention().getArgumentConventions().equals(List.of(BLOCK_POSITION, BLOCK_POSITION))) {
-                OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.getType(), COMPARISON, Optional.empty(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+                OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.getType(), comparisonType, Optional.empty(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
                 MethodHandle comparisonInvoker = adaptOperator(comparisonOperator);
                 return adaptBlockPositionComparisonToOrdering(sortOrder, comparisonInvoker);
             }
 
-            OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.getType(), COMPARISON, Optional.empty(), simpleConvention(FAIL_ON_NULL, NULL_FLAG, NULL_FLAG));
+            OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.getType(), comparisonType, Optional.empty(), simpleConvention(FAIL_ON_NULL, NULL_FLAG, NULL_FLAG));
             MethodHandle comparisonInvoker = adaptOperator(comparisonOperator);
             return adaptNeverNullComparisonToOrdering(sortOrder, comparisonInvoker);
         }
@@ -317,7 +350,8 @@ public class TypeOperators
             switch (operatorConvention.getOperatorType()) {
                 case EQUAL:
                 case IS_DISTINCT_FROM:
-                case COMPARISON:
+                case COMPARISON_UNORDERED_LAST:
+                case COMPARISON_UNORDERED_FIRST:
                 case LESS_THAN:
                 case LESS_THAN_OR_EQUAL:
                     return List.of(operatorConvention.getType(), operatorConvention.getType());

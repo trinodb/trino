@@ -24,6 +24,8 @@ import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class AtopConnector
@@ -33,7 +35,7 @@ public class AtopConnector
     private final AtopMetadata metadata;
     private final AtopSplitManager splitManager;
     private final AtopPageSourceProvider pageSourceProvider;
-    private final ConnectorAccessControl accessControl;
+    private final Optional<ConnectorAccessControl> accessControl;
 
     @Inject
     public AtopConnector(
@@ -41,7 +43,7 @@ public class AtopConnector
             AtopMetadata metadata,
             AtopSplitManager splitManager,
             AtopPageSourceProvider pageSourceProvider,
-            ConnectorAccessControl accessControl)
+            Optional<ConnectorAccessControl> accessControl)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -51,7 +53,7 @@ public class AtopConnector
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         return AtopTransactionHandle.INSTANCE;
     }
@@ -77,7 +79,7 @@ public class AtopConnector
     @Override
     public ConnectorAccessControl getAccessControl()
     {
-        return accessControl;
+        return accessControl.orElseThrow(UnsupportedOperationException::new);
     }
 
     @Override

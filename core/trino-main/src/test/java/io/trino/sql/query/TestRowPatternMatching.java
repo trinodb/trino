@@ -474,6 +474,76 @@ public class TestRowPatternMatching
     }
 
     @Test
+    public void testBackReference()
+    {
+        // defining condition of `X` refers to input values at matched label `A`
+        assertThat(assertions.query("SELECT value, classy " +
+                "       FROM (VALUES 1, 1) t(value) " +
+                "       MATCH_RECOGNIZE ( " +
+                "       MEASURES CLASSIFIER() AS classy " +
+                "       ALL ROWS PER MATCH " +
+                "       PATTERN ((A | B)* X) " +
+                "       DEFINE X AS value = A.value " +
+                "     )"))
+                .matches("VALUES " +
+                        "(1, VARCHAR 'A'), " +
+                        "(1, 'X') ");
+
+        // defining condition of `X` refers to input values at matched label `B`
+        assertThat(assertions.query("SELECT value, classy " +
+                "       FROM (VALUES 1, 1) t(value) " +
+                "       MATCH_RECOGNIZE ( " +
+                "       MEASURES CLASSIFIER() AS classy " +
+                "       ALL ROWS PER MATCH " +
+                "       PATTERN ((A | B)* X) " +
+                "       DEFINE X AS value = B.value " +
+                "     )"))
+                .matches("VALUES " +
+                        "(1, VARCHAR 'B'), " +
+                        "(1, 'X') ");
+
+        // defining condition of `X` refers to input values at matched labels `A` and `B`
+        assertThat(assertions.query("SELECT value, classy, defining_condition " +
+                "       FROM (VALUES 1, 2, 3, 4, 5, 6) t(value) " +
+                "       MATCH_RECOGNIZE ( " +
+                "       ORDER BY value " +
+                "       MEASURES " +
+                "               CLASSIFIER() AS classy, " +
+                "               PREV(LAST(A.value), 3) + FIRST(A.value) + PREV(LAST(B.value), 2) AS defining_condition" +
+                "       ALL ROWS PER MATCH " +
+                "       PATTERN ((A | B)* X) " +
+                "       DEFINE X AS value = PREV(LAST(A.value), 3) + FIRST(A.value) + PREV(LAST(B.value), 2) " +
+                "     )"))
+                .matches("VALUES " +
+                        "(1, VARCHAR 'B',   null), " +
+                        "(2,         'A',   null), " +
+                        "(3,         'A',   null), " +
+                        "(4,         'A',   null), " +
+                        "(5,         'B',      6), " +
+                        "(6,         'X',      6) ");
+
+        // defining condition of `X` refers to matched labels `A` and `B`
+        assertThat(assertions.query("SELECT value, classy, defining_condition " +
+                "       FROM (VALUES 1, 2, 3, 4, 5) t(value) " +
+                "       MATCH_RECOGNIZE ( " +
+                "       ORDER BY value " +
+                "       MEASURES " +
+                "               CLASSIFIER() AS classy, " +
+                "               PREV(CLASSIFIER(U), 1) = 'A' AND LAST(CLASSIFIER(), 3) = 'B' AND FIRST(CLASSIFIER(U)) = 'B' AS defining_condition" +
+                "       ALL ROWS PER MATCH " +
+                "       PATTERN ((A | B)* X $) " +
+                "       SUBSET U = (A, B) " +
+                "       DEFINE X AS PREV(CLASSIFIER(U), 1) = 'A' AND LAST(CLASSIFIER(), 3) = 'B' AND FIRST(CLASSIFIER(U)) = 'B' " +
+                "     )"))
+                .matches("VALUES " +
+                        "(1, VARCHAR 'B',   null), " +
+                        "(2,         'B',   false), " +
+                        "(3,         'A',   false), " +
+                        "(4,         'A',   true), " +
+                        "(5,         'X',   true) ");
+    }
+
+    @Test
     public void testEmptyCycle()
     {
         String query = "SELECT m.id AS row_id, m.match, m.val, m.label " +
@@ -1313,5 +1383,149 @@ public class TestRowPatternMatching
                         "     ('A', 'B', 'C')," +
                         "     ('A', 'B', 'C')," +
                         "     ('A', 'B', 'C') ");
+    }
+
+    @Test
+    public void testSubqueries()
+    {
+        String query = "SELECT m.val " +
+                "          FROM (VALUES " +
+                "                   (1, 100), " +
+                "                   (2, 200), " +
+                "                   (3, 300), " +
+                "                   (4, 400) " +
+                "               ) t(id, value) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   ORDER BY id " +
+                "                   MEASURES %s AS val " +
+                "                   ONE ROW PER MATCH " +
+                "                   AFTER MATCH SKIP TO NEXT ROW " +
+                "                   PATTERN (A+) " +
+                "                   DEFINE A AS %s " +
+                "                ) AS m";
+
+        assertThat(assertions.query(format(query, "(SELECT 'x')", "(SELECT true)")))
+                .matches("VALUES " +
+                        "     ('x'), " +
+                        "     ('x'), " +
+                        "     ('x'), " +
+                        "     ('x') ");
+
+        // subquery nested in navigation
+        assertThat(assertions.query(format(query, "FINAL LAST(A.value + (SELECT 1000))", "FIRST(A.value < 0 OR (SELECT true))")))
+                .matches("VALUES " +
+                        "     (1400), " +
+                        "     (1400), " +
+                        "     (1400), " +
+                        "     (1400) ");
+
+        // IN-predicate: value and value list without column references
+        assertThat(assertions.query(format(query, "LAST(A.id < 0 OR 1 IN (SELECT 1))", "FIRST(A.id > 0 AND 1 IN (SELECT 1))")))
+                .matches("VALUES " +
+                        "     (true), " +
+                        "     (true), " +
+                        "     (true), " +
+                        "     (true) ");
+
+        // IN-predicate: unlabeled column reference in value
+        assertThat(assertions.query(format(query, "FIRST(id % 2 IN (SELECT 0))", "FIRST(value * 0 IN (SELECT 0))")))
+                .matches("VALUES " +
+                        "     (false), " +
+                        "     (true), " +
+                        "     (false), " +
+                        "     (true) ");
+
+        // EXISTS-predicate
+        assertThat(assertions.query(format(query, "LAST(A.value < 0 OR EXISTS(SELECT 1))", "FIRST(A.value < 0 OR EXISTS(SELECT 1))")))
+                .matches("VALUES " +
+                        "     (true), " +
+                        "     (true), " +
+                        "     (true), " +
+                        "     (true) ");
+    }
+
+    @Test
+    public void testInPredicateWithoutSubquery()
+    {
+        String query = "SELECT m.val " +
+                "          FROM (VALUES " +
+                "                   (1, 100), " +
+                "                   (2, 200), " +
+                "                   (3, 300), " +
+                "                   (4, 400) " +
+                "               ) t(id, value) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   ORDER BY id " +
+                "                   MEASURES %s AS val " +
+                "                   ONE ROW PER MATCH " +
+                "                   AFTER MATCH SKIP TO NEXT ROW " +
+                "                   PATTERN (A+) " +
+                "                   DEFINE A AS true " +
+                "                ) AS m";
+
+        // navigations and labeled column references
+        assertThat(assertions.query(format(query, "FIRST(A.value) IN (300, LAST(A.value))")))
+                .matches("VALUES " +
+                        "     (false), " +
+                        "     (false), " +
+                        "     (true), " +
+                        "     (true) ");
+
+        // CLASSIFIER()
+        assertThat(assertions.query(format(query, "CLASSIFIER() IN ('X', lower(CLASSIFIER()))")))
+                .matches("VALUES " +
+                        "     (false), " +
+                        "     (false), " +
+                        "     (false), " +
+                        "     (false) ");
+
+        // MATCH_NUMBER()
+        assertThat(assertions.query(format(query, "MATCH_NUMBER() IN (0, MATCH_NUMBER())")))
+                .matches("VALUES " +
+                        "     (true), " +
+                        "     (true), " +
+                        "     (true), " +
+                        "     (true) ");
+    }
+
+    @Test
+    public void testPotentiallyExponentialMatch()
+    {
+        // the following example can produce exponential number of different match attempts.
+        // because equivalent threads in Matcher are detected and pruned, it is solved in linear time.
+        assertThat(assertions.query("SELECT m.classy " +
+                "          FROM (VALUES (1), (1), (1), (1), (1), (1), (1), (1), (1), (1), (1), (1), (1), (1), (1), (1), (1), (1), (1), (1)) t(value) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES CLASSIFIER() AS classy " +
+                "                   PATTERN ((A+)+ B) " +
+                "                   DEFINE " +
+                "                           A AS value = 1, " +
+                "                           B AS value = 2 " +
+                "                ) AS m"))
+                .returnsEmptyResult();
+    }
+
+    @Test
+    public void testExponentialMatch()
+    {
+        // the match `B B B B B B B B LAST` is the last one checked out of over 2^9 possible matches
+        assertThat(assertions.query("SELECT m.classy " +
+                "          FROM (VALUES (1), (2), (3), (4), (5), (6), (7), (8), (9)) t(value) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   ORDER BY value " +
+                "                   MEASURES CLASSIFIER() AS classy " +
+                "                   ALL ROWS PER MATCH " +
+                "                   PATTERN ((A | B)+ LAST) " +
+                "                   DEFINE LAST AS FIRST(CLASSIFIER()) = 'B' AND " +
+                "                                  FIRST(CLASSIFIER(), 1) = 'B' AND " +
+                "                                  FIRST(CLASSIFIER(), 2) = 'B' AND " +
+                "                                  FIRST(CLASSIFIER(), 3) = 'B' AND " +
+                "                                  FIRST(CLASSIFIER(), 4) = 'B' AND " +
+                "                                  FIRST(CLASSIFIER(), 5) = 'B' AND " +
+                "                                  FIRST(CLASSIFIER(), 6) = 'B' AND " +
+                "                                  FIRST(CLASSIFIER(), 7) = 'B' " +
+
+                "                ) AS m"))
+                .matches("VALUES (VARCHAR 'B'), ('B'), ('B'), ('B'), ('B'), ('B'), ('B'), ('B'), ('LAST') ");
     }
 }

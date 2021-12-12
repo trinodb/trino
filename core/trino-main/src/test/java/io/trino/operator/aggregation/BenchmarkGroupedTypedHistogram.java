@@ -13,10 +13,9 @@
  */
 package io.trino.operator.aggregation;
 
-import com.google.common.primitives.Ints;
-import io.trino.metadata.Metadata;
+import com.google.common.collect.ImmutableList;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.GroupByIdBlock;
-import io.trino.operator.aggregation.groupby.GroupByAggregationTestUtils;
 import io.trino.operator.aggregation.histogram.Histogram;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -43,7 +42,6 @@ import java.util.stream.IntStream;
 
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 
@@ -112,15 +110,8 @@ public class BenchmarkGroupedTypedHistogram
                 groupByIdBlocks[j] = groupByIdBlock;
             }
 
-            InternalAggregationFunction aggregationFunction = getInternalAggregationFunctionVarChar();
-            groupedAccumulator = createGroupedAccumulator(aggregationFunction);
-        }
-
-        private GroupedAccumulator createGroupedAccumulator(InternalAggregationFunction function)
-        {
-            int[] args = GroupByAggregationTestUtils.createArgs(function);
-
-            return function.bind(Ints.asList(args), Optional.empty())
+            TestingAggregationFunction aggregationFunction = getInternalAggregationFunctionVarChar();
+            groupedAccumulator = aggregationFunction.bind(ImmutableList.of(0), Optional.empty())
                     .createGroupedAccumulator();
         }
     }
@@ -139,10 +130,10 @@ public class BenchmarkGroupedTypedHistogram
         return groupedAccumulator;
     }
 
-    private static InternalAggregationFunction getInternalAggregationFunctionVarChar()
+    private static TestingAggregationFunction getInternalAggregationFunctionVarChar()
     {
-        Metadata metadata = createTestMetadataManager();
-        return metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(VARCHAR)));
+        TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+        return functionResolution.getAggregateFunction(QualifiedName.of(Histogram.NAME), fromTypes(VARCHAR));
     }
 
     public static void main(String[] args)

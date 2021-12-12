@@ -17,12 +17,10 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.aggregation.groupby.AggregationTestInput;
 import io.trino.operator.aggregation.groupby.AggregationTestInputBuilder;
 import io.trino.operator.aggregation.groupby.AggregationTestOutput;
-import io.trino.operator.aggregation.groupby.GroupByAggregationTestUtils;
 import io.trino.operator.aggregation.histogram.Histogram;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -50,7 +48,6 @@ import static io.trino.block.BlockAssertions.createDoublesBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createStringArraysBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.OperatorAssertion.toRow;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -72,32 +69,36 @@ public class TestHistogram
 {
     private static final TimeZoneKey TIME_ZONE_KEY = getTimeZoneKey("UTC");
     private static final DateTimeZone DATE_TIME_ZONE = getDateTimeZone(TIME_ZONE_KEY);
+    private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
 
     @Test
     public void testSimpleHistograms()
     {
-        Metadata metadata = createTestMetadataManager();
-        InternalAggregationFunction aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(VARCHAR)));
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME),
+                fromTypes(VARCHAR),
                 ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
                 createStringsBlock("a", "b", "c"));
 
-        aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(BIGINT)));
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME),
+                fromTypes(BIGINT),
                 ImmutableMap.of(100L, 1L, 200L, 1L, 300L, 1L),
                 createLongsBlock(100L, 200L, 300L));
 
-        aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(DOUBLE)));
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME),
+                fromTypes(DOUBLE),
                 ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
                 createDoublesBlock(0.1, 0.3, 0.2));
 
-        aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(BOOLEAN)));
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME),
+                fromTypes(BOOLEAN),
                 ImmutableMap.of(true, 1L, false, 1L),
                 createBooleansBlock(true, false));
     }
@@ -105,28 +106,30 @@ public class TestHistogram
     @Test
     public void testSharedGroupBy()
     {
-        Metadata metadata = createTestMetadataManager();
-        InternalAggregationFunction aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(VARCHAR)));
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME),
+                fromTypes(VARCHAR),
                 ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
                 createStringsBlock("a", "b", "c"));
 
-        aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(BIGINT)));
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME),
+                fromTypes(BIGINT),
                 ImmutableMap.of(100L, 1L, 200L, 1L, 300L, 1L),
                 createLongsBlock(100L, 200L, 300L));
 
-        aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(DOUBLE)));
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME), fromTypes(DOUBLE),
                 ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
                 createDoublesBlock(0.1, 0.3, 0.2));
 
-        aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(BOOLEAN)));
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME),
+                fromTypes(BOOLEAN),
                 ImmutableMap.of(true, 1L, false, 1L),
                 createBooleansBlock(true, false));
     }
@@ -134,18 +137,19 @@ public class TestHistogram
     @Test
     public void testDuplicateKeysValues()
     {
-        Metadata metadata = createTestMetadataManager();
-        InternalAggregationFunction aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(VARCHAR)));
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME),
+                fromTypes(VARCHAR),
                 ImmutableMap.of("a", 2L, "b", 1L),
                 createStringsBlock("a", "b", "a"));
 
-        aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(TIMESTAMP_WITH_TIME_ZONE)));
         long timestampWithTimeZone1 = packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
         long timestampWithTimeZone2 = packDateTimeWithZone(new DateTime(2015, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME),
+                fromTypes(TIMESTAMP_WITH_TIME_ZONE),
                 ImmutableMap.of(SqlTimestampWithTimeZone.newInstance(3, unpackMillisUtc(timestampWithTimeZone1), 0, unpackZoneKey(timestampWithTimeZone1)), 2L, SqlTimestampWithTimeZone.newInstance(3, unpackMillisUtc(timestampWithTimeZone2), 0, unpackZoneKey(timestampWithTimeZone2)), 1L),
                 createLongsBlock(timestampWithTimeZone1, timestampWithTimeZone1, timestampWithTimeZone2));
     }
@@ -153,16 +157,17 @@ public class TestHistogram
     @Test
     public void testWithNulls()
     {
-        Metadata metadata = createTestMetadataManager();
-        InternalAggregationFunction aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(BIGINT)));
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME),
+                fromTypes(BIGINT),
                 ImmutableMap.of(1L, 1L, 2L, 1L),
                 createLongsBlock(2L, null, 1L));
 
-        aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(BIGINT)));
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME),
+                fromTypes(BIGINT),
                 null,
                 createLongsBlock((Long) null));
     }
@@ -171,10 +176,10 @@ public class TestHistogram
     public void testArrayHistograms()
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
-        Metadata metadata = createTestMetadataManager();
-        InternalAggregationFunction aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(arrayType)));
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME),
+                fromTypes(arrayType),
                 ImmutableMap.of(ImmutableList.of("a", "b", "c"), 1L, ImmutableList.of("d", "e", "f"), 1L, ImmutableList.of("c", "b", "a"), 1L),
                 createStringArraysBlock(ImmutableList.of(ImmutableList.of("a", "b", "c"), ImmutableList.of("d", "e", "f"), ImmutableList.of("c", "b", "a"))));
     }
@@ -183,8 +188,6 @@ public class TestHistogram
     public void testMapHistograms()
     {
         MapType innerMapType = mapType(VARCHAR, VARCHAR);
-        Metadata metadata = createTestMetadataManager();
-        InternalAggregationFunction aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(innerMapType)));
 
         BlockBuilder builder = innerMapType.createBlockBuilder(null, 3);
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
@@ -192,7 +195,9 @@ public class TestHistogram
         innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
 
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME),
+                fromTypes(innerMapType),
                 ImmutableMap.of(ImmutableMap.of("a", "b"), 1L, ImmutableMap.of("c", "d"), 1L, ImmutableMap.of("e", "f"), 1L),
                 builder.build());
     }
@@ -203,15 +208,15 @@ public class TestHistogram
         RowType innerRowType = RowType.from(ImmutableList.of(
                 RowType.field("f1", BIGINT),
                 RowType.field("f2", DOUBLE)));
-        Metadata metadata = createTestMetadataManager();
-        InternalAggregationFunction aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(innerRowType)));
         BlockBuilder builder = innerRowType.createBlockBuilder(null, 3);
         innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 1L, 1.0));
         innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 2L, 2.0));
         innerRowType.writeObject(builder, toRow(ImmutableList.of(BIGINT, DOUBLE), 3L, 3.0));
 
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME),
+                fromTypes(innerRowType),
                 ImmutableMap.of(ImmutableList.of(1L, 1.0), 1L, ImmutableList.of(2L, 2.0), 1L, ImmutableList.of(3L, 3.0), 1L),
                 builder.build());
     }
@@ -219,10 +224,10 @@ public class TestHistogram
     @Test
     public void testLargerHistograms()
     {
-        Metadata metadata = createTestMetadataManager();
-        InternalAggregationFunction aggregationFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(VARCHAR)));
         assertAggregation(
-                aggregationFunction,
+                FUNCTION_RESOLUTION,
+                QualifiedName.of(Histogram.NAME),
+                fromTypes(VARCHAR),
                 ImmutableMap.of("a", 25L, "b", 10L, "c", 12L, "d", 1L, "e", 2L),
                 createStringsBlock("a", "b", "c", "d", "e", "e", "c", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "a", "a", "a", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c", "b", "a", "c", "c"));
     }
@@ -230,7 +235,7 @@ public class TestHistogram
     @Test
     public void testEmptyHistogramOutputsNull()
     {
-        InternalAggregationFunction function = getInternalDefaultVarCharAggregationn();
+        TestingAggregationFunction function = getInternalDefaultVarCharAggregation();
         GroupedAccumulator groupedAccumulator = function.bind(Ints.asList(new int[] {}), Optional.empty())
                 .createGroupedAccumulator();
         BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
@@ -242,8 +247,8 @@ public class TestHistogram
     @Test
     public void testSharedGroupByWithOverlappingValuesRunner()
     {
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        TestingAggregationFunction classicFunction = getInternalDefaultVarCharAggregation();
+        TestingAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregation();
 
         testSharedGroupByWithOverlappingValuesRunner(classicFunction);
         testSharedGroupByWithOverlappingValuesRunner(singleInstanceFunction);
@@ -253,8 +258,8 @@ public class TestHistogram
     public void testSharedGroupByWithDistinctValuesPerGroup()
     {
         // test that two groups don't affect one another
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        TestingAggregationFunction classicFunction = getInternalDefaultVarCharAggregation();
+        TestingAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregation();
         testSharedGroupByWithDistinctValuesPerGroupRunner(classicFunction);
         testSharedGroupByWithDistinctValuesPerGroupRunner(singleInstanceFunction);
     }
@@ -263,8 +268,8 @@ public class TestHistogram
     public void testSharedGroupByWithOverlappingValuesPerGroup()
     {
         // test that two groups don't affect one another
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        TestingAggregationFunction classicFunction = getInternalDefaultVarCharAggregation();
+        TestingAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregation();
         testSharedGroupByWithOverlappingValuesPerGroupRunner(classicFunction);
         testSharedGroupByWithOverlappingValuesPerGroupRunner(singleInstanceFunction);
     }
@@ -273,21 +278,22 @@ public class TestHistogram
     public void testSharedGroupByWithManyGroups()
     {
         // uses a large enough data set to induce rehashing and test correctness
-        InternalAggregationFunction classicFunction = getInternalDefaultVarCharAggregationn();
-        InternalAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregationn();
+        TestingAggregationFunction classicFunction = getInternalDefaultVarCharAggregation();
+        TestingAggregationFunction singleInstanceFunction = getInternalDefaultVarCharAggregation();
 
         // this is to validate the test as there have been test-bugs that looked like code bugs--if both fail, likely a test bug
         testManyValuesInducingRehash(classicFunction);
         testManyValuesInducingRehash(singleInstanceFunction);
     }
 
-    private void testManyValuesInducingRehash(InternalAggregationFunction aggregationFunction)
+    private static void testManyValuesInducingRehash(TestingAggregationFunction aggregationFunction)
     {
         double distinctFraction = 0.1f;
         int numGroups = 50000;
         int itemCount = 30;
         Random random = new Random();
-        GroupedAccumulator groupedAccumulator = createGroupedAccumulator(aggregationFunction);
+        GroupedAccumulator groupedAccumulator = aggregationFunction.bind(ImmutableList.of(0), Optional.empty())
+                .createGroupedAccumulator();
 
         for (int j = 0; j < numGroups; j++) {
             Map<String, Long> expectedValues = new HashMap<>();
@@ -318,15 +324,7 @@ public class TestHistogram
         }
     }
 
-    private GroupedAccumulator createGroupedAccumulator(InternalAggregationFunction function)
-    {
-        int[] args = GroupByAggregationTestUtils.createArgs(function);
-
-        return function.bind(Ints.asList(args), Optional.empty())
-                .createGroupedAccumulator();
-    }
-
-    private void testSharedGroupByWithOverlappingValuesPerGroupRunner(InternalAggregationFunction aggregationFunction)
+    private static void testSharedGroupByWithOverlappingValuesPerGroupRunner(TestingAggregationFunction aggregationFunction)
     {
         Block block1 = createStringsBlock("a", "b", "c");
         Block block2 = createStringsBlock("b", "c", "d");
@@ -347,7 +345,7 @@ public class TestHistogram
         test2.runPagesOnAccumulatorWithAssertion(255L, groupedAccumulator, aggregationTestOutput2);
     }
 
-    private void testSharedGroupByWithDistinctValuesPerGroupRunner(InternalAggregationFunction aggregationFunction)
+    private static void testSharedGroupByWithDistinctValuesPerGroupRunner(TestingAggregationFunction aggregationFunction)
     {
         Block block1 = createStringsBlock("a", "b", "c");
         Block block2 = createStringsBlock("d", "e", "f");
@@ -368,7 +366,7 @@ public class TestHistogram
         test2.runPagesOnAccumulatorWithAssertion(255L, groupedAccumulator, aggregationTestOutput2);
     }
 
-    private void testSharedGroupByWithOverlappingValuesRunner(InternalAggregationFunction aggregationFunction)
+    private static void testSharedGroupByWithOverlappingValuesRunner(TestingAggregationFunction aggregationFunction)
     {
         Block block1 = createStringsBlock("a", "b", "c", "d", "a1", "b2", "c3", "d4", "a", "b2", "c", "d4", "a3", "b3", "c3", "b2");
         AggregationTestInputBuilder testInputBuilder1 = new AggregationTestInputBuilder(
@@ -391,10 +389,8 @@ public class TestHistogram
         test1.runPagesOnAccumulatorWithAssertion(0L, test1.createGroupedAccumulator(), aggregationTestOutput1);
     }
 
-    private static InternalAggregationFunction getInternalDefaultVarCharAggregationn()
+    private static TestingAggregationFunction getInternalDefaultVarCharAggregation()
     {
-        Metadata metadata = createTestMetadataManager();
-        ResolvedFunction function = metadata.resolveFunction(QualifiedName.of(Histogram.NAME), fromTypes(VARCHAR));
-        return metadata.getAggregateFunctionImplementation(function);
+        return FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of(Histogram.NAME), fromTypes(VARCHAR));
     }
 }

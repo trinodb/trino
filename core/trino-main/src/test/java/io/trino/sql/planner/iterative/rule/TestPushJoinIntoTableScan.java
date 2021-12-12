@@ -182,7 +182,7 @@ public class TestPushJoinIntoTableScan
     }
 
     @DataProvider
-    private static Object[][] testPushJoinIntoTableScanParams()
+    public static Object[][] testPushJoinIntoTableScanParams()
     {
         return new Object[][] {
                 {INNER, Optional.empty()},

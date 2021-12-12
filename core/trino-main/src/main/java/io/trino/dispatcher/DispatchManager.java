@@ -185,12 +185,12 @@ public class DispatchManager
             preparedQuery = queryPreparer.prepareQuery(session, query);
 
             // select resource group
-            Optional<String> queryType = getQueryType(preparedQuery.getStatement().getClass()).map(Enum::name);
+            Optional<String> queryType = getQueryType(preparedQuery.getStatement()).map(Enum::name);
             SelectionContext<C> selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
                     sessionContext.getIdentity().getPrincipal().isPresent(),
                     sessionContext.getIdentity().getUser(),
                     sessionContext.getIdentity().getGroups(),
-                    Optional.ofNullable(sessionContext.getSource()),
+                    sessionContext.getSource(),
                     sessionContext.getClientTags(),
                     sessionContext.getResourceEstimates(),
                     queryType));
@@ -225,7 +225,7 @@ public class DispatchManager
                 session = Session.builder(sessionPropertyManager)
                         .setQueryId(queryId)
                         .setIdentity(sessionContext.getIdentity())
-                        .setSource(sessionContext.getSource())
+                        .setSource(sessionContext.getSource().orElse(null))
                         .build();
             }
             Optional<String> preparedSql = Optional.ofNullable(preparedQuery).flatMap(PreparedQuery::getPrepareSql);

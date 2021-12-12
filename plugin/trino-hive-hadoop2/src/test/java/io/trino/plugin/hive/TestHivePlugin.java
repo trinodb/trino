@@ -25,6 +25,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,6 +36,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -112,7 +114,8 @@ public class TestHivePlugin
                 ImmutableMap.of(
                         "hive.metastore", "glue",
                         "hive.metastore.glue.region", "us-east-2"),
-                new TestingConnectorContext());
+                new TestingConnectorContext())
+                .shutdown();
 
         assertThatThrownBy(() -> factory.create(
                 "test",
@@ -307,6 +310,72 @@ public class TestHivePlugin
                         .build(),
                 new TestingConnectorContext())
                 .shutdown();
+    }
+
+    @Test
+    public void testAllowAllAccessControl()
+    {
+        ConnectorFactory connectorFactory = getHiveConnectorFactory();
+
+        connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("hive.security", "allow-all")
+                        .build(),
+                new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    public void testReadOnlyAllAccessControl()
+    {
+        ConnectorFactory connectorFactory = getHiveConnectorFactory();
+
+        connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("hive.security", "read-only")
+                        .build(),
+                new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    public void testFileBasedAccessControl()
+            throws Exception
+    {
+        ConnectorFactory connectorFactory = getHiveConnectorFactory();
+        File tempFile = File.createTempFile("test-hive-plugin-access-control", ".json");
+        tempFile.deleteOnExit();
+        Files.write(tempFile.toPath(), "{}".getBytes(UTF_8));
+
+        connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("hive.security", "file")
+                        .put("security.config-file", tempFile.getAbsolutePath())
+                        .build(),
+                new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    public void testSystemAccessControl()
+    {
+        ConnectorFactory connectorFactory = getHiveConnectorFactory();
+
+        Connector connector = connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("hive.security", "system")
+                        .build(),
+                new TestingConnectorContext());
+        assertThatThrownBy(connector::getAccessControl).isInstanceOf(UnsupportedOperationException.class);
+        connector.shutdown();
     }
 
     private static ConnectorFactory getHiveConnectorFactory()

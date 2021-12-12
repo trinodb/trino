@@ -25,12 +25,8 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeUtils;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
@@ -45,23 +41,22 @@ import org.apache.iceberg.util.StructLikeWrapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.math.BigDecimal;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
+import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
+import static io.trino.plugin.iceberg.Partition.convertBounds;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
-import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.Decimals.isShortDecimal;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
@@ -73,9 +68,11 @@ public class PartitionTable
     private final Optional<Long> snapshotId;
     private final Map<Integer, Type.PrimitiveType> idToTypeMapping;
     private final List<Types.NestedField> nonPartitionPrimitiveColumns;
+    private final Optional<RowType> partitionColumnType;
     private final List<io.trino.spi.type.Type> partitionColumnTypes;
-    private final List<io.trino.spi.type.Type> resultTypes;
+    private final Optional<RowType> dataColumnType;
     private final List<RowType> columnMetricTypes;
+    private final List<io.trino.spi.type.Type> resultTypes;
     private final ConnectorTableMetadata connectorTableMetadata;
 
     public PartitionTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
@@ -83,20 +80,26 @@ public class PartitionTable
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
-        this.idToTypeMapping = icebergTable.schema().columns().stream()
-                .filter(column -> column.type().isPrimitiveType())
-                .collect(Collectors.toMap(Types.NestedField::fieldId, (column) -> column.type().asPrimitiveType()));
+        this.idToTypeMapping = primitiveFieldTypes(icebergTable.schema());
 
         List<Types.NestedField> columns = icebergTable.schema().columns();
         List<PartitionField> partitionFields = icebergTable.spec().fields();
 
         ImmutableList.Builder<ColumnMetadata> columnMetadataBuilder = ImmutableList.builder();
 
-        List<ColumnMetadata> partitionColumnsMetadata = getPartitionColumnsMetadata(partitionFields, icebergTable.schema());
-        this.partitionColumnTypes = partitionColumnsMetadata.stream()
-                .map(ColumnMetadata::getType)
-                .collect(toImmutableList());
-        columnMetadataBuilder.addAll(partitionColumnsMetadata);
+        this.partitionColumnType = getPartitionColumnType(partitionFields, icebergTable.schema());
+        if (partitionColumnType.isPresent()) {
+            columnMetadataBuilder.add(new ColumnMetadata("partition", partitionColumnType.get()));
+            this.partitionColumnTypes = partitionColumnType.get().getFields().stream()
+                    .map(RowType.Field::getType)
+                    .collect(toImmutableList());
+        }
+        else {
+            this.partitionColumnTypes = ImmutableList.of();
+        }
+
+        Stream.of("record_count", "file_count", "total_size")
+                .forEach(metric -> columnMetadataBuilder.add(new ColumnMetadata(metric, BIGINT)));
 
         Set<Integer> identityPartitionIds = getIdentityPartitions(icebergTable.spec()).keySet().stream()
                 .map(PartitionField::sourceId)
@@ -106,13 +109,17 @@ public class PartitionTable
                 .filter(column -> !identityPartitionIds.contains(column.fieldId()) && column.type().isPrimitiveType())
                 .collect(toImmutableList());
 
-        ImmutableList.of("row_count", "file_count", "total_size")
-                .forEach(metric -> columnMetadataBuilder.add(new ColumnMetadata(metric, BIGINT)));
-
-        List<ColumnMetadata> columnMetricsMetadata = getColumnMetadata(nonPartitionPrimitiveColumns);
-        columnMetadataBuilder.addAll(columnMetricsMetadata);
-
-        this.columnMetricTypes = columnMetricsMetadata.stream().map(m -> (RowType) m.getType()).collect(toImmutableList());
+        this.dataColumnType = getMetricsColumnType(this.nonPartitionPrimitiveColumns);
+        if (dataColumnType.isPresent()) {
+            columnMetadataBuilder.add(new ColumnMetadata("data", dataColumnType.get()));
+            this.columnMetricTypes = dataColumnType.get().getFields().stream()
+                    .map(RowType.Field::getType)
+                    .map(RowType.class::cast)
+                    .collect(toImmutableList());
+        }
+        else {
+            this.columnMetricTypes = ImmutableList.of();
+        }
 
         ImmutableList<ColumnMetadata> columnMetadata = columnMetadataBuilder.build();
         this.resultTypes = columnMetadata.stream()
@@ -133,35 +140,45 @@ public class PartitionTable
         return connectorTableMetadata;
     }
 
-    private List<ColumnMetadata> getPartitionColumnsMetadata(List<PartitionField> fields, Schema schema)
+    private Optional<RowType> getPartitionColumnType(List<PartitionField> fields, Schema schema)
     {
-        return fields.stream()
-                .map(field -> new ColumnMetadata(
+        List<RowType.Field> partitionFields = fields.stream()
+                .map(field -> RowType.field(
                         field.name(),
                         toTrinoType(field.transform().getResultType(schema.findType(field.sourceId())), typeManager)))
                 .collect(toImmutableList());
+        if (partitionFields.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(RowType.from(partitionFields));
     }
 
-    private List<ColumnMetadata> getColumnMetadata(List<Types.NestedField> columns)
+    private Optional<RowType> getMetricsColumnType(List<Types.NestedField> columns)
     {
-        return columns.stream().map(column -> new ColumnMetadata(column.name(),
-                RowType.from(ImmutableList.of(
-                        new RowType.Field(Optional.of("min"), toTrinoType(column.type(), typeManager)),
-                        new RowType.Field(Optional.of("max"), toTrinoType(column.type(), typeManager)),
-                        new RowType.Field(Optional.of("null_count"), BIGINT)))))
+        List<RowType.Field> metricColumns = columns.stream()
+                .map(column -> RowType.field(
+                        column.name(),
+                        RowType.from(ImmutableList.of(
+                                new RowType.Field(Optional.of("min"), toTrinoType(column.type(), typeManager)),
+                                new RowType.Field(Optional.of("max"), toTrinoType(column.type(), typeManager)),
+                                new RowType.Field(Optional.of("null_count"), BIGINT)))))
                 .collect(toImmutableList());
+        if (metricColumns.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(RowType.from(metricColumns));
     }
 
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        // TODO instead of cursor use pageSource method.
         if (snapshotId.isEmpty()) {
             return new InMemoryRecordSet(resultTypes, ImmutableList.of()).cursor();
         }
         TableScan tableScan = icebergTable.newScan()
                 .useSnapshot(snapshotId.get())
                 .includeColumnStats();
+        // TODO make the cursor lazy
         return buildRecordCursor(getPartitions(tableScan), icebergTable.spec().fields());
     }
 
@@ -183,8 +200,8 @@ public class PartitionTable
                             partitionStruct,
                             dataFile.recordCount(),
                             dataFile.fileSizeInBytes(),
-                            toMap(dataFile.lowerBounds()),
-                            toMap(dataFile.upperBounds()),
+                            convertBounds(idToTypeMapping, dataFile.lowerBounds()),
+                            convertBounds(idToTypeMapping, dataFile.upperBounds()),
                             dataFile.nullValueCounts(),
                             dataFile.columnSizes());
                     partitions.put(partitionWrapper, partition);
@@ -195,8 +212,8 @@ public class PartitionTable
                 partition.incrementFileCount();
                 partition.incrementRecordCount(dataFile.recordCount());
                 partition.incrementSize(dataFile.fileSizeInBytes());
-                partition.updateMin(toMap(dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
-                partition.updateMax(toMap(dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
+                partition.updateMin(convertBounds(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
+                partition.updateMax(convertBounds(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
                 partition.updateNullCount(dataFile.nullValueCounts());
             }
 
@@ -213,17 +230,24 @@ public class PartitionTable
         List<? extends Class<?>> partitionColumnClass = partitionTypes.stream()
                 .map(type -> type.typeId().javaClass())
                 .collect(toImmutableList());
-        int columnCounts = partitionColumnTypes.size() + 3 + columnMetricTypes.size();
 
         ImmutableList.Builder<List<Object>> records = ImmutableList.builder();
 
         for (Partition partition : partitions.values()) {
-            List<Object> row = new ArrayList<>(columnCounts);
+            List<Object> row = new ArrayList<>();
 
             // add data for partition columns
-            for (int i = 0; i < partitionColumnTypes.size(); i++) {
-                row.add(convert(partition.getValues().get(i, partitionColumnClass.get(i)), partitionTypes.get(i)));
-            }
+            partitionColumnType.ifPresent(partitionColumnType -> {
+                BlockBuilder partitionRowBlockBuilder = partitionColumnType.createBlockBuilder(null, 1);
+                BlockBuilder partitionBlockBuilder = partitionRowBlockBuilder.beginBlockEntry();
+                for (int i = 0; i < partitionColumnTypes.size(); i++) {
+                    io.trino.spi.type.Type trinoType = partitionColumnType.getFields().get(i).getType();
+                    Object value = convertIcebergValueToTrino(partitionTypes.get(i), partition.getValues().get(i, partitionColumnClass.get(i)));
+                    writeNativeValue(trinoType, partitionBlockBuilder, value);
+                }
+                partitionRowBlockBuilder.closeEntry();
+                row.add(partitionColumnType.getObject(partitionRowBlockBuilder, 0));
+            });
 
             // add the top level metrics.
             row.add(partition.getRecordCount());
@@ -231,18 +255,25 @@ public class PartitionTable
             row.add(partition.getSize());
 
             // add column level metrics
-            for (int i = 0; i < columnMetricTypes.size(); i++) {
+            dataColumnType.ifPresent(dataColumnType -> {
                 if (!partition.hasValidColumnMetrics()) {
                     row.add(null);
-                    continue;
+                    return;
                 }
-                Integer fieldId = nonPartitionPrimitiveColumns.get(i).fieldId();
-                Type.PrimitiveType type = idToTypeMapping.get(fieldId);
-                Object min = convert(partition.getMinValues().get(fieldId), type);
-                Object max = convert(partition.getMaxValues().get(fieldId), type);
-                Long nullCount = partition.getNullCounts().get(fieldId);
-                row.add(getColumnMetricBlock(columnMetricTypes.get(i), min, max, nullCount));
-            }
+                BlockBuilder dataRowBlockBuilder = dataColumnType.createBlockBuilder(null, 1);
+                BlockBuilder dataBlockBuilder = dataRowBlockBuilder.beginBlockEntry();
+
+                for (int i = 0; i < columnMetricTypes.size(); i++) {
+                    Integer fieldId = nonPartitionPrimitiveColumns.get(i).fieldId();
+                    Type.PrimitiveType type = idToTypeMapping.get(fieldId);
+                    Object min = convertIcebergValueToTrino(type, partition.getMinValues().get(fieldId));
+                    Object max = convertIcebergValueToTrino(type, partition.getMaxValues().get(fieldId));
+                    Long nullCount = partition.getNullCounts().get(fieldId);
+                    columnMetricTypes.get(i).writeObject(dataBlockBuilder, getColumnMetricBlock(columnMetricTypes.get(i), min, max, nullCount));
+                }
+                dataRowBlockBuilder.closeEntry();
+                row.add(dataColumnType.getObject(dataRowBlockBuilder, 0));
+            });
 
             records.add(row);
         }
@@ -266,52 +297,11 @@ public class PartitionTable
         BlockBuilder rowBlockBuilder = columnMetricType.createBlockBuilder(null, 1);
         BlockBuilder builder = rowBlockBuilder.beginBlockEntry();
         List<RowType.Field> fields = columnMetricType.getFields();
-        TypeUtils.writeNativeValue(fields.get(0).getType(), builder, min);
-        TypeUtils.writeNativeValue(fields.get(1).getType(), builder, max);
-        TypeUtils.writeNativeValue(fields.get(2).getType(), builder, nullCount);
+        writeNativeValue(fields.get(0).getType(), builder, min);
+        writeNativeValue(fields.get(1).getType(), builder, max);
+        writeNativeValue(fields.get(2).getType(), builder, nullCount);
 
         rowBlockBuilder.closeEntry();
         return columnMetricType.getObject(rowBlockBuilder, 0);
-    }
-
-    private Map<Integer, Object> toMap(Map<Integer, ByteBuffer> idToMetricMap)
-    {
-        return Partition.toMap(idToTypeMapping, idToMetricMap);
-    }
-
-    public static Object convert(Object value, Type type)
-    {
-        if (value == null) {
-            return null;
-        }
-        if (type instanceof Types.StringType) {
-            return value.toString();
-        }
-        if (type instanceof Types.BinaryType) {
-            // TODO the client sees the bytearray's tostring ouput instead of seeing actual bytes, needs to be fixed.
-            return ((ByteBuffer) value).array();
-        }
-        if (type instanceof Types.TimestampType) {
-            long epochMicros = (long) value;
-            if (((Types.TimestampType) type).shouldAdjustToUTC()) {
-                return timestampTzFromMicros(epochMicros, TimeZoneKey.UTC_KEY);
-            }
-            return epochMicros;
-        }
-        if (type instanceof Types.TimeType) {
-            return ((Long) value) * PICOSECONDS_PER_MICROSECOND;
-        }
-        if (type instanceof Types.FloatType) {
-            return Float.floatToIntBits((Float) value);
-        }
-        if (type instanceof Types.DecimalType) {
-            Types.DecimalType icebergDecimalType = (Types.DecimalType) type;
-            DecimalType trinoDecimalType = DecimalType.createDecimalType(icebergDecimalType.precision(), icebergDecimalType.scale());
-            if (isShortDecimal(trinoDecimalType)) {
-                return Decimals.encodeShortScaledValue((BigDecimal) value, trinoDecimalType.getScale());
-            }
-            return Decimals.encodeScaledValue((BigDecimal) value, trinoDecimalType.getScale());
-        }
-        return value;
     }
 }

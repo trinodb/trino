@@ -14,7 +14,6 @@
 
 package io.trino.operator.aggregation.groupby;
 
-import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 
@@ -49,14 +48,5 @@ public final class GroupByAggregationTestUtils
             }
             return new Page[] {new Page(blockArray1), new Page(blockArray2)};
         }
-    }
-
-    public static int[] createArgs(InternalAggregationFunction function)
-    {
-        int[] args = new int[function.getParameterTypes().size()];
-        for (int i = 0; i < args.length; i++) {
-            args[i] = i;
-        }
-        return args;
     }
 }

@@ -20,7 +20,6 @@ import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.VarcharType;
@@ -48,7 +47,6 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_DEFAULT_SCALE;
@@ -57,9 +55,13 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_ROUND
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -82,7 +84,6 @@ import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
-import static java.util.function.Function.identity;
 
 public class TestMySqlTypeMapping
         extends AbstractTestQueryFramework
@@ -110,6 +111,27 @@ public class TestMySqlTypeMapping
                 .addRoundTrip(doubleDataType(), 123.45d)
                 .addRoundTrip(realDataType(), 123.45f)
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
+    }
+
+    @Test
+    public void testBit()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("bit", "b'1'", BOOLEAN, "true")
+                .addRoundTrip("bit", "b'0'", BOOLEAN, "false")
+                .addRoundTrip("bit", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_bit"));
+    }
+
+    @Test
+    public void testBoolean()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "true", TINYINT, "TINYINT '1'")
+                .addRoundTrip("boolean", "false", TINYINT, "TINYINT '0'")
+                .addRoundTrip("boolean", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_boolean"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_boolean"));
     }
 
     @Test
@@ -461,6 +483,10 @@ public class TestMySqlTypeMapping
         verify(someZone.getRules().getValidOffsets(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1)).size() == 2);
 
         DataTypeTest testCases = DataTypeTest.create()
+                .addRoundTrip(dateDataType(), LocalDate.of(1, 1, 1))
+                .addRoundTrip(dateDataType(), LocalDate.of(1582, 10, 4)) // before julian->gregorian switch
+                .addRoundTrip(dateDataType(), LocalDate.of(1582, 10, 5)) // begin julian->gregorian switch
+                .addRoundTrip(dateDataType(), LocalDate.of(1582, 10, 14)) // end julian->gregorian switch
                 .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3)) // before epoch
                 .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
                 .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
@@ -479,6 +505,111 @@ public class TestMySqlTypeMapping
             testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"));
             testCases.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
         }
+    }
+
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimeFromMySql(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                // default precision in MySQL is 0
+                .addRoundTrip("TIME", "TIME '00:00:00'", createTimeType(0), "TIME '00:00:00'")
+                .addRoundTrip("TIME", "TIME '12:34:56'", createTimeType(0), "TIME '12:34:56'")
+                .addRoundTrip("TIME", "TIME '23:59:59'", createTimeType(0), "TIME '23:59:59'")
+
+                // maximal value for a precision
+                .addRoundTrip("TIME(1)", "TIME '23:59:59.9'", createTimeType(1), "TIME '23:59:59.9'")
+                .addRoundTrip("TIME(2)", "TIME '23:59:59.99'", createTimeType(2), "TIME '23:59:59.99'")
+                .addRoundTrip("TIME(3)", "TIME '23:59:59.999'", createTimeType(3), "TIME '23:59:59.999'")
+                .addRoundTrip("TIME(4)", "TIME '23:59:59.9999'", createTimeType(4), "TIME '23:59:59.9999'")
+                .addRoundTrip("TIME(5)", "TIME '23:59:59.99999'", createTimeType(5), "TIME '23:59:59.99999'")
+                .addRoundTrip("TIME(6)", "TIME '23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'")
+                .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_time"));
+    }
+
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimeFromTrino(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+                // default precision in Trino is 3
+                .addRoundTrip("TIME", "TIME '00:00:00'", createTimeType(3), "TIME '00:00:00.000'")
+                .addRoundTrip("TIME", "TIME '12:34:56.123'", createTimeType(3), "TIME '12:34:56.123'")
+                .addRoundTrip("TIME", "TIME '23:59:59.999'", createTimeType(3), "TIME '23:59:59.999'")
+
+                // maximal value for a precision
+                .addRoundTrip("TIME", "TIME '23:59:59'", createTimeType(3), "TIME '23:59:59.000'")
+                .addRoundTrip("TIME(1)", "TIME '23:59:59.9'", createTimeType(1), "TIME '23:59:59.9'")
+                .addRoundTrip("TIME(2)", "TIME '23:59:59.99'", createTimeType(2), "TIME '23:59:59.99'")
+                .addRoundTrip("TIME(3)", "TIME '23:59:59.999'", createTimeType(3), "TIME '23:59:59.999'")
+                .addRoundTrip("TIME(4)", "TIME '23:59:59.9999'", createTimeType(4), "TIME '23:59:59.9999'")
+                .addRoundTrip("TIME(5)", "TIME '23:59:59.99999'", createTimeType(5), "TIME '23:59:59.99999'")
+                .addRoundTrip("TIME(6)", "TIME '23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'")
+
+                // supported precisions
+                .addRoundTrip("TIME '23:59:59.9'", "TIME '23:59:59.9'")
+                .addRoundTrip("TIME '23:59:59.99'", "TIME '23:59:59.99'")
+                .addRoundTrip("TIME '23:59:59.999'", "TIME '23:59:59.999'")
+                .addRoundTrip("TIME '23:59:59.9999'", "TIME '23:59:59.9999'")
+                .addRoundTrip("TIME '23:59:59.99999'", "TIME '23:59:59.99999'")
+                .addRoundTrip("TIME '23:59:59.999999'", "TIME '23:59:59.999999'")
+
+                // round down
+                .addRoundTrip("TIME '00:00:00.0000001'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '00:00:00.000000000001'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '12:34:56.1234561'", "TIME '12:34:56.123456'")
+                .addRoundTrip("TIME '23:59:59.9999994'", "TIME '23:59:59.999999'")
+                .addRoundTrip("TIME '23:59:59.999999499999'", "TIME '23:59:59.999999'")
+
+                // round down, maximal value
+                .addRoundTrip("TIME '00:00:00.0000004'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '00:00:00.00000049'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '00:00:00.000000449'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '00:00:00.0000004449'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '00:00:00.00000044449'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '00:00:00.000000444449'", "TIME '00:00:00.000000'")
+
+                // round up, minimal value
+                .addRoundTrip("TIME '00:00:00.0000005'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.00000050'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.000000500'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.0000005000'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.00000050000'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.000000500000'", "TIME '00:00:00.000001'")
+
+                // round up, maximal value
+                .addRoundTrip("TIME '00:00:00.0000009'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.00000099'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.000000999'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.0000009999'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.00000099999'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.000000999999'", "TIME '00:00:00.000001'")
+
+                // round up to next day, minimal value
+                .addRoundTrip("TIME '23:59:59.9999995'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.99999950'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.999999500'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.9999995000'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.99999950000'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.999999500000'", "TIME '00:00:00.000000'")
+
+                // round up to next day, maximal value
+                .addRoundTrip("TIME '23:59:59.9999999'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.99999999'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.999999999'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.9999999999'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.99999999999'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.999999999999'", "TIME '00:00:00.000000'")
+
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("tpch.test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "tpch.test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(getSession(), "tpch.test_time"));
     }
 
     /**
@@ -725,9 +856,19 @@ public class TestMySqlTypeMapping
     @Test
     public void testFloat()
     {
-        singlePrecisionFloatingPointTests(realDataType())
+        // we are not testing Nan/-Infinity/+Infinity as those are not supported by MySQL
+        SqlDataTypeTest.create()
+                .addRoundTrip("real", "3.14", REAL, "REAL '3.14'")
+                .addRoundTrip("real", "10.3e0", REAL, "REAL '10.3e0'")
+                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
+                // .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'") // Overeagerly rounded by mysql to 3.14159
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_float"));
-        singlePrecisionFloatingPointTests(mysqlFloatDataType())
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("float", "3.14", REAL, "REAL '3.14'")
+                .addRoundTrip("float", "10.3e0", REAL, "REAL '10.3e0'")
+                .addRoundTrip("float", "NULL", REAL, "CAST(NULL AS REAL)")
+                // .addRoundTrip("float", "3.1415927", REAL, "REAL '3.1415927'") // Overeagerly rounded by mysql to 3.14159
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_float"));
     }
 
@@ -756,15 +897,6 @@ public class TestMySqlTypeMapping
                 .addRoundTrip(mysqlUnsignedInteger, 4_294_967_295L)
                 .addRoundTrip(mysqlUnsignedBigint, new BigDecimal("18446744073709551615"))
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_unsigned"));
-    }
-
-    private static DataTypeTest singlePrecisionFloatingPointTests(DataType<Float> floatType)
-    {
-        // we are not testing Nan/-Infinity/+Infinity as those are not supported by MySQL
-        return DataTypeTest.create()
-                .addRoundTrip(floatType, 3.14f)
-                // .addRoundTrip(floatType, 3.1415927f) // Overeagerly rounded by mysql to 3.14159
-                .addRoundTrip(floatType, null);
     }
 
     private static DataTypeTest doublePrecisionFloatingPointTests(DataType<Double> doubleType)
@@ -818,23 +950,8 @@ public class TestMySqlTypeMapping
                 toLiteral);
     }
 
-    private static DataType<Float> mysqlFloatDataType()
-    {
-        return dataType("float", RealType.REAL, Object::toString);
-    }
-
     private static DataType<Double> mysqlDoubleDataType()
     {
         return dataType("double precision", DoubleType.DOUBLE, Object::toString);
-    }
-
-    private static DataType<byte[]> mysqlBinaryDataType(String insertType)
-    {
-        return dataType(
-                insertType,
-                VARBINARY,
-                bytes -> "X'" + base16().encode(bytes) + "'",
-                DataType::binaryLiteral,
-                identity());
     }
 }

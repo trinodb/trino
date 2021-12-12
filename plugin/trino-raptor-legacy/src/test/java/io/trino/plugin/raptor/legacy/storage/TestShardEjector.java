@@ -28,9 +28,8 @@ import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.TestingNodeManager;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -43,11 +42,11 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -61,7 +60,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestShardEjector
 {
-    private IDBI dbi;
+    private Jdbi dbi;
     private Handle dummyHandle;
     private ShardManager shardManager;
     private File dataDir;
@@ -70,7 +69,7 @@ public class TestShardEjector
     @BeforeMethod
     public void setup()
     {
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
         shardManager = createShardManager(dbi);

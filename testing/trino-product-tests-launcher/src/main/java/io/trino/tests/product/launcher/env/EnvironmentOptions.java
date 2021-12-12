@@ -13,14 +13,25 @@
  */
 package io.trino.tests.product.launcher.env;
 
+import picocli.CommandLine;
+import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.Spec;
+
 import java.io.File;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static java.util.Locale.ENGLISH;
 import static picocli.CommandLine.Option;
 
 public final class EnvironmentOptions
 {
     private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
+    public static final String BIND_ON_HOST = "on";
+    public static final String DO_NOT_BIND = "off";
+
+    @Spec
+    private CommandSpec spec;
 
     @Option(names = "--config", paramLabel = "<config>", description = "Environment config to use")
     public String config = "config-default";
@@ -31,8 +42,8 @@ public final class EnvironmentOptions
     @Option(names = "--without-trino", description = "Do not start " + COORDINATOR)
     public boolean withoutPrestoMaster;
 
-    @Option(names = "--no-bind", description = "Bind ports on localhost", negatable = true)
     public boolean bindPorts = true;
+    int bindPortsBase;
 
     @Option(names = "--debug", description = "Open Java debug ports")
     public boolean debug;
@@ -42,6 +53,31 @@ public final class EnvironmentOptions
 
     @Option(names = "--launcher-bin", paramLabel = "<launcher bin>", description = "Launcher bin path (used to display run commands)", defaultValue = "${launcher.bin}", hidden = true)
     public String launcherBin;
+
+    @Option(names = "--trino-jdk-version", paramLabel = "<trino-jdk-version>", description = "JDK to use for running Trino: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "ZULU_11")
+    public SupportedTrinoJdk jdkVersion = SupportedTrinoJdk.ZULU_11;
+
+    @Option(names = "--bind", description = "Bind exposed container ports to host ports, possible values: " + BIND_ON_HOST + ", " + DO_NOT_BIND + ", [port base number] " + DEFAULT_VALUE, defaultValue = BIND_ON_HOST, arity = "0..1", fallbackValue = BIND_ON_HOST)
+    public void setBindOnHost(String value)
+    {
+        switch (value.toLowerCase(ENGLISH)) {
+            case BIND_ON_HOST:
+                this.bindPorts = true;
+                break;
+            case DO_NOT_BIND:
+                this.bindPorts = false;
+                break;
+            default:
+                try {
+                    this.bindPortsBase = Integer.parseInt(value);
+                    this.bindPorts = true;
+                    checkArgument(this.bindPortsBase > 0, "Port bind base must be a positive integer");
+                }
+                catch (Exception e) {
+                    throw new CommandLine.ParameterException(spec.commandLine(), "Port bind base is invalid", e);
+                }
+        }
+    }
 
     public static EnvironmentOptions empty()
     {

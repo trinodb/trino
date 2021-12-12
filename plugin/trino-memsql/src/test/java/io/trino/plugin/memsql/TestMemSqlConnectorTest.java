@@ -23,14 +23,12 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -53,7 +51,7 @@ public class TestMemSqlConnectorTest
             throws Exception
     {
         memSqlServer = new TestingMemSqlServer();
-        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @AfterClass(alwaysRun = true)
@@ -87,6 +85,7 @@ public class TestMemSqlConnectorTest
             case SUPPORTS_ARRAY:
                 return false;
 
+            case SUPPORTS_RENAME_SCHEMA:
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
@@ -133,8 +132,7 @@ public class TestMemSqlConnectorTest
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
-        if (typeName.equals("real")
-                || typeName.equals("timestamp")) {
+        if (typeName.equals("timestamp")) {
             // TODO this should either work or fail cleanly
             return Optional.empty();
         }
@@ -148,13 +146,14 @@ public class TestMemSqlConnectorTest
     }
 
     @Override
-    protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
+    public void testInsertUnicode()
     {
-        return nullToEmpty(exception.getMessage()).matches(".*Incorrect column name.*");
+        // MemSQL's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
+        throw new SkipException("MemSQL doesn't support utf8mb4");
     }
 
     @Override
-    public void testInsertUnicode()
+    public void testInsertHighestUnicodeCharacter()
     {
         // MemSQL's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
         throw new SkipException("MemSQL doesn't support utf8mb4");
@@ -230,42 +229,10 @@ public class TestMemSqlConnectorTest
         assertUpdate("DROP TABLE char_trailing_space");
     }
 
-    @Test
-    public void testInsertIntoNotNullColumn()
+    @Override
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        @Language("SQL") String createTableSql = format("" +
-                        "CREATE TABLE %s.tpch.test_insert_not_null (\n" +
-                        "   column_a date,\n" +
-                        "   column_b date NOT NULL\n" +
-                        ")",
-                getSession().getCatalog().get());
-        assertUpdate(createTableSql);
-        assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), createTableSql);
-
-        assertQueryFails("INSERT INTO test_insert_not_null (column_a) VALUES (date '2012-12-31')", ".* Field 'column_b' doesn't have a default value");
-        assertQueryFails("INSERT INTO test_insert_not_null (column_a, column_b) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_b");
-
-        assertUpdate("ALTER TABLE test_insert_not_null ADD COLUMN column_c BIGINT NOT NULL");
-
-        createTableSql = format("" +
-                        "CREATE TABLE %s.tpch.test_insert_not_null (\n" +
-                        "   column_a date,\n" +
-                        "   column_b date NOT NULL,\n" +
-                        "   column_c bigint NOT NULL\n" +
-                        ")",
-                getSession().getCatalog().get());
-        assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), createTableSql);
-
-        assertQueryFails("INSERT INTO test_insert_not_null (column_b) VALUES (date '2012-12-31')", ".* Field 'column_c' doesn't have a default value");
-        assertQueryFails("INSERT INTO test_insert_not_null (column_b, column_c) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_c");
-
-        assertUpdate("INSERT INTO test_insert_not_null (column_b, column_c) VALUES (date '2012-12-31', 1)", 1);
-        assertUpdate("INSERT INTO test_insert_not_null (column_a, column_b, column_c) VALUES (date '2013-01-01', date '2013-01-02', 2)", 1);
-        assertQuery(
-                "SELECT * FROM test_insert_not_null",
-                "VALUES (NULL, CAST('2012-12-31' AS DATE), 1), (CAST('2013-01-01' AS DATE), CAST('2013-01-02' AS DATE), 2)");
-
-        assertUpdate("DROP TABLE test_insert_not_null");
+        return format(".* Field '%s' doesn't have a default value", columnName);
     }
 
     @Test

@@ -29,7 +29,7 @@ The CLI uses the HTTP protocol and the
 :doc:`Trino client REST API </develop/client-protocol>` to communicate
 with Trino.
 
-HTTPS/TLS
+TLS/HTTPS
 ---------
 
 Trino is typically available with an HTTPS URL. This means that all network
@@ -58,6 +58,8 @@ password value to avoid the prompt.
 Use ``--help`` to see information about specifying the keystore, truststore, and
 other authentication details as required. If using Kerberos, see :doc:`/security/cli`.
 
+.. _cli-external-sso-auth:
+
 External authentication - SSO
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -78,8 +80,33 @@ The detailed behavior is as follows:
   the query.
 * Further queries in the CLI session do not require additional logins while the
   authentication token remains valid. Token expiration depends on the external
-  authentication system configuration.
+  authentication type configuration.
 * Expired tokens force you to log in again.
+
+.. _cli-certificate-auth:
+
+Certificate authentication
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use the following CLI arguments to connect to a cluster that uses
+:doc:`certificate authentication </security/certificate>`.
+
+.. list-table:: CLI options for certificate authentication
+   :widths: 35 65
+   :header-rows: 1
+
+   * - Option
+     - Description
+   * - ``--keystore-path=<path>``
+     - Absolute or relative path to a :doc:`PEM </security/inspect-pem>` or
+       :doc:`JKS </security/inspect-jks>` file, which must contain a certificate
+       that is trusted by the Trino cluster you are connecting to.
+   * - ``--keystore-password=<password>``
+     - Only required if the keystore has a password.
+
+The three ``--truststore`` related options are independent of client certificate
+authentication with the CLI; instead, they control the client's trust of the
+server's certificate.
 
 .. _cli-jwt-auth:
 
@@ -148,7 +175,8 @@ the following table must be entered in uppercase. The default value is ``CSV``.
 Examples
 ^^^^^^^^
 
-Consider the following command run as shown, or with ``--output-format CSV``:
+Consider the following command run as shown, or with the
+``--output-format=CSV`` option, which is the default for non-interactive usage:
 
 .. code-block:: text
 
@@ -162,7 +190,7 @@ The output is as follows:
     "1","ARGENTINA","1"
     "2","BRAZIL","1"
 
-The output with ``--output-format JSON`` is:
+The output with the ``--output-format=JSON`` option:
 
 .. code-block:: json
 
@@ -170,7 +198,8 @@ The output with ``--output-format JSON`` is:
     {"nationkey":1,"name":"ARGENTINA","regionkey":1}
     {"nationkey":2,"name":"BRAZIL","regionkey":1}
 
-The output with ``--output-format ALIGNED`` is:
+The output with the ``--output-format=ALIGNED`` option, which is the default
+for interactive usage:
 
 .. code-block:: text
 
@@ -180,7 +209,7 @@ The output with ``--output-format ALIGNED`` is:
             1 | ARGENTINA |         1
             2 | BRAZIL    |         1
 
-The output with ``--output-format VERTICAL`` is:
+The output with the ``--output-format=VERTICAL`` option:
 
 .. code-block:: text
 
@@ -197,7 +226,7 @@ The output with ``--output-format VERTICAL`` is:
     name      | BRAZIL
     regionkey | 1
 
-The preceding command with ``--output-format NULL`` produces no output.
+The preceding command with ``--output-format=NULL`` produces no output.
 However, if you have an error in the query, such as incorrectly using
 ``region`` instead of ``regionkey``, the command has an exit status of 1
 and displays an error message (which is unaffected by the output format):

@@ -15,9 +15,9 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.aggregation.TypedSet;
@@ -78,8 +78,7 @@ public final class MapConcatFunction
                         mapType(new TypeSignature("K"), new TypeSignature("V")),
                         ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
                         true),
-                false,
-                ImmutableList.of(new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, ImmutableList.of(false)),
                 false,
                 true,
                 DESCRIPTION,
@@ -88,13 +87,13 @@ public final class MapConcatFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        if (functionBinding.getArity() < 2) {
+        if (boundSignature.getArity() < 2) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more concatenation arguments to " + FUNCTION_NAME);
         }
 
-        MapType mapType = (MapType) functionBinding.getBoundSignature().getReturnType();
+        MapType mapType = (MapType) boundSignature.getReturnType();
         Type keyType = mapType.getKeyType();
         BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
@@ -102,14 +101,14 @@ public final class MapConcatFunction
         MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
                 Block.class,
                 Block.class,
-                functionBinding.getArity(),
+                boundSignature.getArity(),
                 MethodHandles.insertArguments(METHOD_HANDLE, 0, mapType, keyEqual, keyHashCode),
                 USER_STATE_FACTORY.bindTo(mapType));
 
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
-                nCopies(functionBinding.getArity(), NEVER_NULL),
+                nCopies(boundSignature.getArity(), NEVER_NULL),
                 methodHandleAndConstructor.getMethodHandle(),
                 Optional.of(methodHandleAndConstructor.getConstructor()));
     }
@@ -160,8 +159,7 @@ public final class MapConcatFunction
         for (int idx = lastMapIndex - 1; idx > firstMapIndex; idx--) {
             map = maps[idx];
             for (int i = 0; i < map.getPositionCount(); i += 2) {
-                if (!typedSet.contains(map, i)) {
-                    typedSet.add(map, i);
+                if (typedSet.add(map, i)) {
                     keyType.appendTo(map, i, blockBuilder);
                     valueType.appendTo(map, i + 1, blockBuilder);
                 }

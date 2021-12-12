@@ -29,6 +29,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Pattern.typeOf;
 import static io.trino.matching.Property.optionalProperty;
 import static io.trino.matching.Property.property;
+import static io.trino.sql.planner.plan.Patterns.Values.rowCount;
 
 public final class Patterns
 {
@@ -62,6 +63,11 @@ public final class Patterns
     public static Pattern<UpdateNode> update()
     {
         return typeOf(UpdateNode.class);
+    }
+
+    public static Pattern<TableExecuteNode> tableExecute()
+    {
+        return typeOf(TableExecuteNode.class);
     }
 
     public static Pattern<ExchangeNode> exchange()
@@ -177,6 +183,11 @@ public final class Patterns
     public static Pattern<ValuesNode> values()
     {
         return typeOf(ValuesNode.class);
+    }
+
+    public static Pattern<ValuesNode> emptyValues()
+    {
+        return values().with(rowCount().equalTo(0));
     }
 
     public static Pattern<UnnestNode> unnest()

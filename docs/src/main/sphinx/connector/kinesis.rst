@@ -255,3 +255,12 @@ into the object structure of the message. Additionally, you can map a field of t
 and if it is a more complex type (JSON array or JSON object) then the JSON itself becomes the field value.
 
 There is no limit on field descriptions for either key or message.
+
+.. _kinesis-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata from Kinesis streams.

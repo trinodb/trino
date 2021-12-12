@@ -27,7 +27,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-final class HiveApplyProjectionUtil
+public final class HiveApplyProjectionUtil
 {
     private HiveApplyProjectionUtil() {}
 
@@ -47,8 +47,8 @@ final class HiveApplyProjectionUtil
         }
 
         // If the whole expression is not supported, look for a partially supported projection
-        if (expression instanceof FieldDereference) {
-            fillSupportedProjectedColumns(((FieldDereference) expression).getTarget(), supportedSubExpressions);
+        for (ConnectorExpression child : expression.getChildren()) {
+            fillSupportedProjectedColumns(child, supportedSubExpressions);
         }
     }
 

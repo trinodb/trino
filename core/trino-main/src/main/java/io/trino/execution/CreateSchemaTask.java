@@ -26,27 +26,38 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.Expression;
-import io.trino.transaction.TransactionManager;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.metadata.MetadataUtil.checkRoleExists;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createPrincipal;
-import static io.trino.metadata.MetadataUtil.getSessionCatalog;
+import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
-import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.trino.sql.NodeUtils.mapFromProperties;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static java.util.Objects.requireNonNull;
 
 public class CreateSchemaTask
         implements DataDefinitionTask<CreateSchema>
 {
+    private final Metadata metadata;
+    private final AccessControl accessControl;
+
+    @Inject
+    public CreateSchemaTask(Metadata metadata, AccessControl accessControl)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
     @Override
     public String getName()
     {
@@ -54,17 +65,8 @@ public class CreateSchemaTask
     }
 
     @Override
-    public String explain(CreateSchema statement, List<Expression> parameters)
-    {
-        return "CREATE SCHEMA " + statement.getSchemaName();
-    }
-
-    @Override
     public ListenableFuture<Void> execute(
             CreateSchema statement,
-            TransactionManager transactionManager,
-            Metadata metadata,
-            AccessControl accessControl,
             QueryStateMachine stateMachine,
             List<Expression> parameters,
             WarningCollector warningCollector)
@@ -73,7 +75,7 @@ public class CreateSchemaTask
     }
 
     @VisibleForTesting
-    ListenableFuture<Void> internalExecute(CreateSchema statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
+    static ListenableFuture<Void> internalExecute(CreateSchema statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
     {
         CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()));
 
@@ -88,8 +90,7 @@ public class CreateSchemaTask
             return immediateVoidFuture();
         }
 
-        CatalogName catalogName = metadata.getCatalogHandle(session, schema.getCatalogName())
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + schema.getCatalogName()));
+        CatalogName catalogName = getRequiredCatalogHandle(metadata, session, statement, schema.getCatalogName());
 
         Map<String, Object> properties = metadata.getSchemaPropertyManager().getProperties(
                 catalogName,
@@ -98,9 +99,10 @@ public class CreateSchemaTask
                 session,
                 metadata,
                 accessControl,
-                parameterExtractor(statement, parameters));
+                parameterExtractor(statement, parameters),
+                true);
 
-        TrinoPrincipal principal = getCreatePrincipal(statement, session, metadata);
+        TrinoPrincipal principal = getCreatePrincipal(statement, session, metadata, catalogName.getCatalogName());
         try {
             metadata.createSchema(session, schema, properties, principal);
         }
@@ -114,19 +116,14 @@ public class CreateSchemaTask
         return immediateVoidFuture();
     }
 
-    private TrinoPrincipal getCreatePrincipal(CreateSchema statement, Session session, Metadata metadata)
+    private static TrinoPrincipal getCreatePrincipal(CreateSchema statement, Session session, Metadata metadata, String catalog)
     {
-        if (statement.getPrincipal().isPresent()) {
-            TrinoPrincipal principal = createPrincipal(statement.getPrincipal().get());
-            String catalog = getSessionCatalog(metadata, session, statement);
-            if (principal.getType() == PrincipalType.ROLE
-                    && !metadata.listRoles(session, catalog).contains(principal.getName())) {
-                throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", principal.getName());
-            }
-            return principal;
-        }
-        else {
+        if (statement.getPrincipal().isEmpty()) {
             return new TrinoPrincipal(PrincipalType.USER, session.getUser());
         }
+
+        TrinoPrincipal principal = createPrincipal(statement.getPrincipal().get());
+        checkRoleExists(session, statement, metadata, principal, Optional.of(catalog));
+        return principal;
     }
 }

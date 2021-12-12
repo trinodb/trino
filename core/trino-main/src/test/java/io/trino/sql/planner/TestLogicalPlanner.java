@@ -16,6 +16,8 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
+import io.trino.FeaturesConfig.JoinDistributionType;
+import io.trino.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
@@ -26,8 +28,6 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RowType;
-import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -79,6 +79,7 @@ import java.util.function.Predicate;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.DISTRIBUTED_SORT;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
@@ -274,7 +275,7 @@ public class TestLogicalPlanner
     public void testAllFieldsDereferenceFromNonDeterministic()
     {
         FunctionCall randomFunction = new FunctionCall(
-                getQueryRunner().getMetadata().resolveFunction(QualifiedName.of("rand"), ImmutableList.of()).toQualifiedName(),
+                getQueryRunner().getMetadata().resolveFunction(TEST_SESSION, QualifiedName.of("rand"), ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
 
         assertPlan("SELECT (x, x).* FROM (SELECT rand()) T(x)",
@@ -771,6 +772,19 @@ public class TestLogicalPlanner
                                                                         anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
                                                         anyTree(
                                                                 tableScan("region", ImmutableMap.of("r_regionkey", "regionkey")))))))));
+
+        assertDistributedPlan("SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation",
+                automaticJoinDistribution(),
+                anyTree(
+                        filter(format("CASE \"is_distinct\" WHEN true THEN true ELSE CAST(fail(%s, 'Scalar sub-query has returned multiple rows') AS boolean) END", SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode()),
+                                project(
+                                        markDistinct("is_distinct", ImmutableList.of("unique"),
+                                                join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
+                                                        project(
+                                                                assignUniqueId("unique",
+                                                                        tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey", "n_name", "name")))),
+                                                        anyTree(
+                                                                tableScan("region", ImmutableMap.of("r_regionkey", "regionkey")))))))));
     }
 
     @Test
@@ -1202,7 +1216,7 @@ public class TestLogicalPlanner
                                                         join(
                                                                 LEFT,
                                                                 ImmutableList.of(),
-                                                                Optional.of("((((region_regionkey IS NULL) OR (region_regionkey = nation_regionkey)) OR (nation_regionkey IS NULL)) AND (nation_name < region_name))"),
+                                                                Optional.of("(region_regionkey IS NULL OR region_regionkey = nation_regionkey OR nation_regionkey IS NULL) AND nation_name < region_name"),
                                                                 assignUniqueId(
                                                                         "unique",
                                                                         tableScan("region", ImmutableMap.of(

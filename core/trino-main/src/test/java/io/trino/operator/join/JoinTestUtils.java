@@ -15,7 +15,6 @@ package io.trino.operator.join;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.RowPagesBuilder;
@@ -64,6 +63,7 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -102,7 +102,7 @@ public final class JoinTestUtils
                 false,
                 hasFilter,
                 probePages.getTypes(),
-                Ints.asList(0),
+                probePages.getHashChannels().orElseThrow(),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
                 OptionalInt.of(1),
@@ -133,7 +133,6 @@ public final class JoinTestUtils
             NodePartitioningManager nodePartitioningManager,
             boolean parallelBuild,
             TaskContext taskContext,
-            List<Integer> hashChannels,
             RowPagesBuilder buildPages,
             Optional<InternalJoinFilterFunction> filterFunction,
             boolean spillEnabled,
@@ -143,6 +142,7 @@ public final class JoinTestUtils
                 .map(function -> (session, addresses, pages) -> new StandardJoinFilterFunction(function, addresses, pages));
 
         int partitionCount = parallelBuild ? PARTITION_COUNT : 1;
+        List<Integer> hashChannels = buildPages.getHashChannels().orElseThrow();
         LocalExchange.LocalExchangeFactory localExchangeFactory = new LocalExchange.LocalExchangeFactory(
                 nodePartitioningManager,
                 taskContext.getSession(),
@@ -199,7 +199,8 @@ public final class JoinTestUtils
                 100,
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
-                singleStreamSpillerFactory);
+                singleStreamSpillerFactory,
+                incrementalLoadFactorHashArraySizeSupplier(taskContext.getSession()));
         return new BuildSideSetup(lookupSourceFactoryManager, buildOperatorFactory, sourceOperatorFactory, partitionCount);
     }
 

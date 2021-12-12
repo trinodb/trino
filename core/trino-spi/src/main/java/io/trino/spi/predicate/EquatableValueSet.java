@@ -288,6 +288,29 @@ public class EquatableValueSet
     }
 
     @Override
+    public boolean contains(ValueSet other)
+    {
+        EquatableValueSet otherValueSet = checkCompatibility(other);
+
+        if (inclusive && otherValueSet.inclusive()) {
+            return entries.containsAll(otherValueSet.entries);
+        }
+        if (inclusive) {
+            /* Note: This isn't correct for a finite universe of values.
+             * For example, for boolean universe: {true, false}
+             * `this` being [inclusive, {true}] and `other` being [excluding, {false}]
+             * `this.contains(other)` should return true, since the domains are equal.
+             * However, we return false for consistency with `this.union(other).equals(this)`
+             */
+            return false;
+        }
+        if (otherValueSet.inclusive()) {
+            return !setsOverlap(entries, otherValueSet.entries);
+        }
+        return otherValueSet.entries.containsAll(entries);
+    }
+
+    @Override
     public EquatableValueSet complement()
     {
         return new EquatableValueSet(type, !inclusive, entries);

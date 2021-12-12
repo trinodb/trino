@@ -19,7 +19,7 @@
     "tableIndexConfig": {
         "loadMode": "MMAP",
         "invertedIndexColumns": ["string_col"],
-        "noDictionaryColumns": ["int_col", "int_array_col"],
+        "noDictionaryColumns": ["int_col"],
         "sortedColumn": ["updated_at_seconds"],
         "starTreeIndexConfigs": [
             {

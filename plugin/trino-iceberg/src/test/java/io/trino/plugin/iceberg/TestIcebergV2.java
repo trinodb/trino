@@ -23,6 +23,8 @@ import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -59,13 +61,13 @@ import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.NATION;
-import static org.apache.iceberg.FileFormat.ORC;
 
 public class TestIcebergV2
         extends AbstractTestQueryFramework
 {
     private HiveMetastore metastore;
     private HdfsEnvironment hdfsEnvironment;
+    private java.nio.file.Path tempDir;
     private File metastoreDir;
 
     @Override
@@ -76,18 +78,18 @@ public class TestIcebergV2
         HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         hdfsEnvironment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
 
-        File tempDir = Files.createTempDirectory("test_iceberg_v2").toFile();
-        metastoreDir = new File(tempDir, "iceberg_data");
+        tempDir = Files.createTempDirectory("test_iceberg_v2");
+        metastoreDir = tempDir.resolve("iceberg_data").toFile();
         metastore = createTestingFileHiveMetastore(metastoreDir);
 
-        return createIcebergQueryRunner(ImmutableMap.of(), ORC, ImmutableList.of(NATION), Optional.of(metastoreDir));
+        return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of(NATION), Optional.of(metastoreDir));
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
             throws IOException
     {
-        deleteRecursively(metastoreDir.getParentFile().toPath(), ALLOW_INSECURE);
+        deleteRecursively(tempDir, ALLOW_INSECURE);
     }
 
     @Test
@@ -176,8 +178,8 @@ public class TestIcebergV2
 
     private Table updateTableToV2(String tableName)
     {
-        HiveTableOperationsProvider tableOperationsProvider = new HiveTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment), metastore);
-        BaseTable table = (BaseTable) loadIcebergTable(tableOperationsProvider, SESSION, new SchemaTableName("tpch", tableName));
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(new HdfsFileIoProvider(hdfsEnvironment));
+        BaseTable table = (BaseTable) loadIcebergTable(metastore, tableOperationsProvider, SESSION, new SchemaTableName("tpch", tableName));
 
         TableOperations operations = table.operations();
         TableMetadata currentMetadata = operations.current();

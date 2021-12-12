@@ -98,7 +98,7 @@ public class TestTextFileHiveTable
                         "   skip_footer_line_count = 1 " +
                         ")",
                 warehouseDirectory));
-        assertThat(query("SELECT * FROM test_create_textfile_skip_header_footer")).containsExactly(row("value"));
+        assertThat(query("SELECT * FROM test_create_textfile_skip_header_footer")).containsExactlyInOrder(row("value"));
         onHive().executeQuery("DROP TABLE test_create_textfile_skip_header_footer");
     }
 

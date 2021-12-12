@@ -23,6 +23,7 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.spi.Page;
@@ -34,6 +35,7 @@ import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSer
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static java.util.Objects.requireNonNull;
@@ -45,9 +47,9 @@ public class TestingExchangeHttpClientHandler
 {
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
-    private final LoadingCache<String, TestingTaskBuffer> taskBuffers;
+    private final LoadingCache<TaskId, TestingTaskBuffer> taskBuffers;
 
-    public TestingExchangeHttpClientHandler(LoadingCache<String, TestingTaskBuffer> taskBuffers)
+    public TestingExchangeHttpClientHandler(LoadingCache<TaskId, TestingTaskBuffer> taskBuffers)
     {
         this.taskBuffers = requireNonNull(taskBuffers, "taskBuffers is null");
     }
@@ -58,16 +60,17 @@ public class TestingExchangeHttpClientHandler
         ImmutableList<String> parts = ImmutableList.copyOf(Splitter.on("/").omitEmptyStrings().split(request.getUri().getPath()));
         if (request.getMethod().equals("DELETE")) {
             assertEquals(parts.size(), 1);
-            return new TestingResponse(HttpStatus.OK, ImmutableListMultimap.of(), new byte[0]);
+            return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]);
         }
 
         assertEquals(parts.size(), 2);
-        String taskId = parts.get(0);
+        TaskId taskId = TaskId.valueOf(parts.get(0));
         int pageToken = Integer.parseInt(parts.get(1));
 
         ImmutableListMultimap.Builder<String, String> headers = ImmutableListMultimap.builder();
         headers.put(TRINO_TASK_INSTANCE_ID, "task-instance-id");
         headers.put(TRINO_PAGE_TOKEN, String.valueOf(pageToken));
+        headers.put(TRINO_TASK_FAILED, "false");
 
         TestingTaskBuffer taskBuffer = taskBuffers.getUnchecked(taskId);
         Page page = taskBuffer.getPage(pageToken);

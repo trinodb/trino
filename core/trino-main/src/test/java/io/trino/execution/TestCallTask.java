@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
@@ -29,7 +30,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.AccessDeniedException;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.TestingAccessControlManager;
@@ -130,12 +130,9 @@ public class TestCallTask
                         methodHandle));
         AccessControl accessControl = accessControlProvider.apply(transactionManager);
 
-        new CallTask()
+        new CallTask(transactionManager, metadata, accessControl)
                 .execute(
                         new Call(QualifiedName.of("testing_procedure"), ImmutableList.of()),
-                        transactionManager,
-                        metadata,
-                        accessControl,
                         stateMachine(transactionManager, metadata, accessControl),
                         ImmutableList.of(),
                         WarningCollector.NOOP);

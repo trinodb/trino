@@ -15,7 +15,6 @@ package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
@@ -24,10 +23,10 @@ import io.trino.spi.type.Type;
 import org.apache.kudu.client.KeyEncoderAccessor;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduScanner;
+import org.apache.kudu.client.KuduScannerIterator;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.RowResult;
-import org.apache.kudu.client.RowResultIterator;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -40,8 +39,6 @@ import static java.util.Objects.requireNonNull;
 public class KuduRecordCursor
         implements RecordCursor
 {
-    private static final Logger log = Logger.get(KuduRecordCursor.class);
-
     private static final Field ROW_DATA_FIELD;
 
     static {
@@ -58,11 +55,10 @@ public class KuduRecordCursor
     private final List<Type> columnTypes;
     private final KuduTable table;
     private final Map<Integer, Integer> fieldMapping;
-    private RowResultIterator nextRows;
+    private final KuduScannerIterator kuduScannerIterator;
     private RowResult currentRow;
 
     private long totalBytes;
-    private boolean started;
 
     public KuduRecordCursor(KuduScanner scanner, KuduTable table, List<Type> columnTypes, Map<Integer, Integer> fieldMapping)
     {
@@ -70,6 +66,7 @@ public class KuduRecordCursor
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.table = requireNonNull(table, "table is null");
         this.fieldMapping = ImmutableMap.copyOf(requireNonNull(fieldMapping, "fieldMapping is null"));
+        kuduScannerIterator = scanner.iterator();
     }
 
     @Override
@@ -101,31 +98,11 @@ public class KuduRecordCursor
     @Override
     public boolean advanceNextPosition()
     {
-        boolean needNextRows = !started || !nextRows.hasNext();
-
-        if (!started) {
-            started = true;
+        if (!kuduScannerIterator.hasNext()) {
+            return false;
         }
 
-        if (needNextRows) {
-            currentRow = null;
-            try {
-                do {
-                    if (!scanner.hasMoreRows()) {
-                        return false;
-                    }
-
-                    nextRows = scanner.nextRows();
-                }
-                while (!nextRows.hasNext());
-                log.debug("Fetched " + nextRows.getNumRows() + " rows");
-            }
-            catch (KuduException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        currentRow = nextRows.next();
+        currentRow = kuduScannerIterator.next();
         totalBytes += getRowLength();
         return true;
     }
@@ -208,9 +185,6 @@ public class KuduRecordCursor
     @Override
     public void close()
     {
-        if (!started) {
-            return;
-        }
         try {
             scanner.close();
         }
@@ -218,6 +192,5 @@ public class KuduRecordCursor
             throw new RuntimeException(e);
         }
         currentRow = null;
-        nextRows = null;
     }
 }

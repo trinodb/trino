@@ -13,9 +13,10 @@
  */
 package io.trino.metadata;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.TypeSignature;
 
-import java.util.Optional;
+import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -23,12 +24,17 @@ import static java.util.Objects.requireNonNull;
 public class AggregationFunctionMetadata
 {
     private final boolean orderSensitive;
-    private final Optional<TypeSignature> intermediateType;
+    private final List<TypeSignature> intermediateTypes;
 
-    public AggregationFunctionMetadata(boolean orderSensitive, Optional<TypeSignature> intermediateType)
+    public AggregationFunctionMetadata(boolean orderSensitive, TypeSignature... intermediateTypes)
+    {
+        this(orderSensitive, ImmutableList.copyOf(requireNonNull(intermediateTypes, "intermediateTypes is null")));
+    }
+
+    public AggregationFunctionMetadata(boolean orderSensitive, List<TypeSignature> intermediateTypes)
     {
         this.orderSensitive = orderSensitive;
-        this.intermediateType = requireNonNull(intermediateType, "intermediateType is null");
+        this.intermediateTypes = ImmutableList.copyOf(requireNonNull(intermediateTypes, "intermediateTypes is null"));
     }
 
     public boolean isOrderSensitive()
@@ -36,9 +42,14 @@ public class AggregationFunctionMetadata
         return orderSensitive;
     }
 
-    public Optional<TypeSignature> getIntermediateType()
+    public boolean isDecomposable()
     {
-        return intermediateType;
+        return !intermediateTypes.isEmpty();
+    }
+
+    public List<TypeSignature> getIntermediateTypes()
+    {
+        return intermediateTypes;
     }
 
     @Override
@@ -46,7 +57,7 @@ public class AggregationFunctionMetadata
     {
         return toStringHelper(this)
                 .add("orderSensitive", orderSensitive)
-                .add("intermediateType", intermediateType)
+                .add("intermediateTypes", intermediateTypes)
                 .toString();
     }
 }

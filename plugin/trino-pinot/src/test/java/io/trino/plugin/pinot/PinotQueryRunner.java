@@ -18,8 +18,10 @@ import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
+import io.trino.connector.CatalogName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.kafka.TestingKafka;
 
 import java.util.Map;
 import java.util.Optional;
@@ -48,7 +50,14 @@ public class PinotQueryRunner
 
     public static Session createSession(String schema)
     {
+        return createSession(schema, new PinotConfig());
+    }
+
+    public static Session createSession(String schema, PinotConfig config)
+    {
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
+        PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(config);
+        sessionPropertyManager.addConnectorSessionProperties(new CatalogName(PINOT_CATALOG), pinotSessionProperties.getSessionProperties());
         return testSessionBuilder(sessionPropertyManager)
                 .setCatalog(PINOT_CATALOG)
                 .setSchema(schema)
@@ -59,9 +68,13 @@ public class PinotQueryRunner
             throws Exception
     {
         Logging.initialize();
+        TestingKafka kafka = TestingKafka.createWithSchemaRegistry();
+        kafka.start();
+        TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork());
+        pinot.start();
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
         Map<String, String> pinotProperties = ImmutableMap.<String, String>builder()
-                .put("pinot.controller-urls", "localhost:9000")
+                .put("pinot.controller-urls", pinot.getControllerConnectString())
                 .put("pinot.segments-per-split", "10")
                 .put("pinot.request-timeout", "3m")
                 .build();

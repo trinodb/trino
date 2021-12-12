@@ -50,6 +50,15 @@ public class MySqlClientModule
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, MySqlConfig mySqlConfig)
             throws SQLException
     {
+        return new DriverConnectionFactory(
+                new Driver(),
+                config.getConnectionUrl(),
+                getConnectionProperties(mySqlConfig),
+                credentialProvider);
+    }
+
+    public static Properties getConnectionProperties(MySqlConfig mySqlConfig)
+    {
         Properties connectionProperties = new Properties();
         connectionProperties.setProperty("useInformationSchema", Boolean.toString(mySqlConfig.isDriverUseInformationSchema()));
         connectionProperties.setProperty("useUnicode", "true");
@@ -62,11 +71,6 @@ public class MySqlClientModule
         if (mySqlConfig.getConnectionTimeout() != null) {
             connectionProperties.setProperty("connectTimeout", String.valueOf(mySqlConfig.getConnectionTimeout().toMillis()));
         }
-
-        return new DriverConnectionFactory(
-                new Driver(),
-                config.getConnectionUrl(),
-                connectionProperties,
-                credentialProvider);
+        return connectionProperties;
     }
 }

@@ -98,7 +98,7 @@ Behaviors of the casts are shown with the examples below::
 
     SELECT CAST(JSON '[123,"abc",true]' AS
                 ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN));
-    -- {value1=123, value2=abc, value3=true}
+    -- {v1=123, v2=abc, v3=true}
 
 JSON arrays can have mixed element types and JSON maps can have mixed
 value types. This makes it impossible to cast them to SQL arrays and maps in
@@ -128,7 +128,7 @@ JSON functions
 
     Determine if ``value`` exists in ``json`` (a string containing a JSON array)::
 
-        SELECT json_array_contains('[1, 2, 3]', 2);
+        SELECT json_array_contains('[1, 2, 3]', 2); -- true
 
 .. function:: json_array_get(json_array, index) -> json
 

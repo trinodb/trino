@@ -72,6 +72,15 @@ public final class TableHandle
         return transaction;
     }
 
+    public TableHandle withConnectorHandle(ConnectorTableHandle connectorHandle)
+    {
+        return new TableHandle(
+                catalogName,
+                connectorHandle,
+                transaction,
+                layout);
+    }
+
     @Override
     public String toString()
     {

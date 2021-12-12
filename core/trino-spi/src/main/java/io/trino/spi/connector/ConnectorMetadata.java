@@ -26,6 +26,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
+import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -89,6 +90,42 @@ public interface ConnectorMetadata
     default ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support analyze");
+    }
+
+    /**
+     * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
+     * handle used for execution via @{link {@link ConnectorMetadata#beginTableExecute}
+     */
+    default Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
+    }
+
+    default Optional<ConnectorNewTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Begin execution of table procedure
+     */
+    default BeginTableExecuteResult<ConnectorTableExecuteHandle, ConnectorTableHandle> beginTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorTableHandle updatedSourceTableHandle)
+    {
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandleForExecute() is implemented without beginTableExecute()");
+    }
+
+    /**
+     * Finish table execute
+     *
+     * @param fragments all fragments returned by {@link ConnectorPageSink#finish()}
+     */
+    default void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState)
+    {
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandleForExecute() is implemented without finishTableExecute()");
     }
 
     /**
@@ -207,7 +244,7 @@ public interface ConnectorMetadata
     }
 
     /**
-     * List table and view names, possibly filtered by schema. An empty list is returned if none match.
+     * List table, view and materialized view names, possibly filtered by schema. An empty list is returned if none match.
      */
     default List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
@@ -318,11 +355,29 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Truncates the specified table
+     *
+     * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid
+     */
+    default void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support truncating tables");
+    }
+
+    /**
      * Rename the specified table
      */
     default void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables");
+    }
+
+    /**
+     * Set properties to the specified table
+     */
+    default void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> properties)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting table properties");
     }
 
     /**
@@ -382,7 +437,7 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Get the physical layout for a inserting into an existing table.
+     * Get the physical layout for inserting into an existing table.
      */
     default Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
@@ -662,7 +717,7 @@ public interface ConnectorMetadata
      */
     default Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support schema properties");
+        return Map.of();
     }
 
     /**
@@ -670,7 +725,7 @@ public interface ConnectorMetadata
      */
     default Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support schema ownership");
+        return Optional.empty();
     }
 
     /**
@@ -716,6 +771,14 @@ public interface ConnectorMetadata
     default Optional<ConnectorResolvedIndex> resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Does the specified role exist.
+     */
+    default boolean roleExists(ConnectorSession session, String role)
+    {
+        return listRoles(session).contains(role);
     }
 
     /**
@@ -806,6 +869,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Denys the specified privilege to the specified user on the specified schema
+     */
+    default void denySchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support denys on schemas");
+    }
+
+    /**
      * Revokes the specified privilege on the specified schema from the specified user
      */
     default void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
@@ -819,6 +890,14 @@ public interface ConnectorMetadata
     default void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support grants on tables");
+    }
+
+    /**
+     * Denys the specified privilege to the specified user on the specified table
+     */
+    default void denyTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support denys on tables");
     }
 
     /**
@@ -902,6 +981,10 @@ public interface ConnectorMetadata
      * <b>Note</b>: it's critical for connectors to return Optional.empty() if calling this method has no effect for that
      * invocation, even if the connector generally supports pushdown. Doing otherwise can cause the optimizer
      * to loop indefinitely.
+     * </p>
+     * <p>
+     * <b>Note</b>: Implementation must not maintain reference to {@code constraint}'s {@link Constraint#predicate()} after the
+     * call returns.
      * </p>
      */
     default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
@@ -1202,10 +1285,20 @@ public interface ConnectorMetadata
 
     /**
      * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
+     *
+     * @throws MaterializedViewNotFoundException when materialized view is not found
      */
     default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getMaterializedView() is implemented without getMaterializedViewFreshness()");
+    }
+
+    /**
+     * Rename the specified materialized view
+     */
+    default void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming materialized views");
     }
 
     default Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
@@ -1222,5 +1315,21 @@ public interface ConnectorMetadata
     default Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Returns a table handle representing a versioned table. A versioned table differs by having an additional specifier for version.
+     */
+    default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+    }
+
+    /**
+     * Returns whether a specified version type is supported by the connector for a given travel type and table name
+     */
+    default boolean isSupportedVersionType(ConnectorSession session, SchemaTableName tableName, PointerType pointerType, Type versioning)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
     }
 }

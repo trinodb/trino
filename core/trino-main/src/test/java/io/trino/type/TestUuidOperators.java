@@ -133,7 +133,7 @@ public class TestUuidOperators
     private int uuidCompare(String uuidLeft, String uuidRight)
     {
         return (int) functionAssertions.getBlockTypeOperators()
-                .getComparisonOperator(UUID)
+                .getComparisonUnorderedLastOperator(UUID)
                 .compare(uuidBlock(uuidLeft), 0, uuidBlock(uuidRight), 0);
     }
 

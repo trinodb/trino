@@ -37,6 +37,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -116,19 +117,21 @@ public class TestClickHouseTypeMapping
     @Test
     public void testReal()
     {
-        // TODO SqlDataTypeTest
-        DataTypeTest.create()
-                .addRoundTrip(realDataType(), 12.5f)
-                .addRoundTrip(realDataType(), Float.NaN)
-                .addRoundTrip(realDataType(), Float.NEGATIVE_INFINITY)
-                .addRoundTrip(realDataType(), Float.POSITIVE_INFINITY)
+        SqlDataTypeTest.create()
+                .addRoundTrip("real", "12.5", REAL, "REAL '12.5'")
+                .addRoundTrip("real", "nan()", REAL, "CAST(nan() AS REAL)")
+                .addRoundTrip("real", "-infinity()", REAL, "CAST(-infinity() AS REAL)")
+                .addRoundTrip("real", "+infinity()", REAL, "CAST(+infinity() AS REAL)")
+                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_real"));
 
-                // TODO .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_real"))
-
-                // TODO test ClickHouse Nullable(...)
-                .addRoundTrip(realDataType(), null)
-
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_real"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("real", "12.5", REAL, "REAL '12.5'")
+                .addRoundTrip("real", "nan", REAL, "CAST(nan() AS REAL)")
+                .addRoundTrip("real", "-inf", REAL, "CAST(-infinity() AS REAL)")
+                .addRoundTrip("real", "+inf", REAL, "CAST(+infinity() AS REAL)")
+                .addRoundTrip("Nullable(real)", "NULL", REAL, "CAST(NULL AS REAL)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_real"));
     }
 
     @Test

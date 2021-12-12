@@ -17,6 +17,8 @@ import io.airlift.slice.Slice;
 
 public interface ChunkReader
 {
+    long getDiskOffset();
+
     Slice read();
 
     void free();

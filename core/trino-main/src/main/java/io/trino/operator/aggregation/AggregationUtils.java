@@ -13,7 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
-import com.google.common.base.CaseFormat;
+import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.operator.aggregation.state.CentralMomentsState;
 import io.trino.operator.aggregation.state.CorrelationState;
 import io.trino.operator.aggregation.state.CovarianceState;
@@ -21,13 +21,12 @@ import io.trino.operator.aggregation.state.RegressionState;
 import io.trino.operator.aggregation.state.VarianceState;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.type.TypeSignature;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.sql.gen.CompilerOperations;
 
-import java.util.List;
-import java.util.function.Function;
+import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Locale.ENGLISH;
 
 public final class AggregationUtils
 {
@@ -228,22 +227,28 @@ public final class AggregationUtils
         updateCovarianceState(state, otherState);
     }
 
-    public static String generateAggregationName(String baseName, TypeSignature outputType, List<TypeSignature> inputTypes)
+    // used by aggregation compiler
+    @UsedByGeneratedCode
+    @SuppressWarnings("UnusedDeclaration")
+    public static Block extractMaskBlock(int maskChannel, Page page)
     {
-        StringBuilder sb = new StringBuilder();
-        sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, outputType.toString()));
-        for (TypeSignature inputType : inputTypes) {
-            sb.append(CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, inputType.toString()));
+        if (maskChannel < 0) {
+            return null;
         }
-        sb.append(CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, baseName.toLowerCase(ENGLISH)));
-
-        return sb.toString();
+        Block maskBlock = page.getBlock(maskChannel);
+        if (page.getPositionCount() > 0 && maskBlock instanceof RunLengthEncodedBlock && CompilerOperations.testMask(maskBlock, 0)) {
+            return null; // filter out RLE true blocks to bypass unnecessary mask checks
+        }
+        return maskBlock;
     }
 
-    // used by aggregation compiler
+    @UsedByGeneratedCode
     @SuppressWarnings("UnusedDeclaration")
-    public static Function<Integer, Block> pageBlockGetter(final Page page)
+    public static boolean maskGuaranteedToFilterAllRows(int positions, @Nullable Block maskBlock)
     {
-        return page::getBlock;
+        if (maskBlock == null || positions == 0) {
+            return false;
+        }
+        return (maskBlock instanceof RunLengthEncodedBlock && !CompilerOperations.testMask(maskBlock, 0));
     }
 }

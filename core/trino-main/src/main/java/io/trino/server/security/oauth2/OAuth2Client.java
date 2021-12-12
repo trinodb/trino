@@ -23,16 +23,16 @@ public interface OAuth2Client
 {
     URI getAuthorizationUri(String state, URI callbackUri, Optional<String> nonceHash);
 
-    AccessToken getAccessToken(String code, URI callbackUri)
+    OAuth2Response getOAuth2Response(String code, URI callbackUri)
             throws ChallengeFailedException;
 
-    class AccessToken
+    class OAuth2Response
     {
         private final String accessToken;
         private final Optional<Instant> validUntil;
         private final Optional<String> idToken;
 
-        public AccessToken(String accessToken, Optional<Instant> validUntil, Optional<String> idToken)
+        public OAuth2Response(String accessToken, Optional<Instant> validUntil, Optional<String> idToken)
         {
             this.accessToken = requireNonNull(accessToken, "accessToken is null");
             this.validUntil = requireNonNull(validUntil, "validUntil is null");

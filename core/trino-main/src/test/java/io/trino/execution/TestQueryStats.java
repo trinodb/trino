@@ -64,6 +64,7 @@ public class TestQueryStats
                     117L,
                     1833,
                     Metrics.EMPTY,
+                    Metrics.EMPTY,
                     succinctBytes(118L),
                     new Duration(119, NANOSECONDS),
                     120L,
@@ -104,6 +105,7 @@ public class TestQueryStats
                     217L,
                     2833,
                     Metrics.EMPTY,
+                    Metrics.EMPTY,
                     succinctBytes(218L),
                     new Duration(219, NANOSECONDS),
                     220L,
@@ -143,6 +145,7 @@ public class TestQueryStats
                     succinctBytes(316L),
                     317L,
                     3833,
+                    Metrics.EMPTY,
                     Metrics.EMPTY,
                     succinctBytes(318L),
                     new Duration(319, NANOSECONDS),
@@ -186,6 +189,7 @@ public class TestQueryStats
             16,
 
             17.0,
+            11.0,
             DataSize.ofBytes(18),
             DataSize.ofBytes(19),
             DataSize.ofBytes(20),
@@ -274,6 +278,7 @@ public class TestQueryStats
         assertEquals(actual.getCompletedDrivers(), 16);
 
         assertEquals(actual.getCumulativeUserMemory(), 17.0);
+        assertEquals(actual.getCumulativeSystemMemory(), 11.0);
         assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(18));
         assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(19));
         assertEquals(actual.getTotalMemoryReservation(), DataSize.ofBytes(20));

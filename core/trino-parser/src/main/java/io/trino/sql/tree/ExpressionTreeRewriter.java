@@ -236,20 +236,18 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
-        public Expression visitLogicalBinaryExpression(LogicalBinaryExpression node, Context<C> context)
+        public Expression visitLogicalExpression(LogicalExpression node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteLogicalBinaryExpression(node, context.get(), ExpressionTreeRewriter.this);
+                Expression result = rewriter.rewriteLogicalExpression(node, context.get(), ExpressionTreeRewriter.this);
                 if (result != null) {
                     return result;
                 }
             }
 
-            Expression left = rewrite(node.getLeft(), context.get());
-            Expression right = rewrite(node.getRight(), context.get());
-
-            if (left != node.getLeft() || right != node.getRight()) {
-                return new LogicalBinaryExpression(node.getOperator(), left, right);
+            List<Expression> terms = rewrite(node.getTerms(), context);
+            if (!sameElements(node.getTerms(), terms)) {
+                return new LogicalExpression(node.getOperator(), terms);
             }
 
             return node;
@@ -821,7 +819,10 @@ public final class ExpressionTreeRewriter<C>
 
             Expression base = rewrite(node.getBase(), context.get());
             if (base != node.getBase()) {
-                return new DereferenceExpression(base, node.getField());
+                if (node.getField().isPresent()) {
+                    return new DereferenceExpression(base, node.getField().get());
+                }
+                return new DereferenceExpression((Identifier) base);
             }
 
             return node;
@@ -1127,9 +1128,11 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            SymbolReference reference = rewrite(node.getReference(), context.get());
-            if (node.getReference() != reference) {
-                return new LabelDereference(node.getLabel(), reference);
+            if (node.getReference().isPresent()) {
+                SymbolReference reference = rewrite(node.getReference().get(), context.get());
+                if (node.getReference().get() != reference) {
+                    return new LabelDereference(node.getLabel(), reference);
+                }
             }
 
             return node;

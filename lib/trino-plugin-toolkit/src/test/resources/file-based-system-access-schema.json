@@ -10,7 +10,7 @@
             "owner": false
         },
         {
-            "user": "admin",
+            "role": "admin",
             "owner": true
         },
         {

@@ -85,8 +85,10 @@ provider.
 
 * :doc:`Password file authentication <password-file>`
 * :doc:`LDAP authentication <ldap>`
-* :doc:`OAuth 2.0 authentication <oauth2>`
 * :doc:`Salesforce authentication <salesforce>`
+* :doc:`OAuth 2.0 authentication <oauth2>`
+* :doc:`Certificate authentication <certificate>`
+* :doc:`JSON Web Token (JWT) authentication <jwt>`
 * :doc:`Kerberos authentication <kerberos>`
 
 .. _user-name-management:
@@ -98,8 +100,9 @@ Trino provides ways to map the user and group names from authentication
 providers to Trino user names.
 
 * :doc:`User mapping <user-mapping>` applies to all authentication systems,
-  and allows for JSON files to specify rules to map complex user names from
-  other systems (``alice@example.com``) to simple user names (``alice``).
+  and allows for regular expression rules to be specified that map complex user
+  names from other systems (``alice@example.com``) to simple user names
+  (``alice``).
 * :doc:`File group provider <group-file>` provides a way to assign a set
   of user names to a group name to ease access control.
 

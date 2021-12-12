@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
@@ -77,7 +78,12 @@ abstract class AbstractPropertiesSystemTable
 
         InMemoryRecordSet.Builder table = InMemoryRecordSet.builder(tableMetadata);
         Map<CatalogName, Map<String, PropertyMetadata<?>>> connectorProperties = propertySupplier.get();
-        for (Entry<String, CatalogName> entry : new TreeMap<>(transactionManager.getCatalogNames(transactionId)).entrySet()) {
+        Map<String, CatalogName> catalogNames = transactionManager.getCatalogs(transactionId).entrySet()
+                .stream()
+                .collect(Collectors.toMap(
+                        Entry::getKey,
+                        entry -> entry.getValue().getConnectorCatalogName()));
+        for (Entry<String, CatalogName> entry : new TreeMap<>(catalogNames).entrySet()) {
             String catalog = entry.getKey();
             Map<String, PropertyMetadata<?>> properties = new TreeMap<>(connectorProperties.getOrDefault(entry.getValue(), ImmutableMap.of()));
             for (PropertyMetadata<?> propertyMetadata : properties.values()) {

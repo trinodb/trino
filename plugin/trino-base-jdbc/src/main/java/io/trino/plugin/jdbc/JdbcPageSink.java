@@ -35,7 +35,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
-import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getInsertBatchSize;
+import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.getWriteBatchSize;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -106,7 +106,8 @@ public class JdbcPageSink
             throw new TrinoException(JDBC_ERROR, e);
         }
 
-        this.maxBatchSize = getInsertBatchSize(session);
+        // Making batch size configurable allows performance tuning for insert/write-heavy workloads over multiple connections.
+        this.maxBatchSize = getWriteBatchSize(session);
     }
 
     @Override

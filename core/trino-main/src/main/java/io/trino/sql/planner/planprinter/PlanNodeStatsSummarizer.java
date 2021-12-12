@@ -79,7 +79,7 @@ public final class PlanNodeStatsSummarizer
         Map<PlanNodeId, Long> planNodeScheduledMillis = new HashMap<>();
         Map<PlanNodeId, Long> planNodeCpuMillis = new HashMap<>();
 
-        Map<PlanNodeId, Map<String, OperatorInputStats>> operatorInputStats = new HashMap<>();
+        Map<PlanNodeId, Map<String, BasicOperatorStats>> basicOperatorStats = new HashMap<>();
         Map<PlanNodeId, Map<String, OperatorHashCollisionsStats>> operatorHashCollisionsStats = new HashMap<>();
         Map<PlanNodeId, WindowOperatorStats> windowNodeStats = new HashMap<>();
 
@@ -112,14 +112,16 @@ public final class PlanNodeStatsSummarizer
                     continue;
                 }
 
-                operatorInputStats.merge(planNodeId,
+                basicOperatorStats.merge(planNodeId,
                         ImmutableMap.of(
                                 operatorStats.getOperatorType(),
-                                new OperatorInputStats(
+                                new BasicOperatorStats(
                                         operatorStats.getTotalDrivers(),
                                         operatorStats.getInputPositions(),
-                                        operatorStats.getSumSquaredInputPositions())),
-                        (map1, map2) -> mergeMaps(map1, map2, OperatorInputStats::merge));
+                                        operatorStats.getSumSquaredInputPositions(),
+                                        operatorStats.getMetrics(),
+                                        operatorStats.getConnectorMetrics())),
+                        (map1, map2) -> mergeMaps(map1, map2, BasicOperatorStats::merge));
 
                 planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
                 planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSize().toBytes(), Long::sum);
@@ -194,7 +196,7 @@ public final class PlanNodeStatsSummarizer
                         outputPositions,
                         succinctBytes(planNodeOutputBytes.getOrDefault(planNodeId, 0L)),
                         succinctBytes(planNodeSpilledDataSize.get(planNodeId)),
-                        operatorInputStats.get(planNodeId),
+                        basicOperatorStats.get(planNodeId),
                         operatorHashCollisionsStats.get(planNodeId));
             }
             else if (windowNodeStats.containsKey(planNodeId)) {
@@ -207,7 +209,7 @@ public final class PlanNodeStatsSummarizer
                         outputPositions,
                         succinctBytes(planNodeOutputBytes.getOrDefault(planNodeId, 0L)),
                         succinctBytes(planNodeSpilledDataSize.get(planNodeId)),
-                        operatorInputStats.get(planNodeId),
+                        basicOperatorStats.get(planNodeId),
                         windowNodeStats.get(planNodeId));
             }
             else {
@@ -220,7 +222,7 @@ public final class PlanNodeStatsSummarizer
                         outputPositions,
                         succinctBytes(planNodeOutputBytes.getOrDefault(planNodeId, 0L)),
                         succinctBytes(planNodeSpilledDataSize.get(planNodeId)),
-                        operatorInputStats.get(planNodeId));
+                        basicOperatorStats.get(planNodeId));
             }
 
             stats.add(nodeStats);

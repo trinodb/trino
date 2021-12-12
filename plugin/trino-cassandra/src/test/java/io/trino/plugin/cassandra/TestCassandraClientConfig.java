@@ -61,7 +61,7 @@ public class TestCassandraClientConfig
                 .setTokenAwareShuffleReplicas(false)
                 .setAllowedAddresses("")
                 .setNoHostAvailableRetryTimeout(new Duration(1, MINUTES))
-                .setSpeculativeExecutionLimit(1)
+                .setSpeculativeExecutionLimit(null)
                 .setSpeculativeExecutionDelay(new Duration(500, MILLISECONDS))
                 .setProtocolVersion(null)
                 .setTlsEnabled(false)

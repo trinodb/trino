@@ -23,8 +23,8 @@ The connector can query a ClickHouse server. Create a catalog properties file
 that specifies the ClickHouse connector by setting the ``connector.name`` to
 ``clickhouse``.
 
-For example, to access a server as ``myclickhouse``, create the file
-``etc/catalog/myclickhouse.properties``. Replace the connection properties as
+For example, to access a server as ``clickhouse``, create the file
+``etc/catalog/clickhouse.properties``. Replace the connection properties as
 appropriate for your setup:
 
 .. code-block:: none
@@ -45,6 +45,12 @@ catalog for each server. To add another catalog:
 
 For example, if you name the property file ``sales.properties``, Trino uses the
 configured connector to create a catalog named ``sales``.
+
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: jdbc-case-insensitive-matching.fragment
+
+.. include:: non-transactional-insert.fragment
 
 Querying ClickHouse
 -------------------
@@ -115,6 +121,15 @@ Property Name               Default Value    Description
 Currently the connector only supports ``Log`` and ``MergeTree`` table engines
 in create table statement. ``ReplicatedMergeTree`` engine is not yet supported.
 
+.. _clickhouse-type-mapping:
+
+Type mapping
+------------
+
+.. include:: jdbc-type-mapping.fragment
+
+.. _clickhouse-pushdown:
+
 Pushdown
 --------
 
@@ -130,13 +145,22 @@ The connector supports pushdown for a number of operations:
 * :func:`min`
 * :func:`sum`
 
-Limitations
+.. include:: no-pushdown-text-type.fragment
+
+.. _clickhouse-sql-support:
+
+SQL support
 -----------
 
-The following SQL statements aren't  supported:
+The connector provides read and write access to data and metadata in
+a ClickHouse catalog. In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
 
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
-* :doc:`/sql/show-grants`
-* :doc:`/sql/show-roles`
-* :doc:`/sql/show-role-grants`
+* :doc:`/sql/insert`
+* :doc:`/sql/truncate`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`

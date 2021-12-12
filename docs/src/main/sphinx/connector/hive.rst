@@ -23,11 +23,11 @@ data warehouse. Hive is a combination of three components:
 * Data files in varying formats, that are typically stored in the
   Hadoop Distributed File System (HDFS) or in object storage systems
   such as Amazon S3.
-* Metadata about how the data files are mapped to schemas and tables.
-  This metadata is stored in a database, such as MySQL, and is accessed
-  via the Hive metastore service.
-* A query language called HiveQL. This query language is executed
-  on a distributed computing framework such as MapReduce or Tez.
+* Metadata about how the data files are mapped to schemas and tables. This
+  metadata is stored in a database, such as MySQL, and is accessed via the Hive
+  metastore service.
+* A query language called HiveQL. This query language is executed on a
+  distributed computing framework such as MapReduce or Tez.
 
 Trino only uses the first two components: the data and the metadata.
 It does not use HiveQL or any part of Hive's execution environment.
@@ -81,21 +81,6 @@ configuration file ``hive-site.xml`` (and restart the metastore service):
         <value>org.apache.hadoop.hive.metastore.SerDeStorageSchemaReader</value>
     </property>
 
-Supported table types
----------------------
-
-Transactional and ACID tables
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-When connecting to a Hive metastore version 3.x, the Hive connector supports
-reading from and writing to insert-only and ACID tables, with full support for
-partitioning and bucketing. Row-level DELETE is supported for ACID tables,
-as well as SQL UPDATE.  UPDATE of partition key columns and bucket columns is
-not supported.
-
-ACID tables created with `Hive Streaming Ingest <https://cwiki.apache.org/confluence/display/Hive/Streaming+Data+Ingest>`_
-are not supported.
-
 Materialized views
 ------------------
 
@@ -147,28 +132,34 @@ executed.
 
 **Experimental**
 
-The new behavior is better engineered, and has the potential to become a lot
+The new behavior is better engineered and has the potential to become a lot
 more powerful than the legacy implementation. It can analyze, process, and
 rewrite Hive views and contained expressions and statements.
 
-It is considered an experimental feature and continues to change with each
-release. However it is already suitable for many use cases, and usage is
-encouraged.
+It supports the following Hive view functionality:
+
+* ``UNION [DISTINCT]`` and ``UNION ALL`` against Hive views
+* Nested ``GROUP BY`` clauses
+* ``current_user()``
+* ``LATERAL VIEW OUTER EXPLODE``
+* ``LATERAL VIEW [OUTER] EXPLODE`` on array of struct
+* ``LATERAL VIEW json_tuple``
 
 You can enable the experimental behavior with
-``hive.translate-hive-views=true``.
+``hive.translate-hive-views=true``. Remove the
+``hive.legacy-hive-view-translation`` property or set it to ``false`` to make
+sure legacy is not enabled.
 
 Keep in mind that numerous features are not yet implemented when experimenting
 with this feature. The following is an incomplete list of **missing**
 functionality:
 
 * HiveQL ``current_date``, ``current_timestamp``, and others
-* Hive function calls including ``translate()``, window functions and others
+* Hive function calls including ``translate()``, window functions, and others
 * Common table expressions and simple case expressions
 * Honor timestamp precision setting
 * Support all Hive data types and correct mapping to Trino types
 * Ability to process custom UDFs
-
 
 Configuration
 -------------
@@ -227,7 +218,7 @@ When not using Kerberos with HDFS, Trino accesses HDFS using the
 OS user of the Trino process. For example, if Trino is running as
 ``nobody``, it accesses HDFS as ``nobody``. You can override this
 username by setting the ``HADOOP_USER_NAME`` system property in the
-Trino :ref:`trino_jvm_config`, replacing ``hdfs_user`` with the
+Trino :ref:`jvm_config`, replacing ``hdfs_user`` with the
 appropriate username:
 
 .. code-block:: text
@@ -304,6 +295,8 @@ Property Name                                      Description                  
                                                    * ``APPEND`` - appends data to existing partitions
                                                    * ``OVERWRITE`` - overwrites existing partitions
                                                    * ``ERROR`` - modifying existing partitions is not allowed
+
+``hive.target-max-file-size``                      Best effort maximum size of new files.                       ``1GB``
 
 ``hive.create-empty-bucket-files``                 Should empty files be created for buckets that have no data? ``false``
 
@@ -386,6 +379,15 @@ Property Name                                      Description                  
 ``hive.parallel-partitioned-bucketed-writes``      Improve parallelism of partitioned and bucketed table        ``true``
                                                    writes. When disabled, the number of writing threads
                                                    is limited to number of buckets.
+
+``hive.fs.new-directory-permissions``              Controls the permissions set on new directories created      ``0777``
+                                                   for tables. It must be either 'skip' or an octal number,
+                                                   with a leading 0. If set to 'skip', permissions of newly
+                                                   created directories will not be set by Trino.
+
+``hive.query-partition-filter-required``           Set to ``true`` to force a query to use a partition filter.   ``false``
+                                                   You can use the ``query_partition_filter_required`` catalog
+                                                   session property for temporary, catalog specific use.
 ================================================== ============================================================ ============
 
 ORC format configuration properties
@@ -405,7 +407,7 @@ with ORC files performed by the Hive connector.
       - Sets the default time zone for legacy ORC files that did not declare a
         time zone.
       - JVM default
-    * - ``hive.orc.use-columns-names``
+    * - ``hive.orc.use-column-names``
       - Access ORC columns by name. By default, columns in ORC files are
         accessed by their ordinal position in the Hive table definition. The
         equivalent catalog session property is ``orc_use_column_names``.
@@ -444,58 +446,61 @@ Specific properties can be used to further configure the
 `Thrift <#thrift-metastore-configuration-properties>`__ or
 `Glue <#aws-glue-catalog-configuration-properties>`__ metastore.
 
-======================================= ============================================================ ============
-Property Name                                      Description                                       Default
-======================================= ============================================================ ============
-``hive.metastore``                      The type of Hive metastore to use. Trino currently supports  ``thrift``
+======================================= =============================================================
+Property Name                           Description
+======================================= =============================================================
+``hive.metastore``                      The type of Hive metastore to use. Trino currently supports
                                         the default Hive Thrift metastore (``thrift``), and the AWS
-                                        Glue Catalog (``glue``) as metadata sources.
+                                        Glue Catalog (``glue``) as metadata sources. Default is
+                                        ``thrift``.
 
-``hive.metastore-cache-ttl``            Duration how long cached metastore data should be considered ``0s``
-                                        valid.
+``hive.metastore-cache-ttl``            Duration how long cached metastore data should be considered
+                                        valid. Default is ``0s``.
 
-``hive.metastore-cache-maximum-size``   Maximum number of metastore data objects in the Hive         10000
-                                        metastore cache.
+``hive.metastore-cache-maximum-size``   Maximum number of metastore data objects in the Hive
+                                        metastore cache. Default is ``10000``.
 
 ``hive.metastore-refresh-interval``     Asynchronously refresh cached metastore data after access
                                         if it is older than this but is not yet expired, allowing
                                         subsequent accesses to see fresh data.
 
-``hive.metastore-refresh-max-threads``  Maximum threads used to refresh cached metastore data.        10
+``hive.metastore-refresh-max-threads``  Maximum threads used to refresh cached metastore data.
+                                        Default is ``10``.
 
-``hive.metastore-timeout``              Timeout for Hive metastore requests.                         ``10s``
+``hive.metastore-timeout``              Timeout for Hive metastore requests. Default is ``10s``.
 
-``hive.hide-delta-lake-tables``         Controls whether to hide Delta Lake tables in table          false
+``hive.hide-delta-lake-tables``         Controls whether to hide Delta Lake tables in table
                                         listings. Currently applies only when using the AWS Glue
-                                        metastore.
-======================================= ============================================================ ============
+                                        metastore. Default is ``false``.
+======================================= =============================================================
 
 Thrift metastore configuration properties
 -----------------------------------------
 
-=============================================================== ============================================================ ============
-Property Name                                                   Description                                                  Default
-=============================================================== ============================================================ ============
-``hive.metastore.uri``                                          The URI(s) of the Hive metastore to connect to using the
-                                                                Thrift protocol. If multiple URIs are provided, the first
-                                                                URI is used by default, and the rest of the URIs are
-                                                                fallback metastores. This property is required.
+=============================================================== =============================================================
+Property Name                                                   Description
+=============================================================== =============================================================
+``hive.metastore.uri``                                          The URIs of the Hive metastore to connect to using the
+                                                                Thrift protocol. If a comma-separated list of URIs is
+                                                                provided, the first URI is used by default, and the rest
+                                                                of the URIs are fallback metastores. This property is required.
                                                                 Example: ``thrift://192.0.2.3:9083`` or
                                                                 ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
 
 ``hive.metastore.username``                                     The username Trino uses to access the Hive metastore.
 
 ``hive.metastore.authentication.type``                          Hive metastore authentication type.
-                                                                Possible values are ``NONE`` or ``KERBEROS``
-                                                                (defaults to ``NONE``).
+                                                                Possible values are ``NONE`` or ``KERBEROS``.
+                                                                Default is ``NONE``.
 
 ``hive.metastore.thrift.impersonation.enabled``                 Enable Hive metastore end user impersonation.
 
-``hive.metastore.thrift.delegation-token.cache-ttl``            Time to live delegation token cache for metastore.           ``1h``
+``hive.metastore.thrift.delegation-token.cache-ttl``            Time to live delegation token cache for metastore.
+                                                                Default is ``1h``.
 
-``hive.metastore.thrift.delegation-token.cache-maximum-size``   Delegation token cache maximum size.                         1,000
+``hive.metastore.thrift.delegation-token.cache-maximum-size``   Delegation token cache maximum size. Default is ``1000``.
 
-``hive.metastore.thrift.client.ssl.enabled``                    Use SSL when connecting to metastore.                        ``false``
+``hive.metastore.thrift.client.ssl.enabled``                    Use SSL when connecting to metastore. Default is ``false``.
 
 ``hive.metastore.thrift.client.ssl.key``                        Path to private key and client certificate (key store).
 
@@ -513,7 +518,7 @@ Property Name                                                   Description     
 
 ``hive.metastore.client.keytab``                                Hive metastore client keytab location.
 
-=============================================================== ============================================================ ============
+=============================================================== =============================================================
 
 AWS Glue catalog configuration properties
 -----------------------------------------
@@ -574,10 +579,10 @@ Property Name                                        Description
                                                      defaults to ``20``.
 
 ``hive.metastore.glue.read-statistics-threads``      Number of threads for parallel statistic fetches from Glue,
-                                                     defaults to ``1``.
+                                                     defaults to ``5``.
 
 ``hive.metastore.glue.write-statistics-threads``     Number of threads for parallel statistic writes to Glue,
-                                                     defaults to ``1``.
+                                                     defaults to ``5``.
 ==================================================== ============================================================
 
 Google Cloud Storage configuration
@@ -643,6 +648,91 @@ connector.
         also have more overhead and increase load on the system.
       - ``64 MB``
 
+.. _hive-sql-support:
+
+SQL support
+-----------
+
+The connector provides read access and write access to data and metadata in the
+configured object storage system and metadata stores. In addition to the
+:ref:`globally available <sql-globally-available>` and :ref:`read operation
+<sql-read-operations>` statements, the connector supports the following
+features:
+
+* :ref:`sql-write-operations`:
+
+  * :ref:`sql-data-management`, see also :ref:`hive-data-management`
+  * :ref:`sql-schema-table-management`
+  * :ref:`sql-views-management`
+
+* :ref:`sql-security-operations`, see also :ref:`hive-sql-standard-based-authorization`
+* :ref:`sql-transactions`
+
+Refer to :doc:`the migration guide </appendix/from-hive>` for practical advice on migrating from Hive to Trino.
+
+.. _hive-alter-table-execute:
+
+ALTER TABLE EXECUTE
+^^^^^^^^^^^^^^^^^^^
+
+The connector supports the following commands for use with
+:ref:`ALTER TABLE EXECUTE <alter-table-execute>`:
+
+* ``optimize``: collapse files in a non-transactional table up to a threshold
+  defined in the ``file_size_threshold`` parameter. For example, the following
+  statement collapses files in a table that are under 10 megabytes in size:
+
+  .. code-block:: sql
+
+    ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
+
+  You can use a ``WHERE`` clause with the columns used to partition the table,
+  to filter which partitions are optimized.
+
+  The ``optimize`` procedure is disabled by default, and can be enabled for a
+  catalog with the ``<catalog-name>.non_transactional_optimize_enabled``
+  session property:
+
+  .. code-block:: sql
+
+    SET SESSION <catalog_name>.non_transactional_optimize_enabled=true
+
+.. warning::
+
+  Because Hive tables are non-transactional, take note of the following possible
+  outcomes:
+
+  * If queries are run against tables that are currently being optimized,
+    duplicate rows may be read.
+  * In rare cases where exceptions occur during the ``optimize`` operation,
+    a manual cleanup of the table directory is needed. In this situation, refer
+    to the Trino logs and query failure messages to see which files need to be
+    deleted.
+
+.. _hive-data-management:
+
+Data management
+^^^^^^^^^^^^^^^
+
+The :ref:`sql-data-management` functionality includes support for ``INSERT``,
+``UPDATE``, and ``DELETE`` statements, with the exact support depending on the
+storage system, file format, and metastore:
+
+When connecting to a Hive metastore version 3.x, the Hive connector supports
+reading from and writing to insert-only and ACID tables, with full support for
+partitioning and bucketing.
+
+:doc:`/sql/delete` applied to non-transactional tables is only supported if the
+table is partitioned and the ``WHERE`` clause matches entire partitions.
+Transactional Hive tables with ORC format support "row-by-row" deletion, in
+which the ``WHERE`` clause may match arbitrary sets of rows.
+
+:doc:`/sql/update` is only supported for transactional Hive tables with format
+ORC. ``UPDATE`` of partition or bucket columns is not supported.
+
+ACID tables created with `Hive Streaming Ingest <https://cwiki.apache.org/confluence/display/Hive/Streaming+Data+Ingest>`_
+are not supported.
+
 Table statistics
 ----------------
 
@@ -707,11 +797,14 @@ with keys ``p2_value1, p2_value2``.
 Note that if statistics were previously collected for all columns, they need to be dropped
 before re-analyzing just a subset::
 
-    CALL system.drop_stats(schema_name, table_name)
+    CALL system.drop_stats('schema_name', 'table_name')
 
 You can also drop statistics for selected partitions only::
 
-    CALL system.drop_stats(schema_name, table_name, ARRAY[ARRAY['p2_value1', 'p2_value2']])
+    CALL system.drop_stats(
+        schema_name => 'schema',
+        table_name => 'table',
+        partition_values => ARRAY[ARRAY['p2_value1', 'p2_value2']])
 
 .. _hive_dynamic_filtering:
 
@@ -742,8 +835,8 @@ in query and CPU time, if dynamic filtering is able to reduce the amount of scan
 
 For the Hive connector, a table scan can be delayed for a configured amount of
 time until the collection of dynamic filters by using the configuration property
-``hive.dynamic-filtering-probe-blocking-timeout`` in the catalog file or the catalog
-session property ``<hive-catalog>.dynamic_filtering_probe_blocking_timeout``.
+``hive.dynamic-filtering.wait-timeout`` in the catalog file or the catalog
+session property ``<hive-catalog>.dynamic_filtering_wait_timeout``.
 
 Schema evolution
 ----------------
@@ -819,7 +912,7 @@ Limitations
 The following operations are not supported when ``avro_schema_url`` is set:
 
 * ``CREATE TABLE AS`` is not supported.
-* Using partitioning(``partitioned_by``) or bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
+* Bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
 * ``ALTER TABLE`` commands modifying columns are not supported.
 
 .. _hive-procedures:
@@ -874,9 +967,7 @@ Special columns
 ---------------
 
 In addition to the defined columns, the Hive connector automatically exposes
-metadata in a number of hidden columns in each table. You can use these columns
-in your SQL statements like any other column, e.g., they can be selected
-directly or used in conditional statements.
+metadata in a number of hidden columns in each table:
 
 * ``$bucket``: Bucket number for this row
 
@@ -887,6 +978,20 @@ directly or used in conditional statements.
 * ``$file_size``: Size of the file for this row
 
 * ``$partition``: Partition name for this row
+
+You can use these columns in your SQL statements like any other column. They
+can be selected directly, or used in conditional statements. For example, you
+can inspect the file size, location and partition for each record::
+
+    SELECT *, "$path", "$file_size", "$partition"
+    FROM hive.web.page_views;
+
+Retrieve all records that belong to files stored in the partition
+``ds=2016-08-09/country=US``::
+
+    SELECT *, "$path", "$file_size"
+    FROM hive.web.page_views
+    WHERE "$partition" = 'ds=2016-08-09/country=US'
 
 Special tables
 ----------------
@@ -996,19 +1101,8 @@ Drop a schema::
 
     DROP SCHEMA hive.web
 
-Hive connector limitations
---------------------------
-
-* :doc:`/sql/alter-schema` usage fails, since the Hive metastore does not support renaming schemas.
-* :doc:`/sql/delete` applied to non-transactional tables is only supported if the table is partitioned and
-  the ``WHERE`` clause matches entire partitions. Transactional Hive tables with ORC format support
-  "row-by-row" deletion, in which the ``WHERE`` clause may match arbitrary sets of rows.
-* :doc:`/sql/update` is only supported for transactional Hive tables with format ORC.  ``UPDATE`` of partition or bucket
-  columns is not supported.
-
-
 Hive 3 related limitations
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------
 
 * For security reasons, the ``sys`` system catalog is not accessible.
 
@@ -1027,7 +1121,7 @@ Hive 3 related limitations
       CREATE TABLE <name>
       WITH (
           format='ORC',
-          transactional=true,
+          transactional=true
       )
       AS <query>
 

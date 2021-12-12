@@ -44,12 +44,6 @@ public class IndexLookupSource
     }
 
     @Override
-    public int getChannelCount()
-    {
-        return indexLoader.getChannelCount();
-    }
-
-    @Override
     public long getJoinPositionCount()
     {
         return 0;

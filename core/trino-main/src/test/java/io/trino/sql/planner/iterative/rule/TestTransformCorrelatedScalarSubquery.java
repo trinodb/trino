@@ -16,8 +16,8 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.StandardErrorCode;
-import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -209,8 +209,8 @@ public class TestTransformCorrelatedScalarSubquery
                 new SymbolReference("is_distinct"),
                 ImmutableList.of(new WhenClause(TRUE_LITERAL, TRUE_LITERAL)),
                 Optional.of(new Cast(
-                        new FunctionCallBuilder(tester().getMetadata())
-                                .setName(QualifiedName.of("fail"))
+                        new TestingFunctionResolution()
+                                .functionCallBuilder(QualifiedName.of("fail"))
                                 .addArgument(INTEGER, new LongLiteral(Long.toString(StandardErrorCode.SUBQUERY_MULTIPLE_ROWS.ordinal())))
                                 .addArgument(VARCHAR, new StringLiteral("Scalar sub-query has returned multiple rows"))
                                 .build(),

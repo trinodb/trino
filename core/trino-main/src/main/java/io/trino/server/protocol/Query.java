@@ -48,7 +48,9 @@ import io.trino.execution.TaskInfo;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.SerializedPage;
+import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.ExchangeClient;
+import io.trino.operator.ExchangeClientSupplier;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
@@ -97,8 +99,10 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.trino.execution.QueryState.FAILED;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.server.protocol.QueryInfoUrlFactory.getQueryInfoUri;
 import static io.trino.server.protocol.QueryResultRows.queryResultRowsBuilder;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
@@ -190,11 +194,16 @@ class Query
             Slug slug,
             QueryManager queryManager,
             Optional<URI> queryInfoUrl,
-            ExchangeClient exchangeClient,
+            ExchangeClientSupplier exchangeClientSupplier,
             Executor dataProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
+        ExchangeClient exchangeClient = exchangeClientSupplier.get(
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), Query.class.getSimpleName()),
+                queryManager::outputTaskFailed,
+                getRetryPolicy(session));
+
         Query result = new Query(session, slug, queryManager, queryInfoUrl, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
 
         result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
@@ -354,7 +363,7 @@ class Query
     private synchronized ListenableFuture<Void> getFutureStateChange()
     {
         // if the exchange client is open, wait for data
-        if (!exchangeClient.isClosed()) {
+        if (!exchangeClient.isFinished()) {
             return exchangeClient.isBlocked();
         }
 
@@ -417,6 +426,8 @@ class Query
         QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
         queryManager.recordHeartbeat(queryId);
 
+        closeExchangeClientIfNecessary(queryInfo);
+
         // fetch result data from exchange
         QueryResultRows resultRows = removePagesFromExchange(queryInfo, targetResultSize.toBytes());
 
@@ -426,14 +437,12 @@ class Query
             updateCount = updatedRowsCount.orElse(null);
         }
 
-        closeExchangeClientIfNecessary(queryInfo);
-
         // advance next token
         // only return a next if
         // (1) the query is not done AND the query state is not FAILED
         //   OR
         // (2)there is more data to send (due to buffering)
-        if ((!queryInfo.isFinalQueryInfo() && queryInfo.getState() != FAILED) || !exchangeClient.isClosed()) {
+        if (queryInfo.getState() != FAILED && (!queryInfo.isFinalQueryInfo() || !exchangeClient.isFinished() || (lastResult != null && lastResult.getData() != null))) {
             nextToken = OptionalLong.of(token + 1);
         }
         else {
@@ -573,9 +582,7 @@ class Query
             types = outputInfo.getColumnTypes();
         }
 
-        for (URI outputLocation : outputInfo.getBufferLocations()) {
-            exchangeClient.addLocation(outputLocation);
-        }
+        outputInfo.getBufferLocations().forEach(exchangeClient::addLocation);
         if (outputInfo.isNoMoreBufferLocations()) {
             exchangeClient.noMoreLocations();
         }
@@ -634,7 +641,7 @@ class Query
                     return TIME;
                 }
                 if (dataTimeType.getType() == DateTimeDataType.Type.TIME && dataTimeType.isWithTimeZone()) {
-                    return TIMESTAMP_WITH_TIME_ZONE;
+                    return TIME_WITH_TIME_ZONE;
                 }
             }
 
@@ -772,6 +779,8 @@ class Query
                 .setProcessedRows(stageStats.getRawInputPositions())
                 .setProcessedBytes(stageStats.getRawInputDataSize().toBytes())
                 .setPhysicalInputBytes(stageStats.getPhysicalInputDataSize().toBytes())
+                .setFailedTasks(stageStats.getFailedTasks())
+                .setCoordinatorOnly(stageInfo.isCoordinatorOnly())
                 .setSubStages(subStages.build())
                 .build();
     }

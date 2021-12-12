@@ -123,6 +123,20 @@ public class TestHiveViewsLegacy
     }
 
     @Override
+    public void testMapConstructionInView()
+    {
+        assertThatThrownBy(super::testMapConstructionInView)
+                .hasMessageContaining("Unexpected parameters (varchar(15), varchar(15)) for function map");
+    }
+
+    @Override
+    public void testPmodFunction()
+    {
+        assertThatThrownBy(super::testPmodFunction)
+                .hasMessageContaining("Function 'pmod' not registered");
+    }
+
+    @Override
     public void testNestedHiveViews()
     {
         assertThatThrownBy(super::testNestedHiveViews)
@@ -138,9 +152,9 @@ public class TestHiveViewsLegacy
     }
 
     @Override
-    protected QueryExecutor connectToPresto(String catalog)
+    protected QueryExecutor connectToTrino(String catalog)
     {
-        QueryExecutor executor = super.connectToPresto(catalog);
+        QueryExecutor executor = super.connectToTrino(catalog);
         executor.executeQuery("SET SESSION hive.legacy_hive_view_translation = true");
         return executor;
     }

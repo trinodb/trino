@@ -22,6 +22,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.ReservedIdentifiers;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.DataTypeParameter;
@@ -279,7 +280,7 @@ public class TypeSignatureTranslator
                         typeSignature.getParameters().stream()
                                 .map(parameter -> new RowDataType.Field(
                                         Optional.empty(),
-                                        parameter.getNamedTypeSignature().getFieldName().map(fieldName -> new Identifier(fieldName.getName())),
+                                        parameter.getNamedTypeSignature().getFieldName().map(fieldName -> new Identifier(fieldName.getName(), requiresDelimiting(fieldName.getName()))),
                                         toDataType(parameter.getNamedTypeSignature().getTypeSignature())))
                                 .collect(toImmutableList()));
             case StandardTypes.VARCHAR:
@@ -298,6 +299,19 @@ public class TypeSignatureTranslator
                                 .map(TypeSignatureTranslator::toTypeParameter)
                                 .collect(toImmutableList()));
         }
+    }
+
+    private static boolean requiresDelimiting(String identifier)
+    {
+        if (!identifier.matches("[a-zA-Z][a-zA-Z0-9_]*")) {
+            return true;
+        }
+
+        if (ReservedIdentifiers.reserved(identifier)) {
+            return true;
+        }
+
+        return false;
     }
 
     private static DataTypeParameter toTypeParameter(TypeSignatureParameter parameter)

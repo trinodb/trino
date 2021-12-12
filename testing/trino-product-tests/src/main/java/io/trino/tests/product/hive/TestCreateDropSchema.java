@@ -19,7 +19,7 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
 
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -45,8 +45,8 @@ public class TestCreateDropSchema
         assertTrue(hdfsClient.exist(warehouseDirectory + "/test_drop_schema.db"));
 
         onTrino().executeQuery("CREATE TABLE test_drop_schema.test_drop (col1 int)");
-        assertThat(() -> query("DROP SCHEMA test_drop_schema"))
-                .failsWithMessage("Schema not empty: test_drop_schema");
+        assertQueryFailure(() -> query("DROP SCHEMA test_drop_schema"))
+                .hasMessageContaining("line 1:1: Cannot drop non-empty schema 'test_drop_schema'");
 
         onTrino().executeQuery("DROP TABLE test_drop_schema.test_drop");
 

@@ -24,8 +24,9 @@ import com.google.common.primitives.Primitives;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import com.mongodb.MongoClient;
+import com.mongodb.DBRef;
 import com.mongodb.client.FindIterable;
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
@@ -33,6 +34,7 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -71,12 +73,14 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
+import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -108,6 +112,10 @@ public class MongoSession
     private static final String LTE_OP = "$lte";
     private static final String IN_OP = "$in";
 
+    private static final String DATABASE_NAME = "databaseName";
+    private static final String COLLECTION_NAME = "collectionName";
+    private static final String ID = "id";
+
     private final TypeManager typeManager;
     private final MongoClient client;
 
@@ -136,6 +144,13 @@ public class MongoSession
     public void shutdown()
     {
         client.close();
+    }
+
+    public List<HostAddress> getAddresses()
+    {
+        return client.getClusterDescription().getServerDescriptions().stream()
+                .map(description -> fromParts(description.getAddress().getHost(), description.getAddress().getPort()))
+                .collect(toImmutableList());
     }
 
     public List<String> getAllSchemas()
@@ -503,7 +518,6 @@ public class MongoSession
     }
 
     private void createTableMetadata(SchemaTableName schemaTableName, List<MongoColumnHandle> columns)
-            throws TableNotFoundException
     {
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
@@ -639,6 +653,18 @@ public class MongoSession
             if (!parameters.isEmpty()) {
                 typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
             }
+        }
+        else if (value instanceof DBRef) {
+            List<TypeSignatureParameter> parameters = new ArrayList<>();
+
+            TypeSignature idFieldType = guessFieldType(((DBRef) value).getId())
+                    .orElseThrow(() -> new UnsupportedOperationException("Unable to guess $id field type of DBRef from: " + ((DBRef) value).getId()));
+
+            parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(DATABASE_NAME)), VARCHAR.getTypeSignature())));
+            parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(COLLECTION_NAME)), VARCHAR.getTypeSignature())));
+            parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(ID)), idFieldType)));
+
+            typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
         }
 
         return Optional.ofNullable(typeSignature);

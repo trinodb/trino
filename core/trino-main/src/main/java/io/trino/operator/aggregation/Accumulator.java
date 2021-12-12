@@ -29,6 +29,11 @@ public interface Accumulator
 
     Type getIntermediateType();
 
+    default Accumulator copy()
+    {
+        throw new UnsupportedOperationException("copy not implemented for " + getClass());
+    }
+
     void addInput(Page page);
 
     void addInput(WindowIndex index, List<Integer> channels, int startPosition, int endPosition);

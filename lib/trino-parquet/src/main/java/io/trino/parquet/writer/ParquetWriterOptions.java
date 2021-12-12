@@ -23,6 +23,7 @@ public class ParquetWriterOptions
 {
     private static final DataSize DEFAULT_MAX_ROW_GROUP_SIZE = DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE);
     private static final DataSize DEFAULT_MAX_PAGE_SIZE = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE);
+    public static final int DEFAULT_BATCH_SIZE = 10_000;
 
     public static ParquetWriterOptions.Builder builder()
     {
@@ -31,11 +32,13 @@ public class ParquetWriterOptions
 
     private final int maxRowGroupSize;
     private final int maxPageSize;
+    private final int batchSize;
 
-    private ParquetWriterOptions(DataSize maxBlockSize, DataSize maxPageSize)
+    private ParquetWriterOptions(DataSize maxBlockSize, DataSize maxPageSize, int batchSize)
     {
         this.maxRowGroupSize = toIntExact(requireNonNull(maxBlockSize, "maxBlockSize is null").toBytes());
         this.maxPageSize = toIntExact(requireNonNull(maxPageSize, "maxPageSize is null").toBytes());
+        this.batchSize = batchSize;
     }
 
     public long getMaxRowGroupSize()
@@ -48,10 +51,16 @@ public class ParquetWriterOptions
         return maxPageSize;
     }
 
+    public int getBatchSize()
+    {
+        return batchSize;
+    }
+
     public static class Builder
     {
         private DataSize maxBlockSize = DEFAULT_MAX_ROW_GROUP_SIZE;
         private DataSize maxPageSize = DEFAULT_MAX_PAGE_SIZE;
+        private int batchSize = DEFAULT_BATCH_SIZE;
 
         public Builder setMaxBlockSize(DataSize maxBlockSize)
         {
@@ -65,9 +74,15 @@ public class ParquetWriterOptions
             return this;
         }
 
+        public Builder setBatchSize(int batchSize)
+        {
+            this.batchSize = batchSize;
+            return this;
+        }
+
         public ParquetWriterOptions build()
         {
-            return new ParquetWriterOptions(maxBlockSize, maxPageSize);
+            return new ParquetWriterOptions(maxBlockSize, maxPageSize, batchSize);
         }
     }
 }

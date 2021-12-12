@@ -40,9 +40,19 @@ public class LabelDereference
         extends Expression
 {
     private final String label;
-    private final SymbolReference reference;
+    private final Optional<SymbolReference> reference;
 
     public LabelDereference(String label, SymbolReference reference)
+    {
+        this(label, Optional.of(requireNonNull(reference, "reference is null")));
+    }
+
+    public LabelDereference(String label)
+    {
+        this(label, Optional.empty());
+    }
+
+    public LabelDereference(String label, Optional<SymbolReference> reference)
     {
         super(Optional.empty());
         this.label = requireNonNull(label, "label is null");
@@ -54,7 +64,7 @@ public class LabelDereference
         return label;
     }
 
-    public SymbolReference getReference()
+    public Optional<SymbolReference> getReference()
     {
         return reference;
     }
@@ -68,7 +78,7 @@ public class LabelDereference
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of(reference);
+        return reference.<List<Node>>map(ImmutableList::of).orElseGet(ImmutableList::of);
     }
 
     @Override

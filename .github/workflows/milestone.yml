@@ -1,0 +1,50 @@
+name: milestone
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  set-milestone:
+    if: github.repository_owner == 'trinodb'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Get milestone from pom.xml
+        run: |
+          .github/bin/retry ./mvnw -v
+          echo "MILESTONE_NUMBER=$(./mvnw -q -Dexec.executable=echo -Dexec.args='${project.version}' -N exec:exec | cut -d- -f1)" >> $GITHUB_ENV
+      - name: Set milestone to PR
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            // Get pull request number from commit sha
+            // 'listPullRequestsAssociatedWithCommit()' lists the merged pull request
+            // https://docs.github.com/en/rest/reference/repos#list-pull-requests-associated-with-a-commit
+            const pr_response = await github.repos.listPullRequestsAssociatedWithCommit({ owner: context.repo.owner, repo:context.repo.repo, commit_sha: context.sha })
+            if (pr_response.data.length === 0) {
+              console.log('Pull request not found')
+              return
+            }
+            if (pr_response.data.length > 1) {
+              console.log(pr_response.data)
+              throw 'Expect 1 pull request but found: ' + pr_response.data.length
+            }
+
+            // Get milestone
+            const { MILESTONE_NUMBER } = process.env
+
+            // Find milestone
+            const response = await github.issues.listMilestones(context.repo)
+            let milestone = response.data.find(milestoneResponse => milestoneResponse.title === MILESTONE_NUMBER)
+
+            // Create new milestone if it doesn't exist
+            if (!milestone) {
+              const create_response = await github.issues.createMilestone({ owner: context.repo.owner, repo:context.repo.repo, title: MILESTONE_NUMBER })
+              milestone = create_response.data
+            }
+
+            // Set milestone to PR
+            await github.issues.update({ owner: context.repo.owner, repo: context.repo.repo, milestone: milestone.number, issue_number: pr_response.data[0].number })

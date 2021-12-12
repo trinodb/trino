@@ -28,6 +28,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
+import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -158,7 +159,7 @@ public final class NullableValue
     {
         StringBuilder sb = new StringBuilder("NullableValue{");
         sb.append("type=").append(type);
-        sb.append(", value=").append(value);
+        sb.append(", value=").append(type.getObjectValue(ToStringSession.INSTANCE, nativeValueToBlock(type, value), 0));
         sb.append('}');
         return sb.toString();
     }

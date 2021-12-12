@@ -19,7 +19,6 @@ import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
@@ -35,13 +34,13 @@ import java.math.RoundingMode;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.sql.Types;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -56,7 +55,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.decodeUnscaledValue;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
@@ -65,7 +63,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
@@ -81,7 +78,6 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -262,9 +258,7 @@ public final class StandardColumnMappings
 
     public static SliceWriteFunction charWriteFunction()
     {
-        return (statement, index, value) -> {
-            statement.setString(index, value.toStringUtf8());
-        };
+        return (statement, index, value) -> statement.setString(index, value.toStringUtf8());
     }
 
     public static ColumnMapping defaultVarcharColumnMapping(int columnSize, boolean isRemoteCaseSensitive)
@@ -335,15 +329,24 @@ public final class StandardColumnMappings
         return (statement, index, value) -> statement.setBytes(index, value.getBytes());
     }
 
-    public static ColumnMapping dateColumnMapping()
+    /**
+     * @deprecated This method leads to incorrect result when the date value is before 1582 Oct 14.
+     * If driver supports {@link LocalDate}, use {@link #dateColumnMappingUsingLocalDate} instead.
+     */
+    @Deprecated
+    public static ColumnMapping dateColumnMappingUsingSqlDate()
     {
         return ColumnMapping.longMapping(
                 DATE,
-                dateReadFunction(),
-                dateWriteFunction());
+                dateReadFunctionUsingSqlDate(),
+                dateWriteFunctionUsingSqlDate());
     }
 
-    public static LongReadFunction dateReadFunction()
+    /**
+     * @deprecated If driver supports {@link LocalDate}, use {@link #dateReadFunctionUsingLocalDate} instead.
+     */
+    @Deprecated
+    public static LongReadFunction dateReadFunctionUsingSqlDate()
     {
         return (resultSet, columnIndex) -> {
             /*
@@ -362,13 +365,52 @@ public final class StandardColumnMappings
         };
     }
 
-    public static LongWriteFunction dateWriteFunction()
+    /**
+     * @deprecated If driver supports {@link LocalDate}, use {@link #dateWriteFunctionUsingLocalDate} instead.
+     */
+    @Deprecated
+    public static LongWriteFunction dateWriteFunctionUsingSqlDate()
     {
         return (statement, index, value) -> {
             // convert to midnight in default time zone
             long millis = DAYS.toMillis(value);
             statement.setDate(index, new Date(DateTimeZone.UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
         };
+    }
+
+    public static ColumnMapping dateColumnMappingUsingLocalDate()
+    {
+        return ColumnMapping.longMapping(
+                DATE,
+                dateReadFunctionUsingLocalDate(),
+                dateWriteFunctionUsingLocalDate());
+    }
+
+    public static LongReadFunction dateReadFunctionUsingLocalDate()
+    {
+        return new LongReadFunction() {
+            @Override
+            public boolean isNull(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                // 'ResultSet.getObject' without class name may throw an exception
+                // e.g. in MySQL driver, rs.getObject(int) throws for dates between Oct 5 and 14, 1582
+                resultSet.getObject(columnIndex, LocalDate.class);
+                return resultSet.wasNull();
+            }
+
+            @Override
+            public long readLong(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                return resultSet.getObject(columnIndex, LocalDate.class).toEpochDay();
+            }
+        };
+    }
+
+    public static LongWriteFunction dateWriteFunctionUsingLocalDate()
+    {
+        return (statement, index, value) -> statement.setObject(index, LocalDate.ofEpochDay(value));
     }
 
     /**
@@ -490,7 +532,7 @@ public final class StandardColumnMappings
         return ColumnMapping.objectMapping(
                 timestampType,
                 longTimestampReadFunction(timestampType),
-                longTimestampWriteFunction(timestampType));
+                longTimestampWriteFunction(timestampType, timestampType.getPrecision()));
     }
 
     public static LongReadFunction timestampReadFunction(TimestampType timestampType)
@@ -505,7 +547,7 @@ public final class StandardColumnMappings
                 "Precision is out of range: %s", timestampType.getPrecision());
         return ObjectReadFunction.of(
                 LongTimestamp.class,
-                (resultSet, columnIndex) -> toLongTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class)));
+                (resultSet, columnIndex) -> toLongTrinoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class)));
     }
 
     /**
@@ -527,12 +569,18 @@ public final class StandardColumnMappings
         return (statement, index, value) -> statement.setObject(index, fromTrinoTimestamp(value));
     }
 
-    public static ObjectWriteFunction longTimestampWriteFunction(TimestampType timestampType)
+    public static ObjectWriteFunction longTimestampWriteFunction(TimestampType timestampType, int roundToPrecision)
     {
         checkArgument(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        checkArgument(
+                6 <= roundToPrecision && roundToPrecision <= 9 && roundToPrecision <= timestampType.getPrecision(),
+                "Invalid roundToPrecision for %s: %s",
+                timestampType,
+                roundToPrecision);
+
         return ObjectWriteFunction.of(
                 LongTimestamp.class,
-                (statement, index, value) -> statement.setObject(index, fromLongTimestamp(value, timestampType.getPrecision())));
+                (statement, index, value) -> statement.setObject(index, fromLongTrinoTimestamp(value, roundToPrecision)));
     }
 
     public static long toTrinoTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
@@ -549,7 +597,7 @@ public final class StandardColumnMappings
         return epochMicros;
     }
 
-    public static LongTimestamp toLongTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
+    public static LongTimestamp toLongTrinoTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
     {
         long precision = timestampType.getPrecision();
         checkArgument(precision > TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", precision);
@@ -572,8 +620,10 @@ public final class StandardColumnMappings
         return LocalDateTime.ofInstant(instant, UTC);
     }
 
-    public static LocalDateTime fromLongTimestamp(LongTimestamp timestamp, int precision)
+    public static LocalDateTime fromLongTrinoTimestamp(LongTimestamp timestamp, int precision)
     {
+        // The code below assumes precision is not less than microseconds and not more than picoseconds.
+        checkArgument(6 <= precision && precision <= 9, "Unsupported precision: %s", precision);
         long epochSeconds = floorDiv(timestamp.getEpochMicros(), MICROSECONDS_PER_SECOND);
         int microsOfSecond = floorMod(timestamp.getEpochMicros(), MICROSECONDS_PER_SECOND);
         long picosOfMicro = round(timestamp.getPicosOfMicro(), TimestampType.MAX_PRECISION - precision);
@@ -587,73 +637,5 @@ public final class StandardColumnMappings
     {
         // value can round up to NANOSECONDS_PER_DAY, so we need to do % to keep it in the desired range
         return LocalTime.ofNanoOfDay(roundDiv(value, PICOSECONDS_PER_NANOSECOND) % NANOSECONDS_PER_DAY);
-    }
-
-    /**
-     * @deprecated Each connector should provide its own explicit type mapping, along with respective tests.
-     */
-    @Deprecated
-    public static Optional<ColumnMapping> legacyDefaultColumnMapping(JdbcTypeHandle typeHandle)
-    {
-        switch (typeHandle.getJdbcType()) {
-            case Types.BIT:
-            case Types.BOOLEAN:
-                return Optional.of(booleanColumnMapping());
-
-            case Types.TINYINT:
-                return Optional.of(tinyintColumnMapping());
-
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
-
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
-
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
-
-            case Types.REAL:
-                return Optional.of(realColumnMapping());
-
-            case Types.FLOAT:
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
-
-            case Types.NUMERIC:
-            case Types.DECIMAL:
-                int decimalDigits = typeHandle.getRequiredDecimalDigits();
-                int precision = typeHandle.getRequiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
-                if (precision > Decimals.MAX_PRECISION) {
-                    return Optional.empty();
-                }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
-
-            case Types.CHAR:
-            case Types.NCHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), false));
-
-            case Types.VARCHAR:
-            case Types.NVARCHAR:
-            case Types.LONGVARCHAR:
-            case Types.LONGNVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
-
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-                return Optional.of(varbinaryColumnMapping());
-
-            case Types.DATE:
-                return Optional.of(dateColumnMapping());
-
-            case Types.TIME:
-                // TODO default to `timeColumnMapping`
-                return Optional.of(timeColumnMappingUsingSqlTime());
-
-            case Types.TIMESTAMP:
-                // TODO default to `timestampColumnMapping`
-                return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
-        }
-        return Optional.empty();
     }
 }

@@ -371,6 +371,7 @@ public class TestTrinoS3FileSystem
             MockAmazonS3 s3 = new MockAmazonS3();
             Configuration conf = new Configuration(false);
             conf.set(S3_STAGING_DIRECTORY, staging.toString());
+            conf.set(S3_STREAMING_UPLOAD_ENABLED, "false");
             fs.initialize(new URI("s3n://test-bucket/"), conf);
             fs.setS3Client(s3);
             FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"));
@@ -393,6 +394,7 @@ public class TestTrinoS3FileSystem
             MockAmazonS3 s3 = new MockAmazonS3();
             Configuration conf = new Configuration(false);
             conf.set(S3_STAGING_DIRECTORY, staging.toString());
+            conf.set(S3_STREAMING_UPLOAD_ENABLED, "false");
             fs.initialize(new URI("s3n://test-bucket/"), conf);
             fs.setS3Client(s3);
             fs.create(new Path("s3n://test-bucket/test"));

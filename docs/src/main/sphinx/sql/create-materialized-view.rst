@@ -50,6 +50,9 @@ uses the properties as input parameters for the materialized view refresh
 operation. The supported properties are different for each connector and
 detailed in the SQL support section of the specific connector's documentation.
 
+After successful creation, all metadata about the materialized view is available
+in a :ref:`system table <system_metadata_materialized_views>`.
+
 Examples
 --------
 
@@ -92,6 +95,10 @@ Set multiple properties::
 Show defined materialized view properties for all catalogs::
 
     SELECT * FROM system.metadata.materialized_view_properties;
+
+Show metadata about the materialized views in all catalogs::
+
+    SELECT * FROM system.metadata.materialized_views;
 
 See also
 --------

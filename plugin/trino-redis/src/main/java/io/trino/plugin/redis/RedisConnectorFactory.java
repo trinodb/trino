@@ -77,7 +77,7 @@ public class RedisConnectorFactory
                     }
                 });
 
-        Injector injector = app.strictConfig()
+        Injector injector = app
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(config)
                 .initialize();

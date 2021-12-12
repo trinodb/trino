@@ -37,6 +37,7 @@ import java.util.function.Function;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestValidateStreamingAggregations
         extends BasePlanTest
@@ -56,7 +57,7 @@ public class TestValidateStreamingAggregations
         CatalogName catalogName = getCurrentConnectorId();
         nationTableHandle = new TableHandle(
                 catalogName,
-                new TpchTableHandle("nation", 1.0),
+                new TpchTableHandle("sf1", "nation", 1.0),
                 TpchTransactionHandle.INSTANCE,
                 Optional.empty());
     }
@@ -87,10 +88,10 @@ public class TestValidateStreamingAggregations
                                                         ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)))))));
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Streaming aggregation with input not grouped on the grouping keys")
+    @Test
     public void testValidateFailed()
     {
-        validatePlan(
+        assertThatThrownBy(() -> validatePlan(
                 p -> p.aggregation(
                         a -> a.step(SINGLE)
                                 .singleGroupingSet(p.symbol("nationkey"))
@@ -99,16 +100,18 @@ public class TestValidateStreamingAggregations
                                         p.tableScan(
                                                 nationTableHandle,
                                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT))))));
+                                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)))))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Streaming aggregation with input not grouped on the grouping keys");
     }
 
     private void validatePlan(Function<PlanBuilder, PlanNode> planProvider)
     {
-        PlanBuilder builder = new PlanBuilder(idAllocator, metadata);
-        PlanNode planNode = planProvider.apply(builder);
-        TypeProvider types = builder.getTypes();
-
         getQueryRunner().inTransaction(session -> {
+            PlanBuilder builder = new PlanBuilder(idAllocator, metadata, session);
+            PlanNode planNode = planProvider.apply(builder);
+            TypeProvider types = builder.getTypes();
+
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
             new ValidateStreamingAggregations().validate(planNode, session, metadata, typeOperators, typeAnalyzer, types, WarningCollector.NOOP);

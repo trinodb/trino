@@ -27,6 +27,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Integer.parseInt;
 import static org.testng.Assert.assertEquals;
@@ -55,6 +56,9 @@ public class TestResolvedFunction
                         .returnType(new TypeSignature("x"))
                         .argumentTypes(new TypeSignature("y"), new TypeSignature("z"))
                         .build()),
+                SCALAR,
+                true,
+                new FunctionNullability(false, ImmutableList.of(false, false)),
                 ImmutableSet.of(createVarcharType(11), createVarcharType(12), createVarcharType(13)).stream()
                         .collect(toImmutableMap(Type::getTypeSignature, Function.identity())),
                 depth == 0 ? ImmutableSet.of() : ImmutableSet.of(createResolvedFunction("left", depth - 1), createResolvedFunction("right", depth - 1)));

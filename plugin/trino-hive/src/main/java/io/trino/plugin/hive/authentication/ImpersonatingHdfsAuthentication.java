@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.authentication;
 
 import io.trino.plugin.hive.ForHdfs;
+import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import javax.inject.Inject;
@@ -25,18 +26,20 @@ public class ImpersonatingHdfsAuthentication
         implements HdfsAuthentication
 {
     private final HadoopAuthentication hadoopAuthentication;
+    private final UserNameProvider userNameProvider;
 
     @Inject
-    public ImpersonatingHdfsAuthentication(@ForHdfs HadoopAuthentication hadoopAuthentication)
+    public ImpersonatingHdfsAuthentication(@ForHdfs HadoopAuthentication hadoopAuthentication, @ForHdfs UserNameProvider userNameProvider)
     {
         this.hadoopAuthentication = requireNonNull(hadoopAuthentication);
+        this.userNameProvider = requireNonNull(userNameProvider);
     }
 
     @Override
-    public <R, E extends Exception> R doAs(String user, GenericExceptionAction<R, E> action)
+    public <R, E extends Exception> R doAs(ConnectorIdentity identity, GenericExceptionAction<R, E> action)
             throws E
     {
-        return executeActionInDoAs(createProxyUser(user), action);
+        return executeActionInDoAs(createProxyUser(userNameProvider.get(identity)), action);
     }
 
     private UserGroupInformation createProxyUser(String user)

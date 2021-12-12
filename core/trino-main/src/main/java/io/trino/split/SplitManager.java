@@ -34,6 +34,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static java.util.Objects.requireNonNull;
 
 public class SplitManager
@@ -65,10 +66,18 @@ public class SplitManager
         splitManagers.remove(catalogName);
     }
 
-    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, DynamicFilter dynamicFilter)
+    public SplitSource getSplits(
+            Session session,
+            TableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter,
+            Constraint constraint)
     {
         CatalogName catalogName = table.getCatalogName();
         ConnectorSplitManager splitManager = getConnectorSplitManager(catalogName);
+        if (!isAllowPushdownIntoConnectors(session)) {
+            dynamicFilter = DynamicFilter.EMPTY;
+        }
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
@@ -88,7 +97,8 @@ public class SplitManager
                     connectorSession,
                     table.getConnectorHandle(),
                     splitSchedulingStrategy,
-                    dynamicFilter);
+                    dynamicFilter,
+                    constraint);
         }
 
         SplitSource splitSource = new ConnectorAwareSplitSource(catalogName, source);

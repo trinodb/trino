@@ -30,6 +30,7 @@ import io.trino.spi.type.Type;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -107,9 +108,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
-        return delegate().supportsAggregationPushdown(session, table, groupingSets);
+        return delegate().supportsAggregationPushdown(session, table, aggregates, assignments, groupingSets);
     }
 
     @Override
@@ -132,10 +133,10 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public void abortReadConnection(Connection connection)
+    public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
-        delegate().abortReadConnection(connection);
+        delegate().abortReadConnection(connection, resultSet);
     }
 
     @Override
@@ -287,6 +288,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> properties)
+    {
+        delegate().setTableProperties(session, handle, properties);
+    }
+
+    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         delegate().createTable(session, tableMetadata);
@@ -338,5 +345,11 @@ public abstract class ForwardingJdbcClient
     public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
     {
         return delegate().delete(session, handle);
+    }
+
+    @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        delegate().truncateTable(session, handle);
     }
 }

@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.memsql;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
@@ -35,16 +35,14 @@ public class MemSqlQueryRunner
 
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static QueryRunner createMemSqlQueryRunner(TestingMemSqlServer server, TpchTable<?>... tables)
+    public static DistributedQueryRunner createMemSqlQueryRunner(
+            TestingMemSqlServer server,
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        return createMemSqlQueryRunner(server, ImmutableMap.of(), ImmutableList.copyOf(tables));
-    }
-
-    public static QueryRunner createMemSqlQueryRunner(TestingMemSqlServer server, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession()).build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession()).setExtraProperties(extraProperties).build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -76,5 +74,22 @@ public class MemSqlQueryRunner
                 .setCatalog("memsql")
                 .setSchema(TPCH_SCHEMA)
                 .build();
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+
+        // You need to set 'memsql.license' to VM options
+        DistributedQueryRunner queryRunner = createMemSqlQueryRunner(
+                new TestingMemSqlServer(),
+                ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of(),
+                TpchTable.getTables());
+
+        Logger log = Logger.get(MemSqlQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }

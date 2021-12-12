@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.airlift.log.Logger;
+import io.trino.FeaturesConfig;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.MemoryPoolListener;
@@ -26,7 +27,6 @@ import io.trino.operator.OperatorContext;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
 import io.trino.spi.memory.MemoryPoolId;
-import io.trino.sql.analyzer.FeaturesConfig;
 
 import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;

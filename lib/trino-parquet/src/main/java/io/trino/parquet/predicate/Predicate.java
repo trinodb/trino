@@ -17,8 +17,12 @@ import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.filter2.predicate.FilterPredicate;
+import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
+import org.joda.time.DateTimeZone;
 
 import java.util.Map;
+import java.util.Optional;
 
 public interface Predicate
 {
@@ -41,4 +45,23 @@ public interface Predicate
      * @param dictionary The single column dictionary
      */
     boolean matches(DictionaryDescriptor dictionary);
+
+    /**
+     * Should the Parquet Reader process a file section with the specified statistics.
+     *
+     * @param numberOfRows the number of rows in the segment; this can be used with
+     * Statistics to determine if a column is only null
+     * @param columnIndex column index (statistics) store
+     * @param id Parquet file name
+     */
+    boolean matches(long numberOfRows, ColumnIndexStore columnIndex, ParquetDataSourceId id)
+            throws ParquetCorruptionException;
+
+    /**
+     * Convert Predicate to Parquet filter if possible.
+     *
+     * @param timeZone current Parquet timezone
+     * @return Converted Parquet filter or null if conversion not possible
+     */
+    Optional<FilterPredicate> toParquetFilter(DateTimeZone timeZone);
 }

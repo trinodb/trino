@@ -17,6 +17,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
@@ -306,6 +308,12 @@ public class InMemoryRecordSet
             }
             else if (value instanceof Slice) {
                 completedBytes += ((Slice) value).length();
+            }
+            else if (value instanceof LongTimestamp) {
+                completedBytes += LongTimestamp.INSTANCE_SIZE;
+            }
+            else if (value instanceof LongTimestampWithTimeZone) {
+                completedBytes += LongTimestampWithTimeZone.INSTANCE_SIZE;
             }
             else {
                 throw new IllegalArgumentException("Unknown type: " + value.getClass());

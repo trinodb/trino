@@ -108,6 +108,9 @@ public final class BenchmarkFileFormatsUtils
                 }
             }
         }
+        if (!pageBuilder.isEmpty()) {
+            pages.add(pageBuilder.build());
+        }
         return new TestData(columnNames, columnTypes, pages.build());
     }
 

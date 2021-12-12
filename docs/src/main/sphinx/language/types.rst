@@ -10,6 +10,8 @@ Additional types can be provided by plugins.
     Connectors are not required to support all types.
     See connector documentation for details on supported types.
 
+.. _boolean-data-types:
+
 Boolean
 -------
 
@@ -17,6 +19,8 @@ Boolean
 ^^^^^^^^^^^
 
 This type captures boolean values ``true`` and ``false``.
+
+.. _integer-data-types:
 
 Integer
 -------
@@ -46,6 +50,8 @@ also available for this type.
 A 64-bit signed two's complement integer with a minimum value of
 ``-2^63`` and a maximum value of ``2^63 - 1``.
 
+.. _floating-point-data-types:
+
 Floating-point
 --------------
 
@@ -65,6 +71,8 @@ IEEE Standard 754 for Binary Floating-Point Arithmetic.
 
 Example literals: ``DOUBLE '10.3'``, ``DOUBLE '1.03e1'``, ``10.3e0``, ``1.03e1``
 
+.. _fixed-precision-data-types:
+
 Fixed-precision
 ---------------
 
@@ -83,6 +91,8 @@ The decimal type takes two literal parameters:
 Example type definitions: ``DECIMAL(10,3)``, ``DECIMAL(20)``
 
 Example literals: ``DECIMAL '10.3'``, ``DECIMAL '1234567890'``, ``1.1``
+
+.. _string-data-types:
 
 String
 ------
@@ -249,6 +259,8 @@ Span of days, hours, minutes, seconds and milliseconds.
 
 Example: ``INTERVAL '2' DAY``
 
+.. _structural-data-types:
+
 Structural
 ----------
 
@@ -343,6 +355,31 @@ sparse representation, switching to a dense representation when it becomes more 
 
 A P4HyperLogLog sketch is similar to :ref:`hyperloglog_type`, but it starts (and remains)
 in the dense representation.
+
+SetDigest
+---------
+
+.. _setdigest_type:
+
+``SetDigest``
+^^^^^^^^^^^^^
+
+A SetDigest (setdigest) is a data sketch structure used
+in calculating `Jaccard similarity coefficient <https://en.wikipedia.org/wiki/Jaccard_index>`_
+between two sets.
+
+SetDigest encapsulates the following components:
+
+- `HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_
+- `MinHash with a single hash function <http://en.wikipedia.org/wiki/MinHash#Variant_with_a_single_hash_function>`_
+
+The HyperLogLog structure is used for the approximation of the distinct elements
+in the original set.
+
+The MinHash structure is used to store a low memory footprint signature of the original set.
+The similarity of any two sets is estimated by comparing their signatures.
+
+SetDigests are additive, meaning they can be merged together.
 
 Quantile digest
 ---------------

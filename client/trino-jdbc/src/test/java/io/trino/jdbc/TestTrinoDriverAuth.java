@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import org.testng.annotations.AfterClass;
@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.net.URL;
+import java.security.Key;
 import java.security.PrivateKey;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -33,7 +34,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
-import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -41,6 +41,8 @@ import java.util.Properties;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.io.Resources.getResource;
 import static io.jsonwebtoken.JwsHeader.KEY_ID;
+import static io.jsonwebtoken.SignatureAlgorithm.HS512;
+import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Base64.getMimeDecoder;
@@ -54,8 +56,8 @@ public class TestTrinoDriverAuth
 {
     private static final String TEST_CATALOG = "test_catalog";
     private TestingTrinoServer server;
-    private byte[] defaultKey;
-    private byte[] hmac222;
+    private Key defaultKey;
+    private Key hmac222;
     private PrivateKey privateKey33;
 
     @BeforeClass
@@ -68,16 +70,16 @@ public class TestTrinoDriverAuth
         assertNotNull(resource, "key directory not found");
         File keyDir = new File(resource.getFile()).getAbsoluteFile().getParentFile();
 
-        defaultKey = getMimeDecoder().decode(asCharSource(new File(keyDir, "default-key.key"), US_ASCII).read().getBytes(US_ASCII));
-        hmac222 = getMimeDecoder().decode(asCharSource(new File(keyDir, "222.key"), US_ASCII).read().getBytes(US_ASCII));
+        defaultKey = hmacShaKeyFor(getMimeDecoder().decode(asCharSource(new File(keyDir, "default-key.key"), US_ASCII).read().getBytes(US_ASCII)));
+        hmac222 = hmacShaKeyFor(getMimeDecoder().decode(asCharSource(new File(keyDir, "222.key"), US_ASCII).read().getBytes(US_ASCII)));
         privateKey33 = PemReader.loadPrivateKey(new File(keyDir, "33.privateKey"), Optional.empty());
 
         server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .put("http-server.authentication.type", "JWT")
-                        .put("http.authentication.jwt.key-file", new File(keyDir, "${KID}.key").getPath())
+                        .put("http-server.authentication.jwt.key-file", new File(keyDir, "${KID}.key").getPath())
                         .put("http-server.https.enabled", "true")
-                        .put("http-server.https.keystore.path", getResource("localhost.keystore").getPath())
+                        .put("http-server.https.keystore.path", new File(getResource("localhost.keystore").toURI()).getPath())
                         .put("http-server.https.keystore.key", "changeit")
                         .build())
                 .build();
@@ -99,7 +101,7 @@ public class TestTrinoDriverAuth
     {
         String accessToken = Jwts.builder()
                 .setSubject("test")
-                .signWith(SignatureAlgorithm.HS512, defaultKey)
+                .signWith(defaultKey)
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
@@ -120,7 +122,7 @@ public class TestTrinoDriverAuth
         String accessToken = Jwts.builder()
                 .setSubject("test")
                 .setHeaderParam(KEY_ID, "222")
-                .signWith(SignatureAlgorithm.HS512, hmac222)
+                .signWith(hmac222)
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
@@ -141,7 +143,7 @@ public class TestTrinoDriverAuth
         String accessToken = Jwts.builder()
                 .setSubject("test")
                 .setHeaderParam(KEY_ID, "33")
-                .signWith(SignatureAlgorithm.RS256, privateKey33)
+                .signWith(privateKey33)
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
@@ -185,9 +187,10 @@ public class TestTrinoDriverAuth
     public void testFailedBadHmacSignature()
             throws Exception
     {
+        Key badKey = Keys.secretKeyFor(HS512);
         String accessToken = Jwts.builder()
                 .setSubject("test")
-                .signWith(SignatureAlgorithm.HS512, Base64.getEncoder().encodeToString("bad-key".getBytes(US_ASCII)))
+                .signWith(badKey)
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
@@ -204,7 +207,7 @@ public class TestTrinoDriverAuth
         String accessToken = Jwts.builder()
                 .setSubject("test")
                 .setHeaderParam(KEY_ID, "42")
-                .signWith(SignatureAlgorithm.RS256, privateKey33)
+                .signWith(privateKey33)
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
@@ -221,7 +224,7 @@ public class TestTrinoDriverAuth
         String accessToken = Jwts.builder()
                 .setSubject("test")
                 .setHeaderParam(KEY_ID, "unknown")
-                .signWith(SignatureAlgorithm.RS256, privateKey33)
+                .signWith(privateKey33)
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
@@ -238,7 +241,7 @@ public class TestTrinoDriverAuth
         String accessToken = Jwts.builder()
                 .setSubject("test")
                 .setHeaderParam(KEY_ID, "33")
-                .signWith(SignatureAlgorithm.RS256, privateKey33)
+                .signWith(privateKey33)
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken, "SSLVerification", "FULL"))) {
@@ -259,7 +262,7 @@ public class TestTrinoDriverAuth
         String accessToken = Jwts.builder()
                 .setSubject("test")
                 .setHeaderParam(KEY_ID, "33")
-                .signWith(SignatureAlgorithm.RS256, privateKey33)
+                .signWith(privateKey33)
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken, "SSLVerification", "CA"))) {
@@ -321,13 +324,13 @@ public class TestTrinoDriverAuth
     }
 
     private Connection createConnection(Map<String, String> additionalProperties)
-            throws SQLException
+            throws Exception
     {
         String url = format("jdbc:trino://localhost:%s", server.getHttpsAddress().getPort());
         Properties properties = new Properties();
         properties.setProperty("user", "test");
         properties.setProperty("SSL", "true");
-        properties.setProperty("SSLTrustStorePath", getResource("localhost.truststore").getPath());
+        properties.setProperty("SSLTrustStorePath", new File(getResource("localhost.truststore").toURI()).getPath());
         properties.setProperty("SSLTrustStorePassword", "changeit");
         additionalProperties.forEach(properties::setProperty);
         return DriverManager.getConnection(url, properties);

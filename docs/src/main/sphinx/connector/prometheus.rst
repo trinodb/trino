@@ -36,6 +36,7 @@ replacing the properties as appropriate:
     prometheus.max.query.range.duration=21d
     prometheus.cache.ttl=30s
     prometheus.bearer.token.file=/path/to/bearer/token/file
+    prometheus.read-timeout=10s
 
 Configuration properties
 ------------------------
@@ -50,6 +51,7 @@ Property Name                                   Description
 ``prometheus.max.query.range.duration``  Width of overall query to Prometheus, will be divided into query-chunk-size-duration queries
 ``prometheus.cache.ttl``                 How long values from this config file are cached
 ``prometheus.bearer.token.file``         File holding bearer token if needed for access to Prometheus
+``prometheus.read-timeout``              How much time a query to Prometheus has before timing out
 ======================================== ============================================================================================
 
 Not exhausting your Trino available heap
@@ -82,3 +84,12 @@ Bearer token authentication
 Prometheus can be setup to require a Authorization header with every query. The value in
 ``prometheus.bearer.token.file`` allows for a bearer token to be read from the configured file. This file
 is optional and not required unless your Prometheus setup requires it.
+
+.. _prometheus-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata in Prometheus.

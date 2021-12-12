@@ -6,8 +6,8 @@ The following properties can be used to configure the :doc:`web-interface`.
 ``web-ui.authentication.type``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``string``
-* **Allowed values:** ``form``, ``fixed``, ``certificate``, ``kerberos``, ``jwt``
+* **Type:** :ref:`prop-type-string`
+* **Allowed values:** ``form``, ``fixed``, ``certificate``, ``kerberos``, ``jwt``, ``oauth2``
 * **Default value:** ``form``
 
 The authentication mechanism to allow user access to the Web UI. See
@@ -16,7 +16,7 @@ The authentication mechanism to allow user access to the Web UI. See
 ``web-ui.enabled``
 ^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
 This property controls whether or not the Web UI is available.
@@ -24,7 +24,7 @@ This property controls whether or not the Web UI is available.
 ``web-ui.shared-secret``
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``string``
+* **Type:** :ref:`prop-type-string`
 * **Default value:** randomly generated unless set
 
 The shared secret is used to generate authentication cookies for users of
@@ -35,8 +35,8 @@ logged in Web UI user.
 ``web-ui.session-timeout``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``duration``
-* **Default value:** ``1 day``
+* **Type:** :ref:`prop-type-duration`
+* **Default value:** ``1d``
 
 The duration how long a user can be logged into the Web UI, before the
 session times out, which forces an automatic log-out.
@@ -44,8 +44,8 @@ session times out, which forces an automatic log-out.
 ``web-ui.user``
 ^^^^^^^^^^^^^^^
 
-* **Type:** ``string``
-* **Default value:**
+* **Type:** :ref:`prop-type-string`
+* **Default value:** None
 
 The username automatically used for authentication to the Web UI with the ``fixed``
 authentication type. See :ref:`Web UI Authentication <web-ui-authentication>`.

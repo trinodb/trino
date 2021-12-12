@@ -16,9 +16,9 @@ package io.trino.plugin.ml;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.trino.RowPageBuilder;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.aggregation.Accumulator;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionExtractor.extractFunctions;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -37,14 +36,14 @@ import static org.testng.Assert.assertEquals;
 
 public class TestEvaluateClassifierPredictions
 {
-    private final Metadata metadata = createTestMetadataManager();
-
     @Test
     public void testEvaluateClassifierPredictions()
     {
-        metadata.addFunctions(extractFunctions(new MLPlugin().getFunctions()));
-        InternalAggregationFunction aggregation = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("evaluate_classifier_predictions"), fromTypes(BIGINT, BIGINT)));
+        TestingFunctionResolution functionResolution = new TestingFunctionResolution()
+                .addFunctions(extractFunctions(new MLPlugin().getFunctions()));
+        TestingAggregationFunction aggregation = functionResolution.getAggregateFunction(
+                QualifiedName.of("evaluate_classifier_predictions"),
+                fromTypes(BIGINT, BIGINT));
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator();
         accumulator.addInput(getPage());
         BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(null, 1);

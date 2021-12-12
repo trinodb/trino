@@ -15,12 +15,12 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.FeaturesConfig.JoinDistributionType;
+import io.trino.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.sql.DynamicFilters;
-import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.MatchResult;
 import io.trino.sql.planner.assertions.Matcher;
@@ -252,7 +252,7 @@ public class TestDynamicFilter
     }
 
     @Test
-    public void testCrossJoinInequalityDFWithCastOnTheLeft()
+    public void testCrossJoinInequalityWithCastOnTheLeft()
     {
         assertPlan("SELECT o.comment, l.comment FROM lineitem l, orders o WHERE o.comment < l.comment",
                 anyTree(filter("CAST(L_COMMENT AS varchar(79)) > O_COMMENT",
@@ -285,7 +285,7 @@ public class TestDynamicFilter
     }
 
     @Test
-    public void testCrossJoinInequalityNoDFWithCastOnTheRight()
+    public void testCrossJoinInequalityWithCastOnTheRight()
     {
         assertPlan("SELECT o.comment, l.comment FROM orders o, lineitem l WHERE o.comment < l.comment",
                 anyTree(filter("O_COMMENT < CAST(L_COMMENT AS varchar(79))",
@@ -365,6 +365,40 @@ public class TestDynamicFilter
                                 tableScan("orders", ImmutableMap.of("O_TOTALPRICE", "totalprice")),
                                 exchange(
                                         tableScan("lineitem", ImmutableMap.of("L_EXTENDEDPRICE", "extendedprice")))))));
+    }
+
+    @Test
+    public void testNotDistinctFromLeftJoin()
+    {
+        // IS NOT DISTINCT FROM condition does not promote LEFT to INNER
+        assertPlan("SELECT 1 FROM (SELECT o.orderkey FROM nation n LEFT JOIN orders o ON n.nationkey = o.orderkey) o JOIN lineitem l ON o.orderkey IS NOT DISTINCT FROM l.orderkey",
+                anyTree(join(
+                        INNER,
+                        ImmutableList.of(),
+                        join(
+                                LEFT,
+                                ImmutableList.of(equiJoinClause("nationkey", "ORDERS_OK")),
+                                anyTree(
+                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))),
+                        anyTree(
+                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+
+        // equi condition promotes LEFT to INNER
+        assertPlan("SELECT 1 FROM (SELECT o.orderkey FROM nation n LEFT JOIN orders o ON n.nationkey = o.orderkey) o JOIN lineitem l ON o.orderkey = l.orderkey",
+                anyTree(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("nationkey", "LINEITEM_OK")),
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("nationkey", "ORDERS_OK")),
+                                anyTree(
+                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))),
+                        anyTree(
+                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
     }
 
     @Test

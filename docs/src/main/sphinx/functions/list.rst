@@ -114,6 +114,7 @@ C
 - :func:`crc32`
 - :func:`cume_dist`
 - :data:`current_date`
+- :func:`current_groups`
 - :data:`current_time`
 - :data:`current_timestamp`
 - :func:`current_timezone`
@@ -193,7 +194,7 @@ H
 -
 
 - :func:`hamming_distance`
-- ``hash_counts``
+- :func:`hash_counts`
 - :func:`histogram`
 - :func:`hmac_md5`
 - :func:`hmac_sha1`
@@ -208,7 +209,7 @@ I
 - :ref:`if <if_function>`
 - :func:`index`
 - :func:`infinity`
-- ``intersection_cardinality``
+- :func:`intersection_cardinality`
 - :func:`inverse_beta_cdf`
 - :func:`inverse_normal_cdf`
 - :func:`is_finite`
@@ -223,7 +224,7 @@ I
 J
 -
 
-- ``jaccard_index``
+- :func:`jaccard_index`
 - :func:`json_array_contains`
 - :func:`json_array_get`
 - :func:`json_array_length`
@@ -254,6 +255,7 @@ L
 - :func:`levenshtein_distance`
 - :func:`line_interpolate_point`
 - :func:`line_interpolate_points`
+- :func:`listagg`
 - :func:`ln`
 - :data:`localtime`
 - :data:`localtimestamp`
@@ -268,7 +270,7 @@ L
 M
 -
 
-- ``make_set_digest``
+- :func:`make_set_digest`
 - :func:`map`
 - :func:`map_agg`
 - :func:`map_concat`
@@ -283,7 +285,7 @@ M
 - :func:`max_by`
 - :func:`md5`
 - :func:`merge`
-- ``merge_set_digest``
+- :func:`merge_set_digest`
 - :func:`millisecond`
 - :func:`min`
 - :func:`min_by`
@@ -314,7 +316,7 @@ O
 -
 
 - ``objectid``
-- ``objectid_timestamp``
+- :func:`objectid_timestamp`
 - :ref:`OR <logical_operators>`
 
 P
@@ -322,7 +324,7 @@ P
 
 - :func:`parse_datetime`
 - :func:`parse_duration`
-- :func:`parse_presto_data_size`
+- :func:`parse_data_size`
 - :func:`percent_rank`
 - :func:`pi`
 - :func:`position`
@@ -461,6 +463,7 @@ T
 - :func:`tan`
 - :func:`tanh`
 - :func:`tdigest_agg`
+- :func:`timestamp_objectid`
 - :func:`timezone_hour`
 - :func:`timezone_minute`
 - :func:`to_base`
@@ -545,4 +548,3 @@ Z
 
 - :func:`zip`
 - :func:`zip_with`
-

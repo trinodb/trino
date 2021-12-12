@@ -13,10 +13,17 @@
  */
 package io.trino.plugin.postgresql;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.RemoteDatabaseEvent;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -27,7 +34,6 @@ import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -39,9 +45,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.Math.round;
 import static java.lang.String.format;
@@ -78,6 +88,7 @@ public class TestPostgreSqlConnectorTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
+            case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
                 return false;
 
             case SUPPORTS_TOPN_PUSHDOWN:
@@ -89,6 +100,7 @@ public class TestPostgreSqlConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
             case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
             case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
                 return true;
 
             case SUPPORTS_JOIN_PUSHDOWN:
@@ -102,6 +114,9 @@ public class TestPostgreSqlConnectorTest
                 return new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
 
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+                return false;
+
+            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             case SUPPORTS_CANCELLATION:
@@ -259,6 +274,34 @@ public class TestPostgreSqlConnectorTest
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
                 .isNotFullyPushedDown(FilterNode.class);
 
+        // varchar IN without domain compaction
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // varchar IN with small compaction threshold
+        assertThat(query(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("postgresql", "domain_compaction_threshold", "1")
+                        .build(),
+                "SELECT regionkey, nationkey, name FROM nation WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(25)))")
+                // Filter node is retained as no constraint is pushed into connector.
+                // The compacted domain is a range predicate which can give wrong results
+                // if pushed down as PostgreSQL has different sort ordering for letters from Trino
+                .isNotFullyPushedDown(
+                        node(
+                                FilterNode.class,
+                                // verify that no constraint is applied by the connector
+                                tableScan(
+                                        tableHandle -> ((JdbcTableHandle) tableHandle).getConstraint().isAll(),
+                                        TupleDomain.all(),
+                                        ImmutableMap.of())));
+
         // varchar different case
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
                 .returnsEmptyResult()
@@ -326,6 +369,59 @@ public class TestPostgreSqlConnectorTest
         assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE address = 'TcGe5gaZNgVePxU5kRrvXBfkasDTea'"))
                 .isFullyPushedDown();
         assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE address < 'TcGe5gaZNgVePxU5kRrvXBfkasDTea'"))
+                .isNotFullyPushedDown(
+                        node(JoinNode.class,
+                                anyTree(node(TableScanNode.class)),
+                                anyTree(node(TableScanNode.class))));
+    }
+
+    @Test
+    public void testStringPushdownWithCollate()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("postgresql", "enable_string_pushdown_with_collate", "true")
+                .build();
+
+        // varchar range
+        assertThat(query(session, "SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // varchar IN with small compaction threshold
+        assertThat(query(
+                Session.builder(session)
+                        .setCatalogSessionProperty("postgresql", "domain_compaction_threshold", "1")
+                        .build(),
+                "SELECT regionkey, nationkey, name FROM nation WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(25)))")
+                // Verify that a FilterNode is retained and only a compacted domain is pushed down to connector as a range predicate
+                .isNotFullyPushedDown(node(FilterNode.class, tableScan(
+                        tableHandle -> {
+                            TupleDomain<ColumnHandle> constraint = ((JdbcTableHandle) tableHandle).getConstraint();
+                            ColumnHandle nameColumn = constraint.getDomains().orElseThrow()
+                                    .keySet().stream()
+                                    .map(JdbcColumnHandle.class::cast)
+                                    .filter(column -> column.getColumnName().equals("name"))
+                                    .collect(onlyElement());
+                            return constraint.getDomains().get().get(nameColumn).getValues().getRanges().getOrderedRanges()
+                                    .equals(ImmutableList.of(
+                                            Range.range(
+                                                    createVarcharType(25),
+                                                    utf8Slice("POLAND"), true,
+                                                    utf8Slice("VIETNAM"), true)));
+                        },
+                        TupleDomain.all(),
+                        ImmutableMap.of())));
+
+        // varchar predicate over join
+        Session joinPushdownEnabled = joinPushdownEnabled(session);
+        assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE address < 'TcGe5gaZNgVePxU5kRrvXBfkasDTea'"))
+                .isFullyPushedDown();
+
+        // join on varchar columns is not pushed down
+        assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.address = n.name"))
                 .isNotFullyPushedDown(
                         node(JoinNode.class,
                                 anyTree(node(TableScanNode.class)),
@@ -402,42 +498,10 @@ public class TestPostgreSqlConnectorTest
         assertUpdate("DROP TABLE char_trailing_space");
     }
 
-    @Test
-    public void testInsertIntoNotNullColumn()
+    @Override
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        @Language("SQL") String createTableSql = format("" +
-                        "CREATE TABLE %s.tpch.test_insert_not_null (\n" +
-                        "   column_a date,\n" +
-                        "   column_b date NOT NULL\n" +
-                        ")",
-                getSession().getCatalog().get());
-        assertUpdate(createTableSql);
-        assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), createTableSql);
-
-        assertQueryFails("INSERT INTO test_insert_not_null (column_a) VALUES (date '2012-12-31')", "(?s).*null value in column \"column_b\" violates not-null constraint.*");
-        assertQueryFails("INSERT INTO test_insert_not_null (column_a, column_b) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_b");
-
-        assertUpdate("ALTER TABLE test_insert_not_null ADD COLUMN column_c BIGINT NOT NULL");
-
-        createTableSql = format("" +
-                        "CREATE TABLE %s.tpch.test_insert_not_null (\n" +
-                        "   column_a date,\n" +
-                        "   column_b date NOT NULL,\n" +
-                        "   column_c bigint NOT NULL\n" +
-                        ")",
-                getSession().getCatalog().get());
-        assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), createTableSql);
-
-        assertQueryFails("INSERT INTO test_insert_not_null (column_b) VALUES (date '2012-12-31')", "(?s).*null value in column \"column_c\" violates not-null constraint.*");
-        assertQueryFails("INSERT INTO test_insert_not_null (column_b, column_c) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_c");
-
-        assertUpdate("INSERT INTO test_insert_not_null (column_b, column_c) VALUES (date '2012-12-31', 1)", 1);
-        assertUpdate("INSERT INTO test_insert_not_null (column_a, column_b, column_c) VALUES (date '2013-01-01', date '2013-01-02', 2)", 1);
-        assertQuery(
-                "SELECT * FROM test_insert_not_null",
-                "VALUES (NULL, CAST('2012-12-31' AS DATE), 1), (CAST('2013-01-01' AS DATE), CAST('2013-01-02' AS DATE), 2)");
-
-        assertUpdate("DROP TABLE test_insert_not_null");
+        return format("(?s).*null value in column \"%s\" violates not-null constraint.*", columnName);
     }
 
     @Test
@@ -588,6 +652,6 @@ public class TestPostgreSqlConnectorTest
     protected TestView createSleepingView(Duration minimalQueryDuration)
     {
         long secondsToSleep = round(minimalQueryDuration.convertTo(SECONDS).getValue() + 1);
-        return new TestView(onRemoteDatabase(), format("SELECT 1 FROM pg_sleep(%d)", secondsToSleep));
+        return new TestView(onRemoteDatabase(), "test_sleeping_view", format("SELECT 1 FROM pg_sleep(%d)", secondsToSleep));
     }
 }

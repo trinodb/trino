@@ -45,7 +45,6 @@ import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -76,10 +75,9 @@ import static io.trino.plugin.hive.HivePartition.UNPARTITIONED_ID;
 import static io.trino.plugin.hive.HiveSessionProperties.getPartitionStatisticsSampleSize;
 import static io.trino.plugin.hive.HiveSessionProperties.isIgnoreCorruptedStatistics;
 import static io.trino.plugin.hive.HiveSessionProperties.isStatisticsEnabled;
+import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -87,8 +85,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
-import static java.lang.Double.parseDouble;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -578,31 +574,10 @@ public class MetastoreHiveStatisticsProvider
         return Optional.of(new DoubleRange(min, max));
     }
 
-    public static OptionalDouble convertPartitionValueToDouble(Type type, Object value)
+    @VisibleForTesting
+    static OptionalDouble convertPartitionValueToDouble(Type type, Object value)
     {
-        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-            return OptionalDouble.of((Long) value);
-        }
-        if (type.equals(DOUBLE)) {
-            return OptionalDouble.of((Double) value);
-        }
-        if (type.equals(REAL)) {
-            return OptionalDouble.of(intBitsToFloat(((Long) value).intValue()));
-        }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
-            if (isShortDecimal(decimalType)) {
-                return OptionalDouble.of(parseDouble(Decimals.toString((Long) value, decimalType.getScale())));
-            }
-            if (isLongDecimal(decimalType)) {
-                return OptionalDouble.of(parseDouble(Decimals.toString((Slice) value, decimalType.getScale())));
-            }
-            throw new IllegalArgumentException("Unexpected decimal type: " + decimalType);
-        }
-        if (type.equals(DATE)) {
-            return OptionalDouble.of((Long) value);
-        }
-        return OptionalDouble.empty();
+        return toStatsRepresentation(type, value);
     }
 
     @VisibleForTesting

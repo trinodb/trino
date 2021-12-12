@@ -14,7 +14,8 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
+import io.trino.metadata.BoundSignature;
+import io.trino.operator.aggregation.TestAccumulatorCompiler.LongTimestampAggregation.State;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
@@ -28,8 +29,8 @@ import org.testng.annotations.Test;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.util.Reflection.methodHandle;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,41 +39,38 @@ public class TestAccumulatorCompiler
     @Test
     public void testAccumulatorCompilerForTypeSpecificObjectParameter()
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(TestAccumulatorCompiler.class.getClassLoader());
-
         TimestampType parameterType = TimestampType.TIMESTAMP_NANOS;
         assertThat(parameterType.getJavaType()).isEqualTo(LongTimestamp.class);
 
-        Class<? extends AccumulatorState> stateInterface = LongTimestampAggregation.State.class;
-        AccumulatorStateSerializer<?> stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
-        AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateInterface, classLoader);
+        Class<State> stateInterface = State.class;
+        AccumulatorStateSerializer<State> stateSerializer = StateCompiler.generateStateSerializer(stateInterface);
+        AccumulatorStateFactory<State> stateFactory = StateCompiler.generateStateFactory(stateInterface);
 
-        MethodHandle inputFunction = methodHandle(LongTimestampAggregation.class, "input", LongTimestampAggregation.State.class, LongTimestamp.class);
-        MethodHandle combineFunction = methodHandle(LongTimestampAggregation.class, "combine", LongTimestampAggregation.State.class, LongTimestampAggregation.State.class);
-        MethodHandle outputFunction = methodHandle(LongTimestampAggregation.class, "output", LongTimestampAggregation.State.class, BlockBuilder.class);
+        MethodHandle inputFunction = methodHandle(LongTimestampAggregation.class, "input", State.class, LongTimestamp.class);
+        MethodHandle combineFunction = methodHandle(LongTimestampAggregation.class, "combine", State.class, State.class);
+        MethodHandle outputFunction = methodHandle(LongTimestampAggregation.class, "output", State.class, BlockBuilder.class);
         AggregationMetadata metadata = new AggregationMetadata(
-                "longTimestampAggregation",
-                ImmutableList.of(
-                        new AggregationMetadata.ParameterMetadata(STATE),
-                        new AggregationMetadata.ParameterMetadata(INPUT_CHANNEL, parameterType)),
+                ImmutableList.of(STATE, INPUT_CHANNEL),
                 inputFunction,
                 Optional.empty(),
                 combineFunction,
                 outputFunction,
-                ImmutableList.of(new AggregationMetadata.AccumulatorStateDescriptor(
+                ImmutableList.of(new AggregationMetadata.AccumulatorStateDescriptor<>(
                         stateInterface,
                         stateSerializer,
-                        stateFactory)),
-                RealType.REAL);
+                        stateFactory)));
+        BoundSignature signature = new BoundSignature("longTimestampAggregation", RealType.REAL, ImmutableList.of(TimestampType.TIMESTAMP_PICOS));
 
         // test if we can compile aggregation
-        assertThat(AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader)).isNotNull();
+        assertThat(AccumulatorCompiler.generateAccumulatorFactoryBinder(signature, metadata)).isNotNull();
 
         // TODO test if aggregation actually works...
     }
 
-    public static class LongTimestampAggregation
+    public static final class LongTimestampAggregation
     {
+        private LongTimestampAggregation() {}
+
         public interface State
                 extends AccumulatorState {}
 

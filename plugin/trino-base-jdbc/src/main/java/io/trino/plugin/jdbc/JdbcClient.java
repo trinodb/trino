@@ -31,6 +31,7 @@ import io.trino.spi.type.Type;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +65,7 @@ public interface JdbcClient
 
     WriteMapping toWriteMapping(ConnectorSession session, Type type);
 
-    default boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
+    default boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
         return true;
     }
@@ -79,7 +80,7 @@ public interface JdbcClient
     Connection getConnection(ConnectorSession session, JdbcSplit split)
             throws SQLException;
 
-    default void abortReadConnection(Connection connection)
+    default void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
         // most drivers do not need this
@@ -129,6 +130,11 @@ public interface JdbcClient
 
     void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName);
 
+    default void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> properties)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting table properties");
+    }
+
     void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
     JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
@@ -174,4 +180,6 @@ public interface JdbcClient
     }
 
     OptionalLong delete(ConnectorSession session, JdbcTableHandle handle);
+
+    void truncateTable(ConnectorSession session, JdbcTableHandle handle);
 }
