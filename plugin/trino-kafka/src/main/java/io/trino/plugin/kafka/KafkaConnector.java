@@ -16,6 +16,7 @@ package io.trino.plugin.kafka;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
@@ -30,6 +31,8 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Sets.immutableEnumSet;
+import static io.trino.spi.connector.ConnectorCapabilities.REPORT_BYTES_WRITTEN;
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
@@ -104,5 +107,11 @@ public class KafkaConnector
     public final void shutdown()
     {
         lifeCycleManager.stop();
+    }
+
+    @Override
+    public Set<ConnectorCapabilities> getCapabilities()
+    {
+        return immutableEnumSet(REPORT_BYTES_WRITTEN);
     }
 }
