@@ -80,7 +80,6 @@ public abstract class AbstractTestFailureRecovery
                         .put("exchange.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
                         // TODO: re-enable once failure recover supported for this functionality
                         .put("enable-dynamic-filtering", "false")
-                        .put("distributed-sort", "false")
                         .build(),
                 ImmutableMap.<String, String>builder()
                         .put("scheduler.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
