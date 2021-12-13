@@ -1657,6 +1657,12 @@
                                     <exclude>com.google.j2objc:j2objc-annotations</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
+                            <bannedDependencies>
+                                <excludes>
+                                    <!-- We don't use log4j2, additionally versions < 2.15.0 are vulnerable to the RCE Log4Shell (CVE-2021-44228) -->
+                                    <exclude>org.apache.logging.log4j:log4j-core</exclude>
+                                </excludes>
+                            </bannedDependencies>
                         </rules>
                     </configuration>
                     <dependencies>
