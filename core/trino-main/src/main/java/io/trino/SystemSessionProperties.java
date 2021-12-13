@@ -1002,6 +1002,11 @@ public final class SystemSessionProperties
 
     public static boolean isDistributedSortEnabled(Session session)
     {
+        if (getRetryPolicy(session) != RetryPolicy.NONE) {
+            // distributed sort is not supported with failure recovery capabilities enabled
+            return false;
+        }
+
         return session.getSystemProperty(DISTRIBUTED_SORT, Boolean.class);
     }
 
@@ -1217,9 +1222,6 @@ public final class SystemSessionProperties
         if (retryPolicy != RetryPolicy.NONE) {
             if (isEnableDynamicFiltering(session)) {
                 throw new TrinoException(NOT_SUPPORTED, "Dynamic filtering is not supported with automatic retries enabled");
-            }
-            if (isDistributedSortEnabled(session)) {
-                throw new TrinoException(NOT_SUPPORTED, "Distributed sort is not supported with automatic retries enabled");
             }
         }
         return retryPolicy;
