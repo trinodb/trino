@@ -99,7 +99,7 @@ public class TestPhoenixConnectorTest
             case SUPPORTS_TRUNCATE:
                 return false;
 
-            case SUPPORTS_INSERT_NOT_NULL_COLUMN:
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
 
             default:
