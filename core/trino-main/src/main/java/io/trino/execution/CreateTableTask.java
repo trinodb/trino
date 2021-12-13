@@ -252,7 +252,7 @@ public class CreateTableTask
                 accessControl,
                 parameterLookup);
 
-        if (!disableSetPropertiesSecurityCheckForCreateDdl && !properties.isEmpty()) {
+        if (!disableSetPropertiesSecurityCheckForCreateDdl) {
             accessControl.checkCanCreateTable(session.toSecurityContext(), tableName, properties);
         }
         else {
