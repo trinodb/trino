@@ -39,6 +39,8 @@ jobs:
           pwd
           ls
           for archive in *.zip; do
+            # $archive is literally *.zip if there are no zip files matching the glob expression
+            [ -f "$archive" ] || continue
             name=$(basename "$archive" .zip)
             mkdir "$name"
             (cd "$name" && unzip ../"$archive")
