@@ -16,8 +16,8 @@ env:
   # maven.wagon.rto is in millis, defaults to 30m
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-  MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
-  MAVEN_TEST: "-B --strict-checksums -Dair.check.skip-all --fail-at-end"
+  MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
+  MAVEN_TEST: "-B --strict-checksums -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
   RETRY: .github/bin/retry
   # Testcontainers kills image pulls if they don't make progress for > 30s and retries for 2m before failing. This means
   # that if an image doesn't download all it's layers within ~2m then any other concurrent pull will be killed because
@@ -74,6 +74,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
@@ -90,9 +94,9 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # Run Error Prone on one module with a retry to ensure all runtime dependencies are fetched
-          $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler -pl ':trino-spi'
+          $RETRY $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P gib,errorprone-compiler -pl ':trino-spi'
           # The main Error Prone run
-          $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler \
+          $MAVEN ${MAVEN_TEST} -T C1 clean test-compile -P gib,errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
 
   web-ui-checks:
@@ -110,6 +114,8 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0 # checkout tags so version in Manifest is set properly
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
@@ -161,6 +167,10 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
@@ -274,6 +284,10 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
@@ -369,6 +383,10 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
@@ -417,6 +435,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
@@ -465,6 +487,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
       - uses: actions/setup-java@v2
         with:
           distribution: 'zulu'
@@ -613,7 +639,8 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
+          # GIB needs to be explicitly disabled, because the gib profile enables it, but the trino-server module requires all of its dependencies to be built
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -Dgib.disable -pl '!:trino-docs,!:trino-server-rpm'
       - name: Free Disk Space
         run: |
           docker image prune -af
