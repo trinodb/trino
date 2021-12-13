@@ -242,8 +242,8 @@ public class TestHiveStorageFormats
     {
         return new StorageFormat[] {
                 storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true")),
-                storageFormat("PARQUET"),
-                storageFormat("PARQUET", ImmutableMap.of("hive.experimental_parquet_optimized_writer_enabled", "true")),
+                storageFormat("PARQUET", ImmutableMap.of("hive.parquet_optimized_writer_enabled", "false")),
+                storageFormat("PARQUET", ImmutableMap.of("hive.parquet_optimized_writer_enabled", "true")),
                 storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
                 storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
                 storageFormat("SEQUENCEFILE"),
@@ -766,18 +766,19 @@ public class TestHiveStorageFormats
     // The Parquet session properties are set to ensure that the correct situations in the Parquet writer are met to replicate the bug.
     // Not included in the STORAGE_FORMATS group since they require a large insert, which takes some time.
     @Test(groups = STORAGE_FORMATS_DETAILED)
-    public void testLargeParquetInsert()
+    public void testLargeParquetInsertWithLegacyWriter()
     {
         DataSize reducedRowGroupSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE / 4);
         runLargeInsert(storageFormat(
                 "PARQUET",
                 ImmutableMap.of(
+                        "hive.experimental_parquet_optimized_writer_enabled", "false",
                         "hive.parquet_writer_page_size", reducedRowGroupSize.toBytesValueString(),
                         "task_writer_count", "1")));
     }
 
     @Test(groups = STORAGE_FORMATS_DETAILED)
-    public void testLargeParquetInsertWithNativeWriter()
+    public void testLargeParquetInsert()
     {
         DataSize reducedRowGroupSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE / 4);
         runLargeInsert(storageFormat(

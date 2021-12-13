@@ -32,7 +32,7 @@ public class TestParquetWriterConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ParquetWriterConfig.class)
-                .setParquetOptimizedWriterEnabled(false)
+                .setParquetOptimizedWriterEnabled(true)
                 .setBlockSize(DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE))
                 .setPageSize(DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE))
                 .setBatchSize(ParquetWriterOptions.DEFAULT_BATCH_SIZE));
@@ -57,13 +57,13 @@ public class TestParquetWriterConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = Map.of(
-                "parquet.experimental-optimized-writer.enabled", "true",
+                "parquet.experimental-optimized-writer.enabled", "false",
                 "parquet.writer.block-size", "234MB",
                 "parquet.writer.page-size", "11MB",
                 "parquet.writer.batch-size", "100");
 
         ParquetWriterConfig expected = new ParquetWriterConfig()
-                .setParquetOptimizedWriterEnabled(true)
+                .setParquetOptimizedWriterEnabled(false)
                 .setBlockSize(DataSize.of(234, MEGABYTE))
                 .setPageSize(DataSize.of(11, MEGABYTE))
                 .setBatchSize(100);

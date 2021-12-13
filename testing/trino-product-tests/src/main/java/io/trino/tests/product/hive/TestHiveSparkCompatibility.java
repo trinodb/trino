@@ -248,15 +248,16 @@ public class TestHiveSparkCompatibility
     }
 
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testReadTrinoCreatedParquetTable()
+    public void testReadTrinoCreatedParquetTableWithLegacyWriter()
     {
-        testReadTrinoCreatedTable("using_parquet", "PARQUET");
+        onTrino().executeQuery("SET SESSION " + TRINO_CATALOG + ".parquet_optimized_writer_enabled = false");
+        testReadTrinoCreatedTable("using_legacy_parquet", "PARQUET");
     }
 
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testReadTrinoCreatedParquetTableWithNativeWriter()
+    public void testReadTrinoCreatedParquetTable()
     {
-        onTrino().executeQuery("SET SESSION " + TRINO_CATALOG + ".experimental_parquet_optimized_writer_enabled = true");
+        onTrino().executeQuery("SET SESSION " + TRINO_CATALOG + ".parquet_optimized_writer_enabled = true");
         testReadTrinoCreatedTable("using_native_parquet", "PARQUET");
     }
 

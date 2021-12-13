@@ -4630,16 +4630,19 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test(dataProvider = "timestampPrecisionAndValues")
-    public void testParquetTimestampPredicatePushdown(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
+    public void testParquetTimestampPredicatePushdownLegacyWriter(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
     {
-        doTestParquetTimestampPredicatePushdown(getSession(), timestampPrecision, value);
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "false")
+                .build();
+        doTestParquetTimestampPredicatePushdown(session, timestampPrecision, value);
     }
 
     @Test(dataProvider = "timestampPrecisionAndValues")
-    public void testParquetTimestampPredicatePushdownOptimizedWriter(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
+    public void testParquetTimestampPredicatePushdown(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
     {
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "experimental_parquet_optimized_writer_enabled", "true")
+                .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "true")
                 .build();
         doTestParquetTimestampPredicatePushdown(session, timestampPrecision, value);
     }
@@ -4742,17 +4745,20 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
-    public void testParquetDictionaryPredicatePushdown()
-    {
-        testParquetDictionaryPredicatePushdown(getSession());
-    }
-
-    @Test
-    public void testParquetDictionaryPredicatePushdownWithOptimizedWriter()
+    public void testParquetDictionaryPredicatePushdownWithLegacyWriter()
     {
         testParquetDictionaryPredicatePushdown(
                 Session.builder(getSession())
-                        .setCatalogSessionProperty("hive", "experimental_parquet_optimized_writer_enabled", "true")
+                        .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "false")
+                        .build());
+    }
+
+    @Test
+    public void testParquetDictionaryPredicatePushdown()
+    {
+        testParquetDictionaryPredicatePushdown(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "true")
                         .build());
     }
 
@@ -8440,8 +8446,8 @@ public abstract class BaseHiveConnectorTest
     private boolean isNativeParquetWriter(Session session, HiveStorageFormat storageFormat)
     {
         return storageFormat == HiveStorageFormat.PARQUET &&
-                ("true".equals(session.getConnectorProperties(new CatalogName("hive")).get("experimental_parquet_optimized_writer_enabled")) ||
-                        "true".equals(session.getUnprocessedCatalogProperties().getOrDefault("hive", Map.of()).get("experimental_parquet_optimized_writer_enabled")));
+                ("true".equals(session.getConnectorProperties(new CatalogName("hive")).get("parquet_optimized_writer_enabled")) ||
+                        "true".equals(session.getUnprocessedCatalogProperties().getOrDefault("hive", Map.of()).get("parquet_optimized_writer_enabled")));
     }
 
     private List<TestingHiveStorageFormat> getAllTestingHiveStorageFormat()
@@ -8457,12 +8463,12 @@ public abstract class BaseHiveConnectorTest
             if (hiveStorageFormat == HiveStorageFormat.PARQUET) {
                 formats.add(new TestingHiveStorageFormat(
                         Session.builder(session)
-                                .setCatalogSessionProperty(catalog, "experimental_parquet_optimized_writer_enabled", "false")
+                                .setCatalogSessionProperty(catalog, "parquet_optimized_writer_enabled", "false")
                                 .build(),
                         hiveStorageFormat));
                 formats.add(new TestingHiveStorageFormat(
                         Session.builder(session)
-                                .setCatalogSessionProperty(catalog, "experimental_parquet_optimized_writer_enabled", "true")
+                                .setCatalogSessionProperty(catalog, "parquet_optimized_writer_enabled", "true")
                                 .build(),
                         hiveStorageFormat));
                 continue;

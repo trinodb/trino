@@ -22,7 +22,7 @@ import org.apache.parquet.hadoop.ParquetWriter;
 
 public class ParquetWriterConfig
 {
-    private boolean parquetOptimizedWriterEnabled;
+    private boolean parquetOptimizedWriterEnabled = true;
 
     private DataSize blockSize = DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE);
     private DataSize pageSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE);
@@ -59,8 +59,8 @@ public class ParquetWriterConfig
         return parquetOptimizedWriterEnabled;
     }
 
-    @Config("parquet.experimental-optimized-writer.enabled")
-    @LegacyConfig("hive.parquet.optimized-writer.enabled")
+    @LegacyConfig("parquet.experimental-optimized-writer.enabled")
+    @Config("hive.parquet.optimized-writer.enabled")
     @ConfigDescription("Experimental: Enable optimized Parquet writer")
     public ParquetWriterConfig setParquetOptimizedWriterEnabled(boolean parquetOptimizedWriterEnabled)
     {
