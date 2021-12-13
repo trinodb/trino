@@ -37,6 +37,8 @@ public class StarburstSqlServerConfig
         PASSWORD_PASS_THROUGH,
         KERBEROS,
         KERBEROS_PASS_THROUGH,
+        NTLM_PASSWORD,
+        NTLM_PASSWORD_PASS_THROUGH
     }
 
     private boolean bulkCopyForWriteLockDestinationTable;

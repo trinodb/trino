@@ -44,6 +44,8 @@ import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.no
 import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.noImpersonationModuleWithSingletonIdentity;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.KERBEROS;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.KERBEROS_PASS_THROUGH;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.NTLM_PASSWORD;
+import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.NTLM_PASSWORD_PASS_THROUGH;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.PASSWORD;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.PASSWORD_PASS_THROUGH;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
@@ -74,6 +76,16 @@ public class SqlServerAuthenticationModule
                 StarburstSqlServerConfig.class,
                 config -> config.getAuthenticationType() == KERBEROS_PASS_THROUGH,
                 new KerberosPassThroughModule()));
+
+        install(conditionalModule(
+                StarburstSqlServerConfig.class,
+                config -> config.getAuthenticationType() == NTLM_PASSWORD,
+                new NtlmPasswordModule()));
+
+        install(conditionalModule(
+                StarburstSqlServerConfig.class,
+                config -> config.getAuthenticationType() == NTLM_PASSWORD_PASS_THROUGH,
+                new NtlmPassthroughModule()));
     }
 
     private static class PasswordModule
@@ -204,8 +216,88 @@ public class SqlServerAuthenticationModule
         }
     }
 
+    private static class NtlmPasswordModule
+            extends AbstractConfigurationAwareModule
+    {
+        @Override
+        protected void setup(Binder binder)
+        {
+            configBinder(binder).bindConfig(SqlServerTlsConfig.class);
+            install(new CredentialProviderModule());
+            install(conditionalModule(
+                    StarburstSqlServerConfig.class,
+                    StarburstSqlServerConfig::isImpersonationEnabled,
+                    new ImpersonationModule(),
+                    noImpersonationModuleWithCredentialProvider()));
+        }
+
+        @Provides
+        @Singleton
+        @ForCatalogOverriding
+        public ConnectionFactory getConnectionFactory(
+                BaseJdbcConfig baseJdbcConfig,
+                CredentialProvider credentialProvider,
+                SqlServerTlsConfig sqlServerTlsConfig)
+        {
+            return createNtlmConnectionFactory(baseJdbcConfig, credentialProvider, sqlServerTlsConfig);
+        }
+    }
+
+    private static class NtlmPassthroughModule
+            extends AbstractConfigurationAwareModule
+    {
+        @Override
+        protected void setup(Binder binder)
+        {
+            configBinder(binder).bindConfig(SqlServerTlsConfig.class);
+            install(new PasswordPassThroughModule<>(StarburstSqlServerConfig.class, StarburstSqlServerConfig::isImpersonationEnabled));
+            binder.bind(ConnectionFactory.class)
+                    .annotatedWith(ForBaseJdbc.class)
+                    .to(Key.get(ConnectionFactory.class, ForImpersonation.class))
+                    .in(SINGLETON);
+        }
+
+        @Provides
+        @Singleton
+        @ForCatalogOverriding
+        public ConnectionFactory getConnectionFactory(
+                BaseJdbcConfig baseJdbcConfig,
+                CredentialProvider credentialProvider,
+                SqlServerTlsConfig sqlServerTlsConfig)
+        {
+            return createNtlmConnectionFactory(baseJdbcConfig, credentialProvider, sqlServerTlsConfig);
+        }
+    }
+
     private static ConnectionFactory createBasicConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
         return new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider);
+    }
+
+    private static ConnectionFactory createNtlmConnectionFactory(BaseJdbcConfig baseJdbcConfig, CredentialProvider credentialProvider, SqlServerTlsConfig sqlServerTlsConfig)
+    {
+        checkState(
+                !baseJdbcConfig.getConnectionUrl().contains("authenticationScheme="),
+                "Cannot specify 'authenticationScheme' parameter in JDBC URL when using Active Directory password authentication: %s",
+                baseJdbcConfig.getConnectionUrl());
+        checkState(
+                !baseJdbcConfig.getConnectionUrl().contains("integratedSecurity="),
+                "Cannot specify 'integratedSecurity' parameter in JDBC URL when using Active Directory password authentication: %s",
+                baseJdbcConfig.getConnectionUrl());
+        Properties properties = new Properties();
+        properties.setProperty("authenticationScheme", "ntlm");
+        properties.setProperty("integratedSecurity", "true");
+        if (sqlServerTlsConfig.getTruststoreFile().isPresent() && sqlServerTlsConfig.getTruststorePassword().isPresent()) {
+            properties.put("encrypt", "true");
+            properties.put("trustStore", sqlServerTlsConfig.getTruststoreFile().get().getAbsolutePath());
+            properties.put("trustStorePassword", sqlServerTlsConfig.getTruststorePassword().get());
+            properties.put("trustStoreType", sqlServerTlsConfig.getTruststoreType());
+        }
+
+        return new DriverConnectionFactory(
+                new SQLServerDriver(),
+                baseJdbcConfig.getConnectionUrl(),
+                properties,
+                credentialProvider);
     }
 }
