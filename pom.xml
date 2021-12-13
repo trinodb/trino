@@ -1658,7 +1658,7 @@
                                 </excludes>
                             </requireUpperBoundDeps>
                             <bannedDependencies>
-                                <excludes>
+                                <excludes combine.children="append">
                                     <!-- We don't use log4j2, additionally versions < 2.15.0 are vulnerable to the RCE Log4Shell (CVE-2021-44228) -->
                                     <exclude>org.apache.logging.log4j:log4j-core</exclude>
                                 </excludes>
