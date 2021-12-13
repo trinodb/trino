@@ -113,7 +113,7 @@ public class TestCassandraConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
-            case SUPPORTS_INSERT_NOT_NULL_COLUMN:
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
 
             case SUPPORTS_DELETE:
