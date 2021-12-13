@@ -1784,5 +1784,37 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>ci</id>
+            <properties>
+                <!-- the *local* master, not refs/remotes/... -->
+                <gib.referenceBranch>master</gib.referenceBranch>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.vackosar.gitflowincrementalbuilder</groupId>
+                        <artifactId>gitflow-incremental-builder</artifactId>
+                        <version>3.14.5</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <disableIfBranchMatches>master</disableIfBranchMatches>
+                            <compareToMergeBase>true</compareToMergeBase>
+                            <uncommitted>true</uncommitted>
+                            <untracked>true</untracked>
+                            <excludePathsMatching>(\.github([/\\].*)?|\.mvn([/\\].*)?|mvnw|README.md|LICENSE)</excludePathsMatching>
+                            <buildDownstream>true</buildDownstream>
+                            <buildUpstream>true</buildUpstream>
+                            <buildUpstreamMode>impacted</buildUpstreamMode>
+                            <skipTestsForUpstreamModules>true</skipTestsForUpstreamModules>
+                            <argsForUpstreamModules>-Dmaven.site.skip=true -Dmaven.javadoc.skip=true -Dair.check.skip-all</argsForUpstreamModules>
+                            <disableSelectedProjectsHandling>true</disableSelectedProjectsHandling>
+                            <failOnMissingGitDir>true</failOnMissingGitDir>
+                            <failOnError>true</failOnError>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>
