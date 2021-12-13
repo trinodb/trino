@@ -1863,5 +1863,39 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>gib</id>
+            <properties>
+                <!-- the *local* master, not refs/remotes/... -->
+                <gib.referenceBranch>master</gib.referenceBranch>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.vackosar.gitflowincrementalbuilder</groupId>
+                        <artifactId>gitflow-incremental-builder</artifactId>
+                        <version>3.15.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <disableIfBranchMatches>master</disableIfBranchMatches>
+                            <compareToMergeBase>true</compareToMergeBase>
+                            <uncommitted>true</uncommitted>
+                            <untracked>true</untracked>
+                            <buildDownstream>true</buildDownstream>
+                            <buildUpstream>true</buildUpstream>
+                            <buildUpstreamMode>impacted</buildUpstreamMode>
+                            <!-- Skip tests and checks for upstream modules since they have not been modified but are still required to be built -->
+                            <skipTestsForUpstreamModules>true</skipTestsForUpstreamModules>
+                            <argsForUpstreamModules>-Dmaven.source.skip=true -Dair.check.skip-all</argsForUpstreamModules>
+                            <!-- Any modules selected with -pl will be built fully (with tests etc.) if the selected module itself is changed
+                            or one of its (non-selected) upstream modules -->
+                            <disableSelectedProjectsHandling>true</disableSelectedProjectsHandling>
+                            <failOnMissingGitDir>true</failOnMissingGitDir>
+                            <failOnError>true</failOnError>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>
