@@ -83,7 +83,7 @@ public class FeaturesConfig
     private boolean redistributeWrites = true;
     private boolean usePreferredWritePartitioning = true;
     private int preferredWritePartitioningMinNumberOfPartitions = 50;
-    private boolean scaleWriters;
+    private boolean scaleWriters = true;
     private DataSize writerMinSize = DataSize.of(32, DataSize.Unit.MEGABYTE);
     private boolean optimizeMetadataQueries;
     private boolean optimizeHashGeneration = true;
