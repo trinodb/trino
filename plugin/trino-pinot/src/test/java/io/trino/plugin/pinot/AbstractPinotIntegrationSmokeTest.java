@@ -65,7 +65,7 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
-public class TestPinotIntegrationSmokeTest
+public abstract class AbstractPinotIntegrationSmokeTest
         // TODO extend BaseConnectorTest
         extends AbstractTestQueryFramework
 {
@@ -87,13 +87,15 @@ public class TestPinotIntegrationSmokeTest
     // Use a fixed instant for testing date time functions
     private static final Instant CREATED_AT_INSTANT = Instant.parse("2021-05-10T00:00:00.00Z");
 
+    protected abstract boolean isSecured();
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         TestingKafka kafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
         kafka.start();
-        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork()));
+        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), isSecured()));
         pinot.start();
 
         // Create and populate the all_types topic and table
@@ -294,17 +296,26 @@ public class TestPinotIntegrationSmokeTest
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("quotes_in_column_name_schema.json"), QUOTES_IN_COLUMN_NAME_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("quotes_in_column_name_realtimeSpec.json"), QUOTES_IN_COLUMN_NAME_TABLE);
 
-        Map<String, String> pinotProperties = ImmutableMap.<String, String>builder()
+        return PinotQueryRunner.createPinotQueryRunner(
+                ImmutableMap.of(),
+                pinotProperties(pinot),
+                Optional.of(binder -> newOptionalBinder(binder, PinotHostMapper.class).setBinding()
+                        .toInstance(new TestingPinotHostMapper(pinot.getBrokerHostAndPort(), pinot.getServerHostAndPort()))));
+    }
+
+    private Map<String, String> pinotProperties(TestingPinotCluster pinot)
+    {
+        return ImmutableMap.<String, String>builder()
                 .put("pinot.controller-urls", pinot.getControllerConnectString())
                 .put("pinot.max-rows-per-split-for-segment-queries", String.valueOf(MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
                 .put("pinot.max-rows-for-broker-queries", String.valueOf(MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES))
+                .putAll(additionalPinotProperties())
                 .buildOrThrow();
+    }
 
-        return PinotQueryRunner.createPinotQueryRunner(
-                ImmutableMap.of(),
-                pinotProperties,
-                Optional.of(binder -> newOptionalBinder(binder, PinotHostMapper.class).setBinding()
-                        .toInstance(new TestingPinotHostMapper(pinot.getBrokerHostAndPort(), pinot.getServerHostAndPort()))));
+    protected Map<String, String> additionalPinotProperties()
+    {
+        return ImmutableMap.of();
     }
 
     private static Map<String, String> schemaRegistryAwareProducer(TestingKafka testingKafka)
