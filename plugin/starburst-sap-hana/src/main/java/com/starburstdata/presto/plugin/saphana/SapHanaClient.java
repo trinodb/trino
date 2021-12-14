@@ -113,6 +113,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingLocalDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
@@ -415,7 +416,7 @@ public class SapHanaClient
                 return Optional.of(ColumnMapping.longMapping(
                         DATE,
                         (resultSet, index) -> LocalDate.parse(resultSet.getString(index), DATE_FORMATTER).toEpochDay(),
-                        dateWriteFunction()));
+                        dateWriteFunctionUsingLocalDate()));
 
             case Types.TIME:
                 return Optional.of(timeColumnMapping());
@@ -502,7 +503,7 @@ public class SapHanaClient
         }
 
         if (type == DATE) {
-            return WriteMapping.longMapping("date", dateWriteFunction());
+            return WriteMapping.longMapping("date", dateWriteFunctionUsingLocalDate());
         }
 
         if (type instanceof TimeType) {
@@ -523,12 +524,6 @@ public class SapHanaClient
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
-    }
-
-    // Use 'StandardColumnMappings.dateWriteFunctionUsingLocalDate' after SEP included https://github.com/trinodb/trino/pull/10054
-    private static LongWriteFunction dateWriteFunction()
-    {
-        return (statement, index, value) -> statement.setObject(index, LocalDate.ofEpochDay(value));
     }
 
     private static class SmalldecimalWriteFunction

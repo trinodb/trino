@@ -86,6 +86,10 @@ public abstract class BaseSapHanaConnectorTest
 
             case "timestamp(3) with time zone":
                 return Optional.of(dataMappingTestSetup.asUnsupported());
+
+            case "date":
+                return Optional.of(dataMappingTestSetup)
+                        .filter(testSetup -> !testSetup.getSampleValueLiteral().equals("DATE '1582-10-05'"));
         }
 
         return Optional.of(dataMappingTestSetup);
