@@ -104,7 +104,7 @@ public class NodePartitioningManager
                 .orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
         ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(catalogName);
         BucketFunction bucketFunction = partitioningProvider.getBucketFunction(
-                partitioningHandle.getTransactionHandle().orElse(null),
+                partitioningHandle.getTransactionHandle().orElseThrow(() -> new IllegalArgumentException("No transactionHandle for partitioning handle: " + partitioningHandle)),
                 session.toConnectorSession(),
                 partitioningHandle.getConnectorHandle(),
                 partitionChannelTypes,
@@ -121,7 +121,7 @@ public class NodePartitioningManager
                 .orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
         ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(catalogName);
         return partitioningProvider.listPartitionHandles(
-                partitioningHandle.getTransactionHandle().orElse(null),
+                partitioningHandle.getTransactionHandle().orElseThrow(() -> new IllegalArgumentException("No transactionHandle for partitioning handle: " + partitioningHandle)),
                 session.toConnectorSession(catalogName),
                 partitioningHandle.getConnectorHandle());
     }
@@ -205,7 +205,7 @@ public class NodePartitioningManager
                 .orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
         ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(catalogName);
         ConnectorBucketNodeMap connectorBucketNodeMap = partitioningProvider.getBucketNodeMap(
-                partitioningHandle.getTransactionHandle().orElse(null),
+                partitioningHandle.getTransactionHandle().orElseThrow(() -> new IllegalArgumentException("No transactionHandle for partitioning handle: " + partitioningHandle)),
                 session.toConnectorSession(catalogName),
                 partitioningHandle.getConnectorHandle());
         checkArgument(connectorBucketNodeMap != null, "No partition map %s", partitioningHandle);
@@ -219,7 +219,7 @@ public class NodePartitioningManager
         ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(catalogName);
 
         ToIntFunction<ConnectorSplit> splitBucketFunction = partitioningProvider.getSplitBucketFunction(
-                partitioningHandle.getTransactionHandle().orElse(null),
+                partitioningHandle.getTransactionHandle().orElseThrow(() -> new IllegalArgumentException("No transactionHandle for partitioning handle: " + partitioningHandle)),
                 session.toConnectorSession(catalogName),
                 partitioningHandle.getConnectorHandle());
         checkArgument(splitBucketFunction != null, "No partitioning %s", partitioningHandle);
