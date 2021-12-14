@@ -42,7 +42,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingSqlDate;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -106,7 +106,7 @@ final class StargateColumnMappings
                         return localDate.toEpochDay();
                     }
                 },
-                dateWriteFunction());
+                dateWriteFunctionUsingSqlDate());
     }
 
     public static ColumnMapping stargateTimeColumnMapping(int decimalDigits)

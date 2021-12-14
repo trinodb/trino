@@ -61,7 +61,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
                 // memory connector does not support deletes
                 return false;
 
-            case SUPPORTS_INSERT_NOT_NULL_COLUMN:
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
                 // memory connector does not support not-null in create-table
                 return false;
 
@@ -186,5 +186,14 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete", "AS SELECT * FROM region")) {
             assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", ".*This connector does not support deletes");
         }
+    }
+
+    @Override
+    public void testInsertIntoNotNullColumn()
+    {
+        // Overridden because we get an error message with "Query failed (<query_id>):" prefixed instead of one expected by superclass
+        assertQueryFails(
+                "CREATE TABLE not_null_constraint (not_null_col INTEGER NOT NULL)",
+                ".* line 1:53: Catalog 'memory' does not support non-null column for column name '\"not_null_col\"'");
     }
 }
