@@ -24,7 +24,8 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.net.HttpHeaders;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Multimap;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.JsonResponseHandler;
 import io.airlift.http.client.Request;
@@ -41,6 +42,8 @@ import io.trino.plugin.pinot.PinotErrorCode;
 import io.trino.plugin.pinot.PinotException;
 import io.trino.plugin.pinot.PinotInsufficientServerResponseException;
 import io.trino.plugin.pinot.PinotSessionProperties;
+import io.trino.plugin.pinot.auth.PinotBrokerAuthenticationProvider;
+import io.trino.plugin.pinot.auth.PinotControllerAuthenticationProvider;
 import io.trino.plugin.pinot.query.PinotQueryInfo;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
@@ -69,6 +72,9 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.net.HttpHeaders.ACCEPT;
+import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -110,6 +116,8 @@ public class PinotClient
     private final JsonCodec<TimeBoundary> timeBoundaryJsonCodec;
     private final JsonCodec<Schema> schemaJsonCodec;
     private final JsonCodec<BrokerResponseNative> brokerResponseCodec;
+    private final PinotControllerAuthenticationProvider controllerAuthenticationProvider;
+    private final PinotBrokerAuthenticationProvider brokerAuthenticationProvider;
 
     @Inject
     public PinotClient(
@@ -119,7 +127,9 @@ public class PinotClient
             JsonCodec<GetTables> tablesJsonCodec,
             JsonCodec<BrokersForTable> brokersForTableJsonCodec,
             JsonCodec<TimeBoundary> timeBoundaryJsonCodec,
-            JsonCodec<BrokerResponseNative> brokerResponseCodec)
+            JsonCodec<BrokerResponseNative> brokerResponseCodec,
+            PinotControllerAuthenticationProvider controllerAuthenticationProvider,
+            PinotBrokerAuthenticationProvider brokerAuthenticationProvider)
     {
         this.brokersForTableJsonCodec = requireNonNull(brokersForTableJsonCodec, "brokersForTableJsonCodec is null");
         this.timeBoundaryJsonCodec = requireNonNull(timeBoundaryJsonCodec, "timeBoundaryJsonCodec is null");
@@ -138,6 +148,8 @@ public class PinotClient
         this.brokersForTableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
                 .build((CacheLoader.from(this::getAllBrokersForTable)));
+        this.controllerAuthenticationProvider = controllerAuthenticationProvider;
+        this.brokerAuthenticationProvider = brokerAuthenticationProvider;
     }
 
     public static JsonCodecBinder addJsonBinders(JsonCodecBinder jsonCodecBinder)
@@ -150,11 +162,16 @@ public class PinotClient
         return jsonCodecBinder;
     }
 
-    protected <T> T doHttpActionWithHeadersJson(Request.Builder requestBuilder, Optional<String> requestBody, JsonCodec<T> codec)
+    protected <T> T doHttpActionWithHeadersJson(
+            Request.Builder requestBuilder,
+            Optional<String> requestBody,
+            JsonCodec<T> codec,
+            Multimap<String, String> additionalHeaders)
     {
-        requestBuilder.setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON);
+        requestBuilder.addHeaders(additionalHeaders);
+        requestBuilder.setHeader(ACCEPT, APPLICATION_JSON);
         if (requestBody.isPresent()) {
-            requestBuilder.setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON);
+            requestBuilder.setHeader(CONTENT_TYPE, APPLICATION_JSON);
             requestBuilder.setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(requestBody.get(), StandardCharsets.UTF_8));
         }
         Request request = requestBuilder.build();
@@ -180,18 +197,24 @@ public class PinotClient
 
     private <T> T sendHttpGetToControllerJson(String path, JsonCodec<T> codec)
     {
+        ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
+        controllerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
         return doHttpActionWithHeadersJson(
                 Request.Builder.prepareGet().setUri(uriBuilderFrom(getControllerUrl()).appendPath(path).build()),
                 Optional.empty(),
-                codec);
+                codec,
+                additionalHeadersBuilder.build());
     }
 
     private <T> T sendHttpGetToBrokerJson(String table, String path, JsonCodec<T> codec)
     {
+        ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
+        brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
         return doHttpActionWithHeadersJson(
                 Request.Builder.prepareGet().setUri(URI.create(format("http://%s/%s", getBrokerHost(table), path))),
                 Optional.empty(),
-                codec);
+                codec,
+                additionalHeadersBuilder.build());
     }
 
     private URI getControllerUrl()
@@ -448,7 +471,10 @@ public class PinotClient
             LOG.info("Query '%s' on broker host '%s'", queryHost, query.getQuery());
             Request.Builder builder = Request.Builder.preparePost()
                     .setUri(URI.create(format(QUERY_URL_TEMPLATE, queryHost)));
-            BrokerResponseNative response = doHttpActionWithHeadersJson(builder, Optional.of(queryRequest), brokerResponseCodec);
+            ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
+            brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
+            BrokerResponseNative response = doHttpActionWithHeadersJson(builder, Optional.of(queryRequest), brokerResponseCodec,
+                    additionalHeadersBuilder.build());
 
             if (response.getExceptionsSize() > 0 && response.getProcessingExceptions() != null && !response.getProcessingExceptions().isEmpty()) {
                 // Pinot is known to return exceptions with benign errorcodes like 200

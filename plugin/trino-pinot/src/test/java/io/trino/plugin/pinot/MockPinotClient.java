@@ -15,9 +15,13 @@ package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.json.JsonCodec;
+import io.trino.plugin.pinot.auth.PinotBrokerAuthenticationProvider;
+import io.trino.plugin.pinot.auth.PinotControllerAuthenticationProvider;
+import io.trino.plugin.pinot.auth.none.PinotEmptyAuthenticationProvider;
 import io.trino.plugin.pinot.client.IdentityPinotHostMapper;
 import io.trino.plugin.pinot.client.PinotClient;
 import org.apache.pinot.spi.data.Schema;
@@ -57,7 +61,9 @@ public class MockPinotClient
                 TABLES_JSON_CODEC,
                 BROKERS_FOR_TABLE_JSON_CODEC,
                 TIME_BOUNDARY_JSON_CODEC,
-                BROKER_RESPONSE_NATIVE_JSON_CODEC);
+                BROKER_RESPONSE_NATIVE_JSON_CODEC,
+                PinotControllerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()),
+                PinotBrokerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()));
         this.metadata = metadata;
         this.response = response;
     }
@@ -69,7 +75,11 @@ public class MockPinotClient
     }
 
     @Override
-    public <T> T doHttpActionWithHeadersJson(Request.Builder requestBuilder, Optional<String> requestBody, JsonCodec<T> codec)
+    public <T> T doHttpActionWithHeadersJson(
+            Request.Builder requestBuilder,
+            Optional<String> requestBody,
+            JsonCodec<T> codec,
+            Multimap<String, String> additionalHeaders)
     {
         return codec.fromJson(response);
     }

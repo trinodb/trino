@@ -32,9 +32,7 @@ public class PinotQueryRunner
 {
     public static final String PINOT_CATALOG = "pinot";
 
-    private PinotQueryRunner()
-    {
-    }
+    private PinotQueryRunner() {}
 
     public static DistributedQueryRunner createPinotQueryRunner(Map<String, String> extraProperties, Map<String, String> extraPinotProperties, Optional<Module> extension)
             throws Exception
@@ -70,7 +68,7 @@ public class PinotQueryRunner
         Logging.initialize();
         TestingKafka kafka = TestingKafka.createWithSchemaRegistry();
         kafka.start();
-        TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork());
+        TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork(), false);
         pinot.start();
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
         Map<String, String> pinotProperties = ImmutableMap.<String, String>builder()
