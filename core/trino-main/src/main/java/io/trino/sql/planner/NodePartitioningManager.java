@@ -87,8 +87,6 @@ public class NodePartitioningManager
 
         PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
-            checkArgument(bucketToPartition.isPresent(), "Bucket to partition must be set before a partition function can be created");
-
             return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitionFunction(
                     partitionChannelTypes,
                     partitioningScheme.getHashColumn().isPresent(),
