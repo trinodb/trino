@@ -14,7 +14,6 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -30,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.concat;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
@@ -96,10 +97,7 @@ public class Analyzer
 
         List<GroupingOperation> groupingOperations = extractExpressions(ImmutableList.of(predicate), GroupingOperation.class);
 
-        List<Expression> found = ImmutableList.copyOf(Iterables.concat(
-                aggregates,
-                windowExpressions,
-                groupingOperations));
+        List<Expression> found = concat(aggregates.stream(), windowExpressions.stream(), groupingOperations.stream()).collect(toImmutableList());
 
         if (!found.isEmpty()) {
             throw semanticException(EXPRESSION_NOT_SCALAR, predicate, "%s cannot contain aggregations, window functions or grouping operations: %s", clause, found);

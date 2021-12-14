@@ -143,6 +143,7 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Stream.concat;
 
 class QueryPlanner
 {
@@ -199,7 +200,7 @@ class QueryPlanner
         List<Expression> outputs = selectExpressions.stream()
                 .map(SelectExpression::getExpression)
                 .collect(toImmutableList());
-        builder = builder.appendProjections(Iterables.concat(orderBy, outputs), symbolAllocator, idAllocator);
+        builder = builder.appendProjections(() -> concat(orderBy.stream(), outputs.stream()).iterator(), symbolAllocator, idAllocator);
 
         Optional<OrderingScheme> orderingScheme = orderingScheme(builder, query.getOrderBy(), analysis.getOrderByExpressions(query));
         builder = sort(builder, orderingScheme);
@@ -440,7 +441,7 @@ class QueryPlanner
 
         List<Expression> orderBy = analysis.getOrderByExpressions(node);
         builder = subqueryPlanner.handleSubqueries(builder, orderBy, analysis.getSubqueries(node));
-        builder = builder.appendProjections(Iterables.concat(orderBy, outputs), symbolAllocator, idAllocator);
+        builder = builder.appendProjections(() -> concat(orderBy.stream(), outputs.stream()).iterator(), symbolAllocator, idAllocator);
 
         builder = distinct(builder, node, outputs);
         Optional<OrderingScheme> orderingScheme = orderingScheme(builder, node.getOrderBy(), analysis.getOrderByExpressions(node));

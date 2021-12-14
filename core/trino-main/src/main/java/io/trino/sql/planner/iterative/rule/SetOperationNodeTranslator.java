@@ -44,7 +44,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -55,6 +55,7 @@ import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Stream.concat;
 
 public class SetOperationNodeTranslator
 {
@@ -83,7 +84,7 @@ public class SetOperationNodeTranslator
         // add a union over all the rewritten sources. The outputs of the union have the same name as the
         // original intersect node
         List<Symbol> outputs = node.getOutputSymbols();
-        UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
+        UnionNode union = union(withMarkers, concat(outputs.stream(), markers.stream()).collect(toImmutableList()));
 
         // add count aggregations
         List<Symbol> aggregationOutputs = allocateSymbols(markers.size(), "count", BIGINT);
@@ -101,18 +102,24 @@ public class SetOperationNodeTranslator
 
         // add a union over all the rewritten sources
         List<Symbol> outputs = node.getOutputSymbols();
-        UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
+        UnionNode union = union(withMarkers, concat(outputs.stream(), markers.stream()).collect(toImmutableList()));
 
         // add counts and row number
         List<Symbol> countOutputs = allocateSymbols(markers.size(), "count", BIGINT);
         Symbol rowNumberSymbol = symbolAllocator.newSymbol("row_number", BIGINT);
         WindowNode window = appendCounts(union, outputs, markers, countOutputs, rowNumberSymbol);
 
+        List<Symbol> assignments = ImmutableList.<Symbol>builder()
+                .addAll(outputs)
+                .addAll(countOutputs)
+                .add(rowNumberSymbol)
+                .build();
+
         // prune markers
         ProjectNode project = new ProjectNode(
                 idAllocator.getNextId(),
                 window,
-                Assignments.identity(ImmutableList.copyOf(concat(outputs, countOutputs, ImmutableList.of(rowNumberSymbol)))));
+                Assignments.identity(assignments));
 
         return new TranslationResult(project, countOutputs, Optional.of(rowNumberSymbol));
     }

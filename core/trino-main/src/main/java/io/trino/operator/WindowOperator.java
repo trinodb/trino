@@ -54,7 +54,6 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterators.peekingIterator;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
@@ -66,6 +65,7 @@ import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 import static io.trino.util.MergeSortedPages.mergeSortedPages;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Stream.concat;
 
 public class WindowOperator
         implements Operator
@@ -290,8 +290,8 @@ public class WindowOperator
                 .limit(preSortedChannelPrefix)
                 .collect(toImmutableList());
 
-        List<Integer> unGroupedOrderChannels = ImmutableList.copyOf(concat(unGroupedPartitionChannels, sortChannels));
-        List<SortOrder> unGroupedOrdering = ImmutableList.copyOf(concat(nCopies(unGroupedPartitionChannels.size(), ASC_NULLS_LAST), sortOrder));
+        List<Integer> unGroupedOrderChannels = concat(unGroupedPartitionChannels.stream(), sortChannels.stream()).collect(toImmutableList());
+        List<SortOrder> unGroupedOrdering = concat(nCopies(unGroupedPartitionChannels.size(), ASC_NULLS_LAST).stream(), sortOrder.stream()).collect(toImmutableList());
 
         List<Integer> orderChannels;
         List<SortOrder> ordering;

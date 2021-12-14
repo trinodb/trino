@@ -268,7 +268,6 @@ import static com.google.common.collect.DiscreteDomain.integers;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static com.google.common.collect.Sets.difference;
@@ -351,6 +350,7 @@ import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.partitioningBy;
 import static java.util.stream.IntStream.range;
+import static java.util.stream.Stream.concat;
 
 public class LocalExecutionPlanner
 {
@@ -1896,7 +1896,7 @@ public class LocalExecutionPlanner
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(
                     session,
                     context.getTypes(),
-                    concat(staticFilters.map(ImmutableList::of).orElse(ImmutableList.of()), assignments.getExpressions()));
+                    () -> concat(staticFilters.map(ImmutableList::of).orElse(ImmutableList.of()).stream(), assignments.getExpressions().stream()).iterator());
 
             Optional<RowExpression> translatedFilter = staticFilters.map(filter -> toRowExpression(filter, expressionTypes, sourceLayout));
             List<RowExpression> translatedProjections = projections.stream()

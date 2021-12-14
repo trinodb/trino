@@ -40,7 +40,6 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.concat;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
@@ -163,7 +162,10 @@ public class PatternRecognitionNode
 
     public Set<Symbol> getCreatedSymbols()
     {
-        return ImmutableSet.copyOf(concat(measures.keySet(), windowFunctions.keySet()));
+        return ImmutableSet.<Symbol>builder()
+                .addAll(measures.keySet())
+                .addAll(windowFunctions.keySet())
+                .build();
     }
 
     @JsonProperty

@@ -36,7 +36,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.collect.Iterables.concat;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
@@ -140,7 +139,7 @@ public class TestHashSemiJoinOperator
                 probeHashChannel);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), ImmutableList.<Type>builder().addAll(probeTypes).add(BOOLEAN).build())
                 .row(30L, 0L, true)
                 .row(31L, 1L, false)
                 .row(32L, 2L, false)
@@ -205,7 +204,7 @@ public class TestHashSemiJoinOperator
                 probeHashChannel);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), ImmutableList.<Type>builder().addAll(probeTypes).add(BOOLEAN).build())
                 .row("30", 0L, true)
                 .row("31", 1L, false)
                 .row("32", 2L, false)
@@ -300,7 +299,7 @@ public class TestHashSemiJoinOperator
                 probeHashChannel);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), ImmutableList.<Type>builder().addAll(probeTypes).add(BOOLEAN).build())
                 .row(1L, true)
                 .row(2L, true)
                 .row(3L, true)
@@ -359,7 +358,7 @@ public class TestHashSemiJoinOperator
                 probeHashChannel);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), ImmutableList.<Type>builder().addAll(probeTypes).add(BOOLEAN).build())
                 .row(0L, true)
                 .row(null, null)
                 .row(1L, true)
@@ -419,7 +418,7 @@ public class TestHashSemiJoinOperator
                 probeHashChannel);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), ImmutableList.<Type>builder().addAll(probeTypes).add(BOOLEAN).build())
                 .row(0L, true)
                 .row(null, null)
                 .row(1L, true)

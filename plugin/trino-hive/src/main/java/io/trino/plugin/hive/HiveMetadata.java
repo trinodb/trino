@@ -152,7 +152,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.intersection;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getColumnNames;
@@ -297,6 +296,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Stream.concat;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
@@ -1412,12 +1412,12 @@ public class HiveMetadata
                 accessControlMetadata.isUsingSystemSecurity());
         PrincipalPrivileges principalPrivileges = accessControlMetadata.isUsingSystemSecurity() ? NO_PRIVILEGES : buildInitialPrivilegeSet(handle.getTableOwner());
 
-        partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
+        partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates.iterator());
 
         if (handle.getBucketProperty().isPresent() && isCreateEmptyBucketFiles(session)) {
             List<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(session, handle, table, true, partitionUpdates);
             // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
-            partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates, partitionUpdatesForMissingBuckets));
+            partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates.stream(), partitionUpdatesForMissingBuckets.stream()).iterator());
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table, partitionUpdate));
                 createEmptyFiles(session, partitionUpdate.getWritePath(), table, partition, partitionUpdate.getFileNames());
@@ -1772,7 +1772,7 @@ public class HiveMetadata
                 .collect(toImmutableList());
 
         HiveStorageFormat tableStorageFormat = handle.getTableStorageFormat();
-        partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
+        partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates.iterator());
 
         Table table = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
@@ -1783,7 +1783,7 @@ public class HiveMetadata
         if (handle.getBucketProperty().isPresent() && isCreateEmptyBucketFiles(session)) {
             List<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(session, handle, table, false, partitionUpdates);
             // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
-            partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates, partitionUpdatesForMissingBuckets));
+            partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates.stream(), partitionUpdatesForMissingBuckets.stream()).iterator());
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table, partitionUpdate));
                 if (handle.isTransactional() && partition.isPresent()) {
@@ -2129,7 +2129,7 @@ public class HiveMetadata
                 .collect(toImmutableList());
 
         HiveStorageFormat tableStorageFormat = handle.getTableStorageFormat();
-        partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
+        partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates.iterator());
 
         Table table = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
@@ -3316,14 +3316,14 @@ public class HiveMetadata
 
         List<Column> tableColumns = table.getDataColumns();
         ImmutableMap.Builder<String, Optional<String>> builder = ImmutableMap.builder();
-        for (Column field : concat(tableColumns, table.getPartitionColumns())) {
+        concat(tableColumns.stream(), table.getPartitionColumns().stream()).forEach(field -> {
             if (field.getComment().isPresent() && !field.getComment().get().equals("from deserializer")) {
                 builder.put(field.getName(), field.getComment());
             }
             else {
                 builder.put(field.getName(), Optional.empty());
             }
-        }
+        });
 
         // add hidden columns
         builder.put(PATH_COLUMN_NAME, Optional.empty());

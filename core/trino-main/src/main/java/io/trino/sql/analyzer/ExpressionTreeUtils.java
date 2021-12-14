@@ -28,6 +28,7 @@ import io.trino.sql.tree.WindowOperation;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -39,6 +40,12 @@ public final class ExpressionTreeUtils
     private ExpressionTreeUtils() {}
 
     static List<FunctionCall> extractAggregateFunctions(Iterable<? extends Node> nodes, Metadata metadata)
+    {
+        requireNonNull(nodes, "nodes is null");
+        return extractAggregateFunctions(stream(nodes), metadata);
+    }
+
+    static List<FunctionCall> extractAggregateFunctions(Stream<? extends Node> nodes, Metadata metadata)
     {
         return extractExpressions(nodes, FunctionCall.class, function -> isAggregation(function, metadata));
     }
@@ -65,6 +72,14 @@ public final class ExpressionTreeUtils
             Iterable<? extends Node> nodes,
             Class<T> clazz)
     {
+        requireNonNull(nodes, "nodes is null");
+        return extractExpressions(stream(nodes), clazz);
+    }
+
+    public static <T extends Expression> List<T> extractExpressions(
+            Stream<? extends Node> nodes,
+            Class<T> clazz)
+    {
         return extractExpressions(nodes, clazz, alwaysTrue());
     }
 
@@ -86,10 +101,19 @@ public final class ExpressionTreeUtils
             Predicate<T> predicate)
     {
         requireNonNull(nodes, "nodes is null");
+        return extractExpressions(stream(nodes), clazz, predicate);
+    }
+
+    private static <T extends Expression> List<T> extractExpressions(
+            Stream<? extends Node> nodes,
+            Class<T> clazz,
+            Predicate<T> predicate)
+    {
+        requireNonNull(nodes, "nodes is null");
         requireNonNull(clazz, "clazz is null");
         requireNonNull(predicate, "predicate is null");
 
-        return stream(nodes)
+        return nodes
                 .flatMap(node -> linearizeNodes(node).stream())
                 .filter(clazz::isInstance)
                 .map(clazz::cast)

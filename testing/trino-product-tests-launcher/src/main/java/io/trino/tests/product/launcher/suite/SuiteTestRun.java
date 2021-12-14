@@ -18,7 +18,6 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 
@@ -26,9 +25,11 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tests.product.launcher.Configurations.nameForEnvironmentClass;
 import static java.lang.System.getenv;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Stream.concat;
 
 public class SuiteTestRun
 {
@@ -141,7 +142,7 @@ public class SuiteTestRun
 
     private static List<String> merge(List<String> first, List<String> second)
     {
-        return ImmutableList.copyOf(Iterables.concat(first, second));
+        return concat(first.stream(), second.stream()).collect(toImmutableList());
     }
 
     @Override

@@ -61,9 +61,9 @@ import java.util.stream.Stream;
 import static com.google.common.base.Functions.compose;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
+import static com.google.common.collect.Streams.concat;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.hive.parquet.ParquetTester.insertNullEvery;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -90,6 +90,7 @@ import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
+import static java.util.stream.Stream.concat;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -796,14 +797,14 @@ public abstract class AbstractTestParquetReader
     public void testLongSequenceWithHoles()
             throws Exception
     {
-        testRoundTripNumeric(skipEvery(5, intsBetween(0, 31_234)));
+        testRoundTripNumeric(() -> stream(skipEvery(5, intsBetween(0, 31_234))).iterator());
     }
 
     @Test
     public void testLongDirect()
             throws Exception
     {
-        testRoundTripNumeric(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000));
+        testRoundTripNumeric(() -> stream(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).iterator());
     }
 
     @Test
@@ -822,14 +823,14 @@ public abstract class AbstractTestParquetReader
     public void testLongShortRepeat()
             throws Exception
     {
-        testRoundTripNumeric(limit(repeatEach(4, cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17))), 30_000));
+        testRoundTripNumeric(() -> stream(limit(repeatEach(4, cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17))), 30_000)).iterator());
     }
 
     @Test
     public void testLongPatchedBase()
             throws Exception
     {
-        testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18), ImmutableList.of(30_000, 20_000))), 30_000));
+        testRoundTripNumeric(() -> stream(limit(cycle(() -> concat(intsBetween(0, 18).stream(), ImmutableList.of(30_000, 20_000).stream()).iterator()), 30_000)).iterator());
     }
 
     // copied from Parquet code to determine the max decimal precision supported by INT32/INT64
@@ -1429,7 +1430,7 @@ public abstract class AbstractTestParquetReader
     public void testLongStrideDictionary()
             throws Exception
     {
-        testRoundTripNumeric(concat(ImmutableList.of(1), Collections.nCopies(9999, 123), ImmutableList.of(2), Collections.nCopies(9999, 123)));
+        testRoundTripNumeric(() -> concat(ImmutableList.of(1).stream(), Collections.nCopies(9999, 123).stream(), ImmutableList.of(2).stream(), Collections.nCopies(9999, 123).stream()).iterator());
     }
 
     private void testRoundTripNumeric(Iterable<Integer> writeValues)
@@ -1525,7 +1526,7 @@ public abstract class AbstractTestParquetReader
     public void testStringStrideDictionary()
             throws Exception
     {
-        tester.testRoundTrip(javaStringObjectInspector, concat(ImmutableList.of("a"), Collections.nCopies(9999, "123"), ImmutableList.of("b"), Collections.nCopies(9999, "123")), createUnboundedVarcharType());
+        tester.testRoundTrip(javaStringObjectInspector, () -> concat(ImmutableList.of("a").stream(), Collections.nCopies(9999, "123").stream(), ImmutableList.of("b").stream(), Collections.nCopies(9999, "123").stream()).iterator(), createUnboundedVarcharType());
     }
 
     @Test

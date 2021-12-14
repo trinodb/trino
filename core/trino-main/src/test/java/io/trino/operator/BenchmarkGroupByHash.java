@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
@@ -230,7 +229,10 @@ public class BenchmarkGroupByHash
         List<Type> types = Collections.nCopies(channelCount, BIGINT);
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         if (hashEnabled) {
-            types = ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BIGINT)));
+            types = ImmutableList.<Type>builder()
+                    .addAll(types)
+                    .add(BIGINT)
+                    .build();
         }
 
         PageBuilder pageBuilder = new PageBuilder(types);
@@ -284,7 +286,10 @@ public class BenchmarkGroupByHash
         List<Type> types = Collections.nCopies(channelCount, VARCHAR);
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         if (hashEnabled) {
-            types = ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BIGINT)));
+            types = ImmutableList.<Type>builder()
+                    .addAll(types)
+                    .add(BIGINT)
+                    .build();
         }
 
         PageBuilder pageBuilder = new PageBuilder(types);

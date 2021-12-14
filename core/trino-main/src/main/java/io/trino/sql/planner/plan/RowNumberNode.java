@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -83,7 +82,10 @@ public final class RowNumberNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.copyOf(concat(source.getOutputSymbols(), ImmutableList.of(rowNumberSymbol)));
+        return ImmutableList.<Symbol>builder()
+                .addAll(source.getOutputSymbols())
+                .add(rowNumberSymbol)
+                .build();
     }
 
     @JsonProperty

@@ -137,7 +137,10 @@ public class RowPagesBuilder
     public List<Type> getTypes()
     {
         if (hashEnabled) {
-            return ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BigintType.BIGINT)));
+            return ImmutableList.<Type>builder()
+                    .addAll(types)
+                    .add(BigintType.BIGINT)
+                    .build();
         }
         return types;
     }

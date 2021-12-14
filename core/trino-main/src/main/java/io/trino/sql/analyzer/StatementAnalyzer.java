@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
 import io.trino.Session;
@@ -317,6 +316,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Stream.concat;
 
 class StatementAnalyzer
 {
@@ -3419,7 +3419,7 @@ class StatementAnalyzer
 
         private void analyzeGroupingOperations(QuerySpecification node, List<Expression> outputExpressions, List<Expression> orderByExpressions)
         {
-            List<GroupingOperation> groupingOperations = extractExpressions(Iterables.concat(outputExpressions, orderByExpressions), GroupingOperation.class);
+            List<GroupingOperation> groupingOperations = extractExpressions(concat(outputExpressions.stream(), orderByExpressions.stream()), GroupingOperation.class);
             boolean isGroupingOperationPresent = !groupingOperations.isEmpty();
 
             if (isGroupingOperationPresent && node.getGroupBy().isEmpty()) {
@@ -3442,7 +3442,7 @@ class StatementAnalyzer
         {
             checkState(orderByExpressions.isEmpty() || orderByScope.isPresent(), "non-empty orderByExpressions list without orderByScope provided");
 
-            List<FunctionCall> aggregates = extractAggregateFunctions(Iterables.concat(outputExpressions, orderByExpressions), metadata);
+            List<FunctionCall> aggregates = extractAggregateFunctions(concat(outputExpressions.stream(), orderByExpressions.stream()), metadata);
             analysis.setAggregates(node, aggregates);
 
             if (analysis.isAggregation(node)) {

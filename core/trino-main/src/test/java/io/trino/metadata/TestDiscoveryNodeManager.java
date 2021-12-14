@@ -16,7 +16,6 @@ package io.trino.metadata;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.ServiceSelector;
@@ -48,6 +47,7 @@ import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.INACTIVE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.stream.Stream.concat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertTrue;
@@ -197,14 +197,12 @@ public class TestDiscoveryNodeManager
         private synchronized void announceNodes(Set<InternalNode> activeNodes, Set<InternalNode> inactiveNodes)
         {
             ImmutableList.Builder<ServiceDescriptor> descriptors = ImmutableList.builder();
-            for (InternalNode node : Iterables.concat(activeNodes, inactiveNodes)) {
-                descriptors.add(serviceDescriptor("trino")
-                        .setNodeId(node.getNodeIdentifier())
-                        .addProperty("http", node.getInternalUri().toString())
-                        .addProperty("node_version", node.getNodeVersion().toString())
-                        .addProperty("coordinator", String.valueOf(node.isCoordinator()))
-                        .build());
-            }
+            concat(activeNodes.stream(), inactiveNodes.stream()).forEach(node -> descriptors.add(serviceDescriptor("trino")
+                    .setNodeId(node.getNodeIdentifier())
+                    .addProperty("http", node.getInternalUri().toString())
+                    .addProperty("node_version", node.getNodeVersion().toString())
+                    .addProperty("coordinator", String.valueOf(node.isCoordinator()))
+                    .build()));
 
             this.descriptors = descriptors.build();
         }

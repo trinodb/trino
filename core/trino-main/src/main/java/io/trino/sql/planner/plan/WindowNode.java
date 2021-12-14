@@ -36,11 +36,11 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.concat;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Stream.concat;
 
 @Immutable
 public class WindowNode
@@ -91,7 +91,7 @@ public class WindowNode
     @Override
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.copyOf(concat(source.getOutputSymbols(), windowFunctions.keySet()));
+        return concat(source.getOutputSymbols().stream(), windowFunctions.keySet().stream()).collect(toImmutableList());
     }
 
     public Set<Symbol> getCreatedSymbols()

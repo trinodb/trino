@@ -192,7 +192,7 @@ public class ParquetTester
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
     }
 
-    public void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<?> writeValues, Type parameterType)
+    public <T> void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<T> writeValues, Type parameterType)
             throws Exception
     {
         testRoundTrip(columnObjectInspector, writeValues, writeValues, parameterType);

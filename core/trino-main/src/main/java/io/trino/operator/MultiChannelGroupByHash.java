@@ -15,7 +15,6 @@ package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import io.trino.array.LongBigArray;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -108,7 +107,7 @@ public class MultiChannelGroupByHash
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
         this.inputHashChannel = requireNonNull(inputHashChannel, "inputHashChannel is null");
-        this.types = inputHashChannel.isPresent() ? ImmutableList.copyOf(Iterables.concat(hashTypes, ImmutableList.of(BIGINT))) : this.hashTypes;
+        this.types = inputHashChannel.isPresent() ? ImmutableList.<Type>builder().addAll(hashTypes).add(BIGINT).build() : this.hashTypes;
         this.channels = hashChannels.clone();
 
         this.hashGenerator = inputHashChannel.isPresent() ? new PrecomputedHashGenerator(inputHashChannel.get()) : new InterpretedHashGenerator(this.hashTypes, hashChannels, blockTypeOperators);

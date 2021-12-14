@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -89,7 +88,10 @@ public final class TopNRankingNode
     public List<Symbol> getOutputSymbols()
     {
         if (!partial) {
-            return ImmutableList.copyOf(concat(source.getOutputSymbols(), ImmutableList.of(rankingSymbol)));
+            return ImmutableList.<Symbol>builder()
+                    .addAll(source.getOutputSymbols())
+                    .add(rankingSymbol)
+                    .build();
         }
         return ImmutableList.copyOf(source.getOutputSymbols());
     }

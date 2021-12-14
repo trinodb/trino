@@ -38,10 +38,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
+import static com.google.common.collect.Streams.concat;
 import static io.trino.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -154,14 +155,14 @@ public abstract class AbstractTestOrcReader
     public void testLongPatchedBase()
             throws Exception
     {
-        testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18), intsBetween(0, 18), ImmutableList.of(30_000, 20_000, 400_000, 30_000, 20_000))), 30_000));
+        testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18).stream(), intsBetween(0, 18).stream(), ImmutableList.of(30_000, 20_000, 400_000, 30_000, 20_000).stream()).collect(toImmutableList())), 30_000));
     }
 
     @Test
     public void testLongStrideDictionary()
             throws Exception
     {
-        testRoundTripNumeric(concat(ImmutableList.of(1), nCopies(9999, 123), ImmutableList.of(2), nCopies(9999, 123)));
+        testRoundTripNumeric(concat(ImmutableList.of(1).stream(), nCopies(9999, 123).stream(), ImmutableList.of(2).stream(), nCopies(9999, 123).stream()).collect(toImmutableList()));
     }
 
     private void testRoundTripNumeric(Iterable<? extends Number> values)
@@ -431,7 +432,7 @@ public abstract class AbstractTestOrcReader
     public void testStringStrideDictionary()
             throws Exception
     {
-        tester.testRoundTrip(VARCHAR, newArrayList(concat(ImmutableList.of("a"), nCopies(9999, "123"), ImmutableList.of("b"), nCopies(9999, "123"))));
+        tester.testRoundTrip(VARCHAR, concat(ImmutableList.of("a").stream(), nCopies(9999, "123").stream(), ImmutableList.of("b").stream(), nCopies(9999, "123").stream()).collect(toList()));
     }
 
     @Test

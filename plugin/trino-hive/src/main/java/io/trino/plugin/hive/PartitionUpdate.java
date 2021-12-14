@@ -21,6 +21,7 @@ import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.Path;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -163,7 +164,7 @@ public class PartitionUpdate
         return new HiveBasicStatistics(fileNames.size(), rowCount, inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
     }
 
-    public static List<PartitionUpdate> mergePartitionUpdates(Iterable<PartitionUpdate> unMergedUpdates)
+    public static List<PartitionUpdate> mergePartitionUpdates(Iterator<PartitionUpdate> unMergedUpdates)
     {
         ImmutableList.Builder<PartitionUpdate> partitionUpdates = ImmutableList.builder();
         for (Collection<PartitionUpdate> partitionGroup : Multimaps.index(unMergedUpdates, PartitionUpdate::getName).asMap().values()) {

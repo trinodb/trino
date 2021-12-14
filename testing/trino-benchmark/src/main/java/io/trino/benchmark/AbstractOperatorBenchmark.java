@@ -15,7 +15,6 @@ package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import io.airlift.stats.CpuTimer;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
@@ -257,7 +256,10 @@ public abstract class AbstractOperatorBenchmark
                 operatorId,
                 planNodeId,
                 () -> new PageProcessor(Optional.empty(), projections.build()),
-                ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BIGINT))),
+                ImmutableList.<Type>builder()
+                        .addAll(types)
+                        .add(BIGINT)
+                        .build(),
                 getFilterAndProjectMinOutputPageSize(session),
                 getFilterAndProjectMinOutputPageRowCount(session));
     }

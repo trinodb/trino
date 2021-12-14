@@ -17,7 +17,6 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -68,6 +67,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Streams.concat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.SystemSessionProperties.getInitialSplitsPerNode;
 import static io.trino.SystemSessionProperties.getMaxDriversPerTask;
@@ -348,10 +348,11 @@ public class SqlTaskExecution
             }
         }
 
-        for (DriverSplitRunnerFactory driverSplitRunnerFactory :
-                Iterables.concat(driverRunnerFactoriesWithSplitLifeCycle.values(), driverRunnerFactoriesWithTaskLifeCycle, driverRunnerFactoriesWithDriverGroupLifeCycle)) {
-            driverSplitRunnerFactory.closeDriverFactoryIfFullyCreated();
-        }
+        concat(
+                driverRunnerFactoriesWithSplitLifeCycle.values().stream(),
+                driverRunnerFactoriesWithTaskLifeCycle.stream(),
+                driverRunnerFactoriesWithDriverGroupLifeCycle.stream())
+                .forEach(DriverSplitRunnerFactory::closeDriverFactoryIfFullyCreated);
 
         // update maxAcknowledgedSplit
         maxAcknowledgedSplit = sources.stream()

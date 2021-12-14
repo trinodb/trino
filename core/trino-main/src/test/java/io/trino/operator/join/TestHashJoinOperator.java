@@ -15,7 +15,6 @@ package io.trino.operator.join;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slices;
@@ -1684,6 +1683,9 @@ public class TestHashJoinOperator
 
     private static <T> List<T> concat(List<T> initialElements, List<T> moreElements)
     {
-        return ImmutableList.copyOf(Iterables.concat(initialElements, moreElements));
+        return ImmutableList.<T>builder()
+                .addAll(initialElements)
+                .addAll(moreElements)
+                .build();
     }
 }

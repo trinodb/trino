@@ -14,7 +14,6 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -48,6 +47,7 @@ import java.util.OptionalLong;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -58,6 +58,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Stream.concat;
 
 public class HivePageSink
         implements ConnectorPageSink
@@ -231,8 +232,8 @@ public class HivePageSink
 
     private void doAbort()
     {
-        Optional<Exception> rollbackException = Optional.empty();
-        for (HiveWriter writer : Iterables.concat(writers, closedWriters)) {
+        AtomicReference<Exception> rollbackException = new AtomicReference<>();
+        concat(writers.stream(), closedWriters.stream()).forEach(writer -> {
             // writers can contain nulls if an exception is thrown when doAppend expends the writer list
             if (writer != null) {
                 try {
@@ -240,11 +241,11 @@ public class HivePageSink
                 }
                 catch (Exception e) {
                     log.warn("exception '%s' while rollback on %s", e, writer);
-                    rollbackException = Optional.of(e);
+                    rollbackException.set(e);
                 }
             }
-        }
-        if (rollbackException.isPresent()) {
+        });
+        if (rollbackException.get() != null) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", rollbackException.get());
         }
     }
