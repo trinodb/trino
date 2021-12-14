@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static io.trino.sql.planner.iterative.rule.ExtractCommonPredicatesExpressionRewriter.extractCommonPredicates;
+import static io.trino.sql.planner.iterative.rule.NormalizeOrExpressionRewriter.normalizeOrExpression;
 import static io.trino.sql.planner.iterative.rule.PushDownNegationsExpressionRewriter.pushDownNegations;
 import static java.util.Objects.requireNonNull;
 
@@ -47,6 +48,7 @@ public class SimplifyExpressions
         Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
         expression = pushDownNegations(plannerContext.getMetadata(), expression, expressionTypes);
         expression = extractCommonPredicates(plannerContext.getMetadata(), expression);
+        expression = normalizeOrExpression(expression);
         expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
         ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes);
         Object optimized = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
