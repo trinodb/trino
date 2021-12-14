@@ -11,7 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.scheduler;
+package io.trino.execution.scheduler.policy;
+
+import io.trino.execution.scheduler.PipelinedStageExecution;
 
 import java.util.Collection;
 
