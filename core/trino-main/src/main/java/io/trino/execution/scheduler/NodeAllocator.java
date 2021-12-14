@@ -20,10 +20,21 @@ import java.io.Closeable;
 public interface NodeAllocator
         extends Closeable
 {
-    ListenableFuture<NodeInfo> acquire(NodeRequirements requirements);
-
-    void release(NodeInfo node);
+    /**
+     * Requests acquisition of node. Obtained node can be obtained via {@link NodeLease#getNode()} method.
+     * The node may not be available immediately. Calling party needs to wait until future returned is done.
+     *
+     * It is obligatory for the calling party to release all the leases they obtained via {@link NodeLease#release()}.
+     */
+    NodeLease acquire(NodeRequirements requirements);
 
     @Override
     void close();
+
+    interface NodeLease
+    {
+        ListenableFuture<NodeInfo> getNode();
+
+        void release();
+    }
 }

@@ -46,6 +46,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.scheduler.NodeInfo.unlimitedMemoryNode;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -148,30 +149,23 @@ public class FixedCountNodeAllocatorService
         }
 
         @Override
-        public synchronized ListenableFuture<NodeInfo> acquire(NodeRequirements requirements)
+        public synchronized NodeLease acquire(NodeRequirements requirements)
         {
             try {
                 Optional<InternalNode> node = tryAcquireNode(requirements);
                 if (node.isPresent()) {
-                    return immediateFuture(unlimitedMemoryNode(node.get()));
+                    return new FixedCountNodeLease(immediateFuture(unlimitedMemoryNode(node.get())));
                 }
             }
             catch (RuntimeException e) {
-                return immediateFailedFuture(e);
+                return new FixedCountNodeLease(immediateFailedFuture(e));
             }
 
             SettableFuture<NodeInfo> future = SettableFuture.create();
             PendingAcquire pendingAcquire = new PendingAcquire(requirements, future);
             pendingAcquires.add(pendingAcquire);
 
-            return future;
-        }
-
-        @Override
-        public void release(NodeInfo node)
-        {
-            releaseNodeInternal(node.getNode());
-            processPendingAcquires();
+            return new FixedCountNodeLease(future);
         }
 
         public void updateNodes()
@@ -208,10 +202,13 @@ public class FixedCountNodeAllocatorService
             return selectedNode;
         }
 
-        private synchronized void releaseNodeInternal(InternalNode node)
+        private void releaseNode(InternalNode node)
         {
-            int allocationCount = allocationCountMap.compute(node, (key, value) -> value == null ? 0 : value - 1);
-            checkState(allocationCount >= 0, "allocation count for node %s is expected to be greater than or equal to zero: %s", node, allocationCount);
+            synchronized (this) {
+                int allocationCount = allocationCountMap.compute(node, (key, value) -> value == null ? 0 : value - 1);
+                checkState(allocationCount >= 0, "allocation count for node %s is expected to be greater than or equal to zero: %s", node, allocationCount);
+            }
+            processPendingAcquires();
         }
 
         private void processPendingAcquires()
@@ -247,7 +244,7 @@ public class FixedCountNodeAllocatorService
                 SettableFuture<NodeInfo> future = pendingAcquire.getFuture();
                 future.set(unlimitedMemoryNode(node));
                 if (future.isCancelled()) {
-                    releaseNodeInternal(node);
+                    releaseNode(node);
                 }
             });
 
@@ -261,6 +258,38 @@ public class FixedCountNodeAllocatorService
         public synchronized void close()
         {
             allocators.remove(this);
+        }
+
+        private class FixedCountNodeLease
+                implements NodeAllocator.NodeLease
+        {
+            private final ListenableFuture<NodeInfo> node;
+            private final AtomicBoolean released = new AtomicBoolean();
+
+            private FixedCountNodeLease(ListenableFuture<NodeInfo> node)
+            {
+                this.node = requireNonNull(node, "node is null");
+            }
+
+            @Override
+            public ListenableFuture<NodeInfo> getNode()
+            {
+                return node;
+            }
+
+            @Override
+            public void release()
+            {
+                if (released.compareAndSet(false, true)) {
+                    node.cancel(true);
+                    if (node.isDone() && !node.isCancelled()) {
+                        releaseNode(getFutureValue(node).getNode());
+                    }
+                }
+                else {
+                    throw new IllegalStateException("Node " + node + " already released");
+                }
+            }
         }
     }
 
