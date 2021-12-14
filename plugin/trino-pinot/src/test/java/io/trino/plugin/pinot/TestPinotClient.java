@@ -20,6 +20,9 @@ import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.units.Duration;
+import io.trino.plugin.pinot.auth.PinotBrokerAuthenticationProvider;
+import io.trino.plugin.pinot.auth.PinotControllerAuthenticationProvider;
+import io.trino.plugin.pinot.auth.none.PinotEmptyAuthenticationProvider;
 import io.trino.plugin.pinot.client.IdentityPinotHostMapper;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.testing.assertions.Assert;
@@ -74,7 +77,16 @@ public class TestPinotClient
         PinotConfig pinotConfig = new PinotConfig()
                 .setMetadataCacheExpiry(new Duration(0, TimeUnit.MILLISECONDS))
                 .setControllerUrls("localhost:7900");
-        PinotClient pinotClient = new PinotClient(pinotConfig, new IdentityPinotHostMapper(), httpClient, MetadataUtil.TABLES_JSON_CODEC, MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC, MetadataUtil.TIME_BOUNDARY_JSON_CODEC, MetadataUtil.BROKER_RESPONSE_NATIVE_JSON_CODEC);
+        PinotClient pinotClient = new PinotClient(
+                pinotConfig,
+                new IdentityPinotHostMapper(),
+                httpClient,
+                MetadataUtil.TABLES_JSON_CODEC,
+                MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC,
+                MetadataUtil.TIME_BOUNDARY_JSON_CODEC,
+                MetadataUtil.BROKER_RESPONSE_NATIVE_JSON_CODEC,
+                PinotControllerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()),
+                PinotBrokerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()));
         ImmutableSet<String> brokers = ImmutableSet.copyOf(pinotClient.getAllBrokersForTable("dummy"));
         Assert.assertEquals(ImmutableSet.of("dummy-broker-host1-datacenter1:6513", "dummy-broker-host2-datacenter1:6513", "dummy-broker-host3-datacenter1:6513", "dummy-broker-host4-datacenter1:6513"), brokers);
     }

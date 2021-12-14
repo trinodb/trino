@@ -19,6 +19,7 @@ import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.base.TypeDeserializerModule;
+import io.trino.plugin.pinot.auth.PinotAuthenticationModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -62,7 +63,8 @@ public class PinotConnectorFactory
                 .add(new JsonModule())
                 .add(new MBeanModule())
                 .add(new TypeDeserializerModule(context.getTypeManager()))
-                .add(new PinotModule(catalogName, context.getNodeManager()));
+                .add(new PinotModule(catalogName, context.getNodeManager()))
+                .add(new PinotAuthenticationModule());
 
         extension.ifPresent(modulesBuilder::add);
 
