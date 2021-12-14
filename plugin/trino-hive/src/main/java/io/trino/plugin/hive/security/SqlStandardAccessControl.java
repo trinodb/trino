@@ -427,6 +427,12 @@ public class SqlStandardAccessControl
     }
 
     @Override
+    public void checkCanDenySchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal grantee)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deny on schemas");
+    }
+
+    @Override
     public void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal revokee, boolean grantOption)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support revokes on schemas");
@@ -442,6 +448,12 @@ public class SqlStandardAccessControl
         if (!hasGrantOptionForPrivilege(context, privilege, tableName)) {
             denyGrantTablePrivilege(privilege.name(), tableName.toString());
         }
+    }
+
+    @Override
+    public void checkCanDenyTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal grantee)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deny on tables");
     }
 
     @Override
@@ -640,6 +652,11 @@ public class SqlStandardAccessControl
     {
         if (isAdmin(context)) {
             return true;
+        }
+
+        // create is not supported
+        if (privilege == Privilege.CREATE) {
+            return false;
         }
 
         return listApplicableTablePrivileges(

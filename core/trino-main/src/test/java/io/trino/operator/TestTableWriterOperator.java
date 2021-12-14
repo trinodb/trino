@@ -25,7 +25,7 @@ import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.DevNullOperator.DevNullOperatorFactory;
 import io.trino.operator.TableWriterOperator.TableWriterInfo;
 import io.trino.operator.TableWriterOperator.TableWriterOperatorFactory;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -75,7 +75,7 @@ import static org.testng.Assert.assertTrue;
 public class TestTableWriterOperator
 {
     private static final CatalogName CONNECTOR_ID = new CatalogName("testConnectorId");
-    private static final InternalAggregationFunction LONG_MAX = new TestingFunctionResolution().getAggregateFunctionImplementation(QualifiedName.of("max"), fromTypes(BIGINT));
+    private static final TestingAggregationFunction LONG_MAX = new TestingFunctionResolution().getAggregateFunction(QualifiedName.of("max"), fromTypes(BIGINT));
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
 

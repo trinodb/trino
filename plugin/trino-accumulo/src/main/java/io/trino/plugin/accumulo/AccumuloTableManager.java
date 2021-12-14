@@ -70,7 +70,7 @@ public class AccumuloTableManager
         }
         catch (NamespaceExistsException e) {
             // Suppress race condition between test for existence and creation
-            LOG.warn("NamespaceExistsException suppressed when creating " + schema);
+            LOG.warn("NamespaceExistsException suppressed when creating %s", schema);
         }
     }
 

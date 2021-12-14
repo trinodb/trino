@@ -14,10 +14,7 @@
 
 package io.trino.plugin.session;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.plugin.hive.s3.S3HiveQueryRunner;
+import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -26,36 +23,18 @@ import org.testng.annotations.Test;
 import java.io.File;
 
 import static io.trino.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 
 public class TestSessionPropertyManagerInTransaction
         extends AbstractTestQueryFramework
 {
     public static final File CONFIG_FILE = new File("src/test/resources/io/trino/plugin/session/file/session-property-config.properties");
 
-    private HiveMinioDataLake dockerizedS3DataLake;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.dockerizedS3DataLake = closeAfterClass(
-                new HiveMinioDataLake(
-                        "test-hive-insert-overwrite-" + randomTableSuffix(),
-                        ImmutableMap.of(),
-                        HiveHadoop.DEFAULT_IMAGE));
-        this.dockerizedS3DataLake.start();
-        DistributedQueryRunner queryRunner = S3HiveQueryRunner.create(
-                this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
-                this.dockerizedS3DataLake.getMinio().getMinioApiEndpoint(),
-                HiveMinioDataLake.ACCESS_KEY,
-                HiveMinioDataLake.SECRET_KEY,
-                ImmutableMap.<String, String>builder()
-                        // This is required when using MinIO which requires path style access
-                        .put("hive.s3.path-style-access", "true")
-                        .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
-                        .put("hive.non-managed-table-writes-enabled", "true")
-                        .build());
+        DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
+                .build();
         queryRunner.installPlugin(new SessionPropertyConfigurationManagerPlugin());
         queryRunner.getSessionPropertyDefaults().loadConfigurationManager(CONFIG_FILE.getAbsoluteFile());
         return queryRunner;
@@ -76,6 +55,6 @@ public class TestSessionPropertyManagerInTransaction
         // Ensure that the previous statement was successful
         assertQuery(
                 "SHOW SCHEMAS FROM hive",
-                "VALUES('default'),('information_schema'),('test'),('tpch'),('tpch_bucketed')");
+                "VALUES('information_schema'),('test'),('tpch'),('tpch_bucketed')");
     }
 }

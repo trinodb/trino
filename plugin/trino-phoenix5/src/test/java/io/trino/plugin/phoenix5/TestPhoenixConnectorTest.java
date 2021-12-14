@@ -99,6 +99,9 @@ public class TestPhoenixConnectorTest
             case SUPPORTS_TRUNCATE:
                 return false;
 
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

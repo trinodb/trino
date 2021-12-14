@@ -115,7 +115,7 @@ public class TestSqlTaskExecution
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
     private static final CatalogName CONNECTOR_ID = new CatalogName("test");
     private static final Duration ASSERT_WAIT_TIMEOUT = new Duration(1, HOURS);
-    public static final TaskId TASK_ID = new TaskId("query", 0, 0);
+    public static final TaskId TASK_ID = new TaskId(new StageId("query", 0), 0, 0);
 
     @DataProvider
     public static Object[][] executionStrategies()

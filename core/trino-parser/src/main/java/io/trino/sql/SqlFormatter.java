@@ -33,6 +33,7 @@ import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Delete;
+import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.DropColumn;
@@ -1275,7 +1276,7 @@ public final class SqlFormatter
                     return principal.getName().toString();
                 case USER:
                 case ROLE:
-                    return format("%s %s", type.name(), principal.getName().toString());
+                    return format("%s %s", type.name(), principal.getName());
             }
             throw new IllegalArgumentException("Unsupported principal type: " + type);
         }
@@ -1719,6 +1720,30 @@ public final class SqlFormatter
             if (node.isWithGrantOption()) {
                 builder.append(" WITH GRANT OPTION");
             }
+
+            return null;
+        }
+
+        @Override
+        public Void visitDeny(Deny node, Integer indent)
+        {
+            builder.append("DENY ");
+
+            if (node.getPrivileges().isPresent()) {
+                builder.append(String.join(", ", node.getPrivileges().get()));
+            }
+            else {
+                builder.append("ALL PRIVILEGES");
+            }
+
+            builder.append(" ON ");
+            if (node.getType().isPresent()) {
+                builder.append(node.getType().get());
+                builder.append(" ");
+            }
+            builder.append(formatName(node.getName()))
+                    .append(" TO ")
+                    .append(formatPrincipal(node.getGrantee()));
 
             return null;
         }

@@ -105,6 +105,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
@@ -142,8 +143,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingLocalDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
@@ -169,6 +169,7 @@ import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.DISABLED;
 import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.getArrayMapping;
+import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.isEnableStringPushdownWithCollate;
 import static io.trino.plugin.postgresql.TypeUtils.arrayDepth;
 import static io.trino.plugin.postgresql.TypeUtils.getArrayElementPgTypeName;
 import static io.trino.plugin.postgresql.TypeUtils.getJdbcObjectArray;
@@ -230,6 +231,7 @@ public class PostgreSqlClient
     private static final int POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION = 6;
     private static final int PRECISION_OF_UNSPECIFIED_DECIMAL = 0;
 
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd[ G]");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
 
     private final Type geometryType;
@@ -239,7 +241,7 @@ public class PostgreSqlClient
     private final List<String> tableTypes;
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
 
-    private static final PredicatePushdownController POSTGRESQL_CHARACTER_PUSHDOWN = (session, domain) -> {
+    private static final PredicatePushdownController POSTGRESQL_STRING_PUSHDOWN_WITHOUT_COLLATE = (session, domain) -> {
         checkArgument(
                 domain.getType() instanceof VarcharType || domain.getType() instanceof CharType,
                 "This PredicatePushdownController can be used only for chars and varchars");
@@ -538,12 +540,21 @@ public class PostgreSqlClient
             }
 
             case Types.CHAR:
+                if (isEnableStringPushdownWithCollate(session)) {
+                    return Optional.of(charColumnMappingWithCollate(typeHandle.getRequiredColumnSize()));
+                }
                 return Optional.of(charColumnMapping(typeHandle.getRequiredColumnSize()));
 
             case Types.VARCHAR:
                 if (!jdbcTypeName.equals("varchar")) {
                     // This can be e.g. an ENUM
+                    if (isCollatable(jdbcTypeName) && isEnableStringPushdownWithCollate(session)) {
+                        return Optional.of(typedVarcharColumnMappingWithCollate(jdbcTypeName));
+                    }
                     return Optional.of(typedVarcharColumnMapping(jdbcTypeName));
+                }
+                if (isCollatable(jdbcTypeName) && isEnableStringPushdownWithCollate(session)) {
+                    return Optional.of(varcharColumnMappingWithCollate(typeHandle.getRequiredColumnSize()));
                 }
                 return Optional.of(varcharColumnMapping(typeHandle.getRequiredColumnSize()));
 
@@ -551,7 +562,10 @@ public class PostgreSqlClient
                 return Optional.of(varbinaryColumnMapping());
 
             case Types.DATE:
-                return Optional.of(dateColumnMapping());
+                return Optional.of(ColumnMapping.longMapping(
+                        DATE,
+                        (resultSet, index) -> LocalDate.parse(resultSet.getString(index), DATE_FORMATTER).toEpochDay(),
+                        dateWriteFunctionUsingLocalDate()));
 
             case Types.TIME:
                 return Optional.of(timeColumnMapping(typeHandle.getRequiredDecimalDigits()));
@@ -678,7 +692,7 @@ public class PostgreSqlClient
         }
 
         if (type == DATE) {
-            return WriteMapping.longMapping("date", dateWriteFunction());
+            return WriteMapping.longMapping("date", dateWriteFunctionUsingLocalDate());
         }
 
         if (type instanceof TimeType) {
@@ -781,12 +795,17 @@ public class PostgreSqlClient
         if (column.getColumnType() instanceof CharType || column.getColumnType() instanceof VarcharType) {
             String jdbcTypeName = column.getJdbcTypeHandle().getJdbcTypeName()
                     .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + column.getJdbcTypeHandle()));
-            // Only char (internally named bpchar)/varchar/text are the built-in collatable types
-            return "bpchar".equals(jdbcTypeName) || "varchar".equals(jdbcTypeName) || "text".equals(jdbcTypeName);
+            return isCollatable(jdbcTypeName);
         }
 
         // non-textual types don't have the concept of collation
         return false;
+    }
+
+    private boolean isCollatable(String jdbcTypeName)
+    {
+        // Only char (internally named bpchar)/varchar/text are the built-in collatable types
+        return "bpchar".equals(jdbcTypeName) || "varchar".equals(jdbcTypeName) || "text".equals(jdbcTypeName);
     }
 
     @Override
@@ -865,7 +884,20 @@ public class PostgreSqlClient
                 charType,
                 charReadFunction(charType),
                 charWriteFunction(),
-                POSTGRESQL_CHARACTER_PUSHDOWN);
+                POSTGRESQL_STRING_PUSHDOWN_WITHOUT_COLLATE);
+    }
+
+    private static ColumnMapping charColumnMappingWithCollate(int charLength)
+    {
+        if (charLength > CharType.MAX_LENGTH) {
+            return varcharColumnMappingWithCollate(charLength);
+        }
+        CharType charType = createCharType(charLength);
+        return ColumnMapping.sliceMapping(
+                charType,
+                charReadFunction(charType),
+                stringWriteFunctionWithCollate(),
+                FULL_PUSHDOWN);
     }
 
     private static ColumnMapping varcharColumnMapping(int varcharLength)
@@ -877,7 +909,38 @@ public class PostgreSqlClient
                 varcharType,
                 varcharReadFunction(varcharType),
                 varcharWriteFunction(),
-                POSTGRESQL_CHARACTER_PUSHDOWN);
+                POSTGRESQL_STRING_PUSHDOWN_WITHOUT_COLLATE);
+    }
+
+    private static ColumnMapping varcharColumnMappingWithCollate(int varcharLength)
+    {
+        VarcharType varcharType = varcharLength <= VarcharType.MAX_LENGTH
+                ? createVarcharType(varcharLength)
+                : createUnboundedVarcharType();
+        return ColumnMapping.sliceMapping(
+                varcharType,
+                varcharReadFunction(varcharType),
+                stringWriteFunctionWithCollate(),
+                FULL_PUSHDOWN);
+    }
+
+    private static SliceWriteFunction stringWriteFunctionWithCollate()
+    {
+        return new SliceWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return "? COLLATE \"C\"";
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice value)
+                    throws SQLException
+            {
+                statement.setString(index, value.toStringUtf8());
+            }
+        };
     }
 
     private static ColumnMapping timeColumnMapping(int precision)
@@ -897,7 +960,7 @@ public class PostgreSqlClient
                     return round(picosOfDay, 12 - precision);
                 },
                 timeWriteFunction(precision),
-                // Pushdown disabled because PostgreSQL distinguishes TIME '24:00:00' and TIME '00:00:00' whereas Presto does not.
+                // Pushdown disabled because PostgreSQL distinguishes TIME '24:00:00' and TIME '00:00:00' whereas Trino does not.
                 DISABLE_PUSHDOWN);
     }
 
@@ -1223,12 +1286,45 @@ public class PostgreSqlClient
         return ColumnMapping.sliceMapping(
                 VARCHAR,
                 (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)),
-                typedVarcharWriteFunction(jdbcTypeName));
+                typedVarcharWriteFunction(jdbcTypeName),
+                POSTGRESQL_STRING_PUSHDOWN_WITHOUT_COLLATE);
+    }
+
+    private static ColumnMapping typedVarcharColumnMappingWithCollate(String jdbcTypeName)
+    {
+        return ColumnMapping.sliceMapping(
+                VARCHAR,
+                (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)),
+                typedVarcharWriteFunctionWithCollate(jdbcTypeName),
+                FULL_PUSHDOWN);
     }
 
     private static SliceWriteFunction typedVarcharWriteFunction(String jdbcTypeName)
     {
         String bindExpression = format("CAST(? AS %s)", requireNonNull(jdbcTypeName, "jdbcTypeName is null"));
+
+        return new SliceWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return bindExpression;
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice value)
+                    throws SQLException
+            {
+                statement.setString(index, value.toStringUtf8());
+            }
+        };
+    }
+
+    private static SliceWriteFunction typedVarcharWriteFunctionWithCollate(String jdbcTypeName)
+    {
+        String collation = "COLLATE \"C\"";
+        String bindExpression = format("CAST(? AS %s) %s", requireNonNull(jdbcTypeName, "jdbcTypeName is null"), collation);
+
         return new SliceWriteFunction()
         {
             @Override

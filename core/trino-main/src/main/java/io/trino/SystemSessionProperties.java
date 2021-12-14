@@ -24,6 +24,7 @@ import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 
@@ -37,6 +38,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
@@ -93,8 +95,6 @@ public final class SystemSessionProperties
     public static final String SPILL_ENABLED = "spill_enabled";
     public static final String SPILL_ORDER_BY = "spill_order_by";
     public static final String SPILL_WINDOW_OPERATOR = "spill_window_operator";
-    public static final String SPILL_DISTINCTING_AGGREGATIONS_ENABLED = "spill_distincting_aggregations_enabled";
-    public static final String SPILL_ORDERING_AGGREGATIONS_ENABLED = "spill_ordering_aggregations_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
@@ -145,6 +145,10 @@ public final class SystemSessionProperties
     public static final String LEGACY_CATALOG_ROLES = "legacy_catalog_roles";
     public static final String INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED = "incremental_hash_array_load_factor_enabled";
     public static final String MAX_PARTIAL_TOP_N_MEMORY = "max_partial_top_n_memory";
+    public static final String RETRY_POLICY = "retry_policy";
+    public static final String RETRY_ATTEMPTS = "retry_attempts";
+    public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
+    public static final String RETRY_MAX_DELAY = "retry_max_delay";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -397,16 +401,6 @@ public final class SystemSessionProperties
                         SPILL_WINDOW_OPERATOR,
                         "Spill in WindowOperator if spill_enabled is also set",
                         featuresConfig.isSpillWindowOperator(),
-                        false),
-                booleanProperty(
-                        SPILL_DISTINCTING_AGGREGATIONS_ENABLED,
-                        "Enable spill for distincting aggregations if spill_enabled",
-                        featuresConfig.isSpillDistinctingAggregationsEnabled(),
-                        false),
-                booleanProperty(
-                        SPILL_ORDERING_AGGREGATIONS_ENABLED,
-                        "Enable spill for ordering aggregations if spill_enabled",
-                        featuresConfig.isSpillOrderingAggregationsEnabled(),
                         false),
                 dataSizeProperty(
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
@@ -677,6 +671,27 @@ public final class SystemSessionProperties
                         MAX_PARTIAL_TOP_N_MEMORY,
                         "Max memory size for partial Top N aggregations. This can be turned off by setting it with '0'.",
                         taskManagerConfig.getMaxPartialTopNMemory(),
+                        false),
+                enumProperty(
+                        RETRY_POLICY,
+                        "Retry policy",
+                        RetryPolicy.class,
+                        featuresConfig.getRetryPolicy(),
+                        false),
+                integerProperty(
+                        RETRY_ATTEMPTS,
+                        "Maximum number of retry attempts",
+                        featuresConfig.getRetryAttempts(),
+                        false),
+                durationProperty(
+                        RETRY_INITIAL_DELAY,
+                        "Initial delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt up to 'retry_max_delay'",
+                        featuresConfig.getRetryInitialDelay(),
+                        false),
+                durationProperty(
+                        RETRY_MAX_DELAY,
+                        "Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'",
+                        featuresConfig.getRetryMaxDelay(),
                         false));
     }
 
@@ -906,16 +921,6 @@ public final class SystemSessionProperties
     public static boolean isSpillWindowOperator(Session session)
     {
         return session.getSystemProperty(SPILL_WINDOW_OPERATOR, Boolean.class);
-    }
-
-    public static boolean isSpillDistinctingAggregationsEnabled(Session session)
-    {
-        return session.getSystemProperty(SPILL_DISTINCTING_AGGREGATIONS_ENABLED, Boolean.class) && isSpillEnabled(session);
-    }
-
-    public static boolean isSpillOrderingAggregationsEnabled(Session session)
-    {
-        return session.getSystemProperty(SPILL_ORDERING_AGGREGATIONS_ENABLED, Boolean.class) && isSpillEnabled(session);
     }
 
     public static DataSize getAggregationOperatorUnspillMemoryLimit(Session session)
@@ -1204,5 +1209,34 @@ public final class SystemSessionProperties
     public static DataSize getMaxPartialTopNMemory(Session session)
     {
         return session.getSystemProperty(MAX_PARTIAL_TOP_N_MEMORY, DataSize.class);
+    }
+
+    public static RetryPolicy getRetryPolicy(Session session)
+    {
+        RetryPolicy retryPolicy = session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
+        if (retryPolicy != RetryPolicy.NONE) {
+            if (isEnableDynamicFiltering(session)) {
+                throw new TrinoException(NOT_SUPPORTED, "Dynamic filtering is not supported with automatic retries enabled");
+            }
+            if (isDistributedSortEnabled(session)) {
+                throw new TrinoException(NOT_SUPPORTED, "Distributed sort is not supported with automatic retries enabled");
+            }
+        }
+        return retryPolicy;
+    }
+
+    public static int getRetryAttempts(Session session)
+    {
+        return session.getSystemProperty(RETRY_ATTEMPTS, Integer.class);
+    }
+
+    public static Duration getRetryInitialDelay(Session session)
+    {
+        return session.getSystemProperty(RETRY_INITIAL_DELAY, Duration.class);
+    }
+
+    public static Duration getRetryMaxDelay(Session session)
+    {
+        return session.getSystemProperty(RETRY_MAX_DELAY, Duration.class);
     }
 }

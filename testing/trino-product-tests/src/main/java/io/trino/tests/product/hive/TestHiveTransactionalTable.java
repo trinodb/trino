@@ -1998,7 +1998,7 @@ public class TestHiveTransactionalTable
             verify(startedCompactions.size() < 2, "Expected at most 1 compaction");
 
             if (startedCompactions.isEmpty()) {
-                log.info("Compaction has not started yet. Existing compactions: " + getTableCompactions(compactMode, tableName, Optional.empty()));
+                log.info("Compaction has not started yet. Existing compactions: %s", getTableCompactions(compactMode, tableName, Optional.empty()));
                 continue;
             }
 

@@ -18,18 +18,15 @@ import io.trino.block.BlockAssertions;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.aggregation.AccumulatorFactory;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.MaterializedResult;
-import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -65,11 +62,11 @@ public class TestAggregationOperator
 {
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
 
-    private static final InternalAggregationFunction LONG_AVERAGE = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("avg"), fromTypes(BIGINT));
-    private static final InternalAggregationFunction DOUBLE_SUM = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("sum"), fromTypes(DOUBLE));
-    private static final InternalAggregationFunction LONG_SUM = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("sum"), fromTypes(BIGINT));
-    private static final InternalAggregationFunction REAL_SUM = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("sum"), fromTypes(REAL));
-    private static final InternalAggregationFunction COUNT = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("count"), ImmutableList.of());
+    private static final TestingAggregationFunction LONG_AVERAGE = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("avg"), fromTypes(BIGINT));
+    private static final TestingAggregationFunction DOUBLE_SUM = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("sum"), fromTypes(DOUBLE));
+    private static final TestingAggregationFunction LONG_SUM = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("sum"), fromTypes(BIGINT));
+    private static final TestingAggregationFunction REAL_SUM = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("sum"), fromTypes(REAL));
+    private static final TestingAggregationFunction COUNT = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("count"), ImmutableList.of());
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -120,21 +117,10 @@ public class TestAggregationOperator
     @Test
     public void testDistinctMaskWithNulls()
     {
-        TypeOperators typeOperators = new TypeOperators();
-
-        AccumulatorFactory distinctFactory = COUNT.bind(
+        AccumulatorFactory distinctFactory = COUNT.bindDistinct(
                 ImmutableList.of(0),
-                Optional.of(1),
                 ImmutableList.of(BIGINT, BOOLEAN),
-                ImmutableList.of(),
-                ImmutableList.of(),
-                null,
-                true, // distinct
-                new JoinCompiler(typeOperators),
-                new BlockTypeOperators(typeOperators),
-                ImmutableList.of(),
-                true,
-                TEST_SESSION);
+                Optional.of(1));
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
@@ -168,8 +154,8 @@ public class TestAggregationOperator
     @Test
     public void testAggregation()
     {
-        InternalAggregationFunction countVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("count"), fromTypes(VARCHAR));
-        InternalAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunctionImplementation(QualifiedName.of("max"), fromTypes(VARCHAR));
+        TestingAggregationFunction countVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("count"), fromTypes(VARCHAR));
+        TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("max"), fromTypes(VARCHAR));
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, VARCHAR, BIGINT, REAL, DOUBLE, VARCHAR)
                 .addSequencePage(100, 0, 0, 300, 500, 400, 500, 500)
                 .build();

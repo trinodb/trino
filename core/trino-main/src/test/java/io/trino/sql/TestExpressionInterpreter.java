@@ -639,6 +639,205 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testCastIntegerToBoundedVarchar()
+    {
+        assertEvaluatedEquals("CAST(1234 AS varchar(4))", "'1234'");
+        assertEvaluatedEquals("CAST(1234 AS varchar(50))", "'1234'");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(1234 AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 1234 cannot be represented as varchar(3)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(-1234 AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -1234 cannot be represented as varchar(3)");
+    }
+
+    @Test
+    public void testCastSmallintToBoundedVarchar()
+    {
+        assertEvaluatedEquals("CAST(SMALLINT '1234' AS varchar(4))", "'1234'");
+        assertEvaluatedEquals("CAST(SMALLINT '1234' AS varchar(50))", "'1234'");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(SMALLINT '1234' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 1234 cannot be represented as varchar(3)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(SMALLINT '-1234' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -1234 cannot be represented as varchar(3)");
+    }
+
+    @Test
+    public void testCastTinyintToBoundedVarchar()
+    {
+        assertEvaluatedEquals("CAST(TINYINT '123' AS varchar(3))", "'123'");
+        assertEvaluatedEquals("CAST(TINYINT '123' AS varchar(50))", "'123'");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(TINYINT '123' AS varchar(2))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 123 cannot be represented as varchar(2)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(TINYINT '-123' AS varchar(2))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -123 cannot be represented as varchar(2)");
+    }
+
+    @Test
+    public void testCastDecimalToBoundedVarchar()
+    {
+        // short decimal
+        assertEvaluatedEquals("CAST(DECIMAL '12.4' AS varchar(4))", "'12.4'");
+        assertEvaluatedEquals("CAST(DECIMAL '12.4' AS varchar(50))", "'12.4'");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '12.4' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 12.4 cannot be represented as varchar(3)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-12.4' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -12.4 cannot be represented as varchar(3)");
+
+        // the trailing 0 does not fit in the type
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '12.40' AS varchar(4))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 12.40 cannot be represented as varchar(4)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-12.40' AS varchar(5))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -12.40 cannot be represented as varchar(5)");
+
+        // long decimal
+        assertEvaluatedEquals("CAST(DECIMAL '100000000000000000.1' AS varchar(20))", "'100000000000000000.1'");
+        assertEvaluatedEquals("CAST(DECIMAL '100000000000000000.1' AS varchar(50))", "'100000000000000000.1'");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '100000000000000000.1' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 100000000000000000.1 cannot be represented as varchar(3)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-100000000000000000.1' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -100000000000000000.1 cannot be represented as varchar(3)");
+
+        // the trailing 0 does not fit in the type
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '100000000000000000.10' AS varchar(20))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 100000000000000000.10 cannot be represented as varchar(20)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-100000000000000000.10' AS varchar(21))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -100000000000000000.10 cannot be represented as varchar(21)");
+    }
+
+    @Test
+    public void testCastDoubleToBoundedVarchar()
+    {
+        // NaN
+        assertEvaluatedEquals("CAST(0e0 / 0e0 AS varchar(3))", "'NaN'");
+        assertEvaluatedEquals("CAST(0e0 / 0e0 AS varchar(50))", "'NaN'");
+
+        // Infinity
+        assertEvaluatedEquals("CAST(DOUBLE 'Infinity' AS varchar(8))", "'Infinity'");
+        assertEvaluatedEquals("CAST(DOUBLE 'Infinity' AS varchar(50))", "'Infinity'");
+
+        // incorrect behavior: the string representation is not compliant with the SQL standard
+        assertEvaluatedEquals("CAST(0e0 AS varchar(3))", "'0.0'");
+        assertEvaluatedEquals("CAST(DOUBLE '0' AS varchar(3))", "'0.0'");
+        assertEvaluatedEquals("CAST(DOUBLE '-0' AS varchar(4))", "'-0.0'");
+        assertEvaluatedEquals("CAST(DOUBLE '0' AS varchar(50))", "'0.0'");
+
+        assertEvaluatedEquals("CAST(12e0 AS varchar(4))", "'12.0'");
+        assertEvaluatedEquals("CAST(12e2 AS varchar(6))", "'1200.0'");
+        assertEvaluatedEquals("CAST(12e-2 AS varchar(4))", "'0.12'");
+
+        assertEvaluatedEquals("CAST(12e0 AS varchar(50))", "'12.0'");
+        assertEvaluatedEquals("CAST(12e2 AS varchar(50))", "'1200.0'");
+        assertEvaluatedEquals("CAST(12e-2 AS varchar(50))", "'0.12'");
+
+        assertEvaluatedEquals("CAST(-12e0 AS varchar(5))", "'-12.0'");
+        assertEvaluatedEquals("CAST(-12e2 AS varchar(7))", "'-1200.0'");
+        assertEvaluatedEquals("CAST(-12e-2 AS varchar(5))", "'-0.12'");
+
+        assertEvaluatedEquals("CAST(-12e0 AS varchar(50))", "'-12.0'");
+        assertEvaluatedEquals("CAST(-12e2 AS varchar(50))", "'-1200.0'");
+        assertEvaluatedEquals("CAST(-12e-2 AS varchar(50))", "'-0.12'");
+
+        // the string representation is compliant with the SQL standard
+        assertEvaluatedEquals("CAST(12345678.9e0 AS varchar(12))", "'1.23456789E7'");
+        assertEvaluatedEquals("CAST(0.00001e0 AS varchar(6))", "'1.0E-5'");
+
+        // the result value does not fit in the type (also, it is not compliant with the SQL standard)
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(12e0 AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 12.0 cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(-12e2 AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -1200.0 cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(0e0 AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 0.0 cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(0e0 / 0e0 AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value NaN cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DOUBLE 'Infinity' AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value Infinity cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(1200000e0 AS varchar(5))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 1200000.0 cannot be represented as varchar(5)");
+    }
+
+    @Test
+    public void testCastRealToBoundedVarchar()
+    {
+        // NaN
+        assertEvaluatedEquals("CAST(REAL '0e0' / REAL '0e0' AS varchar(3))", "'NaN'");
+        assertEvaluatedEquals("CAST(REAL '0e0' / REAL '0e0' AS varchar(50))", "'NaN'");
+
+        // Infinity
+        assertEvaluatedEquals("CAST(REAL 'Infinity' AS varchar(8))", "'Infinity'");
+        assertEvaluatedEquals("CAST(REAL 'Infinity' AS varchar(50))", "'Infinity'");
+
+        // incorrect behavior: the string representation is not compliant with the SQL standard
+        assertEvaluatedEquals("CAST(REAL '0' AS varchar(3))", "'0.0'");
+        assertEvaluatedEquals("CAST(REAL '-0' AS varchar(4))", "'-0.0'");
+        assertEvaluatedEquals("CAST(REAL '0' AS varchar(50))", "'0.0'");
+
+        assertEvaluatedEquals("CAST(REAL '12' AS varchar(4))", "'12.0'");
+        assertEvaluatedEquals("CAST(REAL '12e2' AS varchar(6))", "'1200.0'");
+        assertEvaluatedEquals("CAST(REAL '12e-2' AS varchar(4))", "'0.12'");
+
+        assertEvaluatedEquals("CAST(REAL '12' AS varchar(50))", "'12.0'");
+        assertEvaluatedEquals("CAST(REAL '12e2' AS varchar(50))", "'1200.0'");
+        assertEvaluatedEquals("CAST(REAL '12e-2' AS varchar(50))", "'0.12'");
+
+        assertEvaluatedEquals("CAST(REAL '-12' AS varchar(5))", "'-12.0'");
+        assertEvaluatedEquals("CAST(REAL '-12e2' AS varchar(7))", "'-1200.0'");
+        assertEvaluatedEquals("CAST(REAL '-12e-2' AS varchar(5))", "'-0.12'");
+
+        assertEvaluatedEquals("CAST(REAL '-12' AS varchar(50))", "'-12.0'");
+        assertEvaluatedEquals("CAST(REAL '-12e2' AS varchar(50))", "'-1200.0'");
+        assertEvaluatedEquals("CAST(REAL '-12e-2' AS varchar(50))", "'-0.12'");
+
+        // the string representation is compliant with the SQL standard
+        assertEvaluatedEquals("CAST(REAL '12345678.9e0' AS varchar(12))", "'1.2345679E7'");
+        assertEvaluatedEquals("CAST(REAL '0.00001e0' AS varchar(6))", "'1.0E-5'");
+
+        // the result value does not fit in the type (also, it is not compliant with the SQL standard)
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL '12' AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 12.0 cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL '-12e2' AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -1200.0 cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL '0' AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 0.0 cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL '0e0' / REAL '0e0' AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value NaN cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL 'Infinity' AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value Infinity cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL '1200000' AS varchar(5))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 1200000.0 cannot be represented as varchar(5)");
+    }
+
+    @Test
     public void testCastToBoolean()
     {
         // integer

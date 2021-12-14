@@ -59,6 +59,7 @@ public final class PostgreSqlQueryRunner
             connectorProperties.putIfAbsent("connection-password", server.getPassword());
             connectorProperties.putIfAbsent("allow-drop-table", "true");
             connectorProperties.putIfAbsent("postgresql.include-system-tables", "true");
+            //connectorProperties.putIfAbsent("postgresql.experimental.enable-string-pushdown-with-collate", "true");
 
             queryRunner.installPlugin(new GeoPlugin());
             queryRunner.installPlugin(new PostgreSqlPlugin());

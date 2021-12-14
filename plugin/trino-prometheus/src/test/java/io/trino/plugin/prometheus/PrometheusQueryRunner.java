@@ -74,6 +74,7 @@ public final class PrometheusQueryRunner
         config.setQueryChunkSizeDuration(new Duration(1, DAYS));
         config.setMaxQueryRangeDuration(new Duration(21, DAYS));
         config.setCacheDuration(new Duration(30, SECONDS));
+        config.setReadTimeout(new Duration(10, SECONDS));
         return new PrometheusClient(config, METRIC_CODEC, TYPE_MANAGER);
     }
 

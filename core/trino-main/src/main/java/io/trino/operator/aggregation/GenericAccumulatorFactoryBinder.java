@@ -13,10 +13,8 @@
  */
 package io.trino.operator.aggregation;
 
-import com.google.common.annotations.VisibleForTesting;
 import io.trino.Session;
 import io.trino.operator.PagesIndex;
-import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
@@ -26,27 +24,20 @@ import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
-
 public class GenericAccumulatorFactoryBinder
         implements AccumulatorFactoryBinder
 {
-    private final List<AccumulatorStateDescriptor> stateDescriptors;
     private final Constructor<? extends Accumulator> accumulatorConstructor;
     private final boolean accumulatorHasRemoveInput;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
 
     public GenericAccumulatorFactoryBinder(
-            List<AccumulatorStateDescriptor> stateDescriptors,
             Class<? extends Accumulator> accumulatorClass,
             boolean accumulatorHasRemoveInput,
             Class<? extends GroupedAccumulator> groupedAccumulatorClass)
     {
-        this.stateDescriptors = requireNonNull(stateDescriptors, "stateDescriptors is null");
-
         try {
             accumulatorConstructor = accumulatorClass.getConstructor(
-                    List.class,     /* List<AccumulatorStateDescriptor> stateDescriptors */
                     List.class,     /* List<Integer> inputChannel */
                     Optional.class, /* Optional<Integer> maskChannel */
                     List.class      /* List<LambdaProvider> lambdaProviders */);
@@ -54,7 +45,6 @@ public class GenericAccumulatorFactoryBinder
             this.accumulatorHasRemoveInput = accumulatorHasRemoveInput;
 
             groupedAccumulatorConstructor = groupedAccumulatorClass.getConstructor(
-                    List.class,     /* List<AccumulatorStateDescriptor> stateDescriptors */
                     List.class,     /* List<Integer> inputChannel */
                     Optional.class, /* Optional<Integer> maskChannel */
                     List.class      /* List<LambdaProvider> lambdaProviders */);
@@ -76,11 +66,9 @@ public class GenericAccumulatorFactoryBinder
             JoinCompiler joinCompiler,
             BlockTypeOperators blockTypeOperators,
             List<LambdaProvider> lambdaProviders,
-            boolean spillEnabled,
             Session session)
     {
         return new GenericAccumulatorFactory(
-                stateDescriptors,
                 accumulatorConstructor,
                 accumulatorHasRemoveInput,
                 groupedAccumulatorConstructor,
@@ -94,13 +82,6 @@ public class GenericAccumulatorFactoryBinder
                 joinCompiler,
                 blockTypeOperators,
                 session,
-                distinct,
-                spillEnabled);
-    }
-
-    @VisibleForTesting
-    public List<AccumulatorStateDescriptor> getStateDescriptors()
-    {
-        return stateDescriptors;
+                distinct);
     }
 }

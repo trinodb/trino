@@ -36,6 +36,5 @@ public interface AccumulatorFactoryBinder
             JoinCompiler joinCompiler,
             BlockTypeOperators blockTypeOperators,
             List<LambdaProvider> lambdaProviders,
-            boolean spillEnabled,
             Session session);
 }

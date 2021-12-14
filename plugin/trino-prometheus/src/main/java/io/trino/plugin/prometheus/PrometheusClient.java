@@ -32,6 +32,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,8 +53,8 @@ public class PrometheusClient
 {
     static final Type TIMESTAMP_COLUMN_TYPE = createTimestampWithTimeZoneType(3);
     static final String METRICS_ENDPOINT = "/api/v1/label/__name__/values";
-    private static final OkHttpClient httpClient = new Builder().build();
 
+    private final OkHttpClient httpClient;
     private final Optional<File> bearerTokenFile;
     private final Supplier<Map<String, Object>> tableSupplier;
     private final Type varcharMapType;
@@ -64,6 +65,8 @@ public class PrometheusClient
         requireNonNull(config, "config is null");
         requireNonNull(metricCodec, "metricCodec is null");
         requireNonNull(typeManager, "typeManager is null");
+
+        httpClient = new Builder().readTimeout(Duration.ofMillis(config.getReadTimeout().toMillis())).build();
 
         bearerTokenFile = config.getBearerTokenFile();
         URI prometheusMetricsUri = getPrometheusMetricsURI(config.getPrometheusURI());

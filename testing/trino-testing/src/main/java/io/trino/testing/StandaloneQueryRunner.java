@@ -17,12 +17,14 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.cost.StatsCalculator;
+import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SqlFunction;
 import io.trino.server.testing.TestingTrinoServer;
+import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -34,6 +36,7 @@ import org.intellij.lang.annotations.Language;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -257,6 +260,24 @@ public final class StandaloneQueryRunner
     public Lock getExclusiveLock()
     {
         return lock.writeLock();
+    }
+
+    @Override
+    public void injectTaskFailure(
+            String traceToken,
+            int stageId,
+            int partitionId,
+            int attemptId,
+            InjectedFailureType injectionType,
+            Optional<ErrorType> errorType)
+    {
+        server.injectTaskFailure(
+                traceToken,
+                stageId,
+                partitionId,
+                attemptId,
+                injectionType,
+                errorType);
     }
 
     private static TestingTrinoServer createTestingTrinoServer()

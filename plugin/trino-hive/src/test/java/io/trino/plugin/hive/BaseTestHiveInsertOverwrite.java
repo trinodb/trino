@@ -56,10 +56,7 @@ public abstract class BaseTestHiveInsertOverwrite
                 new HiveMinioDataLake(bucketName, ImmutableMap.of(), hiveHadoopImage));
         this.dockerizedS3DataLake.start();
         return S3HiveQueryRunner.create(
-                this.dockerizedS3DataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
-                this.dockerizedS3DataLake.getMinio().getMinioApiEndpoint(),
-                HiveMinioDataLake.ACCESS_KEY,
-                HiveMinioDataLake.SECRET_KEY,
+                dockerizedS3DataLake,
                 ImmutableMap.<String, String>builder()
                         // This is required when using MinIO which requires path style access
                         .put("hive.s3.path-style-access", "true")

@@ -45,7 +45,7 @@ public class TestRealHistogramAggregation
 
     public TestRealHistogramAggregation()
     {
-        InternalAggregationFunction function = new TestingFunctionResolution().getAggregateFunctionImplementation(
+        TestingAggregationFunction function = new TestingFunctionResolution().getAggregateFunction(
                 QualifiedName.of("numeric_histogram"),
                 fromTypes(BIGINT, REAL, DOUBLE));
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());

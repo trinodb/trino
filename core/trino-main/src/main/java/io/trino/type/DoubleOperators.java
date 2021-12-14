@@ -19,6 +19,7 @@ import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.MathFunctions;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -172,9 +173,15 @@ public final class DoubleOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToVarchar(@SqlType(StandardTypes.DOUBLE) double value)
+    public static Slice castToVarchar(@LiteralParameter("x") long x, @SqlType(StandardTypes.DOUBLE) double value)
     {
-        return utf8Slice(String.valueOf(value));
+        String stringValue = String.valueOf(value);
+        // String is all-ASCII, so String.length() here returns actual code points count
+        if (stringValue.length() <= x) {
+            return utf8Slice(stringValue);
+        }
+
+        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", value, x));
     }
 
     @ScalarOperator(SATURATED_FLOOR_CAST)

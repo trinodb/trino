@@ -15,10 +15,12 @@ package io.trino.testing;
 
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
+import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SqlFunction;
+import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -31,6 +33,7 @@ import org.intellij.lang.annotations.Language;
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 
 public interface QueryRunner
@@ -86,6 +89,14 @@ public interface QueryRunner
     void createCatalog(String catalogName, String connectorName, Map<String, String> properties);
 
     Lock getExclusiveLock();
+
+    void injectTaskFailure(
+            String traceToken,
+            int stageId,
+            int partitionId,
+            int attemptId,
+            InjectedFailureType injectionType,
+            Optional<ErrorType> errorType);
 
     class MaterializedResultWithPlan
     {

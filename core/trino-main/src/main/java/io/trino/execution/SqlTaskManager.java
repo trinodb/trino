@@ -206,7 +206,7 @@ public class SqlTaskManager
         }
         currentMemoryPoolAssignmentVersion = assignments.getVersion();
         if (coordinatorId != null && !coordinatorId.equals(assignments.getCoordinatorId())) {
-            log.warn("Switching coordinator affinity from " + coordinatorId + " to " + assignments.getCoordinatorId());
+            log.warn("Switching coordinator affinity from %s to %s", coordinatorId, assignments.getCoordinatorId());
         }
         coordinatorId = assignments.getCoordinatorId();
 
@@ -463,6 +463,15 @@ public class SqlTaskManager
         return tasks.getUnchecked(taskId).abort();
     }
 
+    @Override
+    public TaskInfo failTask(TaskId taskId, Throwable failure)
+    {
+        requireNonNull(taskId, "taskId is null");
+        requireNonNull(failure, "failure is null");
+
+        return tasks.getUnchecked(taskId).failed(failure);
+    }
+
     public void removeOldTasks()
     {
         DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
@@ -531,6 +540,18 @@ public class SqlTaskManager
     {
         requireNonNull(taskId, "taskId is null");
         tasks.getUnchecked(taskId).addStateChangeListener(stateChangeListener);
+    }
+
+    @Override
+    public void addSourceTaskFailureListener(TaskId taskId, TaskFailureListener listener)
+    {
+        tasks.getUnchecked(taskId).addSourceTaskFailureListener(listener);
+    }
+
+    @Override
+    public Optional<String> getTraceToken(TaskId taskId)
+    {
+        return tasks.getUnchecked(taskId).getTraceToken();
     }
 
     @VisibleForTesting

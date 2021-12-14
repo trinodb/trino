@@ -80,17 +80,18 @@ public final class HiveQueryRunner
         return builder().build();
     }
 
-    public static Builder builder()
+    public static Builder<Builder<?>> builder()
     {
-        return new Builder();
+        return new Builder<>();
     }
 
-    public static class Builder
-            extends DistributedQueryRunner.Builder
+    public static class Builder<SELF extends Builder<?>>
+            extends DistributedQueryRunner.Builder<SELF>
     {
         private boolean skipTimezoneSetup;
-        private Map<String, String> hiveProperties = ImmutableMap.of();
+        private ImmutableMap.Builder<String, String> hiveProperties = ImmutableMap.builder();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
+        private Optional<String> initialSchemasLocationBase = Optional.empty();
         private Function<DistributedQueryRunner, HiveMetastore> metastore = queryRunner -> {
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
             return new FileHiveMetastore(
@@ -108,46 +109,47 @@ public final class HiveQueryRunner
             super(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))));
         }
 
-        @Override
-        public Builder setExtraProperties(Map<String, String> extraProperties)
-        {
-            return (Builder) super.setExtraProperties(extraProperties);
-        }
-
-        @Override
-        public Builder addExtraProperty(String key, String value)
-        {
-            return (Builder) super.addExtraProperty(key, value);
-        }
-
-        public Builder setSkipTimezoneSetup(boolean skipTimezoneSetup)
+        public SELF setSkipTimezoneSetup(boolean skipTimezoneSetup)
         {
             this.skipTimezoneSetup = skipTimezoneSetup;
-            return this;
+            return self();
         }
 
-        public Builder setHiveProperties(Map<String, String> hiveProperties)
+        public SELF setHiveProperties(Map<String, String> hiveProperties)
         {
-            this.hiveProperties = ImmutableMap.copyOf(requireNonNull(hiveProperties, "hiveProperties is null"));
-            return this;
+            this.hiveProperties = ImmutableMap.<String, String>builder()
+                    .putAll(requireNonNull(hiveProperties, "hiveProperties is null"));
+            return self();
         }
 
-        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
+        public SELF addHiveProperty(String key, String value)
+        {
+            this.hiveProperties.put(key, value);
+            return self();
+        }
+
+        public SELF setInitialTables(Iterable<TpchTable<?>> initialTables)
         {
             this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
-            return this;
+            return self();
         }
 
-        public Builder setMetastore(Function<DistributedQueryRunner, HiveMetastore> metastore)
+        public SELF setInitialSchemasLocationBase(String initialSchemasLocationBase)
+        {
+            this.initialSchemasLocationBase = Optional.of(initialSchemasLocationBase);
+            return self();
+        }
+
+        public SELF setMetastore(Function<DistributedQueryRunner, HiveMetastore> metastore)
         {
             this.metastore = requireNonNull(metastore, "metastore is null");
-            return this;
+            return self();
         }
 
-        public Builder setModule(Module module)
+        public SELF setModule(Module module)
         {
             this.module = requireNonNull(module, "module is null");
-            return this;
+            return self();
         }
 
         @Override
@@ -173,7 +175,7 @@ public final class HiveQueryRunner
                 }
                 hiveProperties.put("hive.max-partitions-per-scan", "1000");
                 hiveProperties.put("hive.security", SQL_STANDARD);
-                hiveProperties.putAll(this.hiveProperties);
+                hiveProperties.putAll(this.hiveProperties.build());
 
                 Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
                         .putAll(hiveProperties)
@@ -199,12 +201,12 @@ public final class HiveQueryRunner
         {
             HiveIdentity identity = new HiveIdentity(SESSION);
             if (metastore.getDatabase(TPCH_SCHEMA).isEmpty()) {
-                metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_SCHEMA));
+                metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_SCHEMA, initialSchemasLocationBase));
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), initialTables);
             }
 
             if (metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isEmpty()) {
-                metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
+                metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA, initialSchemasLocationBase));
                 copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), initialTables);
             }
         }
@@ -216,9 +218,10 @@ public final class HiveQueryRunner
         logging.setLevel("org.apache.parquet.hadoop", WARN);
     }
 
-    private static Database createDatabaseMetastoreObject(String name)
+    private static Database createDatabaseMetastoreObject(String name, Optional<String> locationBase)
     {
         return Database.builder()
+                .setLocation(locationBase.map(base -> base + "/" + name))
                 .setDatabaseName(name)
                 .setOwnerName(Optional.of("public"))
                 .setOwnerType(Optional.of(PrincipalType.ROLE))

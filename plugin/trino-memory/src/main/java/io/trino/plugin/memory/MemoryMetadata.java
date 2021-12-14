@@ -254,10 +254,10 @@ public class MemoryMetadata
     private void checkTableNotExists(SchemaTableName tableName)
     {
         if (tableIds.containsKey(tableName)) {
-            throw new TrinoException(ALREADY_EXISTS, format("Table [%s] already exists", tableName.toString()));
+            throw new TrinoException(ALREADY_EXISTS, format("Table [%s] already exists", tableName));
         }
         if (views.containsKey(tableName)) {
-            throw new TrinoException(ALREADY_EXISTS, format("View [%s] already exists", tableName.toString()));
+            throw new TrinoException(ALREADY_EXISTS, format("View [%s] already exists", tableName));
         }
     }
 

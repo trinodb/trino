@@ -47,20 +47,8 @@ public class HistogramStateFactory
     }
 
     @Override
-    public Class<? extends HistogramState> getSingleStateClass()
-    {
-        return SingleHistogramState.class;
-    }
-
-    @Override
     public HistogramState createGroupedState()
     {
         return new GroupedHistogramState(keyType, equalOperator, hashCodeOperator, expectedEntriesCount);
-    }
-
-    @Override
-    public Class<? extends HistogramState> getGroupedStateClass()
-    {
-        return GroupedHistogramState.class;
     }
 }

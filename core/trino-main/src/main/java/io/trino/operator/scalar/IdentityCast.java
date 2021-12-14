@@ -14,7 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.SqlOperator;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
@@ -43,12 +43,12 @@ public class IdentityCast
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        Type type = functionBinding.getTypeVariable("T");
+        Type type = boundSignature.getReturnType();
         MethodHandle identity = MethodHandles.identity(type.getJavaType());
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 identity);

@@ -112,6 +112,12 @@ public abstract class BaseSqlServerConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("date")) {
+            // SQL Server plus 10 days when the date is the range of 1582 Oct 5 and 14
+            if (dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'") || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-14'")) {
+                return Optional.empty();
+            }
+        }
         if (typeName.equals("timestamp(3) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
@@ -451,6 +457,12 @@ public abstract class BaseSqlServerConnectorTest
                         ")");
 
         assertUpdate("DROP TABLE test_show_unique_constraint_table");
+    }
+
+    @Override
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
+    {
+        return format("Cannot insert the value NULL into column '%s'.*", columnName);
     }
 
     private String getLongInClause(int start, int length)

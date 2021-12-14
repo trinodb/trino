@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>365-SNAPSHOT</version>
+    <version>366-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -63,9 +63,8 @@
         <dep.errorprone.version>2.10.0</dep.errorprone.version>
         <dep.testcontainers.version>1.16.2</dep.testcontainers.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
-        <dep.coral.version>1.0.120</dep.coral.version>
+        <dep.coral.version>1.0.121</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
-        <dep.parquet.version>1.11.1</dep.parquet.version>
 
         <!-- TODO(https://github.com/airlift/airbase/pull/281): Required by testcontainers, remove when pulled from Airbase -->
         <dep.slf4j.version>1.7.32</dep.slf4j.version>
@@ -989,6 +988,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.github.oshi</groupId>
+                <artifactId>oshi-core</artifactId>
+                <version>5.8.5</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.github.scribejava</groupId>
                 <artifactId>scribejava-apis</artifactId>
                 <version>${dep.scribejava.version}</version>
@@ -1301,7 +1306,7 @@
                 <!-- org.testcontainers:testcontainer's dependencies pull two different versions of this artifact and this is to negotiate the version -->
                 <groupId>net.java.dev.jna</groupId>
                 <artifactId>jna</artifactId>
-                <version>5.8.0</version>
+                <version>5.10.0</version>
             </dependency>
 
             <dependency>
@@ -1652,6 +1657,12 @@
                                     <exclude>com.google.j2objc:j2objc-annotations</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
+                            <bannedDependencies>
+                                <excludes combine.children="append">
+                                    <!-- We don't use log4j2, additionally versions < 2.15.0 are vulnerable to the RCE Log4Shell (CVE-2021-44228) -->
+                                    <exclude>org.apache.logging.log4j:log4j-core</exclude>
+                                </excludes>
+                            </bannedDependencies>
                         </rules>
                     </configuration>
                     <dependencies>

@@ -13,23 +13,23 @@
  */
 package io.trino.sql.planner.planprinter;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.spi.Mergeable;
-import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.util.MoreMaps.mergeMaps;
 import static java.lang.Double.max;
 import static java.lang.Math.sqrt;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.stream.Collectors.toMap;
 
 public class PlanNodeStats
         implements Mergeable<PlanNodeStats>
@@ -43,10 +43,8 @@ public class PlanNodeStats
     private final long planNodeOutputPositions;
     private final DataSize planNodeOutputDataSize;
     private final DataSize planNodeSpilledDataSize;
-    private final Metrics metrics;
-    private final Metrics connectorMetrics;
 
-    protected final Map<String, OperatorInputStats> operatorInputStats;
+    protected final Map<String, BasicOperatorStats> operatorStats;
 
     PlanNodeStats(
             PlanNodeId planNodeId,
@@ -57,9 +55,7 @@ public class PlanNodeStats
             long planNodeOutputPositions,
             DataSize planNodeOutputDataSize,
             DataSize planNodeSpilledDataSize,
-            Map<String, OperatorInputStats> operatorInputStats,
-            Metrics metrics,
-            Metrics connectorMetrics)
+            Map<String, BasicOperatorStats> operatorStats)
     {
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
 
@@ -70,10 +66,7 @@ public class PlanNodeStats
         this.planNodeOutputPositions = planNodeOutputPositions;
         this.planNodeOutputDataSize = planNodeOutputDataSize;
         this.planNodeSpilledDataSize = requireNonNull(planNodeSpilledDataSize, "planNodeSpilledDataSize is null");
-
-        this.operatorInputStats = requireNonNull(operatorInputStats, "operatorInputStats is null");
-        this.metrics = requireNonNull(metrics, "metrics is null");
-        this.connectorMetrics = requireNonNull(connectorMetrics, "connectorMetrics is null");
+        this.operatorStats = ImmutableMap.copyOf(requireNonNull(operatorStats, "operatorStats is null"));
     }
 
     private static double computedStdDev(double sumSquared, double sum, long n)
@@ -101,7 +94,7 @@ public class PlanNodeStats
 
     public Set<String> getOperatorTypes()
     {
-        return operatorInputStats.keySet();
+        return operatorStats.keySet();
     }
 
     public long getPlanNodeInputPositions()
@@ -129,33 +122,28 @@ public class PlanNodeStats
         return planNodeSpilledDataSize;
     }
 
-    public Metrics getMetrics()
-    {
-        return metrics;
-    }
-
-    public Metrics getConnectorMetrics()
-    {
-        return connectorMetrics;
-    }
-
     public Map<String, Double> getOperatorInputPositionsAverages()
     {
-        return operatorInputStats.entrySet().stream()
-                .collect(toMap(
+        return operatorStats.entrySet().stream()
+                .collect(toImmutableMap(
                         Map.Entry::getKey,
-                        entry -> (double) entry.getValue().getInputPositions() / operatorInputStats.get(entry.getKey()).getTotalDrivers()));
+                        entry -> (double) entry.getValue().getInputPositions() / operatorStats.get(entry.getKey()).getTotalDrivers()));
     }
 
     public Map<String, Double> getOperatorInputPositionsStdDevs()
     {
-        return operatorInputStats.entrySet().stream()
-                .collect(toMap(
+        return operatorStats.entrySet().stream()
+                .collect(toImmutableMap(
                         Map.Entry::getKey,
                         entry -> computedStdDev(
                                 entry.getValue().getSumSquaredInputPositions(),
                                 entry.getValue().getInputPositions(),
                                 entry.getValue().getTotalDrivers())));
+    }
+
+    public Map<String, BasicOperatorStats> getOperatorStats()
+    {
+        return operatorStats;
     }
 
     @Override
@@ -168,7 +156,7 @@ public class PlanNodeStats
         long planNodeOutputPositions = this.planNodeOutputPositions + other.planNodeOutputPositions;
         DataSize planNodeOutputDataSize = succinctBytes(this.planNodeOutputDataSize.toBytes() + other.planNodeOutputDataSize.toBytes());
 
-        Map<String, OperatorInputStats> operatorInputStats = mergeMaps(this.operatorInputStats, other.operatorInputStats, OperatorInputStats::merge);
+        Map<String, BasicOperatorStats> operatorStats = mergeMaps(this.operatorStats, other.operatorStats, BasicOperatorStats::merge);
 
         return new PlanNodeStats(
                 planNodeId,
@@ -177,8 +165,6 @@ public class PlanNodeStats
                 planNodeInputPositions, planNodeInputDataSize,
                 planNodeOutputPositions, planNodeOutputDataSize,
                 succinctBytes(this.planNodeSpilledDataSize.toBytes() + other.planNodeSpilledDataSize.toBytes()),
-                operatorInputStats,
-                this.metrics.mergeWith(other.metrics),
-                this.connectorMetrics.mergeWith(other.connectorMetrics));
+                operatorStats);
     }
 }

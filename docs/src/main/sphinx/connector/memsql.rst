@@ -12,7 +12,7 @@ Requirements
 
 To connect to SingleStore, you need:
 
-* SingleStore version 7.3 or higher.
+* SingleStore version 7.1.4 or higher.
 * Network access from the Trino coordinator and workers to SingleStore. Port
   3306 is the default port.
 
@@ -90,6 +90,8 @@ The connector supports pushdown for a number of operations:
 * :ref:`join-pushdown`
 * :ref:`limit-pushdown`
 * :ref:`topn-pushdown`
+
+.. include:: no-pushdown-text-type.fragment
 
 .. _singlestore-sql-support:
 

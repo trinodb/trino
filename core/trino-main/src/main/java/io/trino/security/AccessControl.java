@@ -381,6 +381,13 @@ public interface AccessControl
     void checkCanGrantSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee, boolean grantOption);
 
     /**
+     * Check if identity is allowed to deny a privilege to the grantee on the specified schema.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanDenySchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee);
+
+    /**
      * Check if identity is allowed to revoke a privilege from the revokee on the specified schema.
      *
      * @throws AccessDeniedException if not allowed
@@ -393,6 +400,13 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal grantee, boolean grantOption);
+
+    /**
+     * Check if identity is allowed to deny a privilege to the grantee on the specified table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanDenyTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal grantee);
 
     /**
      * Check if identity is allowed to revoke a privilege from the revokee on the specified table.

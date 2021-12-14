@@ -15,7 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionInvoker;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -34,7 +34,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
-import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.UNSUPPORTED;
+import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.RETURN_NULL_ON_NULL;
 import static java.lang.String.format;
 import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
@@ -42,39 +42,39 @@ import static java.util.Objects.requireNonNull;
 public final class ChoicesScalarFunctionImplementation
         implements ScalarFunctionImplementation
 {
-    private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(UNSUPPORTED);
+    private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(RETURN_NULL_ON_NULL);
 
-    private final FunctionBinding functionBinding;
+    private final BoundSignature boundSignature;
     private final List<ScalarImplementationChoice> choices;
 
     public ChoicesScalarFunctionImplementation(
-            FunctionBinding functionBinding,
+            BoundSignature boundSignature,
             InvocationReturnConvention returnConvention,
             List<InvocationArgumentConvention> argumentConventions,
             MethodHandle methodHandle)
     {
-        this(functionBinding, returnConvention, argumentConventions, ImmutableList.of(), methodHandle, Optional.empty());
+        this(boundSignature, returnConvention, argumentConventions, ImmutableList.of(), methodHandle, Optional.empty());
     }
 
     public ChoicesScalarFunctionImplementation(
-            FunctionBinding functionBinding,
+            BoundSignature boundSignature,
             InvocationReturnConvention returnConvention,
             List<InvocationArgumentConvention> argumentConventions,
             MethodHandle methodHandle,
             Optional<MethodHandle> instanceFactory)
     {
-        this(functionBinding, returnConvention, argumentConventions, ImmutableList.of(), methodHandle, instanceFactory);
+        this(boundSignature, returnConvention, argumentConventions, ImmutableList.of(), methodHandle, instanceFactory);
     }
 
     public ChoicesScalarFunctionImplementation(
-            FunctionBinding functionBinding,
+            BoundSignature boundSignature,
             InvocationReturnConvention returnConvention,
             List<InvocationArgumentConvention> argumentConventions,
             List<Class<?>> lambdaInterfaces,
             MethodHandle methodHandle,
             Optional<MethodHandle> instanceFactory)
     {
-        this(functionBinding, ImmutableList.of(new ScalarImplementationChoice(returnConvention, argumentConventions, lambdaInterfaces, methodHandle, instanceFactory)));
+        this(boundSignature, ImmutableList.of(new ScalarImplementationChoice(returnConvention, argumentConventions, lambdaInterfaces, methodHandle, instanceFactory)));
     }
 
     /**
@@ -84,12 +84,12 @@ public final class ChoicesScalarFunctionImplementation
      * The first choice is the default choice, which is the one used for legacy access methods.
      * The default choice must be usable under any context. (e.g. it must not use BLOCK_POSITION convention.)
      *
-     * @param functionBinding
+     * @param boundSignature
      * @param choices the list of choices, ordered from generic to specific
      */
-    public ChoicesScalarFunctionImplementation(FunctionBinding functionBinding, List<ScalarImplementationChoice> choices)
+    public ChoicesScalarFunctionImplementation(BoundSignature boundSignature, List<ScalarImplementationChoice> choices)
     {
-        this.functionBinding = functionBinding;
+        this.boundSignature = boundSignature;
         checkArgument(!choices.isEmpty(), "choices is an empty list");
         this.choices = ImmutableList.copyOf(choices);
     }
@@ -112,13 +112,13 @@ public final class ChoicesScalarFunctionImplementation
         }
         if (choices.isEmpty()) {
             throw new TrinoException(FUNCTION_NOT_FOUND,
-                    format("Function implementation for (%s) cannot be adapted to convention (%s)", functionBinding.getBoundSignature(), invocationConvention));
+                    format("Function implementation for (%s) cannot be adapted to convention (%s)", boundSignature, invocationConvention));
         }
 
         ScalarImplementationChoice bestChoice = Collections.max(choices, comparingInt(ScalarImplementationChoice::getScore));
         MethodHandle methodHandle = functionAdapter.adapt(
                 bestChoice.getMethodHandle(),
-                functionBinding.getBoundSignature().getArgumentTypes(),
+                boundSignature.getArgumentTypes(),
                 bestChoice.getInvocationConvention(),
                 invocationConvention);
         return new FunctionInvoker(

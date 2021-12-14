@@ -34,25 +34,12 @@ public class TimeMicrosColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            long picos = valuesReader.readLong() * Timestamps.PICOSECONDS_PER_MICROSECOND;
-            if (type instanceof TimeType) {
-                type.writeLong(blockBuilder, picos);
-            }
-            else {
-                throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, columnDescriptor));
-            }
+        long picos = valuesReader.readLong() * Timestamps.PICOSECONDS_PER_MICROSECOND;
+        if (type instanceof TimeType) {
+            type.writeLong(blockBuilder, picos);
         }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
-        }
-    }
-
-    @Override
-    protected void skipValue()
-    {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readLong();
+        else {
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, columnDescriptor));
         }
     }
 }

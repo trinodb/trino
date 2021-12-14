@@ -22,6 +22,7 @@ import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
+import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
@@ -51,6 +52,7 @@ public class HiveMetadataFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
     private final TypeManager typeManager;
+    private final MetadataProvider metadataProvider;
     private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final BoundedExecutor renameExecution;
@@ -76,6 +78,7 @@ public class HiveMetadataFactory
             ExecutorService executorService,
             @ForHiveTransactionHeartbeats ScheduledExecutorService heartbeatService,
             TypeManager typeManager,
+            MetadataProvider metadataProvider,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             NodeVersion nodeVersion,
@@ -102,6 +105,7 @@ public class HiveMetadataFactory
                 hiveConfig.getHiveTransactionHeartbeatInterval(),
                 metastoreConfig.isHideDeltaLakeTables(),
                 typeManager,
+                metadataProvider,
                 locationService,
                 partitionUpdateCodec,
                 executorService,
@@ -131,6 +135,7 @@ public class HiveMetadataFactory
             Optional<Duration> hiveTransactionHeartbeatInterval,
             boolean hideDeltaLakeTables,
             TypeManager typeManager,
+            MetadataProvider metadataProvider,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ExecutorService executorService,
@@ -155,6 +160,7 @@ public class HiveMetadataFactory
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.metadataProvider = requireNonNull(metadataProvider, "metadataProvider is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
@@ -205,6 +211,7 @@ public class HiveMetadataFactory
                 translateHiveViews,
                 hideDeltaLakeTables,
                 typeManager,
+                metadataProvider,
                 locationService,
                 partitionUpdateCodec,
                 trinoVersion,

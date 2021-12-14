@@ -24,6 +24,7 @@ import io.airlift.stats.TDigest;
 import io.trino.spi.metrics.Distribution;
 
 import java.util.Base64;
+import java.util.Locale;
 
 import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -58,9 +59,76 @@ public class TDigestHistogram
     }
 
     @Override
+    @JsonProperty
     public long getTotal()
     {
         return (long) digest.getCount();
+    }
+
+    @JsonProperty
+    public synchronized double getMin()
+    {
+        return digest.getMin();
+    }
+
+    @JsonProperty
+    public synchronized double getMax()
+    {
+        return digest.getMax();
+    }
+
+    @JsonProperty
+    public synchronized double getP01()
+    {
+        return digest.valueAt(0.01);
+    }
+
+    @JsonProperty
+    public synchronized double getP05()
+    {
+        return digest.valueAt(0.05);
+    }
+
+    @JsonProperty
+    public synchronized double getP10()
+    {
+        return digest.valueAt(0.10);
+    }
+
+    @JsonProperty
+    public synchronized double getP25()
+    {
+        return digest.valueAt(0.25);
+    }
+
+    @JsonProperty
+    public synchronized double getP50()
+    {
+        return digest.valueAt(0.50);
+    }
+
+    @JsonProperty
+    public synchronized double getP75()
+    {
+        return digest.valueAt(0.75);
+    }
+
+    @JsonProperty
+    public synchronized double getP90()
+    {
+        return digest.valueAt(0.90);
+    }
+
+    @JsonProperty
+    public synchronized double getP95()
+    {
+        return digest.valueAt(0.95);
+    }
+
+    @JsonProperty
+    public synchronized double getP99()
+    {
+        return digest.valueAt(0.99);
     }
 
     @Override
@@ -72,11 +140,25 @@ public class TDigestHistogram
     @Override
     public String toString()
     {
-        ToStringHelper helper = toStringHelper(this).add("count", digest.getCount());
-        for (int q = 0; q <= 100; q += 10) {
-            helper.add(format("p%d", q), getPercentile(q));
-        }
+        ToStringHelper helper = toStringHelper("")
+                .add("count", formatDouble(digest.getCount()))
+                .add("p01", formatDouble(getP01()))
+                .add("p05", formatDouble(getP05()))
+                .add("p10", formatDouble(getP10()))
+                .add("p25", formatDouble(getP25()))
+                .add("p50", formatDouble(getP50()))
+                .add("p75", formatDouble(getP75()))
+                .add("p90", formatDouble(getP90()))
+                .add("p95", formatDouble(getP95()))
+                .add("p99", formatDouble(getP99()))
+                .add("min", formatDouble(getMin()))
+                .add("max", formatDouble(getMax()));
         return helper.toString();
+    }
+
+    private static String formatDouble(double value)
+    {
+        return format(Locale.US, "%.2f", value);
     }
 
     public static class TDigestToBase64Converter

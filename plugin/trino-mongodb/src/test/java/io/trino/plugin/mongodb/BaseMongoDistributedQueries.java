@@ -76,10 +76,9 @@ public abstract class BaseMongoDistributedQueries
     public void testColumnName(String columnName)
     {
         if (columnName.equals("a.dot")) {
-            // TODO (https://github.com/trinodb/trino/issues/3460)
             assertThatThrownBy(() -> super.testColumnName(columnName))
-                    .hasStackTraceContaining("TableWriterOperator") // during INSERT
-                    .hasMessage("Invalid BSON field name a.dot");
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("Column name must not contain '$' or '.' for INSERT: " + columnName);
             throw new SkipException("Insert would fail");
         }
 

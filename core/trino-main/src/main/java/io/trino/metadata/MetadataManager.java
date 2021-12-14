@@ -2151,6 +2151,20 @@ public final class MetadataManager
     }
 
     @Override
+    public void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.denyTablePrivileges(session, tableName, privileges, grantee);
+            return;
+        }
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.denyTablePrivileges(session.toConnectorSession(catalogName), tableName.asSchemaTableName(), privileges, grantee);
+    }
+
+    @Override
     public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
@@ -2176,6 +2190,20 @@ public final class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
         metadata.grantSchemaPrivileges(session.toConnectorSession(catalogName), schemaName.getSchemaName(), privileges, grantee, grantOption);
+    }
+
+    @Override
+    public void denySchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schemaName.getCatalogName());
+        if (catalogMetadata.getSecurityManagement() == SecurityManagement.SYSTEM) {
+            systemSecurityMetadata.denySchemaPrivileges(session, schemaName, privileges, grantee);
+            return;
+        }
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.denySchemaPrivileges(session.toConnectorSession(catalogName), schemaName.getSchemaName(), privileges, grantee);
     }
 
     @Override
@@ -2520,12 +2548,13 @@ public final class MetadataManager
 
     private ResolvedFunction resolve(Session session, FunctionBinding functionBinding)
     {
+        FunctionMetadata functionMetadata = getFunctionMetadata(functionBinding.getFunctionId(), functionBinding.getBoundSignature());
         FunctionDependencyDeclaration declaration = functions.getFunctionDependencies(functionBinding);
-        return resolve(session, functionBinding, declaration);
+        return resolve(session, functionBinding, functionMetadata, declaration);
     }
 
     @VisibleForTesting
-    public ResolvedFunction resolve(Session session, FunctionBinding functionBinding, FunctionDependencyDeclaration declaration)
+    public ResolvedFunction resolve(Session session, FunctionBinding functionBinding, FunctionMetadata functionMetadata, FunctionDependencyDeclaration declaration)
     {
         Map<TypeSignature, Type> dependentTypes = declaration.getTypeDependencies().stream()
                 .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
@@ -2584,6 +2613,9 @@ public final class MetadataManager
         return new ResolvedFunction(
                 functionBinding.getBoundSignature(),
                 functionBinding.getFunctionId(),
+                functionMetadata.getKind(),
+                functionMetadata.isDeterministic(),
+                functionMetadata.getFunctionNullability(),
                 dependentTypes,
                 functions.build());
     }
@@ -2599,27 +2631,29 @@ public final class MetadataManager
     @Override
     public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
     {
-        FunctionMetadata functionMetadata = functions.get(resolvedFunction.getFunctionId());
+        return getFunctionMetadata(resolvedFunction.getFunctionId(), resolvedFunction.getSignature());
+    }
+
+    private FunctionMetadata getFunctionMetadata(FunctionId functionId, BoundSignature signature)
+    {
+        FunctionMetadata functionMetadata = functions.get(functionId);
 
         // specialize function metadata to resolvedFunction
-        List<FunctionArgumentDefinition> argumentDefinitions;
+        List<Boolean> argumentNullability = functionMetadata.getFunctionNullability().getArgumentNullable();
         if (functionMetadata.getSignature().isVariableArity()) {
-            List<FunctionArgumentDefinition> fixedArguments = functionMetadata.getArgumentDefinitions().subList(0, functionMetadata.getArgumentDefinitions().size() - 1);
-            int variableArgumentCount = resolvedFunction.getSignature().getArgumentTypes().size() - fixedArguments.size();
-            argumentDefinitions = ImmutableList.<FunctionArgumentDefinition>builder()
-                    .addAll(fixedArguments)
-                    .addAll(nCopies(variableArgumentCount, functionMetadata.getArgumentDefinitions().get(functionMetadata.getArgumentDefinitions().size() - 1)))
+            List<Boolean> fixedArgumentNullability = argumentNullability.subList(0, argumentNullability.size() - 1);
+            int variableArgumentCount = signature.getArgumentTypes().size() - fixedArgumentNullability.size();
+            argumentNullability = ImmutableList.<Boolean>builder()
+                    .addAll(fixedArgumentNullability)
+                    .addAll(nCopies(variableArgumentCount, argumentNullability.get(argumentNullability.size() - 1)))
                     .build();
         }
-        else {
-            argumentDefinitions = functionMetadata.getArgumentDefinitions();
-        }
+
         return new FunctionMetadata(
                 functionMetadata.getFunctionId(),
-                resolvedFunction.getSignature().toSignature(),
+                signature.toSignature(),
                 functionMetadata.getCanonicalName(),
-                functionMetadata.isNullable(),
-                argumentDefinitions,
+                new FunctionNullability(functionMetadata.getFunctionNullability().isReturnNullable(), argumentNullability),
                 functionMetadata.isHidden(),
                 functionMetadata.isDeterministic(),
                 functionMetadata.getDescription(),
@@ -2631,33 +2665,35 @@ public final class MetadataManager
     public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
     {
         AggregationFunctionMetadata aggregationFunctionMetadata = functions.getAggregationFunctionMetadata(resolvedFunction.getFunctionId());
-        return new AggregationFunctionMetadata(
-                aggregationFunctionMetadata.isOrderSensitive(),
-                aggregationFunctionMetadata.getIntermediateType().map(typeSignature -> {
-                    FunctionBinding functionBinding = toFunctionBinding(resolvedFunction);
-                    return applyBoundVariables(typeSignature, functionBinding);
-                }));
+        List<TypeSignature> intermediateTypes = aggregationFunctionMetadata.getIntermediateTypes();
+        if (!intermediateTypes.isEmpty()) {
+            FunctionBinding functionBinding = toFunctionBinding(resolvedFunction);
+            intermediateTypes = aggregationFunctionMetadata.getIntermediateTypes().stream()
+                    .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
+                    .collect(toImmutableList());
+        }
+        return new AggregationFunctionMetadata(aggregationFunctionMetadata.isOrderSensitive(), intermediateTypes);
     }
 
     @Override
     public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
     {
         FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        return functions.getWindowFunctionImplementation(toFunctionBinding(resolvedFunction), functionDependencies);
+        return functions.getWindowFunctionImplementation(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionDependencies);
     }
 
     @Override
     public InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
     {
         FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        return functions.getAggregateFunctionImplementation(toFunctionBinding(resolvedFunction), functionDependencies);
+        return functions.getAggregateFunctionImplementation(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionDependencies);
     }
 
     @Override
     public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
     {
         FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        FunctionInvoker functionInvoker = functions.getScalarFunctionInvoker(toFunctionBinding(resolvedFunction), functionDependencies, invocationConvention);
+        FunctionInvoker functionInvoker = functions.getScalarFunctionInvoker(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionDependencies, invocationConvention);
         verifyMethodHandleSignature(resolvedFunction.getSignature(), functionInvoker, invocationConvention);
         return functionInvoker;
     }

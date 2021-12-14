@@ -303,7 +303,7 @@ public class IcebergSplitSource
         verify(constraint.getSummary().isAll());
 
         if (constraint.predicate().isEmpty() ||
-                constraint.getPredicateColumns().map(predicateColumns -> intersection(predicateColumns, identityPartitionColumns).isEmpty()).orElse(false)) {
+                intersection(constraint.getPredicateColumns().orElseThrow(), identityPartitionColumns).isEmpty()) {
             return true;
         }
         return constraint.predicate().get().test(partitionValues.get());

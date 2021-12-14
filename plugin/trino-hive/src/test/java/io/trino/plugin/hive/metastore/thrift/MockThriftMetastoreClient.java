@@ -402,7 +402,7 @@ public class MockThriftMetastoreClient
     }
 
     @Override
-    public boolean revokePrivileges(PrivilegeBag privilegeBag)
+    public boolean revokePrivileges(PrivilegeBag privilegeBag, boolean revokeGrantOption)
     {
         throw new UnsupportedOperationException();
     }

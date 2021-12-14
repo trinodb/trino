@@ -56,6 +56,11 @@ Property Name                                      Required   Description
                                                               default the location is ``/hbase``
 ``phoenix.config.resources``                       No         Comma-separated list of configuration files (e.g. ``hbase-site.xml``) to use for
                                                               connection properties.  These files must exist on the machines running Trino.
+``phoenix.max-scans-per-split``                    No         Maximum number of HBase scans that will be performed in a single split. Default is 20.
+                                                              Lower values will lead to more splits in Trino.
+                                                              Can also be set via session propery ``max_scans_per_split``.
+                                                              For details see: `<https://phoenix.apache.org/update_statistics.html>`_.
+                                                              (This setting has no effect when guideposts are disabled in Phoenix.)
 ================================================== ========== ===================================================================================
 
 .. include:: jdbc-common-configurations.fragment
@@ -124,8 +129,8 @@ does not have an equivalent type.
 Decimal type handling
 ^^^^^^^^^^^^^^^^^^^^^
 
-``DECIMAL`` types with un-specified precision defaults to 38 and un-specified scale defaults to 0. These defaults can
-be overridden by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
+``DECIMAL`` types with unspecified precision or scale are mapped to a Trino ``DECIMAL`` with a default precision of 38 and default scale of 0. The scale can
+be changed by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
 ``allow_overflow``. The scale of the resulting type is controlled via the ``decimal-default-scale``
 configuration property or the ``decimal-rounding-mode`` session property. The precision is always 38.
 

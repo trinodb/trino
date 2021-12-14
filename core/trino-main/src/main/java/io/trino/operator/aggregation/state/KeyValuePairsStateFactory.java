@@ -41,21 +41,9 @@ public class KeyValuePairsStateFactory
     }
 
     @Override
-    public Class<? extends KeyValuePairsState> getSingleStateClass()
-    {
-        return SingleState.class;
-    }
-
-    @Override
     public KeyValuePairsState createGroupedState()
     {
         return new GroupedState(keyType, valueType);
-    }
-
-    @Override
-    public Class<? extends KeyValuePairsState> getGroupedStateClass()
-    {
-        return GroupedState.class;
     }
 
     public static class GroupedState

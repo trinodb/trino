@@ -23,7 +23,7 @@ import io.trino.execution.TableExecuteContextManager;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
 import io.trino.operator.TableFinishOperator.TableFinisher;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -64,7 +64,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTableFinishOperator
 {
-    private static final InternalAggregationFunction LONG_MAX = new TestingFunctionResolution().getAggregateFunctionImplementation(QualifiedName.of("max"), fromTypes(BIGINT));
+    private static final TestingAggregationFunction LONG_MAX = new TestingFunctionResolution().getAggregateFunction(QualifiedName.of("max"), fromTypes(BIGINT));
 
     private ScheduledExecutorService scheduledExecutor;
 

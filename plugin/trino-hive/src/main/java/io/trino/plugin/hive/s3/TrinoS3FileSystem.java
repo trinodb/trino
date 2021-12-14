@@ -1572,15 +1572,6 @@ public class TrinoS3FileSystem
         private void flushBuffer(boolean finished)
                 throws IOException
         {
-            try {
-                waitForPreviousUploadFinish();
-            }
-            catch (IOException e) {
-                failed = true;
-                abortUploadSuppressed(e);
-                throw e;
-            }
-
             // skip multipart upload if there would only be one part
             if (finished && uploadId.isEmpty()) {
                 InputStream in = new ByteArrayInputStream(buffer, 0, bufferSize);
@@ -1597,6 +1588,7 @@ public class TrinoS3FileSystem
                     return;
                 }
                 catch (AmazonServiceException e) {
+                    failed = true;
                     throw new IOException(e);
                 }
             }
@@ -1605,8 +1597,23 @@ public class TrinoS3FileSystem
             if (bufferSize == buffer.length || (finished && bufferSize > 0)) {
                 byte[] data = buffer;
                 int length = bufferSize;
-                this.buffer = new byte[buffer.length];
-                bufferSize = 0;
+
+                if (finished) {
+                    this.buffer = null;
+                }
+                else {
+                    this.buffer = new byte[buffer.length];
+                    bufferSize = 0;
+                }
+
+                try {
+                    waitForPreviousUploadFinish();
+                }
+                catch (IOException e) {
+                    failed = true;
+                    abortUploadSuppressed(e);
+                    throw e;
+                }
 
                 inProgressUploadFuture = uploadExecutor.submit(() -> uploadPage(data, length));
             }

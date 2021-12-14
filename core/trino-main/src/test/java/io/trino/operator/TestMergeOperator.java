@@ -22,6 +22,8 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.node.NodeInfo;
 import io.trino.FeaturesConfig;
 import io.trino.execution.Lifespan;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.metadata.Split;
@@ -63,9 +65,9 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestMergeOperator
 {
-    private static final String TASK_1_ID = "task1";
-    private static final String TASK_2_ID = "task2";
-    private static final String TASK_3_ID = "task3";
+    private static final TaskId TASK_1_ID = new TaskId(new StageId("query", 0), 0, 0);
+    private static final TaskId TASK_2_ID = new TaskId(new StageId("query", 0), 1, 0);
+    private static final TaskId TASK_3_ID = new TaskId(new StageId("query", 0), 2, 0);
 
     private final AtomicInteger operatorId = new AtomicInteger();
 
@@ -75,7 +77,7 @@ public class TestMergeOperator
     private ExchangeClientFactory exchangeClientFactory;
     private OrderingCompiler orderingCompiler;
 
-    private LoadingCache<String, TestingTaskBuffer> taskBuffers;
+    private LoadingCache<TaskId, TestingTaskBuffer> taskBuffers;
 
     @BeforeMethod
     public void setUp()
@@ -351,9 +353,9 @@ public class TestMergeOperator
         return (MergeOperator) factory.createOperator(driverContext);
     }
 
-    private static Split createRemoteSplit(String taskId)
+    private static Split createRemoteSplit(TaskId taskId)
     {
-        return new Split(ExchangeOperator.REMOTE_CONNECTOR_ID, new RemoteSplit(URI.create("http://localhost/" + taskId)), Lifespan.taskWide());
+        return new Split(ExchangeOperator.REMOTE_CONNECTOR_ID, new RemoteSplit(taskId, URI.create("http://localhost/" + taskId)), Lifespan.taskWide());
     }
 
     private static List<Page> pullAvailablePages(Operator operator)

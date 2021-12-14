@@ -144,6 +144,8 @@ public class Analysis
 
     private final Map<NodeRef<WindowOperation>, MeasureDefinition> measureDefinitions = new LinkedHashMap<>();
 
+    private final Set<NodeRef<FunctionCall>> patternAggregations = new LinkedHashSet<>();
+
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, GroupingSetAnalysis> groupingSets = new LinkedHashMap<>();
@@ -950,6 +952,16 @@ public class Analysis
         return measureDefinitions.get(NodeRef.of(measure));
     }
 
+    public void setPatternAggregations(Set<NodeRef<FunctionCall>> aggregations)
+    {
+        patternAggregations.addAll(aggregations);
+    }
+
+    public boolean isPatternAggregation(FunctionCall function)
+    {
+        return patternAggregations.contains(NodeRef.of(function));
+    }
+
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
     {
         return tableColumnReferences;
@@ -1021,6 +1033,7 @@ public class Analysis
     public List<TableInfo> getReferencedTables()
     {
         return tables.entrySet().stream()
+                .filter(entry -> isInputTable(entry.getKey().getNode()))
                 .map(entry -> {
                     NodeRef<Table> table = entry.getKey();
 
@@ -1127,6 +1140,20 @@ public class Analysis
     public Optional<TableExecuteHandle> getTableExecuteHandle()
     {
         return tableExecuteHandle;
+    }
+
+    private boolean isInputTable(Table table)
+    {
+        return !(isUpdateTarget(table) || isInsertTarget(table));
+    }
+
+    private boolean isInsertTarget(Table table)
+    {
+        requireNonNull(table, "table is null");
+        return insert
+                .map(Insert::getTable)
+                .map(tableReference -> tableReference == table) // intentional comparison by reference
+                .orElse(FALSE);
     }
 
     @Immutable

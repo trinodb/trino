@@ -21,6 +21,7 @@ import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.Row;
 import io.trino.client.RowField;
+import io.trino.client.StatementStats;
 import io.trino.client.Warning;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.type.ArrayType;
@@ -126,6 +127,7 @@ public class TestingTrinoClient
         private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
         private final AtomicReference<List<Warning>> warnings = new AtomicReference<>(ImmutableList.of());
+        private final AtomicReference<Optional<StatementStats>> statementStats = new AtomicReference<>(Optional.empty());
 
         @Override
         public void setUpdateType(String type)
@@ -143,6 +145,12 @@ public class TestingTrinoClient
         public void setWarnings(List<Warning> warnings)
         {
             this.warnings.set(warnings);
+        }
+
+        @Override
+        public void setStatementStats(StatementStats statementStats)
+        {
+            this.statementStats.set(Optional.of(statementStats));
         }
 
         @Override
@@ -169,7 +177,8 @@ public class TestingTrinoClient
                     resetSessionProperties,
                     updateType.get(),
                     updateCount.get(),
-                    warnings.get());
+                    warnings.get(),
+                    statementStats.get());
         }
     }
 

@@ -14,11 +14,10 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -27,26 +26,20 @@ import io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowStateSerializer;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.AccumulatorState;
-import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.SIGN_LONG_MASK;
@@ -76,8 +69,7 @@ public class DecimalSumAggregation
                                 NAME,
                                 new TypeSignature("decimal", numericParameter(38), typeVariable("s")),
                                 ImmutableList.of(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))),
-                        true,
-                        ImmutableList.of(new FunctionArgumentDefinition(false)),
+                        new FunctionNullability(true, ImmutableList.of(false)),
                         false,
                         true,
                         "Calculates the sum over the input values",
@@ -88,21 +80,18 @@ public class DecimalSumAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
-        Type inputType = getOnlyElement(functionBinding.getBoundSignature().getArgumentTypes());
-        Type outputType = functionBinding.getBoundSignature().getReturnType();
-        return generateAggregation(inputType, outputType);
+        Type inputType = getOnlyElement(boundSignature.getArgumentTypes());
+        return generateAggregation(inputType);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type inputType, Type outputType)
+    private static AggregationMetadata generateAggregation(Type inputType)
     {
         checkArgument(inputType instanceof DecimalType, "type must be Decimal");
-        DynamicClassLoader classLoader = new DynamicClassLoader(DecimalSumAggregation.class.getClassLoader());
-        List<Type> inputTypes = ImmutableList.of(inputType);
         MethodHandle inputFunction;
-        Class<? extends AccumulatorState> stateInterface = LongDecimalWithOverflowState.class;
-        AccumulatorStateSerializer<?> stateSerializer = new LongDecimalWithOverflowStateSerializer();
+        Class<LongDecimalWithOverflowState> stateInterface = LongDecimalWithOverflowState.class;
+        LongDecimalWithOverflowStateSerializer stateSerializer = new LongDecimalWithOverflowStateSerializer();
 
         if (((DecimalType) inputType).isShort()) {
             inputFunction = SHORT_DECIMAL_INPUT_FUNCTION;
@@ -111,27 +100,16 @@ public class DecimalSumAggregation
             inputFunction = LONG_DECIMAL_INPUT_FUNCTION;
         }
 
-        AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
-                createInputParameterMetadata(inputType),
+        return new AggregationMetadata(
+                ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 inputFunction,
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 LONG_DECIMAL_OUTPUT_FUNCTION,
-                ImmutableList.of(new AccumulatorStateDescriptor(
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
                         stateInterface,
                         stateSerializer,
-                        new LongDecimalWithOverflowStateFactory())),
-                outputType);
-
-        Type intermediateType = stateSerializer.getSerializedType();
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(Type type)
-    {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, type), new ParameterMetadata(BLOCK_INDEX));
+                        new LongDecimalWithOverflowStateFactory())));
     }
 
     public static void inputShortDecimal(LongDecimalWithOverflowState state, Block block, int position)

@@ -15,10 +15,10 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.jmh.Benchmarks;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionListBuilder;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
@@ -206,10 +206,7 @@ public class BenchmarkArrayFilter
                                     arrayType(new TypeSignature("T")),
                                     functionType(new TypeSignature("T"), BOOLEAN.getTypeSignature())),
                             false),
-                    false,
-                    ImmutableList.of(
-                            new FunctionArgumentDefinition(false),
-                            new FunctionArgumentDefinition(false)),
+                    new FunctionNullability(false, ImmutableList.of(false, false)),
                     false,
                     false,
                     "return array containing elements that match the given predicate",
@@ -217,11 +214,11 @@ public class BenchmarkArrayFilter
         }
 
         @Override
-        protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+        protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
         {
-            Type type = functionBinding.getTypeVariable("T");
+            Type type = ((ArrayType) boundSignature.getReturnType()).getElementType();
             return new ChoicesScalarFunctionImplementation(
-                    functionBinding,
+                    boundSignature,
                     FAIL_ON_NULL,
                     ImmutableList.of(NEVER_NULL, NEVER_NULL),
                     METHOD_HANDLE.bindTo(type));

@@ -126,7 +126,7 @@ public class TestArrayOperators
     }
 
     @Test
-    public void testArrayElements()
+    public void testArrayToArrayCast()
     {
         assertFunction("CAST(ARRAY [null] AS ARRAY<INTEGER>)", new ArrayType(INTEGER), asList((Integer) null));
         assertFunction("CAST(ARRAY [1, 2, 3] AS ARRAY<INTEGER>)", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3));

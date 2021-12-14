@@ -14,6 +14,7 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import io.trino.connector.system.jdbc.JdbcTable;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -163,7 +164,7 @@ public class SystemTablesMetadata
 
         SystemTable systemTable = checkAndGetTable(session, table);
         if (systemTable instanceof JdbcTable) {
-            TupleDomain<ColumnHandle> filtered = ((JdbcTable) systemTable).applyFilter(session, new Constraint(newDomain, constraint.predicate(), constraint.getColumns()));
+            TupleDomain<ColumnHandle> filtered = ((JdbcTable) systemTable).applyFilter(session, effectiveConstraint(oldDomain, constraint, newDomain));
             newDomain = newDomain.intersect(filtered);
         }
 
@@ -176,5 +177,18 @@ public class SystemTablesMetadata
         }
         table = new SystemTableHandle(table.getSchemaName(), table.getTableName(), newDomain);
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), false));
+    }
+
+    private Constraint effectiveConstraint(TupleDomain<ColumnHandle> oldDomain, Constraint newConstraint, TupleDomain<ColumnHandle> effectiveDomain)
+    {
+        if (effectiveDomain.isNone() || newConstraint.predicate().isEmpty()) {
+            return new Constraint(effectiveDomain);
+        }
+        return new Constraint(
+                effectiveDomain,
+                oldDomain.asPredicate().and(newConstraint.predicate().get()),
+                Sets.union(
+                        oldDomain.getDomains().orElseThrow().keySet(),
+                        newConstraint.getPredicateColumns().orElseThrow()));
     }
 }

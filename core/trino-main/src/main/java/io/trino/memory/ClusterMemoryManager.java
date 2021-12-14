@@ -351,7 +351,7 @@ public class ClusterMemoryManager
             Joiner.on(",").withKeyValueSeparator("=").appendTo(nodeDescription, memoryPoolInfo.getQueryMemoryReservations());
             nodeDescription.append('\n');
         }
-        log.info(nodeDescription.toString());
+        log.info("%s", nodeDescription);
     }
 
     @VisibleForTesting

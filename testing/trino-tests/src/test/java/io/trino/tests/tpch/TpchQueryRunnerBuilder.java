@@ -19,7 +19,6 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 
 import java.util.Optional;
-import java.util.function.Function;
 
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_MAX_ROWS_PER_PAGE_PROPERTY;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_PRODUCE_PAGES;
@@ -28,7 +27,7 @@ import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_TABLE_SCAN_REDIRECT
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class TpchQueryRunnerBuilder
-        extends DistributedQueryRunner.Builder
+        extends DistributedQueryRunner.Builder<TpchQueryRunnerBuilder>
 {
     private static final Session DEFAULT_SESSION = testSessionBuilder()
             .setSource("test")
@@ -44,12 +43,6 @@ public final class TpchQueryRunnerBuilder
     private TpchQueryRunnerBuilder()
     {
         super(DEFAULT_SESSION);
-    }
-
-    @Override
-    public TpchQueryRunnerBuilder amendSession(Function<Session.SessionBuilder, Session.SessionBuilder> amendSession)
-    {
-        return (TpchQueryRunnerBuilder) super.amendSession(amendSession);
     }
 
     public TpchQueryRunnerBuilder withMaxRowsPerPage(int maxRowsPerPage)

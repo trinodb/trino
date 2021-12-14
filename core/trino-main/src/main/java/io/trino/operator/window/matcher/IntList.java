@@ -18,7 +18,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
-class IntList
+public class IntList
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntList.class).instanceSize();
 

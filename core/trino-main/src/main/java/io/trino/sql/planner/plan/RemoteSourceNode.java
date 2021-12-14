@@ -16,6 +16,7 @@ package io.trino.sql.planner.plan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.operator.RetryPolicy;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 
@@ -35,6 +36,7 @@ public class RemoteSourceNode
     private final List<Symbol> outputs;
     private final Optional<OrderingScheme> orderingScheme;
     private final ExchangeNode.Type exchangeType; // This is needed to "unfragment" to compute stats correctly.
+    private final RetryPolicy retryPolicy;
 
     @JsonCreator
     public RemoteSourceNode(
@@ -42,7 +44,8 @@ public class RemoteSourceNode
             @JsonProperty("sourceFragmentIds") List<PlanFragmentId> sourceFragmentIds,
             @JsonProperty("outputs") List<Symbol> outputs,
             @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
-            @JsonProperty("exchangeType") ExchangeNode.Type exchangeType)
+            @JsonProperty("exchangeType") ExchangeNode.Type exchangeType,
+            @JsonProperty("retryPolicy") RetryPolicy retryPolicy)
     {
         super(id);
 
@@ -52,11 +55,18 @@ public class RemoteSourceNode
         this.outputs = ImmutableList.copyOf(outputs);
         this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
         this.exchangeType = requireNonNull(exchangeType, "exchangeType is null");
+        this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
     }
 
-    public RemoteSourceNode(PlanNodeId id, PlanFragmentId sourceFragmentId, List<Symbol> outputs, Optional<OrderingScheme> orderingScheme, ExchangeNode.Type exchangeType)
+    public RemoteSourceNode(
+            PlanNodeId id,
+            PlanFragmentId sourceFragmentId,
+            List<Symbol> outputs,
+            Optional<OrderingScheme> orderingScheme,
+            ExchangeNode.Type exchangeType,
+            RetryPolicy retryPolicy)
     {
-        this(id, ImmutableList.of(sourceFragmentId), outputs, orderingScheme, exchangeType);
+        this(id, ImmutableList.of(sourceFragmentId), outputs, orderingScheme, exchangeType, retryPolicy);
     }
 
     @Override
@@ -88,6 +98,12 @@ public class RemoteSourceNode
     public ExchangeNode.Type getExchangeType()
     {
         return exchangeType;
+    }
+
+    @JsonProperty("retryPolicy")
+    public RetryPolicy getRetryPolicy()
+    {
+        return retryPolicy;
     }
 
     @Override

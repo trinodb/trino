@@ -81,6 +81,7 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -141,7 +142,6 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -341,6 +341,7 @@ public class HiveMetadata
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
     private final TypeManager typeManager;
+    private final MetadataProvider metadataProvider;
     private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final boolean writesToNonManagedTablesEnabled;
@@ -366,6 +367,7 @@ public class HiveMetadata
             boolean translateHiveViews,
             boolean hideDeltaLakeTables,
             TypeManager typeManager,
+            MetadataProvider metadataProvider,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             String trinoVersion,
@@ -382,6 +384,7 @@ public class HiveMetadata
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.metadataProvider = requireNonNull(metadataProvider, "metadataProvider is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
@@ -905,7 +908,7 @@ public class HiveMetadata
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         ImmutableMap.Builder<String, String> tableProperties = ImmutableMap.builder();
 
-        // When metastore is configured with metastore.create.as.acid=true, it will also change Presto-created tables
+        // When metastore is configured with metastore.create.as.acid=true, it will also change Trino-created tables
         // behind the scenes. In particular, this won't work with CTAS.
         // TODO (https://github.com/trinodb/trino/issues/1956) convert this into normal table property
 
@@ -2138,6 +2141,7 @@ public class HiveMetadata
                     firstScannedPath = Optional.of(scannedPath);
                 }
                 retry().run("delete " + scannedPath, () -> fs.delete(scannedPath, false));
+                someDeleted = true;
                 remainingFilesToDelete.remove(scannedPath);
             }
         }
@@ -2154,7 +2158,7 @@ public class HiveMetadata
             // Until table is cleaned up there will duplicate rows present.
             metastore.dropDeclaredIntentionToWrite(handle.getWriteDeclarationId().get());
             String errorMessage = "Error while deleting data files in FINISH phase of OPTIMIZE for table " + table.getTableName() + "; remaining files need to be deleted manually:  " + remainingFilesToDelete;
-            log.error(e, errorMessage);
+            log.error(e, "%s", errorMessage);
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, errorMessage, e);
         }
     }
@@ -2326,7 +2330,7 @@ public class HiveMetadata
                         throw new HiveViewNotSupportedException(viewName);
                     }
 
-                    ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager)
+                    ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager, this::redirectTable, metadataProvider)
                             .decodeViewData(view.getViewOriginalText().get(), view, catalogName);
                     // use owner from table metadata if it exists
                     if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
@@ -2441,12 +2445,6 @@ public class HiveMetadata
         }
         // it is too expensive to determine the exact number of deleted rows
         return OptionalLong.empty();
-    }
-
-    @VisibleForTesting
-    static Predicate<Map<ColumnHandle, NullableValue>> convertToPredicate(TupleDomain<ColumnHandle> tupleDomain)
-    {
-        return bindings -> tupleDomain.contains(TupleDomain.fromFixedValues(bindings));
     }
 
     @Override

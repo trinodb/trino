@@ -16,9 +16,9 @@ package io.trino.sql.gen;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.AbstractTestFunctions;
@@ -85,8 +85,7 @@ public class TestVarArgsToArrayAdapterGenerator
                             INTEGER.getTypeSignature(),
                             ImmutableList.of(INTEGER.getTypeSignature()),
                             true),
-                    false,
-                    ImmutableList.of(new FunctionArgumentDefinition(false)),
+                    new FunctionNullability(false, ImmutableList.of(false)),
                     false,
                     false,
                     "return sum of all the parameters",
@@ -94,18 +93,18 @@ public class TestVarArgsToArrayAdapterGenerator
         }
 
         @Override
-        protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+        protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
         {
             VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
                     long.class,
                     long.class,
-                    functionBinding.getArity(),
+                    boundSignature.getArity(),
                     METHOD_HANDLE,
                     USER_STATE_FACTORY);
             return new ChoicesScalarFunctionImplementation(
-                    functionBinding,
+                    boundSignature,
                     InvocationReturnConvention.FAIL_ON_NULL,
-                    nCopies(functionBinding.getArity(), NEVER_NULL),
+                    nCopies(boundSignature.getArity(), NEVER_NULL),
                     methodHandleAndConstructor.getMethodHandle(),
                     Optional.of(methodHandleAndConstructor.getConstructor()));
         }

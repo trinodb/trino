@@ -88,7 +88,7 @@ public class TestHiveCaching
                     CacheStats afterQueryCacheStats = getCacheStats();
                     assertGreaterThan(afterQueryCacheStats.getCachedReads(), beforeQueryCachedReads);
                     assertEquals(afterQueryCacheStats.getRemoteReads(), beforeQueryRemoteReads);
-                    // all reads should be local as Presto would schedule splits on nodes with cached data
+                    // all reads should be local as Trino would schedule splits on nodes with cached data
                     assertEquals(afterQueryCacheStats.getNonLocalReads(), beforeQueryNonLocalReads);
                 });
 

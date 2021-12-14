@@ -28,19 +28,6 @@ public class BooleanColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            type.writeBoolean(blockBuilder, valuesReader.readBoolean());
-        }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
-        }
-    }
-
-    @Override
-    protected void skipValue()
-    {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBoolean();
-        }
+        type.writeBoolean(blockBuilder, valuesReader.readBoolean());
     }
 }

@@ -16,50 +16,70 @@ package io.trino.plugin.bigquery;
 import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.HeaderProvider;
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.spi.NodeManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class BigQueryConnectorModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
-    @Provides
-    @Singleton
-    public static HeaderProvider createHeaderProvider(NodeManager nodeManager)
+    @Override
+    public void setup(Binder binder)
     {
-        return FixedHeaderProvider.create("user-agent", "Trino/" + nodeManager.getCurrentNode().getVersion());
+        install(new ClientModule());
+        install(new StaticCredentialsModule());
     }
 
-    @Override
-    public void configure(Binder binder)
+    public static class ClientModule
+            extends AbstractConfigurationAwareModule
     {
-        // BigQuery related
-        binder.bind(BigQueryReadClientFactory.class).in(Scopes.SINGLETON);
-        binder.bind(BigQueryClientFactory.class).in(Scopes.SINGLETON);
+        @Override
+        protected void setup(Binder binder)
+        {
+            // BigQuery related
+            binder.bind(BigQueryReadClientFactory.class).in(Scopes.SINGLETON);
+            binder.bind(BigQueryClientFactory.class).in(Scopes.SINGLETON);
 
-        // SingletonIdentityCacheMapping is safe to use with StaticBigQueryCredentialsSupplier
-        // as credentials do not depend on actual connector session.
-        newOptionalBinder(binder, IdentityCacheMapping.class)
-                .setDefault()
-                .to(IdentityCacheMapping.SingletonIdentityCacheMapping.class)
-                .in(Scopes.SINGLETON);
+            // Connector implementation
+            binder.bind(BigQueryConnector.class).in(Scopes.SINGLETON);
+            binder.bind(BigQueryMetadata.class).in(Scopes.SINGLETON);
+            binder.bind(BigQuerySplitManager.class).in(Scopes.SINGLETON);
+            binder.bind(BigQueryPageSourceProvider.class).in(Scopes.SINGLETON);
+            binder.bind(ViewMaterializationCache.class).in(Scopes.SINGLETON);
+            configBinder(binder).bindConfig(BigQueryConfig.class);
+        }
 
-        newOptionalBinder(binder, BigQueryCredentialsSupplier.class)
-                .setDefault()
-                .to(StaticBigQueryCredentialsSupplier.class)
-                .in(Scopes.SINGLETON);
+        @Provides
+        @Singleton
+        public static HeaderProvider createHeaderProvider(NodeManager nodeManager)
+        {
+            return FixedHeaderProvider.create("user-agent", "Trino/" + nodeManager.getCurrentNode().getVersion());
+        }
+    }
 
-        // Connector implementation
-        binder.bind(BigQueryConnector.class).in(Scopes.SINGLETON);
-        binder.bind(BigQueryMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(BigQuerySplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(BigQueryPageSourceProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ViewMaterializationCache.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(BigQueryConfig.class);
+    public static class StaticCredentialsModule
+            extends AbstractConfigurationAwareModule
+    {
+        @Override
+        protected void setup(Binder binder)
+        {
+            configBinder(binder).bindConfig(StaticCredentialsConfig.class);
+            // SingletonIdentityCacheMapping is safe to use with StaticBigQueryCredentialsSupplier
+            // as credentials do not depend on actual connector session.
+            newOptionalBinder(binder, IdentityCacheMapping.class)
+                    .setDefault()
+                    .to(IdentityCacheMapping.SingletonIdentityCacheMapping.class)
+                    .in(Scopes.SINGLETON);
+
+            newOptionalBinder(binder, BigQueryCredentialsSupplier.class)
+                    .setDefault()
+                    .to(StaticBigQueryCredentialsSupplier.class)
+                    .in(Scopes.SINGLETON);
+        }
     }
 }

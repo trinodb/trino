@@ -51,6 +51,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSplit.createLocalSplit;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -203,14 +204,17 @@ public class TestWorkProcessorPipelineSourceOperator
         assertEquals(operatorStats.get(2).getOutputPositions(), 5);
         assertEquals(operatorStats.get(2).getOutputDataSize().toBytes(), 45);
 
-        assertEquals(operatorStats.get(1).getMetrics().getMetrics(), ImmutableMap.of("testOperatorMetric", new LongCount(1)));
+        assertThat(operatorStats.get(1).getMetrics().getMetrics())
+                .hasSize(2)
+                .containsEntry("testOperatorMetric", new LongCount(1));
 
         // assert source operator stats are correct
         OperatorStats sourceOperatorStats = operatorStats.get(0);
 
-        assertEquals(sourceOperatorStats.getMetrics().getMetrics(), ImmutableMap.of(
-                "testSourceMetric", new LongCount(1),
-                "testSourceClosed", new LongCount(1)));
+        assertThat(sourceOperatorStats.getMetrics().getMetrics())
+                .hasSize(3)
+                .containsEntry("testSourceMetric", new LongCount(1))
+                .containsEntry("testSourceClosed", new LongCount(1));
         assertEquals(sourceOperatorStats.getConnectorMetrics().getMetrics(), ImmutableMap.of(
                 "testSourceConnectorMetric", new LongCount(2),
                 "testSourceConnectorClosed", new LongCount(1)));
@@ -243,13 +247,16 @@ public class TestWorkProcessorPipelineSourceOperator
 
         // assert pipeline metrics
         List<OperatorStats> operatorSummaries = pipelineStats.getOperatorSummaries();
-        assertEquals(operatorSummaries.get(0).getMetrics().getMetrics(), ImmutableMap.of(
-                "testSourceMetric", new LongCount(1),
-                "testSourceClosed", new LongCount(1)));
+        assertThat(operatorSummaries.get(0).getMetrics().getMetrics())
+                .hasSize(3)
+                .containsEntry("testSourceMetric", new LongCount(1))
+                .containsEntry("testSourceClosed", new LongCount(1));
         assertEquals(operatorSummaries.get(0).getConnectorMetrics().getMetrics(), ImmutableMap.of(
                 "testSourceConnectorMetric", new LongCount(2),
                 "testSourceConnectorClosed", new LongCount(1)));
-        assertEquals(operatorSummaries.get(1).getMetrics().getMetrics(), ImmutableMap.of("testOperatorMetric", new LongCount(1)));
+        assertThat(operatorSummaries.get(1).getMetrics().getMetrics())
+                .hasSize(2)
+                .containsEntry("testOperatorMetric", new LongCount(1));
     }
 
     @Test
@@ -433,7 +440,6 @@ public class TestWorkProcessorPipelineSourceOperator
         @Override
         public Metrics getMetrics()
         {
-            System.err.println("closed: " + closed);
             return new Metrics(ImmutableMap.of(
                     "testSourceMetric", new LongCount(1),
                     "testSourceClosed", new LongCount(closed ? 1 : 0)));

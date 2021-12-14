@@ -585,6 +585,11 @@ public interface Metadata
     void grantSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption);
 
     /**
+     * Deny the specified privilege to the specified principal on the specified schema.
+     */
+    void denySchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee);
+
+    /**
      * Revokes the specified privilege on the specified schema from the specified user.
      */
     void revokeSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption);
@@ -593,6 +598,11 @@ public interface Metadata
      * Grants the specified privilege to the specified user on the specified table
      */
     void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption);
+
+    /**
+     * Deny the specified privilege to the specified principal on the specified table
+     */
+    void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee);
 
     /**
      * Revokes the specified privilege on the specified table from the specified user

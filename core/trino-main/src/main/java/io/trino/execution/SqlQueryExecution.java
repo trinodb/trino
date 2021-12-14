@@ -15,7 +15,6 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
-import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -25,8 +24,6 @@ import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
-import io.trino.execution.buffer.OutputBuffers;
-import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.execution.scheduler.ExecutionPolicy;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.SplitSchedulerStats;
@@ -43,24 +40,22 @@ import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TypeOperators;
-import io.trino.split.SplitManager;
-import io.trino.split.SplitSource;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
-import io.trino.sql.planner.DistributedExecutionPlanner;
 import io.trino.sql.planner.InputExtractor;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.NodePartitioningManager;
-import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizersFactory;
-import io.trino.sql.planner.StageExecutionPlan;
+import io.trino.sql.planner.SplitSourceFactory;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
+import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.Statement;
@@ -86,11 +81,8 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.PLANNING;
-import static io.trino.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
-import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
-import static io.trino.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.STACK_OVERFLOW;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
@@ -100,15 +92,11 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class SqlQueryExecution
         implements QueryExecution
 {
-    private static final Logger log = Logger.get(SqlQueryExecution.class);
-
-    private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
-
     private final QueryStateMachine stateMachine;
     private final Slug slug;
     private final Metadata metadata;
     private final TypeOperators typeOperators;
-    private final SplitManager splitManager;
+    private final SplitSourceFactory splitSourceFactory;
     private final NodePartitioningManager nodePartitioningManager;
     private final NodeScheduler nodeScheduler;
     private final List<PlanOptimizer> planOptimizers;
@@ -130,6 +118,7 @@ public class SqlQueryExecution
     private final DynamicFilterService dynamicFilterService;
     private final TableExecuteContextManager tableExecuteContextManager;
     private final TypeAnalyzer typeAnalyzer;
+    private final TaskManager coordinatorTaskManager;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -138,7 +127,7 @@ public class SqlQueryExecution
             Metadata metadata,
             TypeOperators typeOperators,
             AnalyzerFactory analyzerFactory,
-            SplitManager splitManager,
+            SplitSourceFactory splitSourceFactory,
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
             List<PlanOptimizer> planOptimizers,
@@ -156,13 +145,14 @@ public class SqlQueryExecution
             DynamicFilterService dynamicFilterService,
             WarningCollector warningCollector,
             TableExecuteContextManager tableExecuteContextManager,
-            TypeAnalyzer typeAnalyzer)
+            TypeAnalyzer typeAnalyzer,
+            TaskManager coordinatorTaskManager)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-            this.splitManager = requireNonNull(splitManager, "splitManager is null");
+            this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
@@ -212,6 +202,7 @@ public class SqlQueryExecution
 
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
+            this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
         }
     }
 
@@ -259,7 +250,7 @@ public class SqlQueryExecution
             analysis = analyzer.analyze(preparedQuery.getStatement());
         }
         catch (StackOverflowError e) {
-            throw new TrinoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
+            throw new TrinoException(STACK_OVERFLOW, "statement is too large (stack overflow during analysis)", e);
         }
 
         stateMachine.setUpdateType(analysis.getUpdateType());
@@ -460,7 +451,7 @@ public class SqlQueryExecution
             return doPlanQuery();
         }
         catch (StackOverflowError e) {
-            throw new TrinoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
+            throw new TrinoException(STACK_OVERFLOW, "statement is too large (stack overflow during analysis)", e);
         }
     }
 
@@ -495,49 +486,37 @@ public class SqlQueryExecution
 
     private void planDistribution(PlanRoot plan)
     {
-        // plan the execution on the active nodes
-        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, metadata, dynamicFilterService, typeAnalyzer);
-        StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(plan.getRoot(), stateMachine.getSession());
-
-        // ensure split sources are closed
-        stateMachine.addStateChangeListener(state -> {
-            if (state.isDone()) {
-                closeSplitSources(outputStageExecutionPlan);
-            }
-        });
-
         // if query was canceled, skip creating scheduler
         if (stateMachine.isDone()) {
             return;
         }
 
         // record output field
-        stateMachine.setColumns(outputStageExecutionPlan.getFieldNames(), outputStageExecutionPlan.getFragment().getTypes());
-
-        PartitioningHandle partitioningHandle = plan.getRoot().getFragment().getPartitioningScheme().getPartitioning().getHandle();
-        OutputBuffers rootOutputBuffers = createInitialEmptyOutputBuffers(partitioningHandle)
-                .withBuffer(OUTPUT_BUFFER_ID, BROADCAST_PARTITION_ID)
-                .withNoMoreBufferIds();
+        PlanFragment rootFragment = plan.getRoot().getFragment();
+        stateMachine.setColumns(
+                ((OutputNode) rootFragment.getRoot()).getColumnNames(),
+                rootFragment.getTypes());
 
         // build the stage execution objects (this doesn't schedule execution)
-        SqlQueryScheduler scheduler = createSqlQueryScheduler(
+        SqlQueryScheduler scheduler = new SqlQueryScheduler(
                 stateMachine,
-                outputStageExecutionPlan,
+                plan.getRoot(),
                 nodePartitioningManager,
                 nodeScheduler,
                 remoteTaskFactory,
-                stateMachine.getSession(),
                 plan.isSummarizeTaskInfos(),
                 scheduleSplitBatchSize,
                 queryExecutor,
                 schedulerExecutor,
                 failureDetector,
-                rootOutputBuffers,
                 nodeTaskMap,
                 executionPolicy,
                 schedulerStats,
                 dynamicFilterService,
-                tableExecuteContextManager);
+                tableExecuteContextManager,
+                metadata,
+                splitSourceFactory,
+                coordinatorTaskManager);
 
         queryScheduler.set(scheduler);
 
@@ -546,22 +525,6 @@ public class SqlQueryExecution
         if (stateMachine.isDone()) {
             scheduler.abort();
             queryScheduler.set(null);
-        }
-    }
-
-    private static void closeSplitSources(StageExecutionPlan plan)
-    {
-        for (SplitSource source : plan.getSplitSources().values()) {
-            try {
-                source.close();
-            }
-            catch (Throwable t) {
-                log.warn(t, "Error closing split source");
-            }
-        }
-
-        for (StageExecutionPlan stage : plan.getSubStages()) {
-            closeSplitSources(stage);
         }
     }
 
@@ -602,6 +565,12 @@ public class SqlQueryExecution
     public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
     {
         stateMachine.addOutputInfoListener(listener);
+    }
+
+    @Override
+    public void outputTaskFailed(TaskId taskId, Throwable failure)
+    {
+        stateMachine.outputTaskFailed(taskId, failure);
     }
 
     @Override
@@ -717,7 +686,7 @@ public class SqlQueryExecution
         private final Metadata metadata;
         private final TypeOperators typeOperators;
         private final AnalyzerFactory analyzerFactory;
-        private final SplitManager splitManager;
+        private final SplitSourceFactory splitSourceFactory;
         private final NodePartitioningManager nodePartitioningManager;
         private final NodeScheduler nodeScheduler;
         private final List<PlanOptimizer> planOptimizers;
@@ -733,6 +702,7 @@ public class SqlQueryExecution
         private final DynamicFilterService dynamicFilterService;
         private final TableExecuteContextManager tableExecuteContextManager;
         private final TypeAnalyzer typeAnalyzer;
+        private final TaskManager coordinatorTaskManager;
 
         @Inject
         SqlQueryExecutionFactory(
@@ -740,7 +710,7 @@ public class SqlQueryExecution
                 Metadata metadata,
                 TypeOperators typeOperators,
                 AnalyzerFactory analyzerFactory,
-                SplitManager splitManager,
+                SplitSourceFactory splitSourceFactory,
                 NodePartitioningManager nodePartitioningManager,
                 NodeScheduler nodeScheduler,
                 PlanOptimizersFactory planOptimizersFactory,
@@ -756,7 +726,8 @@ public class SqlQueryExecution
                 CostCalculator costCalculator,
                 DynamicFilterService dynamicFilterService,
                 TableExecuteContextManager tableExecuteContextManager,
-                TypeAnalyzer typeAnalyzer)
+                TypeAnalyzer typeAnalyzer,
+                TaskManager coordinatorTaskManager)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -764,7 +735,7 @@ public class SqlQueryExecution
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
             this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
-            this.splitManager = requireNonNull(splitManager, "splitManager is null");
+            this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
@@ -780,6 +751,7 @@ public class SqlQueryExecution
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
+            this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
         }
 
         @Override
@@ -800,7 +772,7 @@ public class SqlQueryExecution
                     metadata,
                     typeOperators,
                     analyzerFactory,
-                    splitManager,
+                    splitSourceFactory,
                     nodePartitioningManager,
                     nodeScheduler,
                     planOptimizers,
@@ -818,7 +790,8 @@ public class SqlQueryExecution
                     dynamicFilterService,
                     warningCollector,
                     tableExecuteContextManager,
-                    typeAnalyzer);
+                    typeAnalyzer,
+                    coordinatorTaskManager);
         }
     }
 }

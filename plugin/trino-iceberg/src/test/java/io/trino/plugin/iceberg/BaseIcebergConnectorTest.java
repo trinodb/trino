@@ -36,6 +36,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.testing.BaseConnectorTest;
+import io.trino.testing.DataProviders;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
@@ -62,6 +63,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -515,11 +517,11 @@ public abstract class BaseIcebergConnectorTest
                 .matches("VALUES " + instant3Utc);
 
         if (partitioned) {
-            assertThat(query(format("SELECT row_count, file_count, _timestamptz FROM \"%s$partitions\"", tableName)))
+            assertThat(query(format("SELECT record_count, file_count, partition._timestamptz FROM \"%s$partitions\"", tableName)))
                     .matches(format("VALUES (BIGINT '1', BIGINT '1', %s), (BIGINT '1', BIGINT '1', %s), (BIGINT '1', BIGINT '1', %s)", instant1Utc, instant2Utc, instant3Utc));
         }
         else {
-            assertThat(query(format("SELECT row_count, file_count, _timestamptz FROM \"%s$partitions\"", tableName)))
+            assertThat(query(format("SELECT record_count, file_count, data._timestamptz FROM \"%s$partitions\"", tableName)))
                     .matches(format(
                             "VALUES (BIGINT '3', BIGINT '3', CAST(ROW(%s, %s, 0) AS row(min timestamp(6) with time zone, max timestamp(6) with time zone, null_count bigint)))",
                             instant1Utc,
@@ -642,7 +644,7 @@ public abstract class BaseIcebergConnectorTest
                 "  'a_short_decimal', " +
                 "  'a_long_decimal', " +
                 "  'a_varchar', " +
-                // "  'a_varbinary', " + TODO (https://github.com/trinodb/trino/issues/9755) this yields incorrect query results
+                "  'a_varbinary', " +
                 "  'a_date', " +
                 "  'a_time', " +
                 "  'a_timestamp', " +
@@ -811,45 +813,24 @@ public abstract class BaseIcebergConnectorTest
         String schema = getSession().getSchema().orElseThrow();
         assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'test_partitioned_table$partitions' "))
                 .skippingTypesCheck()
-                .matches("VALUES " +
-                        // Generic columns (selected tested below)
-                        " 'row_count', " +
-                        " 'file_count', " +
-                        " 'total_size', " +
-                        // Table columns
-                        " 'a_boolean', " +
-                        " 'an_integer', " +
-                        " 'a_bigint', " +
-                        " 'a_real', " +
-                        " 'a_double', " +
-                        " 'a_short_decimal', " +
-                        " 'a_long_decimal', " +
-                        " 'a_varchar', " +
-                        " 'a_varbinary', " +
-                        " 'a_date', " +
-                        " 'a_time', " +
-                        " 'a_timestamp', " +
-                        " 'a_timestamptz', " +
-                        " 'a_uuid' " +
-                        // Note: non-primitive columns not being returned from $partitions (otherwise they would be tested below)
-                        "");
+                .matches("VALUES 'partition', 'record_count', 'file_count', 'total_size'");
         assertThat(query("SELECT " +
-                "  row_count," +
+                "  record_count," +
                 "  file_count, " +
-                "  a_boolean, " +
-                "  an_integer, " +
-                "  a_bigint, " +
-                "  a_real, " +
-                "  a_double, " +
-                "  a_short_decimal, " +
-                "  a_long_decimal, " +
-                "  a_varchar, " +
-                "  a_varbinary, " +
-                "  a_date, " +
-                "  a_time, " +
-                "  a_timestamp, " +
-                "  a_timestamptz, " +
-                "  a_uuid " +
+                "  partition.a_boolean, " +
+                "  partition.an_integer, " +
+                "  partition.a_bigint, " +
+                "  partition.a_real, " +
+                "  partition.a_double, " +
+                "  partition.a_short_decimal, " +
+                "  partition.a_long_decimal, " +
+                "  partition.a_varchar, " +
+                "  partition.a_varbinary, " +
+                "  partition.a_date, " +
+                "  partition.a_time, " +
+                "  partition.a_timestamp, " +
+                "  partition.a_timestamptz, " +
+                "  partition.a_uuid " +
                 // Note: partitioning on non-primitive columns is not allowed in Iceberg
                 " FROM \"test_partitioned_table$partitions\" "))
                 .matches("" +
@@ -864,10 +845,7 @@ public abstract class BaseIcebergConnectorTest
                         "  CAST(1.0 AS decimal(5,2)), " +
                         "  CAST(11.0 AS decimal(38,20)), " +
                         "  VARCHAR 'onefsadfdsf', " +
-                        // TODO (https://github.com/trinodb/trino/issues/9755) include in partitioning
-                        (format == ORC
-                                ? "  CAST(ROW(NULL, NULL, 0) AS ROW(min varbinary, max varbinary, null_count bigint)), "
-                                : "  CAST(ROW(X'000102f0feff', X'000102f0feff', 0) AS ROW(min varbinary, max varbinary, null_count bigint)), ") +
+                        "  X'000102f0feff', " +
                         "  DATE '2021-07-24'," +
                         "  TIME '02:43:57.987654', " +
                         "  TIMESTAMP '2021-07-24 03:43:57.987654'," +
@@ -886,10 +864,7 @@ public abstract class BaseIcebergConnectorTest
                         "  NULL, " +
                         "  NULL, " +
                         "  NULL, " +
-                        // TODO (https://github.com/trinodb/trino/issues/9755) include in partitioning
-                        (format == ORC
-                                ? "  NULL, "
-                                : "  CAST(ROW(NULL, NULL, 1) AS ROW(min varbinary, max varbinary, null_count bigint)), ") +
+                        "  NULL, " +
                         "  NULL, " +
                         "  NULL, " +
                         "  NULL, " +
@@ -1040,20 +1015,10 @@ public abstract class BaseIcebergConnectorTest
                 .getOnlyValue();
     }
 
-    @Test
-    public void testInsertIntoNotNullColumn()
+    @Override
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        assertUpdate("CREATE TABLE test_not_null_table (c1 INTEGER, c2 INTEGER NOT NULL)");
-        assertUpdate("INSERT INTO test_not_null_table (c2) VALUES (2)", 1);
-        assertQuery("SELECT * FROM test_not_null_table", "VALUES (NULL, 2)");
-        assertQueryFails("INSERT INTO test_not_null_table (c1) VALUES (1)", "NULL value not allowed for NOT NULL column: c2");
-        dropTable("test_not_null_table");
-
-        assertUpdate("CREATE TABLE test_commuted_not_null_table (a BIGINT, b BIGINT NOT NULL)");
-        assertUpdate("INSERT INTO test_commuted_not_null_table (b) VALUES (2)", 1);
-        assertQuery("SELECT * FROM test_commuted_not_null_table", "VALUES (NULL, 2)");
-        assertQueryFails("INSERT INTO test_commuted_not_null_table (b, a) VALUES (NULL, 3)", "NULL value not allowed for NOT NULL column: b");
-        dropTable("test_commuted_not_null_table");
+        return "NULL value not allowed for NOT NULL column: " + columnName;
     }
 
     @Test
@@ -1201,7 +1166,7 @@ public abstract class BaseIcebergConnectorTest
             expectedTimestampStats = "'1969-12-31 22:22:22.222000', '2020-02-21 13:12:12.654999'";
         }
 
-        assertQuery("SELECT d_hour, row_count, d.min, d.max, b.min, b.max FROM \"test_hour_transform$partitions\"", expected);
+        assertQuery("SELECT partition.d_hour, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_hour_transform$partitions\"", expected);
 
         // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
         assertQuery(
@@ -1240,7 +1205,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT * FROM test_day_transform_date", values);
 
         assertQuery(
-                "SELECT d_day, row_count, d.min, d.max, b.min, b.max FROM \"test_day_transform_date$partitions\"",
+                "SELECT partition.d_day, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_day_transform_date$partitions\"",
                 "VALUES " +
                         "(DATE '1969-01-01', 1, DATE '1969-01-01', DATE '1969-01-01', 10, 10), " +
                         "(DATE '1969-12-31', 1, DATE '1969-12-31', DATE '1969-12-31', 11, 11), " +
@@ -1310,7 +1275,7 @@ public abstract class BaseIcebergConnectorTest
             expectedTimestampStats = "'1969-12-25 15:13:12.876000', '2020-02-21 16:12:12.654999'";
         }
 
-        assertQuery("SELECT d_day, row_count, d.min, d.max, b.min, b.max FROM \"test_day_transform_timestamp$partitions\"", expected);
+        assertQuery("SELECT partition.d_day, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_day_transform_timestamp$partitions\"", expected);
 
         // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
         assertQuery(
@@ -1352,7 +1317,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT * FROM test_month_transform_date", values);
 
         assertQuery(
-                "SELECT d_month, row_count, d.min, d.max, b.min, b.max FROM \"test_month_transform_date$partitions\"",
+                "SELECT partition.d_month, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_month_transform_date$partitions\"",
                 "VALUES " +
                         "(-2, 1, DATE '1969-11-13', DATE '1969-11-13', 1, 1), " +
                         "(-1, 3, DATE '1969-12-01', DATE '1969-12-31', 2, 4), " +
@@ -1421,7 +1386,7 @@ public abstract class BaseIcebergConnectorTest
             expectedTimestampStats = "'1969-11-15 15:13:12.876000', '2020-02-21 16:12:12.654999'";
         }
 
-        assertQuery("SELECT d_month, row_count, d.min, d.max, b.min, b.max FROM \"test_month_transform_timestamp$partitions\"", expected);
+        assertQuery("SELECT partition.d_month, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_month_transform_timestamp$partitions\"", expected);
 
         // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
         assertQuery(
@@ -1461,7 +1426,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT * FROM test_year_transform_date", values);
 
         assertQuery(
-                "SELECT d_year, row_count, d.min, d.max, b.min, b.max FROM \"test_year_transform_date$partitions\"",
+                "SELECT partition.d_year, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_year_transform_date$partitions\"",
                 "VALUES " +
                         "(-2, 1, DATE '1968-10-13', DATE '1968-10-13', 1, 1), " +
                         "(-1, 2, DATE '1969-01-01', DATE '1969-03-15', 2, 3), " +
@@ -1526,7 +1491,7 @@ public abstract class BaseIcebergConnectorTest
             expectedTimestampStats = "'1968-03-15 15:13:12.876000', '2020-08-21 16:12:12.654999'";
         }
 
-        assertQuery("SELECT d_year, row_count, d.min, d.max, b.min, b.max FROM \"test_year_transform_timestamp$partitions\"", expected);
+        assertQuery("SELECT partition.d_year, record_count, data.d.min, data.d.max, data.b.min, data.b.max FROM \"test_year_transform_timestamp$partitions\"", expected);
 
         // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
         assertQuery(
@@ -1548,7 +1513,7 @@ public abstract class BaseIcebergConnectorTest
     public void testTruncateTextTransform()
     {
         assertUpdate("CREATE TABLE test_truncate_text_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 2)'])");
-        String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_truncate_text_transform$partitions\"";
+        String select = "SELECT partition.d_trunc, record_count, data.d.min AS d_min, data.d.max AS d_max, data.b.min AS b_min, data.b.max AS b_max FROM \"test_truncate_text_transform$partitions\"";
 
         assertUpdate("INSERT INTO test_truncate_text_transform VALUES" +
                 "('abcd', 1)," +
@@ -1559,16 +1524,16 @@ public abstract class BaseIcebergConnectorTest
                 "('Greece', 6)," +
                 "('Grozny', 7)", 7);
 
-        assertQuery("SELECT d_trunc FROM \"test_truncate_text_transform$partitions\"", "VALUES 'ab', 'mo', 'Gr'");
+        assertQuery("SELECT partition.d_trunc FROM \"test_truncate_text_transform$partitions\"", "VALUES 'ab', 'mo', 'Gr'");
 
         assertQuery("SELECT b FROM test_truncate_text_transform WHERE substring(d, 1, 2) = 'ab'", "VALUES 1, 2, 3");
-        assertQuery(select + " WHERE d_trunc = 'ab'", "VALUES ('ab', 3, 'ab598', 'abxy', 1, 3)");
+        assertQuery(select + " WHERE partition.d_trunc = 'ab'", "VALUES ('ab', 3, 'ab598', 'abxy', 1, 3)");
 
         assertQuery("SELECT b FROM test_truncate_text_transform WHERE substring(d, 1, 2) = 'mo'", "VALUES 4, 5");
-        assertQuery(select + " WHERE d_trunc = 'mo'", "VALUES ('mo', 2, 'mommy', 'moscow', 4, 5)");
+        assertQuery(select + " WHERE partition.d_trunc = 'mo'", "VALUES ('mo', 2, 'mommy', 'moscow', 4, 5)");
 
         assertQuery("SELECT b FROM test_truncate_text_transform WHERE substring(d, 1, 2) = 'Gr'", "VALUES 6, 7");
-        assertQuery(select + " WHERE d_trunc = 'Gr'", "VALUES ('Gr', 2, 'Greece', 'Grozny', 6, 7)");
+        assertQuery(select + " WHERE partition.d_trunc = 'Gr'", "VALUES ('Gr', 2, 'Greece', 'Grozny', 6, 7)");
 
         // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
         assertQuery(
@@ -1591,7 +1556,7 @@ public abstract class BaseIcebergConnectorTest
     {
         String table = format("test_truncate_%s_transform", dataType);
         assertUpdate(format("CREATE TABLE " + table + " (d %s, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])", dataType));
-        String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"" + table + "$partitions\"";
+        String select = "SELECT partition.d_trunc, record_count, data.d.min AS d_min, data.d.max AS d_max, data.b.min AS b_min, data.b.max AS b_max FROM \"" + table + "$partitions\"";
 
         assertUpdate("INSERT INTO " + table + " VALUES" +
                 "(0, 1)," +
@@ -1610,25 +1575,25 @@ public abstract class BaseIcebergConnectorTest
                 "(-123, 14)," +
                 "(-130, 15)", 15);
 
-        assertQuery("SELECT d_trunc FROM \"" + table + "$partitions\"", "VALUES 0, 10, 120, -10, -20, -130");
+        assertQuery("SELECT partition.d_trunc FROM \"" + table + "$partitions\"", "VALUES 0, 10, 120, -10, -20, -130");
 
         assertQuery("SELECT b FROM " + table + " WHERE d IN (0, 1, 5, 9)", "VALUES 1, 2, 3, 4");
-        assertQuery(select + " WHERE d_trunc = 0", "VALUES (0, 4, 0, 9, 1, 4)");
+        assertQuery(select + " WHERE partition.d_trunc = 0", "VALUES (0, 4, 0, 9, 1, 4)");
 
         assertQuery("SELECT b FROM " + table + " WHERE d IN (10, 11)", "VALUES 5, 6");
-        assertQuery(select + " WHERE d_trunc = 10", "VALUES (10, 2, 10, 11, 5, 6)");
+        assertQuery(select + " WHERE partition.d_trunc = 10", "VALUES (10, 2, 10, 11, 5, 6)");
 
         assertQuery("SELECT b FROM " + table + " WHERE d IN (120, 121, 123)", "VALUES 7, 8, 9");
-        assertQuery(select + " WHERE d_trunc = 120", "VALUES (120, 3, 120, 123, 7, 9)");
+        assertQuery(select + " WHERE partition.d_trunc = 120", "VALUES (120, 3, 120, 123, 7, 9)");
 
         assertQuery("SELECT b FROM " + table + " WHERE d IN (-1, -5, -10)", "VALUES 10, 11, 12");
-        assertQuery(select + " WHERE d_trunc = -10", "VALUES (-10, 3, -10, -1, 10, 12)");
+        assertQuery(select + " WHERE partition.d_trunc = -10", "VALUES (-10, 3, -10, -1, 10, 12)");
 
         assertQuery("SELECT b FROM " + table + " WHERE d = -11", "VALUES 13");
-        assertQuery(select + " WHERE d_trunc = -20", "VALUES (-20, 1, -11, -11, 13, 13)");
+        assertQuery(select + " WHERE partition.d_trunc = -20", "VALUES (-20, 1, -11, -11, 13, 13)");
 
         assertQuery("SELECT b FROM " + table + " WHERE d IN (-123, -130)", "VALUES 14, 15");
-        assertQuery(select + " WHERE d_trunc = -130", "VALUES (-130, 2, -130, -123, 14, 15)");
+        assertQuery(select + " WHERE partition.d_trunc = -130", "VALUES (-130, 2, -130, -123, 14, 15)");
 
         // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
         assertQuery(
@@ -1659,7 +1624,7 @@ public abstract class BaseIcebergConnectorTest
     public void testTruncateDecimalTransform()
     {
         assertUpdate("CREATE TABLE test_truncate_decimal_transform (d DECIMAL(9, 2), b BIGINT) WITH (partitioning = ARRAY['truncate(d, 10)'])");
-        String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_truncate_decimal_transform$partitions\"";
+        String select = "SELECT partition.d_trunc, record_count, data.d.min AS d_min, data.d.max AS d_max, data.b.min AS b_min, data.b.max AS b_max FROM \"test_truncate_decimal_transform$partitions\"";
 
         assertUpdate("INSERT INTO test_truncate_decimal_transform VALUES" +
                 "(12.34, 1)," +
@@ -1668,19 +1633,19 @@ public abstract class BaseIcebergConnectorTest
                 "(0.05, 4)," +
                 "(-0.05, 5)", 5);
 
-        assertQuery("SELECT d_trunc FROM \"test_truncate_decimal_transform$partitions\"", "VALUES 12.30, 12.20, 0.00, -0.10");
+        assertQuery("SELECT partition.d_trunc FROM \"test_truncate_decimal_transform$partitions\"", "VALUES 12.30, 12.20, 0.00, -0.10");
 
         assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d IN (12.34, 12.30)", "VALUES 1, 2");
-        assertQuery(select + " WHERE d_trunc = 12.30", "VALUES (12.30, 2, 12.30, 12.34, 1, 2)");
+        assertQuery(select + " WHERE partition.d_trunc = 12.30", "VALUES (12.30, 2, 12.30, 12.34, 1, 2)");
 
         assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d = 12.29", "VALUES 3");
-        assertQuery(select + " WHERE d_trunc = 12.20", "VALUES (12.20, 1, 12.29, 12.29, 3, 3)");
+        assertQuery(select + " WHERE partition.d_trunc = 12.20", "VALUES (12.20, 1, 12.29, 12.29, 3, 3)");
 
         assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d = 0.05", "VALUES 4");
-        assertQuery(select + " WHERE d_trunc = 0.00", "VALUES (0.00, 1, 0.05, 0.05, 4, 4)");
+        assertQuery(select + " WHERE partition.d_trunc = 0.00", "VALUES (0.00, 1, 0.05, 0.05, 4, 4)");
 
         assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d = -0.05", "VALUES 5");
-        assertQuery(select + " WHERE d_trunc = -0.10", "VALUES (-0.10, 1, -0.05, -0.05, 5, 5)");
+        assertQuery(select + " WHERE partition.d_trunc = -0.10", "VALUES (-0.10, 1, -0.05, -0.05, 5, 5)");
 
         // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
         assertQuery(
@@ -1701,8 +1666,44 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testBucketTransform()
     {
-        String select = "SELECT d_bucket, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_bucket_transform$partitions\"";
+        testBucketTransformForType("DATE", "DATE '2020-05-19'", "DATE '2020-08-19'", "DATE '2020-11-19'");
+        testBucketTransformForType("VARCHAR", "CAST('abcd' AS VARCHAR)", "CAST('mommy' AS VARCHAR)", "CAST('abxy' AS VARCHAR)");
+        testBucketTransformForType("BIGINT", "CAST(100000000 AS BIGINT)", "CAST(200000002 AS BIGINT)", "CAST(400000001 AS BIGINT)");
+        testBucketTransformForType(
+                "UUID",
+                "CAST('206caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)",
+                "CAST('906caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)",
+                "CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)");
+    }
 
+    protected void testBucketTransformForType(
+            String type,
+            String value,
+            String greaterValueInSameBucket,
+            String valueInOtherBucket)
+    {
+        String tableName = format("test_bucket_transform%s", type.toLowerCase(Locale.ENGLISH));
+
+        assertUpdate(format("CREATE TABLE %s (d %s) WITH (partitioning = ARRAY['bucket(d, 2)'])", tableName, type));
+        assertUpdate(format("INSERT INTO %s VALUES (%s), (%s), (%s)", tableName, value, greaterValueInSameBucket, valueInOtherBucket), 3);
+        assertThat(query(format("SELECT * FROM %s", tableName))).matches(format("VALUES (%s), (%s), (%s)", value, greaterValueInSameBucket, valueInOtherBucket));
+
+        String selectFromPartitions = format("SELECT partition.d_bucket, record_count, data.d.min AS d_min, data.d.max AS d_max FROM \"%s$partitions\"", tableName);
+
+        if (supportsIcebergFileStatistics(type)) {
+            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 0", format("VALUES(0, %d, %s, %s)", 2, value, greaterValueInSameBucket));
+            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 1", format("VALUES(1, %d, %s, %s)", 1, valueInOtherBucket, valueInOtherBucket));
+        }
+        else {
+            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 0", format("VALUES(0, %d, null, null)", 2));
+            assertQuery(selectFromPartitions + " WHERE partition.d_bucket = 1", format("VALUES(1, %d, null, null)", 1));
+        }
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testApplyFilterWithNonEmptyConstraintPredicate()
+    {
         assertUpdate("CREATE TABLE test_bucket_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['bucket(d, 2)'])");
         assertUpdate(
                 "INSERT INTO test_bucket_transform VALUES" +
@@ -1715,13 +1716,6 @@ public abstract class BaseIcebergConnectorTest
                         "('Grozny', 7)",
                 7);
 
-        assertQuery("SELECT COUNT(*) FROM \"test_bucket_transform$partitions\"", "SELECT 2");
-
-        assertQuery(select + " WHERE d_bucket = 0", "VALUES(0, 3, 'Grozny', 'mommy', 1, 7)");
-
-        assertQuery(select + " WHERE d_bucket = 1", "VALUES(1, 4, 'Greece', 'moscow', 2, 6)");
-
-        // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
         assertQuery(
                 "SELECT * FROM test_bucket_transform WHERE length(d) = 4 AND b % 7 = 2",
                 "VALUES ('abxy', 2)");
@@ -1733,8 +1727,6 @@ public abstract class BaseIcebergConnectorTest
                         "  ('d', NULL, 0e0, NULL, NULL, NULL), " +
                         "  ('b', NULL, 0e0, NULL, '1', '7'), " +
                         "  (NULL, NULL, NULL, 7e0, NULL, NULL)");
-
-        dropTable("test_bucket_transform");
     }
 
     @Test
@@ -1754,7 +1746,7 @@ public abstract class BaseIcebergConnectorTest
 
         assertQuery("SELECT COUNT(*) FROM \"test_void_transform$partitions\"", "SELECT 1");
         assertQuery(
-                "SELECT d_null, row_count, file_count, d.min, d.max, d.null_count, b.min, b.max, b.null_count FROM \"test_void_transform$partitions\"",
+                "SELECT partition.d_null, record_count, file_count, data.d.min, data.d.max, data.d.null_count, data.b.min, data.b.max, data.b.null_count FROM \"test_void_transform$partitions\"",
                 "VALUES (NULL, 7, 1, 'Warsaw', 'mommy', 2, 1, 7, 0)");
 
         assertQuery(
@@ -2022,6 +2014,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(insertStart + " VALUES (1, 101), (2, 102), (3, 103), (4, 104)", 4);
         TableStatistics tableStatistics = getTableStatistics(tableName, new Constraint(TupleDomain.all()));
         IcebergColumnHandle col1Handle = getColumnHandleFromStatistics(tableStatistics, "col1");
+        IcebergColumnHandle col2Handle = getColumnHandleFromStatistics(tableStatistics, "col2");
 
         // Constraint.predicate is currently not supported, because it's never provided by the engine.
         // TODO add (restore) test coverage when this changes.
@@ -2030,17 +2023,17 @@ public abstract class BaseIcebergConnectorTest
         assertThatThrownBy(() ->
                 getTableStatistics(tableName, new Constraint(
                         TupleDomain.all(),
-                        Optional.of(new TestRelationalNumberPredicate("col1", 3, i1 -> i1 >= 0)),
-                        Optional.of(ImmutableSet.of(col1Handle)))))
+                        new TestRelationalNumberPredicate("col1", 3, i1 -> i1 >= 0),
+                        Set.of(col1Handle))))
                 .isInstanceOf(VerifyException.class)
                 .hasMessage("Unexpected Constraint predicate");
 
-        // predicate on an unspecified set of columns column
+        // predicate on a non-partition column
         assertThatThrownBy(() ->
                 getTableStatistics(tableName, new Constraint(
                         TupleDomain.all(),
-                        Optional.of(new TestRelationalNumberPredicate("col2", 102, i -> i >= 0)),
-                        Optional.empty())))
+                        new TestRelationalNumberPredicate("col2", 102, i -> i >= 0),
+                        Set.of(col2Handle))))
                 .isInstanceOf(VerifyException.class)
                 .hasMessage("Unexpected Constraint predicate");
 
@@ -2115,6 +2108,53 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT struct_t.f1  FROM " + tableName + " WHERE id = 11 AND map_t = MAP(ARRAY[11, 13], ARRAY[12, 14])", "VALUES 11");
 
         dropTable(tableName);
+    }
+
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testPartitionsTableWithColumnNameConflict(boolean partitioned)
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_partitions_with_conflict");
+        assertUpdate("CREATE TABLE test_partitions_with_conflict (" +
+                " p integer, " +
+                " row_count integer, " +
+                " record_count integer, " +
+                " file_count integer, " +
+                " total_size integer " +
+                ") " +
+                (partitioned ? "WITH(partitioning = ARRAY['p'])" : ""));
+
+        assertUpdate("INSERT INTO test_partitions_with_conflict VALUES (11, 12, 13, 14, 15)", 1);
+
+        // sanity check
+        assertThat(query("SELECT * FROM test_partitions_with_conflict"))
+                .matches("VALUES (11, 12, 13, 14, 15)");
+
+        // test $partitions
+        assertThat(query("SELECT * FROM \"test_partitions_with_conflict$partitions\""))
+                .matches("SELECT " +
+                        (partitioned ? "CAST(ROW(11) AS row(p integer)), " : "") +
+                        "BIGINT '1', " +
+                        "BIGINT '1', " +
+                        // total_size is not exactly deterministic, so grab whatever value there is
+                        "(SELECT total_size FROM \"test_partitions_with_conflict$partitions\"), " +
+                        "CAST(" +
+                        "  ROW (" +
+                        (partitioned ? "" : "  ROW(11, 11, 0), ") +
+                        "    ROW(12, 12, 0), " +
+                        "    ROW(13, 13, 0), " +
+                        "    ROW(14, 14, 0), " +
+                        "    ROW(15, 15, 0) " +
+                        "  ) " +
+                        "  AS row(" +
+                        (partitioned ? "" : "    p row(min integer, max integer, null_count bigint), ") +
+                        "    row_count row(min integer, max integer, null_count bigint), " +
+                        "    record_count row(min integer, max integer, null_count bigint), " +
+                        "    file_count row(min integer, max integer, null_count bigint), " +
+                        "    total_size row(min integer, max integer, null_count bigint) " +
+                        "  )" +
+                        ")");
+
+        assertUpdate("DROP TABLE test_partitions_with_conflict");
     }
 
     private void assertFilterPushdown(
@@ -2684,46 +2724,24 @@ public abstract class BaseIcebergConnectorTest
         String schema = getSession().getSchema().orElseThrow();
         assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'test_all_types$partitions' "))
                 .skippingTypesCheck()
-                .matches("VALUES " +
-                        // Generic columns (selected tested below)
-                        " 'row_count', " +
-                        " 'file_count', " +
-                        " 'total_size', " +
-                        // Table columns
-                        " 'a_boolean', " +
-                        " 'an_integer', " +
-                        " 'a_bigint', " +
-                        " 'a_real', " +
-                        " 'a_double', " +
-                        " 'a_short_decimal', " +
-                        " 'a_long_decimal', " +
-                        " 'a_varchar', " +
-                        " 'a_varbinary', " +
-                        " 'a_date', " +
-                        " 'a_time', " +
-                        " 'a_timestamp', " +
-                        " 'a_timestamptz', " +
-                        " 'a_uuid' " +
-                        // Note: non-primitive columns not being returned from $partitions (otherwise they would be tested below)
-                        "");
+                .matches("VALUES 'record_count', 'file_count', 'total_size', 'data'");
         assertThat(query("SELECT " +
-                "  row_count," +
+                "  record_count," +
                 "  file_count, " +
-                "  a_boolean, " +
-                "  an_integer, " +
-                "  a_bigint, " +
-                "  a_real, " +
-                "  a_double, " +
-                "  a_short_decimal, " +
-                "  a_long_decimal, " +
-                "  a_varchar, " +
-                "  a_varbinary, " +
-                "  a_date, " +
-                "  a_time, " +
-                "  a_timestamp, " +
-                "  a_timestamptz, " +
-                "  a_uuid " +
-                // Note: partitioning on non-primitive columns is not allowed in Iceberg
+                "  data.a_boolean, " +
+                "  data.an_integer, " +
+                "  data.a_bigint, " +
+                "  data.a_real, " +
+                "  data.a_double, " +
+                "  data.a_short_decimal, " +
+                "  data.a_long_decimal, " +
+                "  data.a_varchar, " +
+                "  data.a_varbinary, " +
+                "  data.a_date, " +
+                "  data.a_time, " +
+                "  data.a_timestamp, " +
+                "  data.a_timestamptz, " +
+                "  data.a_uuid " +
                 " FROM \"test_all_types$partitions\" "))
                 .matches(
                         format == ORC
@@ -2952,8 +2970,8 @@ public abstract class BaseIcebergConnectorTest
             String tableName = table.getName();
             String values =
                     Stream.concat(
-                                    nCopies(100, testSetup.getSampleValueLiteral()).stream(),
-                                    nCopies(100, testSetup.getHighValueLiteral()).stream())
+                                nCopies(100, testSetup.getSampleValueLiteral()).stream(),
+                                nCopies(100, testSetup.getHighValueLiteral()).stream())
                             .map(value -> "(" + value + ", rand())")
                             .collect(Collectors.joining(", "));
             assertUpdate(withSmallRowGroups(getSession()), "INSERT INTO " + tableName + " VALUES " + values, 200);

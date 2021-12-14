@@ -48,44 +48,31 @@ public class TimestampMicrosColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            long epochMicros = valuesReader.readLong();
-            // TODO: specialize the class at creation time
-            if (type == TIMESTAMP_MILLIS) {
-                type.writeLong(blockBuilder, Timestamps.round(epochMicros, 3));
-            }
-            else if (type == TIMESTAMP_MICROS) {
-                type.writeLong(blockBuilder, epochMicros);
-            }
-            else if (type == TIMESTAMP_NANOS) {
-                type.writeObject(blockBuilder, new LongTimestamp(epochMicros, 0));
-            }
-            else if (type == TIMESTAMP_TZ_MILLIS) {
-                long epochMillis = Timestamps.round(epochMicros, 3) / MICROSECONDS_PER_MILLISECOND;
-                type.writeLong(blockBuilder, packDateTimeWithZone(epochMillis, UTC_KEY));
-            }
-            else if (type == TIMESTAMP_TZ_MICROS || type == TIMESTAMP_TZ_NANOS) {
-                long epochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
-                int picosOfMillis = toIntExact(epochMicros % MICROSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_MICROSECOND;
-                type.writeObject(blockBuilder, LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMillis, UTC_KEY));
-            }
-            else if (type == BIGINT) {
-                type.writeLong(blockBuilder, epochMicros);
-            }
-            else {
-                throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, columnDescriptor));
-            }
+        long epochMicros = valuesReader.readLong();
+        // TODO: specialize the class at creation time
+        if (type == TIMESTAMP_MILLIS) {
+            type.writeLong(blockBuilder, Timestamps.round(epochMicros, 3));
         }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
+        else if (type == TIMESTAMP_MICROS) {
+            type.writeLong(blockBuilder, epochMicros);
         }
-    }
-
-    @Override
-    protected void skipValue()
-    {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readLong();
+        else if (type == TIMESTAMP_NANOS) {
+            type.writeObject(blockBuilder, new LongTimestamp(epochMicros, 0));
+        }
+        else if (type == TIMESTAMP_TZ_MILLIS) {
+            long epochMillis = Timestamps.round(epochMicros, 3) / MICROSECONDS_PER_MILLISECOND;
+            type.writeLong(blockBuilder, packDateTimeWithZone(epochMillis, UTC_KEY));
+        }
+        else if (type == TIMESTAMP_TZ_MICROS || type == TIMESTAMP_TZ_NANOS) {
+            long epochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
+            int picosOfMillis = toIntExact(epochMicros % MICROSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_MICROSECOND;
+            type.writeObject(blockBuilder, LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMillis, UTC_KEY));
+        }
+        else if (type == BIGINT) {
+            type.writeLong(blockBuilder, epochMicros);
+        }
+        else {
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, columnDescriptor));
         }
     }
 }

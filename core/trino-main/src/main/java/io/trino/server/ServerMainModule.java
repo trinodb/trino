@@ -28,8 +28,6 @@ import io.airlift.stats.PauseMeter;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig;
-import io.trino.GroupByHashPageIndexerFactory;
-import io.trino.PagesIndexPageSorter;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.block.BlockJsonSerde;
@@ -40,6 +38,8 @@ import io.trino.dispatcher.DispatchManager;
 import io.trino.event.SplitMonitor;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExplainAnalyzeContext;
+import io.trino.execution.FailureInjectionConfig;
+import io.trino.execution.FailureInjector;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.MemoryRevokingScheduler;
 import io.trino.execution.NodeTaskMap;
@@ -85,8 +85,10 @@ import io.trino.operator.ExchangeClientConfig;
 import io.trino.operator.ExchangeClientFactory;
 import io.trino.operator.ExchangeClientSupplier;
 import io.trino.operator.ForExchange;
+import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.OperatorFactories;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.PagesIndexPageSorter;
 import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.server.ExpressionSerialization.ExpressionDeserializer;
@@ -269,6 +271,8 @@ public class ServerMainModule
                 new TopologyAwareNodeSelectorModule()));
 
         // task execution
+        configBinder(binder).bindConfig(FailureInjectionConfig.class);
+        binder.bind(FailureInjector.class).in(Scopes.SINGLETON);
         jaxrsBinder(binder).bind(TaskResource.class);
         newExporter(binder).export(TaskResource.class).withGeneratedName();
         jaxrsBinder(binder).bind(TaskExecutorResource.class);

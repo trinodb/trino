@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
+import io.airlift.slice.Slices;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -54,6 +55,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -98,7 +100,6 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.LocationProviders.locationsFor;
@@ -290,7 +291,7 @@ public final class IcebergUtil
                 return value;
             }
             if (type.equals(VarbinaryType.VARBINARY)) {
-                return utf8Slice(valueString);
+                return Slices.wrappedBuffer(Base64.getDecoder().decode(valueString));
             }
             if (type.equals(UuidType.UUID)) {
                 return javaUuidToTrinoUuid(UUID.fromString(valueString));
@@ -341,7 +342,7 @@ public final class IcebergUtil
                 String partitionValue;
                 if (type.typeId() == FIXED || type.typeId() == BINARY) {
                     // this is safe because Iceberg PartitionData directly wraps the byte array
-                    partitionValue = new String(((ByteBuffer) value).array(), UTF_8);
+                    partitionValue = Base64.getEncoder().encodeToString(((ByteBuffer) value).array());
                 }
                 else {
                     partitionValue = value.toString();

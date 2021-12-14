@@ -15,10 +15,8 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.common.graph.Traverser;
 import io.trino.memory.context.AggregatedMemoryContext;
-import io.trino.orc.NameBasedFieldMapper;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDataSource;
@@ -28,6 +26,7 @@ import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.orc.TupleDomainOrcPredicate;
 import io.trino.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
+import io.trino.orc.metadata.OrcType;
 import io.trino.parquet.Field;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
@@ -48,7 +47,6 @@ import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.HdfsParquetDataSource;
-import io.trino.plugin.hive.parquet.HiveParquetColumnIOConverter;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
@@ -77,6 +75,11 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.mapping.MappedField;
+import org.apache.iceberg.mapping.MappedFields;
+import org.apache.iceberg.mapping.NameMapping;
+import org.apache.iceberg.mapping.NameMappingParser;
+import org.apache.iceberg.parquet.ParquetSchemaUtil;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
@@ -94,6 +97,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -101,6 +105,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -108,7 +113,6 @@ import static io.trino.orc.OrcReader.ProjectedLayout;
 import static io.trino.orc.OrcReader.fullyProjectedLayout;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
-import static io.trino.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -201,7 +205,8 @@ public class IcebergPageSourceProvider
                 split.getFileSize(),
                 split.getFileFormat(),
                 regularColumns,
-                effectivePredicate);
+                effectivePredicate,
+                table.getNameMappingJson().map(NameMappingParser::fromJson));
 
         Optional<ReaderProjectionsAdapter> projectionsAdapter = dataPageSource.getReaderColumns().map(readerColumns ->
                 new ReaderProjectionsAdapter(
@@ -221,7 +226,8 @@ public class IcebergPageSourceProvider
             long fileSize,
             FileFormat fileFormat,
             List<IcebergColumnHandle> dataColumns,
-            TupleDomain<IcebergColumnHandle> predicate)
+            TupleDomain<IcebergColumnHandle> predicate,
+            Optional<NameMapping> nameMapping)
     {
         if (!isUseFileSizeFromMetadata(session)) {
             try {
@@ -256,7 +262,8 @@ public class IcebergPageSourceProvider
                                 .withNestedLazy(isOrcNestedLazy(session))
                                 .withBloomFiltersEnabled(isOrcBloomFiltersEnabled(session)),
                         fileFormatDataSourceStats,
-                        typeManager);
+                        typeManager,
+                        nameMapping);
             case PARQUET:
                 return createParquetPageSource(
                         hdfsEnvironment,
@@ -270,7 +277,8 @@ public class IcebergPageSourceProvider
                         parquetReaderOptions
                                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)),
                         predicate,
-                        fileFormatDataSourceStats);
+                        fileFormatDataSourceStats,
+                        nameMapping);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
         }
@@ -288,7 +296,8 @@ public class IcebergPageSourceProvider
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             OrcReaderOptions options,
             FileFormatDataSourceStats stats,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            Optional<NameMapping> nameMapping)
     {
         OrcDataSource orcDataSource = null;
         try {
@@ -303,12 +312,15 @@ public class IcebergPageSourceProvider
 
             OrcReader reader = OrcReader.createOrcReader(orcDataSource, options)
                     .orElseThrow(() -> new TrinoException(ICEBERG_BAD_DATA, "ORC file is zero length"));
+
             List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
-            Map<Integer, OrcColumn> fileColumnsByIcebergId = mapIdsToOrcFileColumns(fileColumns);
-            Map<String, OrcColumn> fileColumnsByName = null;
-            if (fileColumnsByIcebergId.isEmpty()) {
-                fileColumnsByName = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
+            if (nameMapping.isPresent() && !hasIds(reader.getRootColumn())) {
+                fileColumns = fileColumns.stream()
+                        .map(orcColumn -> setMissingFieldIds(orcColumn, nameMapping.get(), ImmutableList.of(orcColumn.getColumnName())))
+                        .collect(toImmutableList());
             }
+
+            Map<Integer, OrcColumn> fileColumnsByIcebergId = mapIdsToOrcFileColumns(fileColumns);
 
             TupleDomainOrcPredicateBuilder predicateBuilder = TupleDomainOrcPredicate.builder()
                     .setBloomFiltersEnabled(options.isBloomFiltersEnabled());
@@ -320,13 +332,6 @@ public class IcebergPageSourceProvider
                     .collect(groupingBy(
                             column -> column.getBaseColumnIdentity().getId(),
                             mapping(IcebergColumnHandle::getPath, toUnmodifiableList())));
-            Map<String, List<List<Integer>>> projectionsByName = null;
-            if (fileColumnsByIcebergId.isEmpty()) {
-                projectionsByName = columns.stream()
-                        .collect(groupingBy(
-                                column -> column.getBaseColumnIdentity().getName(),
-                                mapping(IcebergColumnHandle::getPath, toUnmodifiableList())));
-            }
 
             List<IcebergColumnHandle> readColumns = columnProjections
                     .map(readerColumns -> (List<IcebergColumnHandle>) readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toImmutableList()))
@@ -337,14 +342,7 @@ public class IcebergPageSourceProvider
             List<ColumnAdaptation> columnAdaptations = new ArrayList<>(readColumns.size());
             for (IcebergColumnHandle column : readColumns) {
                 verify(column.isBaseColumn(), "Column projections must be based from a root column");
-
-                OrcColumn orcColumn;
-                if (fileColumnsByIcebergId.isEmpty()) {
-                    orcColumn = fileColumnsByName.get(column.getName().toLowerCase(ENGLISH));
-                }
-                else {
-                    orcColumn = fileColumnsByIcebergId.get(column.getId());
-                }
+                OrcColumn orcColumn = fileColumnsByIcebergId.get(column.getId());
 
                 if (orcColumn != null) {
                     Type readType = getOrcReadType(column.getType(), typeManager);
@@ -353,9 +351,7 @@ public class IcebergPageSourceProvider
                         throw new TrinoException(ICEBERG_BAD_DATA, format("Expected ORC column for UUID data to be annotated with %s=UUID: %s", ICEBERG_BINARY_TYPE, orcColumn));
                     }
 
-                    List<List<Integer>> fieldIdProjections = fileColumnsByIcebergId.isEmpty() ?
-                            projectionsByName.get(column.getBaseColumnIdentity().getName()) :
-                            projectionsByFieldId.get(column.getId());
+                    List<List<Integer>> fieldIdProjections = projectionsByFieldId.get(column.getId());
                     ProjectedLayout projectedLayout = IcebergOrcProjectedLayout.createProjectedLayout(orcColumn, fieldIdProjections);
 
                     int sourceIndex = fileReadColumns.size();
@@ -366,14 +362,7 @@ public class IcebergPageSourceProvider
 
                     for (Map.Entry<IcebergColumnHandle, Domain> domainEntry : effectivePredicateDomains.entrySet()) {
                         IcebergColumnHandle predicateColumn = domainEntry.getKey();
-                        OrcColumn predicateOrcColumn;
-                        if (fileColumnsByIcebergId.isEmpty()) {
-                            predicateOrcColumn = fileColumnsByName.get(predicateColumn.getName().toLowerCase(ENGLISH));
-                        }
-                        else {
-                            predicateOrcColumn = fileColumnsByIcebergId.get(predicateColumn.getId());
-                        }
-
+                        OrcColumn predicateOrcColumn = fileColumnsByIcebergId.get(predicateColumn.getId());
                         if (predicateOrcColumn != null && column.getColumnIdentity().equals(predicateColumn.getBaseColumnIdentity())) {
                             predicateBuilder.addColumn(predicateOrcColumn.getColumnId(), domainEntry.getValue());
                         }
@@ -397,9 +386,7 @@ public class IcebergPageSourceProvider
                     systemMemoryUsage,
                     INITIAL_BATCH_SIZE,
                     exception -> handleException(orcDataSourceId, exception),
-                    fileColumnsByIcebergId.isEmpty()
-                            ? NameBasedFieldMapper::create
-                            : new IdBasedFieldMapperFactory(readColumns));
+                    new IdBasedFieldMapperFactory(readColumns));
 
             return new ReaderPageSource(
                     new OrcPageSource(
@@ -431,6 +418,48 @@ public class IcebergPageSourceProvider
         }
     }
 
+    private static boolean hasIds(OrcColumn column)
+    {
+        if (column.getAttributes().containsKey(ORC_ICEBERG_ID_KEY)) {
+            return true;
+        }
+
+        return column.getNestedColumns().stream().anyMatch(IcebergPageSourceProvider::hasIds);
+    }
+
+    private static OrcColumn setMissingFieldIds(OrcColumn column, NameMapping nameMapping, List<String> qualifiedPath)
+    {
+        MappedField mappedField = nameMapping.find(qualifiedPath);
+
+        ImmutableMap.Builder<String, String> attributes = ImmutableMap.<String, String>builder()
+                .putAll(column.getAttributes());
+        if (mappedField != null && mappedField.id() != null) {
+            attributes.put(ORC_ICEBERG_ID_KEY, String.valueOf(mappedField.id()));
+        }
+
+        return new OrcColumn(
+                column.getPath(),
+                column.getColumnId(),
+                column.getColumnName(),
+                column.getColumnType(),
+                column.getOrcDataSourceId(),
+                column.getNestedColumns().stream()
+                        .map(nestedColumn -> {
+                            ImmutableList.Builder<String> nextQualifiedPath = ImmutableList.<String>builder()
+                                    .addAll(qualifiedPath);
+                            if (column.getColumnType().equals(OrcType.OrcTypeKind.LIST)) {
+                                // The Trino ORC reader uses "item" for list element names, but the NameMapper expects "element"
+                                nextQualifiedPath.add("element");
+                            }
+                            else {
+                                nextQualifiedPath.add(nestedColumn.getColumnName());
+                            }
+                            return setMissingFieldIds(nestedColumn, nameMapping, nextQualifiedPath.build());
+                        })
+                        .collect(toImmutableList()),
+                attributes.build());
+    }
+
     /**
      * Gets the index based dereference chain to get from the readColumnHandle to the expectedColumnHandle
      */
@@ -456,7 +485,12 @@ public class IcebergPageSourceProvider
         ImmutableMap.Builder<Integer, OrcColumn> columnsById = ImmutableMap.builder();
         Traverser.forTree(OrcColumn::getNestedColumns)
                 .depthFirstPreOrder(columns)
-                .forEach(column -> columnsById.put(getIcebergFieldId(column), column));
+                .forEach(column -> {
+                    String fieldId = (column.getAttributes().get(ORC_ICEBERG_ID_KEY));
+                    if (fieldId != null) {
+                        columnsById.put(Integer.parseInt(fieldId), column);
+                    }
+                });
         return columnsById.build();
     }
 
@@ -516,7 +550,7 @@ public class IcebergPageSourceProvider
         @Override
         public OrcReader.FieldMapper create(OrcColumn column)
         {
-            Map<Integer, OrcColumn> nestedColumns = Maps.uniqueIndex(
+            Map<Integer, OrcColumn> nestedColumns = uniqueIndex(
                     column.getNestedColumns(),
                     IcebergPageSourceProvider::getIcebergFieldId);
 
@@ -574,7 +608,8 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> regularColumns,
             ParquetReaderOptions options,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
-            FileFormatDataSourceStats fileFormatDataSourceStats)
+            FileFormatDataSourceStats fileFormatDataSourceStats,
+            Optional<NameMapping> nameMapping)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
@@ -587,14 +622,15 @@ public class IcebergPageSourceProvider
             ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(identity, () -> MetadataReader.readFooter(theDataSource));
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
+            if (nameMapping.isPresent() && !ParquetSchemaUtil.hasIds(fileSchema)) {
+                // NameMapping conversion is necessary because MetadataReader converts all column names to lowercase and NameMapping is case sensitive
+                fileSchema = ParquetSchemaUtil.applyNameMapping(fileSchema, convertToLowercase(nameMapping.get()));
+            }
 
             // Mapping from Iceberg field ID to Parquet fields.
             Map<Integer, org.apache.parquet.schema.Type> parquetIdToField = fileSchema.getFields().stream()
                     .filter(field -> field.getId() != null)
                     .collect(toImmutableMap(field -> field.getId().intValue(), Function.identity()));
-
-            // Map by name for a migrated table
-            boolean mapByName = parquetIdToField.isEmpty();
 
             Optional<ReaderColumns> columnProjections = projectColumns(regularColumns);
             List<IcebergColumnHandle> readColumns = columnProjections
@@ -602,12 +638,7 @@ public class IcebergPageSourceProvider
                     .orElse(regularColumns);
 
             List<org.apache.parquet.schema.Type> parquetFields = readColumns.stream()
-                    .map(column -> {
-                        if (mapByName) {
-                            return getParquetTypeByName(column.getName(), fileSchema);
-                        }
-                        return parquetIdToField.get(column.getId());
-                    })
+                    .map(column -> parquetIdToField.get(column.getId()))
                     .collect(toList());
 
             MessageType requestedSchema = new MessageType(fileSchema.getName(), parquetFields.stream().filter(Objects::nonNull).collect(toImmutableList()));
@@ -651,9 +682,7 @@ public class IcebergPageSourceProvider
                 else {
                     // The top level columns are already mapped by name/id appropriately.
                     ColumnIO columnIO = messageColumnIO.getChild(parquetField.getName());
-                    internalFields.add(mapByName
-                            ? HiveParquetColumnIOConverter.constructField(trinoType, columnIO)
-                            : IcebergParquetColumnIOConverter.constructField(new FieldContext(trinoType, column.getColumnIdentity()), columnIO));
+                    internalFields.add(IcebergParquetColumnIOConverter.constructField(new FieldContext(trinoType, column.getColumnIdentity()), columnIO));
                 }
             }
 
@@ -681,6 +710,33 @@ public class IcebergPageSourceProvider
             }
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    /**
+     * Create a new NameMapping with the same names but converted to lowercase.
+     * @param nameMapping The original NameMapping, potentially containing non-lowercase characters
+     */
+    private static NameMapping convertToLowercase(NameMapping nameMapping)
+    {
+        return NameMapping.of(convertToLowercase(nameMapping.asMappedFields().fields()));
+    }
+
+    private static MappedFields convertToLowercase(MappedFields mappedFields)
+    {
+        if (mappedFields == null) {
+            return null;
+        }
+        return MappedFields.of(convertToLowercase(mappedFields.fields()));
+    }
+
+    private static List<MappedField> convertToLowercase(List<MappedField> fields)
+    {
+        return fields.stream()
+                .map(mappedField -> {
+                    Set<String> lowercaseNames = mappedField.names().stream().map(name -> name.toLowerCase(ENGLISH)).collect(toImmutableSet());
+                    return MappedField.of(mappedField.id(), lowercaseNames, convertToLowercase(mappedField.nestedMapping()));
+                })
+                .collect(toImmutableList());
     }
 
     private static class IcebergOrcProjectedLayout

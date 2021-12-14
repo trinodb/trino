@@ -13,18 +13,19 @@
  */
 package io.trino.testing;
 
-import io.trino.GroupByHashPageIndexerFactory;
-import io.trino.PagesIndexPageSorter;
 import io.trino.connector.CatalogName;
 import io.trino.connector.ConnectorAwareNodeManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.Metadata;
+import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.PagesIndexPageSorter;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
@@ -33,6 +34,7 @@ import io.trino.type.InternalTypeManager;
 import io.trino.version.EmbedVersion;
 
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 
 public final class TestingConnectorContext
         implements ConnectorContext
@@ -71,6 +73,12 @@ public final class TestingConnectorContext
     public TypeManager getTypeManager()
     {
         return typeManager;
+    }
+
+    @Override
+    public MetadataProvider getMetadataProvider()
+    {
+        return NOOP_METADATA_PROVIDER;
     }
 
     @Override

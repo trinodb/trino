@@ -348,8 +348,7 @@ public class TestFunctionRegistry
                 Signature signature = functionSignature.name(TEST_FUNCTION_NAME).build();
                 FunctionMetadata functionMetadata = new FunctionMetadata(
                         signature,
-                        false,
-                        nCopies(signature.getArgumentTypes().size(), new FunctionArgumentDefinition(false)),
+                        new FunctionNullability(false, nCopies(signature.getArgumentTypes().size(), false)),
                         false,
                         false,
                         "testing function that does nothing",
@@ -357,12 +356,12 @@ public class TestFunctionRegistry
                 functions.add(new SqlScalarFunction(functionMetadata)
                 {
                     @Override
-                    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+                    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
                     {
                         return new ChoicesScalarFunctionImplementation(
-                                functionBinding,
+                                boundSignature,
                                 FAIL_ON_NULL,
-                                nCopies(functionBinding.getArity(), NEVER_NULL),
+                                nCopies(boundSignature.getArity(), NEVER_NULL),
                                 MethodHandles.identity(Void.class));
                     }
                 });

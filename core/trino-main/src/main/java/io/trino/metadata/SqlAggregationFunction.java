@@ -15,7 +15,7 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.aggregation.AggregationFromAnnotationsParser;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.AggregationMetadata;
 
 import java.util.List;
 
@@ -49,12 +49,12 @@ public abstract class SqlAggregationFunction
         return aggregationFunctionMetadata;
     }
 
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public AggregationMetadata specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        return specialize(functionBinding);
+        return specialize(boundSignature);
     }
 
-    protected InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    protected AggregationMetadata specialize(BoundSignature boundSignature)
     {
         throw new UnsupportedOperationException();
     }

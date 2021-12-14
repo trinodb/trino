@@ -1040,7 +1040,7 @@ public class TestHiveTableStatistics
     {
         String tableNameInDatabase = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
 
-        // insert from hive to prevent Presto collecting statistics on insert
+        // insert from Hive to prevent Trino collecting statistics on insert
         onHive().executeQuery("INSERT INTO TABLE " + tableNameInDatabase + " VALUES(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)");
 
         assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
@@ -1500,7 +1500,7 @@ public class TestHiveTableStatistics
                     row("a", null, null, null, null, null, null),
                     row(null, null, null, null, null, null, null));
 
-            // analyze first partition with Presto and second with Hive
+            // analyze first partition with Trino and second with Hive
             query(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['1']])", tableName));
             onHive().executeQuery(format("ANALYZE TABLE %s PARTITION (p = \"2\") COMPUTE STATISTICS", tableName));
             onHive().executeQuery(format("ANALYZE TABLE %s PARTITION (p = \"2\") COMPUTE STATISTICS FOR COLUMNS", tableName));

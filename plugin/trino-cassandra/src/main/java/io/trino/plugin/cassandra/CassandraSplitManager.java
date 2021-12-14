@@ -201,7 +201,7 @@ public class CassandraSplitManager
                     sb.append(value);
                     size++;
                     if (size > partitionSizeForBatchSelect) {
-                        String partitionId = format("%s in (%s)", partitionKeyColumnName, sb.toString());
+                        String partitionId = format("%s in (%s)", partitionKeyColumnName, sb);
                         builder.add(createSplitForClusteringPredicates(partitionId, hostMap.get(entry.getKey()), clusteringPredicates));
                         size = 0;
                         sb.setLength(0);
@@ -209,7 +209,7 @@ public class CassandraSplitManager
                     }
                 }
                 if (size > 0) {
-                    String partitionId = format("%s in (%s)", partitionKeyColumnName, sb.toString());
+                    String partitionId = format("%s in (%s)", partitionKeyColumnName, sb);
                     builder.add(createSplitForClusteringPredicates(partitionId, hostMap.get(entry.getKey()), clusteringPredicates));
                 }
             }

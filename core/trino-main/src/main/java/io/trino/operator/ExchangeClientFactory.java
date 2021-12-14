@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.execution.TaskFailureListener;
 import io.trino.memory.context.LocalMemoryContext;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -122,12 +123,25 @@ public class ExchangeClientFactory
     }
 
     @Override
-    public ExchangeClient get(LocalMemoryContext systemMemoryContext)
+    public ExchangeClient get(LocalMemoryContext systemMemoryContext, TaskFailureListener taskFailureListener, RetryPolicy retryPolicy)
     {
+        ExchangeClientBuffer buffer;
+        switch (retryPolicy) {
+            case TASK:
+            case QUERY:
+                buffer = new DeduplicationExchangeClientBuffer(scheduler, maxBufferedBytes, retryPolicy);
+                break;
+            case NONE:
+                buffer = new StreamingExchangeClientBuffer(scheduler, maxBufferedBytes);
+                break;
+            default:
+                throw new IllegalArgumentException("unexpected retry policy: " + retryPolicy);
+        }
+
         return new ExchangeClient(
                 nodeInfo.getExternalAddress(),
                 dataIntegrityVerification,
-                maxBufferedBytes,
+                buffer,
                 maxResponseSize,
                 concurrentRequestMultiplier,
                 maxErrorDuration,
@@ -135,6 +149,7 @@ public class ExchangeClientFactory
                 httpClient,
                 scheduler,
                 systemMemoryContext,
-                pageBufferClientCallbackExecutor);
+                pageBufferClientCallbackExecutor,
+                taskFailureListener);
     }
 }

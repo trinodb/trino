@@ -13,9 +13,10 @@
  */
 package io.trino.metadata;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
@@ -33,10 +34,12 @@ import io.trino.transaction.TransactionManager;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.metadata.FunctionExtractor.extractFunctions;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
@@ -49,13 +52,15 @@ public class TestingFunctionResolution
 
     public TestingFunctionResolution()
     {
-        this(new FeaturesConfig());
+        this(ImmutableSet.of());
     }
 
-    public TestingFunctionResolution(FeaturesConfig featuresConfig)
+    public TestingFunctionResolution(Set<Class<?>> functions)
     {
         transactionManager = createTestTransactionManager();
-        metadata = createTestMetadataManager(transactionManager, requireNonNull(featuresConfig, "featuresConfig is null"));
+        MetadataManager metadataManager = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        metadataManager.addFunctions(extractFunctions(functions));
+        metadata = metadataManager;
     }
 
     public TestingFunctionResolution(LocalQueryRunner localQueryRunner)
@@ -131,9 +136,15 @@ public class TestingFunctionResolution
         return inTransaction(session -> metadata.getScalarFunctionInvoker(metadata.resolveFunction(session, name, parameterTypes), invocationConvention));
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public TestingAggregationFunction getAggregateFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        return inTransaction(session -> metadata.getAggregateFunctionImplementation(metadata.resolveFunction(session, name, parameterTypes)));
+        return inTransaction(session -> {
+            ResolvedFunction resolvedFunction = metadata.resolveFunction(session, name, parameterTypes);
+            return new TestingAggregationFunction(
+                    resolvedFunction.getSignature(),
+                    metadata.getAggregationFunctionMetadata(resolvedFunction),
+                    metadata.getAggregateFunctionImplementation(resolvedFunction));
+        });
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)

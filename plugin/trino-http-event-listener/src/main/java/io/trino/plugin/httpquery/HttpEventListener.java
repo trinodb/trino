@@ -130,14 +130,14 @@ public class HttpEventListener
                                 }
 
                                 if (!(result.getStatusCode() >= 200 && result.getStatusCode() < 300)) {
-                                    log.error("Received status code %d from ingest server URI %s; expecting status 200", result.getStatusCode(), request.getUri().toString());
+                                    log.error("Received status code %d from ingest server URI %s; expecting status 200", result.getStatusCode(), request.getUri());
                                 }
                             }
 
                             @Override
                             public void onFailure(Throwable t)
                             {
-                                log.error("Error sending HTTP request to ingest server with URL %s: %s", request.getUri().toString(), t.toString());
+                                log.error("Error sending HTTP request to ingest server with URL %s: %s", request.getUri(), t);
                             }
                         }, executor),
                 (long) delay.getValue(), delay.getUnit());
