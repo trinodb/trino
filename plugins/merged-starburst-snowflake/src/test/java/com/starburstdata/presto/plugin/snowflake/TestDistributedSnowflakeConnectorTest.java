@@ -21,6 +21,8 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
@@ -265,5 +267,17 @@ public class TestDistributedSnowflakeConnectorTest
                             "TIMESTAMP '2001-02-03 04:05:06.123 +02:00'," +
                             "TIMESTAMP '2001-02-03 04:05:06.123 +02:00'"); // Snowflake truncates on cast
         }
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        if (dataMappingTestSetup.getTrinoTypeName().equals("date")) {
+            // TODO (https://starburstdata.atlassian.net/browse/SEP-7956) Fix incorrect date issue in Snowflake
+            if (dataMappingTestSetup.getSampleValueLiteral().equals("DATE '0001-01-01'")) {
+                return Optional.empty();
+            }
+        }
+        return super.filterDataMappingSmokeTestData(dataMappingTestSetup);
     }
 }

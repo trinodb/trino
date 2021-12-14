@@ -115,8 +115,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingSqlDate;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingSqlDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
@@ -200,7 +200,7 @@ public class SnowflakeClient
             .put(DoubleType.DOUBLE, WriteMapping.doubleMapping("double precision", doubleWriteFunction()))
             .put(RealType.REAL, WriteMapping.longMapping("real", realWriteFunction()))
             .put(VARBINARY, WriteMapping.sliceMapping("varbinary", varbinaryWriteFunction()))
-            .put(DateType.DATE, WriteMapping.longMapping("date", dateWriteFunction()))
+            .put(DateType.DATE, WriteMapping.longMapping("date", dateWriteFunctionUsingSqlDate()))
             .build();
     private static final UtcTimeZoneCalendar UTC_TZ_PASSING_CALENDAR = UtcTimeZoneCalendar.getUtcTimeZoneCalendarInstance();
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone(ZoneId.of("UTC"));
@@ -366,7 +366,7 @@ public class SnowflakeClient
         }
 
         if (typeHandle.getJdbcType() == DATE) {
-            return Optional.of(dateColumnMapping());
+            return Optional.of(dateColumnMappingUsingSqlDate());
         }
 
         if (typeHandle.getJdbcType() == Types.TIME) {

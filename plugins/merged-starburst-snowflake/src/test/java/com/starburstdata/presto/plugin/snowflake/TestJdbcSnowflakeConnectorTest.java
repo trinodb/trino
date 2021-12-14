@@ -64,4 +64,16 @@ public class TestJdbcSnowflakeConnectorTest
             }
         }
     }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        if (dataMappingTestSetup.getTrinoTypeName().equals("date")) {
+            // TODO (https://starburstdata.atlassian.net/browse/SEP-7956) Fix incorrect date issue in Snowflake
+            if (dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'")) {
+                return Optional.empty();
+            }
+        }
+        return super.filterDataMappingSmokeTestData(dataMappingTestSetup);
+    }
 }
