@@ -19,7 +19,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMultiset;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
 import com.google.common.collect.Ordering;
@@ -56,6 +55,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.verifier.QueryResult.State;
 import static java.lang.Double.isFinite;
@@ -632,8 +632,7 @@ public class Validator
             ImmutableSortedMultiset.Builder<ChangedRow> builder = ImmutableSortedMultiset.naturalOrder();
             Multisets.difference(control, test).stream().map(row -> new ChangedRow(Changed.REMOVED, row, precision)).forEach(builder::add);
             Multisets.difference(test, control).stream().map(row -> new ChangedRow(Changed.ADDED, row, precision)).forEach(builder::add);
-            Iterable<ChangedRow> diff = builder.build();
-            diff = Iterables.limit(diff, 100);
+            Iterable<ChangedRow> diff = builder.build().stream().limit(100).collect(toImmutableList());
 
             StringBuilder sb = new StringBuilder();
 

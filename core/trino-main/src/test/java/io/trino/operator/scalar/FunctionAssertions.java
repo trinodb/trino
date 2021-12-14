@@ -97,6 +97,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -943,14 +944,16 @@ public final class FunctionAssertions
 
     private static RowType createTestRowType(int numberOfFields)
     {
-        Iterator<Type> types = Iterables.<Type>cycle(
-                BIGINT,
-                INTEGER,
-                VARCHAR,
-                DOUBLE,
-                BOOLEAN,
-                VARBINARY,
-                RowType.from(ImmutableList.of(RowType.field("nested_nested_column", VARCHAR)))).iterator();
+        Iterator<Type> types = Stream.generate(() -> ImmutableList.<Type>of(
+                        BIGINT,
+                        INTEGER,
+                        VARCHAR,
+                        DOUBLE,
+                        BOOLEAN,
+                        VARBINARY,
+                        RowType.from(ImmutableList.of(RowType.field("nested_nested_column", VARCHAR)))))
+                .flatMap(List::stream)
+                .iterator();
 
         List<RowType.Field> fields = new ArrayList<>();
         for (int fieldIdx = 0; fieldIdx < numberOfFields; fieldIdx++) {
@@ -962,14 +965,16 @@ public final class FunctionAssertions
 
     private static Block createTestRowData(RowType rowType)
     {
-        Iterator<Object> values = Iterables.cycle(
-                1234L,
-                34,
-                "hello",
-                12.34d,
-                true,
-                Slices.wrappedBuffer((byte) 0xab),
-                createRowBlock(ImmutableList.of(VARCHAR), Collections.singleton("innerFieldValue").toArray()).getObject(0, Block.class)).iterator();
+        Iterator<Object> values = Stream.generate(() -> ImmutableList.of(
+                        1234L,
+                        34,
+                        "hello",
+                        12.34d,
+                        true,
+                        Slices.wrappedBuffer((byte) 0xab),
+                        createRowBlock(ImmutableList.of(VARCHAR), Collections.singleton("innerFieldValue").toArray()).getObject(0, Block.class)))
+                .flatMap(List::stream)
+                .iterator();
 
         int numFields = rowType.getFields().size();
         Object[] rowValues = new Object[numFields];

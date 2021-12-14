@@ -44,10 +44,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.cycle;
-import static com.google.common.collect.Iterables.limit;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -133,7 +133,7 @@ public class BenchmarkEqualsConjunctsOperator
         @Setup
         public void setup()
         {
-            List<Type> types = ImmutableList.copyOf(limit(cycle(BIGINT), FIELDS_COUNT));
+            List<Type> types = Stream.generate(() -> BIGINT).limit(FIELDS_COUNT).collect(toImmutableList());
             ThreadLocalRandom random = ThreadLocalRandom.current();
             PageBuilder pageBuilder = new PageBuilder(types);
             while (!pageBuilder.isFull()) {

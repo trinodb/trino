@@ -13,14 +13,14 @@
  */
 package io.trino.tests.product.utils;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.Iterables;
 import io.airlift.units.Duration;
 import io.trino.tempto.query.QueryResult;
 
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.fail;
 
 public final class QueryAssertions
@@ -60,9 +60,9 @@ public final class QueryAssertions
                 fail(format("expected row missing: %s\nAll %s rows:\n    %s\nExpected subset %s rows:\n    %s\n",
                         row,
                         all.getRowsCount(),
-                        Joiner.on("\n    ").join(Iterables.limit(all.rows(), 100)),
+                        all.rows().stream().limit(100).map(Object::toString).collect(joining("\n    ")),
                         expectedSubset.getRowsCount(),
-                        Joiner.on("\n    ").join(Iterables.limit(expectedSubset.rows(), 100))));
+                        expectedSubset.rows().stream().limit(100).map(Object::toString).collect(Collectors.joining("\n    "))));
             }
         }
     }

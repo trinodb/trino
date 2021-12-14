@@ -13,10 +13,8 @@
  */
 package io.trino.testing;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMultiset;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
 import io.airlift.log.Logger;
@@ -37,12 +35,14 @@ import java.util.OptionalLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import static com.google.common.collect.Streams.stream;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -242,11 +242,11 @@ public final class QueryAssertions
                     limit,
                     unexpectedRows.size(),
                     actualSet.size(),
-                    Joiner.on("\n    ").join(Iterables.limit(unexpectedRows, limit)),
+                    unexpectedRows.stream().limit(limit).map(Object::toString).collect(joining("\n    ")),
                     limit,
                     missingRows.size(),
                     expectedSet.size(),
-                    Joiner.on("\n    ").join(Iterables.limit(missingRows, limit))));
+                    missingRows.stream().limit(limit).map(Object::toString).collect(joining("\n    "))));
         }
     }
 
@@ -262,9 +262,9 @@ public final class QueryAssertions
                 fail(format("expected row missing: %s\nAll %s rows:\n    %s\nExpected subset %s rows:\n    %s\n",
                         row,
                         all.getMaterializedRows().size(),
-                        Joiner.on("\n    ").join(Iterables.limit(all, 100)),
+                        stream(all).limit(100).map(Object::toString).collect(joining("\n    ")),
                         expectedSubset.getMaterializedRows().size(),
-                        Joiner.on("\n    ").join(Iterables.limit(expectedSubset, 100))));
+                        stream(expectedSubset).limit(100).map(Object::toString).collect(joining("\n    "))));
             }
         }
     }

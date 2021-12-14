@@ -32,17 +32,18 @@ import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.cycle;
-import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Streams.concat;
+import static com.google.common.collect.Streams.stream;
 import static io.trino.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -98,7 +99,7 @@ public abstract class AbstractTestOrcReader
     public void testBooleanSequence()
             throws Exception
     {
-        tester.testRoundTrip(BOOLEAN, newArrayList(limit(cycle(ImmutableList.of(true, false, false)), 30_000)));
+        tester.testRoundTrip(BOOLEAN, newArrayList(() -> Stream.generate(() -> ImmutableList.of(true, false, false)).flatMap(Collection::stream).limit(30_000).iterator()));
     }
 
     @Test
@@ -129,7 +130,7 @@ public abstract class AbstractTestOrcReader
     public void testLongDirect()
             throws Exception
     {
-        testRoundTripNumeric(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000));
+        testRoundTripNumeric((Iterable<Integer>) () -> Stream.generate(() -> ImmutableList.of(1, 3, 5, 7, 11, 13, 17)).flatMap(Collection::stream).limit(30_000).iterator());
     }
 
     @Test
@@ -148,14 +149,14 @@ public abstract class AbstractTestOrcReader
     public void testLongShortRepeat()
             throws Exception
     {
-        testRoundTripNumeric(limit(repeatEach(4, cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17))), 30_000));
+        testRoundTripNumeric(() -> stream(repeatEach(4, () -> Stream.generate(() -> ImmutableList.<Number>of(1, 3, 5, 7, 11, 13, 17)).flatMap(List::stream).iterator())).limit(30_000).iterator());
     }
 
     @Test
     public void testLongPatchedBase()
             throws Exception
     {
-        testRoundTripNumeric(limit(cycle(concat(intsBetween(0, 18).stream(), intsBetween(0, 18).stream(), ImmutableList.of(30_000, 20_000, 400_000, 30_000, 20_000).stream()).collect(toImmutableList())), 30_000));
+        testRoundTripNumeric((Iterable<Integer>) () -> Stream.generate(() -> concat(intsBetween(0, 18).stream(), intsBetween(0, 18).stream(), ImmutableList.of(30_000, 20_000, 400_000, 30_000, 20_000).stream()).collect(toImmutableList())).flatMap(Collection::stream).limit(30_000).iterator());
     }
 
     @Test
@@ -311,7 +312,7 @@ public abstract class AbstractTestOrcReader
                 .put("2019-12-05 13:41:39.564", SqlTimestamp.fromMillis(3, 1575553299564L))
                 .build();
         map.forEach((expected, value) -> assertEquals(value.toString(), expected));
-        tester.testRoundTrip(TIMESTAMP_MILLIS, newArrayList(limit(cycle(map.values()), 30_000)));
+        tester.testRoundTrip(TIMESTAMP_MILLIS, newArrayList(() -> Stream.generate(() -> map.values()).flatMap(Collection::stream).limit(30_000).iterator()));
     }
 
     @Test
@@ -328,7 +329,7 @@ public abstract class AbstractTestOrcReader
                 .put("2019-12-05 13:41:39.564321", SqlTimestamp.newInstance(6, 1575553299564321L, 0))
                 .build();
         map.forEach((expected, value) -> assertEquals(value.toString(), expected));
-        tester.testRoundTrip(TIMESTAMP_MICROS, newArrayList(limit(cycle(map.values()), 30_000)));
+        tester.testRoundTrip(TIMESTAMP_MICROS, newArrayList(() -> Stream.generate(() -> map.values()).flatMap(Collection::stream).limit(30_000).iterator()));
     }
 
     @Test
@@ -345,7 +346,7 @@ public abstract class AbstractTestOrcReader
                 .put("2019-12-05 13:41:39.564321789", SqlTimestamp.newInstance(9, 1575553299564321L, 789_000))
                 .build();
         map.forEach((expected, value) -> assertEquals(value.toString(), expected));
-        tester.testRoundTrip(TIMESTAMP_NANOS, newArrayList(limit(cycle(map.values()), 30_000)));
+        tester.testRoundTrip(TIMESTAMP_NANOS, newArrayList(() -> Stream.generate(() -> map.values()).flatMap(Collection::stream).limit(30_000).iterator()));
     }
 
     @Test
@@ -362,7 +363,7 @@ public abstract class AbstractTestOrcReader
                 .put("2019-12-05 13:41:39.564 UTC", SqlTimestampWithTimeZone.newInstance(3, 1575553299564L, 0, UTC_KEY))
                 .build();
         map.forEach((expected, value) -> assertEquals(value.toString(), expected));
-        tester.testRoundTrip(TIMESTAMP_TZ_MILLIS, newArrayList(limit(cycle(map.values()), 30_000)));
+        tester.testRoundTrip(TIMESTAMP_TZ_MILLIS, newArrayList(() -> Stream.generate(() -> map.values()).flatMap(Collection::stream).limit(30_000).iterator()));
     }
 
     @Test
@@ -379,7 +380,7 @@ public abstract class AbstractTestOrcReader
                 .put("2019-12-05 13:41:39.564321 UTC", SqlTimestampWithTimeZone.newInstance(6, 1575553299564L, 321_000_000, UTC_KEY))
                 .build();
         map.forEach((expected, value) -> assertEquals(value.toString(), expected));
-        tester.testRoundTrip(TIMESTAMP_TZ_MICROS, newArrayList(limit(cycle(map.values()), 30_000)));
+        tester.testRoundTrip(TIMESTAMP_TZ_MICROS, newArrayList(() -> Stream.generate(() -> map.values()).flatMap(Collection::stream).limit(30_000).iterator()));
     }
 
     @Test
@@ -396,14 +397,14 @@ public abstract class AbstractTestOrcReader
                 .put("2019-12-05 13:41:39.564321789 UTC", SqlTimestampWithTimeZone.newInstance(9, 1575553299564L, 321_789_000, UTC_KEY))
                 .build();
         map.forEach((expected, value) -> assertEquals(value.toString(), expected));
-        tester.testRoundTrip(TIMESTAMP_TZ_NANOS, newArrayList(limit(cycle(map.values()), 30_000)));
+        tester.testRoundTrip(TIMESTAMP_TZ_NANOS, newArrayList(() -> Stream.generate(() -> map.values()).flatMap(Collection::stream).limit(30_000).iterator()));
     }
 
     @Test
     public void testStringUnicode()
             throws Exception
     {
-        tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), 30_000)));
+        tester.testRoundTrip(VARCHAR, newArrayList(() -> Stream.generate(() -> ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")).flatMap(Collection::stream).limit(30_000).iterator()));
     }
 
     @Test
@@ -423,7 +424,7 @@ public abstract class AbstractTestOrcReader
     {
         tester.testRoundTrip(
                 VARCHAR,
-                newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
+                newArrayList(() -> Stream.generate(() -> ImmutableList.of(1, 3, 5, 7, 11, 13, 17)).flatMap(Collection::stream).limit(30_000).iterator()).stream()
                         .map(Object::toString)
                         .collect(toList()));
     }
@@ -439,7 +440,7 @@ public abstract class AbstractTestOrcReader
     public void testEmptyStringSequence()
             throws Exception
     {
-        tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(""), 30_000)));
+        tester.testRoundTrip(VARCHAR, newArrayList(() -> Stream.generate(() -> "").limit(30_000).iterator()));
     }
 
     @Test
@@ -459,7 +460,7 @@ public abstract class AbstractTestOrcReader
     {
         tester.testRoundTrip(
                 CHAR,
-                newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
+                newArrayList(() -> Stream.generate(() -> ImmutableList.of(1, 3, 5, 7, 11, 13, 17)).flatMap(Collection::stream).limit(30_000).iterator()).stream()
                         .map(this::toCharValue)
                         .collect(toList()));
     }
@@ -468,7 +469,7 @@ public abstract class AbstractTestOrcReader
     public void testEmptyCharSequence()
             throws Exception
     {
-        tester.testRoundTrip(CHAR, newArrayList(limit(cycle("          "), 30_000)));
+        tester.testRoundTrip(CHAR, newArrayList(() -> Stream.generate(() -> "          ").limit(30_000).iterator()));
     }
 
     private String toCharValue(Object value)
@@ -494,7 +495,7 @@ public abstract class AbstractTestOrcReader
             throws Exception
     {
         tester.testRoundTrip(
-                VARBINARY, ImmutableList.copyOf(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 30_000)).stream()
+                VARBINARY, ImmutableList.copyOf(() -> Stream.generate(() -> ImmutableList.of(1, 3, 5, 7, 11, 13, 17)).flatMap(Collection::stream).limit(30_000).iterator()).stream()
                         .map(Object::toString)
                         .map(string -> string.getBytes(UTF_8))
                         .map(SqlVarbinary::new)

@@ -29,9 +29,8 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
-import static com.google.common.collect.Iterables.cycle;
-import static com.google.common.collect.Iterables.limit;
 import static io.trino.rcfile.RcFileTester.Format.BINARY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -83,7 +82,7 @@ public abstract class AbstractTestRcFileReader
     public void testBooleanSequence()
             throws Exception
     {
-        tester.testRoundTrip(BOOLEAN, limit(cycle(ImmutableList.of(true, false, false)), 3_000));
+        tester.testRoundTrip(BOOLEAN, () -> Stream.generate(() -> ImmutableList.<Object>of(true, false, false)).flatMap(List::stream).limit(3_000).iterator());
     }
 
     @Test

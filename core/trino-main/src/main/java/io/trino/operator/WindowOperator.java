@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -297,8 +296,8 @@ public class WindowOperator
         List<SortOrder> ordering;
         if (preSortedChannelPrefix > 0) {
             // This already implies that set(preGroupedChannels) == set(partitionChannels) (enforced with checkArgument)
-            orderChannels = ImmutableList.copyOf(Iterables.skip(sortChannels, preSortedChannelPrefix));
-            ordering = ImmutableList.copyOf(Iterables.skip(sortOrder, preSortedChannelPrefix));
+            orderChannels = sortChannels.stream().skip(preSortedChannelPrefix).collect(toImmutableList());
+            ordering = sortOrder.stream().skip(preSortedChannelPrefix).collect(toImmutableList());
         }
         else {
             // Otherwise, we need to sort by the unGroupedPartitionChannels and all original sort channels

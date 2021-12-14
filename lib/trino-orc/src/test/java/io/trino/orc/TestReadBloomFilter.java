@@ -26,9 +26,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static com.google.common.collect.Iterables.cycle;
-import static com.google.common.collect.Iterables.limit;
-import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
@@ -82,7 +79,7 @@ public class TestReadBloomFilter
     private static <T> void testType(Type type, List<T> uniqueValues, T inBloomFilter, T notInBloomFilter)
             throws Exception
     {
-        Stream<T> writeValues = newArrayList(limit(cycle(uniqueValues), 30_000)).stream();
+        Stream<T> writeValues = Stream.generate(() -> uniqueValues).flatMap(List::stream).limit(30_000);
 
         try (TempFile tempFile = new TempFile()) {
             writeOrcColumnHive(tempFile.getFile(), ORC_12, LZ4, type, writeValues.iterator());

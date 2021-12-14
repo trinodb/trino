@@ -20,7 +20,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
@@ -59,6 +58,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -890,7 +890,7 @@ public class DatabaseShardManager
     {
         List<T> list = new ArrayList<>(collection);
         Collections.shuffle(list);
-        return Iterables.cycle(list).iterator();
+        return Stream.generate(() -> list).flatMap(List::stream).iterator();
     }
 
     private static ShardStats shardStats(Collection<ShardInfo> shards)
