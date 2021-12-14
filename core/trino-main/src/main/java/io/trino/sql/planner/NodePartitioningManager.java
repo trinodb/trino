@@ -98,16 +98,16 @@ public class NodePartitioningManager
         return new BucketPartitionFunction(bucketFunction, bucketToPartition);
     }
 
-    public BucketFunction getBucketFunction(Session session, PartitioningHandle partitioning, List<Type> partitionChannelTypes, int bucketCount)
+    public BucketFunction getBucketFunction(Session session, PartitioningHandle partitioningHandle, List<Type> partitionChannelTypes, int bucketCount)
     {
-        ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(partitioning.getConnectorId().get());
+        ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(partitioningHandle.getConnectorId().get());
         BucketFunction bucketFunction = partitioningProvider.getBucketFunction(
-                partitioning.getTransactionHandle().orElse(null),
+                partitioningHandle.getTransactionHandle().orElse(null),
                 session.toConnectorSession(),
-                partitioning.getConnectorHandle(),
+                partitioningHandle.getConnectorHandle(),
                 partitionChannelTypes,
                 bucketCount);
-        checkArgument(bucketFunction != null, "No bucket function for partitioning: %s", partitioning);
+        checkArgument(bucketFunction != null, "No bucket function for partitioning: %s", partitioningHandle);
         return bucketFunction;
     }
 
@@ -195,14 +195,14 @@ public class NodePartitioningManager
                 .collect(toImmutableList());
     }
 
-    public ConnectorBucketNodeMap getConnectorBucketNodeMap(Session session, PartitioningHandle partitioning)
+    public ConnectorBucketNodeMap getConnectorBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
     {
-        ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(partitioning.getConnectorId().get());
+        ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(partitioningHandle.getConnectorId().get());
         ConnectorBucketNodeMap connectorBucketNodeMap = partitioningProvider.getBucketNodeMap(
-                partitioning.getTransactionHandle().orElse(null),
-                session.toConnectorSession(partitioning.getConnectorId().get()),
-                partitioning.getConnectorHandle());
-        checkArgument(connectorBucketNodeMap != null, "No partition map %s", partitioning);
+                partitioningHandle.getTransactionHandle().orElse(null),
+                session.toConnectorSession(partitioningHandle.getConnectorId().get()),
+                partitioningHandle.getConnectorHandle());
+        checkArgument(connectorBucketNodeMap != null, "No partition map %s", partitioningHandle);
         return connectorBucketNodeMap;
     }
 
