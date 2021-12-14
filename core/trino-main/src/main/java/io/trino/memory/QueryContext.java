@@ -51,6 +51,7 @@ import static io.trino.ExceededMemoryLimitException.exceededLocalUserMemoryLimit
 import static io.trino.ExceededSpillLimitException.exceededPerQueryLocalLimit;
 import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.trino.operator.Operator.NOT_BLOCKED;
+import static io.trino.operator.TaskContext.createTaskContext;
 import static java.lang.String.format;
 import static java.util.Map.Entry.comparingByValue;
 import static java.util.Objects.requireNonNull;
@@ -294,7 +295,7 @@ public class QueryContext
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled)
     {
-        TaskContext taskContext = TaskContext.createTaskContext(
+        TaskContext taskContext = createTaskContext(
                 this,
                 taskStateMachine,
                 gcMonitor,
