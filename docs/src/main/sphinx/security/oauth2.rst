@@ -108,6 +108,12 @@ The following configuration properties are available:
        for more information.
    * - ``http-server.authentication.oauth2.principal-field``
      - The field of the access token used for the Trino user principal. Defaults to ``sub``. Other commonly used fields include ``sAMAccountName``, ``name``, ``upn``, and ``email``.
+   * - ``oauth2-jwk.http-client.http-proxy``
+     - Proxy host and port in host:port format. Use this property to connect
+       to an OAuth2 endpoint via a HTTP proxy.
+   * - ``oauth2-jwk.http-client.http-proxy.secure``
+     - Set this to true if we connecting to to an OAuth2 endpoint via a
+       secured HTTP proxy.
 
 
 Troubleshooting
