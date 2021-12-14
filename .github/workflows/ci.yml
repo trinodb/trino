@@ -625,5 +625,5 @@ jobs:
         with:
           # Name prefix is checked in the `Annotate checks` workflow
           name: test report pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
-          path: testing/trino-product-tests/target/reports/testng-results.xml
+          path: testing/trino-product-tests/target/reports/**/testng-results.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
