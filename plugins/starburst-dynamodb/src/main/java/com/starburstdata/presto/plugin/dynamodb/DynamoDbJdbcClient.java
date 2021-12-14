@@ -81,8 +81,8 @@ import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateReadFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateReadFunctionUsingSqlDate;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingSqlDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
@@ -437,7 +437,7 @@ public class DynamoDbJdbcClient
             case Types.LONGVARBINARY:
                 return Optional.of(sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), DISABLE_PUSHDOWN));
             case Types.DATE:
-                return Optional.of(longMapping(DATE, dateReadFunction(), dateWriteFunction(), DISABLE_PUSHDOWN));
+                return Optional.of(longMapping(DATE, dateReadFunctionUsingSqlDate(), dateWriteFunctionUsingSqlDate(), DISABLE_PUSHDOWN));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -511,7 +511,7 @@ public class DynamoDbJdbcClient
         }
 
         if (type.equals(DATE)) {
-            return WriteMapping.longMapping("date", dateWriteFunction());
+            return WriteMapping.longMapping("date", dateWriteFunctionUsingSqlDate());
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
