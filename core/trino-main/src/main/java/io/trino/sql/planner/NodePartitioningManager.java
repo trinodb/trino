@@ -82,20 +82,20 @@ public class NodePartitioningManager
             PartitioningScheme partitioningScheme,
             List<Type> partitionChannelTypes)
     {
-        Optional<int[]> bucketToPartition = partitioningScheme.getBucketToPartition();
-        checkArgument(bucketToPartition.isPresent(), "Bucket to partition must be set before a partition function can be created");
+        int[] bucketToPartition = partitioningScheme.getBucketToPartition()
+                .orElseThrow(() -> new IllegalArgumentException("Bucket to partition must be set before a partition function can be created"));
 
         PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
             return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitionFunction(
                     partitionChannelTypes,
                     partitioningScheme.getHashColumn().isPresent(),
-                    bucketToPartition.get(),
+                    bucketToPartition,
                     blockTypeOperators);
         }
 
-        BucketFunction bucketFunction = getBucketFunction(session, partitioningHandle, partitionChannelTypes, bucketToPartition.get().length);
-        return new BucketPartitionFunction(bucketFunction, bucketToPartition.get());
+        BucketFunction bucketFunction = getBucketFunction(session, partitioningHandle, partitionChannelTypes, bucketToPartition.length);
+        return new BucketPartitionFunction(bucketFunction, bucketToPartition);
     }
 
     public BucketFunction getBucketFunction(Session session, PartitioningHandle partitioning, List<Type> partitionChannelTypes, int bucketCount)
