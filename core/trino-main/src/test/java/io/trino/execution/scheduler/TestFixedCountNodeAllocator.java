@@ -16,7 +16,6 @@ package io.trino.execution.scheduler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
@@ -78,41 +77,41 @@ public class TestFixedCountNodeAllocator
         setupNodeAllocatorService(nodeSupplier);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
-            ListenableFuture<NodeInfo> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertTrue(acquire1.isDone());
-            assertEquals(acquire1.get().getNode(), NODE_1);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertTrue(acquire1.getNode().isDone());
+            assertEquals(acquire1.getNode().get().getNode(), NODE_1);
 
-            ListenableFuture<NodeInfo> acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertFalse(acquire2.isDone());
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertFalse(acquire2.getNode().isDone());
 
-            nodeAllocator.release(acquire1.get());
+            acquire1.release();
 
-            assertTrue(acquire2.isDone());
-            assertEquals(acquire2.get().getNode(), NODE_1);
+            assertTrue(acquire2.getNode().isDone());
+            assertEquals(acquire2.getNode().get().getNode(), NODE_1);
         }
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 2)) {
-            ListenableFuture<NodeInfo> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertTrue(acquire1.isDone());
-            assertEquals(acquire1.get().getNode(), NODE_1);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertTrue(acquire1.getNode().isDone());
+            assertEquals(acquire1.getNode().get().getNode(), NODE_1);
 
-            ListenableFuture<NodeInfo> acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertTrue(acquire2.isDone());
-            assertEquals(acquire2.get().getNode(), NODE_1);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertTrue(acquire2.getNode().isDone());
+            assertEquals(acquire2.getNode().get().getNode(), NODE_1);
 
-            ListenableFuture<NodeInfo> acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertFalse(acquire3.isDone());
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertFalse(acquire3.getNode().isDone());
 
-            ListenableFuture<NodeInfo> acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertFalse(acquire4.isDone());
+            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertFalse(acquire4.getNode().isDone());
 
-            nodeAllocator.release(acquire2.get()); // NODE_1
-            assertTrue(acquire3.isDone());
-            assertEquals(acquire3.get().getNode(), NODE_1);
+            acquire2.release(); // NODE_1
+            assertTrue(acquire3.getNode().isDone());
+            assertEquals(acquire3.getNode().get().getNode(), NODE_1);
 
-            nodeAllocator.release(acquire3.get()); // NODE_1
-            assertTrue(acquire4.isDone());
-            assertEquals(acquire4.get().getNode(), NODE_1);
+            acquire3.release(); // NODE_1
+            assertTrue(acquire4.getNode().isDone());
+            assertEquals(acquire4.getNode().get().getNode(), NODE_1);
         }
     }
 
@@ -124,81 +123,81 @@ public class TestFixedCountNodeAllocator
         setupNodeAllocatorService(nodeSupplier);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
-            ListenableFuture<NodeInfo> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertTrue(acquire1.isDone());
-            assertEquals(acquire1.get().getNode(), NODE_1);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertTrue(acquire1.getNode().isDone());
+            assertEquals(acquire1.getNode().get().getNode(), NODE_1);
 
-            ListenableFuture<NodeInfo> acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertTrue(acquire2.isDone());
-            assertEquals(acquire2.get().getNode(), NODE_2);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertTrue(acquire2.getNode().isDone());
+            assertEquals(acquire2.getNode().get().getNode(), NODE_2);
 
-            ListenableFuture<NodeInfo> acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertFalse(acquire3.isDone());
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertFalse(acquire3.getNode().isDone());
 
-            ListenableFuture<NodeInfo> acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertFalse(acquire4.isDone());
+            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertFalse(acquire4.getNode().isDone());
 
-            ListenableFuture<NodeInfo> acquire5 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertFalse(acquire5.isDone());
+            NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertFalse(acquire5.getNode().isDone());
 
-            nodeAllocator.release(acquire2.get()); // NODE_2
-            assertTrue(acquire3.isDone());
-            assertEquals(acquire3.get().getNode(), NODE_2);
+            acquire2.release(); // NODE_2
+            assertTrue(acquire3.getNode().isDone());
+            assertEquals(acquire3.getNode().get().getNode(), NODE_2);
 
-            nodeAllocator.release(acquire1.get()); // NODE_1
-            assertTrue(acquire4.isDone());
-            assertEquals(acquire4.get().getNode(), NODE_1);
+            acquire1.release(); // NODE_1
+            assertTrue(acquire4.getNode().isDone());
+            assertEquals(acquire4.getNode().get().getNode(), NODE_1);
 
-            nodeAllocator.release(acquire4.get()); // NODE_1
-            assertTrue(acquire5.isDone());
-            assertEquals(acquire5.get().getNode(), NODE_1);
+            acquire4.release(); //NODE_1
+            assertTrue(acquire5.getNode().isDone());
+            assertEquals(acquire5.getNode().get().getNode(), NODE_1);
         }
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 2)) {
-            ListenableFuture<NodeInfo> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertTrue(acquire1.isDone());
-            assertEquals(acquire1.get().getNode(), NODE_1);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertTrue(acquire1.getNode().isDone());
+            assertEquals(acquire1.getNode().get().getNode(), NODE_1);
 
-            ListenableFuture<NodeInfo> acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertTrue(acquire2.isDone());
-            assertEquals(acquire2.get().getNode(), NODE_2);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertTrue(acquire2.getNode().isDone());
+            assertEquals(acquire2.getNode().get().getNode(), NODE_2);
 
-            ListenableFuture<NodeInfo> acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertTrue(acquire3.isDone());
-            assertEquals(acquire3.get().getNode(), NODE_1);
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertTrue(acquire3.getNode().isDone());
+            assertEquals(acquire3.getNode().get().getNode(), NODE_1);
 
-            ListenableFuture<NodeInfo> acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertTrue(acquire4.isDone());
-            assertEquals(acquire4.get().getNode(), NODE_2);
+            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertTrue(acquire4.getNode().isDone());
+            assertEquals(acquire4.getNode().get().getNode(), NODE_2);
 
-            ListenableFuture<NodeInfo> acquire5 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertFalse(acquire5.isDone());
+            NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertFalse(acquire5.getNode().isDone());
 
-            ListenableFuture<NodeInfo> acquire6 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertFalse(acquire6.isDone());
+            NodeAllocator.NodeLease acquire6 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertFalse(acquire6.getNode().isDone());
 
-            nodeAllocator.release(acquire2.get()); // NODE_2
-            assertTrue(acquire5.isDone());
-            assertEquals(acquire5.get().getNode(), NODE_2);
+            acquire4.release(); // NODE_2
+            assertTrue(acquire5.getNode().isDone());
+            assertEquals(acquire5.getNode().get().getNode(), NODE_2);
 
-            nodeAllocator.release(acquire1.get()); // NODE_1
-            assertTrue(acquire6.isDone());
-            assertEquals(acquire6.get().getNode(), NODE_1);
+            acquire3.release(); // NODE_1
+            assertTrue(acquire6.getNode().isDone());
+            assertEquals(acquire6.getNode().get().getNode(), NODE_1);
 
-            ListenableFuture<NodeInfo> acquire7 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertFalse(acquire7.isDone());
+            NodeAllocator.NodeLease acquire7 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertFalse(acquire7.getNode().isDone());
 
-            nodeAllocator.release(acquire3.get()); // NODE_1
-            assertTrue(acquire7.isDone());
-            assertEquals(acquire7.get().getNode(), NODE_1);
+            acquire6.release(); // NODE_1
+            assertTrue(acquire7.getNode().isDone());
+            assertEquals(acquire7.getNode().get().getNode(), NODE_1);
 
-            nodeAllocator.release(acquire6.get()); // NODE_1
-            nodeAllocator.release(acquire5.get()); // NODE_2
-            nodeAllocator.release(acquire4.get()); // NODE_2
+            acquire7.release(); // NODE_1
+            acquire5.release(); // NODE_2
+            acquire2.release(); // NODE_2
 
-            ListenableFuture<NodeInfo> acquire8 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertTrue(acquire8.isDone());
-            assertEquals(acquire8.get().getNode(), NODE_2);
+            NodeAllocator.NodeLease acquire8 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertTrue(acquire8.getNode().isDone());
+            assertEquals(acquire8.getNode().get().getNode(), NODE_2);
         }
     }
 
@@ -214,73 +213,73 @@ public class TestFixedCountNodeAllocator
         setupNodeAllocatorService(nodeSupplier);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
-            ListenableFuture<NodeInfo> catalog1acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_1), ImmutableSet.of()));
-            assertTrue(catalog1acquire1.isDone());
-            assertEquals(catalog1acquire1.get().getNode(), NODE_1);
+            NodeAllocator.NodeLease catalog1acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_1), ImmutableSet.of()));
+            assertTrue(catalog1acquire1.getNode().isDone());
+            assertEquals(catalog1acquire1.getNode().get().getNode(), NODE_1);
 
-            ListenableFuture<NodeInfo> catalog1acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_1), ImmutableSet.of()));
-            assertTrue(catalog1acquire2.isDone());
-            assertEquals(catalog1acquire2.get().getNode(), NODE_3);
+            NodeAllocator.NodeLease catalog1acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_1), ImmutableSet.of()));
+            assertTrue(catalog1acquire2.getNode().isDone());
+            assertEquals(catalog1acquire2.getNode().get().getNode(), NODE_3);
 
-            ListenableFuture<NodeInfo> catalog1acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_1), ImmutableSet.of()));
-            assertFalse(catalog1acquire3.isDone());
+            NodeAllocator.NodeLease catalog1acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_1), ImmutableSet.of()));
+            assertFalse(catalog1acquire3.getNode().isDone());
 
-            ListenableFuture<NodeInfo> catalog2acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_2), ImmutableSet.of()));
-            assertTrue(catalog2acquire1.isDone());
-            assertEquals(catalog2acquire1.get().getNode(), NODE_2);
+            NodeAllocator.NodeLease catalog2acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_2), ImmutableSet.of()));
+            assertTrue(catalog2acquire1.getNode().isDone());
+            assertEquals(catalog2acquire1.getNode().get().getNode(), NODE_2);
 
-            ListenableFuture<NodeInfo> catalog2acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_2), ImmutableSet.of()));
-            assertFalse(catalog2acquire2.isDone());
+            NodeAllocator.NodeLease catalog2acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_2), ImmutableSet.of()));
+            assertFalse(catalog2acquire2.getNode().isDone());
 
-            nodeAllocator.release(catalog2acquire1.get()); // NODE_2
-            assertFalse(catalog1acquire3.isDone());
-            assertTrue(catalog2acquire2.isDone());
-            assertEquals(catalog2acquire2.get().getNode(), NODE_2);
+            catalog2acquire1.release(); // NODE_2
+            assertFalse(catalog1acquire3.getNode().isDone());
+            assertTrue(catalog2acquire2.getNode().isDone());
+            assertEquals(catalog2acquire2.getNode().get().getNode(), NODE_2);
 
-            nodeAllocator.release(catalog1acquire1.get()); // NODE_1
-            assertTrue(catalog1acquire3.isDone());
-            assertEquals(catalog1acquire3.get().getNode(), NODE_1);
+            catalog1acquire1.release(); // NODE_1
+            assertTrue(catalog1acquire3.getNode().isDone());
+            assertEquals(catalog1acquire3.getNode().get().getNode(), NODE_1);
 
-            ListenableFuture<NodeInfo> catalog1acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_1), ImmutableSet.of()));
-            assertFalse(catalog1acquire4.isDone());
+            NodeAllocator.NodeLease catalog1acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_1), ImmutableSet.of()));
+            assertFalse(catalog1acquire4.getNode().isDone());
 
-            ListenableFuture<NodeInfo> catalog2acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_2), ImmutableSet.of()));
-            assertFalse(catalog2acquire4.isDone());
+            NodeAllocator.NodeLease catalog2acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG_2), ImmutableSet.of()));
+            assertFalse(catalog2acquire4.getNode().isDone());
 
-            nodeAllocator.release(catalog1acquire2.get()); // NODE_3
-            assertFalse(catalog2acquire4.isDone());
-            assertTrue(catalog1acquire4.isDone());
-            assertEquals(catalog1acquire4.get().getNode(), NODE_3);
+            catalog1acquire2.release(); // NODE_3
+            assertFalse(catalog2acquire4.getNode().isDone());
+            assertTrue(catalog1acquire4.getNode().isDone());
+            assertEquals(catalog1acquire4.getNode().get().getNode(), NODE_3);
 
-            nodeAllocator.release(catalog1acquire4.get()); // NODE_3
-            assertTrue(catalog2acquire4.isDone());
-            assertEquals(catalog2acquire4.get().getNode(), NODE_3);
+            catalog1acquire4.release(); // NODE_3
+            assertTrue(catalog2acquire4.getNode().isDone());
+            assertEquals(catalog2acquire4.getNode().get().getNode(), NODE_3);
         }
     }
 
     @Test
-    public void testCancellation()
+    public void testReleaseBeforeAcquired()
             throws Exception
     {
         TestingNodeSupplier nodeSupplier = TestingNodeSupplier.create(ImmutableMap.of(NODE_1, ImmutableList.of()));
         setupNodeAllocatorService(nodeSupplier);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
-            ListenableFuture<NodeInfo> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertTrue(acquire1.isDone());
-            assertEquals(acquire1.get().getNode(), NODE_1);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertTrue(acquire1.getNode().isDone());
+            assertEquals(acquire1.getNode().get().getNode(), NODE_1);
 
-            ListenableFuture<NodeInfo> acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertFalse(acquire2.isDone());
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertFalse(acquire2.getNode().isDone());
 
-            ListenableFuture<NodeInfo> acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertFalse(acquire3.isDone());
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertFalse(acquire3.getNode().isDone());
 
-            acquire2.cancel(true);
+            acquire2.release();
 
-            nodeAllocator.release(acquire1.get()); // NODE_1
-            assertTrue(acquire3.isDone());
-            assertEquals(acquire3.get().getNode(), NODE_1);
+            acquire1.release(); // NODE_1
+            assertTrue(acquire3.getNode().isDone());
+            assertEquals(acquire3.getNode().get().getNode(), NODE_1);
         }
     }
 
@@ -292,17 +291,17 @@ public class TestFixedCountNodeAllocator
         setupNodeAllocatorService(nodeSupplier);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
-            ListenableFuture<NodeInfo> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertTrue(acquire1.isDone());
-            assertEquals(acquire1.get().getNode(), NODE_1);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertTrue(acquire1.getNode().isDone());
+            assertEquals(acquire1.getNode().get().getNode(), NODE_1);
 
-            ListenableFuture<NodeInfo> acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertFalse(acquire2.isDone());
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertFalse(acquire2.getNode().isDone());
 
             nodeSupplier.addNode(NODE_2, ImmutableList.of());
             nodeAllocatorService.updateNodes();
 
-            assertEquals(acquire2.get(10, SECONDS).getNode(), NODE_2);
+            assertEquals(acquire2.getNode().get(10, SECONDS).getNode(), NODE_2);
         }
     }
 
@@ -314,24 +313,24 @@ public class TestFixedCountNodeAllocator
         setupNodeAllocatorService(nodeSupplier);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
-            ListenableFuture<NodeInfo> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertTrue(acquire1.isDone());
-            assertEquals(acquire1.get().getNode(), NODE_1);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertTrue(acquire1.getNode().isDone());
+            assertEquals(acquire1.getNode().get().getNode(), NODE_1);
 
-            ListenableFuture<NodeInfo> acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertFalse(acquire2.isDone());
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertFalse(acquire2.getNode().isDone());
 
             nodeSupplier.removeNode(NODE_1);
             nodeSupplier.addNode(NODE_2, ImmutableList.of());
             nodeAllocatorService.updateNodes();
 
-            assertEquals(acquire2.get(10, SECONDS).getNode(), NODE_2);
+            assertEquals(acquire2.getNode().get(10, SECONDS).getNode(), NODE_2);
 
-            ListenableFuture<NodeInfo> acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
-            assertFalse(acquire3.isDone());
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of()));
+            assertFalse(acquire3.getNode().isDone());
 
-            nodeAllocator.release(acquire1.get()); // NODE_1
-            assertFalse(acquire3.isDone());
+            acquire1.release(); // NODE_1
+            assertFalse(acquire3.getNode().isDone());
         }
     }
 
@@ -343,44 +342,39 @@ public class TestFixedCountNodeAllocator
         setupNodeAllocatorService(nodeSupplier);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION, 1)) {
-            ListenableFuture<NodeInfo> acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_2_ADDRESS)));
-            assertTrue(acquire1.isDone());
-            assertEquals(acquire1.get().getNode(), NODE_2);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_2_ADDRESS)));
+            assertTrue(acquire1.getNode().isDone());
+            assertEquals(acquire1.getNode().get().getNode(), NODE_2);
 
-            ListenableFuture<NodeInfo> acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_2_ADDRESS)));
-            assertFalse(acquire2.isDone());
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_2_ADDRESS)));
+            assertFalse(acquire2.getNode().isDone());
 
-            nodeAllocator.release(acquire1.get()); // NODE_2
+            acquire1.release(); // NODE_2
 
-            assertTrue(acquire2.isDone());
-            assertEquals(acquire2.get().getNode(), NODE_2);
+            assertTrue(acquire2.getNode().isDone());
+            assertEquals(acquire2.getNode().get().getNode(), NODE_2);
 
-            ListenableFuture<NodeInfo> acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_3_ADDRESS)));
-            assertTrue(acquire3.isDone());
-            assertThatThrownBy(acquire3::get)
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_3_ADDRESS)));
+            assertTrue(acquire3.getNode().isDone());
+            assertThatThrownBy(() -> acquire3.getNode().get())
                     .hasMessageContaining("No nodes available to run query");
 
             nodeSupplier.addNode(NODE_3, ImmutableList.of());
             nodeAllocatorService.updateNodes();
 
-            ListenableFuture<NodeInfo> acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_3_ADDRESS)));
-            assertTrue(acquire4.isDone());
-            assertEquals(acquire4.get().getNode(), NODE_3);
+            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_3_ADDRESS)));
+            assertTrue(acquire4.getNode().isDone());
+            assertEquals(acquire4.getNode().get().getNode(), NODE_3);
 
-            ListenableFuture<NodeInfo> acquire5 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_3_ADDRESS)));
-            assertFalse(acquire5.isDone());
+            NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(new NodeRequirements(Optional.empty(), ImmutableSet.of(NODE_3_ADDRESS)));
+            assertFalse(acquire5.getNode().isDone());
 
             nodeSupplier.removeNode(NODE_3);
             nodeAllocatorService.updateNodes();
 
-            assertTrue(acquire5.isDone());
-            assertThatThrownBy(acquire5::get)
+            assertTrue(acquire5.getNode().isDone());
+            assertThatThrownBy(() -> acquire5.getNode().get())
                     .hasMessageContaining("No nodes available to run query");
         }
-    }
-
-    private NodeScheduler createNodeScheduler(TestingNodeSupplier testingNodeSupplier)
-    {
-        return new NodeScheduler(new TestingNodeSelectorFactory(NODE_1, testingNodeSupplier));
     }
 }
