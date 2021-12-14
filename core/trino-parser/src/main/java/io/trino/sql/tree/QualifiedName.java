@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.isEmpty;
+import static com.google.common.collect.Streams.stream;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -48,7 +48,7 @@ public class QualifiedName
     public static QualifiedName of(Iterable<Identifier> originalParts)
     {
         requireNonNull(originalParts, "originalParts is null");
-        checkArgument(!isEmpty(originalParts), "originalParts is empty");
+        checkArgument(stream(originalParts).findAny().isPresent(), "originalParts is empty");
 
         return new QualifiedName(ImmutableList.copyOf(originalParts));
     }

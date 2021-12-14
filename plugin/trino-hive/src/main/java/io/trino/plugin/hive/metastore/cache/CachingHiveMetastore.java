@@ -732,7 +732,7 @@ public class CachingHiveMetastore
     private Map<WithIdentity<HivePartitionName>, Optional<Partition>> loadPartitionsByNames(Iterable<? extends WithIdentity<HivePartitionName>> partitionNames)
     {
         requireNonNull(partitionNames, "partitionNames is null");
-        checkArgument(!Iterables.isEmpty(partitionNames), "partitionNames is empty");
+        checkArgument(stream(partitionNames).findAny().isPresent(), "partitionNames is empty");
 
         WithIdentity<HivePartitionName> firstPartition = Iterables.get(partitionNames, 0);
 

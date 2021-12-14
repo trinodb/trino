@@ -13,7 +13,6 @@
  */
 package io.trino.matching;
 
-import com.google.common.collect.Iterables;
 import io.trino.matching.pattern.CapturePattern;
 import io.trino.matching.pattern.FilterPattern;
 import io.trino.matching.pattern.TypeOfPattern;
@@ -24,7 +23,7 @@ import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Predicates.not;
+import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
 
 public abstract class Pattern<T>
@@ -56,12 +55,12 @@ public abstract class Pattern<T>
     // or with(propName) map(isEmpty) equalTo(true)
     public static <F, C, T extends Iterable<S>, S> PropertyPattern<F, C, T> empty(Property<F, C, T> property)
     {
-        return PropertyPattern.upcast(property.matching(Iterables::isEmpty));
+        return PropertyPattern.upcast(property.matching(iterable -> stream(iterable).findAny().isEmpty()));
     }
 
     public static <F, C, T extends Iterable<S>, S> PropertyPattern<F, C, T> nonEmpty(Property<F, C, T> property)
     {
-        return PropertyPattern.upcast(property.matching(not(Iterables::isEmpty)));
+        return PropertyPattern.upcast(property.matching(iterable -> stream(iterable).findAny().isPresent()));
     }
 
     public Pattern<T> capturedAs(Capture<T> capture)
