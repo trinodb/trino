@@ -107,7 +107,7 @@ public class FaultTolerantStageScheduler
     private ListenableFuture<Void> blocked = immediateVoidFuture();
 
     @GuardedBy("this")
-    private ListenableFuture<NodeInfo> acquireNodeFuture;
+    private NodeAllocator.NodeLease nodeLease;
     @GuardedBy("this")
     private SettableFuture<Void> taskFinishedFuture;
 
@@ -120,7 +120,7 @@ public class FaultTolerantStageScheduler
     @GuardedBy("this")
     private final Map<TaskId, RemoteTask> runningTasks = new HashMap<>();
     @GuardedBy("this")
-    private final Map<TaskId, NodeInfo> runningNodes = new HashMap<>();
+    private final Map<TaskId, NodeAllocator.NodeLease> runningNodes = new HashMap<>();
     @GuardedBy("this")
     private final Set<Integer> allPartitions = new HashSet<>();
     @GuardedBy("this")
@@ -253,15 +253,14 @@ public class FaultTolerantStageScheduler
             }
             TaskDescriptor taskDescriptor = taskDescriptorOptional.get();
 
-            if (acquireNodeFuture == null) {
-                acquireNodeFuture = nodeAllocator.acquire(taskDescriptor.getNodeRequirements());
+            if (nodeLease == null) {
+                nodeLease = nodeAllocator.acquire(taskDescriptor.getNodeRequirements());
             }
-            if (!acquireNodeFuture.isDone()) {
-                blocked = asVoid(acquireNodeFuture);
+            if (!nodeLease.getNode().isDone()) {
+                blocked = asVoid(nodeLease.getNode());
                 return;
             }
-            NodeInfo node = getFutureValue(acquireNodeFuture);
-            acquireNodeFuture = null;
+            NodeInfo node = getFutureValue(nodeLease.getNode());
 
             queuedPartitions.poll();
 
@@ -311,7 +310,8 @@ public class FaultTolerantStageScheduler
 
             partitionToRemoteTaskMap.put(partition, task);
             runningTasks.put(task.getTaskId(), task);
-            runningNodes.put(task.getTaskId(), node);
+            runningNodes.put(task.getTaskId(), nodeLease);
+            nodeLease = null;
 
             if (taskFinishedFuture == null) {
                 taskFinishedFuture = SettableFuture.create();
@@ -402,16 +402,13 @@ public class FaultTolerantStageScheduler
     private void releaseAcquiredNode()
     {
         verify(!Thread.holdsLock(this));
-        ListenableFuture<NodeInfo> future;
+        NodeAllocator.NodeLease lease;
         synchronized (this) {
-            future = acquireNodeFuture;
-            acquireNodeFuture = null;
+            lease = nodeLease;
+            nodeLease = null;
         }
-        if (future != null) {
-            future.cancel(true);
-            if (future.isDone() && !future.isCancelled()) {
-                nodeAllocator.release(getFutureValue(future));
-            }
+        if (lease != null) {
+            lease.release();
         }
     }
 
@@ -497,8 +494,8 @@ public class FaultTolerantStageScheduler
                     taskFinishedFuture = null;
                 }
 
-                NodeInfo node = requireNonNull(runningNodes.remove(taskId), () -> "node not found for task id: " + taskId);
-                nodeAllocator.release(node);
+                NodeAllocator.NodeLease nodeLease = requireNonNull(runningNodes.remove(taskId), () -> "node not found for task id: " + taskId);
+                nodeLease.release();
 
                 int partitionId = taskId.getPartitionId();
 

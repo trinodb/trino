@@ -361,14 +361,14 @@ public class TestFaultTolerantStageScheduler
             // waiting on node acquisition
             assertBlocked(blocked);
 
-            ListenableFuture<NodeInfo> acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
-            ListenableFuture<NodeInfo> acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
+            NodeAllocator.NodeLease acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
+            NodeAllocator.NodeLease acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
 
             remoteTaskFactory.getTasks().get(getTaskId(0, 0)).fail(new RuntimeException("some failure"));
 
             assertUnblocked(blocked);
-            assertUnblocked(acquireNode1);
-            assertUnblocked(acquireNode2);
+            assertUnblocked(acquireNode1.getNode());
+            assertUnblocked(acquireNode2.getNode());
 
             assertThatThrownBy(scheduler::schedule)
                     .hasMessageContaining("some failure");
@@ -469,8 +469,8 @@ public class TestFaultTolerantStageScheduler
             // waiting on node acquisition
             assertBlocked(blocked);
 
-            ListenableFuture<NodeInfo> acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
-            ListenableFuture<NodeInfo> acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
+            NodeAllocator.NodeLease acquireNode1 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
+            NodeAllocator.NodeLease acquireNode2 = nodeAllocator.acquire(new NodeRequirements(Optional.of(CATALOG), ImmutableSet.of()));
 
             if (abort) {
                 scheduler.abort();
@@ -480,8 +480,8 @@ public class TestFaultTolerantStageScheduler
             }
 
             assertUnblocked(blocked);
-            assertUnblocked(acquireNode1);
-            assertUnblocked(acquireNode2);
+            assertUnblocked(acquireNode1.getNode());
+            assertUnblocked(acquireNode2.getNode());
 
             scheduler.schedule();
 
