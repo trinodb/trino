@@ -33,18 +33,18 @@ Configuration properties
 
 The following configuration properties are available:
 
-============================== ========== ==============================================================================
-Property Name                  Required   Description
-============================== ========== ==============================================================================
-``pinot.controller-urls``      Yes        A comma separated list of controller hosts. If Pinot is deployed via
-                                          `Kubernetes <https://kubernetes.io/>`_ this needs to point to the controller
-                                          service endpoint. The Pinot broker and server must be accessible via DNS as
-                                          Pinot returns hostnames and not IP addresses.
-``pinot.segments-per-split``   No         The number of segments processed in a split. Setting this higher reduces the
-                                          number of requests made to Pinot. This is useful for smaller Pinot clusters.
-``pinot.request-timeout``      No         The timeout for Pinot requests. Increasing this can reduce timeouts if DNS
-                                          resolution is slow.
-============================== ========== ==============================================================================
+============================================= ========== ==============================================================================
+Property Name                                 Required   Description
+============================================= ========== ==============================================================================
+``pinot.controller-urls``                     Yes        A comma separated list of controller hosts. If Pinot is deployed via
+                                                         `Kubernetes <https://kubernetes.io/>`_ this needs to point to the controller
+                                                         service endpoint. The Pinot broker and server must be accessible via DNS as
+                                                         Pinot returns hostnames and not IP addresses.
+``pinot.segments-per-split``                  No         The number of segments processed in a split. Setting this higher reduces the
+                                                         number of requests made to Pinot. This is useful for smaller Pinot clusters.
+``pinot.request-timeout``                     No         The timeout for Pinot requests. Increasing this can reduce timeouts if DNS
+                                                         resolution is slow.
+============================================= ========== ==============================================================================
 
 Querying Pinot tables
 ---------------------
