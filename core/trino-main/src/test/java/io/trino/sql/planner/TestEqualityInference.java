@@ -17,7 +17,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.scalar.TryFunction;
@@ -178,18 +177,18 @@ public class TestEqualityInference
 
         // There should be equalities in the scope, that only use c1 and are all inferrable equalities
         assertFalse(equalityPartition.getScopeEqualities().isEmpty());
-        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesSymbolScope(matchesSymbols("c1"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), expression -> isInferenceCandidate(metadata, expression)));
+        assertTrue(equalityPartition.getScopeEqualities().stream().allMatch(matchesSymbolScope(matchesSymbols("c1"))));
+        assertTrue(equalityPartition.getScopeEqualities().stream().allMatch(expression -> isInferenceCandidate(metadata, expression)));
 
         // There should be equalities in the inverse scope, that never use c1 and are all inferrable equalities
         assertFalse(equalityPartition.getScopeComplementEqualities().isEmpty());
-        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesSymbolScope(not(matchesSymbols("c1")))));
-        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), expression -> isInferenceCandidate(metadata, expression)));
+        assertTrue(equalityPartition.getScopeComplementEqualities().stream().allMatch(matchesSymbolScope(not(matchesSymbols("c1")))));
+        assertTrue(equalityPartition.getScopeComplementEqualities().stream().allMatch(expression -> isInferenceCandidate(metadata, expression)));
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
         assertFalse(equalityPartition.getScopeStraddlingEqualities().isEmpty());
-        assertTrue(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(matchesSymbols("c1"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), expression -> isInferenceCandidate(metadata, expression)));
+        assertTrue(equalityPartition.getScopeStraddlingEqualities().stream().anyMatch(matchesStraddlingScope(matchesSymbols("c1"))));
+        assertTrue(equalityPartition.getScopeStraddlingEqualities().stream().allMatch(expression -> isInferenceCandidate(metadata, expression)));
 
         // There should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
@@ -225,18 +224,18 @@ public class TestEqualityInference
 
         // There should be equalities in the scope, that only use a* and b* symbols and are all inferrable equalities
         assertFalse(equalityPartition.getScopeEqualities().isEmpty());
-        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesSymbolScope(symbolBeginsWith("a", "b"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), expression -> isInferenceCandidate(metadata, expression)));
+        assertTrue(equalityPartition.getScopeEqualities().stream().allMatch(matchesSymbolScope(symbolBeginsWith("a", "b"))));
+        assertTrue(equalityPartition.getScopeEqualities().stream().allMatch(expression -> isInferenceCandidate(metadata, expression)));
 
         // There should be equalities in the inverse scope, that never use a* and b* symbols and are all inferrable equalities
         assertFalse(equalityPartition.getScopeComplementEqualities().isEmpty());
-        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesSymbolScope(not(symbolBeginsWith("a", "b")))));
-        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), expression -> isInferenceCandidate(metadata, expression)));
+        assertTrue(equalityPartition.getScopeComplementEqualities().stream().allMatch(matchesSymbolScope(not(symbolBeginsWith("a", "b")))));
+        assertTrue(equalityPartition.getScopeComplementEqualities().stream().allMatch(expression -> isInferenceCandidate(metadata, expression)));
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
         assertFalse(equalityPartition.getScopeStraddlingEqualities().isEmpty());
-        assertTrue(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(symbolBeginsWith("a", "b"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), expression -> isInferenceCandidate(metadata, expression)));
+        assertTrue(equalityPartition.getScopeStraddlingEqualities().stream().anyMatch(matchesStraddlingScope(symbolBeginsWith("a", "b"))));
+        assertTrue(equalityPartition.getScopeStraddlingEqualities().stream().allMatch(expression -> isInferenceCandidate(metadata, expression)));
 
         // Again, there should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
@@ -340,14 +339,14 @@ public class TestEqualityInference
 
     private static Predicate<Expression> matchesSymbolScope(Predicate<Symbol> symbolScope)
     {
-        return expression -> Iterables.all(SymbolsExtractor.extractUnique(expression), symbolScope);
+        return expression -> SymbolsExtractor.extractUnique(expression).stream().allMatch(symbolScope);
     }
 
     private static Predicate<Expression> matchesStraddlingScope(Predicate<Symbol> symbolScope)
     {
         return expression -> {
             Set<Symbol> symbols = SymbolsExtractor.extractUnique(expression);
-            return Iterables.any(symbols, symbolScope) && Iterables.any(symbols, not(symbolScope));
+            return symbols.stream().anyMatch(symbolScope) && symbols.stream().anyMatch(not(symbolScope));
         };
     }
 

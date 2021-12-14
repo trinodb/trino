@@ -16,7 +16,6 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.execution.warnings.WarningCollector;
@@ -188,7 +187,7 @@ public class MetadataQueryOptimizer
                 else if (source instanceof ProjectNode) {
                     // verify projections are deterministic
                     ProjectNode project = (ProjectNode) source;
-                    if (!Iterables.all(project.getAssignments().getExpressions(), expression -> isDeterministic(expression, plannerContext.getMetadata()))) {
+                    if (!project.getAssignments().getExpressions().stream().allMatch(expression -> isDeterministic(expression, plannerContext.getMetadata()))) {
                         return Optional.empty();
                     }
                     source = project.getSource();

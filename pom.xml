@@ -1680,8 +1680,6 @@
                             <exclusion>com/google/common/collect/Iterables.concat:(Ljava/lang/Iterable;Ljava/lang/Iterable;Ljava/lang/Iterable;)Ljava/lang/Iterable;</exclusion>
                             <exclusion>com/google/common/collect/Iterables.concat:(Ljava/lang/Iterable;Ljava/lang/Iterable;Ljava/lang/Iterable;Ljava/lang/Iterable;)Ljava/lang/Iterable;</exclusion>
                             <exclusion>com/google/common/collect/Iterables.concat:(Ljava/lang/Iterable;)Ljava/lang/Iterable;</exclusion>
-                            <exclusion>com/google/common/collect/Iterables.all:(Ljava/lang/Iterable;Lcom/google/common/base/Predicate;)Z</exclusion>
-                            <exclusion>com/google/common/collect/Iterables.any:(Ljava/lang/Iterable;Lcom/google/common/base/Predicate;)Z</exclusion>
                             <exclusion>com/google/common/collect/Iterables.skip:(Ljava/lang/Iterable;I)Ljava/lang/Iterable;</exclusion>
                             <exclusion>com/google/common/collect/Iterables.limit:(Ljava/lang/Iterable;I)Ljava/lang/Iterable;</exclusion>
                             <exclusion>com/google/common/collect/Iterables.get:(Ljava/lang/Iterable;I)Ljava/lang/Object;</exclusion>
