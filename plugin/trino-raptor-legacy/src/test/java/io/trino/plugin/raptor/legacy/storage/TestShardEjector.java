@@ -35,7 +35,9 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -43,13 +45,13 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.stream.Collectors.toSet;
@@ -63,19 +65,20 @@ public class TestShardEjector
     private Jdbi dbi;
     private Handle dummyHandle;
     private ShardManager shardManager;
-    private File dataDir;
+    private Path dataDir;
     private StorageService storageService;
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
         dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
         shardManager = createShardManager(dbi);
 
-        dataDir = createTempDir();
-        storageService = new FileStorageService(dataDir);
+        dataDir = createTempDirectory(null);
+        storageService = new FileStorageService(dataDir.toFile());
         storageService.start();
     }
 
@@ -87,7 +90,7 @@ public class TestShardEjector
             dummyHandle.close();
         }
         if (dataDir != null) {
-            deleteRecursively(dataDir.toPath(), ALLOW_INSECURE);
+            deleteRecursively(dataDir, ALLOW_INSECURE);
         }
     }
 
