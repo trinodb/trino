@@ -14,13 +14,13 @@
 package io.trino.tests.product.hive;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HiveTimestampPrecision;
-import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutionException;
@@ -35,16 +35,23 @@ import org.testng.annotations.Test;
 
 import javax.inject.Named;
 
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.JDBCType;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -75,10 +82,11 @@ import static java.util.Collections.nCopies;
 import static java.util.Comparator.comparingInt;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public class TestHiveStorageFormats
-        extends ProductTest
+        extends HiveProductTest
 {
     private static final String TPCH_SCHEMA = "tiny";
 
@@ -541,6 +549,117 @@ public class TestHiveStorageFormats
         onTrino().executeQuery("DROP TABLE orc_table_created_in_trino");
     }
 
+    @Test(dataProvider = "storageFormatsWithConfiguration", groups = STORAGE_FORMATS_DETAILED)
+    public void testInsertAllSupportedDataTypesWithTrino(StorageFormat storageFormat)
+    {
+        // only admin user is allowed to change session properties
+        setAdminRole();
+        setSessionProperties(storageFormat);
+
+        String tableName = "storage_formats_compatibility_data_types_" + storageFormat.getName().toLowerCase(ENGLISH);
+
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+
+        boolean isAvroStorageFormat = "AVRO".equals(storageFormat.name);
+        boolean isParquetStorageFormat = "PARQUET".equals(storageFormat.name);
+        boolean isParquetOptimizedWriterEnabled = Boolean.parseBoolean(
+                storageFormat.sessionProperties.getOrDefault("hive.experimental_parquet_optimized_writer_enabled", "false"));
+        List<HiveCompatibilityColumnData> columnDataList = new ArrayList<>();
+        columnDataList.add(new HiveCompatibilityColumnData("c_boolean", "boolean", "true", true));
+        if (!isAvroStorageFormat) {
+            // The AVRO storage format does not support tinyint and smallint types
+            columnDataList.add(new HiveCompatibilityColumnData("c_tinyint", "tinyint", "127", 127));
+            columnDataList.add(new HiveCompatibilityColumnData("c_smallint", "smallint", "32767", 32767));
+        }
+        columnDataList.add(new HiveCompatibilityColumnData("c_int", "integer", "2147483647", 2147483647));
+        columnDataList.add(new HiveCompatibilityColumnData("c_bigint", "bigint", "9223372036854775807", 9223372036854775807L));
+        columnDataList.add(new HiveCompatibilityColumnData("c_real", "real", "123.345", 123.345d));
+        columnDataList.add(new HiveCompatibilityColumnData("c_double", "double", "234.567", 234.567d));
+        if (!(isParquetStorageFormat && isParquetOptimizedWriterEnabled)) {
+            // Hive expects `FIXED_LEN_BYTE_ARRAY` for decimal values irrespective of the Parquet specification which allows `INT32`, `INT64` for short precision decimal types
+            columnDataList.add(new HiveCompatibilityColumnData("c_decimal_10_0", "decimal(10,0)", "346", new BigDecimal("346")));
+            columnDataList.add(new HiveCompatibilityColumnData("c_decimal_10_2", "decimal(10,2)", "12345678.91", new BigDecimal("12345678.91")));
+        }
+        columnDataList.add(new HiveCompatibilityColumnData("c_decimal_38_5", "decimal(38,5)", "1234567890123456789012.34567", new BigDecimal("1234567890123456789012.34567")));
+        columnDataList.add(new HiveCompatibilityColumnData("c_char", "char(10)", "'ala ma    '", "ala ma    "));
+        columnDataList.add(new HiveCompatibilityColumnData("c_varchar", "varchar(10)", "'ala ma kot'", "ala ma kot"));
+        columnDataList.add(new HiveCompatibilityColumnData("c_string", "varchar", "'ala ma kota'", "ala ma kota"));
+        columnDataList.add(new HiveCompatibilityColumnData("c_binary", "varbinary", "X'62696e61727920636f6e74656e74'", "binary content".getBytes(StandardCharsets.UTF_8)));
+        if (!(isParquetStorageFormat && isHiveVersionBefore12())) {
+            // The PARQUET storage format does not support DATE type in CDH5 distribution
+            columnDataList.add(new HiveCompatibilityColumnData("c_date", "date", "DATE '2015-05-10'", Date.valueOf(LocalDate.of(2015, 5, 10))));
+        }
+        if (isAvroStorageFormat) {
+            if (!isHiveVersionBefore12()) {
+                // The AVRO storage format does not support TIMESTAMP type in CDH5 distribution
+                columnDataList.add(new HiveCompatibilityColumnData(
+                        "c_timestamp",
+                        "timestamp",
+                        "TIMESTAMP '2015-05-10 12:15:35.123'",
+                        isHiveWithBrokenAvroTimestamps()
+                                // TODO (https://github.com/trinodb/trino/issues/1218) requires https://issues.apache.org/jira/browse/HIVE-21002
+                                ? Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 6, 30, 35, 123_000_000))
+                                : Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000))));
+            }
+        }
+        else if (!(isParquetStorageFormat && isParquetOptimizedWriterEnabled)) {
+            // Hive expects `INT96` (deprecated on Parquet) for timestamp values
+            columnDataList.add(new HiveCompatibilityColumnData(
+                    "c_timestamp",
+                    "timestamp",
+                    "TIMESTAMP '2015-05-10 12:15:35.123'",
+                    Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000))));
+        }
+        columnDataList.add(new HiveCompatibilityColumnData("c_array", "array(integer)", "ARRAY[1, 2, 3]", "[1,2,3]"));
+        columnDataList.add(new HiveCompatibilityColumnData("c_map", "map(varchar, varchar)", "MAP(ARRAY['foo'], ARRAY['bar'])", "{\"foo\":\"bar\"}"));
+        columnDataList.add(new HiveCompatibilityColumnData("c_row", "row(f1 integer, f2 varchar)", "ROW(42, 'Trino')", "{\"f1\":42,\"f2\":\"Trino\"}"));
+
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s (" +
+                        "%s" +
+                        ") " +
+                        "WITH (%s)",
+                tableName,
+                columnDataList.stream()
+                        .map(data -> format("%s %s", data.columnName, data.trinoColumnType))
+                        .collect(joining(", ")),
+                storageFormat.getStoragePropertiesAsSql()));
+
+        onTrino().executeQuery(format(
+                "INSERT INTO %s VALUES (%s)",
+                tableName,
+                columnDataList.stream()
+                        .map(data -> data.trinoInsertValue)
+                        .collect(joining(", "))));
+
+        // array, map and struct fields are interpreted as strings in the hive jdbc driver and need therefore special handling
+        Function<HiveCompatibilityColumnData, Boolean> columnsInterpretedCorrectlyByHiveJdbcDriverPredicate = data ->
+                !ImmutableList.of("c_array", "c_map", "c_row").contains(data.columnName);
+        QueryResult queryResult = onHive().executeQuery(format(
+                "SELECT %s FROM %s",
+                columnDataList.stream()
+                        .filter(columnsInterpretedCorrectlyByHiveJdbcDriverPredicate::apply)
+                        .map(data -> data.columnName)
+                        .collect(joining(", ")),
+                tableName));
+        assertThat(queryResult).containsOnly(new Row(
+                columnDataList.stream()
+                        .filter(columnsInterpretedCorrectlyByHiveJdbcDriverPredicate::apply)
+                        .map(data -> data.hiveJdbcExpectedValue)
+                        .collect(toImmutableList())));
+
+        queryResult = onHive().executeQuery(format("SELECT c_array_value FROM %s LATERAL VIEW EXPLODE(c_array) t AS c_array_value", tableName));
+        assertThat(queryResult).containsOnly(row(1), row(2), row(3));
+
+        queryResult = onHive().executeQuery(format("SELECT key, c_map[\"foo\"] AS value FROM %s t LATERAL VIEW EXPLODE(map_keys(t.c_map)) keys AS key", tableName));
+        assertThat(queryResult).containsOnly(row("foo", "bar"));
+
+        queryResult = onHive().executeQuery(format("SELECT c_row.f1, c_row.f2 FROM %s", tableName));
+        assertThat(queryResult).containsOnly(row(42, "Trino"));
+
+        onTrino().executeQuery(format("DROP TABLE %s", tableName));
+    }
+
     @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS_DETAILED)
     public void testNestedFieldsWrittenByHive(String format)
     {
@@ -754,7 +873,7 @@ public class TestHiveStorageFormats
                                             + " array[map(array[%2$s], array[row(array[%2$s])])]",
                                     entry.getId(),
                                     format("TIMESTAMP '%s'", entry.getWriteValue())))
-                                    .collect(Collectors.joining("), ("))));
+                                    .collect(joining("), ("))));
                 });
 
         assertStructTimestamps(tableName, TIMESTAMPS_FROM_TRINO);
@@ -1064,7 +1183,7 @@ public class TestHiveStorageFormats
                     Stream.of(immutableEntry("format", name)),
                     properties.entrySet().stream())
                     .map(entry -> format("%s = '%s'", entry.getKey(), entry.getValue()))
-                    .collect(Collectors.joining(", "));
+                    .collect(joining(", "));
         }
 
         public Map<String, String> getSessionProperties()
@@ -1154,5 +1273,21 @@ public class TestHiveStorageFormats
     private static io.trino.jdbc.Row.Builder rowBuilder()
     {
         return io.trino.jdbc.Row.builder();
+    }
+
+    private static class HiveCompatibilityColumnData
+    {
+        private final String columnName;
+        private final String trinoColumnType;
+        private final String trinoInsertValue;
+        private final Object hiveJdbcExpectedValue;
+
+        public HiveCompatibilityColumnData(String columnName, String trinoColumnType, String trinoInsertValue, Object hiveJdbcExpectedValue)
+        {
+            this.columnName = columnName;
+            this.trinoColumnType = trinoColumnType;
+            this.trinoInsertValue = trinoInsertValue;
+            this.hiveJdbcExpectedValue = hiveJdbcExpectedValue;
+        }
     }
 }
