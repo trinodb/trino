@@ -22,7 +22,6 @@ public class ConfigCdh5
 {
     /**
      * export HADOOP_BASE_IMAGE="ghcr.io/trinodb/testing/cdh5.15-hive"
-     * export DISTRO_SKIP_GROUP=skip_on_cdh,iceberg
      */
     @Override
     public String getHadoopBaseImage()
@@ -31,8 +30,19 @@ public class ConfigCdh5
     }
 
     @Override
-    public List<String> getExcludedGroups()
+    public List<String> getExcludedTests()
     {
-        return ImmutableList.of("skip_on_cdh");
+        return ImmutableList.copyOf(new String[] {
+                // CDH 5's Avro does not support date type
+                "io.trino.tests.product.hive.TestAllDatatypesFromHiveConnector.testSelectAllDatatypesAvro",
+
+                // CDH 5 metastore automatically gathers raw data size statistics on its own
+                "io.trino.tests.product.hive.TestHiveBasicTableStatistics.testCreateExternalUnpartitioned",
+                "io.trino.tests.product.hive.TestHiveBasicTableStatistics.testAnalyzePartitioned",
+
+                //  CDH 5 image has no lzo support
+                "io.trino.tests.product.hive.TestHiveCompression.testReadTextfileWithLzop",
+                "io.trino.tests.product.hive.TestHiveCompression.testReadSequencefileWithLzo"
+        });
     }
 }

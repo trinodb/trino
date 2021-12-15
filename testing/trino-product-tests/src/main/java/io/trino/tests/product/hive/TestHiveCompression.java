@@ -26,7 +26,6 @@ import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.ORDERS;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_COMPRESSION;
-import static io.trino.tests.product.TestGroups.SKIP_ON_CDH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -42,7 +41,7 @@ public class TestHiveCompression
         return immutableTable(ORDERS);
     }
 
-    @Test(groups = {HIVE_COMPRESSION, SKIP_ON_CDH /* no lzo support in CDH image */})
+    @Test(groups = HIVE_COMPRESSION)
     public void testReadTextfileWithLzop()
     {
         testReadCompressedTextfileTable(
@@ -51,7 +50,7 @@ public class TestHiveCompression
                 ".*\\.lzo"); // LZOP compression uses .lzo file extension by default
     }
 
-    @Test(groups = {HIVE_COMPRESSION, SKIP_ON_CDH /* no lzo support in CDH image */})
+    @Test(groups = HIVE_COMPRESSION)
     public void testReadSequencefileWithLzo()
     {
         testReadCompressedTextfileTable(
