@@ -4,7 +4,7 @@
       "owner": "Maven - Error Prone and Checkstyle",
       "pattern": [
         {
-          "regexp": "^.*\\[(ERROR|WARN(?:ING)?)\\]\\s+(.*):\\[(\\d+),(\\d+)\\] (?:error: )?[\\[\\(](.*)[\\]\\)] (.*)$",
+          "regexp": "^.*\\[(ERROR)\\]\\s+(.*):\\[(\\d+),(\\d+)\\] (?:error: )?[\\[\\(](.*)[\\]\\)] (.*)$",
           "severity": 1,
           "file": 2,
           "line": 3,
