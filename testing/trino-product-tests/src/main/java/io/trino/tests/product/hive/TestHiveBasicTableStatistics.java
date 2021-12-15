@@ -27,7 +27,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.tests.product.TestGroups.SKIP_ON_CDH;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTableLocation;
@@ -59,7 +58,7 @@ public class TestHiveBasicTableStatistics
         }
     }
 
-    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore automatically gathers raw data size statistics on its own */)
+    @Test
     public void testCreateExternalUnpartitioned()
     {
         String tableName = "test_basic_statistics_external_unpartitioned_presto";
@@ -176,7 +175,7 @@ public class TestHiveBasicTableStatistics
         }
     }
 
-    @Test(groups = SKIP_ON_CDH /* CDH 5 metastore automatically gathers raw data size statistics on its own */)
+    @Test
     public void testAnalyzePartitioned()
     {
         String tableName = "test_basic_statistics_analyze_partitioned";
