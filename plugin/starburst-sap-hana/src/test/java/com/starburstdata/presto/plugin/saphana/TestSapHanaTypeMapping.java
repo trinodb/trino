@@ -60,6 +60,7 @@ import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaVa
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.Chars.padSpaces;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -500,6 +501,7 @@ public class TestSapHanaTypeMapping
         checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
 
         DataTypeTest testCases = DataTypeTest.create(true)
+                .addRoundTrip(dateDataType(), LocalDate.of(1, 1, 1)) // min value in SAP HANA
                 .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3)) // before epoch
                 .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
                 .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
@@ -507,7 +509,8 @@ public class TestSapHanaTypeMapping
                 .addRoundTrip(dateDataType(), LocalDate.of(2017, 1, 1)) // winter on northern hemisphere (possible DST on southern hemisphere)
                 .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInJvmZone)
                 .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInSomeZone)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
+                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeBackwardAtMidnightInSomeZone)
+                .addRoundTrip(dateDataType(), LocalDate.of(9999, 12, 31)); // max value in SAP HANA
 
         for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
             Session session = Session.builder(getQueryRunner().getDefaultSession())
@@ -515,6 +518,28 @@ public class TestSapHanaTypeMapping
                     .build();
             testCases.execute(getQueryRunner(), session, sapHanaCreateAndInsert("tpch.test_date"));
             testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+        }
+    }
+
+    @Test
+    public void testDateJulianGregorianSwitch()
+    {
+        // Merge into 'testDate()' when converting the method to SqlDataTypeTest. Currently, we can't test these values with DataTypeTest.
+        SqlDataTypeTest.create()
+                // SAP HANA adds 10 days
+                .addRoundTrip("DATE", "'1582-10-05'", DATE, "DATE '1582-10-15'")
+                .addRoundTrip("DATE", "'1582-10-14'", DATE, "DATE '1582-10-24'")
+                .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_julian_gregorian"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_julian_gregorian"));
+    }
+
+    @Test
+    public void testUnsupportedDate()
+    {
+        // The range of the date value is between 0001-01-01 and 9999-12-31 in SAP HANA
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_date", "(dt DATE)")) {
+            assertQueryFails(format("INSERT INTO %s VALUES (DATE '0000-12-31')", table.getName()), "SAP DBTech JDBC: Date/time value out of range.*");
+            assertQueryFails(format("INSERT INTO %s VALUES (DATE '10000-01-01')", table.getName()), "\\QSAP DBTech JDBC: Cannot convert data +10000-01-01 to type java.sql.Date.");
         }
     }
 
