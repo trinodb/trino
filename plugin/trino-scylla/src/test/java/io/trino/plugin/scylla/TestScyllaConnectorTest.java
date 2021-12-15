@@ -11,26 +11,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.cassandra;
+package io.trino.plugin.scylla;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
+import io.trino.plugin.cassandra.BaseCassandraConnectorTest;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 
 import java.sql.Timestamp;
 
-import static io.trino.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createTestTables;
+import static io.trino.plugin.scylla.ScyllaQueryRunner.createScyllaQueryRunner;
+import static io.trino.plugin.scylla.ScyllaQueryRunner.createSession;
+import static io.trino.plugin.scylla.TestingScyllaServer.V3_TAG;
 
-public class TestCassandraConnectorTest
+public class TestScyllaConnectorTest
         extends BaseCassandraConnectorTest
 {
+    protected static final Session SESSION = createSession(KEYSPACE);
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = closeAfterClass(new TestingCassandraServer());
+        server = closeAfterClass(new TestingScyllaServer(V3_TAG));
         session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
-        return createCassandraQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createScyllaQueryRunner(
+                server,
+                ImmutableMap.of(),
+                ImmutableMap.of("cassandra.batch-size", "50"), // The default 100 causes 'Batch too large' error
+                REQUIRED_TPCH_TABLES);
+    }
+
+    @Override
+    protected MaterializedResult execute(String sql)
+    {
+        return getQueryRunner().execute(SESSION, sql);
     }
 }

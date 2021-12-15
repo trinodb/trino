@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.cassandra;
+package io.trino.plugin.scylla;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
+import io.trino.plugin.cassandra.CassandraServer;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
@@ -35,7 +36,7 @@ public final class ScyllaQueryRunner
     private ScyllaQueryRunner() {}
 
     public static DistributedQueryRunner createScyllaQueryRunner(
-            TestingScyllaServer server,
+            CassandraServer server,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
@@ -56,8 +57,8 @@ public final class ScyllaQueryRunner
             connectorProperties.putIfAbsent("cassandra.load-policy.use-dc-aware", "true");
             connectorProperties.putIfAbsent("cassandra.load-policy.dc-aware.local-dc", "datacenter1");
 
-            queryRunner.installPlugin(new CassandraPlugin());
-            queryRunner.createCatalog("cassandra", "cassandra", connectorProperties);
+            queryRunner.installPlugin(new ScyllaPlugin());
+            queryRunner.createCatalog("scylla", "scylla", connectorProperties);
 
             createKeyspace(server.getSession(), "tpch");
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession("tpch"), tables);
@@ -75,7 +76,7 @@ public final class ScyllaQueryRunner
     public static Session createSession(String schema)
     {
         return testSessionBuilder()
-                .setCatalog("cassandra")
+                .setCatalog("scylla")
                 .setSchema(schema)
                 .build();
     }

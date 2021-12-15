@@ -288,4 +288,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/scylla">
+        <artifact id="${project.groupId}:trino-scylla:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>

@@ -313,6 +313,7 @@ jobs:
             !:trino-raptor-legacy,
             !:trino-accumulo,
             !:trino-cassandra,
+            !:trino-scylla,
             !:trino-clickhouse,
             !:trino-delta-lake,
             !:trino-hive,
@@ -386,6 +387,7 @@ jobs:
             - { modules: plugin/trino-raptor-legacy }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-cassandra }
+            - { modules: plugin/trino-scylla }
             - { modules: plugin/trino-clickhouse }
             - { modules: plugin/trino-delta-lake }
             - { modules: plugin/trino-delta-lake, profile: test-failure-recovery }

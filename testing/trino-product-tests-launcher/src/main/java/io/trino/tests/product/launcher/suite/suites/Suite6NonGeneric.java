@@ -21,6 +21,7 @@ import io.trino.tests.product.launcher.env.environment.EnvMultinodeKafkaSaslPlai
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeKafkaSsl;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodePhoenix4;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodePhoenix5;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeScylla;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeCassandra;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosKmsHdfsImpersonation;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosKmsHdfsNoImpersonation;
@@ -49,6 +50,9 @@ public class Suite6NonGeneric
                         .build(),
                 testOnEnvironment(EnvSinglenodeCassandra.class)
                         .withGroups("configured_features", "cassandra")
+                        .build(),
+                testOnEnvironment(EnvMultinodeScylla.class)
+                        .withGroups("configured_features", "scylla")
                         .build(),
                 testOnEnvironment(EnvMultinodeKafka.class)
                         .withGroups("configured_features", "kafka")

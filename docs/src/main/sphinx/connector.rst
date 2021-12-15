@@ -36,6 +36,7 @@ from different data sources.
     Prometheus      <connector/prometheus>
     Redis           <connector/redis>
     Redshift        <connector/redshift>
+    Scylla          <connector/scylla>
     SingleStore (MemSQL)          <connector/memsql>
     SQL Server      <connector/sqlserver>
     System          <connector/system>

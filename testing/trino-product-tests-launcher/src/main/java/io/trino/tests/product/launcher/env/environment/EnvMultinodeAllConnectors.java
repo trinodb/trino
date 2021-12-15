@@ -76,6 +76,7 @@ public final class EnvMultinodeAllConnectors
                         "raptor-legacy",
                         "redis",
                         "redshift",
+                        "scylla",
                         "sqlserver",
                         "trino-thrift",
                         "tpcds")

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.cassandra;
+package io.trino.plugin.scylla;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
@@ -21,9 +21,12 @@ import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBui
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.plugin.cassandra.CassandraServer;
+import io.trino.plugin.cassandra.CassandraSession;
+import io.trino.plugin.cassandra.ExtraColumnMetadata;
+import io.trino.plugin.cassandra.SizeEstimate;
 import org.testcontainers.containers.GenericContainer;
 
-import java.io.Closeable;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
@@ -39,25 +42,25 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestingScyllaServer
-        implements Closeable
+        implements CassandraServer
 {
     private static final Logger log = Logger.get(TestingScyllaServer.class);
 
-    private static final int PORT = 9042;
+    public static final String V4_TAG = "4.5.3";
+    public static final String V3_TAG = "3.0.0";
 
+    private static final int PORT = 9042;
     private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
 
     private final GenericContainer<?> container;
     private final CassandraSession session;
 
     public TestingScyllaServer()
-            throws Exception
     {
-        this("2.2.0");
+        this(V3_TAG);
     }
 
     public TestingScyllaServer(String version)
-            throws Exception
     {
         container = new GenericContainer<>("scylladb/scylla:" + version)
                 .withCommand("--smp", "1") // Limit SMP to run in a machine having many cores https://github.com/scylladb/scylla/issues/5638
@@ -83,21 +86,25 @@ public class TestingScyllaServer
                 new Duration(1, MINUTES));
     }
 
+    @Override
     public CassandraSession getSession()
     {
         return requireNonNull(session, "session is null");
     }
 
+    @Override
     public String getHost()
     {
         return container.getContainerIpAddress();
     }
 
+    @Override
     public int getPort()
     {
         return container.getMappedPort(PORT);
     }
 
+    @Override
     public void refreshSizeEstimates(String keyspace, String table)
             throws Exception
     {
