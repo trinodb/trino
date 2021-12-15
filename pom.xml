@@ -1836,6 +1836,27 @@
 
     <profiles>
         <profile>
+            <id>jdk17</id>
+            <activation>
+                <jdk>[17,)</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <!-- This is required for Phoenix tests to work -->
+                            <argLine combine.children="append">
+                                --add-opens java.base/sun.nio.ch=ALL-UNNAMED
+                                --add-opens java.base/java.nio=ALL-UNNAMED
+                            </argLine>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
             <id>errorprone-compiler</id>
             <build>
                 <plugins>

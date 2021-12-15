@@ -332,6 +332,9 @@
                         <!-- io.airlift:joni and phoenix-client's org.jruby.joni:joni resource duplicates-->
                         <ignoredResourcePattern>tables/.*\.bin</ignoredResourcePattern>
                     </ignoredResourcePatterns>
+                    <ignoredClassPatterns>
+                        <ignoredClassPattern>org.apache.phoenix.shaded.org.apache.zookeeper.client.StaticHostProvider</ignoredClassPattern>
+                    </ignoredClassPatterns>
                     <ignoredDependencies>
                         <dependency>
                             <groupId>com.clearspring.analytics</groupId>

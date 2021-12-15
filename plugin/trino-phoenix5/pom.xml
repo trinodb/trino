@@ -352,6 +352,9 @@
                         <ignoredResourcePattern>tables/.*\.bin</ignoredResourcePattern>
                         <ignoredResourcePattern>jetty-dir.css</ignoredResourcePattern>
                     </ignoredResourcePatterns>
+                    <ignoredClassPatterns>
+                        <ignoredClassPattern>org.apache.phoenix.shaded.org.apache.zookeeper.client.StaticHostProvider</ignoredClassPattern>
+                    </ignoredClassPatterns>
                     <ignoredDependencies>
                         <dependency>
                             <groupId>com.clearspring.analytics</groupId>
