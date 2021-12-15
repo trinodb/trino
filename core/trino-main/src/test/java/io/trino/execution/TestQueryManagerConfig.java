@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.operator.RetryPolicy;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -57,7 +58,11 @@ public class TestQueryManagerConfig
                 .setQueryMaxCpuTime(new Duration(1_000_000_000, DAYS))
                 .setQueryMaxScanPhysicalBytes(null)
                 .setRequiredWorkers(1)
-                .setRequiredWorkersMaxWait(new Duration(5, MINUTES)));
+                .setRequiredWorkersMaxWait(new Duration(5, MINUTES))
+                .setRetryPolicy(RetryPolicy.NONE)
+                .setRetryAttempts(4)
+                .setRetryInitialDelay(new Duration(10, SECONDS))
+                .setRetryMaxDelay(new Duration(1, MINUTES)));
     }
 
     @Test
@@ -87,6 +92,10 @@ public class TestQueryManagerConfig
                 .put("query.max-scan-physical-bytes", "1kB")
                 .put("query-manager.required-workers", "333")
                 .put("query-manager.required-workers-max-wait", "33m")
+                .put("retry-policy", "QUERY")
+                .put("retry-attempts", "0")
+                .put("retry-initial-delay", "1m")
+                .put("retry-max-delay", "1h")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -112,7 +121,11 @@ public class TestQueryManagerConfig
                 .setQueryMaxCpuTime(new Duration(2, DAYS))
                 .setQueryMaxScanPhysicalBytes(DataSize.of(1, KILOBYTE))
                 .setRequiredWorkers(333)
-                .setRequiredWorkersMaxWait(new Duration(33, MINUTES));
+                .setRequiredWorkersMaxWait(new Duration(33, MINUTES))
+                .setRetryPolicy(RetryPolicy.QUERY)
+                .setRetryAttempts(0)
+                .setRetryInitialDelay(new Duration(1, MINUTES))
+                .setRetryMaxDelay(new Duration(1, HOURS));
 
         assertFullMapping(properties, expected);
     }
