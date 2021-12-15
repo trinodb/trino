@@ -3856,6 +3856,17 @@ public class TestHiveConnectorTest
     }
 
     @Test
+    public void testCreateExternalTableWithFieldSeparatorUnescaped()
+            throws Exception
+    {
+        testCreateExternalTable(
+                "test_create_external_with_field_separator_unescaped",
+                "heXlloXworld\nbyeXworld", // the first line contains an unescaped separator character which leads to inconsistent reading of its content
+                "VALUES ('he', 'llo'), ('bye', 'world')",
+                ImmutableList.of("textfile_field_separator = 'X'"));
+    }
+
+    @Test
     public void testCreateExternalTableWithFieldSeparatorEscape()
             throws Exception
     {
