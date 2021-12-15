@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.block.BlockAssertions;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -57,7 +58,7 @@ public class TestGroupByHash
 {
     private static final int MAX_GROUP_ID = 500;
     private static final int[] CONTAINS_CHANNELS = new int[] {0};
-    private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
+    private static final Session TEST_SESSION = TestingSession.testSessionBuilder().setSystemProperty(SystemSessionProperties.USE_ENHANCED_GROUP_BY, "true").build();
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
     private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(TYPE_OPERATORS);
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);

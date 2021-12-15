@@ -44,6 +44,7 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.profile.AsyncProfiler;
+import org.openjdk.jmh.profile.DTraceAsmProfiler;
 import org.openjdk.jmh.runner.RunnerException;
 
 import java.io.File;
@@ -155,6 +156,14 @@ public class BenchmarkGroupByHash
     public void bigintGroupByHashBatch(SingleChannelBenchmarkData data, Blackhole blackhole)
     {
         GroupByHash groupByHash = new BigintGroupByHashBatchNoRehash(0, data.getHashEnabled(), data.expectedSize, NOOP);
+        benchmarkGroupByHash(data, groupByHash, blackhole);
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(POSITIONS)
+    public void bigintGroupByHashBatchGID(SingleChannelBenchmarkData data, Blackhole blackhole)
+    {
+        GroupByHash groupByHash = new BigintGroupByHashBatchEncodedGID(0, data.getHashEnabled(), data.expectedSize, NOOP);
         benchmarkGroupByHash(data, groupByHash, blackhole);
     }
 
@@ -350,6 +359,9 @@ public class BenchmarkGroupByHash
         @Param({"1024", "100000", "3000000", "6000000"})
         public int expectedSize = 1024;
 
+        @Param({"10000000", "3000000", "1000000", "100000", "10000", "1000", "100", "10", "4"})
+        private int groupCount = GROUP_COUNT;
+
         @Param("1")
         private int channelCount = 1;
 
@@ -368,7 +380,7 @@ public class BenchmarkGroupByHash
 
         public void setup(boolean useMixedBlockTypes)
         {
-            pages = createBigintPages(POSITIONS, GROUP_COUNT, channelCount, hashEnabled, useMixedBlockTypes);
+            pages = createBigintPages(POSITIONS, groupCount, channelCount, hashEnabled, useMixedBlockTypes);
             types = Collections.nCopies(1, BIGINT);
             channels = new int[1];
             for (int i = 0; i < 1; i++) {
@@ -493,15 +505,16 @@ public class BenchmarkGroupByHash
         benchmark(BenchmarkGroupByHash.class)
                 .includeMethod("bigintGroupByHash")
                 .includeMethod("bigintGroupByHashGID")
-//                .includeMethod("bigintGroupByHashBatch")
+                .includeMethod("bigintGroupByHashBatchGID")
                 .withOptions(optionsBuilder -> optionsBuilder
 //                        .addProfiler(GCProfiler.class)
-                        .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=text;output=flamegraph", asyncProfilerDir()))
-//                        .addProfiler(DTraceAsmProfiler.class, "event=branch-misses")
+//                        .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=text;output=flamegraph", asyncProfilerDir()))
+                        .addProfiler(DTraceAsmProfiler.class, "event=branch-misses")
 //                        .addProfiler(DTraceAsmProfiler.class)
                         .jvmArgs("-Xmx32g")
                         .param("hashEnabled", "false")
-                        .param("expectedSize", "3000000")
+                        .param("expectedSize", "6000000")
+                        .param("groupCount", "3000000")
                         .forks(1)
                         .warmupIterations(20))
                 .run();
