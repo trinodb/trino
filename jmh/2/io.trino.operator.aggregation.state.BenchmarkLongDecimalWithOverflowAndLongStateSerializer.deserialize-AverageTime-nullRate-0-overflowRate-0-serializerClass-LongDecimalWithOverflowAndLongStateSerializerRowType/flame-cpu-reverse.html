@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8'>
+<style>
+	body {margin: 0; padding: 10px; background-color: #ffffff}
+	h1 {margin: 5px 0 0 0; font-size: 18px; font-weight: normal; text-align: center}
+	header {margin: -24px 0 5px 0; line-height: 24px}
+	button {font: 12px sans-serif; cursor: pointer}
+	p {margin: 5px 0 5px 0}
+	a {color: #0366d6}
+	#hl {position: absolute; display: none; overflow: hidden; white-space: nowrap; pointer-events: none; background-color: #ffffe0; outline: 1px solid #ffc000; height: 15px}
+	#hl span {padding: 0 3px 0 3px}
+	#status {overflow: hidden; white-space: nowrap}
+	#match {overflow: hidden; white-space: nowrap; display: none; float: right; text-align: right}
+	#reset {cursor: pointer}
+</style>
+</head>
+<body style='font: 12px Verdana, sans-serif'>
+<h1>Flame Graph</h1>
+<header style='text-align: left'><button id='reverse' title='Reverse'>&#x1f53b;</button>&nbsp;&nbsp;<button id='search' title='Search'>&#x1f50d;</button></header>
+<header style='text-align: right'>Produced by <a href='https://github.com/jvm-profiling-tools/async-profiler'>async-profiler</a></header>
+<canvas id='canvas' style='width: 100%; height: 368px'></canvas>
+<div id='hl'><span></span></div>
+<p id='match'>Matched: <span id='matchval'></span> <span id='reset' title='Clear'>&#x274c;</span></p>
+<p id='status'>&nbsp;</p>
+<script>
+	// Copyright 2020 Andrei Pangin
+	// Licensed under the Apache License, Version 2.0.
+	'use strict';
+	var root, rootLevel, px, pattern;
+	var reverse = true;
+	const levels = Array(23);
+	for (let h = 0; h < levels.length; h++) {
+		levels[h] = [];
+	}
+
+	const canvas = document.getElementById('canvas');
+	const c = canvas.getContext('2d');
+	const hl = document.getElementById('hl');
+	const status = document.getElementById('status');
+
+	const canvasWidth = canvas.offsetWidth;
+	const canvasHeight = canvas.offsetHeight;
+	canvas.style.width = canvasWidth + 'px';
+	canvas.width = canvasWidth * (devicePixelRatio || 1);
+	canvas.height = canvasHeight * (devicePixelRatio || 1);
+	if (devicePixelRatio) c.scale(devicePixelRatio, devicePixelRatio);
+	c.font = document.body.style.font;
+
+	const palette = [
+		[0x50e150, 30, 30, 30],
+		[0x50bebe, 30, 30, 30],
+		[0xe17d00, 30, 30,  0],
+		[0xc8c83c, 30, 30, 10],
+		[0xe15a5a, 30, 40, 40],
+	];
+
+	function getColor(p) {
+		const v = Math.random();
+		return '#' + (p[0] + ((p[1] * v) << 16 | (p[2] * v) << 8 | (p[3] * v))).toString(16);
+	}
+
+	function f(level, left, width, type, title) {
+		levels[level].push({left: left, width: width, color: getColor(palette[type]), title: title});
+	}
+
+	function samples(n) {
+		return n === 1 ? '1 sample' : n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' samples';
+	}
+
+	function pct(a, b) {
+		return a >= b ? '100' : (100 * a / b).toFixed(2);
+	}
+
+	function findFrame(frames, x) {
+		let left = 0;
+		let right = frames.length - 1;
+
+		while (left <= right) {
+			const mid = (left + right) >>> 1;
+			const f = frames[mid];
+
+			if (f.left > x) {
+				right = mid - 1;
+			} else if (f.left + f.width <= x) {
+				left = mid + 1;
+			} else {
+				return f;
+			}
+		}
+
+		if (frames[left] && (frames[left].left - x) * px < 0.5) return frames[left];
+		if (frames[right] && (x - (frames[right].left + frames[right].width)) * px < 0.5) return frames[right];
+
+		return null;
+	}
+
+	function search(r) {
+		if (r && (r = prompt('Enter regexp to search:', '')) === null) {
+			return;
+		}
+
+		pattern = r ? RegExp(r) : undefined;
+		const matched = render(root, rootLevel);
+		document.getElementById('matchval').textContent = pct(matched, root.width) + '%';
+		document.getElementById('match').style.display = r ? 'inherit' : 'none';
+	}
+
+	function render(newRoot, newLevel) {
+		if (root) {
+			c.fillStyle = '#ffffff';
+			c.fillRect(0, 0, canvasWidth, canvasHeight);
+		}
+
+		root = newRoot || levels[0][0];
+		rootLevel = newLevel || 0;
+		px = canvasWidth / root.width;
+
+		const x0 = root.left;
+		const x1 = x0 + root.width;
+		const marked = [];
+
+		function mark(f) {
+			return marked[f.left] >= f.width || (marked[f.left] = f.width);
+		}
+
+		function totalMarked() {
+			let total = 0;
+			let left = 0;
+			for (let x in marked) {
+				if (+x >= left) {
+					total += marked[x];
+					left = +x + marked[x];
+				}
+			}
+			return total;
+		}
+
+		function drawFrame(f, y, alpha) {
+			if (f.left < x1 && f.left + f.width > x0) {
+				c.fillStyle = pattern && f.title.match(pattern) && mark(f) ? '#ee00ee' : f.color;
+				c.fillRect((f.left - x0) * px, y, f.width * px, 15);
+
+				if (f.width * px >= 21) {
+					const chars = Math.floor(f.width * px / 7);
+					const title = f.title.length <= chars ? f.title : f.title.substring(0, chars - 2) + '..';
+					c.fillStyle = '#000000';
+					c.fillText(title, Math.max(f.left - x0, 0) * px + 3, y + 12, f.width * px - 6);
+				}
+
+				if (alpha) {
+					c.fillStyle = 'rgba(255, 255, 255, 0.5)';
+					c.fillRect((f.left - x0) * px, y, f.width * px, 15);
+				}
+			}
+		}
+
+		for (let h = 0; h < levels.length; h++) {
+			const y = reverse ? h * 16 : canvasHeight - (h + 1) * 16;
+			const frames = levels[h];
+			for (let i = 0; i < frames.length; i++) {
+				drawFrame(frames[i], y, h < rootLevel);
+			}
+		}
+
+		return totalMarked();
+	}
+
+	canvas.onmousemove = function() {
+		const h = Math.floor((reverse ? event.offsetY : (canvasHeight - event.offsetY)) / 16);
+		if (h >= 0 && h < levels.length) {
+			const f = findFrame(levels[h], event.offsetX / px + root.left);
+			if (f) {
+				hl.style.left = (Math.max(f.left - root.left, 0) * px + canvas.offsetLeft) + 'px';
+				hl.style.width = (Math.min(f.width, root.width) * px) + 'px';
+				hl.style.top = ((reverse ? h * 16 : canvasHeight - (h + 1) * 16) + canvas.offsetTop) + 'px';
+				hl.firstChild.textContent = f.title;
+				hl.style.display = 'block';
+				canvas.title = f.title + '\n(' + samples(f.width) + ', ' + pct(f.width, levels[0][0].width) + '%)';
+				canvas.style.cursor = 'pointer';
+				canvas.onclick = function() {
+					if (f != root) {
+						render(f, h);
+						canvas.onmousemove();
+					}
+				};
+				status.textContent = 'Function: ' + canvas.title;
+				return;
+			}
+		}
+		canvas.onmouseout();
+	}
+
+	canvas.onmouseout = function() {
+		hl.style.display = 'none';
+		status.textContent = '\xa0';
+		canvas.title = '';
+		canvas.style.cursor = '';
+		canvas.onclick = '';
+	}
+
+	document.getElementById('reverse').onclick = function() {
+		reverse = !reverse;
+		render();
+	}
+
+	document.getElementById('search').onclick = function() {
+		search(true);
+	}
+
+	document.getElementById('reset').onclick = function() {
+		search(false);
+	}
+
+	window.onkeydown = function() {
+		if (event.ctrlKey && event.keyCode === 70) {
+			event.preventDefault();
+			search(true);
+		} else if (event.keyCode === 27) {
+			search(false);
+		}
+	}
+f(0,0,3440,4,'all')
+f(1,0,1,3,'IntervalWalker::walk_to(IntervalState, int)')
+f(2,0,1,3,'IntervalWalker::walk_to(int)')
+f(3,0,1,3,'LinearScan::allocate_registers()')
+f(4,0,1,3,'LinearScan::do_linear_scan()')
+f(5,0,1,3,'Compilation::emit_lir()')
+f(6,0,1,3,'Compilation::compile_java_method()')
+f(7,0,1,3,'Compilation::compile_method()')
+f(8,0,1,3,'Compilation::Compilation(AbstractCompiler*, ciEnv*, ciMethod*, int, BufferBlob*, DirectiveSet*)')
+f(9,0,1,3,'Compiler::compile_method(ciEnv*, ciMethod*, int, DirectiveSet*)')
+f(10,0,1,3,'CompileBroker::invoke_compiler_on_method(CompileTask*)')
+f(11,0,1,3,'CompileBroker::compiler_thread_loop()')
+f(12,0,1,3,'JavaThread::thread_main_inner()')
+f(13,0,1,3,'JavaThread::run()')
+f(14,0,1,3,'Thread::call_run()')
+f(15,0,1,4,'thread_native_entry(Thread*)')
+f(16,0,1,4,'__os_ch_md_redzone_cookie')
+f(17,0,1,4,'internal_catch_exc_subsystem')
+f(1,1,1,3,'PerfLongVariant::sample()')
+f(2,1,1,3,'PeriodicTask::real_time_tick(int)')
+f(3,1,1,3,'WatcherThread::run()')
+f(4,1,1,3,'Thread::call_run()')
+f(5,1,1,4,'thread_native_entry(Thread*)')
+f(6,1,1,4,'__os_ch_md_redzone_cookie')
+f(7,1,1,4,'internal_catch_exc_subsystem')
+f(1,2,7,4,'__gettimeofday')
+f(2,2,7,3,'os::PlatformEvent::park(long)')
+f(3,2,7,3,'Monitor::IWait(Thread*, long)')
+f(4,2,7,3,'Monitor::wait(bool, long, bool)')
+f(5,2,1,3,'VMThread::loop()')
+f(6,2,1,3,'VMThread::run()')
+f(7,2,1,3,'Thread::call_run()')
+f(8,2,1,4,'thread_native_entry(Thread*)')
+f(9,2,1,4,'__os_ch_md_redzone_cookie')
+f(10,2,1,4,'internal_catch_exc_subsystem')
+f(5,3,6,3,'WatcherThread::sleep() const')
+f(6,3,6,3,'WatcherThread::run()')
+f(7,3,6,3,'Thread::call_run()')
+f(8,3,6,4,'thread_native_entry(Thread*)')
+f(9,3,6,4,'__os_ch_md_redzone_cookie')
+f(10,3,6,4,'internal_catch_exc_subsystem')
+f(1,9,19,4,'__psynch_cvwait')
+f(2,9,1,3,'Parker::park(bool, long)')
+f(3,9,1,4,'Unsafe_Park(JNIEnv_*, _jobject*, unsigned char, long)')
+f(4,9,1,0,'jdk/internal/misc/Unsafe.park')
+f(5,9,1,0,'java/util/concurrent/locks/LockSupport.parkNanos')
+f(6,9,1,0,'java/util/concurrent/locks/AbstractQueuedSynchronizer$ConditionObject.awaitNanos')
+f(7,9,1,0,'java/util/concurrent/LinkedBlockingQueue.poll')
+f(8,9,1,0,'java/util/concurrent/ExecutorCompletionService.poll')
+f(9,9,1,0,'org/openjdk/jmh/runner/BenchmarkHandler.runIteration')
+f(10,9,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmark')
+f(11,9,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmark')
+f(12,9,1,0,'org/openjdk/jmh/runner/BaseRunner.doSingle')
+f(13,9,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmarksForked')
+f(14,9,1,0,'org/openjdk/jmh/runner/ForkedRunner.run')
+f(15,9,1,0,'org/openjdk/jmh/runner/ForkedMain.main')
+f(2,10,18,3,'os::PlatformEvent::park(long)')
+f(3,10,18,3,'Monitor::IWait(Thread*, long)')
+f(4,10,18,3,'Monitor::wait(bool, long, bool)')
+f(5,10,3,3,'G1YoungRemSetSamplingThread::sleep_before_next_cycle()')
+f(6,10,3,3,'G1YoungRemSetSamplingThread::run_service()')
+f(7,10,3,3,'ConcurrentGCThread::run()')
+f(8,10,3,3,'Thread::call_run()')
+f(9,10,3,4,'thread_native_entry(Thread*)')
+f(10,10,3,4,'__os_ch_md_redzone_cookie')
+f(11,10,3,4,'internal_catch_exc_subsystem')
+f(5,13,3,3,'VMThread::loop()')
+f(6,13,3,3,'VMThread::run()')
+f(7,13,3,3,'Thread::call_run()')
+f(8,13,3,4,'thread_native_entry(Thread*)')
+f(9,13,3,4,'__os_ch_md_redzone_cookie')
+f(10,13,3,4,'internal_catch_exc_subsystem')
+f(5,16,12,3,'WatcherThread::sleep() const')
+f(6,16,12,3,'WatcherThread::run()')
+f(7,16,12,3,'Thread::call_run()')
+f(8,16,12,4,'thread_native_entry(Thread*)')
+f(9,16,12,4,'__os_ch_md_redzone_cookie')
+f(10,16,12,4,'internal_catch_exc_subsystem')
+f(1,28,1,4,'__psynch_mutexwait')
+f(2,28,1,4,'err_codes_iokit_usb')
+f(3,28,1,3,'Parker::unpark()')
+f(4,28,1,4,'Unsafe_Unpark(JNIEnv_*, _jobject*, _jobject*)')
+f(5,28,1,0,'jdk/internal/misc/Unsafe.unpark')
+f(6,28,1,0,'java/util/concurrent/locks/LockSupport.unpark')
+f(7,28,1,0,'java/util/concurrent/locks/AbstractQueuedSynchronizer.unparkSuccessor')
+f(8,28,1,0,'java/util/concurrent/locks/AbstractQueuedSynchronizer.release')
+f(9,28,1,0,'java/util/concurrent/locks/ReentrantLock.unlock')
+f(10,28,1,0,'java/util/concurrent/LinkedBlockingQueue.signalNotEmpty')
+f(11,28,1,0,'java/util/concurrent/LinkedBlockingQueue.offer')
+f(12,28,1,0,'java/util/AbstractQueue.add')
+f(13,28,1,0,'java/util/concurrent/ExecutorCompletionService$QueueingFuture.done')
+f(14,28,1,0,'java/util/concurrent/FutureTask.finishCompletion')
+f(15,28,1,0,'java/util/concurrent/FutureTask.set')
+f(16,28,1,0,'java/util/concurrent/FutureTask.run')
+f(17,28,1,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(18,28,1,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(19,28,1,0,'java/lang/Thread.run')
+f(1,29,1,4,'cerror_nocancel')
+f(2,29,1,3,'os::PlatformEvent::park(long)')
+f(3,29,1,3,'Monitor::IWait(Thread*, long)')
+f(4,29,1,3,'Monitor::wait(bool, long, bool)')
+f(5,29,1,3,'WatcherThread::sleep() const')
+f(6,29,1,3,'WatcherThread::run()')
+f(7,29,1,3,'Thread::call_run()')
+f(8,29,1,4,'thread_native_entry(Thread*)')
+f(9,29,1,4,'__os_ch_md_redzone_cookie')
+f(10,29,1,4,'internal_catch_exc_subsystem')
+f(1,30,1,3,'ciMethodData::load_data()')
+f(2,30,1,3,'ciMethod::ensure_method_data(methodHandle const&)')
+f(3,30,1,3,'ciMethod::ensure_method_data()')
+f(4,30,1,3,'Compilation::compile_java_method()')
+f(5,30,1,3,'Compilation::compile_method()')
+f(6,30,1,3,'Compilation::Compilation(AbstractCompiler*, ciEnv*, ciMethod*, int, BufferBlob*, DirectiveSet*)')
+f(7,30,1,3,'Compiler::compile_method(ciEnv*, ciMethod*, int, DirectiveSet*)')
+f(8,30,1,3,'CompileBroker::invoke_compiler_on_method(CompileTask*)')
+f(9,30,1,3,'CompileBroker::compiler_thread_loop()')
+f(10,30,1,3,'JavaThread::thread_main_inner()')
+f(11,30,1,3,'JavaThread::run()')
+f(12,30,1,3,'Thread::call_run()')
+f(13,30,1,4,'thread_native_entry(Thread*)')
+f(14,30,1,4,'__os_ch_md_redzone_cookie')
+f(15,30,1,4,'internal_catch_exc_subsystem')
+f(1,31,64,0,'io/trino/array/BigArrays.offset')
+f(2,31,64,0,'io/trino/array/BooleanBigArray.set')
+f(3,31,64,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.setNotNull')
+f(4,31,64,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,31,64,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(6,31,64,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,31,64,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(8,31,64,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(9,31,64,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(10,31,64,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(11,31,64,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(12,31,64,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(13,31,64,0,'java/lang/reflect/Method.invoke')
+f(14,31,64,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,31,64,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(16,31,64,0,'java/util/concurrent/FutureTask.run')
+f(17,31,64,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(18,31,64,0,'java/util/concurrent/FutureTask.run')
+f(19,31,64,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(20,31,64,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(21,31,64,0,'java/lang/Thread.run')
+f(1,95,259,0,'io/trino/array/BigArrays.segment')
+f(2,95,190,0,'io/trino/array/BooleanBigArray.set')
+f(3,95,190,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.setNotNull')
+f(4,95,190,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,95,190,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(6,95,190,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,95,190,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(8,95,190,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(9,95,190,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(10,95,190,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(11,95,190,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(12,95,190,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(13,95,190,0,'java/lang/reflect/Method.invoke')
+f(14,95,190,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,95,190,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(16,95,190,0,'java/util/concurrent/FutureTask.run')
+f(17,95,190,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(18,95,190,0,'java/util/concurrent/FutureTask.run')
+f(19,95,190,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(20,95,190,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(21,95,190,0,'java/lang/Thread.run')
+f(2,285,69,0,'io/trino/array/LongBigArray.getSegment')
+f(3,285,69,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.getDecimalArray')
+f(4,285,69,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,285,69,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(6,285,69,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,285,69,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(8,285,69,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(9,285,69,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(10,285,69,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(11,285,69,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(12,285,69,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(13,285,69,0,'java/lang/reflect/Method.invoke')
+f(14,285,69,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,285,69,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(16,285,69,0,'java/util/concurrent/FutureTask.run')
+f(17,285,69,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(18,285,69,0,'java/util/concurrent/FutureTask.run')
+f(19,285,69,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(20,285,69,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(21,285,69,0,'java/lang/Thread.run')
+f(1,354,480,0,'io/trino/array/BooleanBigArray.set')
+f(2,354,480,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.setNotNull')
+f(3,354,480,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,354,480,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,354,453,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,354,453,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,354,453,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(8,354,453,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(9,354,453,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(10,354,453,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(11,354,453,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(12,354,453,0,'java/lang/reflect/Method.invoke')
+f(13,354,453,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,354,453,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,354,453,0,'java/util/concurrent/FutureTask.run')
+f(16,354,453,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(17,354,453,0,'java/util/concurrent/FutureTask.run')
+f(18,354,453,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(19,354,453,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(20,354,453,0,'java/lang/Thread.run')
+f(5,807,27,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(6,807,27,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(7,807,27,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(8,807,27,0,'java/lang/reflect/Method.invoke')
+f(9,807,27,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(10,807,27,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(11,807,27,0,'java/util/concurrent/FutureTask.run')
+f(12,807,27,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(13,807,27,0,'java/util/concurrent/FutureTask.run')
+f(14,807,27,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(15,807,27,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(16,807,27,0,'java/lang/Thread.run')
+f(1,834,62,0,'io/trino/array/LongBigArray.getSegment')
+f(2,834,62,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.getDecimalArray')
+f(3,834,62,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,834,62,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,834,62,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,834,62,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,834,62,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(8,834,62,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(9,834,62,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(10,834,62,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(11,834,62,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(12,834,62,0,'java/lang/reflect/Method.invoke')
+f(13,834,62,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,834,62,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,834,62,0,'java/util/concurrent/FutureTask.run')
+f(16,834,62,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(17,834,62,0,'java/util/concurrent/FutureTask.run')
+f(18,834,62,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(19,834,62,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(20,834,62,0,'java/lang/Thread.run')
+f(1,896,90,0,'io/trino/array/LongBigArray.set')
+f(2,896,90,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateFactory$GroupedLongDecimalWithOverflowAndLongState.setLong')
+f(3,896,90,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,896,90,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,896,90,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,896,90,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,896,90,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(8,896,90,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(9,896,90,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(10,896,90,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(11,896,90,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(12,896,90,0,'java/lang/reflect/Method.invoke')
+f(13,896,90,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,896,90,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,896,90,0,'java/util/concurrent/FutureTask.run')
+f(16,896,90,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(17,896,90,0,'java/util/concurrent/FutureTask.run')
+f(18,896,90,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(19,896,90,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(20,896,90,0,'java/lang/Thread.run')
+f(1,986,37,0,'io/trino/operator/aggregation/state/AbstractGroupedAccumulatorState.getGroupId')
+f(2,986,37,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.setNotNull')
+f(3,986,37,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,986,37,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,986,37,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,986,37,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,986,37,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(8,986,37,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(9,986,37,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(10,986,37,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(11,986,37,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(12,986,37,0,'java/lang/reflect/Method.invoke')
+f(13,986,37,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,986,37,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,986,37,0,'java/util/concurrent/FutureTask.run')
+f(16,986,37,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(17,986,37,0,'java/util/concurrent/FutureTask.run')
+f(18,986,37,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(19,986,37,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(20,986,37,0,'java/lang/Thread.run')
+f(1,1023,294,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(2,1023,294,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(3,1023,294,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(4,1023,294,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(5,1023,294,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(6,1023,294,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(7,1023,294,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(8,1023,294,0,'java/lang/reflect/Method.invoke')
+f(9,1023,294,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(10,1023,294,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(11,1023,294,0,'java/util/concurrent/FutureTask.run')
+f(12,1023,294,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(13,1023,294,0,'java/util/concurrent/FutureTask.run')
+f(14,1023,294,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(15,1023,294,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(16,1023,294,0,'java/lang/Thread.run')
+f(1,1317,56,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateFactory$GroupedLongDecimalWithOverflowAndLongState.setLong')
+f(2,1317,56,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(3,1317,56,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,1317,56,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(5,1317,56,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,1317,56,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(7,1317,56,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(8,1317,56,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(9,1317,56,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(10,1317,56,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(11,1317,56,0,'java/lang/reflect/Method.invoke')
+f(12,1317,56,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(13,1317,56,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,1317,56,0,'java/util/concurrent/FutureTask.run')
+f(15,1317,56,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(16,1317,56,0,'java/util/concurrent/FutureTask.run')
+f(17,1317,56,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(18,1317,56,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(19,1317,56,0,'java/lang/Thread.run')
+f(1,1373,405,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(2,1373,195,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(3,1373,195,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(4,1373,195,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(5,1373,195,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(6,1373,195,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(7,1373,195,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(8,1373,195,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(9,1373,195,0,'java/lang/reflect/Method.invoke')
+f(10,1373,195,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(11,1373,195,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(12,1373,195,0,'java/util/concurrent/FutureTask.run')
+f(13,1373,195,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(14,1373,195,0,'java/util/concurrent/FutureTask.run')
+f(15,1373,195,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(16,1373,195,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(17,1373,195,0,'java/lang/Thread.run')
+f(2,1568,210,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(3,1568,210,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(4,1568,210,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(5,1568,210,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(6,1568,210,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(7,1568,210,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(8,1568,210,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(9,1568,210,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(10,1568,210,0,'java/lang/reflect/Method.invoke')
+f(11,1568,210,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(12,1568,210,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(13,1568,210,0,'java/util/concurrent/FutureTask.run')
+f(14,1568,210,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(15,1568,210,0,'java/util/concurrent/FutureTask.run')
+f(16,1568,210,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(17,1568,210,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(18,1568,210,0,'java/lang/Thread.run')
+f(1,1778,181,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.getDecimalArray')
+f(2,1778,181,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(3,1778,181,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,1778,181,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(5,1778,181,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,1778,181,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(7,1778,181,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(8,1778,181,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(9,1778,181,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(10,1778,181,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(11,1778,181,0,'java/lang/reflect/Method.invoke')
+f(12,1778,181,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(13,1778,181,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,1778,181,0,'java/util/concurrent/FutureTask.run')
+f(15,1778,181,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(16,1778,181,0,'java/util/concurrent/FutureTask.run')
+f(17,1778,181,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(18,1778,181,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(19,1778,181,0,'java/lang/Thread.run')
+f(1,1959,9,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.setNotNull')
+f(2,1959,9,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(3,1959,9,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,1959,9,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(5,1959,9,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,1959,9,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(7,1959,9,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(8,1959,9,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(9,1959,9,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(10,1959,9,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(11,1959,9,0,'java/lang/reflect/Method.invoke')
+f(12,1959,9,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(13,1959,9,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,1959,9,0,'java/util/concurrent/FutureTask.run')
+f(15,1959,9,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(16,1959,9,0,'java/util/concurrent/FutureTask.run')
+f(17,1959,9,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(18,1959,9,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(19,1959,9,0,'java/lang/Thread.run')
+f(1,1968,47,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.setOverflow')
+f(2,1968,47,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(3,1968,47,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,1968,47,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(5,1968,47,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,1968,47,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(7,1968,47,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(8,1968,47,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(9,1968,47,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(10,1968,47,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(11,1968,47,0,'java/lang/reflect/Method.invoke')
+f(12,1968,47,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(13,1968,47,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,1968,47,0,'java/util/concurrent/FutureTask.run')
+f(15,1968,47,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(16,1968,47,0,'java/util/concurrent/FutureTask.run')
+f(17,1968,47,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(18,1968,47,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(19,1968,47,0,'java/lang/Thread.run')
+f(1,2015,39,0,'io/trino/spi/block/AbstractRowBlock.checkReadablePosition')
+f(2,2015,39,0,'io/trino/spi/block/AbstractRowBlock.isNull')
+f(3,2015,39,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,2015,39,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,2015,39,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,2015,39,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,2015,39,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(8,2015,39,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(9,2015,39,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(10,2015,39,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(11,2015,39,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(12,2015,39,0,'java/lang/reflect/Method.invoke')
+f(13,2015,39,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,2015,39,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,2015,39,0,'java/util/concurrent/FutureTask.run')
+f(16,2015,39,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(17,2015,39,0,'java/util/concurrent/FutureTask.run')
+f(18,2015,39,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(19,2015,39,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(20,2015,39,0,'java/lang/Thread.run')
+f(1,2054,358,0,'io/trino/spi/block/AbstractRowBlock.getFieldBlockOffset')
+f(2,2054,358,0,'io/trino/spi/block/AbstractRowBlock.getObject')
+f(3,2054,358,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,2054,358,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,2054,358,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,2054,358,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,2054,358,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(8,2054,358,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(9,2054,358,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(10,2054,358,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(11,2054,358,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(12,2054,358,0,'java/lang/reflect/Method.invoke')
+f(13,2054,358,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,2054,358,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,2054,358,0,'java/util/concurrent/FutureTask.run')
+f(16,2054,358,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(17,2054,358,0,'java/util/concurrent/FutureTask.run')
+f(18,2054,358,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(19,2054,358,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(20,2054,358,0,'java/lang/Thread.run')
+f(1,2412,2,0,'io/trino/spi/block/AbstractRowBlock.getObject')
+f(2,2412,2,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(3,2412,2,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,2412,2,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(5,2412,2,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,2412,2,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(7,2412,2,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(8,2412,2,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(9,2412,2,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(10,2412,2,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(11,2412,2,0,'java/lang/reflect/Method.invoke')
+f(12,2412,2,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(13,2412,2,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,2412,2,0,'java/util/concurrent/FutureTask.run')
+f(15,2412,2,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(16,2412,2,0,'java/util/concurrent/FutureTask.run')
+f(17,2412,2,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(18,2412,2,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(19,2412,2,0,'java/lang/Thread.run')
+f(1,2414,1,0,'io/trino/spi/block/AbstractRowBlock.isNull')
+f(2,2414,1,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(3,2414,1,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,2414,1,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(5,2414,1,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,2414,1,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(7,2414,1,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(8,2414,1,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(9,2414,1,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(10,2414,1,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(11,2414,1,0,'java/lang/reflect/Method.invoke')
+f(12,2414,1,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(13,2414,1,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,2414,1,0,'java/util/concurrent/FutureTask.run')
+f(15,2414,1,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(16,2414,1,0,'java/util/concurrent/FutureTask.run')
+f(17,2414,1,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(18,2414,1,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(19,2414,1,0,'java/lang/Thread.run')
+f(1,2415,62,0,'io/trino/spi/block/AbstractSingleRowBlock.checkFieldIndex')
+f(2,2415,62,0,'io/trino/spi/block/AbstractSingleRowBlock.getLong')
+f(3,2415,62,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,2415,62,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,2415,62,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,2415,62,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,2415,62,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(8,2415,62,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(9,2415,62,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(10,2415,62,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(11,2415,62,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(12,2415,62,0,'java/lang/reflect/Method.invoke')
+f(13,2415,62,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,2415,62,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,2415,62,0,'java/util/concurrent/FutureTask.run')
+f(16,2415,62,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(17,2415,62,0,'java/util/concurrent/FutureTask.run')
+f(18,2415,62,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(19,2415,62,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(20,2415,62,0,'java/lang/Thread.run')
+f(1,2477,146,0,'io/trino/spi/block/AbstractSingleRowBlock.getLong')
+f(2,2477,146,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(3,2477,146,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,2477,146,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(5,2477,146,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,2477,146,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(7,2477,146,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(8,2477,146,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(9,2477,146,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(10,2477,146,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(11,2477,146,0,'java/lang/reflect/Method.invoke')
+f(12,2477,146,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(13,2477,146,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,2477,146,0,'java/util/concurrent/FutureTask.run')
+f(15,2477,146,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(16,2477,146,0,'java/util/concurrent/FutureTask.run')
+f(17,2477,146,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(18,2477,146,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(19,2477,146,0,'java/lang/Thread.run')
+f(1,2623,84,0,'io/trino/spi/block/LongArrayBlock.checkReadablePosition')
+f(2,2623,84,0,'io/trino/spi/block/LongArrayBlock.getLong')
+f(3,2623,84,0,'io/trino/spi/block/AbstractSingleRowBlock.getLong')
+f(4,2623,84,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,2623,84,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(6,2623,84,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,2623,84,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(8,2623,84,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(9,2623,84,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(10,2623,84,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(11,2623,84,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(12,2623,84,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(13,2623,84,0,'java/lang/reflect/Method.invoke')
+f(14,2623,84,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,2623,84,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(16,2623,84,0,'java/util/concurrent/FutureTask.run')
+f(17,2623,84,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(18,2623,84,0,'java/util/concurrent/FutureTask.run')
+f(19,2623,84,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(20,2623,84,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(21,2623,84,0,'java/lang/Thread.run')
+f(1,2707,410,0,'io/trino/spi/block/LongArrayBlock.getLong')
+f(2,2707,410,0,'io/trino/spi/block/AbstractSingleRowBlock.getLong')
+f(3,2707,410,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,2707,410,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,2707,410,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,2707,410,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,2707,410,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(8,2707,410,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(9,2707,410,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(10,2707,410,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(11,2707,410,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(12,2707,410,0,'java/lang/reflect/Method.invoke')
+f(13,2707,410,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,2707,410,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,2707,410,0,'java/util/concurrent/FutureTask.run')
+f(16,2707,410,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(17,2707,410,0,'java/util/concurrent/FutureTask.run')
+f(18,2707,410,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(19,2707,410,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(20,2707,410,0,'java/lang/Thread.run')
+f(1,3117,50,0,'io/trino/spi/block/LongArrayBlock.getPositionCount')
+f(2,3117,50,0,'io/trino/spi/block/LongArrayBlock.checkReadablePosition')
+f(3,3117,50,0,'io/trino/spi/block/LongArrayBlock.getLong')
+f(4,3117,50,0,'io/trino/spi/block/AbstractSingleRowBlock.getLong')
+f(5,3117,50,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(6,3117,50,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(7,3117,50,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(8,3117,50,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(9,3117,50,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(10,3117,50,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(11,3117,50,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(12,3117,50,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(13,3117,50,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(14,3117,50,0,'java/lang/reflect/Method.invoke')
+f(15,3117,50,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(16,3117,50,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(17,3117,50,0,'java/util/concurrent/FutureTask.run')
+f(18,3117,50,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(19,3117,50,0,'java/util/concurrent/FutureTask.run')
+f(20,3117,50,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(21,3117,50,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(22,3117,50,0,'java/lang/Thread.run')
+f(1,3167,23,0,'io/trino/spi/block/RowBlock.getPositionCount')
+f(2,3167,23,0,'io/trino/spi/block/AbstractRowBlock.checkReadablePosition')
+f(3,3167,23,0,'io/trino/spi/block/AbstractRowBlock.isNull')
+f(4,3167,23,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,3167,23,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(6,3167,23,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,3167,23,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(8,3167,23,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(9,3167,23,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(10,3167,23,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(11,3167,23,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(12,3167,23,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(13,3167,23,0,'java/lang/reflect/Method.invoke')
+f(14,3167,23,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,3167,23,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(16,3167,23,0,'java/util/concurrent/FutureTask.run')
+f(17,3167,23,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(18,3167,23,0,'java/util/concurrent/FutureTask.run')
+f(19,3167,23,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(20,3167,23,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(21,3167,23,0,'java/lang/Thread.run')
+f(1,3190,13,0,'io/trino/spi/block/RowBlock.getRowIsNull')
+f(2,3190,13,0,'io/trino/spi/block/AbstractRowBlock.isNull')
+f(3,3190,13,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,3190,13,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,3190,13,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,3190,13,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,3190,13,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(8,3190,13,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(9,3190,13,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(10,3190,13,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(11,3190,13,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(12,3190,13,0,'java/lang/reflect/Method.invoke')
+f(13,3190,13,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,3190,13,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,3190,13,0,'java/util/concurrent/FutureTask.run')
+f(16,3190,13,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(17,3190,13,0,'java/util/concurrent/FutureTask.run')
+f(18,3190,13,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(19,3190,13,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(20,3190,13,0,'java/lang/Thread.run')
+f(1,3203,56,0,'io/trino/spi/block/SingleRowBlock.getPositionCount')
+f(2,3203,56,0,'io/trino/spi/block/AbstractSingleRowBlock.checkFieldIndex')
+f(3,3203,56,0,'io/trino/spi/block/AbstractSingleRowBlock.getLong')
+f(4,3203,56,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,3203,56,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(6,3203,56,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,3203,56,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(8,3203,56,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(9,3203,56,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(10,3203,56,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(11,3203,56,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(12,3203,56,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(13,3203,56,0,'java/lang/reflect/Method.invoke')
+f(14,3203,56,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,3203,56,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(16,3203,56,0,'java/util/concurrent/FutureTask.run')
+f(17,3203,56,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(18,3203,56,0,'java/util/concurrent/FutureTask.run')
+f(19,3203,56,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(20,3203,56,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(21,3203,56,0,'java/lang/Thread.run')
+f(1,3259,168,0,'io/trino/spi/block/SingleRowBlock.getRawFieldBlock')
+f(2,3259,168,0,'io/trino/spi/block/AbstractSingleRowBlock.getLong')
+f(3,3259,168,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(4,3259,168,0,'io/trino/operator/aggregation/state/LongDecimalWithOverflowAndLongStateSerializerRowType.deserialize')
+f(5,3259,168,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(6,3259,168,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize')
+f(7,3259,168,0,'io/trino/operator/aggregation/state/BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize')
+f(8,3259,168,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(9,3259,168,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(10,3259,168,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(11,3259,168,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(12,3259,168,0,'java/lang/reflect/Method.invoke')
+f(13,3259,168,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(14,3259,168,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(15,3259,168,0,'java/util/concurrent/FutureTask.run')
+f(16,3259,168,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(17,3259,168,0,'java/util/concurrent/FutureTask.run')
+f(18,3259,168,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(19,3259,168,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(20,3259,168,0,'java/lang/Thread.run')
+f(1,3427,1,0,'java/util/concurrent/locks/AbstractQueuedSynchronizer$ConditionObject.addConditionWaiter')
+f(2,3427,1,0,'java/util/concurrent/locks/AbstractQueuedSynchronizer$ConditionObject.awaitNanos')
+f(3,3427,1,0,'java/util/concurrent/LinkedBlockingQueue.poll')
+f(4,3427,1,0,'java/util/concurrent/ExecutorCompletionService.poll')
+f(5,3427,1,0,'org/openjdk/jmh/runner/BenchmarkHandler.runIteration')
+f(6,3427,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmark')
+f(7,3427,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmark')
+f(8,3427,1,0,'org/openjdk/jmh/runner/BaseRunner.doSingle')
+f(9,3427,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmarksForked')
+f(10,3427,1,0,'org/openjdk/jmh/runner/ForkedRunner.run')
+f(11,3427,1,0,'org/openjdk/jmh/runner/ForkedMain.main')
+f(1,3428,1,0,'java/util/concurrent/locks/AbstractQueuedSynchronizer$ConditionObject.await')
+f(2,3428,1,0,'java/util/concurrent/LinkedBlockingQueue.take')
+f(3,3428,1,0,'java/util/concurrent/ThreadPoolExecutor.getTask')
+f(4,3428,1,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(5,3428,1,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(6,3428,1,0,'java/lang/Thread.run')
+f(1,3429,1,0,'java/util/concurrent/locks/AbstractQueuedSynchronizer.acquireQueued')
+f(2,3429,1,0,'java/util/concurrent/locks/AbstractQueuedSynchronizer$ConditionObject.awaitNanos')
+f(3,3429,1,0,'java/util/concurrent/LinkedBlockingQueue.poll')
+f(4,3429,1,0,'java/util/concurrent/ExecutorCompletionService.poll')
+f(5,3429,1,0,'org/openjdk/jmh/runner/BenchmarkHandler.runIteration')
+f(6,3429,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmark')
+f(7,3429,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmark')
+f(8,3429,1,0,'org/openjdk/jmh/runner/BaseRunner.doSingle')
+f(9,3429,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmarksForked')
+f(10,3429,1,0,'org/openjdk/jmh/runner/ForkedRunner.run')
+f(11,3429,1,0,'org/openjdk/jmh/runner/ForkedMain.main')
+f(1,3430,1,0,'java/util/concurrent/locks/AbstractQueuedSynchronizer.enq')
+f(2,3430,1,0,'java/util/concurrent/locks/AbstractQueuedSynchronizer.transferAfterCancelledWait')
+f(3,3430,1,0,'java/util/concurrent/locks/AbstractQueuedSynchronizer$ConditionObject.awaitNanos')
+f(4,3430,1,0,'java/util/concurrent/LinkedBlockingQueue.poll')
+f(5,3430,1,0,'java/util/concurrent/ExecutorCompletionService.poll')
+f(6,3430,1,0,'org/openjdk/jmh/runner/BenchmarkHandler.runIteration')
+f(7,3430,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmark')
+f(8,3430,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmark')
+f(9,3430,1,0,'org/openjdk/jmh/runner/BaseRunner.doSingle')
+f(10,3430,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmarksForked')
+f(11,3430,1,0,'org/openjdk/jmh/runner/ForkedRunner.run')
+f(12,3430,1,0,'org/openjdk/jmh/runner/ForkedMain.main')
+f(1,3431,1,0,'java/util/concurrent/locks/AbstractQueuedSynchronizer.initializeSyncQueue')
+f(2,3431,1,0,'java/util/concurrent/locks/AbstractQueuedSynchronizer.addWaiter')
+f(3,3431,1,0,'java/util/concurrent/locks/AbstractQueuedSynchronizer.doAcquireSharedInterruptibly')
+f(4,3431,1,0,'java/util/concurrent/locks/AbstractQueuedSynchronizer.acquireSharedInterruptibly')
+f(5,3431,1,0,'java/util/concurrent/CountDownLatch.await')
+f(6,3431,1,0,'org/openjdk/jmh/runner/InfraControlL2.awaitWarmupReady')
+f(7,3431,1,0,'org/openjdk/jmh/runner/InfraControl.awaitWarmupReady')
+f(8,3431,1,0,'org/openjdk/jmh/runner/BenchmarkHandler.runIteration')
+f(9,3431,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmark')
+f(10,3431,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmark')
+f(11,3431,1,0,'org/openjdk/jmh/runner/BaseRunner.doSingle')
+f(12,3431,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmarksForked')
+f(13,3431,1,0,'org/openjdk/jmh/runner/ForkedRunner.run')
+f(14,3431,1,0,'org/openjdk/jmh/runner/ForkedMain.main')
+f(1,3432,1,4,'mach_host_special_port_for_id.hsp_ids')
+f(2,3432,1,4,'__os_ch_md_redzone_cookie')
+f(3,3432,1,3,'os::PlatformEvent::park(long)')
+f(4,3432,1,3,'Monitor::IWait(Thread*, long)')
+f(5,3432,1,3,'Monitor::wait(bool, long, bool)')
+f(6,3432,1,3,'WatcherThread::sleep() const')
+f(7,3432,1,3,'WatcherThread::run()')
+f(8,3432,1,3,'Thread::call_run()')
+f(9,3432,1,4,'thread_native_entry(Thread*)')
+f(10,3432,1,4,'__os_ch_md_redzone_cookie')
+f(11,3432,1,4,'internal_catch_exc_subsystem')
+f(1,3433,4,0,'org/openjdk/jmh/infra/Blackhole.consumeFull')
+f(2,3433,3,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(3,3433,3,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(4,3433,3,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(5,3433,3,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(6,3433,3,0,'java/lang/reflect/Method.invoke')
+f(7,3433,3,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(8,3433,3,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(9,3433,3,0,'java/util/concurrent/FutureTask.run')
+f(10,3433,3,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(11,3433,3,0,'java/util/concurrent/FutureTask.run')
+f(12,3433,3,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(13,3433,3,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(14,3433,3,0,'java/lang/Thread.run')
+f(2,3436,1,0,'org/openjdk/jmh/infra/Blackhole.consume')
+f(3,3436,1,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub')
+f(4,3436,1,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(5,3436,1,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(6,3436,1,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(7,3436,1,0,'java/lang/reflect/Method.invoke')
+f(8,3436,1,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(9,3436,1,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(10,3436,1,0,'java/util/concurrent/FutureTask.run')
+f(11,3436,1,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(12,3436,1,0,'java/util/concurrent/FutureTask.run')
+f(13,3436,1,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(14,3436,1,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(15,3436,1,0,'java/lang/Thread.run')
+f(1,3437,1,0,'org/openjdk/jmh/runner/BenchmarkHandler.runIteration')
+f(2,3437,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmark')
+f(3,3437,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmark')
+f(4,3437,1,0,'org/openjdk/jmh/runner/BaseRunner.doSingle')
+f(5,3437,1,0,'org/openjdk/jmh/runner/BaseRunner.runBenchmarksForked')
+f(6,3437,1,0,'org/openjdk/jmh/runner/ForkedRunner.run')
+f(7,3437,1,0,'org/openjdk/jmh/runner/ForkedMain.main')
+f(1,3438,1,0,'org/openjdk/jmh/runner/InfraControlL2.announceWarmdownReady')
+f(2,3438,1,0,'org/openjdk/jmh/runner/InfraControl.announceWarmdownReady')
+f(3,3438,1,0,'io/trino/operator/aggregation/state/jmh_generated/BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime')
+f(4,3438,1,0,'jdk/internal/reflect/GeneratedMethodAccessor1.invoke')
+f(5,3438,1,0,'jdk/internal/reflect/DelegatingMethodAccessorImpl.invoke')
+f(6,3438,1,0,'java/lang/reflect/Method.invoke')
+f(7,3438,1,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(8,3438,1,0,'org/openjdk/jmh/runner/BenchmarkHandler$BenchmarkTask.call')
+f(9,3438,1,0,'java/util/concurrent/FutureTask.run')
+f(10,3438,1,0,'java/util/concurrent/Executors$RunnableAdapter.call')
+f(11,3438,1,0,'java/util/concurrent/FutureTask.run')
+f(12,3438,1,0,'java/util/concurrent/ThreadPoolExecutor.runWorker')
+f(13,3438,1,0,'java/util/concurrent/ThreadPoolExecutor$Worker.run')
+f(14,3438,1,0,'java/lang/Thread.run')
+f(1,3439,1,4,'to_abstime(timespec*, long, bool)')
+f(2,3439,1,3,'os::PlatformEvent::park(long)')
+f(3,3439,1,3,'Monitor::IWait(Thread*, long)')
+f(4,3439,1,3,'Monitor::wait(bool, long, bool)')
+f(5,3439,1,3,'WatcherThread::sleep() const')
+f(6,3439,1,3,'WatcherThread::run()')
+f(7,3439,1,3,'Thread::call_run()')
+f(8,3439,1,4,'thread_native_entry(Thread*)')
+f(9,3439,1,4,'__os_ch_md_redzone_cookie')
+f(10,3439,1,4,'internal_catch_exc_subsystem')
+render();
+</script></body></html>

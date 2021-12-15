@@ -30,9 +30,16 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
+import org.openjdk.jmh.profile.AsyncProfiler;
+import org.openjdk.jmh.runner.options.TimeValue;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -54,13 +61,13 @@ public class BenchmarkLongDecimalWithOverflowAndLongStateSerializer
     @Benchmark
     public Object serialize(BenchmarkData data)
     {
-        return data.serialize(new LongDecimalWithOverflowAndLongStateSerializer());
+        return data.serialize();
     }
 
     @Benchmark
     public Object deserialize(BenchmarkData data)
     {
-        return data.deserialize(new LongDecimalWithOverflowAndLongStateSerializer());
+        return data.deserialize();
     }
 
     @State(Scope.Thread)
@@ -75,13 +82,23 @@ public class BenchmarkLongDecimalWithOverflowAndLongStateSerializer
         @Param({"0", "0.2", "0.5", "0.8"})
         private float overflowRate;
 
+        @Param({"LongDecimalWithOverflowAndLongStateSerializer", "LongDecimalWithOverflowAndLongStateSerializerRowType"})
+        private String serializerClass = "LongDecimalWithOverflowAndLongStateSerializer";
+
         private GroupedLongDecimalWithOverflowAndLongState inState;
         private GroupedLongDecimalWithOverflowAndLongState outState;
         private Block block;
+        private AccumulatorStateSerializer<LongDecimalWithOverflowAndLongState> serializer;
 
         @Setup
         public void setup()
         {
+            try {
+                serializer = (AccumulatorStateSerializer<LongDecimalWithOverflowAndLongState>) Class.forName("io.trino.operator.aggregation.state." + serializerClass).getDeclaredConstructor().newInstance();
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
             inState = new GroupedLongDecimalWithOverflowAndLongState();
             inState.ensureCapacity(GROUP_COUNT);
             Set<Integer> nullPositions = chooseRandomUnique(GROUP_COUNT, nullRate, ImmutableSet.of());
@@ -103,7 +120,7 @@ public class BenchmarkLongDecimalWithOverflowAndLongStateSerializer
                 }
             }
 
-            block = serialize(new LongDecimalWithOverflowAndLongStateSerializer()).build();
+            block = serialize().build();
             outState = new GroupedLongDecimalWithOverflowAndLongState();
             outState.ensureCapacity(GROUP_COUNT);
         }
@@ -126,6 +143,11 @@ public class BenchmarkLongDecimalWithOverflowAndLongStateSerializer
                     .collect(toImmutableSet());
         }
 
+        public BlockBuilder serialize()
+        {
+            return serialize(serializer);
+        }
+
         public BlockBuilder serialize(AccumulatorStateSerializer<LongDecimalWithOverflowAndLongState> serializer)
         {
             BlockBuilder out = serializer.getSerializedType().createBlockBuilder(null, GROUP_COUNT);
@@ -135,6 +157,11 @@ public class BenchmarkLongDecimalWithOverflowAndLongStateSerializer
                 serializer.serialize(state, out);
             }
             return out;
+        }
+
+        public GroupedLongDecimalWithOverflowAndLongState deserialize()
+        {
+            return deserialize(serializer);
         }
 
         private GroupedLongDecimalWithOverflowAndLongState deserialize(AccumulatorStateSerializer<LongDecimalWithOverflowAndLongState> serializer)
@@ -168,6 +195,32 @@ public class BenchmarkLongDecimalWithOverflowAndLongStateSerializer
         // ensure the benchmarks are valid before running
         new BenchmarkLongDecimalWithOverflowAndLongStateSerializer().verifyBenchmark();
 
-        Benchmarks.benchmark(BenchmarkLongDecimalWithOverflowAndLongStateSerializer.class).run();
+        Benchmarks.benchmark(BenchmarkLongDecimalWithOverflowAndLongStateSerializer.class)
+                .withOptions(options ->
+                        options.param("nullRate", "0")
+                                .param("overflowRate", "0")
+                                .forks(1)
+                                .warmupIterations(20)
+                                .measurementIterations(20)
+                                .warmupTime(TimeValue.seconds(2))
+                                .measurementTime(TimeValue.seconds(2))
+                                .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=text;output=flamegraph", asyncProfilerDir()))
+                )
+                .run();
+    }
+
+    private static String asyncProfilerDir()
+    {
+        try {
+            String jmhDir = "jmh";
+            new File(jmhDir).mkdirs();
+            return jmhDir + "/" + String.valueOf(Files.list(Paths.get(jmhDir))
+                    .map(path -> Integer.parseInt(path.getFileName().toString()) + 1)
+                    .sorted(Comparator.reverseOrder())
+                    .findFirst().orElse(0));
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

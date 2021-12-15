@@ -1,0 +1,844 @@
+--- Execution profile ---
+Total samples       : 3446
+
+--- 4860000000 ns (14.10%), 486 samples
+  [ 0] io.trino.spi.block.DecimalAggregationAccumulatorBlock.getLong
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 6] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 8] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 9] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [10] java.lang.reflect.Method.invoke
+  [11] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] java.util.concurrent.FutureTask.run
+  [14] java.util.concurrent.Executors$RunnableAdapter.call
+  [15] java.util.concurrent.FutureTask.run
+  [16] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [17] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [18] java.lang.Thread.run
+
+--- 4100000000 ns (11.90%), 410 samples
+  [ 0] io.trino.array.BooleanBigArray.set
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.setNotNull
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 6] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 8] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 9] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [10] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [11] java.lang.reflect.Method.invoke
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [14] java.util.concurrent.FutureTask.run
+  [15] java.util.concurrent.Executors$RunnableAdapter.call
+  [16] java.util.concurrent.FutureTask.run
+  [17] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [18] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [19] java.lang.Thread.run
+
+--- 3780000000 ns (10.97%), 378 samples
+  [ 0] io.trino.array.LongBigArray.set
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateFactory$GroupedLongDecimalWithOverflowAndLongState.setLong
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 6] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 8] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 9] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [10] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [11] java.lang.reflect.Method.invoke
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [14] java.util.concurrent.FutureTask.run
+  [15] java.util.concurrent.Executors$RunnableAdapter.call
+  [16] java.util.concurrent.FutureTask.run
+  [17] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [18] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [19] java.lang.Thread.run
+
+--- 2200000000 ns (6.38%), 220 samples
+  [ 0] io.trino.array.LongBigArray.getSegment
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.getDecimalArray
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 6] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 8] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 9] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [10] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [11] java.lang.reflect.Method.invoke
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [14] java.util.concurrent.FutureTask.run
+  [15] java.util.concurrent.Executors$RunnableAdapter.call
+  [16] java.util.concurrent.FutureTask.run
+  [17] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [18] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [19] java.lang.Thread.run
+
+--- 1960000000 ns (5.69%), 196 samples
+  [ 0] io.trino.array.BigArrays.segment
+  [ 1] io.trino.array.BooleanBigArray.set
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.setNotNull
+  [ 3] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 4] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 6] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 7] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 8] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 9] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [10] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [11] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [12] java.lang.reflect.Method.invoke
+  [13] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [14] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [15] java.util.concurrent.FutureTask.run
+  [16] java.util.concurrent.Executors$RunnableAdapter.call
+  [17] java.util.concurrent.FutureTask.run
+  [18] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [19] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [20] java.lang.Thread.run
+
+--- 1720000000 ns (4.99%), 172 samples
+  [ 0] io.trino.spi.block.DecimalAggregationAccumulatorBlock.getLong
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 6] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 8] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 9] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [10] java.lang.reflect.Method.invoke
+  [11] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] java.util.concurrent.FutureTask.run
+  [14] java.util.concurrent.Executors$RunnableAdapter.call
+  [15] java.util.concurrent.FutureTask.run
+  [16] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [17] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [18] java.lang.Thread.run
+
+--- 1630000000 ns (4.73%), 163 samples
+  [ 0] io.trino.array.LongBigArray.set
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateFactory$GroupedLongDecimalWithOverflowAndLongState.setLong
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 6] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 8] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 9] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [10] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [11] java.lang.reflect.Method.invoke
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [14] java.util.concurrent.FutureTask.run
+  [15] java.util.concurrent.Executors$RunnableAdapter.call
+  [16] java.util.concurrent.FutureTask.run
+  [17] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [18] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [19] java.lang.Thread.run
+
+--- 1560000000 ns (4.53%), 156 samples
+  [ 0] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 2] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 3] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 5] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 6] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 7] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 8] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [ 9] java.lang.reflect.Method.invoke
+  [10] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [11] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [12] java.util.concurrent.FutureTask.run
+  [13] java.util.concurrent.Executors$RunnableAdapter.call
+  [14] java.util.concurrent.FutureTask.run
+  [15] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [16] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [17] java.lang.Thread.run
+
+--- 1560000000 ns (4.53%), 156 samples
+  [ 0] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 2] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 3] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 5] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 6] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 7] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 8] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [ 9] java.lang.reflect.Method.invoke
+  [10] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [11] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [12] java.util.concurrent.FutureTask.run
+  [13] java.util.concurrent.Executors$RunnableAdapter.call
+  [14] java.util.concurrent.FutureTask.run
+  [15] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [16] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [17] java.lang.Thread.run
+
+--- 1550000000 ns (4.50%), 155 samples
+  [ 0] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 2] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 3] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 5] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 6] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 7] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 8] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [ 9] java.lang.reflect.Method.invoke
+  [10] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [11] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [12] java.util.concurrent.FutureTask.run
+  [13] java.util.concurrent.Executors$RunnableAdapter.call
+  [14] java.util.concurrent.FutureTask.run
+  [15] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [16] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [17] java.lang.Thread.run
+
+--- 1340000000 ns (3.89%), 134 samples
+  [ 0] io.trino.spi.block.DecimalAggregationAccumulatorBlock.getLong
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 6] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 8] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 9] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [10] java.lang.reflect.Method.invoke
+  [11] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] java.util.concurrent.FutureTask.run
+  [14] java.util.concurrent.Executors$RunnableAdapter.call
+  [15] java.util.concurrent.FutureTask.run
+  [16] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [17] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [18] java.lang.Thread.run
+
+--- 1160000000 ns (3.37%), 116 samples
+  [ 0] io.trino.array.BooleanBigArray.set
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.setNotNull
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 6] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 8] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 9] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [10] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [11] java.lang.reflect.Method.invoke
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [14] java.util.concurrent.FutureTask.run
+  [15] java.util.concurrent.Executors$RunnableAdapter.call
+  [16] java.util.concurrent.FutureTask.run
+  [17] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [18] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [19] java.lang.Thread.run
+
+--- 1140000000 ns (3.31%), 114 samples
+  [ 0] io.trino.spi.block.DecimalAggregationAccumulatorBlock.getLong
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 6] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 8] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 9] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [10] java.lang.reflect.Method.invoke
+  [11] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] java.util.concurrent.FutureTask.run
+  [14] java.util.concurrent.Executors$RunnableAdapter.call
+  [15] java.util.concurrent.FutureTask.run
+  [16] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [17] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [18] java.lang.Thread.run
+
+--- 1120000000 ns (3.25%), 112 samples
+  [ 0] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 1] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 2] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 4] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 5] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 6] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [ 7] java.lang.reflect.Method.invoke
+  [ 8] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [ 9] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [10] java.util.concurrent.FutureTask.run
+  [11] java.util.concurrent.Executors$RunnableAdapter.call
+  [12] java.util.concurrent.FutureTask.run
+  [13] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [14] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [15] java.lang.Thread.run
+
+--- 1080000000 ns (3.13%), 108 samples
+  [ 0] io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.getDecimalArray
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 6] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 8] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 9] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [10] java.lang.reflect.Method.invoke
+  [11] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] java.util.concurrent.FutureTask.run
+  [14] java.util.concurrent.Executors$RunnableAdapter.call
+  [15] java.util.concurrent.FutureTask.run
+  [16] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [17] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [18] java.lang.Thread.run
+
+--- 800000000 ns (2.32%), 80 samples
+  [ 0] io.trino.spi.block.DecimalAggregationAccumulatorBlock.getLong
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 6] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 8] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 9] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [10] java.lang.reflect.Method.invoke
+  [11] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] java.util.concurrent.FutureTask.run
+  [14] java.util.concurrent.Executors$RunnableAdapter.call
+  [15] java.util.concurrent.FutureTask.run
+  [16] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [17] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [18] java.lang.Thread.run
+
+--- 600000000 ns (1.74%), 60 samples
+  [ 0] io.trino.spi.block.DecimalAggregationAccumulatorBlock.getLong
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 6] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 8] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 9] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [10] java.lang.reflect.Method.invoke
+  [11] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] java.util.concurrent.FutureTask.run
+  [14] java.util.concurrent.Executors$RunnableAdapter.call
+  [15] java.util.concurrent.FutureTask.run
+  [16] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [17] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [18] java.lang.Thread.run
+
+--- 520000000 ns (1.51%), 52 samples
+  [ 0] io.trino.array.BigArrays.offset
+  [ 1] io.trino.array.LongBigArray.getOffset
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.getDecimalArrayOffset
+  [ 3] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 4] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 6] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 7] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 8] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 9] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [10] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [11] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [12] java.lang.reflect.Method.invoke
+  [13] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [14] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [15] java.util.concurrent.FutureTask.run
+  [16] java.util.concurrent.Executors$RunnableAdapter.call
+  [17] java.util.concurrent.FutureTask.run
+  [18] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [19] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [20] java.lang.Thread.run
+
+--- 400000000 ns (1.16%), 40 samples
+  [ 0] io.trino.array.BigArrays.segment
+  [ 1] io.trino.array.LongBigArray.getSegment
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.getDecimalArray
+  [ 3] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 4] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 6] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 7] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 8] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 9] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [10] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [11] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [12] java.lang.reflect.Method.invoke
+  [13] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [14] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [15] java.util.concurrent.FutureTask.run
+  [16] java.util.concurrent.Executors$RunnableAdapter.call
+  [17] java.util.concurrent.FutureTask.run
+  [18] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [19] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [20] java.lang.Thread.run
+
+--- 250000000 ns (0.73%), 25 samples
+  [ 0] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 1] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 2] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 4] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 5] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 6] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [ 7] java.lang.reflect.Method.invoke
+  [ 8] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [ 9] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [10] java.util.concurrent.FutureTask.run
+  [11] java.util.concurrent.Executors$RunnableAdapter.call
+  [12] java.util.concurrent.FutureTask.run
+  [13] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [14] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [15] java.lang.Thread.run
+
+--- 240000000 ns (0.70%), 24 samples
+  [ 0] io.trino.spi.block.DecimalAggregationAccumulatorBlock.getLong
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 6] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 8] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 9] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [10] java.lang.reflect.Method.invoke
+  [11] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] java.util.concurrent.FutureTask.run
+  [14] java.util.concurrent.Executors$RunnableAdapter.call
+  [15] java.util.concurrent.FutureTask.run
+  [16] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [17] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [18] java.lang.Thread.run
+
+--- 190000000 ns (0.55%), 19 samples
+  [ 0] __psynch_cvwait
+  [ 1] os::PlatformEvent::park(long)
+  [ 2] Monitor::IWait(Thread*, long)
+  [ 3] Monitor::wait(bool, long, bool)
+  [ 4] WatcherThread::sleep() const
+  [ 5] WatcherThread::run()
+  [ 6] Thread::call_run()
+  [ 7] thread_native_entry(Thread*)
+  [ 8] __os_ch_md_redzone_cookie
+  [ 9] internal_catch_exc_subsystem
+
+--- 170000000 ns (0.49%), 17 samples
+  [ 0] io.trino.operator.aggregation.state.AbstractGroupedAccumulatorState.setGroupId
+  [ 1] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 2] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 3] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 4] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 5] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 6] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 7] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [ 8] java.lang.reflect.Method.invoke
+  [ 9] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [10] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [11] java.util.concurrent.FutureTask.run
+  [12] java.util.concurrent.Executors$RunnableAdapter.call
+  [13] java.util.concurrent.FutureTask.run
+  [14] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [15] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [16] java.lang.Thread.run
+
+--- 160000000 ns (0.46%), 16 samples
+  [ 0] io.trino.array.BigArrays.offset
+  [ 1] io.trino.array.BooleanBigArray.set
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.setNotNull
+  [ 3] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 4] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 6] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 7] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 8] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 9] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [10] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [11] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [12] java.lang.reflect.Method.invoke
+  [13] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [14] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [15] java.util.concurrent.FutureTask.run
+  [16] java.util.concurrent.Executors$RunnableAdapter.call
+  [17] java.util.concurrent.FutureTask.run
+  [18] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [19] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [20] java.lang.Thread.run
+
+--- 60000000 ns (0.17%), 6 samples
+  [ 0] __psynch_cvwait
+  [ 1] os::PlatformEvent::park(long)
+  [ 2] Monitor::IWait(Thread*, long)
+  [ 3] Monitor::wait(bool, long, bool)
+  [ 4] G1YoungRemSetSamplingThread::sleep_before_next_cycle()
+  [ 5] G1YoungRemSetSamplingThread::run_service()
+  [ 6] ConcurrentGCThread::run()
+  [ 7] Thread::call_run()
+  [ 8] thread_native_entry(Thread*)
+  [ 9] __os_ch_md_redzone_cookie
+  [10] internal_catch_exc_subsystem
+
+--- 50000000 ns (0.15%), 5 samples
+  [ 0] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 1] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 2] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 4] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 5] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 6] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [ 7] java.lang.reflect.Method.invoke
+  [ 8] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [ 9] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [10] java.util.concurrent.FutureTask.run
+  [11] java.util.concurrent.Executors$RunnableAdapter.call
+  [12] java.util.concurrent.FutureTask.run
+  [13] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [14] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [15] java.lang.Thread.run
+
+--- 40000000 ns (0.12%), 4 samples
+  [ 0] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 1] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 2] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 4] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 5] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 6] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [ 7] java.lang.reflect.Method.invoke
+  [ 8] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [ 9] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [10] java.util.concurrent.FutureTask.run
+  [11] java.util.concurrent.Executors$RunnableAdapter.call
+  [12] java.util.concurrent.FutureTask.run
+  [13] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [14] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [15] java.lang.Thread.run
+
+--- 40000000 ns (0.12%), 4 samples
+  [ 0] __psynch_cvwait
+  [ 1] os::PlatformEvent::park(long)
+  [ 2] Monitor::IWait(Thread*, long)
+  [ 3] Monitor::wait(bool, long, bool)
+  [ 4] VMThread::loop()
+  [ 5] VMThread::run()
+  [ 6] Thread::call_run()
+  [ 7] thread_native_entry(Thread*)
+  [ 8] __os_ch_md_redzone_cookie
+  [ 9] internal_catch_exc_subsystem
+
+--- 20000000 ns (0.06%), 2 samples
+  [ 0] org.openjdk.jmh.infra.Blackhole.consume
+  [ 1] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 2] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 3] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 4] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [ 5] java.lang.reflect.Method.invoke
+  [ 6] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [ 7] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [ 8] java.util.concurrent.FutureTask.run
+  [ 9] java.util.concurrent.Executors$RunnableAdapter.call
+  [10] java.util.concurrent.FutureTask.run
+  [11] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [12] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [13] java.lang.Thread.run
+
+--- 20000000 ns (0.06%), 2 samples
+  [ 0] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 1] org.openjdk.jmh.infra.Blackhole.consume
+  [ 2] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 3] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 4] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 5] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [ 6] java.lang.reflect.Method.invoke
+  [ 7] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [ 8] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [ 9] java.util.concurrent.FutureTask.run
+  [10] java.util.concurrent.Executors$RunnableAdapter.call
+  [11] java.util.concurrent.FutureTask.run
+  [12] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [13] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [14] java.lang.Thread.run
+
+--- 10000000 ns (0.03%), 1 sample
+  [ 0] JNU_GetStringPlatformChars
+  [ 1] Java_java_io_UnixFileSystem_getBooleanAttributes0
+  [ 2] java.io.UnixFileSystem.getBooleanAttributes0
+  [ 3] java.io.UnixFileSystem.getBooleanAttributes
+  [ 4] java.io.File.exists
+  [ 5] jdk.internal.loader.URLClassPath$FileLoader.getResource
+  [ 6] jdk.internal.loader.URLClassPath.getResource
+  [ 7] jdk.internal.loader.BuiltinClassLoader.findClassOnClassPathOrNull
+  [ 8] jdk.internal.loader.BuiltinClassLoader.loadClassOrNull
+  [ 9] jdk.internal.loader.BuiltinClassLoader.loadClass
+  [10] jdk.internal.loader.ClassLoaders$AppClassLoader.loadClass
+  [11] java.lang.ClassLoader.loadClass
+  [12] org.openjdk.jmh.runner.link.BinaryLinkClient.pushResults
+  [13] org.openjdk.jmh.runner.ForkedRunner$1.accept
+  [14] org.openjdk.jmh.runner.BaseRunner.runBenchmark
+  [15] org.openjdk.jmh.runner.BaseRunner.runBenchmark
+  [16] org.openjdk.jmh.runner.BaseRunner.doSingle
+  [17] org.openjdk.jmh.runner.BaseRunner.runBenchmarksForked
+  [18] org.openjdk.jmh.runner.ForkedRunner.run
+  [19] org.openjdk.jmh.runner.ForkedMain.main
+
+--- 10000000 ns (0.03%), 1 sample
+  [ 0] io.trino.array.BooleanBigArray.set
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.setNotNull
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 6] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 8] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 9] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [10] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [11] java.lang.reflect.Method.invoke
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [14] java.util.concurrent.FutureTask.run
+  [15] java.util.concurrent.Executors$RunnableAdapter.call
+  [16] java.util.concurrent.FutureTask.run
+  [17] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [18] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [19] java.lang.Thread.run
+
+--- 10000000 ns (0.03%), 1 sample
+  [ 0] io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.setOverflow
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 6] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 8] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 9] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [10] java.lang.reflect.Method.invoke
+  [11] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] java.util.concurrent.FutureTask.run
+  [14] java.util.concurrent.Executors$RunnableAdapter.call
+  [15] java.util.concurrent.FutureTask.run
+  [16] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [17] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [18] java.lang.Thread.run
+
+--- 10000000 ns (0.03%), 1 sample
+  [ 0] java.lang.Integer.valueOf
+  [ 1] com.sun.proxy.$Proxy0.iterationResult
+  [ 2] org.openjdk.jmh.runner.BaseRunner.runBenchmark
+  [ 3] org.openjdk.jmh.runner.BaseRunner.runBenchmark
+  [ 4] org.openjdk.jmh.runner.BaseRunner.doSingle
+  [ 5] org.openjdk.jmh.runner.BaseRunner.runBenchmarksForked
+  [ 6] org.openjdk.jmh.runner.ForkedRunner.run
+  [ 7] org.openjdk.jmh.runner.ForkedMain.main
+
+--- 10000000 ns (0.03%), 1 sample
+  [ 0] org.openjdk.jmh.infra.Blackhole.consumeFull
+  [ 1] org.openjdk.jmh.infra.Blackhole.consume
+  [ 2] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 3] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 4] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 5] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [ 6] java.lang.reflect.Method.invoke
+  [ 7] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [ 8] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [ 9] java.util.concurrent.FutureTask.run
+  [10] java.util.concurrent.Executors$RunnableAdapter.call
+  [11] java.util.concurrent.FutureTask.run
+  [12] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [13] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [14] java.lang.Thread.run
+
+--- 10000000 ns (0.03%), 1 sample
+  [ 0] IntervalWalker::walk_to(IntervalState, int)
+  [ 1] IntervalWalker::walk_to(int)
+  [ 2] LinearScan::compute_oop_map(IntervalWalker*, LIR_Op*, CodeEmitInfo*, bool)
+  [ 3] LinearScan::compute_oop_map(IntervalWalker*, LIR_OpVisitState const&, LIR_Op*)
+  [ 4] LinearScan::assign_reg_num(GrowableArray<LIR_Op*>*, IntervalWalker*)
+  [ 5] LinearScan::assign_reg_num()
+  [ 6] LinearScan::do_linear_scan()
+  [ 7] Compilation::emit_lir()
+  [ 8] Compilation::compile_java_method()
+  [ 9] Compilation::compile_method()
+  [10] Compilation::Compilation(AbstractCompiler*, ciEnv*, ciMethod*, int, BufferBlob*, DirectiveSet*)
+  [11] Compiler::compile_method(ciEnv*, ciMethod*, int, DirectiveSet*)
+  [12] CompileBroker::invoke_compiler_on_method(CompileTask*)
+  [13] CompileBroker::compiler_thread_loop()
+  [14] JavaThread::thread_main_inner()
+  [15] JavaThread::run()
+  [16] Thread::call_run()
+  [17] thread_native_entry(Thread*)
+  [18] __os_ch_md_redzone_cookie
+  [19] internal_catch_exc_subsystem
+
+--- 10000000 ns (0.03%), 1 sample
+  [ 0] Instruction::as_Phi()
+  [ 1] GraphBuilder::invoke(Bytecodes::Code)
+  [ 2] GraphBuilder::iterate_bytecodes_for_block(int)
+  [ 3] GraphBuilder::iterate_all_blocks(bool)
+  [ 4] GraphBuilder::GraphBuilder(Compilation*, IRScope*)
+  [ 5] IRScope::IRScope(Compilation*, IRScope*, int, ciMethod*, int, bool)
+  [ 6] IR::IR(Compilation*, ciMethod*, int)
+  [ 7] Compilation::build_hir()
+  [ 8] Compilation::compile_java_method()
+  [ 9] Compilation::compile_method()
+  [10] Compilation::Compilation(AbstractCompiler*, ciEnv*, ciMethod*, int, BufferBlob*, DirectiveSet*)
+  [11] Compiler::compile_method(ciEnv*, ciMethod*, int, DirectiveSet*)
+  [12] CompileBroker::invoke_compiler_on_method(CompileTask*)
+  [13] CompileBroker::compiler_thread_loop()
+  [14] JavaThread::thread_main_inner()
+  [15] JavaThread::run()
+  [16] Thread::call_run()
+  [17] thread_native_entry(Thread*)
+  [18] __os_ch_md_redzone_cookie
+  [19] internal_catch_exc_subsystem
+
+--- 10000000 ns (0.03%), 1 sample
+  [ 0] StatSampler::collect_sample()
+  [ 1] PeriodicTask::real_time_tick(int)
+  [ 2] WatcherThread::run()
+  [ 3] Thread::call_run()
+  [ 4] thread_native_entry(Thread*)
+  [ 5] __os_ch_md_redzone_cookie
+  [ 6] internal_catch_exc_subsystem
+
+--- 10000000 ns (0.03%), 1 sample
+  [ 0] io.trino.spi.block.DecimalAggregationAccumulatorBlock.getLong
+  [ 1] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 2] io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 3] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 4] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  [ 5] io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer.deserialize
+  [ 6] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_avgt_jmhStub
+  [ 7] io.trino.operator.aggregation.state.jmh_generated.BenchmarkLongDecimalWithOverflowAndLongStateSerializer_deserialize_jmhTest.deserialize_AverageTime
+  [ 8] jdk.internal.reflect.GeneratedMethodAccessor1.invoke
+  [ 9] jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke
+  [10] java.lang.reflect.Method.invoke
+  [11] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [12] org.openjdk.jmh.runner.BenchmarkHandler$BenchmarkTask.call
+  [13] java.util.concurrent.FutureTask.run
+  [14] java.util.concurrent.Executors$RunnableAdapter.call
+  [15] java.util.concurrent.FutureTask.run
+  [16] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [17] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [18] java.lang.Thread.run
+
+--- 10000000 ns (0.03%), 1 sample
+  [ 0] StatSampler::collect_sample()
+  [ 1] WatcherThread::run()
+  [ 2] Thread::call_run()
+  [ 3] thread_native_entry(Thread*)
+  [ 4] __os_ch_md_redzone_cookie
+  [ 5] internal_catch_exc_subsystem
+
+--- 10000000 ns (0.03%), 1 sample
+  [ 0] __psynch_cvwait
+  [ 1] Parker::park(bool, long)
+  [ 2] Unsafe_Park(JNIEnv_*, _jobject*, unsigned char, long)
+  [ 3] jdk.internal.misc.Unsafe.park
+  [ 4] java.util.concurrent.locks.LockSupport.park
+  [ 5] java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await
+  [ 6] java.util.concurrent.LinkedBlockingQueue.take
+  [ 7] java.util.concurrent.ThreadPoolExecutor.getTask
+  [ 8] java.util.concurrent.ThreadPoolExecutor.runWorker
+  [ 9] java.util.concurrent.ThreadPoolExecutor$Worker.run
+  [10] java.lang.Thread.run
+
+--- 10000000 ns (0.03%), 1 sample
+  [ 0] __os_ch_md_redzone_cookie
+  [ 1] os::PlatformEvent::park(long)
+  [ 2] Monitor::IWait(Thread*, long)
+  [ 3] Monitor::wait(bool, long, bool)
+  [ 4] G1YoungRemSetSamplingThread::sleep_before_next_cycle()
+  [ 5] G1YoungRemSetSamplingThread::run_service()
+  [ 6] ConcurrentGCThread::run()
+  [ 7] Thread::call_run()
+  [ 8] thread_native_entry(Thread*)
+  [ 9] __os_ch_md_redzone_cookie
+  [10] internal_catch_exc_subsystem
+
+--- 10000000 ns (0.03%), 1 sample
+  [ 0] __psynch_cvwait
+  [ 1] Parker::park(bool, long)
+  [ 2] Unsafe_Park(JNIEnv_*, _jobject*, unsigned char, long)
+  [ 3] jdk.internal.misc.Unsafe.park
+  [ 4] java.util.concurrent.locks.LockSupport.parkNanos
+  [ 5] java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.awaitNanos
+  [ 6] java.util.concurrent.LinkedBlockingQueue.poll
+  [ 7] java.util.concurrent.ExecutorCompletionService.poll
+  [ 8] org.openjdk.jmh.runner.BenchmarkHandler.runIteration
+  [ 9] org.openjdk.jmh.runner.BaseRunner.runBenchmark
+  [10] org.openjdk.jmh.runner.BaseRunner.runBenchmark
+  [11] org.openjdk.jmh.runner.BaseRunner.doSingle
+  [12] org.openjdk.jmh.runner.BaseRunner.runBenchmarksForked
+  [13] org.openjdk.jmh.runner.ForkedRunner.run
+  [14] org.openjdk.jmh.runner.ForkedMain.main
+
+--- 10000000 ns (0.03%), 1 sample
+  [ 0] __cxx_global_var_init.5
+  [ 1] os::elapsedVTime()
+  [ 2] G1YoungRemSetSamplingThread::run_service()
+  [ 3] ConcurrentGCThread::run()
+  [ 4] Thread::call_run()
+  [ 5] thread_native_entry(Thread*)
+  [ 6] __os_ch_md_redzone_cookie
+  [ 7] internal_catch_exc_subsystem
+
+          ns  percent  samples  top
+  ----------  -------  -------  ---
+ 10710000000   31.08%     1071  io.trino.spi.block.DecimalAggregationAccumulatorBlock.getLong
+  5410000000   15.70%      541  io.trino.array.LongBigArray.set
+  5270000000   15.29%      527  io.trino.array.BooleanBigArray.set
+  4670000000   13.55%      467  io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer.deserialize
+  2360000000    6.85%      236  io.trino.array.BigArrays.segment
+  2200000000    6.38%      220  io.trino.array.LongBigArray.getSegment
+  1480000000    4.29%      148  io.trino.operator.aggregation.state.BenchmarkLongDecimalWithOverflowAndLongStateSerializer$BenchmarkData.deserialize
+  1080000000    3.13%      108  io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.getDecimalArray
+   680000000    1.97%       68  io.trino.array.BigArrays.offset
+   310000000    0.90%       31  __psynch_cvwait
+   170000000    0.49%       17  io.trino.operator.aggregation.state.AbstractGroupedAccumulatorState.setGroupId
+    20000000    0.06%        2  StatSampler::collect_sample()
+    20000000    0.06%        2  org.openjdk.jmh.infra.Blackhole.consume
+    10000000    0.03%        1  Instruction::as_Phi()
+    10000000    0.03%        1  __os_ch_md_redzone_cookie
+    10000000    0.03%        1  __cxx_global_var_init.5
+    10000000    0.03%        1  io.trino.operator.aggregation.state.LongDecimalWithOverflowStateFactory$GroupedLongDecimalWithOverflowState.setOverflow
+    10000000    0.03%        1  JNU_GetStringPlatformChars
+    10000000    0.03%        1  java.lang.Integer.valueOf
+    10000000    0.03%        1  IntervalWalker::walk_to(IntervalState, int)
+    10000000    0.03%        1  org.openjdk.jmh.infra.Blackhole.consumeFull
