@@ -18,6 +18,8 @@ import net.jodah.failsafe.Timeout;
 import org.testcontainers.containers.GenericContainer;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -25,6 +27,7 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 
 import static com.google.common.base.Throwables.getCausalChain;
+import static com.starburstdata.presto.testing.TestContainersUtil.startOrReuse;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static java.time.temporal.ChronoUnit.MINUTES;
 
@@ -44,6 +47,7 @@ public final class TestingSapHanaServer
     private static final SapHanaDockerInitializer dockerInitializer = new SapHanaDockerInitializer(GenericContainer::addExposedPort);
 
     private final SapHanaJdbcContainer dockerContainer;
+    private Closeable cleanup;
 
     public static TestingSapHanaServer create()
     {
@@ -68,13 +72,18 @@ public final class TestingSapHanaServer
 
     private void start()
     {
-        dockerContainer.start();
+        cleanup = startOrReuse(dockerContainer);
     }
 
     @Override
     public void close()
     {
-        dockerContainer.close();
+        try {
+            cleanup.close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public void execute(String sql)

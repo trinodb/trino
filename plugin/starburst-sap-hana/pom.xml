@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-enterprise-root</artifactId>
-        <version>365-e-SNAPSHOT</version>
+        <version>366-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -162,6 +162,12 @@
             <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-server-main</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
