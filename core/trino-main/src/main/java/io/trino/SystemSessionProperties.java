@@ -676,22 +676,22 @@ public final class SystemSessionProperties
                         RETRY_POLICY,
                         "Retry policy",
                         RetryPolicy.class,
-                        featuresConfig.getRetryPolicy(),
+                        queryManagerConfig.getRetryPolicy(),
                         false),
                 integerProperty(
                         RETRY_ATTEMPTS,
                         "Maximum number of retry attempts",
-                        featuresConfig.getRetryAttempts(),
+                        queryManagerConfig.getRetryAttempts(),
                         false),
                 durationProperty(
                         RETRY_INITIAL_DELAY,
                         "Initial delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt up to 'retry_max_delay'",
-                        featuresConfig.getRetryInitialDelay(),
+                        queryManagerConfig.getRetryInitialDelay(),
                         false),
                 durationProperty(
                         RETRY_MAX_DELAY,
                         "Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'",
-                        featuresConfig.getRetryMaxDelay(),
+                        queryManagerConfig.getRetryMaxDelay(),
                         false));
     }
 
