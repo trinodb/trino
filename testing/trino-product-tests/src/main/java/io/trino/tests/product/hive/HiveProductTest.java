@@ -75,4 +75,15 @@ public class HiveProductTest
         return getHiveVersionMajor() == 0
                 || (getHiveVersionMajor() == 1 && getHiveVersionMinor() < 2);
     }
+
+    protected boolean isHiveWithBrokenAvroTimestamps()
+    {
+        // In 3.1.0 timestamp semantics in hive changed in backward incompatible way,
+        // which was fixed for Parquet and Avro in 3.1.2 (https://issues.apache.org/jira/browse/HIVE-21002)
+        // we do have a work-around for Parquet, but still need this for Avro until
+        // https://github.com/trinodb/trino/issues/5144 is addressed
+        return getHiveVersionMajor() == 3 &&
+                getHiveVersionMinor() == 1 &&
+                (getHiveVersionPatch() == 0 || getHiveVersionPatch() == 1);
+    }
 }
