@@ -49,6 +49,7 @@ import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.Delete;
+import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
@@ -2063,6 +2064,35 @@ public class TestSqlParser
                         QualifiedName.of("s"),
                         new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u")),
                         false));
+    }
+
+    @Test
+    public void testDeny()
+    {
+        assertStatement("DENY INSERT, DELETE ON t TO u",
+                new Deny(
+                        Optional.of(ImmutableList.of("INSERT", "DELETE")),
+                        Optional.empty(),
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u"))));
+        assertStatement("DENY UPDATE ON t TO u",
+                new Deny(
+                        Optional.of(ImmutableList.of("UPDATE")),
+                        Optional.empty(),
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u"))));
+        assertStatement("DENY ALL PRIVILEGES ON TABLE t TO USER u",
+                new Deny(
+                        Optional.empty(),
+                        Optional.of(GrantOnType.TABLE),
+                        QualifiedName.of("t"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u"))));
+        assertStatement("DENY SELECT ON SCHEMA s TO USER u",
+                new Deny(
+                        Optional.of(ImmutableList.of("SELECT")),
+                        Optional.of(GrantOnType.SCHEMA),
+                        QualifiedName.of("s"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u"))));
     }
 
     @Test

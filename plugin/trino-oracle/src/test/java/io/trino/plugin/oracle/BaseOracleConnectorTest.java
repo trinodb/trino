@@ -87,6 +87,15 @@ public abstract class BaseOracleConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("date")) {
+            // TODO (https://github.com/trinodb/trino/issues) Oracle connector stores wrong result when the date value <= 1582-10-14
+            if (dataMappingTestSetup.getSampleValueLiteral().equals("DATE '0001-01-01'")
+                    || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-04'")
+                    || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'")
+                    || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-14'")) {
+                return Optional.empty();
+            }
+        }
         if (typeName.equals("time")) {
             return Optional.empty();
         }

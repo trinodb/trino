@@ -838,6 +838,23 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanDenySchemaPrivilege(SecurityContext securityContext, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(privilege, "privilege is null");
+
+        checkCanAccessCatalog(securityContext, schemaName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanDenySchemaPrivilege(securityContext.toSystemSecurityContext(), privilege, schemaName, grantee));
+
+        catalogAuthorizationCheck(
+                schemaName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.checkCanDenySchemaPrivilege(context, privilege, schemaName.getSchemaName(), grantee));
+    }
+
+    @Override
     public void checkCanRevokeSchemaPrivilege(SecurityContext securityContext, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal revokee, boolean grantOption)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -866,6 +883,20 @@ public class AccessControlManager
         systemAuthorizationCheck(control -> control.checkCanGrantTablePrivilege(securityContext.toSystemSecurityContext(), privilege, tableName.asCatalogSchemaTableName(), grantee, grantOption));
 
         catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanGrantTablePrivilege(context, privilege, tableName.asSchemaTableName(), grantee, grantOption));
+    }
+
+    @Override
+    public void checkCanDenyTablePrivilege(SecurityContext securityContext, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal grantee)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(privilege, "privilege is null");
+
+        checkCanAccessCatalog(securityContext, tableName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanDenyTablePrivilege(securityContext.toSystemSecurityContext(), privilege, tableName.asCatalogSchemaTableName(), grantee));
+
+        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanDenyTablePrivilege(context, privilege, tableName.asSchemaTableName(), grantee));
     }
 
     @Override

@@ -21,13 +21,19 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.CoralSemiTransactionalHiveMSCAdapter;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import io.trino.spi.connector.MetadataProvider;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.TypeManager;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
@@ -37,6 +43,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -44,10 +51,15 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveSessionProperties.isLegacyHiveViewTranslation;
+import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
+import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
 public final class ViewReaderUtil
@@ -60,7 +72,13 @@ public final class ViewReaderUtil
         ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName);
     }
 
-    public static ViewReader createViewReader(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table, TypeManager typemanager)
+    public static ViewReader createViewReader(
+            SemiTransactionalHiveMetastore metastore,
+            ConnectorSession session,
+            Table table,
+            TypeManager typeManager,
+            BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> tableRedirectionResolver,
+            MetadataProvider metadataProvider)
     {
         if (isPrestoView(table)) {
             return new PrestoViewReader();
@@ -69,7 +87,36 @@ public final class ViewReaderUtil
             return new LegacyHiveViewReader();
         }
 
-        return new HiveViewReader(new CoralSemiTransactionalHiveMSCAdapter(metastore, new HiveIdentity(session)), typemanager);
+        return new HiveViewReader(
+                new CoralSemiTransactionalHiveMSCAdapter(metastore, new HiveIdentity(session), coralTableRedirectionResolver(session, tableRedirectionResolver, metadataProvider)),
+                typeManager);
+    }
+
+    private static CoralTableRedirectionResolver coralTableRedirectionResolver(
+            ConnectorSession session,
+            BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> tableRedirectionResolver,
+            MetadataProvider metadataProvider)
+    {
+        return schemaTableName -> tableRedirectionResolver.apply(session, schemaTableName).map(target -> {
+            ConnectorTableSchema tableSchema = metadataProvider.getRelationMetadata(session, target)
+                    .orElseThrow(() -> new TableNotFoundException(
+                            target.getSchemaTableName(),
+                            format("%s is redirected to %s, but that relation cannot be found", schemaTableName, target)));
+            List<Column> columns = tableSchema.getColumns().stream()
+                    .filter(columnSchema -> !columnSchema.isHidden())
+                    .map(columnSchema -> new Column(columnSchema.getName(), toHiveType(columnSchema.getType()), Optional.empty() /* comment */))
+                    .collect(toImmutableList());
+            Table table = Table.builder()
+                    .setDatabaseName(schemaTableName.getSchemaName())
+                    .setTableName(schemaTableName.getTableName())
+                    .setTableType(EXTERNAL_TABLE.name())
+                    .setDataColumns(columns)
+                    // Required by 'Table', but not used by view translation.
+                    .withStorage(storage -> storage.setStorageFormat(fromHiveStorageFormat(TEXTFILE)))
+                    .setOwner(Optional.empty())
+                    .build();
+            return toMetastoreApiTable(table);
+        });
     }
 
     public static final String PRESTO_VIEW_FLAG = "presto_view";

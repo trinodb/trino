@@ -28,19 +28,6 @@ public class LongColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            type.writeLong(blockBuilder, valuesReader.readLong());
-        }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
-        }
-    }
-
-    @Override
-    protected void skipValue()
-    {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readLong();
-        }
+        type.writeLong(blockBuilder, valuesReader.readLong());
     }
 }

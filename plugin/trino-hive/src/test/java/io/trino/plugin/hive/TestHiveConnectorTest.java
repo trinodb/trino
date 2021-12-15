@@ -216,7 +216,7 @@ public class TestHiveConnectorTest
             case SUPPORTS_CREATE_VIEW:
                 return true;
 
-            case SUPPORTS_INSERT_NOT_NULL_COLUMN:
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
 
             case SUPPORTS_DELETE:

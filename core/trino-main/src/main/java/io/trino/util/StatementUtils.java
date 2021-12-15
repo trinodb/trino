@@ -26,6 +26,7 @@ import io.trino.execution.CreateTableTask;
 import io.trino.execution.CreateViewTask;
 import io.trino.execution.DataDefinitionTask;
 import io.trino.execution.DeallocateTask;
+import io.trino.execution.DenyTask;
 import io.trino.execution.DropColumnTask;
 import io.trino.execution.DropMaterializedViewTask;
 import io.trino.execution.DropRoleTask;
@@ -69,6 +70,7 @@ import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Delete;
+import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.DropColumn;
@@ -186,6 +188,7 @@ public final class StatementUtils
             .add(dataDefinitionStatement(CreateTable.class, CreateTableTask.class))
             .add(dataDefinitionStatement(CreateView.class, CreateViewTask.class))
             .add(dataDefinitionStatement(Deallocate.class, DeallocateTask.class))
+            .add(dataDefinitionStatement(Deny.class, DenyTask.class))
             .add(dataDefinitionStatement(DropColumn.class, DropColumnTask.class))
             .add(dataDefinitionStatement(DropMaterializedView.class, DropMaterializedViewTask.class))
             .add(dataDefinitionStatement(DropRole.class, DropRoleTask.class))

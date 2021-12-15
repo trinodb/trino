@@ -85,7 +85,12 @@ public abstract class PrimitiveColumnReader
 
     protected abstract void readValue(BlockBuilder blockBuilder, Type type);
 
-    protected abstract void skipValue();
+    private void skipSingleValue()
+    {
+        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+            valuesReader.skip();
+        }
+    }
 
     protected boolean isValueNull()
     {
@@ -233,7 +238,12 @@ public abstract class PrimitiveColumnReader
     private void readValues(BlockBuilder blockBuilder, int valuesToRead, Type type, IntList definitionLevels, IntList repetitionLevels)
     {
         processValues(valuesToRead, () -> {
-            readValue(blockBuilder, type);
+            if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+                readValue(blockBuilder, type);
+            }
+            else if (isValueNull()) {
+                blockBuilder.appendNull();
+            }
             definitionLevels.add(definitionLevel);
             repetitionLevels.add(repetitionLevel);
         });
@@ -241,7 +251,7 @@ public abstract class PrimitiveColumnReader
 
     private void skipValues(long valuesToRead)
     {
-        processValues(valuesToRead, this::skipValue);
+        processValues(valuesToRead, this::skipSingleValue);
     }
 
     /**
@@ -290,7 +300,7 @@ public abstract class PrimitiveColumnReader
                     consumed = true;
                 }
                 else {
-                    skipValue();
+                    skipSingleValue();
                     skipCount++;
                     consumed = false;
                 }

@@ -15,17 +15,16 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
 import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
-import io.trino.execution.MockRemoteTaskFactory.MockRemoteTask;
 import io.trino.execution.scheduler.SplitSchedulerStats;
-import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.metadata.InternalNode;
-import io.trino.server.DynamicFilterService;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
@@ -48,10 +47,9 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.execution.SqlStageExecution.createSqlStageExecution;
+import static io.trino.execution.SqlStage.createSqlStage;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -64,7 +62,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
-public class TestSqlStageExecution
+public class TestSqlStage
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -102,7 +100,7 @@ public class TestSqlStageExecution
         NodeTaskMap nodeTaskMap = new NodeTaskMap(new FinalizerService());
 
         StageId stageId = new StageId(new QueryId("query"), 0);
-        SqlStageExecution stage = createSqlStageExecution(
+        SqlStage stage = createSqlStage(
                 stageId,
                 createExchangePlanFragment(),
                 ImmutableMap.of(),
@@ -111,10 +109,7 @@ public class TestSqlStageExecution
                 true,
                 nodeTaskMap,
                 executor,
-                new NoOpFailureDetector(),
-                new DynamicFilterService(createTestMetadataManager(), new TypeOperators(), new DynamicFilterConfig()),
                 new SplitSchedulerStats());
-        stage.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY));
 
         // add listener that fetches stage info when the final status is available
         SettableFuture<StageInfo> finalStageInfo = SettableFuture.create();
@@ -133,7 +128,15 @@ public class TestSqlStageExecution
                             URI.create("http://10.0.0." + (i / 10_000) + ":" + (i % 10_000)),
                             NodeVersion.UNKNOWN,
                             false);
-                    stage.scheduleTask(node, i);
+                    stage.createTask(
+                            node,
+                            i,
+                            0,
+                            Optional.empty(),
+                            createInitialEmptyOutputBuffers(ARBITRARY),
+                            ImmutableMultimap.of(),
+                            ImmutableMultimap.of(),
+                            ImmutableSet.of());
                     latch.countDown();
                 }
             }
@@ -147,7 +150,7 @@ public class TestSqlStageExecution
         // wait for some tasks to be created, and then abort the query
         latch.await(1, MINUTES);
         assertFalse(stage.getStageInfo().getTasks().isEmpty());
-        stage.abort();
+        stage.finish();
 
         // once the final stage info is available, verify that it is complete
         StageInfo stageInfo = finalStageInfo.get(1, MINUTES);
@@ -159,43 +162,6 @@ public class TestSqlStageExecution
         addTasksTask.cancel(true);
     }
 
-    @Test
-    public void testIsAnyTaskBlocked()
-    {
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(new FinalizerService());
-
-        StageId stageId = new StageId(new QueryId("query"), 0);
-        SqlStageExecution stage = createSqlStageExecution(
-                stageId,
-                createExchangePlanFragment(),
-                ImmutableMap.of(),
-                new MockRemoteTaskFactory(executor, scheduledExecutor),
-                TEST_SESSION,
-                true,
-                nodeTaskMap,
-                executor,
-                new NoOpFailureDetector(),
-                new DynamicFilterService(createTestMetadataManager(), new TypeOperators(), new DynamicFilterConfig()),
-                new SplitSchedulerStats());
-        stage.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY));
-
-        InternalNode node1 = new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false);
-        InternalNode node2 = new InternalNode("other2", URI.create("http://127.0.0.2:12"), NodeVersion.UNKNOWN, false);
-        MockRemoteTask task1 = (MockRemoteTask) stage.scheduleTask(node1, 1).get();
-        MockRemoteTask task2 = (MockRemoteTask) stage.scheduleTask(node2, 2).get();
-
-        // both tasks' buffers are under utilized
-        assertFalse(stage.isAnyTaskBlocked());
-
-        // set one of the task's buffer to be over utilized
-        task1.setOutputBufferOverUtilized(true);
-        assertTrue(stage.isAnyTaskBlocked());
-
-        // set both the tasks' buffers to be over utilized
-        task2.setOutputBufferOverUtilized(true);
-        assertTrue(stage.isAnyTaskBlocked());
-    }
-
     private static PlanFragment createExchangePlanFragment()
     {
         PlanNode planNode = new RemoteSourceNode(
@@ -203,7 +169,8 @@ public class TestSqlStageExecution
                 ImmutableList.of(new PlanFragmentId("source")),
                 ImmutableList.of(new Symbol("column")),
                 Optional.empty(),
-                REPARTITION);
+                REPARTITION,
+                RetryPolicy.NONE);
 
         ImmutableMap.Builder<Symbol, Type> types = ImmutableMap.builder();
         for (Symbol symbol : planNode.getOutputSymbols()) {

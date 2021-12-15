@@ -53,7 +53,7 @@ public class TestS3TableConfigClient
         assertTrue(uri1.getRegion() == null);
 
         // show info:
-        log.info("Tested out URI1 : " + uri1.toString());
+        log.info("Tested out URI1 : %s", uri1);
 
         AmazonS3URI uri2 = new AmazonS3URI("s3://some.big.bucket/long/complex/path");
         assertNotNull(uri2.getKey());
@@ -65,7 +65,7 @@ public class TestS3TableConfigClient
         assertTrue(uri2.getRegion() == null);
 
         // info:
-        log.info("Tested out URI2 : " + uri2.toString());
+        log.info("Tested out URI2 : %s", uri2);
 
         AmazonS3URI uri3 = new AmazonS3URI("s3://trino.kinesis.config/unit-test/trino-kinesis");
         assertNotNull(uri3.getKey());

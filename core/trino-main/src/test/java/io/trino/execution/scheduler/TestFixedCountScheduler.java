@@ -18,6 +18,7 @@ import io.trino.client.NodeVersion;
 import io.trino.execution.MockRemoteTaskFactory;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.RemoteTask;
+import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.metadata.InternalNode;
 import org.testng.annotations.AfterClass;
@@ -63,7 +64,7 @@ public class TestFixedCountScheduler
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> Optional.of(taskFactory.createTableScanTask(
-                        new TaskId("test", 1, 1),
+                        new TaskId(new StageId("test", 1), 1, 0),
                         node, ImmutableList.of(),
                         new PartitionedSplitCountTracker(delta -> {}))),
                 generateRandomNodes(1));
@@ -80,7 +81,7 @@ public class TestFixedCountScheduler
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
                 (node, partition) -> Optional.of(taskFactory.createTableScanTask(
-                        new TaskId("test", 1, 1),
+                        new TaskId(new StageId("test", 1), 1, 0),
                         node, ImmutableList.of(),
                         new PartitionedSplitCountTracker(delta -> {}))),
                 generateRandomNodes(5));

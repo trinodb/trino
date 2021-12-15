@@ -22,6 +22,7 @@ import io.trino.metadata.Metadata;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.MapHashTables;
 import org.openjdk.jol.info.ClassLayout;
@@ -204,17 +205,17 @@ public abstract class AbstractTestBlock
     {
         // Asserting on `block` is not very effective because most blocks passed to this method is compact.
         // Therefore, we split the `block` into two and assert again.
-        long expectedBlockSize = copyBlockViaCopyRegion(block).getSizeInBytes();
+        long expectedBlockSize = getCompactedBlockSizeInBytes(block);
         assertEquals(block.getSizeInBytes(), expectedBlockSize);
         assertEquals(block.getRegionSizeInBytes(0, block.getPositionCount()), expectedBlockSize);
 
         List<Block> splitBlock = splitBlock(block, 2);
         Block firstHalf = splitBlock.get(0);
-        long expectedFirstHalfSize = copyBlockViaCopyRegion(firstHalf).getSizeInBytes();
+        long expectedFirstHalfSize = getCompactedBlockSizeInBytes(firstHalf);
         assertEquals(firstHalf.getSizeInBytes(), expectedFirstHalfSize);
         assertEquals(block.getRegionSizeInBytes(0, firstHalf.getPositionCount()), expectedFirstHalfSize);
         Block secondHalf = splitBlock.get(1);
-        long expectedSecondHalfSize = copyBlockViaCopyRegion(secondHalf).getSizeInBytes();
+        long expectedSecondHalfSize = getCompactedBlockSizeInBytes(secondHalf);
         assertEquals(secondHalf.getSizeInBytes(), expectedSecondHalfSize);
         assertEquals(block.getRegionSizeInBytes(firstHalf.getPositionCount(), secondHalf.getPositionCount()), expectedSecondHalfSize);
 
@@ -399,6 +400,17 @@ public abstract class AbstractTestBlock
     // with the expected bytes
     protected void assertPositionEquals(Block block, int position, Slice expectedBytes)
     {
+    }
+
+    private static long getCompactedBlockSizeInBytes(Block block)
+    {
+        if (block instanceof DictionaryBlock) {
+            // dictionary blocks might become unwrapped when copyRegion is called on a block that is already compact
+            return ((DictionaryBlock) block).compact().getSizeInBytes();
+        }
+        else {
+            return copyBlockViaCopyRegion(block).getSizeInBytes();
+        }
     }
 
     private static Block copyBlockViaCopyRegion(Block block)

@@ -32,7 +32,6 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.execution.StageState.FLUSHING;
 import static io.trino.execution.StageState.RUNNING;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -47,6 +46,7 @@ public class StageStats
     private final int totalTasks;
     private final int runningTasks;
     private final int completedTasks;
+    private final int failedTasks;
 
     private final int totalDrivers;
     private final int queuedDrivers;
@@ -100,6 +100,7 @@ public class StageStats
             @JsonProperty("totalTasks") int totalTasks,
             @JsonProperty("runningTasks") int runningTasks,
             @JsonProperty("completedTasks") int completedTasks,
+            @JsonProperty("failedTasks") int failedTasks,
 
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
@@ -153,6 +154,8 @@ public class StageStats
         this.runningTasks = runningTasks;
         checkArgument(completedTasks >= 0, "completedTasks is negative");
         this.completedTasks = completedTasks;
+        checkArgument(failedTasks >= 0, "failedTasks is negative");
+        this.failedTasks = failedTasks;
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
         this.totalDrivers = totalDrivers;
@@ -237,6 +240,12 @@ public class StageStats
     public int getCompletedTasks()
     {
         return completedTasks;
+    }
+
+    @JsonProperty
+    public int getFailedTasks()
+    {
+        return failedTasks;
     }
 
     @JsonProperty
@@ -433,7 +442,7 @@ public class StageStats
 
     public BasicStageStats toBasicStageStats(StageState stageState)
     {
-        boolean isScheduled = stageState == RUNNING || stageState == FLUSHING || stageState.isDone();
+        boolean isScheduled = stageState == RUNNING || stageState == StageState.PENDING || stageState.isDone();
 
         OptionalDouble progressPercentage = OptionalDouble.empty();
         if (isScheduled && totalDrivers != 0) {

@@ -66,8 +66,8 @@ import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.execution.executor.MultilevelSplitQueue.computeLevel;
-import static io.trino.util.MoreMath.min;
 import static io.trino.version.EmbedVersion.testingVersionEmbedder;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -261,7 +261,7 @@ public class TaskExecutor
         checkArgument(maxDriversPerTask.isEmpty() || maxDriversPerTask.getAsInt() <= maximumNumberOfDriversPerTask,
                 "maxDriversPerTask cannot be greater than the configured value");
 
-        log.debug("Task scheduled " + taskId);
+        log.debug("Task scheduled %s", taskId);
 
         TaskHandle taskHandle = new TaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, maxDriversPerTask);
 
@@ -302,7 +302,7 @@ public class TaskExecutor
         long threadUsageNanos = taskHandle.getScheduledNanos();
         completedTasksPerLevel.incrementAndGet(computeLevel(threadUsageNanos));
 
-        log.debug("Task finished or failed " + taskHandle.getTaskId());
+        log.debug("Task finished or failed %s", taskHandle.getTaskId());
     }
 
     public List<ListenableFuture<Void>> enqueueSplits(TaskHandle taskHandle, boolean intermediate, List<? extends SplitRunner> taskSplits)
@@ -384,15 +384,19 @@ public class TaskExecutor
     private synchronized void scheduleTaskIfNecessary(TaskHandle taskHandle)
     {
         // if task has less than the minimum guaranteed splits running,
-        // immediately schedule a new split for this task.  This assures
+        // immediately schedule new splits for this task.  This assures
         // that a task gets its fair amount of consideration (you have to
         // have splits to be considered for running on a thread).
-        if (taskHandle.getRunningLeafSplits() < min(guaranteedNumberOfDriversPerTask, taskHandle.getMaxDriversPerTask().orElse(Integer.MAX_VALUE))) {
+        int splitsToSchedule = min(guaranteedNumberOfDriversPerTask, taskHandle.getMaxDriversPerTask().orElse(Integer.MAX_VALUE)) - taskHandle.getRunningLeafSplits();
+        for (int i = 0; i < splitsToSchedule; ++i) {
             PrioritizedSplitRunner split = taskHandle.pollNextSplit();
-            if (split != null) {
-                startSplit(split);
-                splitQueuedTime.add(Duration.nanosSince(split.getCreatedNanos()));
+            if (split == null) {
+                // no more splits to schedule
+                return;
             }
+
+            startSplit(split);
+            splitQueuedTime.add(Duration.nanosSince(split.getCreatedNanos()));
         }
     }
 

@@ -644,7 +644,7 @@ public abstract class BaseIcebergConnectorTest
                 "  'a_short_decimal', " +
                 "  'a_long_decimal', " +
                 "  'a_varchar', " +
-                // "  'a_varbinary', " + TODO (https://github.com/trinodb/trino/issues/9755) this yields incorrect query results
+                "  'a_varbinary', " +
                 "  'a_date', " +
                 "  'a_time', " +
                 "  'a_timestamp', " +
@@ -813,7 +813,7 @@ public abstract class BaseIcebergConnectorTest
         String schema = getSession().getSchema().orElseThrow();
         assertThat(query("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'test_partitioned_table$partitions' "))
                 .skippingTypesCheck()
-                .matches("VALUES 'partition', 'record_count', 'file_count', 'total_size', 'data'");
+                .matches("VALUES 'partition', 'record_count', 'file_count', 'total_size'");
         assertThat(query("SELECT " +
                 "  record_count," +
                 "  file_count, " +
@@ -825,7 +825,7 @@ public abstract class BaseIcebergConnectorTest
                 "  partition.a_short_decimal, " +
                 "  partition.a_long_decimal, " +
                 "  partition.a_varchar, " +
-                "  data.a_varbinary, " + // TODO (https://github.com/trinodb/trino/issues/9755) partition on varbinary
+                "  partition.a_varbinary, " +
                 "  partition.a_date, " +
                 "  partition.a_time, " +
                 "  partition.a_timestamp, " +
@@ -845,10 +845,7 @@ public abstract class BaseIcebergConnectorTest
                         "  CAST(1.0 AS decimal(5,2)), " +
                         "  CAST(11.0 AS decimal(38,20)), " +
                         "  VARCHAR 'onefsadfdsf', " +
-                        // TODO (https://github.com/trinodb/trino/issues/9755) include in partitioning
-                        (format == ORC
-                                ? "  CAST(ROW(NULL, NULL, 0) AS ROW(min varbinary, max varbinary, null_count bigint)), "
-                                : "  CAST(ROW(X'000102f0feff', X'000102f0feff', 0) AS ROW(min varbinary, max varbinary, null_count bigint)), ") +
+                        "  X'000102f0feff', " +
                         "  DATE '2021-07-24'," +
                         "  TIME '02:43:57.987654', " +
                         "  TIMESTAMP '2021-07-24 03:43:57.987654'," +
@@ -867,10 +864,7 @@ public abstract class BaseIcebergConnectorTest
                         "  NULL, " +
                         "  NULL, " +
                         "  NULL, " +
-                        // TODO (https://github.com/trinodb/trino/issues/9755) include in partitioning
-                        (format == ORC
-                                ? "  NULL, "
-                                : "  CAST(ROW(NULL, NULL, 1) AS ROW(min varbinary, max varbinary, null_count bigint)), ") +
+                        "  NULL, " +
                         "  NULL, " +
                         "  NULL, " +
                         "  NULL, " +
@@ -2020,6 +2014,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(insertStart + " VALUES (1, 101), (2, 102), (3, 103), (4, 104)", 4);
         TableStatistics tableStatistics = getTableStatistics(tableName, new Constraint(TupleDomain.all()));
         IcebergColumnHandle col1Handle = getColumnHandleFromStatistics(tableStatistics, "col1");
+        IcebergColumnHandle col2Handle = getColumnHandleFromStatistics(tableStatistics, "col2");
 
         // Constraint.predicate is currently not supported, because it's never provided by the engine.
         // TODO add (restore) test coverage when this changes.
@@ -2028,17 +2023,17 @@ public abstract class BaseIcebergConnectorTest
         assertThatThrownBy(() ->
                 getTableStatistics(tableName, new Constraint(
                         TupleDomain.all(),
-                        Optional.of(new TestRelationalNumberPredicate("col1", 3, i1 -> i1 >= 0)),
-                        Optional.of(ImmutableSet.of(col1Handle)))))
+                        new TestRelationalNumberPredicate("col1", 3, i1 -> i1 >= 0),
+                        Set.of(col1Handle))))
                 .isInstanceOf(VerifyException.class)
                 .hasMessage("Unexpected Constraint predicate");
 
-        // predicate on an unspecified set of columns column
+        // predicate on a non-partition column
         assertThatThrownBy(() ->
                 getTableStatistics(tableName, new Constraint(
                         TupleDomain.all(),
-                        Optional.of(new TestRelationalNumberPredicate("col2", 102, i -> i >= 0)),
-                        Optional.empty())))
+                        new TestRelationalNumberPredicate("col2", 102, i -> i >= 0),
+                        Set.of(col2Handle))))
                 .isInstanceOf(VerifyException.class)
                 .hasMessage("Unexpected Constraint predicate");
 

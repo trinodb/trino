@@ -49,37 +49,24 @@ public class LongDecimalColumnReader
 
         DecimalType trinoDecimalType = (DecimalType) trinoType;
 
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            Binary binary = valuesReader.readBytes();
-            Slice value = Decimals.encodeUnscaledValue(new BigInteger(binary.getBytes()));
+        Binary binary = valuesReader.readBytes();
+        Slice value = Decimals.encodeUnscaledValue(new BigInteger(binary.getBytes()));
 
-            if (trinoDecimalType.isShort()) {
-                trinoType.writeLong(blockBuilder, longToShortCast(
-                        value,
-                        parquetDecimalType.getPrecision(),
-                        parquetDecimalType.getScale(),
-                        trinoDecimalType.getPrecision(),
-                        trinoDecimalType.getScale()));
-            }
-            else {
-                trinoType.writeSlice(blockBuilder, longToLongCast(
-                        value,
-                        parquetDecimalType.getPrecision(),
-                        parquetDecimalType.getScale(),
-                        trinoDecimalType.getPrecision(),
-                        trinoDecimalType.getScale()));
-            }
+        if (trinoDecimalType.isShort()) {
+            trinoType.writeLong(blockBuilder, longToShortCast(
+                    value,
+                    parquetDecimalType.getPrecision(),
+                    parquetDecimalType.getScale(),
+                    trinoDecimalType.getPrecision(),
+                    trinoDecimalType.getScale()));
         }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
-        }
-    }
-
-    @Override
-    protected void skipValue()
-    {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBytes();
+        else {
+            trinoType.writeSlice(blockBuilder, longToLongCast(
+                    value,
+                    parquetDecimalType.getPrecision(),
+                    parquetDecimalType.getScale(),
+                    trinoDecimalType.getPrecision(),
+                    trinoDecimalType.getScale()));
         }
     }
 }

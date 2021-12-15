@@ -38,6 +38,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -48,6 +49,7 @@ import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSer
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static org.testng.Assert.assertEquals;
@@ -73,9 +75,19 @@ public class MockExchangeRequestProcessor
         buffers.getUnchecked(location).addPage(page);
     }
 
+    public void addPage(URI location, SerializedPage page)
+    {
+        buffers.getUnchecked(location).addPage(page);
+    }
+
     public void setComplete(URI location)
     {
         buffers.getUnchecked(location).setCompleted();
+    }
+
+    public void setFailed(URI location, RuntimeException failure)
+    {
+        buffers.getUnchecked(location).setFailed(failure);
     }
 
     @Override
@@ -112,12 +124,14 @@ public class MockExchangeRequestProcessor
 
         return new TestingResponse(
                 status,
-                ImmutableListMultimap.of(
-                        CONTENT_TYPE, TRINO_PAGES,
-                        TRINO_TASK_INSTANCE_ID, String.valueOf(result.getTaskInstanceId()),
-                        TRINO_PAGE_TOKEN, String.valueOf(result.getToken()),
-                        TRINO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken()),
-                        TRINO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete())),
+                ImmutableListMultimap.<String, String>builder()
+                        .put(CONTENT_TYPE, TRINO_PAGES)
+                        .put(TRINO_TASK_INSTANCE_ID, String.valueOf(result.getTaskInstanceId()))
+                        .put(TRINO_PAGE_TOKEN, String.valueOf(result.getToken()))
+                        .put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken()))
+                        .put(TRINO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete()))
+                        .put(TRINO_TASK_FAILED, "false")
+                        .build(),
                 bytes);
     }
 
@@ -151,6 +165,7 @@ public class MockExchangeRequestProcessor
         private final AtomicBoolean completed = new AtomicBoolean();
         private final AtomicLong token = new AtomicLong();
         private final BlockingQueue<SerializedPage> serializedPages = new LinkedBlockingQueue<>();
+        private final AtomicReference<RuntimeException> failure = new AtomicReference<>();
 
         private MockBuffer(URI location)
         {
@@ -162,6 +177,12 @@ public class MockExchangeRequestProcessor
             completed.set(true);
         }
 
+        public synchronized void addPage(SerializedPage page)
+        {
+            checkState(completed.get() != Boolean.TRUE, "Location %s is complete", location);
+            serializedPages.add(page);
+        }
+
         public synchronized void addPage(Page page)
         {
             checkState(completed.get() != Boolean.TRUE, "Location %s is complete", location);
@@ -170,11 +191,21 @@ public class MockExchangeRequestProcessor
             }
         }
 
+        public void setFailed(RuntimeException t)
+        {
+            failure.set(t);
+        }
+
         public BufferResult getPages(long sequenceId, DataSize maxSize)
         {
             // if location is complete return GONE
             if (completed.get() && serializedPages.isEmpty()) {
                 return BufferResult.emptyResults(TASK_INSTANCE_ID, token.get(), true);
+            }
+
+            RuntimeException failure = this.failure.get();
+            if (failure != null) {
+                throw failure;
             }
 
             assertEquals(sequenceId, token.get(), "token");

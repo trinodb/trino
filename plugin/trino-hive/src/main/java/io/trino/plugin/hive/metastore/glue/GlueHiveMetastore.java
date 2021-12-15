@@ -636,7 +636,7 @@ public class GlueHiveMetastore
         }
         catch (Exception e) {
             // don't fail if unable to delete path
-            log.warn(e, "Failed to delete path: " + path.toString());
+            log.warn(e, "Failed to delete path: %s", path);
         }
     }
 

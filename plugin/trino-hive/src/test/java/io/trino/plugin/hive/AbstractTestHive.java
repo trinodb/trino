@@ -268,6 +268,7 @@ import static io.trino.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
@@ -675,7 +676,7 @@ public abstract class AbstractTestHive
                 deleteRecursively(temporaryStagingDirectory, ALLOW_INSECURE);
             }
             catch (Exception e) {
-                log.warn(e, "Error deleting " + temporaryStagingDirectory);
+                log.warn(e, "Error deleting %s", temporaryStagingDirectory);
             }
         }
     }
@@ -819,6 +820,7 @@ public abstract class AbstractTestHive
                 Optional.empty(),
                 true,
                 TYPE_MANAGER,
+                NOOP_METADATA_PROVIDER,
                 locationService,
                 partitionUpdateCodec,
                 newFixedThreadPool(2),

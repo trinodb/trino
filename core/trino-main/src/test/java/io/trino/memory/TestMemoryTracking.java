@@ -16,6 +16,7 @@ package io.trino.memory;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.trino.ExceededMemoryLimitException;
+import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStateMachine;
 import io.trino.memory.context.LocalMemoryContext;
@@ -107,7 +108,7 @@ public class TestMemoryTracking
                 queryMaxSpillSize,
                 spillSpaceTracker);
         taskContext = queryContext.addTaskContext(
-                new TaskStateMachine(new TaskId("query", 0, 0), notificationExecutor),
+                new TaskStateMachine(new TaskId(new StageId("query", 0), 0, 0), notificationExecutor),
                 testSessionBuilder().build(),
                 () -> {},
                 true,

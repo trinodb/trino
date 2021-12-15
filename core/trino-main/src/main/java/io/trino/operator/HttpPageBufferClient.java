@@ -32,6 +32,7 @@ import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.server.remotetask.Backoff;
 import io.trino.spi.TrinoException;
@@ -77,11 +78,13 @@ import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static io.trino.spi.HostAddress.fromUri;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_BUFFER_CLOSE_FAILED;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static io.trino.util.Failures.WORKER_NODE_ERROR;
@@ -121,9 +124,10 @@ public final class HttpPageBufferClient
     private final DataIntegrityVerification dataIntegrityVerification;
     private final DataSize maxResponseSize;
     private final boolean acknowledgePages;
+    private final TaskId remoteTaskId;
     private final URI location;
     private final ClientCallback clientCallback;
-    private final ScheduledExecutorService scheduler;
+    private final ScheduledExecutorService scheduledExecutor;
     private final Backoff backoff;
 
     @GuardedBy("this")
@@ -160,9 +164,10 @@ public final class HttpPageBufferClient
             DataSize maxResponseSize,
             Duration maxErrorDuration,
             boolean acknowledgePages,
+            TaskId remoteTaskId,
             URI location,
             ClientCallback clientCallback,
-            ScheduledExecutorService scheduler,
+            ScheduledExecutorService scheduledExecutor,
             Executor pageBufferClientCallbackExecutor)
     {
         this(
@@ -172,9 +177,10 @@ public final class HttpPageBufferClient
                 maxResponseSize,
                 maxErrorDuration,
                 acknowledgePages,
+                remoteTaskId,
                 location,
                 clientCallback,
-                scheduler,
+                scheduledExecutor,
                 Ticker.systemTicker(),
                 pageBufferClientCallbackExecutor);
     }
@@ -186,9 +192,10 @@ public final class HttpPageBufferClient
             DataSize maxResponseSize,
             Duration maxErrorDuration,
             boolean acknowledgePages,
+            TaskId remoteTaskId,
             URI location,
             ClientCallback clientCallback,
-            ScheduledExecutorService scheduler,
+            ScheduledExecutorService scheduledExecutor,
             Ticker ticker,
             Executor pageBufferClientCallbackExecutor)
     {
@@ -197,9 +204,10 @@ public final class HttpPageBufferClient
         this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
         this.maxResponseSize = requireNonNull(maxResponseSize, "maxResponseSize is null");
         this.acknowledgePages = acknowledgePages;
+        this.remoteTaskId = requireNonNull(remoteTaskId, "remoteTaskId is null");
         this.location = requireNonNull(location, "location is null");
         this.clientCallback = requireNonNull(clientCallback, "clientCallback is null");
-        this.scheduler = requireNonNull(scheduler, "scheduler is null");
+        this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(ticker, "ticker is null");
@@ -246,6 +254,11 @@ public final class HttpPageBufferClient
                 httpRequestState);
     }
 
+    public TaskId getRemoteTaskId()
+    {
+        return remoteTaskId;
+    }
+
     public synchronized boolean isRunning()
     {
         return future != null;
@@ -289,7 +302,7 @@ public final class HttpPageBufferClient
         backoff.startRequest();
 
         long delayNanos = backoff.getBackoffDelayNanos();
-        scheduler.schedule(() -> {
+        scheduledExecutor.schedule(() -> {
             try {
                 initiateRequest();
             }
@@ -341,6 +354,10 @@ public final class HttpPageBufferClient
 
                 List<SerializedPage> pages;
                 try {
+                    if (result.isTaskFailed()) {
+                        throw new TrinoException(REMOTE_TASK_FAILED, format("Remote task failed: %s", remoteTaskId));
+                    }
+
                     boolean shouldAcknowledge = false;
                     synchronized (HttpPageBufferClient.this) {
                         if (taskInstanceId == null) {
@@ -615,7 +632,12 @@ public final class HttpPageBufferClient
                 // no content means no content was created within the wait period, but query is still ok
                 // if job is finished, complete is set in the response
                 if (response.getStatusCode() == HttpStatus.NO_CONTENT.code()) {
-                    return createEmptyPagesResponse(getTaskInstanceId(response, uri), getToken(response, uri), getNextToken(response, uri), getComplete(response, uri));
+                    return createEmptyPagesResponse(
+                            getTaskInstanceId(response, uri),
+                            getToken(response, uri),
+                            getNextToken(response, uri),
+                            getComplete(response, uri),
+                            getTaskFailed(response, uri));
                 }
 
                 // otherwise we must have gotten an OK response, everything else is considered fatal
@@ -651,6 +673,7 @@ public final class HttpPageBufferClient
                 long token = getToken(response, uri);
                 long nextToken = getNextToken(response, uri);
                 boolean complete = getComplete(response, uri);
+                boolean remoteTaskFailed = getTaskFailed(response, uri);
 
                 try (SliceInput input = new InputStreamSliceInput(response.getInputStream())) {
                     int magic = input.readInt();
@@ -662,7 +685,7 @@ public final class HttpPageBufferClient
                     List<SerializedPage> pages = ImmutableList.copyOf(readSerializedPages(input));
                     verifyChecksum(checksum, pages);
                     checkState(pages.size() == pagesCount, "Wrong number of pages, expected %s, but read %s", pagesCount, pages.size());
-                    return createPagesResponse(taskInstanceId, token, nextToken, pages, complete);
+                    return createPagesResponse(taskInstanceId, token, nextToken, pages, complete, remoteTaskFailed);
                 }
                 catch (IOException e) {
                     throw new RuntimeException(e);
@@ -724,6 +747,15 @@ public final class HttpPageBufferClient
             return Boolean.parseBoolean(bufferComplete);
         }
 
+        private static boolean getTaskFailed(Response response, URI uri)
+        {
+            String taskFailed = response.getHeader(TRINO_TASK_FAILED);
+            if (taskFailed == null) {
+                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_TASK_FAILED));
+            }
+            return Boolean.parseBoolean(taskFailed);
+        }
+
         private static boolean mediaTypeMatches(String value, MediaType range)
         {
             try {
@@ -737,14 +769,14 @@ public final class HttpPageBufferClient
 
     public static class PagesResponse
     {
-        public static PagesResponse createPagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean complete)
+        public static PagesResponse createPagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean complete, boolean taskFailed)
         {
-            return new PagesResponse(taskInstanceId, token, nextToken, pages, complete);
+            return new PagesResponse(taskInstanceId, token, nextToken, pages, complete, taskFailed);
         }
 
-        public static PagesResponse createEmptyPagesResponse(String taskInstanceId, long token, long nextToken, boolean complete)
+        public static PagesResponse createEmptyPagesResponse(String taskInstanceId, long token, long nextToken, boolean complete, boolean taskFailed)
         {
-            return new PagesResponse(taskInstanceId, token, nextToken, ImmutableList.of(), complete);
+            return new PagesResponse(taskInstanceId, token, nextToken, ImmutableList.of(), complete, taskFailed);
         }
 
         private final String taskInstanceId;
@@ -752,14 +784,16 @@ public final class HttpPageBufferClient
         private final long nextToken;
         private final List<SerializedPage> pages;
         private final boolean clientComplete;
+        private final boolean taskFailed;
 
-        private PagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean clientComplete)
+        private PagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean clientComplete, boolean taskFailed)
         {
             this.taskInstanceId = taskInstanceId;
             this.token = token;
             this.nextToken = nextToken;
             this.pages = ImmutableList.copyOf(pages);
             this.clientComplete = clientComplete;
+            this.taskFailed = taskFailed;
         }
 
         public long getToken()
@@ -787,6 +821,11 @@ public final class HttpPageBufferClient
             return taskInstanceId;
         }
 
+        public boolean isTaskFailed()
+        {
+            return taskFailed;
+        }
+
         @Override
         public String toString()
         {
@@ -795,6 +834,7 @@ public final class HttpPageBufferClient
                     .add("nextToken", nextToken)
                     .add("pagesSize", pages.size())
                     .add("clientComplete", clientComplete)
+                    .add("taskFailed", taskFailed)
                     .toString();
         }
     }

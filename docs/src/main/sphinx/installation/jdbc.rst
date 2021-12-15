@@ -106,7 +106,7 @@ examples are equivalent:
     Connection connection = DriverManager.getConnection(url, properties);
 
     // properties
-    String url = "jdbc:trino://example.net:8080/hive/sales?user=test&password=secret&SSL=true";
+    String url = "jdbc:trino://example.net:8443/hive/sales?user=test&password=secret&SSL=true";
     Connection connection = DriverManager.getConnection(url);
 
 These methods may be mixed; some parameters may be specified in the URL,

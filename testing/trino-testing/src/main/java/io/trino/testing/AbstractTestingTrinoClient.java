@@ -111,6 +111,7 @@ public abstract class AbstractTestingTrinoClient<T>
                 }
 
                 resultsSession.setWarnings(results.getWarnings());
+                resultsSession.setStatementStats(results.getStats());
 
                 T result = resultsSession.build(client.getSetSessionProperties(), client.getResetSessionProperties());
                 return new ResultWithQueryId<>(new QueryId(results.getId()), result);

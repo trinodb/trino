@@ -483,6 +483,10 @@ public class TestMySqlTypeMapping
         verify(someZone.getRules().getValidOffsets(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1)).size() == 2);
 
         DataTypeTest testCases = DataTypeTest.create()
+                .addRoundTrip(dateDataType(), LocalDate.of(1, 1, 1))
+                .addRoundTrip(dateDataType(), LocalDate.of(1582, 10, 4)) // before julian->gregorian switch
+                .addRoundTrip(dateDataType(), LocalDate.of(1582, 10, 5)) // begin julian->gregorian switch
+                .addRoundTrip(dateDataType(), LocalDate.of(1582, 10, 14)) // end julian->gregorian switch
                 .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3)) // before epoch
                 .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
                 .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))

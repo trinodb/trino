@@ -45,27 +45,14 @@ public class TimestampColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            if (type instanceof TimestampWithTimeZoneType) {
-                DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(valuesReader.readBytes());
-                long utcMillis = decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND + decodedTimestamp.getNanosOfSecond() / NANOSECONDS_PER_MILLISECOND;
-                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
-            }
-            else {
-                TrinoTimestampEncoder<?> trinoTimestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);
-                trinoTimestampEncoder.write(decodeInt96Timestamp(valuesReader.readBytes()), blockBuilder);
-            }
+        if (type instanceof TimestampWithTimeZoneType) {
+            DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(valuesReader.readBytes());
+            long utcMillis = decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND + decodedTimestamp.getNanosOfSecond() / NANOSECONDS_PER_MILLISECOND;
+            type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
         }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
-        }
-    }
-
-    @Override
-    protected void skipValue()
-    {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBytes();
+        else {
+            TrinoTimestampEncoder<?> trinoTimestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);
+            trinoTimestampEncoder.write(decodeInt96Timestamp(valuesReader.readBytes()), blockBuilder);
         }
     }
 }

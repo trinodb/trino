@@ -20,6 +20,7 @@ import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.FeaturesConfig.JoinDistributionType;
 import io.trino.FeaturesConfig.JoinReorderingStrategy;
+import io.trino.operator.RetryPolicy;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -34,6 +35,7 @@ import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
 import static io.trino.sql.analyzer.RegexLibrary.RE2J;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -115,7 +117,11 @@ public class TestFeaturesConfig
                 .setMergeProjectWithValues(true)
                 .setLegacyCatalogRoles(false)
                 .setDisableSetPropertiesSecurityCheckForCreateDdl(false)
-                .setIncrementalHashArrayLoadFactorEnabled(true));
+                .setIncrementalHashArrayLoadFactorEnabled(true)
+                .setRetryPolicy(RetryPolicy.NONE)
+                .setRetryAttempts(4)
+                .setRetryInitialDelay(new Duration(10, SECONDS))
+                .setRetryMaxDelay(new Duration(1, MINUTES)));
     }
 
     @Test
@@ -195,6 +201,10 @@ public class TestFeaturesConfig
                 .put("deprecated.legacy-catalog-roles", "true")
                 .put("deprecated.disable-set-properties-security-check-for-create-ddl", "true")
                 .put("incremental-hash-array-load-factor.enabled", "false")
+                .put("retry-policy", "QUERY")
+                .put("retry-attempts", "0")
+                .put("retry-initial-delay", "1m")
+                .put("retry-max-delay", "1h")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -270,7 +280,11 @@ public class TestFeaturesConfig
                 .setMergeProjectWithValues(false)
                 .setLegacyCatalogRoles(true)
                 .setDisableSetPropertiesSecurityCheckForCreateDdl(true)
-                .setIncrementalHashArrayLoadFactorEnabled(false);
+                .setIncrementalHashArrayLoadFactorEnabled(false)
+                .setRetryPolicy(RetryPolicy.QUERY)
+                .setRetryAttempts(0)
+                .setRetryInitialDelay(new Duration(1, MINUTES))
+                .setRetryMaxDelay(new Duration(1, HOURS));
         assertFullMapping(properties, expected);
     }
 }

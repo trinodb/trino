@@ -24,6 +24,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.operator.HttpPageBufferClient.ClientCallback;
@@ -74,6 +76,7 @@ public class TestHttpPageBufferClient
     private ExecutorService pageBufferClientCallbackExecutor;
 
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
+    private static final TaskId TASK_ID = new TaskId(new StageId("query", 0), 0, 0);
 
     @BeforeClass
     public void setUp()
@@ -116,6 +119,7 @@ public class TestHttpPageBufferClient
                 expectedMaxSize,
                 new Duration(1, TimeUnit.MINUTES),
                 true,
+                TASK_ID,
                 location,
                 callback,
                 scheduler,
@@ -204,6 +208,7 @@ public class TestHttpPageBufferClient
                 DataSize.of(10, MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
+                TASK_ID,
                 location,
                 callback,
                 scheduler,
@@ -247,6 +252,7 @@ public class TestHttpPageBufferClient
                 DataSize.of(10, MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
+                TASK_ID,
                 location,
                 callback,
                 scheduler,
@@ -319,6 +325,7 @@ public class TestHttpPageBufferClient
                 DataSize.of(10, MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
+                TASK_ID,
                 location,
                 callback,
                 scheduler,
@@ -376,6 +383,7 @@ public class TestHttpPageBufferClient
                 DataSize.of(10, MEGABYTE),
                 new Duration(30, TimeUnit.SECONDS),
                 true,
+                TASK_ID,
                 location,
                 callback,
                 scheduler,
@@ -458,6 +466,7 @@ public class TestHttpPageBufferClient
                 DataSize.of(10, MEGABYTE),
                 new Duration(30, TimeUnit.SECONDS),
                 true,
+                TASK_ID,
                 location,
                 callback,
                 scheduler,

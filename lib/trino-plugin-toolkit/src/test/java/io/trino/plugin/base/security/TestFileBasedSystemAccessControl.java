@@ -45,6 +45,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Files.copy;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
+import static io.trino.spi.security.Privilege.UPDATE;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
@@ -91,6 +92,7 @@ public class TestFileBasedSystemAccessControl
     private static final String AUTH_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set authorization for schema .* to .*";
     private static final String SHOW_CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show create schema for .*";
     private static final String GRANT_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot grant privilege %s on schema %s%s";
+    private static final String DENY_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot deny privilege %s on schema %s%s";
     private static final String REVOKE_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot revoke privilege %s on schema %s%s";
 
     private static final String SHOWN_TABLES_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show tables of .*";
@@ -114,6 +116,7 @@ public class TestFileBasedSystemAccessControl
     private static final String DROP_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop materialized view .*";
     private static final String REFRESH_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot refresh materialized view .*";
     private static final String GRANT_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot grant privilege DELETE on table .*";
+    private static final String DENY_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot deny privilege DELETE on table .*";
     private static final String REVOKE_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot revoke privilege DELETE on table .*";
 
     private static final String SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set system session property .*";
@@ -294,6 +297,36 @@ public class TestFileBasedSystemAccessControl
         assertAccessDenied(
                 () -> accessControl.checkCanGrantSchemaPrivilege(CHARLIE, privilege, new CatalogSchemaName("some-catalog", "test"), grantee, grantOption),
                 format(GRANT_SCHEMA_ACCESS_DENIED_MESSAGE, privilege, "some-catalog.test", ""));
+    }
+
+    @Test
+    public void testDenySchemaPrivilege()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-schema.json");
+        TrinoPrincipal grantee = new TrinoPrincipal(PrincipalType.USER, "alice");
+
+        accessControl.checkCanDenySchemaPrivilege(ADMIN, UPDATE, new CatalogSchemaName("some-catalog", "bob"), grantee);
+        accessControl.checkCanDenySchemaPrivilege(ADMIN, UPDATE, new CatalogSchemaName("some-catalog", "staff"), grantee);
+        accessControl.checkCanDenySchemaPrivilege(ADMIN, UPDATE, new CatalogSchemaName("some-catalog", "authenticated"), grantee);
+        accessControl.checkCanDenySchemaPrivilege(ADMIN, UPDATE, new CatalogSchemaName("some-catalog", "test"), grantee);
+
+        accessControl.checkCanDenySchemaPrivilege(BOB, UPDATE, new CatalogSchemaName("some-catalog", "bob"), grantee);
+        accessControl.checkCanDenySchemaPrivilege(BOB, UPDATE, new CatalogSchemaName("some-catalog", "staff"), grantee);
+        accessControl.checkCanDenySchemaPrivilege(BOB, UPDATE, new CatalogSchemaName("some-catalog", "authenticated"), grantee);
+        assertAccessDenied(
+                () -> accessControl.checkCanDenySchemaPrivilege(BOB, UPDATE, new CatalogSchemaName("some-catalog", "test"), grantee),
+                format(DENY_SCHEMA_ACCESS_DENIED_MESSAGE, UPDATE, "some-catalog.test", ""));
+
+        assertAccessDenied(
+                () -> accessControl.checkCanDenySchemaPrivilege(CHARLIE, UPDATE, new CatalogSchemaName("some-catalog", "bob"), grantee),
+                format(DENY_SCHEMA_ACCESS_DENIED_MESSAGE, UPDATE, "some-catalog.bob", ""));
+        assertAccessDenied(
+                () -> accessControl.checkCanDenySchemaPrivilege(CHARLIE, UPDATE, new CatalogSchemaName("some-catalog", "staff"), grantee),
+                format(DENY_SCHEMA_ACCESS_DENIED_MESSAGE, UPDATE, "some-catalog.staff", ""));
+        accessControl.checkCanDenySchemaPrivilege(CHARLIE, UPDATE, new CatalogSchemaName("some-catalog", "authenticated"), grantee);
+        assertAccessDenied(
+                () -> accessControl.checkCanDenySchemaPrivilege(CHARLIE, UPDATE, new CatalogSchemaName("some-catalog", "test"), grantee),
+                format(DENY_SCHEMA_ACCESS_DENIED_MESSAGE, UPDATE, "some-catalog.test", ""));
     }
 
     @Test(dataProvider = "privilegeGrantOption")
@@ -569,6 +602,15 @@ public class TestFileBasedSystemAccessControl
 
         accessControl.checkCanGrantTablePrivilege(ADMIN, Privilege.DELETE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), null, false);
         assertAccessDenied(() -> accessControl.checkCanGrantTablePrivilege(BOB, Privilege.DELETE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), null, false), GRANT_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanDenyTablePrivilege()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanDenyTablePrivilege(ADMIN, Privilege.DELETE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), null);
+        assertAccessDenied(() -> accessControl.checkCanDenyTablePrivilege(BOB, Privilege.DELETE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), null), DENY_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE);
     }
 
     @Test

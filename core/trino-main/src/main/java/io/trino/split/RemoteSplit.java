@@ -16,6 +16,7 @@ package io.trino.split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.execution.TaskId;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
@@ -28,12 +29,20 @@ import static java.util.Objects.requireNonNull;
 public class RemoteSplit
         implements ConnectorSplit
 {
+    private final TaskId taskId;
     private final URI location;
 
     @JsonCreator
-    public RemoteSplit(@JsonProperty("location") URI location)
+    public RemoteSplit(@JsonProperty("taskId") TaskId taskId, @JsonProperty("location") URI location)
     {
+        this.taskId = requireNonNull(taskId, "taskId is null");
         this.location = requireNonNull(location, "location is null");
+    }
+
+    @JsonProperty
+    public TaskId getTaskId()
+    {
+        return taskId;
     }
 
     @JsonProperty
@@ -64,6 +73,7 @@ public class RemoteSplit
     public String toString()
     {
         return toStringHelper(this)
+                .add("taskId", taskId)
                 .add("location", location)
                 .toString();
     }

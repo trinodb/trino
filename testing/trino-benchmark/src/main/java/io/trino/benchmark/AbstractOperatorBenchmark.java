@@ -21,6 +21,7 @@ import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.Lifespan;
+import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStateMachine;
 import io.trino.memory.MemoryPool;
@@ -305,7 +306,7 @@ public abstract class AbstractOperatorBenchmark
                 localQueryRunner.getScheduler(),
                 DataSize.of(256, MEGABYTE),
                 spillSpaceTracker)
-                .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0), localQueryRunner.getExecutor()),
+                .addTaskContext(new TaskStateMachine(new TaskId(new StageId("query", 0), 0, 0), localQueryRunner.getExecutor()),
                         session,
                         () -> {},
                         false,

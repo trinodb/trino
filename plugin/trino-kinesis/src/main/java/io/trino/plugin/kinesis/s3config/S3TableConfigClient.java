@@ -167,7 +167,7 @@ public class S3TableConfigClient
             log.info("Completed getting S3 object listing.");
         }
         catch (AmazonClientException e) {
-            log.error("Skipping update as faced error fetching table descriptions from S3 " + e.toString());
+            log.error("Skipping update as faced error fetching table descriptions from S3 %s", e);
         }
         return result;
     }
