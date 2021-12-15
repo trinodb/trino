@@ -43,7 +43,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
-import org.openjdk.jmh.profile.AsyncProfiler;
 import org.openjdk.jmh.profile.DTraceAsmProfiler;
 import org.openjdk.jmh.runner.RunnerException;
 
@@ -147,7 +146,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public void bigintGroupByHashGID(SingleChannelBenchmarkData data, Blackhole blackhole)
     {
-        GroupByHash groupByHash = new BigintGroupByHashEncodedGID(0, data.getHashEnabled(), data.expectedSize, NOOP);
+        GroupByHash groupByHash = new BigintGroupByHashInlineGID(0, data.getHashEnabled(), data.expectedSize, NOOP);
         benchmarkGroupByHash(data, groupByHash, blackhole);
     }
 
@@ -163,7 +162,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public void bigintGroupByHashBatchGID(SingleChannelBenchmarkData data, Blackhole blackhole)
     {
-        GroupByHash groupByHash = new BigintGroupByHashBatchEncodedGID(0, data.getHashEnabled(), data.expectedSize, NOOP);
+        GroupByHash groupByHash = new BigintGroupByHashBatchInlineGID(0, data.getHashEnabled(), data.expectedSize, NOOP);
         benchmarkGroupByHash(data, groupByHash, blackhole);
     }
 

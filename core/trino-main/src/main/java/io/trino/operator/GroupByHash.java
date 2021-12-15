@@ -79,7 +79,7 @@ public interface GroupByHash
     {
         if (hashTypes.size() == 1 && hashTypes.get(0).equals(BIGINT) && hashChannels.length == 1) {
             if (useEnhancedGroupBy) {
-                return new BigintGroupByHashBatchEncodedGID(hashChannels[0], inputHashChannel.isPresent(), expectedSize, updateMemory);
+                return new BigintGroupByHashBatchInlineGID(hashChannels[0], inputHashChannel.isPresent(), expectedSize, updateMemory);
             }
             return new BigintGroupByHash(hashChannels[0], inputHashChannel.isPresent(), expectedSize, updateMemory);
         }
