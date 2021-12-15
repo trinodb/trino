@@ -556,7 +556,7 @@ public class BigintGroupByHashBatchInlineGID
                 if (hashPosition >= newCapacity * 2) {
                     hashPosition = 0;
                 }
-//                hashCollisions++;
+                hashCollisions++;
             }
             newHashTable[hashPosition] = value;
             newHashTable[hashPosition + 1] = groupId;

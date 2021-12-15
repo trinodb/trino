@@ -152,6 +152,14 @@ public class BenchmarkGroupByHash
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
+    public void bigintGroupByHashGIDBigArray(SingleChannelBenchmarkData data, Blackhole blackhole)
+    {
+        GroupByHash groupByHash = new BigintGroupByHashInlineGIDBigArray(0, data.getHashEnabled(), data.expectedSize, NOOP);
+        benchmarkGroupByHash(data, groupByHash, blackhole);
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(POSITIONS)
     public void bigintGroupByHashBatch(SingleChannelBenchmarkData data, Blackhole blackhole)
     {
         GroupByHash groupByHash = new BigintGroupByHashBatchNoRehash(0, data.getHashEnabled(), data.expectedSize, NOOP);
@@ -505,6 +513,7 @@ public class BenchmarkGroupByHash
                 .includeMethod("bigintGroupByHash")
                 .includeMethod("bigintGroupByHashGID")
                 .includeMethod("bigintGroupByHashBatchGID")
+                .includeMethod("bigintGroupByHashGIDBigArray")
                 .withOptions(optionsBuilder -> optionsBuilder
 //                        .addProfiler(GCProfiler.class)
 //                        .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=text;output=flamegraph", asyncProfilerDir()))
