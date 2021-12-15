@@ -449,6 +449,7 @@ jobs:
             !:trino-accumulo,
             !:trino-bigquery,
             !:trino-cassandra,
+            !:trino-scylla,
             !:trino-clickhouse,
             !:trino-delta-lake,
             !:trino-docs,!:trino-server,!:trino-server-rpm,
@@ -554,6 +555,7 @@ jobs:
             - { modules: plugin/trino-bigquery }
             - { modules: plugin/trino-bigquery, profile: cloud-tests-arrow }
             - { modules: plugin/trino-cassandra }
+            - { modules: plugin/trino-scylla }
             - { modules: plugin/trino-clickhouse }
             - { modules: plugin/trino-delta-lake }
             - { modules: plugin/trino-delta-lake, profile: cloud-tests }
@@ -982,6 +984,9 @@ jobs:
             # this suite is not meant to be run with different configs
             - config: default
               suite: suite-cassandra
+            # this suite is not meant to be run with different configs
+            - config: default
+              suite: suite-scylla
             # this suite is not meant to be run with different configs
             - config: default
               suite: suite-clickhouse

@@ -11,26 +11,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.cassandra;
+package io.trino.plugin.scylla;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.cassandra.BaseCassandraConnectorTest;
 import io.trino.testing.QueryRunner;
 
 import java.sql.Timestamp;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createTestTables;
-import static io.trino.plugin.cassandra.ScyllaQueryRunner.createScyllaQueryRunner;
+import static io.trino.plugin.scylla.ScyllaQueryRunner.createScyllaQueryRunner;
+import static io.trino.plugin.scylla.TestingScyllaServer.V3_TAG;
 
-public class TestScyllaConnectorSmokeTest
-        extends BaseCassandraConnectorSmokeTest
+public class TestScyllaConnectorTest
+        extends BaseCassandraConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        TestingScyllaServer server = closeAfterClass(new TestingScyllaServer("3.3.4"));
-        CassandraSession session = server.getSession();
+        server = closeAfterClass(new TestingScyllaServer(V3_TAG));
+        session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
-        return createScyllaQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createScyllaQueryRunner(
+                server,
+                ImmutableMap.of(),
+                ImmutableMap.of("cassandra.batch-size", "50"), // The default 100 causes 'Batch too large' error
+                REQUIRED_TPCH_TABLES);
     }
 }
