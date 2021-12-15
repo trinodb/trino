@@ -28,13 +28,14 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
@@ -43,8 +44,9 @@ import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesW
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.plugin.raptor.legacy.storage.RaptorStorageManager.xxhash64;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.io.File.createTempFile;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createTempDirectory;
+import static java.nio.file.Files.createTempFile;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -58,15 +60,16 @@ public class TestShardRecovery
     private StorageService storageService;
     private ShardRecoveryManager recoveryManager;
     private Handle dummyHandle;
-    private File temporary;
+    private Path temporary;
     private FileBackupStore backupStore;
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
-        temporary = createTempDir();
-        File directory = new File(temporary, "data");
-        File backupDirectory = new File(temporary, "backup");
+        temporary = createTempDirectory(null);
+        File directory = temporary.resolve("data").toFile();
+        File backupDirectory = temporary.resolve("backup").toFile();
         backupStore = new FileBackupStore(backupDirectory);
         backupStore.start();
         storageService = new FileStorageService(directory);
@@ -86,7 +89,7 @@ public class TestShardRecovery
         if (dummyHandle != null) {
             dummyHandle.close();
         }
-        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
+        deleteRecursively(temporary, ALLOW_INSECURE);
     }
 
     @SuppressWarnings("EmptyTryBlock")
@@ -96,7 +99,7 @@ public class TestShardRecovery
     {
         UUID shardUuid = UUID.randomUUID();
         File file = storageService.getStorageFile(shardUuid);
-        File tempFile = createTempFile("tmp", null, temporary);
+        File tempFile = createTempFile(temporary, "tmp", null).toFile();
 
         Files.write("test data", tempFile, UTF_8);
 
@@ -119,7 +122,7 @@ public class TestShardRecovery
         UUID shardUuid = UUID.randomUUID();
 
         // write data and backup
-        File tempFile = createTempFile("tmp", null, temporary);
+        File tempFile = createTempFile(temporary, "tmp", null).toFile();
         Files.write("test data", tempFile, UTF_8);
 
         backupStore.backupShard(shardUuid, tempFile);
@@ -157,7 +160,7 @@ public class TestShardRecovery
         UUID shardUuid = UUID.randomUUID();
 
         // write data and backup
-        File tempFile = createTempFile("tmp", null, temporary);
+        File tempFile = createTempFile(temporary, "tmp", null).toFile();
         Files.write("test data", tempFile, UTF_8);
 
         backupStore.backupShard(shardUuid, tempFile);

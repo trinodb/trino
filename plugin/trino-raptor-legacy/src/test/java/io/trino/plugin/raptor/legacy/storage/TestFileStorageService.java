@@ -19,14 +19,16 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.raptor.legacy.storage.FileStorageService.getFileSystemPath;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -37,14 +39,15 @@ import static org.testng.FileAssert.assertFile;
 @Test(singleThreaded = true)
 public class TestFileStorageService
 {
-    private File temporary;
+    private Path temporary;
     private FileStorageService store;
 
     @BeforeMethod
     public void setup()
+            throws IOException
     {
-        temporary = createTempDir();
-        store = new FileStorageService(temporary);
+        temporary = createTempDirectory(null);
+        store = new FileStorageService(temporary.toFile());
         store.start();
     }
 
@@ -52,7 +55,7 @@ public class TestFileStorageService
     public void tearDown()
             throws Exception
     {
-        deleteRecursively(temporary.toPath(), ALLOW_INSECURE);
+        deleteRecursively(temporary, ALLOW_INSECURE);
     }
 
     @Test
@@ -67,9 +70,9 @@ public class TestFileStorageService
     public void testFilePaths()
     {
         UUID uuid = UUID.fromString("701e1a79-74f7-4f56-b438-b41e8e7d019d");
-        File staging = new File(temporary, format("staging/%s.orc", uuid));
-        File storage = new File(temporary, format("storage/70/1e/%s.orc", uuid));
-        File quarantine = new File(temporary, format("quarantine/%s.orc", uuid));
+        File staging = temporary.resolve("staging").resolve(format("%s.orc", uuid)).toFile();
+        File storage = temporary.resolve("storage").resolve("70").resolve("1e").resolve(format("%s.orc", uuid)).toFile();
+        File quarantine = temporary.resolve("quarantine").resolve(format("%s.orc", uuid)).toFile();
         assertEquals(store.getStagingFile(uuid), staging);
         assertEquals(store.getStorageFile(uuid), storage);
         assertEquals(store.getQuarantineFile(uuid), quarantine);
@@ -79,9 +82,9 @@ public class TestFileStorageService
     public void testStop()
             throws Exception
     {
-        File staging = new File(temporary, "staging");
-        File storage = new File(temporary, "storage");
-        File quarantine = new File(temporary, "quarantine");
+        File staging = temporary.resolve("staging").toFile();
+        File storage = temporary.resolve("storage").toFile();
+        File quarantine = temporary.resolve("quarantine").toFile();
 
         assertDirectory(staging);
         assertDirectory(storage);
@@ -116,7 +119,7 @@ public class TestFileStorageService
             assertTrue(file.createNewFile());
         }
 
-        File storage = new File(temporary, "storage");
+        File storage = temporary.resolve("storage").toFile();
         assertTrue(new File(storage, "abc").mkdir());
         assertTrue(new File(storage, "ab/cd").mkdirs());
         assertTrue(new File(storage, format("ab/cd/%s.junk", randomUUID())).createNewFile());

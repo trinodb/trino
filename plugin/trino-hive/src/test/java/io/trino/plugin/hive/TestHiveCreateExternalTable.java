@@ -21,16 +21,16 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveCreateExternalTable
@@ -50,14 +50,14 @@ public class TestHiveCreateExternalTable
     public void testCreateExternalTableWithData()
             throws IOException
     {
-        File tempDir = createTempDir();
-        File tableLocation = new File(tempDir, "data");
+        Path tempDir = createTempDirectory(null);
+        Path tableLocation = tempDir.resolve("data");
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE test_create_external " +
                         "WITH (external_location = '%s') AS " +
                         "SELECT * FROM tpch.tiny.nation",
-                tableLocation.toURI().toASCIIString());
+                tableLocation.toUri().toASCIIString());
 
         assertUpdate(createTableSql, 25);
 
@@ -67,22 +67,23 @@ public class TestHiveCreateExternalTable
 
         MaterializedResult result = computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '/') FROM test_create_external");
         String tablePath = (String) result.getOnlyValue();
-        assertThat(tablePath).startsWith(tableLocation.toURI().toString());
+        assertThat(tablePath).startsWith(tableLocation.toFile().toURI().toString());
 
         assertUpdate("DROP TABLE test_create_external");
-        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+        deleteRecursively(tempDir, ALLOW_INSECURE);
     }
 
     @Test
     public void testCreateExternalTableAsWithExistingDirectory()
+            throws IOException
     {
-        File tempDir = createTempDir();
+        Path tempDir = createTempDirectory(null);
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE test_create_external_exists " +
                         "WITH (external_location = '%s') AS " +
                         "SELECT * FROM tpch.tiny.nation",
-                tempDir.toURI().toASCIIString());
+                tempDir.toUri().toASCIIString());
 
         assertQueryFails(createTableSql, "Target directory for table '.*' already exists:.*");
     }

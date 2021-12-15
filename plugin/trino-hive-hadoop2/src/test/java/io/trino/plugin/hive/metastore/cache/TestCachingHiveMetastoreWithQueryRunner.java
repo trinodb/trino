@@ -26,18 +26,18 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.Lists.cartesianProduct;
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.authentication.HiveIdentity.none;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
@@ -52,7 +52,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
     private static final Session ALICE = getTestSession(new Identity.Builder(ALICE_NAME).build());
 
     private DistributedQueryRunner queryRunner;
-    private File temporaryMetastoreDirectory;
+    private Path temporaryMetastoreDirectory;
 
     @BeforeMethod
     public void createQueryRunner()
@@ -63,10 +63,10 @@ public class TestCachingHiveMetastoreWithQueryRunner
                 .setNodeCount(1)
                 .build();
         queryRunner.installPlugin(new HivePlugin());
-        temporaryMetastoreDirectory = createTempDir();
+        temporaryMetastoreDirectory = createTempDirectory(null);
         queryRunner.createCatalog(CATALOG, "hive", ImmutableMap.of(
                 "hive.metastore", "file",
-                "hive.metastore.catalog.dir", temporaryMetastoreDirectory.toURI().toString(),
+                "hive.metastore.catalog.dir", temporaryMetastoreDirectory.toUri().toString(),
                 "hive.security", "sql-standard",
                 "hive.metastore-cache-ttl", "60m",
                 "hive.metastore-refresh-interval", "10m"));
@@ -79,7 +79,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
             throws IOException
     {
         queryRunner.close();
-        deleteRecursively(temporaryMetastoreDirectory.toPath(), ALLOW_INSECURE);
+        deleteRecursively(temporaryMetastoreDirectory, ALLOW_INSECURE);
     }
 
     private static Session getTestSession(Identity identity)
@@ -123,7 +123,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
         queryRunner.execute("SELECT initial FROM cached");
 
         // Rename column name in Metastore outside Trino
-        FileHiveMetastore fileHiveMetastore = FileHiveMetastore.createTestingFileHiveMetastore(temporaryMetastoreDirectory);
+        FileHiveMetastore fileHiveMetastore = FileHiveMetastore.createTestingFileHiveMetastore(temporaryMetastoreDirectory.toFile());
         fileHiveMetastore.renameColumn(none(), "test", "cached", "initial", "renamed");
 
         String renamedColumnQuery = "SELECT renamed FROM cached";

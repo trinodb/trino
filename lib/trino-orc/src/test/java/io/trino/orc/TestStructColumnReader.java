@@ -65,6 +65,7 @@ public class TestStructColumnReader
 
     @BeforeMethod
     public void setUp()
+            throws IOException
     {
         tempFile = new TempFile();
     }

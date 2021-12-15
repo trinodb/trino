@@ -39,6 +39,7 @@ import org.openjdk.jmh.annotations.Warmup;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -47,7 +48,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.jmh.Benchmarks.benchmark;
@@ -68,6 +68,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -343,7 +344,7 @@ public class BenchmarkColumnReaders
     {
         protected final Random random = new Random(0);
         private List<Type> types;
-        private File temporaryDirectory;
+        private Path temporaryDirectory;
         private File orcFile;
         private OrcDataSource dataSource;
 
@@ -354,8 +355,8 @@ public class BenchmarkColumnReaders
                 throws Exception
         {
             this.types = types;
-            temporaryDirectory = createTempDir();
-            orcFile = new File(temporaryDirectory, randomUUID().toString());
+            temporaryDirectory = createTempDirectory(null);
+            orcFile = temporaryDirectory.resolve(randomUUID().toString()).toFile();
             OrcTester.writeOrcPages(orcFile, CompressionKind.valueOf(compression), types, pages, new OrcWriterStats());
 
             dataSource = new MemoryOrcDataSource(new OrcDataSourceId(orcFile.getPath()), Slices.wrappedBuffer(readAllBytes(orcFile.toPath())));
@@ -365,8 +366,8 @@ public class BenchmarkColumnReaders
                 throws Exception
         {
             this.types = ImmutableList.of(type);
-            temporaryDirectory = createTempDir();
-            orcFile = new File(temporaryDirectory, randomUUID().toString());
+            temporaryDirectory = createTempDirectory(null);
+            orcFile = temporaryDirectory.resolve(randomUUID().toString()).toFile();
             writeOrcColumnTrino(orcFile, NONE, type, values, new OrcWriterStats());
 
             dataSource = new MemoryOrcDataSource(new OrcDataSourceId(orcFile.getPath()), Slices.wrappedBuffer(readAllBytes(orcFile.toPath())));
@@ -376,7 +377,7 @@ public class BenchmarkColumnReaders
         public void tearDown()
                 throws IOException
         {
-            deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
+            deleteRecursively(temporaryDirectory, ALLOW_INSECURE);
         }
 
         OrcRecordReader createRecordReader()
