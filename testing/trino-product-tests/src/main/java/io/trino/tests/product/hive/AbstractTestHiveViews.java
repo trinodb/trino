@@ -44,6 +44,7 @@ import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_ICEBERG_REDIRECTIONS;
 import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -165,6 +166,39 @@ public abstract class AbstractTestHiveViews
                         "nation");
 
         assertViewQuery("SELECT * FROM test_schema.hive_test_view_1", queryAssert -> queryAssert.hasRowsCount(25));
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testViewReferencingTableInDifferentSchema()
+    {
+        String schemaX = "test_view_table_in_different_schema_x" + randomTableSuffix();
+        String schemaY = "test_view_table_in_different_schema_y" + randomTableSuffix();
+        String tableName = "test_table";
+        String viewName = "test_view";
+
+        onHive().executeQuery(format("CREATE SCHEMA %s", schemaX));
+        onHive().executeQuery(format("CREATE SCHEMA %s", schemaY));
+
+        onTrino().executeQuery(format("CREATE TABLE %s.%s AS SELECT * FROM tpch.tiny.nation", schemaY, tableName));
+        onHive().executeQuery(format("CREATE VIEW %s.%s AS SELECT * FROM %s.%s", schemaX, viewName, schemaY, tableName));
+
+        assertThat(onTrino().executeQuery(format("SELECT COUNT(*) FROM %s.%s", schemaX, viewName))).containsOnly(row(25));
+    }
+
+    @Test(groups = HIVE_VIEWS)
+    public void testViewReferencingTableInTheSameSchemaWithoutQualifier()
+    {
+        String schemaX = "test_view_table_same_schema_without_qualifier_schema" + randomTableSuffix();
+        String tableName = "test_table";
+        String viewName = "test_view";
+
+        onHive().executeQuery(format("CREATE SCHEMA %s", schemaX));
+
+        onTrino().executeQuery(format("CREATE TABLE %s.%s AS SELECT * FROM tpch.tiny.nation", schemaX, tableName));
+        onHive().executeQuery(format("USE %s", schemaX));
+        onHive().executeQuery(format("CREATE VIEW %s AS SELECT * FROM %s", viewName, tableName));
+
+        assertThat(onTrino().executeQuery(format("SELECT COUNT(*) FROM %s.%s", schemaX, viewName))).containsOnly(row(25));
     }
 
     @Test(groups = HIVE_VIEWS)
