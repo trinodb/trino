@@ -182,7 +182,6 @@ public class GlueHiveMetastore
     public GlueHiveMetastore(
             HdfsEnvironment hdfsEnvironment,
             GlueHiveMetastoreConfig glueConfig,
-            HiveConfig hiveConfig,
             @ForGlueHiveMetastore Executor partitionsReadExecutor,
             GlueColumnStatisticsProviderFactory columnStatisticsProviderFactory,
             @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler,
