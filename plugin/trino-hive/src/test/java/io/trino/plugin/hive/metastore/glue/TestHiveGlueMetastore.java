@@ -23,7 +23,6 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.slice.Slice;
 import io.trino.plugin.hive.AbstractTestHiveLocal;
 import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveTestUtils;
 import io.trino.plugin.hive.HiveType;
@@ -195,14 +194,10 @@ public class TestHiveGlueMetastore
         glueConfig.setDefaultWarehouseDir(tempDir.toURI().toString());
         glueConfig.setAssumeCanonicalPartitionKeys(true);
 
-        HiveConfig hiveConfig = new HiveConfig();
-        hiveConfig.setTableStatisticsEnabled(true);
-
         Executor executor = new BoundedExecutor(this.executor, 10);
         return new GlueHiveMetastore(
                 HDFS_ENVIRONMENT,
                 glueConfig,
-                hiveConfig,
                 executor,
                 new DefaultGlueColumnStatisticsProviderFactory(glueConfig, executor, executor),
                 Optional.empty(),
