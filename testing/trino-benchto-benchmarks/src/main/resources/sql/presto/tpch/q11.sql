@@ -25,5 +25,7 @@ HAVING
       AND n.name = 'GERMANY'
   )
 ORDER BY 
-  value DESC
+  value DESC, 
+  -- additional column to assure results stability for larger scale factors; this is a deviation from TPC-H specification
+  ps.partkey ASC
 ;
