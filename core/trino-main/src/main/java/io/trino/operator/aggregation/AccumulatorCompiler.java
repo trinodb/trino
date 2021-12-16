@@ -160,11 +160,13 @@ public final class AccumulatorCompiler
                 lambdaProviderFields,
                 callSiteBinder,
                 grouped);
-
-        generatePrivateConstructor(definition);
+        generateCopyConstructor(
+                definition,
+                stateFieldAndDescriptors,
+                lambdaProviderFields);
 
         // Generate methods
-        generateCopy(definition, stateFieldAndDescriptors, lambdaProviderFields, Accumulator.class);
+        generateCopy(definition, Accumulator.class);
 
         generateAddInput(
                 definition,
@@ -254,10 +256,13 @@ public final class AccumulatorCompiler
                 stateFieldAndDescriptors,
                 lambdaProviderFields,
                 callSiteBinder);
-        generatePrivateConstructor(definition);
+        generateCopyConstructor(
+                definition,
+                stateFieldAndDescriptors,
+                lambdaProviderFields);
 
         // Generate methods
-        generateCopy(definition, stateFieldAndDescriptors, lambdaProviderFields, WindowAccumulator.class);
+        generateCopy(definition, WindowAccumulator.class);
         generateAddOrRemoveInputWindowIndex(
                 definition,
                 stateFields,
@@ -975,50 +980,52 @@ public final class AccumulatorCompiler
         }
     }
 
-    private static void generatePrivateConstructor(ClassDefinition definition)
+    private static void generateCopyConstructor(
+            ClassDefinition definition,
+            List<StateFieldAndDescriptor> stateFieldAndDescriptors,
+            List<FieldDefinition> lambdaProviderFields)
     {
-        MethodDefinition method = definition.declareConstructor(a(PRIVATE));
+        Parameter source = arg("source", definition.getType());
+        MethodDefinition method = definition.declareConstructor(
+                a(PUBLIC),
+                source);
 
         BytecodeBlock body = method.getBody();
+        Variable thisVariable = method.getThis();
+
         body.comment("super();")
-                .append(method.getThis())
-                .invokeConstructor(Object.class)
-                .ret();
-    }
+                .append(thisVariable)
+                .invokeConstructor(Object.class);
 
-    private static void generateCopy(
-            ClassDefinition definition,
-            List<StateFieldAndDescriptor> stateFieldsAndDescriptors,
-            List<FieldDefinition> lambdaProviderFields,
-            Class<?> returnType)
-    {
-        MethodDefinition copy = definition.declareMethod(a(PUBLIC), "copy", type(returnType));
-        Variable thisVariable = copy.getThis();
+        body.append(generateRequireNotNull(source));
 
-        Variable instanceCopy = copy.getScope().declareVariable(definition.getType(), "instanceCopy");
-        copy.getBody().append(instanceCopy.set(newInstance(definition.getType())));
-
-        for (StateFieldAndDescriptor descriptor : stateFieldsAndDescriptors) {
+        for (StateFieldAndDescriptor descriptor : stateFieldAndDescriptors) {
             FieldDefinition stateSerializerField = descriptor.getStateSerializerField();
+            body.append(thisVariable.setField(stateSerializerField, source.getField(stateSerializerField)));
+            body.append(generateRequireNotNull(thisVariable, stateSerializerField));
+
             FieldDefinition stateFactoryField = descriptor.getStateFactoryField();
+            body.append(thisVariable.setField(stateFactoryField, source.getField(stateFactoryField)));
+            body.append(generateRequireNotNull(thisVariable, stateFactoryField));
+
             FieldDefinition stateField = descriptor.getStateField();
-            copy.getBody()
-                    .append(instanceCopy.setField(stateSerializerField, thisVariable.getField(stateSerializerField)))
-                    .append(generateRequireNotNull(thisVariable, stateSerializerField))
-                    .append(instanceCopy.setField(stateFactoryField, thisVariable.getField(stateFactoryField)))
-                    .append(generateRequireNotNull(thisVariable, stateFactoryField))
-                    .append(instanceCopy.setField(stateField, thisVariable.getField(stateField).invoke("copy", AccumulatorState.class, ImmutableList.of()).cast(stateField.getType())))
-                    .append(generateRequireNotNull(thisVariable, stateField));
+            body.append(thisVariable.setField(stateField, source.getField(stateField).invoke("copy", AccumulatorState.class).cast(stateField.getType())));
+            body.append(generateRequireNotNull(thisVariable, stateField));
         }
 
         for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
-            copy.getBody()
-                    .append(instanceCopy.setField(lambdaProviderField, thisVariable.getField(lambdaProviderField)))
-                    .append(generateRequireNotNull(thisVariable, lambdaProviderField));
+            body.append(thisVariable.setField(lambdaProviderField, source.getField(lambdaProviderField)));
+            body.append(generateRequireNotNull(thisVariable, lambdaProviderField));
         }
 
+        body.ret();
+    }
+
+    private static void generateCopy(ClassDefinition definition, Class<?> returnType)
+    {
+        MethodDefinition copy = definition.declareMethod(a(PUBLIC), "copy", type(returnType));
         copy.getBody()
-                .append(instanceCopy.ret());
+                .append(newInstance(definition.getType(), copy.getScope().getThis()).ret());
     }
 
     private static BytecodeExpression generateRequireNotNull(Variable variable)
