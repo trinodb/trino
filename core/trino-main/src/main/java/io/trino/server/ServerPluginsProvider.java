@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
@@ -69,8 +70,8 @@ public class ServerPluginsProvider
 
     private static List<File> listFiles(File path)
     {
-        try {
-            return stream(newDirectoryStream(path.toPath()))
+        try (Stream<Path> paths = newDirectoryStream(path.toPath())) {
+            return stream(paths)
                     .map(Path::toFile)
                     .sorted()
                     .collect(toImmutableList());
