@@ -86,6 +86,8 @@ public class TestSelectAll
         MaterializedResult materializedResult1 = assertions.execute("SELECT (SELECT (rand(), rand(), rand(), rand())).*");
         long distinctValuesCount1 = materializedResult1.getMaterializedRows().get(0).getFields().stream().distinct().count();
         assertTrue(distinctValuesCount1 >= 3, "rand() must be computed multiple times");
+
+        assertThat(assertions.query("SELECT 1, (2, 3).*")).matches("SELECT 1, 2, 3");
     }
 
     @Test
