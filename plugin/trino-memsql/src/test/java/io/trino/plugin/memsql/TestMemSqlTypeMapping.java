@@ -72,6 +72,9 @@ import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * @see <a href="https://docs.singlestore.com/db/latest/en/reference/sql-reference/data-types.html">SingleStore (MemSQL) data types</a>
+ */
 public class TestMemSqlTypeMapping
         extends AbstractTestQueryFramework
 {
@@ -393,6 +396,7 @@ public class TestMemSqlTypeMapping
     private SqlDataTypeTest memSqlCharTypeTest()
     {
         return SqlDataTypeTest.create()
+                .addRoundTrip("char(1)", "NULL", createCharType(1), "CAST(NULL AS char(1))")
                 .addRoundTrip("char(1)", "''", createCharType(1), "CAST('' AS char(1))")
                 .addRoundTrip("char(1)", "'a'", createCharType(1), "CAST('a' AS char(1))")
                 .addRoundTrip("char(8)", "'abc'", createCharType(8), "CAST('abc' AS char(8))")
@@ -414,6 +418,7 @@ public class TestMemSqlTypeMapping
     public void testTrinoCreatedParameterizedVarchar()
     {
         SqlDataTypeTest.create()
+                .addRoundTrip("varchar(10)", "NULL", createVarcharType(10), "CAST(NULL AS varchar(10))")
                 .addRoundTrip("varchar(10)", "'text_a'", createVarcharType(10), "CAST('text_a' AS varchar(10))")
                 .addRoundTrip("varchar(255)", "'text_b'", createVarcharType(255), "CAST('text_b' AS varchar(255))")
                 .addRoundTrip("varchar(256)", "'text_c'", createVarcharType(256), "CAST('text_c' AS varchar(256))")
@@ -455,6 +460,8 @@ public class TestMemSqlTypeMapping
                         createVarcharType(sampleUnicodeLiteral.length()), "CAST(" + sampleUnicodeLiteral + " AS varchar(" + sampleUnicodeLiteral.length() + "))")
                 .addRoundTrip("varchar(32) " + CHARACTER_SET_UTF8, sampleUnicodeLiteral, createVarcharType(32), "CAST(" + sampleUnicodeLiteral + " AS varchar(32))")
                 .addRoundTrip("varchar(20000) " + CHARACTER_SET_UTF8, sampleUnicodeLiteral, createVarcharType(20000), "CAST(" + sampleUnicodeLiteral + " AS varchar(20000))")
+                // MemSQL version >= 7.5 supports utf8mb4, but older versions store an empty character for a 4 bytes character
+                .addRoundTrip("varchar(1) " + CHARACTER_SET_UTF8, "'😂'", createVarcharType(1), "CAST('' AS varchar(1))")
                 .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_parameterized_varchar_unicode"));
     }
 
@@ -528,7 +535,10 @@ public class TestMemSqlTypeMapping
                     .build();
 
             SqlDataTypeTest.create()
+                    .addRoundTrip("date", "CAST(NULL AS date)", DATE, "CAST(NULL AS date)")
+                    .addRoundTrip("date", "CAST('0000-01-01' AS date)", DATE, "DATE '0000-01-01'")
                     .addRoundTrip("date", "CAST('0001-01-01' AS date)", DATE, "DATE '0001-01-01'")
+                    .addRoundTrip("date", "CAST('1000-01-01' AS date)", DATE, "DATE '1000-01-01'") // min date in docs
                     .addRoundTrip("date", "CAST('1582-10-04' AS date)", DATE, "DATE '1582-10-04'") // before julian->gregorian switch
                     .addRoundTrip("date", "CAST('1582-10-05' AS date)", DATE, "DATE '1582-10-05'") // begin julian->gregorian switch
                     .addRoundTrip("date", "CAST('1582-10-14' AS date)", DATE, "DATE '1582-10-14'") // end julian->gregorian switch
@@ -537,6 +547,7 @@ public class TestMemSqlTypeMapping
                     .addRoundTrip("date", "CAST('1970-02-03' AS date)", DATE, "DATE '1970-02-03'")
                     .addRoundTrip("date", "CAST('2017-07-01' AS date)", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
                     .addRoundTrip("date", "CAST('2017-01-01' AS date)", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                    .addRoundTrip("date", "CAST('9999-12-31' AS date)", DATE, "DATE '9999-12-31'") // max value
                     .addRoundTrip("date", "CAST('" + dateOfLocalTimeChangeForwardAtMidnightInJvmZone.toString() + "' AS date)",
                             DATE, "DATE '" + dateOfLocalTimeChangeForwardAtMidnightInJvmZone.toString() + "'")
                     .addRoundTrip("date", "CAST('" + dateOfLocalTimeChangeForwardAtMidnightInSomeZone.toString() + "' AS date)",
