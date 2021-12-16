@@ -31,4 +31,6 @@ FROM
 , ${database}.${schema}.customer
 WHERE ("ss_customer_sk" = "c_customer_sk")
    AND ("cnt" BETWEEN 1 AND 5)
-ORDER BY "cnt" DESC, "c_last_name" ASC
+ORDER BY "cnt" DESC, "c_last_name" ASC,
+   -- additional column to assure results stability for larger scale factors; this is a deviation from TPC-DS specification
+   "ss_ticket_number" ASC
