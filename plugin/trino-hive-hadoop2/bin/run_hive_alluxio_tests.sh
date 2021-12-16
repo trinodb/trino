@@ -4,6 +4,10 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
+if ! check_gib_impacted trino-hive-hadoop2; then
+    echo >&2 "Module trino-hive-hadoop2 not present in gib-impacted.log, nothing to do"
+    exit 0
+fi
 export ALLUXIO_BASE_IMAGE="alluxio/alluxio"
 export ALLUXIO_IMAGE_TAG="2.1.2"
 

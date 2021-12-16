@@ -211,3 +211,12 @@ function deploy_core_site_xml() {
         'sed "${@:2}" "/docker/files/$1" > /etc/hadoop/conf/core-site.xml' \
         bash "$template" "${args[@]}"
 }
+
+# Checks if Gitflow Incremental Builder (GIB) is enabled and specified module should be built
+function check_gib_impacted() {
+    local module=$1
+    if [ -f gib-impacted.log ] && ! grep -q "$module" gib-impacted.log; then
+        return 1
+    fi
+    return 0
+}

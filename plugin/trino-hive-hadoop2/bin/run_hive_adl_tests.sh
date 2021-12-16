@@ -4,6 +4,10 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
+if ! check_gib_impacted trino-hive-hadoop2; then
+    echo >&2 "Module trino-hive-hadoop2 not present in gib-impacted.log, nothing to do"
+    exit 0
+fi
 check_vars ADL_NAME ADL_CLIENT_ID ADL_CREDENTIAL ADL_REFRESH_URL
 
 cleanup_hadoop_docker_containers

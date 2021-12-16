@@ -4,6 +4,10 @@ set -euo pipefail -x
 
 . "${BASH_SOURCE%/*}/common.sh"
 
+if ! check_gib_impacted trino-hive-hadoop2; then
+    echo >&2 "Module trino-hive-hadoop2 not present in gib-impacted.log, nothing to do"
+    exit 0
+fi
 check_vars S3_BUCKET S3_BUCKET_ENDPOINT \
     AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 
