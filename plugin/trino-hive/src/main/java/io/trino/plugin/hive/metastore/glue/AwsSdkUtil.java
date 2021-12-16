@@ -16,6 +16,7 @@ package io.trino.plugin.hive.metastore.glue;
 import com.google.common.collect.AbstractIterator;
 
 import java.util.Iterator;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -28,10 +29,19 @@ public final class AwsSdkUtil
 
     /**
      * Helper method to get all results from a paginated API.
+     *
+     * @param request request object reused for subsequent requests with
+     * {@code setNextToken} being used to set the next token in the request object
      */
-    public static <Result> Stream<Result> getPaginatedResults(Function<String, Result> request, Function<Result, String> extractNextToken)
+    public static <Request, Result> Stream<Result> getPaginatedResults(
+            Function<Request, Result> submission,
+            Request request,
+            BiConsumer<Request, String> setNextToken,
+            Function<Result, String> extractNextToken)
     {
+        requireNonNull(submission, "submission is null");
         requireNonNull(request, "request is null");
+        requireNonNull(setNextToken, "setNextToken is null");
         requireNonNull(extractNextToken, "extractNextToken is null");
 
         Iterator<Result> iterator = new AbstractIterator<>()
@@ -46,7 +56,8 @@ public final class AwsSdkUtil
                     return endOfData();
                 }
 
-                Result result = request.apply(nextToken);
+                setNextToken.accept(request, nextToken);
+                Result result = submission.apply(request);
                 firstRequest = false;
                 nextToken = extractNextToken.apply(result);
                 return result;
