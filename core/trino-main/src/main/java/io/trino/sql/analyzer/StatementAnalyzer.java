@@ -1640,14 +1640,16 @@ class StatementAnalyzer
                 for (int i = 0; i < queryDescriptor.getAllFieldCount(); i++) {
                     Field inputField = queryDescriptor.getFieldByIndex(i);
                     if (!inputField.isHidden()) {
-                        fieldBuilder.add(Field.newQualified(
+                        Field field = Field.newQualified(
                                 QualifiedName.of(table.getName().getSuffix()),
                                 Optional.of(aliases.next().getValue()),
                                 inputField.getType(),
                                 false,
                                 inputField.getOriginTable(),
                                 inputField.getOriginColumnName(),
-                                inputField.isAliased()));
+                                inputField.isAliased());
+                        fieldBuilder.add(field);
+                        analysis.addSourceColumns(field, analysis.getSourceColumns(inputField));
                     }
                 }
                 fields = fieldBuilder.build();
@@ -1657,14 +1659,16 @@ class StatementAnalyzer
                 for (int i = 0; i < queryDescriptor.getAllFieldCount(); i++) {
                     Field inputField = queryDescriptor.getFieldByIndex(i);
                     if (!inputField.isHidden()) {
-                        fieldBuilder.add(Field.newQualified(
+                        Field field = Field.newQualified(
                                 QualifiedName.of(table.getName().getSuffix()),
                                 inputField.getName(),
                                 inputField.getType(),
                                 false,
                                 inputField.getOriginTable(),
                                 inputField.getOriginColumnName(),
-                                inputField.isAliased()));
+                                inputField.isAliased());
+                        fieldBuilder.add(field);
+                        analysis.addSourceColumns(field, analysis.getSourceColumns(inputField));
                     }
                 }
                 fields = fieldBuilder.build();
@@ -2050,13 +2054,26 @@ class StatementAnalyzer
             }
 
             List<String> aliases = null;
+            Collection<Field> inputFields = relationType.getAllFields();
             if (relation.getColumnNames() != null) {
                 aliases = relation.getColumnNames().stream()
                         .map(Identifier::getValue)
                         .collect(Collectors.toList());
+                // hidden fields are not exposed when there are column aliases
+                inputFields = relationType.getVisibleFields();
             }
 
             RelationType descriptor = relationType.withAlias(relation.getAlias().getValue(), aliases);
+
+            checkArgument(inputFields.size() == descriptor.getAllFieldCount(),
+                    "Expected %s fields, got %s",
+                    descriptor.getAllFieldCount(),
+                    inputFields.size());
+
+            Streams.forEachPair(
+                    descriptor.getAllFields().stream(),
+                    inputFields.stream(),
+                    (newField, field) -> analysis.addSourceColumns(newField, analysis.getSourceColumns(field)));
 
             return createAndAssignScope(relation, scope, descriptor);
         }
@@ -3970,6 +3987,11 @@ class StatementAnalyzer
             RelationType oldDescriptor = scope.getRelationType();
             validateColumnAliases(columnNames, oldDescriptor.getVisibleFieldCount());
             RelationType newDescriptor = oldDescriptor.withAlias(tableName.getValue(), columnNames.stream().map(Identifier::getValue).collect(toImmutableList()));
+
+            Streams.forEachPair(
+                    oldDescriptor.getAllFields().stream(),
+                    newDescriptor.getAllFields().stream(),
+                    (newField, field) -> analysis.addSourceColumns(newField, analysis.getSourceColumns(field)));
             return scope.withRelationType(newDescriptor);
         }
 

@@ -779,7 +779,40 @@ public class TestEventListenerBasic
             throws Exception
     {
         assertLineage(
-                "WITH w AS (SELECT * FROM orders) SELECT clerk AS test_varchar, orderkey AS test_bigint FROM w",
+                "WITH w AS (SELECT * FROM orders) SELECT lower(clerk) AS test_varchar, orderkey AS test_bigint FROM w",
+                ImmutableSet.of("tpch.tiny.orders"),
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsColumnAliasInWithClause()
+            throws Exception
+    {
+        assertLineage(
+                "WITH w(aliased_clerk, aliased_orderkey) AS (SELECT clerk, orderkey FROM orders) SELECT lower(aliased_clerk) AS test_varchar, aliased_orderkey AS test_bigint FROM w",
+                ImmutableSet.of("tpch.tiny.orders"),
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithAliasedRelation()
+            throws Exception
+    {
+        assertLineage(
+                "SELECT lower(clerk) AS test_varchar, orderkey AS test_bigint FROM (SELECT * FROM orders) w",
+                ImmutableSet.of("tpch.tiny.orders"),
+                new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
+                new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithColumnAliasInAliasedRelation()
+            throws Exception
+    {
+        assertLineage(
+                "SELECT lower(aliased_clerk) AS test_varchar, aliased_orderkey AS test_bigint FROM (SELECT clerk, orderkey FROM orders) w(aliased_clerk, aliased_orderkey)",
                 ImmutableSet.of("tpch.tiny.orders"),
                 new OutputColumnMetadata("test_varchar", VARCHAR_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "clerk"))),
                 new OutputColumnMetadata("test_bigint", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderkey"))));
