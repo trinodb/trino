@@ -56,7 +56,8 @@ function main () {
     # run product tests
     pushd ${PROJECT_ROOT}
     set +e
-    ./mvnw -B -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-alluxio \
+    MAVEN_TEST="${MAVEN_TEST:--B --strict-checksums -Dmaven.javadoc.skip=true -Dmaven.source.skip=true -Dair.check.skip-all}"
+    ./mvnw $MAVEN_TEST -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-alluxio \
            -Dhive.hadoop2.alluxio.host=localhost \
            -Dhive.hadoop2.alluxio.port=19998 \
            -Dhive.hadoop2.hiveVersionMajor="${TESTS_HIVE_VERSION_MAJOR}" \

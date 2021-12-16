@@ -21,7 +21,8 @@ HADOOP_MASTER_IP=$(hadoop_master_ip)
 # run product tests
 pushd "${PROJECT_ROOT}"
 set +e
-./mvnw -B -pl :trino-hive-hadoop2 test -P test-hive-hadoop2 \
+MAVEN_TEST="${MAVEN_TEST:--B --strict-checksums -Dmaven.javadoc.skip=true -Dmaven.source.skip=true -Dair.check.skip-all}"
+./mvnw $MAVEN_TEST -pl :trino-hive-hadoop2 test -P test-hive-hadoop2 \
     -DHADOOP_USER_NAME=hive \
     -Dhive.hadoop2.metastoreHost=localhost \
     -Dhive.hadoop2.metastorePort=9083 \
