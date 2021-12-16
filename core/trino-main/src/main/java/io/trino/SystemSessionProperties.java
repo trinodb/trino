@@ -676,22 +676,22 @@ public final class SystemSessionProperties
                         RETRY_POLICY,
                         "Retry policy",
                         RetryPolicy.class,
-                        featuresConfig.getRetryPolicy(),
+                        queryManagerConfig.getRetryPolicy(),
                         false),
                 integerProperty(
                         RETRY_ATTEMPTS,
                         "Maximum number of retry attempts",
-                        featuresConfig.getRetryAttempts(),
+                        queryManagerConfig.getRetryAttempts(),
                         false),
                 durationProperty(
                         RETRY_INITIAL_DELAY,
                         "Initial delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt up to 'retry_max_delay'",
-                        featuresConfig.getRetryInitialDelay(),
+                        queryManagerConfig.getRetryInitialDelay(),
                         false),
                 durationProperty(
                         RETRY_MAX_DELAY,
                         "Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'",
-                        featuresConfig.getRetryMaxDelay(),
+                        queryManagerConfig.getRetryMaxDelay(),
                         false));
     }
 
@@ -1002,6 +1002,11 @@ public final class SystemSessionProperties
 
     public static boolean isDistributedSortEnabled(Session session)
     {
+        if (getRetryPolicy(session) != RetryPolicy.NONE) {
+            // distributed sort is not supported with failure recovery capabilities enabled
+            return false;
+        }
+
         return session.getSystemProperty(DISTRIBUTED_SORT, Boolean.class);
     }
 
@@ -1217,9 +1222,6 @@ public final class SystemSessionProperties
         if (retryPolicy != RetryPolicy.NONE) {
             if (isEnableDynamicFiltering(session)) {
                 throw new TrinoException(NOT_SUPPORTED, "Dynamic filtering is not supported with automatic retries enabled");
-            }
-            if (isDistributedSortEnabled(session)) {
-                throw new TrinoException(NOT_SUPPORTED, "Distributed sort is not supported with automatic retries enabled");
             }
         }
         return retryPolicy;
