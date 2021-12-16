@@ -27,7 +27,7 @@ stop_unnecessary_hadoop_services
 
 pushd $PROJECT_ROOT
 set +e
-./mvnw -B -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-abfs-oauth \
+./mvnw ${MAVEN_TEST:--B} -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-abfs-oauth \
     -DHADOOP_USER_NAME=hive \
     -Dhive.hadoop2.metastoreHost=localhost \
     -Dhive.hadoop2.metastorePort=9083 \
