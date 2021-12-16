@@ -291,7 +291,9 @@ public class GlueHiveMetastore
         try {
             return stats.getGetAllDatabases().call(() -> {
                 List<String> databaseNames = getPaginatedResults(
-                        nextToken -> glueClient.getDatabases(new GetDatabasesRequest().withCatalogId(catalogId).withNextToken(nextToken)),
+                        glueClient::getDatabases,
+                        new GetDatabasesRequest().withCatalogId(catalogId),
+                        GetDatabasesRequest::setNextToken,
                         GetDatabasesResult::getNextToken)
                         .map(GetDatabasesResult::getDatabaseList)
                         .flatMap(List::stream)
@@ -446,10 +448,11 @@ public class GlueHiveMetastore
         try {
             return stats.getGetAllTables().call(() -> {
                 List<String> tableNames = getPaginatedResults(
-                        nextToken -> glueClient.getTables(new GetTablesRequest()
+                        glueClient::getTables,
+                        new GetTablesRequest()
                                 .withCatalogId(catalogId)
-                                .withDatabaseName(databaseName)
-                                .withNextToken(nextToken)),
+                                .withDatabaseName(databaseName),
+                        GetTablesRequest::setNextToken,
                         GetTablesResult::getNextToken)
                         .map(GetTablesResult::getTableList)
                         .flatMap(List::stream)
@@ -481,10 +484,11 @@ public class GlueHiveMetastore
         try {
             return stats.getGetAllViews().call(() -> {
                 List<String> views = getPaginatedResults(
-                        nextToken -> glueClient.getTables(new GetTablesRequest()
+                        glueClient::getTables,
+                        new GetTablesRequest()
                                 .withCatalogId(catalogId)
-                                .withDatabaseName(databaseName)
-                                .withNextToken(nextToken)),
+                                .withDatabaseName(databaseName),
+                        GetTablesRequest::setNextToken,
                         GetTablesResult::getNextToken)
                         .map(GetTablesResult::getTableList)
                         .flatMap(List::stream)
@@ -824,14 +828,15 @@ public class GlueHiveMetastore
                 GluePartitionConverter converter = new GluePartitionConverter(table);
 
                 List<Partition> partitions = getPaginatedResults(
-                        nextToken -> glueClient.getPartitions(new GetPartitionsRequest()
+                        glueClient::getPartitions,
+                        new GetPartitionsRequest()
                                 .withCatalogId(catalogId)
                                 .withDatabaseName(table.getDatabaseName())
                                 .withTableName(table.getTableName())
                                 .withExpression(expression)
                                 .withSegment(segment)
-                                .withNextToken(nextToken)
-                                .withMaxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS)),
+                                .withMaxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS),
+                        GetPartitionsRequest::setNextToken,
                         GetPartitionsResult::getNextToken)
                         .map(GetPartitionsResult::getPartitions)
                         .flatMap(List::stream)
