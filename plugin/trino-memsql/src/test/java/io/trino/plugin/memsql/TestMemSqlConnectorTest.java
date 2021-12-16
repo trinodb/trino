@@ -127,8 +127,13 @@ public class TestMemSqlConnectorTest
             return Optional.empty();
         }
 
-        if (typeName.equals("time")
-                || typeName.equals("timestamp(3) with time zone")) {
+        if (typeName.equals("time")) {
+            // MemSQL supports only second precision
+            // Skip 'time' that is alias of time(3) here and add test cases in TestMemSqlTypeMapping.testTime instead
+            return Optional.empty();
+        }
+
+        if (typeName.equals("timestamp(3) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
