@@ -51,6 +51,7 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -152,7 +153,7 @@ public final class AccumulatorCompiler
             lambdaProviderFields.add(definition.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, LambdaProvider.class));
         }
 
-        // Generate constructor
+        // Generate constructors
         generateConstructor(
                 definition,
                 stateFieldAndDescriptors,
@@ -923,6 +924,7 @@ public final class AccumulatorCompiler
                 .append(thisVariable)
                 .invokeConstructor(Object.class);
 
+        body.append(generateRequireNotNull(lambdaProviders));
         initializeStateFields(method, stateFieldAndDescriptors, callSiteBinder, grouped);
         initializeLambdaProviderFields(method, lambdaProviderFields, lambdaProviders);
 
@@ -943,15 +945,19 @@ public final class AccumulatorCompiler
             body.append(thisVariable.setField(
                     fieldAndDescriptor.getStateSerializerField(),
                     loadConstant(callSiteBinder, accumulatorStateDescriptor.getSerializer(), AccumulatorStateSerializer.class)));
+            body.append(generateRequireNotNull(thisVariable, fieldAndDescriptor.getStateSerializerField()));
+
             body.append(thisVariable.setField(
                     fieldAndDescriptor.getStateFactoryField(),
                     loadConstant(callSiteBinder, accumulatorStateDescriptor.getFactory(), AccumulatorStateFactory.class)));
+            body.append(generateRequireNotNull(thisVariable, fieldAndDescriptor.getStateFactoryField()));
 
             // create the state object
             FieldDefinition stateField = fieldAndDescriptor.getStateField();
             BytecodeExpression stateFactory = thisVariable.getField(fieldAndDescriptor.getStateFactoryField());
             BytecodeExpression createStateInstance = stateFactory.invoke(grouped ? "createGroupedState" : "createSingleState", AccumulatorState.class);
             body.append(thisVariable.setField(stateField, createStateInstance.cast(stateField.getType())));
+            body.append(generateRequireNotNull(thisVariable, stateField));
         }
     }
 
@@ -965,6 +971,7 @@ public final class AccumulatorCompiler
                     lambdaProviderFields.get(i),
                     lambdaProviders.invoke("get", Object.class, constantInt(i))
                             .cast(LambdaProvider.class)));
+            body.append(generateRequireNotNull(thisVariable, lambdaProviderFields.get(i)));
         }
     }
 
@@ -997,17 +1004,37 @@ public final class AccumulatorCompiler
             FieldDefinition stateField = descriptor.getStateField();
             copy.getBody()
                     .append(instanceCopy.setField(stateSerializerField, thisVariable.getField(stateSerializerField)))
+                    .append(generateRequireNotNull(thisVariable, stateSerializerField))
                     .append(instanceCopy.setField(stateFactoryField, thisVariable.getField(stateFactoryField)))
-                    .append(instanceCopy.setField(stateField, thisVariable.getField(stateField).invoke("copy", AccumulatorState.class, ImmutableList.of()).cast(stateField.getType())));
+                    .append(generateRequireNotNull(thisVariable, stateFactoryField))
+                    .append(instanceCopy.setField(stateField, thisVariable.getField(stateField).invoke("copy", AccumulatorState.class, ImmutableList.of()).cast(stateField.getType())))
+                    .append(generateRequireNotNull(thisVariable, stateField));
         }
 
         for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
             copy.getBody()
-                    .append(instanceCopy.setField(lambdaProviderField, thisVariable.getField(lambdaProviderField)));
+                    .append(instanceCopy.setField(lambdaProviderField, thisVariable.getField(lambdaProviderField)))
+                    .append(generateRequireNotNull(thisVariable, lambdaProviderField));
         }
 
         copy.getBody()
                 .append(instanceCopy.ret());
+    }
+
+    private static BytecodeExpression generateRequireNotNull(Variable variable)
+    {
+        return generateRequireNotNull(variable, variable.getName() + " is null");
+    }
+
+    private static BytecodeExpression generateRequireNotNull(Variable variable, FieldDefinition field)
+    {
+        return generateRequireNotNull(variable.getField(field), field.getName() + " is null");
+    }
+
+    private static BytecodeExpression generateRequireNotNull(BytecodeExpression expression, String message)
+    {
+        return invokeStatic(Objects.class, "requireNonNull", Object.class, expression.cast(Object.class), constantString(message))
+                .cast(expression.getType());
     }
 
     private static AggregationMetadata normalizeAggregationMethods(AggregationMetadata metadata)
