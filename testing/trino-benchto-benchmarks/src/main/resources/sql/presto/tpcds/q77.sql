@@ -88,7 +88,7 @@ SELECT
 FROM
   (
    SELECT
-     '${database}.${schema}.store channel' "channel"
+     'store channel' "channel"
    , "ss"."s_store_sk" "id"
    , "sales"
    , COALESCE("returns", 0) "returns"
