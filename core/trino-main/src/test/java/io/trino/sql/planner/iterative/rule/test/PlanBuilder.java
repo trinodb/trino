@@ -710,13 +710,15 @@ public class PlanBuilder
 
     private DeleteTarget deleteTarget(SchemaTableName schemaTableName)
     {
+        CatalogName catalogName = new CatalogName("testConnector");
         return new DeleteTarget(
                 Optional.of(new TableHandle(
-                        new CatalogName("testConnector"),
+                        catalogName,
                         new TestingTableHandle(),
                         TestingTransactionHandle.create(),
                         Optional.of(TestingHandle.INSTANCE))),
-                schemaTableName);
+                schemaTableName,
+                catalogName);
     }
 
     public TableFinishNode tableUpdate(SchemaTableName schemaTableName, PlanNode updateSource, Symbol updateRowId, List<Symbol> columnsToBeUpdated)
@@ -749,9 +751,10 @@ public class PlanBuilder
 
     private UpdateTarget updateTarget(SchemaTableName schemaTableName, List<String> columnsToBeUpdated)
     {
+        CatalogName catalogName = new CatalogName("testConnector");
         return new UpdateTarget(
                 Optional.of(new TableHandle(
-                        new CatalogName("testConnector"),
+                        catalogName,
                         new TestingTableHandle(),
                         TestingTransactionHandle.create(),
                         Optional.of(TestingHandle.INSTANCE))),
@@ -759,7 +762,8 @@ public class PlanBuilder
                 columnsToBeUpdated,
                 columnsToBeUpdated.stream()
                         .map(TestingColumnHandle::new)
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                catalogName);
     }
 
     public ExchangeNode gatheringExchange(ExchangeNode.Scope scope, PlanNode child)
@@ -1136,7 +1140,7 @@ public class PlanBuilder
         return new TableWriterNode(
                 idAllocator.getNextId(),
                 source,
-                new TestingWriterTarget(),
+                new TestingWriterTarget(new CatalogName("testConnector")),
                 symbol("partialrows", BIGINT),
                 symbol("fragment", VARBINARY),
                 columns,
@@ -1160,16 +1164,17 @@ public class PlanBuilder
             Optional<PartitioningScheme> preferredPartitioningScheme,
             PlanNode source)
     {
+        CatalogName catalogName = new CatalogName("testConnector");
         return new TableExecuteNode(
                 idAllocator.getNextId(),
                 source,
                 new TableWriterNode.TableExecuteTarget(
-                        new TableExecuteHandle(
-                                new CatalogName("testConnector"),
+                        new TableExecuteHandle(catalogName,
                                 TestingTransactionHandle.create(),
                                 new TestingTableExecuteHandle()),
                         Optional.empty(),
-                        SchemaTableName.schemaTableName("testschema", "testtable")),
+                        SchemaTableName.schemaTableName("testschema", "testtable"),
+                        catalogName),
                 symbol("partialrows", BIGINT),
                 symbol("fragment", VARBINARY),
                 columns,

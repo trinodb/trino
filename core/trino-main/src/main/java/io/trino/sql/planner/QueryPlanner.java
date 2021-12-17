@@ -502,7 +502,8 @@ class QueryPlanner
                 builder.getRoot(),
                 new DeleteTarget(
                         Optional.empty(),
-                        plannerContext.getMetadata().getTableMetadata(session, handle).getTable()),
+                        plannerContext.getMetadata().getTableMetadata(session, handle).getTable(),
+                        handle.getCatalogName()),
                 rowId,
                 outputs);
     }
@@ -573,7 +574,8 @@ class QueryPlanner
                         Optional.empty(),
                         plannerContext.getMetadata().getTableMetadata(session, handle).getTable(),
                         updatedColumnNames,
-                        updatedColumnHandles),
+                        updatedColumnHandles,
+                        handle.getCatalogName()),
                 rowId,
                 updatedColumnValuesBuilder.build(),
                 outputs);

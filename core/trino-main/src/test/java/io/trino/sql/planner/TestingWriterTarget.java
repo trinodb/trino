@@ -14,14 +14,30 @@
 
 package io.trino.sql.planner;
 
+import io.trino.connector.CatalogName;
 import io.trino.sql.planner.plan.TableWriterNode;
+
+import static java.util.Objects.requireNonNull;
 
 public class TestingWriterTarget
         extends TableWriterNode.WriterTarget
 {
+    private final CatalogName catalogName;
+
+    public TestingWriterTarget(CatalogName catalogName)
+    {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+    }
+
     @Override
     public String toString()
     {
         return "testing handle";
+    }
+
+    @Override
+    public CatalogName getCatalogName()
+    {
+        return catalogName;
     }
 }

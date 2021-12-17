@@ -23,6 +23,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorHandleResolver;
@@ -51,6 +52,7 @@ import io.trino.spi.procedure.Procedure;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.ViewExpression;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -92,6 +94,8 @@ public class MockConnectorFactory
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Set<Procedure> procedures;
+    private final Set<ConnectorCapabilities> capabilities;
+    private final String connectorName;
 
     // access control
     private final ListRoleGrants roleGrants;
@@ -121,7 +125,9 @@ public class MockConnectorFactory
             Function<SchemaTableName, List<List<?>>> data,
             Set<Procedure> procedures,
             ListRoleGrants roleGrants,
-            Optional<ConnectorAccessControl> accessControl)
+            Optional<ConnectorAccessControl> accessControl,
+            Set<ConnectorCapabilities> capabilities,
+            String connectorName)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -147,12 +153,14 @@ public class MockConnectorFactory
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
+        this.capabilities = requireNonNull(capabilities, "capabilities is null");
+        this.connectorName = requireNonNull(connectorName, "connectorName is null");
     }
 
     @Override
     public String getName()
     {
-        return "mock";
+        return connectorName;
     }
 
     @Override
@@ -188,7 +196,8 @@ public class MockConnectorFactory
                 roleGrants,
                 accessControl,
                 data,
-                procedures);
+                procedures,
+                capabilities);
     }
 
     public static Builder builder()
@@ -283,6 +292,8 @@ public class MockConnectorFactory
         private BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable = (session, tableName) -> Optional.empty();
         private Function<SchemaTableName, List<List<?>>> data = schemaTableName -> ImmutableList.of();
         private Set<Procedure> procedures = ImmutableSet.of();
+        private Set<ConnectorCapabilities> capabilities = Collections.emptySet();
+        private String connectorName = "mock";
 
         // access control
         private boolean provideAccessControl;
@@ -470,6 +481,18 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withCapabilities(Set<ConnectorCapabilities> capabilities)
+        {
+            this.capabilities = capabilities;
+            return this;
+        }
+
+        public Builder withConnectorName(String connectorName)
+        {
+            this.connectorName = connectorName;
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
             Optional<ConnectorAccessControl> accessControl = Optional.empty();
@@ -500,7 +523,9 @@ public class MockConnectorFactory
                     data,
                     procedures,
                     roleGrants,
-                    accessControl);
+                    accessControl,
+                    capabilities,
+                    connectorName);
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()

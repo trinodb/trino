@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.trino.connector.CatalogName;
 import io.trino.metadata.InsertTableHandle;
 import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.OutputTableHandle;
@@ -208,26 +209,23 @@ public class TableWriterNode
     {
         @Override
         public abstract String toString();
+
+        public abstract CatalogName getCatalogName();
     }
 
     // only used during planning -- will not be serialized
     public static class CreateReference
             extends WriterTarget
     {
-        private final String catalog;
+        private final CatalogName catalogName;
         private final ConnectorTableMetadata tableMetadata;
         private final Optional<NewTableLayout> layout;
 
-        public CreateReference(String catalog, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
+        public CreateReference(CatalogName catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
         {
-            this.catalog = requireNonNull(catalog, "catalog is null");
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
             this.layout = requireNonNull(layout, "layout is null");
-        }
-
-        public String getCatalog()
-        {
-            return catalog;
         }
 
         public ConnectorTableMetadata getTableMetadata()
@@ -243,7 +241,13 @@ public class TableWriterNode
         @Override
         public String toString()
         {
-            return catalog + "." + tableMetadata.getTable();
+            return catalogName + "." + tableMetadata.getTable();
+        }
+
+        @Override
+        public CatalogName getCatalogName()
+        {
+            return catalogName;
         }
     }
 
@@ -252,14 +256,17 @@ public class TableWriterNode
     {
         private final OutputTableHandle handle;
         private final SchemaTableName schemaTableName;
+        private final CatalogName catalogName;
 
         @JsonCreator
         public CreateTarget(
                 @JsonProperty("handle") OutputTableHandle handle,
-                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("catalogName") CatalogName catalogName)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
         }
 
         @JsonProperty
@@ -279,6 +286,13 @@ public class TableWriterNode
         {
             return handle.toString();
         }
+
+        @Override
+        @JsonProperty
+        public CatalogName getCatalogName()
+        {
+            return catalogName;
+        }
     }
 
     // only used during planning -- will not be serialized
@@ -287,11 +301,13 @@ public class TableWriterNode
     {
         private final TableHandle handle;
         private final List<ColumnHandle> columns;
+        private final CatalogName catalogName;
 
-        public InsertReference(TableHandle handle, List<ColumnHandle> columns)
+        public InsertReference(TableHandle handle, List<ColumnHandle> columns, CatalogName catalogName)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
         }
 
         public TableHandle getHandle()
@@ -309,6 +325,12 @@ public class TableWriterNode
         {
             return handle.toString();
         }
+
+        @Override
+        public CatalogName getCatalogName()
+        {
+            return catalogName;
+        }
     }
 
     public static class InsertTarget
@@ -316,14 +338,17 @@ public class TableWriterNode
     {
         private final InsertTableHandle handle;
         private final SchemaTableName schemaTableName;
+        private final CatalogName catalogName;
 
         @JsonCreator
         public InsertTarget(
                 @JsonProperty("handle") InsertTableHandle handle,
-                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("catalogName") CatalogName catalogName)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
         }
 
         @JsonProperty
@@ -343,6 +368,13 @@ public class TableWriterNode
         {
             return handle.toString();
         }
+
+        @Override
+        @JsonProperty
+        public CatalogName getCatalogName()
+        {
+            return catalogName;
+        }
     }
 
     public static class RefreshMaterializedViewReference
@@ -351,12 +383,14 @@ public class TableWriterNode
         private final Table table;
         private final TableHandle storageTableHandle;
         private final List<TableHandle> sourceTableHandles;
+        private final CatalogName catalogName;
 
-        public RefreshMaterializedViewReference(Table table, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles)
+        public RefreshMaterializedViewReference(Table table, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles, CatalogName catalogName)
         {
             this.table = requireNonNull(table, "table is null");
             this.storageTableHandle = requireNonNull(storageTableHandle, "storageTableHandle is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
         }
 
         public Table getTable()
@@ -379,6 +413,12 @@ public class TableWriterNode
         {
             return table.toString();
         }
+
+        @Override
+        public CatalogName getCatalogName()
+        {
+            return catalogName;
+        }
     }
 
     public static class RefreshMaterializedViewTarget
@@ -388,18 +428,21 @@ public class TableWriterNode
         private final InsertTableHandle insertHandle;
         private final SchemaTableName schemaTableName;
         private final List<TableHandle> sourceTableHandles;
+        private final CatalogName catalogName;
 
         @JsonCreator
         public RefreshMaterializedViewTarget(
                 @JsonProperty("tableHandle") TableHandle tableHandle,
                 @JsonProperty("insertHandle") InsertTableHandle insertHandle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-                @JsonProperty("sourceTableHandles") List<TableHandle> sourceTableHandles)
+                @JsonProperty("sourceTableHandles") List<TableHandle> sourceTableHandles,
+                @JsonProperty("catalogName") CatalogName catalogName)
         {
             this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
             this.insertHandle = requireNonNull(insertHandle, "insertHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
         }
 
         @JsonProperty
@@ -431,6 +474,13 @@ public class TableWriterNode
         {
             return insertHandle.toString();
         }
+
+        @Override
+        @JsonProperty
+        public CatalogName getCatalogName()
+        {
+            return catalogName;
+        }
     }
 
     public static class DeleteTarget
@@ -438,14 +488,17 @@ public class TableWriterNode
     {
         private final Optional<TableHandle> handle;
         private final SchemaTableName schemaTableName;
+        private final CatalogName catalogName;
 
         @JsonCreator
         public DeleteTarget(
                 @JsonProperty("handle") Optional<TableHandle> handle,
-                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("catalogName") CatalogName catalogName)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
         }
 
         @JsonProperty
@@ -471,6 +524,13 @@ public class TableWriterNode
         {
             return handle.map(Object::toString).orElse("[]");
         }
+
+        @Override
+        @JsonProperty
+        public CatalogName getCatalogName()
+        {
+            return catalogName;
+        }
     }
 
     public static class UpdateTarget
@@ -480,19 +540,22 @@ public class TableWriterNode
         private final SchemaTableName schemaTableName;
         private final List<String> updatedColumns;
         private final List<ColumnHandle> updatedColumnHandles;
+        private final CatalogName catalogName;
 
         @JsonCreator
         public UpdateTarget(
                 @JsonProperty("handle") Optional<TableHandle> handle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
                 @JsonProperty("updatedColumns") List<String> updatedColumns,
-                @JsonProperty("updatedColumnHandles") List<ColumnHandle> updatedColumnHandles)
+                @JsonProperty("updatedColumnHandles") List<ColumnHandle> updatedColumnHandles,
+                @JsonProperty("catalogName") CatalogName catalogName)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             checkArgument(updatedColumns.size() == updatedColumnHandles.size(), "updatedColumns size %s must equal updatedColumnHandles size %s", updatedColumns.size(), updatedColumnHandles.size());
             this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
             this.updatedColumnHandles = requireNonNull(updatedColumnHandles, "updatedColumnHandles is null");
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
         }
 
         @JsonProperty
@@ -530,6 +593,13 @@ public class TableWriterNode
         {
             return handle.map(Object::toString).orElse("[]");
         }
+
+        @Override
+        @JsonProperty
+        public CatalogName getCatalogName()
+        {
+            return catalogName;
+        }
     }
 
     public static class TableExecuteTarget
@@ -538,16 +608,19 @@ public class TableWriterNode
         private final TableExecuteHandle executeHandle;
         private final Optional<TableHandle> sourceHandle;
         private final SchemaTableName schemaTableName;
+        private final CatalogName catalogName;
 
         @JsonCreator
         public TableExecuteTarget(
                 @JsonProperty("executeHandle") TableExecuteHandle executeHandle,
                 @JsonProperty("sourceHandle") Optional<TableHandle> sourceHandle,
-                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("catalogName") CatalogName catalogName)
         {
             this.executeHandle = requireNonNull(executeHandle, "handle is null");
             this.sourceHandle = requireNonNull(sourceHandle, "sourceHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
         }
 
         @JsonProperty
@@ -577,6 +650,13 @@ public class TableWriterNode
         public String toString()
         {
             return executeHandle.toString();
+        }
+
+        @Override
+        @JsonProperty
+        public CatalogName getCatalogName()
+        {
+            return catalogName;
         }
     }
 }

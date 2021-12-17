@@ -85,6 +85,8 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
+import static io.trino.SystemSessionProperties.SCALE_WRITERS;
+import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
@@ -2788,20 +2790,30 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testLocalDynamicFilteringWithSelectiveBuildSizeJoin()
     {
-        long fullTableScan = (Long) computeActual("SELECT count(*) FROM lineitem").getOnlyValue();
-        long numberOfFiles = (Long) computeActual("SELECT count(*) FROM \"lineitem$files\"").getOnlyValue();
+        // We need to prepare tables for this test. The test is required to use tables that are backed by at lest two files
         Session session = Session.builder(getSession())
+                .setSystemProperty(TASK_WRITER_COUNT, "2")
+                .build();
+
+        @Language("SQL") String sql = format("CREATE TABLE IF NOT EXISTS %s AS SELECT * FROM %s", "lineitem_", "tpch.tiny.lineitem");
+        getQueryRunner().execute(session, sql).getMaterializedRows().get(0).getField(0);
+        sql = format("CREATE TABLE IF NOT EXISTS %s AS SELECT * FROM %s", "orders_", "tpch.tiny.orders");
+        getQueryRunner().execute(session, sql).getMaterializedRows().get(0).getField(0);
+
+        long fullTableScan = (Long) computeActual("SELECT count(*) FROM lineitem_").getOnlyValue();
+        long numberOfFiles = (Long) computeActual("SELECT count(*) FROM \"lineitem_$files\"").getOnlyValue();
+        session = Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
                 .build();
 
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 session,
-                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice = 974.04");
+                "SELECT * FROM lineitem_ JOIN orders_ ON lineitem_.orderkey = orders_.orderkey AND orders_.totalprice = 974.04");
         assertEquals(result.getResult().getRowCount(), 1);
 
         OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(
                 result.getQueryId(),
-                new QualifiedObjectName(ICEBERG_CATALOG, "tpch", "lineitem"));
+                new QualifiedObjectName(ICEBERG_CATALOG, "tpch", "lineitem_"));
 
         // Assert no split level pruning occurs. If this starts failing a new totalprice may need to be selected
         assertThat(probeStats.getTotalDrivers()).isEqualTo(numberOfFiles);
@@ -2865,6 +2877,7 @@ public abstract class BaseIcebergConnectorTest
                 .build();
         Session sessionRepartitionMany = Session.builder(getSession())
                 .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "5")
+                .setSystemProperty(SCALE_WRITERS, "false")
                 .build();
         // Use DISTINCT to add data redistribution between source table and the writer. This makes it more likely that all writers get some data.
         String sourceRelation = "(SELECT DISTINCT orderkey, custkey, orderstatus FROM tpch.tiny.orders)";

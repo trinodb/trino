@@ -15,9 +15,11 @@ package io.trino.testing;
 
 import io.trino.FeaturesConfig.JoinDistributionType;
 import io.trino.Session;
+import io.trino.connector.CatalogName;
 import io.trino.cost.StatsAndCosts;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.testing.sql.TestTable;
@@ -27,6 +29,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -171,6 +174,17 @@ public abstract class BaseConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);
+    }
+
+    protected boolean hasCapability(Session session, ConnectorCapabilities capability)
+    {
+        CatalogName catalogName = session.getCatalog()
+                .map(CatalogName::new)
+                .orElseThrow();
+
+        getQueryRunner().getMetadata().getCatalogHandle(session, catalogName.getCatalogName());
+        Set<ConnectorCapabilities> capabilities = getQueryRunner().getMetadata().getConnectorCapabilities(session, catalogName);
+        return capabilities.contains(capability);
     }
 
     @Test
@@ -1170,6 +1184,19 @@ public abstract class BaseConnectorTest
         }
 
         super.testRenameColumn();
+    }
+
+    @Test
+    public void verifySupportsBytesWrittenConnectorCapability()
+    {
+        inTransaction(session -> skipTestUnless(hasCapability(session, ConnectorCapabilities.REPORT_BYTES_WRITTEN)));
+        @Language("SQL")
+        String query = "CREATE TABLE temp AS SELECT * FROM tpch.tiny.nation";
+        assertQueryStats(
+                getSession(),
+                query,
+                queryStats -> assertThat(queryStats.getPhysicalWrittenDataSize().toBytes()).isGreaterThan(0L),
+                results -> {});
     }
 
     @Test

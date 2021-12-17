@@ -215,25 +215,30 @@ public class BeginTableWrite
             if (node instanceof DeleteNode) {
                 DeleteNode deleteNode = (DeleteNode) node;
                 DeleteTarget delete = deleteNode.getTarget();
+                TableHandle table = findTableScanHandleForDeleteOrUpdate(deleteNode.getSource());
                 return new DeleteTarget(
-                        Optional.of(findTableScanHandleForDeleteOrUpdate(deleteNode.getSource())),
-                        delete.getSchemaTableName());
+                        Optional.of(table),
+                        delete.getSchemaTableName(),
+                        table.getCatalogName());
             }
             if (node instanceof UpdateNode) {
                 UpdateNode updateNode = (UpdateNode) node;
                 UpdateTarget update = updateNode.getTarget();
+                TableHandle tableHandle = findTableScanHandleForDeleteOrUpdate(updateNode.getSource());
                 return new UpdateTarget(
-                        Optional.of(findTableScanHandleForDeleteOrUpdate(updateNode.getSource())),
+                        Optional.of(tableHandle),
                         update.getSchemaTableName(),
                         update.getUpdatedColumns(),
-                        update.getUpdatedColumnHandles());
+                        update.getUpdatedColumnHandles(),
+                        tableHandle.getCatalogName());
             }
             if (node instanceof TableExecuteNode) {
                 TableExecuteTarget target = ((TableExecuteNode) node).getTarget();
                 return new TableExecuteTarget(
                         target.getExecuteHandle(),
                         findTableScanHandleForTableExecute(((TableExecuteNode) node).getSource()),
-                        target.getSchemaTableName());
+                        target.getSchemaTableName(),
+                        target.getCatalogName());
             }
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
                 Set<WriterTarget> writerTargets = node.getSources().stream()
@@ -250,16 +255,16 @@ public class BeginTableWrite
             // TODO: we shouldn't need to store the schemaTableName in the handles, but there isn't a good way to pass this around with the current architecture
             if (target instanceof CreateReference) {
                 CreateReference create = (CreateReference) target;
-                return new CreateTarget(metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata(), create.getLayout()), create.getTableMetadata().getTable());
+                return new CreateTarget(metadata.beginCreateTable(session, create.getCatalogName().getCatalogName(), create.getTableMetadata(), create.getLayout()), create.getTableMetadata().getTable(), create.getCatalogName());
             }
             if (target instanceof InsertReference) {
                 InsertReference insert = (InsertReference) target;
-                return new InsertTarget(metadata.beginInsert(session, insert.getHandle(), insert.getColumns()), metadata.getTableMetadata(session, insert.getHandle()).getTable());
+                return new InsertTarget(metadata.beginInsert(session, insert.getHandle(), insert.getColumns()), metadata.getTableMetadata(session, insert.getHandle()).getTable(), insert.getCatalogName());
             }
             if (target instanceof DeleteTarget) {
                 DeleteTarget delete = (DeleteTarget) target;
                 TableHandle newHandle = metadata.beginDelete(session, delete.getHandleOrElseThrow());
-                return new DeleteTarget(Optional.of(newHandle), delete.getSchemaTableName());
+                return new DeleteTarget(Optional.of(newHandle), delete.getSchemaTableName(), newHandle.getCatalogName());
             }
             if (target instanceof UpdateTarget) {
                 UpdateTarget update = (UpdateTarget) target;
@@ -268,7 +273,8 @@ public class BeginTableWrite
                         Optional.of(newHandle),
                         update.getSchemaTableName(),
                         update.getUpdatedColumns(),
-                        update.getUpdatedColumnHandles());
+                        update.getUpdatedColumnHandles(),
+                        newHandle.getCatalogName());
             }
             if (target instanceof TableWriterNode.RefreshMaterializedViewReference) {
                 TableWriterNode.RefreshMaterializedViewReference refreshMV = (TableWriterNode.RefreshMaterializedViewReference) target;
@@ -276,13 +282,14 @@ public class BeginTableWrite
                         refreshMV.getStorageTableHandle(),
                         metadata.beginRefreshMaterializedView(session, refreshMV.getStorageTableHandle(), refreshMV.getSourceTableHandles()),
                         metadata.getTableMetadata(session, refreshMV.getStorageTableHandle()).getTable(),
-                        refreshMV.getSourceTableHandles());
+                        refreshMV.getSourceTableHandles(),
+                        refreshMV.getStorageTableHandle().getCatalogName());
             }
             if (target instanceof TableExecuteTarget) {
                 TableExecuteTarget tableExecute = (TableExecuteTarget) target;
                 BeginTableExecuteResult<TableExecuteHandle, TableHandle> result = metadata.beginTableExecute(session, tableExecute.getExecuteHandle(), tableExecute.getMandatorySourceHandle());
 
-                return new TableExecuteTarget(result.getTableExecuteHandle(), Optional.of(result.getSourceHandle()), tableExecute.getSchemaTableName());
+                return new TableExecuteTarget(result.getTableExecuteHandle(), Optional.of(result.getSourceHandle()), tableExecute.getSchemaTableName(), target.getCatalogName());
             }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }

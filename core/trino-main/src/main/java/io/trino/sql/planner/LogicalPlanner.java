@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.connector.CatalogName;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CostCalculator;
@@ -387,7 +388,7 @@ public class LogicalPlanner
                 analysis,
                 plan.getRoot(),
                 visibleFields(plan),
-                new CreateReference(destination.getCatalogName(), tableMetadata, newTableLayout),
+                new CreateReference(new CatalogName(destination.getCatalogName()), tableMetadata, newTableLayout),
                 columnNames,
                 tableMetadata.getColumns(),
                 newTableLayout,
@@ -497,7 +498,8 @@ public class LogicalPlanner
                 tableHandle,
                 insertedTableColumnNames.stream()
                         .map(columns::get)
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                tableHandle.getCatalogName());
         return createTableWriterPlan(
                 analysis,
                 plan.getRoot(),
@@ -552,7 +554,8 @@ public class LogicalPlanner
         TableWriterNode.RefreshMaterializedViewReference writerTarget = new TableWriterNode.RefreshMaterializedViewReference(
                 viewAnalysis.getTable(),
                 tableHandle,
-                new ArrayList<>(analysis.getTables()));
+                new ArrayList<>(analysis.getTables()),
+                tableHandle.getCatalogName());
         return getInsertPlan(analysis, viewAnalysis.getTable(), query, tableHandle, viewAnalysis.getColumns(), newTableLayout, Optional.of(writerTarget));
     }
 
@@ -831,7 +834,7 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(executeHandle, Optional.empty(), tableName.asSchemaTableName());
+        TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(executeHandle, Optional.empty(), tableName.asSchemaTableName(), executeHandle.getCatalogName());
 
         Optional<NewTableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
 

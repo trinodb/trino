@@ -25,6 +25,7 @@ import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
@@ -591,21 +592,21 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTableWriter(TableWriterNode node, PreferredProperties preferredProperties)
         {
-            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), preferredProperties);
+            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), preferredProperties, node.getTarget());
         }
 
         @Override
         public PlanWithProperties visitTableExecute(TableExecuteNode node, PreferredProperties preferredProperties)
         {
-            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), preferredProperties);
+            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), preferredProperties, node.getTarget());
         }
 
-        private PlanWithProperties visitTableWriter(PlanNode node, Optional<PartitioningScheme> partitioningScheme, PlanNode source, PreferredProperties preferredProperties)
+        private PlanWithProperties visitTableWriter(PlanNode node, Optional<PartitioningScheme> partitioningScheme, PlanNode source, PreferredProperties preferredProperties, TableWriterNode.WriterTarget writerTarget)
         {
             PlanWithProperties newSource = source.accept(this, preferredProperties);
 
             if (partitioningScheme.isEmpty()) {
-                if (scaleWriters) {
+                if (scaleWriters && isScaleWritersSupportedByTargetTableConnector(writerTarget)) {
                     partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols()));
                 }
                 else if (redistributeWrites) {
@@ -623,6 +624,11 @@ public class AddExchanges
                         newSource.getProperties());
             }
             return rebaseAndDeriveProperties(node, newSource);
+        }
+
+        private boolean isScaleWritersSupportedByTargetTableConnector(TableWriterNode.WriterTarget writerTarget)
+        {
+            return plannerContext.getMetadata().getConnectorCapabilities(session, writerTarget.getCatalogName()).contains(ConnectorCapabilities.REPORT_BYTES_WRITTEN);
         }
 
         @Override
