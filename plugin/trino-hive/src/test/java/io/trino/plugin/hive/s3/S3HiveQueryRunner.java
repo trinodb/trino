@@ -139,6 +139,7 @@ public final class S3HiveQueryRunner
             addHiveProperty("hive.s3.endpoint", s3Endpoint);
             addHiveProperty("hive.s3.aws-access-key", s3AccessKey);
             addHiveProperty("hive.s3.aws-secret-key", s3SecretKey);
+            addHiveProperty("hive.s3.path-style-access", "true");
             setMetastore(distributedQueryRunner -> new BridgingHiveMetastore(
                             new ThriftHiveMetastore(
                                     new TestingMetastoreLocator(
