@@ -134,7 +134,7 @@ public final class S3HiveQueryRunner
             requireNonNull(s3SecretKey, "s3SecretKey is null");
             requireNonNull(bucketName, "bucketName is null");
             String lowerCaseS3Endpoint = s3Endpoint.toLowerCase(Locale.ENGLISH);
-            checkArgument(lowerCaseS3Endpoint.startsWith("http://") || lowerCaseS3Endpoint.startsWith("https://"), "Exoected http URI for S3 endpoint; got %s", s3Endpoint);
+            checkArgument(lowerCaseS3Endpoint.startsWith("http://") || lowerCaseS3Endpoint.startsWith("https://"), "Expected http URI for S3 endpoint; got %s", s3Endpoint);
 
             addHiveProperty("hive.s3.endpoint", s3Endpoint);
             addHiveProperty("hive.s3.aws-access-key", s3AccessKey);
