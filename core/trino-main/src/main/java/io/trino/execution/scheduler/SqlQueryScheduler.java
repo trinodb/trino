@@ -48,6 +48,7 @@ import io.trino.execution.TaskManager;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.scheduler.policy.ExecutionSchedule;
+import io.trino.execution.scheduler.policy.StagesScheduleResult;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
@@ -1497,7 +1498,8 @@ public class SqlQueryScheduler
             try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
                 while (!executionSchedule.isFinished()) {
                     List<ListenableFuture<Void>> blockedStages = new ArrayList<>();
-                    for (StageExecution stageExecution : executionSchedule.getStagesToSchedule()) {
+                    StagesScheduleResult stagesScheduleResult = executionSchedule.getStagesToSchedule();
+                    for (StageExecution stageExecution : stagesScheduleResult.getStagesToSchedule()) {
                         stageExecution.beginScheduling();
 
                         // perform some scheduling work
@@ -1534,8 +1536,13 @@ public class SqlQueryScheduler
 
                     // wait for a state change and then schedule again
                     if (!blockedStages.isEmpty()) {
+                        ImmutableList.Builder<ListenableFuture<Void>> futures = ImmutableList.builder();
+                        futures.addAll(blockedStages);
+                        // allow for schedule to resume scheduling (e.g. when some active stage completes
+                        // and dependent stages can be started)
+                        stagesScheduleResult.getRescheduleFuture().ifPresent(futures::add);
                         try (TimeStat.BlockTimer timer = schedulerStats.getSleepTime().time()) {
-                            tryGetFutureValue(whenAnyComplete(blockedStages), 1, SECONDS);
+                            tryGetFutureValue(whenAnyComplete(futures.build()), 1, SECONDS);
                         }
                         for (ListenableFuture<Void> blockedStage : blockedStages) {
                             blockedStage.cancel(true);

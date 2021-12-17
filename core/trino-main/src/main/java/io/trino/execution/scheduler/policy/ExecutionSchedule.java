@@ -13,13 +13,9 @@
  */
 package io.trino.execution.scheduler.policy;
 
-import io.trino.execution.scheduler.StageExecution;
-
-import java.util.Set;
-
 public interface ExecutionSchedule
 {
-    Set<StageExecution> getStagesToSchedule();
+    StagesScheduleResult getStagesToSchedule();
 
     boolean isFinished();
 }
