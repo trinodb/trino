@@ -1084,7 +1084,7 @@ public final class HiveUtil
     {
         if (schema.containsKey(ORC_BLOOM_FILTER_COLUMNS)) {
             if (!schema.containsKey(ORC_BLOOM_FILTER_FPP)) {
-                throw new TrinoException(HIVE_INVALID_METADATA, format("FPP for bloom filter is missing"));
+                throw new TrinoException(HIVE_INVALID_METADATA, "FPP for bloom filter is missing");
             }
             try {
                 double fpp = parseDouble(schema.getProperty(ORC_BLOOM_FILTER_FPP));
