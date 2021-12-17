@@ -66,7 +66,7 @@ public class AllAtOnceExecutionSchedule
     }
 
     @Override
-    public Set<StageExecution> getStagesToSchedule()
+    public StagesScheduleResult getStagesToSchedule()
     {
         for (Iterator<StageExecution> iterator = schedulingStages.iterator(); iterator.hasNext(); ) {
             StageExecution.State state = iterator.next().getState();
@@ -74,7 +74,7 @@ public class AllAtOnceExecutionSchedule
                 iterator.remove();
             }
         }
-        return schedulingStages;
+        return new StagesScheduleResult(schedulingStages);
     }
 
     @Override
