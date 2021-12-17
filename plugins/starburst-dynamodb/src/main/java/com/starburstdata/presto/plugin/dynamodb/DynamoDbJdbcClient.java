@@ -22,6 +22,8 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongReadFunction;
+import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -59,6 +61,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -81,8 +85,6 @@ import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateReadFunctionUsingSqlDate;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingSqlDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
@@ -114,6 +116,8 @@ import static java.util.Objects.requireNonNull;
 public class DynamoDbJdbcClient
         extends BaseJdbcClient
 {
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
+
     private final TableScanRedirection tableScanRedirection;
     private final File schemaDirectory;
     private final boolean isFirstKeyAsPrimaryKeyEnabled;
@@ -437,7 +441,7 @@ public class DynamoDbJdbcClient
             case Types.LONGVARBINARY:
                 return Optional.of(sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), DISABLE_PUSHDOWN));
             case Types.DATE:
-                return Optional.of(longMapping(DATE, dateReadFunctionUsingSqlDate(), dateWriteFunctionUsingSqlDate(), DISABLE_PUSHDOWN));
+                return Optional.of(longMapping(DATE, dateReadFunctionUsingString(), dateWriteFunctionUsingLocalDate(), DISABLE_PUSHDOWN));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -511,7 +515,7 @@ public class DynamoDbJdbcClient
         }
 
         if (type.equals(DATE)) {
-            return WriteMapping.longMapping("date", dateWriteFunctionUsingSqlDate());
+            return WriteMapping.longMapping("date", dateWriteFunctionUsingLocalDate());
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
@@ -647,6 +651,31 @@ public class DynamoDbJdbcClient
         catch (SQLException throwables) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to reset metadata cache after create table operation");
         }
+    }
+
+    private static LongReadFunction dateReadFunctionUsingString()
+    {
+        return new LongReadFunction() {
+            @Override
+            public boolean isNull(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                resultSet.getString(columnIndex);
+                return resultSet.wasNull();
+            }
+
+            @Override
+            public long readLong(ResultSet resultSet, int columnIndex)
+                    throws SQLException
+            {
+                return LocalDate.parse(resultSet.getString(columnIndex), DATE_FORMATTER).toEpochDay();
+            }
+        };
+    }
+
+    private static LongWriteFunction dateWriteFunctionUsingLocalDate()
+    {
+        return (statement, index, value) -> statement.setObject(index, LocalDate.ofEpochDay(value));
     }
 
     public static class RsdColumnDefinition

@@ -22,7 +22,9 @@ import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.JdbcSqlExecutor;
+import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
@@ -251,6 +253,9 @@ public class TestDynamoDbTypeMapping
         String dateOfLocalTimeChangeBackwardAtMidnightInSomeZoneLiteral = format("DATE '%s'", ISO_DATE.format(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone));
 
         SqlDataTypeTest testCases = SqlDataTypeTest.create()
+                .addRoundTrip("DATE", "DATE '0001-01-01'", DateType.DATE, "DATE '0001-01-01'") // min value in DynamoDB
+                .addRoundTrip("DATE", "DATE '1582-10-04'", DateType.DATE, "DATE '1582-10-04'") // before julian->gregorian switch
+                .addRoundTrip("DATE", "DATE '1582-10-15'", DateType.DATE, "DATE '1582-10-15'") // after julian->gregorian switch
                 .addRoundTrip("DATE", "DATE '1952-04-03'", DateType.DATE, "DATE '1952-04-03'") // before epoch
                 .addRoundTrip("DATE", "DATE '1970-01-01'", DateType.DATE, "DATE '1970-01-01'")
                 .addRoundTrip("DATE", "DATE '1970-02-03'", DateType.DATE, "DATE '1970-02-03'")
@@ -258,7 +263,8 @@ public class TestDynamoDbTypeMapping
                 .addRoundTrip("DATE", "DATE '2017-01-01'", DateType.DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
                 .addRoundTrip("DATE", dateOfLocalTimeChangeForwardAtMidnightInJvmZoneLiteral, DateType.DATE, dateOfLocalTimeChangeForwardAtMidnightInJvmZoneLiteral)
                 .addRoundTrip("DATE", dateOfLocalTimeChangeForwardAtMidnightInSomeZoneLiteral, DateType.DATE, dateOfLocalTimeChangeForwardAtMidnightInSomeZoneLiteral)
-                .addRoundTrip("DATE", dateOfLocalTimeChangeBackwardAtMidnightInSomeZoneLiteral, DateType.DATE, dateOfLocalTimeChangeBackwardAtMidnightInSomeZoneLiteral);
+                .addRoundTrip("DATE", dateOfLocalTimeChangeBackwardAtMidnightInSomeZoneLiteral, DateType.DATE, dateOfLocalTimeChangeBackwardAtMidnightInSomeZoneLiteral)
+                .addRoundTrip("DATE", "DATE '9999-12-31'", DateType.DATE, "DATE '9999-12-31'"); // max value in DynamoDB
 
         for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
             Session session = Session.builder(getQueryRunner().getDefaultSession())
@@ -268,6 +274,39 @@ public class TestDynamoDbTypeMapping
             testCases.execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"));
             testCases.execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
         }
+    }
+
+    @Test
+    public void testNullDate()
+    {
+        // TODO (https://starburstdata.atlassian.net/browse/SEP-8186) Add support for NULL date
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_date", "(dt date)")) {
+            assertQueryFails(format("INSERT INTO %s VALUES (CAST(NULL AS date))", table.getName()), "(?s)Failed to insert data.*");
+        }
+    }
+
+    @Test(dataProvider = "unsupportedDateDataProvider")
+    public void testUnsupportedDate(String unsupportedDate)
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_date", "(dt date)")) {
+            // DynamoDB accepts writing these values, but CData driver throws an exception in ResultSet getters
+            // > Error obtaining value 'yyyy-MM-dd' for column 'dt'. Failed to convert  to datatype: 'string'.
+            // > The original datatype of the column is: 'date'. Original Exception: Error parsing date value [yyyy-MM-dd].
+            assertUpdate(format("INSERT INTO %s VALUES (date '%s')", table.getName(), unsupportedDate), 1);
+            assertQueryFails("SELECT * FROM " + table.getName(), ".*Error obtaining value.*");
+        }
+    }
+
+    @DataProvider
+    public Object[][] unsupportedDateDataProvider()
+    {
+        return new Object[][] {
+                {"-0000-01-01"},
+                {"0000-12-31"},
+                {"1582-10-05"}, // begin julian->gregorian switch
+                {"1582-10-14"}, // end julian->gregorian switch
+                {"10000-01-01"},
+        };
     }
 
     @Test
