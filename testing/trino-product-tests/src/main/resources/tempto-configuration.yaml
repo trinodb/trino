@@ -4,9 +4,6 @@ hdfs:
     uri: http://${databases.hive.host}:50070
 
 databases:
-  default:
-    alias: presto
-
   hive:
     host: hadoop-master
     jdbc_driver_class: org.apache.hive.jdbc.HiveDriver

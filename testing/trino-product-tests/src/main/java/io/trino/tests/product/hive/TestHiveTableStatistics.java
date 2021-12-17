@@ -36,11 +36,11 @@ import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static io.trino.tests.product.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
 import static io.trino.tests.product.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_VARCHAR_REGIONKEY;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public class TestHiveTableStatistics
@@ -193,7 +193,7 @@ public class TestHiveTableStatistics
         // table not analyzed
 
         if (isHiveVersionBefore12()) {
-            assertThat(query(showStatsWholeTable)).containsOnly(
+            assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                     row("n_nationkey", null, null, null, null, null, null),
                     row("n_name", null, null, null, null, null, null),
                     row("n_regionkey", null, null, null, null, null, null),
@@ -201,7 +201,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, null, null, null));
         }
         else {
-            assertThat(query(showStatsWholeTable)).containsOnly(
+            assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                     row("n_nationkey", 0.0, 0.0, 1.0, null, null, null),
                     row("n_name", 0.0, 0.0, 1.0, null, null, null),
                     row("n_regionkey", 0.0, 0.0, 1.0, null, null, null),
@@ -213,7 +213,7 @@ public class TestHiveTableStatistics
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS");
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("n_nationkey", null, null, null, null, null, null),
                 row("n_name", null, null, null, null, null, null),
                 row("n_regionkey", null, null, null, null, null, null),
@@ -224,7 +224,7 @@ public class TestHiveTableStatistics
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("n_nationkey", null, anyOf(19., 25.), 0.0, null, "0", "24"),
                 row("n_name", 177.0, anyOf(24., 25.), 0.0, null, null, null),
                 row("n_regionkey", null, 5.0, 0.0, null, "0", "4"),
@@ -244,14 +244,14 @@ public class TestHiveTableStatistics
 
         // table not analyzed
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, null, null, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, null, null, null, null, null),
@@ -262,21 +262,21 @@ public class TestHiveTableStatistics
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey = \"1\") COMPUTE STATISTICS");
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
-        assertThat(query(showStatsPartitionTwo)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, null, null, null, null, null),
@@ -287,21 +287,21 @@ public class TestHiveTableStatistics
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey) COMPUTE STATISTICS");
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
-        assertThat(query(showStatsPartitionTwo)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "2", "2"),
@@ -312,21 +312,21 @@ public class TestHiveTableStatistics
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey = \"1\") COMPUTE STATISTICS FOR COLUMNS");
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 114.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
                 row("p_comment", 1497.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 38.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
                 row("p_comment", 499.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
-        assertThat(query(showStatsPartitionTwo)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "2", "2"),
@@ -337,21 +337,21 @@ public class TestHiveTableStatistics
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey) COMPUTE STATISTICS FOR COLUMNS");
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 109.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
                 row("p_comment", 1197.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 38.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
                 row("p_comment", 499.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
-        assertThat(query(showStatsPartitionTwo)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, anyOf(4., 5.), 0.0, null, "8", "21"),
                 row("p_name", 31.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "2", "2"),
@@ -371,14 +371,14 @@ public class TestHiveTableStatistics
 
         // table not analyzed
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, null, null, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, null, null, null, null, null),
@@ -389,21 +389,21 @@ public class TestHiveTableStatistics
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey = \"AMERICA\") COMPUTE STATISTICS");
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", 85.0, 3.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", 35.0, 1.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
-        assertThat(query(showStatsPartitionTwo)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, null, null, null, null, null),
@@ -414,21 +414,21 @@ public class TestHiveTableStatistics
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey) COMPUTE STATISTICS");
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", 85.0, 3.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", 35.0, 1.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
-        assertThat(query(showStatsPartitionTwo)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", 20.0, 1.0, 0.0, null, null, null),
@@ -439,21 +439,21 @@ public class TestHiveTableStatistics
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey = \"AMERICA\") COMPUTE STATISTICS FOR COLUMNS");
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 114.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 85.0, 3.0, 0.0, null, null, null),
                 row("p_comment", 1497.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 38.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 35.0, 1.0, 0.0, null, null, null),
                 row("p_comment", 499.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
-        assertThat(query(showStatsPartitionTwo)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", 20.0, 1.0, 0.0, null, null, null),
@@ -464,21 +464,21 @@ public class TestHiveTableStatistics
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " PARTITION (p_regionkey) COMPUTE STATISTICS FOR COLUMNS");
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 109.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 85.0, 3.0, 0.0, null, null, null),
                 row("p_comment", 1197.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 38.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 35.0, 1.0, 0.0, null, null, null),
                 row("p_comment", 499.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
-        assertThat(query(showStatsPartitionTwo)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, anyOf(4., 5.), 0.0, null, "8", "21"),
                 row("p_name", 31.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 20.0, 1.0, 0.0, null, null, null),
@@ -495,7 +495,7 @@ public class TestHiveTableStatistics
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS");
 
-        assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", null, null, null, null, null, null),
                 row("c_smallint", null, null, null, null, null, null),
                 row("c_int", null, null, null, null, null, null),
@@ -523,7 +523,7 @@ public class TestHiveTableStatistics
         }
 
         // SHOW STATS FORMAT: column_name, data_size, distinct_values_count, nulls_fraction, row_count
-        assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", null, 2.0, 0.0, null, "121", "127"),
                 row("c_smallint", null, 2.0, 0.0, null, "32761", "32767"),
                 row("c_int", null, 2.0, 0.0, null, "2147483641", "2147483647"),
@@ -554,7 +554,7 @@ public class TestHiveTableStatistics
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS");
 
-        assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", 0.0, 0.0, 1.0, null, null, null),
                 row("c_smallint", 0.0, 0.0, 1.0, null, null, null),
                 row("c_int", 0.0, 0.0, 1.0, null, null, null),
@@ -581,7 +581,7 @@ public class TestHiveTableStatistics
             onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
         }
 
-        assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", 0.0, 0.0, 1.0, null, null, null),
                 row("c_smallint", 0.0, 0.0, 1.0, null, null, null),
                 row("c_int", 0.0, 0.0, 1.0, null, null, null),
@@ -609,7 +609,7 @@ public class TestHiveTableStatistics
 
         onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS");
 
-        assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", null, null, null, null, null, null),
                 row("c_smallint", null, null, null, null, null, null),
                 row("c_int", null, null, null, null, null, null),
@@ -636,7 +636,7 @@ public class TestHiveTableStatistics
             onHive().executeQuery("ANALYZE TABLE " + tableNameInDatabase + " COMPUTE STATISTICS FOR COLUMNS");
         }
 
-        assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", 0.0, 0.0, 1.0, null, null, null),
                 row("c_smallint", 0.0, 0.0, 1.0, null, null, null),
                 row("c_int", 0.0, 0.0, 1.0, null, null, null),
@@ -668,20 +668,20 @@ public class TestHiveTableStatistics
         onHive().executeQuery("CREATE TABLE " + tableName + " (c_string STRING, c_int INT) SKEWED BY (c_string) ON ('c1')");
         onHive().executeQuery("INSERT INTO TABLE " + tableName + " VALUES ('c1', 1), ('c1', 2)");
 
-        assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableName)).containsOnly(
                 row("c_string", null, null, null, null, null, null),
                 row("c_int", null, null, null, null, null, null),
                 row(null, null, null, null, 2.0, null, null));
 
         onHive().executeQuery("ANALYZE TABLE " + tableName + " COMPUTE STATISTICS");
 
-        assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableName)).containsOnly(
                 row("c_string", null, null, null, null, null, null),
                 row("c_int", null, null, null, null, null, null),
                 row(null, null, null, null, 2.0, null, null));
 
         onHive().executeQuery("ANALYZE TABLE " + tableName + " COMPUTE STATISTICS FOR COLUMNS");
-        assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableName)).containsOnly(
                 row("c_string", 4.0, 1.0, 0.0, null, null, null),
                 row("c_int", null, 2.0, 0.0, null, "1", "2"),
                 row(null, null, null, null, 2.0, null, null));
@@ -696,13 +696,13 @@ public class TestHiveTableStatistics
         onHive().executeQuery("CREATE TABLE " + tableName + " (c_string STRING, c_int INT) SKEWED BY (c_string) ON ('c1')");
         onHive().executeQuery("INSERT INTO TABLE " + tableName + " VALUES ('c1', 1), ('c1', 2)");
 
-        assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableName)).containsOnly(
                 row("c_string", null, null, null, null, null, null),
                 row("c_int", null, null, null, null, null, null),
                 row(null, null, null, null, 2.0, null, null));
 
-        assertThat(query("ANALYZE " + tableName)).containsExactlyInOrder(row(2));
-        assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(
+        assertThat(onTrino().executeQuery("ANALYZE " + tableName)).containsExactlyInOrder(row(2));
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableName)).containsOnly(
                 row("c_string", 4.0, 1.0, 0.0, null, null, null),
                 row("c_int", null, 2.0, 0.0, null, "1", "2"),
                 row(null, null, null, null, 2.0, null, null));
@@ -718,7 +718,7 @@ public class TestHiveTableStatistics
 
         // table not analyzed
         if (isHiveVersionBefore12()) {
-            assertThat(query(showStatsWholeTable)).containsOnly(
+            assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                     row("n_nationkey", null, null, null, null, null, null),
                     row("n_name", null, null, null, null, null, null),
                     row("n_regionkey", null, null, null, null, null, null),
@@ -726,7 +726,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, null, null, null));
         }
         else {
-            assertThat(query(showStatsWholeTable)).containsOnly(
+            assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                     row("n_nationkey", 0.0, 0.0, 1.0, null, null, null),
                     row("n_name", 0.0, 0.0, 1.0, null, null, null),
                     row("n_regionkey", 0.0, 0.0, 1.0, null, null, null),
@@ -734,9 +734,9 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 0.0, null, null));
         }
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(25));
+        assertThat(onTrino().executeQuery("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(25));
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("n_nationkey", null, 25.0, 0.0, null, "0", "24"),
                 row("n_name", 177.0, 25.0, 0.0, null, null, null),
                 row("n_regionkey", null, 5.0, 0.0, null, "0", "4"),
@@ -756,14 +756,14 @@ public class TestHiveTableStatistics
 
         // table not analyzed
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, null, null, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, null, null, null, null, null),
@@ -772,23 +772,23 @@ public class TestHiveTableStatistics
 
         // analyze for single partition
 
-        assertThat(query("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['1']])")).containsExactlyInOrder(row(5));
+        assertThat(onTrino().executeQuery("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['1']])")).containsExactlyInOrder(row(5));
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 114.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
                 row("p_comment", 1497.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 38.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
                 row("p_comment", 499.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
-        assertThat(query(showStatsPartitionTwo)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, null, null, null, null, null),
@@ -797,23 +797,23 @@ public class TestHiveTableStatistics
 
         // analyze for all partitions
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(15));
+        assertThat(onTrino().executeQuery("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(15));
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 109.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
                 row("p_comment", 1197.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 38.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
                 row("p_comment", 499.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
-        assertThat(query(showStatsPartitionTwo)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "8", "21"),
                 row("p_name", 31.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", null, 1.0, 0.0, null, "2", "2"),
@@ -833,14 +833,14 @@ public class TestHiveTableStatistics
 
         // table not analyzed
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, null, null, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, null, null, null, null, null),
@@ -849,23 +849,23 @@ public class TestHiveTableStatistics
 
         // analyze for single partition
 
-        assertThat(query("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['AMERICA']])")).containsExactlyInOrder(row(5));
+        assertThat(onTrino().executeQuery("ANALYZE " + tableNameInDatabase + " WITH (partitions = ARRAY[ARRAY['AMERICA']])")).containsExactlyInOrder(row(5));
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 114.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 85.0, 3.0, 0.0, null, null, null),
                 row("p_comment", 1497.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 38.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 35.0, 1.0, 0.0, null, null, null),
                 row("p_comment", 499.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
-        assertThat(query(showStatsPartitionTwo)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
                 row("p_regionkey", null, null, null, null, null, null),
@@ -874,23 +874,23 @@ public class TestHiveTableStatistics
 
         // column analysis for all partitions
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(15));
+        assertThat(onTrino().executeQuery("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(15));
 
-        assertThat(query(showStatsWholeTable)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 109.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 85.0, 3.0, 0.0, null, null, null),
                 row("p_comment", 1197.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 15.0, null, null));
 
-        assertThat(query(showStatsPartitionOne)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 38.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 35.0, 1.0, 0.0, null, null, null),
                 row("p_comment", 499.0, 5.0, 0.0, null, null, null),
                 row(null, null, null, null, 5.0, null, null));
 
-        assertThat(query(showStatsPartitionTwo)).containsOnly(
+        assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "8", "21"),
                 row("p_name", 31.0, 5.0, 0.0, null, null, null),
                 row("p_regionkey", 20.0, 1.0, 0.0, null, null, null),
@@ -906,7 +906,7 @@ public class TestHiveTableStatistics
         String tableNameInDatabase = mutableTablesState().get(ALL_TYPES_TABLE_NAME).getNameInDatabase();
 
         if (isHiveVersionBefore12()) {
-            assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
+            assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                     row("c_tinyint", null, null, null, null, null, null),
                     row("c_smallint", null, null, null, null, null, null),
                     row("c_int", null, null, null, null, null, null),
@@ -925,7 +925,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, null, null, null));
         }
         else {
-            assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
+            assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                     row("c_tinyint", 0.0, 0.0, 1.0, null, null, null),
                     row("c_smallint", 0.0, 0.0, 1.0, null, null, null),
                     row("c_int", 0.0, 0.0, 1.0, null, null, null),
@@ -944,10 +944,10 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 0.0, null, null));
         }
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(2));
+        assertThat(onTrino().executeQuery("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(2));
 
         // SHOW STATS FORMAT: column_name, data_size, distinct_values_count, nulls_fraction, row_count
-        assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", null, 2.0, 0.0, null, "121", "127"),
                 row("c_smallint", null, 2.0, 0.0, null, "32761", "32767"),
                 row("c_int", null, 2.0, 0.0, null, "2147483641", "2147483647"),
@@ -975,7 +975,7 @@ public class TestHiveTableStatistics
         String tableNameInDatabase = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
 
         if (isHiveVersionBefore12()) {
-            assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
+            assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                     row("c_tinyint", null, null, null, null, null, null),
                     row("c_smallint", null, null, null, null, null, null),
                     row("c_int", null, null, null, null, null, null),
@@ -994,7 +994,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, null, null, null));
         }
         else {
-            assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
+            assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                     row("c_tinyint", 0.0, 0.0, 1.0, null, null, null),
                     row("c_smallint", 0.0, 0.0, 1.0, null, null, null),
                     row("c_int", 0.0, 0.0, 1.0, null, null, null),
@@ -1013,9 +1013,9 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 0.0, null, null));
         }
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(0));
+        assertThat(onTrino().executeQuery("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(0));
 
-        assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", 0.0, 0.0, 1.0, null, null, null),
                 row("c_smallint", 0.0, 0.0, 1.0, null, null, null),
                 row("c_int", 0.0, 0.0, 1.0, null, null, null),
@@ -1043,7 +1043,7 @@ public class TestHiveTableStatistics
         // insert from Hive to prevent Trino collecting statistics on insert
         onHive().executeQuery("INSERT INTO TABLE " + tableNameInDatabase + " VALUES(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null)");
 
-        assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", null, null, null, null, null, null),
                 row("c_smallint", null, null, null, null, null, null),
                 row("c_int", null, null, null, null, null, null),
@@ -1061,9 +1061,9 @@ public class TestHiveTableStatistics
                 row("c_binary", null, null, null, null, null, null),
                 row(null, null, null, null, 1.0, null, null));
 
-        assertThat(query("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(1));
+        assertThat(onTrino().executeQuery("ANALYZE " + tableNameInDatabase)).containsExactlyInOrder(row(1));
 
-        assertThat(query("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
+        assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableNameInDatabase)).containsOnly(
                 row("c_tinyint", 0.0, 0.0, 1.0, null, null, null),
                 row("c_smallint", 0.0, 0.0, 1.0, null, null, null),
                 row("c_int", 0.0, 0.0, 1.0, null, null, null),
@@ -1110,13 +1110,13 @@ public class TestHiveTableStatistics
         assertComputeTableStatisticsOnInsert(allTypesAllNullTable, getAllTypesAllNullTableStatistics());
 
         String tableName = "test_update_table_statistics";
-        query(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         try {
-            query(format("CREATE TABLE %s AS SELECT * FROM %s WITH NO DATA", tableName, allTypesTable));
-            query(format("INSERT INTO %s SELECT * FROM %s", tableName, allTypesTable));
-            query(format("INSERT INTO %s SELECT * FROM %s", tableName, allTypesAllNullTable));
-            query(format("INSERT INTO %s SELECT * FROM %s", tableName, allTypesAllNullTable));
-            assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(
+            onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s WITH NO DATA", tableName, allTypesTable));
+            onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM %s", tableName, allTypesTable));
+            onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM %s", tableName, allTypesAllNullTable));
+            onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM %s", tableName, allTypesAllNullTable));
+            assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableName)).containsOnly(
                     row("c_tinyint", null, 2.0, 0.5, null, "121", "127"),
                     row("c_smallint", null, 2.0, 0.5, null, "32761", "32767"),
                     row("c_int", null, 2.0, 0.5, null, "2147483641", "2147483647"),
@@ -1136,7 +1136,7 @@ public class TestHiveTableStatistics
                     row("c_binary", 23.0, null, 0.5, null, null, null),
                     row(null, null, null, null, 4.0, null, null));
 
-            query(format("INSERT INTO %s VALUES( " +
+            onTrino().executeQuery(format("INSERT INTO %s VALUES( " +
                     "TINYINT '120', " +
                     "SMALLINT '32760', " +
                     "INTEGER '2147483640', " +
@@ -1153,7 +1153,7 @@ public class TestHiveTableStatistics
                     "false, " +
                     "CAST('cGllcyBiaW5hcm54' as VARBINARY))", tableName));
 
-            assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(ImmutableList.of(
+            assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableName)).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, 2.0, 0.4, null, "120", "127"),
                     row("c_smallint", null, 2.0, 0.4, null, "32760", "32767"),
                     row("c_int", null, 2.0, 0.4, null, "2147483640", "2147483647"),
@@ -1174,7 +1174,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 5.0, null, null)));
         }
         finally {
-            query(format("DROP TABLE IF EXISTS %s", tableName));
+            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         }
     }
 
@@ -1183,9 +1183,9 @@ public class TestHiveTableStatistics
     public void testComputePartitionStatisticsOnCreateTable()
     {
         String tableName = "test_compute_partition_statistics_on_create_table";
-        query(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         try {
-            query(format("CREATE TABLE %s WITH ( " +
+            onTrino().executeQuery(format("CREATE TABLE %s WITH ( " +
                     " partitioned_by = ARRAY['p_bigint', 'p_varchar']" +
                     ") AS " +
                     "SELECT * FROM ( " +
@@ -1231,7 +1231,7 @@ public class TestHiveTableStatistics
                     "" +
                     ") AS t (c_tinyint, c_smallint, c_int, c_bigint, c_float, c_double, c_decimal, c_decimal_w_params, c_timestamp, c_date, c_string, c_varchar, c_char, c_boolean, c_binary, p_bigint, p_varchar)", tableName));
 
-            assertThat(query(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 1 AND p_varchar = 'partition1')", tableName))).containsOnly(ImmutableList.of(
+            assertThat(onTrino().executeQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 1 AND p_varchar = 'partition1')", tableName))).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, 1.0, 0.5, null, "120", "120"),
                     row("c_smallint", null, 1.0, 0.5, null, "32760", "32760"),
                     row("c_int", null, 1.0, 0.5, null, "2147483640", "2147483640"),
@@ -1253,7 +1253,7 @@ public class TestHiveTableStatistics
                     row("p_varchar", 20.0, 1.0, 0.0, null, null, null),
                     row(null, null, null, null, 2.0, null, null)));
 
-            assertThat(query(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 2 AND p_varchar = 'partition2')", tableName))).containsOnly(ImmutableList.of(
+            assertThat(onTrino().executeQuery(format("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 2 AND p_varchar = 'partition2')", tableName))).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, 1.0, 0.5, null, "99", "99"),
                     row("c_smallint", null, 1.0, 0.5, null, "333", "333"),
                     row("c_int", null, 1.0, 0.5, null, "444", "444"),
@@ -1276,7 +1276,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 2.0, null, null)));
         }
         finally {
-            query(format("DROP TABLE IF EXISTS %s", tableName));
+            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         }
     }
 
@@ -1286,9 +1286,9 @@ public class TestHiveTableStatistics
     {
         String tableName = "test_compute_partition_statistics_on_insert";
 
-        query(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         try {
-            query(format("CREATE TABLE %s(" +
+            onTrino().executeQuery(format("CREATE TABLE %s(" +
                     "c_tinyint            TINYINT, " +
                     "c_smallint           SMALLINT, " +
                     "c_int                INT, " +
@@ -1310,18 +1310,18 @@ public class TestHiveTableStatistics
                     " partitioned_by = ARRAY['p_bigint', 'p_varchar']" +
                     ")", tableName));
 
-            query(format("INSERT INTO %s VALUES " +
+            onTrino().executeQuery(format("INSERT INTO %s VALUES " +
                     "(TINYINT '120', SMALLINT '32760', INTEGER '2147483640', BIGINT '9223372036854775800', REAL '123.340', DOUBLE '234.560', CAST(343.0 AS DECIMAL(10, 0)), CAST(345.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:15:30', DATE '2015-05-08', 'p1 varchar', CAST('p1 varchar10' AS VARCHAR(10)), CAST('p1 char10' AS CHAR(10)), false, CAST('p1 binary' as VARBINARY), BIGINT '1', 'partition1')," +
                     "(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '1', 'partition1')", tableName));
 
-            query(format("INSERT INTO %s VALUES " +
+            onTrino().executeQuery(format("INSERT INTO %s VALUES " +
                     "(TINYINT '99', SMALLINT '333', INTEGER '444', BIGINT '555', REAL '666.340', DOUBLE '777.560', CAST(888.0 AS DECIMAL(10, 0)), CAST(999.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:45:30', DATE '2015-05-09', 'p2 varchar', CAST('p2 varchar10' AS VARCHAR(10)), CAST('p2 char10' AS CHAR(10)), true, CAST('p2 binary' as VARBINARY), BIGINT '2', 'partition2')," +
                     "(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '2', 'partition2')", tableName));
 
             String showStatsPartitionOne = format("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 1 AND p_varchar = 'partition1')", tableName);
             String showStatsPartitionTwo = format("SHOW STATS FOR (SELECT * FROM %s WHERE p_bigint = 2 AND p_varchar = 'partition2')", tableName);
 
-            assertThat(query(showStatsPartitionOne)).containsOnly(ImmutableList.of(
+            assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, 1.0, 0.5, null, "120", "120"),
                     row("c_smallint", null, 1.0, 0.5, null, "32760", "32760"),
                     row("c_int", null, 1.0, 0.5, null, "2147483640", "2147483640"),
@@ -1343,7 +1343,7 @@ public class TestHiveTableStatistics
                     row("p_varchar", 20.0, 1.0, 0.0, null, null, null),
                     row(null, null, null, null, 2.0, null, null)));
 
-            assertThat(query(showStatsPartitionTwo)).containsOnly(ImmutableList.of(
+            assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, 1.0, 0.5, null, "99", "99"),
                     row("c_smallint", null, 1.0, 0.5, null, "333", "333"),
                     row("c_int", null, 1.0, 0.5, null, "444", "444"),
@@ -1365,10 +1365,10 @@ public class TestHiveTableStatistics
                     row("p_varchar", 20.0, 1.0, 0.0, null, null, null),
                     row(null, null, null, null, 2.0, null, null)));
 
-            query(format("INSERT INTO %s VALUES( TINYINT '119', SMALLINT '32759', INTEGER '2147483639', BIGINT '9223372036854775799', REAL '122.340', DOUBLE '233.560', CAST(342.0 AS DECIMAL(10, 0)), CAST(344.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:15:29', DATE '2015-05-07', 'p1 varchar', CAST('p1 varchar10' AS VARCHAR(10)), CAST('p1 char10' AS CHAR(10)), true, CAST('p1 binary' as VARBINARY), BIGINT '1', 'partition1')", tableName));
-            query(format("INSERT INTO %s VALUES( null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '1', 'partition1')", tableName));
+            onTrino().executeQuery(format("INSERT INTO %s VALUES( TINYINT '119', SMALLINT '32759', INTEGER '2147483639', BIGINT '9223372036854775799', REAL '122.340', DOUBLE '233.560', CAST(342.0 AS DECIMAL(10, 0)), CAST(344.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:15:29', DATE '2015-05-07', 'p1 varchar', CAST('p1 varchar10' AS VARCHAR(10)), CAST('p1 char10' AS CHAR(10)), true, CAST('p1 binary' as VARBINARY), BIGINT '1', 'partition1')", tableName));
+            onTrino().executeQuery(format("INSERT INTO %s VALUES( null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '1', 'partition1')", tableName));
 
-            assertThat(query(showStatsPartitionOne)).containsOnly(ImmutableList.of(
+            assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, 1.0, 0.5, null, "119", "120"),
                     row("c_smallint", null, 1.0, 0.5, null, "32759", "32760"),
                     row("c_int", null, 1.0, 0.5, null, "2147483639", "2147483640"),
@@ -1390,10 +1390,10 @@ public class TestHiveTableStatistics
                     row("p_varchar", 40.0, 1.0, 0.0, null, null, null),
                     row(null, null, null, null, 4.0, null, null)));
 
-            query(format("INSERT INTO %s VALUES( TINYINT '100', SMALLINT '334', INTEGER '445', BIGINT '556', REAL '667.340', DOUBLE '778.560', CAST(889.0 AS DECIMAL(10, 0)), CAST(1000.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:45:31', DATE '2015-05-10', VARCHAR 'p2 varchar', CAST('p2 varchar10' AS VARCHAR(10)), CAST('p2 char10' AS CHAR(10)), true, CAST('p2 binary' as VARBINARY), BIGINT '2', 'partition2')", tableName));
-            query(format("INSERT INTO %s VALUES( null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '2', 'partition2')", tableName));
+            onTrino().executeQuery(format("INSERT INTO %s VALUES( TINYINT '100', SMALLINT '334', INTEGER '445', BIGINT '556', REAL '667.340', DOUBLE '778.560', CAST(889.0 AS DECIMAL(10, 0)), CAST(1000.670 AS DECIMAL(10, 5)), TIMESTAMP '2015-05-10 12:45:31', DATE '2015-05-10', VARCHAR 'p2 varchar', CAST('p2 varchar10' AS VARCHAR(10)), CAST('p2 char10' AS CHAR(10)), true, CAST('p2 binary' as VARBINARY), BIGINT '2', 'partition2')", tableName));
+            onTrino().executeQuery(format("INSERT INTO %s VALUES( null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, BIGINT '2', 'partition2')", tableName));
 
-            assertThat(query(showStatsPartitionTwo)).containsOnly(ImmutableList.of(
+            assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(ImmutableList.of(
                     row("c_tinyint", null, 1.0, 0.5, null, "99", "100"),
                     row("c_smallint", null, 1.0, 0.5, null, "333", "334"),
                     row("c_int", null, 1.0, 0.5, null, "444", "445"),
@@ -1416,7 +1416,7 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 4.0, null, null)));
         }
         finally {
-            query(format("DROP TABLE IF EXISTS %s", tableName));
+            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         }
     }
 
@@ -1424,12 +1424,12 @@ public class TestHiveTableStatistics
     public void testComputeFloatingPointStatistics(String dataType)
     {
         String tableName = "test_compute_floating_point_statistics";
-        query("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
         try {
-            query(format("CREATE TABLE %1$s(c_basic %2$s, c_minmax %2$s, c_inf %2$s, c_ninf %2$s, c_nan %2$s, c_nzero %2$s)", tableName, dataType));
-            query("ANALYZE " + tableName); // TODO remove after https://github.com/trinodb/trino/issues/2469
+            onTrino().executeQuery(format("CREATE TABLE %1$s(c_basic %2$s, c_minmax %2$s, c_inf %2$s, c_ninf %2$s, c_nan %2$s, c_nzero %2$s)", tableName, dataType));
+            onTrino().executeQuery("ANALYZE " + tableName); // TODO remove after https://github.com/trinodb/trino/issues/2469
 
-            query(format(
+            onTrino().executeQuery(format(
                     "INSERT INTO %1$s(c_basic, c_minmax, c_inf, c_ninf, c_nan, c_nzero) VALUES " +
                             "  (%2$s '42.3', %2$s '576234.567',  %2$s 'Infinity', %2$s '-Infinity', %2$s 'NaN', %2$s '-0')," +
                             "  (%2$s '42.3', %2$s '-1234567.89', %2$s '-15', %2$s '45', %2$s '12345', %2$s '-47'), " +
@@ -1448,13 +1448,13 @@ public class TestHiveTableStatistics
                     row("c_nzero", null, 2., 0.33333333333, null, "-47.0", "0.0"),
                     row(null, null, null, null, 3., null, null));
 
-            assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(expectedStatistics);
+            assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableName)).containsOnly(expectedStatistics);
 
-            query("ANALYZE " + tableName);
-            assertThat(query("SHOW STATS FOR " + tableName)).containsOnly(expectedStatistics);
+            onTrino().executeQuery("ANALYZE " + tableName);
+            assertThat(onTrino().executeQuery("SHOW STATS FOR " + tableName)).containsOnly(expectedStatistics);
         }
         finally {
-            query("DROP TABLE IF EXISTS " + tableName);
+            onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
@@ -1484,39 +1484,39 @@ public class TestHiveTableStatistics
             String showStatsWholeTable = format("SHOW STATS FOR %s", tableName);
 
             // drop all stats; which could have been created on insert
-            query(format("CALL system.drop_stats('default', '%s')", tableName));
+            onTrino().executeQuery(format("CALL system.drop_stats('default', '%s')", tableName));
 
             // sanity check that there are no statistics
-            assertThat(query(showStatsPartitionOne)).containsOnly(
+            assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                     row("p", null, null, null, null, null, null),
                     row("a", null, null, null, null, null, null),
                     row(null, null, null, null, null, null, null));
-            assertThat(query(showStatsPartitionTwo)).containsOnly(
+            assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                     row("p", null, null, null, null, null, null),
                     row("a", null, null, null, null, null, null),
                     row(null, null, null, null, null, null, null));
-            assertThat(query(showStatsWholeTable)).containsOnly(
+            assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                     row("p", null, null, null, null, null, null),
                     row("a", null, null, null, null, null, null),
                     row(null, null, null, null, null, null, null));
 
             // analyze first partition with Trino and second with Hive
-            query(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['1']])", tableName));
+            onTrino().executeQuery(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['1']])", tableName));
             onHive().executeQuery(format("ANALYZE TABLE %s PARTITION (p = \"2\") COMPUTE STATISTICS", tableName));
             onHive().executeQuery(format("ANALYZE TABLE %s PARTITION (p = \"2\") COMPUTE STATISTICS FOR COLUMNS", tableName));
 
             // we can get stats for individual partitions
-            assertThat(query(showStatsPartitionOne)).containsOnly(
+            assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                     row("p", null, 1.0, 0.0, null, "1", "1"),
                     row("a", null, 4.0, 0.0, null, "1", "4"),
                     row(null, null, null, null, 4.0, null, null));
-            assertThat(query(showStatsPartitionTwo)).containsOnly(
+            assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                     row("p", null, 1.0, 0.0, null, "2", "2"),
                     row("a", null, 3.0, 0.0, null, "10", "12"),
                     row(null, null, null, null, 3.0, null, null));
 
             // as well as for whole table
-            assertThat(query(showStatsWholeTable)).containsOnly(
+            assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                     row("p", null, 2.0, 0.0, null, "1", "2"),
                     row("a", null, 4.0, 0.0, null, "1", "12"),
                     row(null, null, null, null, 7.0, null, null));
@@ -1529,28 +1529,28 @@ public class TestHiveTableStatistics
     private static void assertComputeTableStatisticsOnCreateTable(String sourceTableName, List<Row> expectedStatistics)
     {
         String copiedTableName = "assert_compute_table_statistics_on_create_table_" + sourceTableName;
-        query(format("DROP TABLE IF EXISTS %s", copiedTableName));
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", copiedTableName));
         try {
-            query(format("CREATE TABLE %s AS SELECT * FROM %s", copiedTableName, sourceTableName));
-            assertThat(query("SHOW STATS FOR " + copiedTableName)).containsOnly(expectedStatistics);
+            onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", copiedTableName, sourceTableName));
+            assertThat(onTrino().executeQuery("SHOW STATS FOR " + copiedTableName)).containsOnly(expectedStatistics);
         }
         finally {
-            query(format("DROP TABLE IF EXISTS %s", copiedTableName));
+            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", copiedTableName));
         }
     }
 
     private void assertComputeTableStatisticsOnInsert(String sourceTableName, List<Row> expectedStatistics)
     {
         String copiedTableName = "assert_compute_table_statistics_on_insert_" + sourceTableName;
-        query(format("DROP TABLE IF EXISTS %s", copiedTableName));
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", copiedTableName));
         try {
-            query(format("CREATE TABLE %s AS SELECT * FROM %s WITH NO DATA", copiedTableName, sourceTableName));
-            assertThat(query("SHOW STATS FOR " + copiedTableName)).containsOnly(getAllTypesEmptyTableStatistics());
-            query(format("INSERT INTO %s SELECT * FROM %s", copiedTableName, sourceTableName));
-            assertThat(query("SHOW STATS FOR " + copiedTableName)).containsOnly(expectedStatistics);
+            onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s WITH NO DATA", copiedTableName, sourceTableName));
+            assertThat(onTrino().executeQuery("SHOW STATS FOR " + copiedTableName)).containsOnly(getAllTypesEmptyTableStatistics());
+            onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM %s", copiedTableName, sourceTableName));
+            assertThat(onTrino().executeQuery("SHOW STATS FOR " + copiedTableName)).containsOnly(expectedStatistics);
         }
         finally {
-            query(format("DROP TABLE IF EXISTS %s", copiedTableName));
+            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", copiedTableName));
         }
     }
 }
