@@ -300,7 +300,13 @@ public class DeduplicationExchangeClientBuffer
     @Override
     public synchronized boolean isFinished()
     {
-        return closed || failure != null || (inputFinished && pageBuffer.isEmpty());
+        return failure == null && (closed || (inputFinished && pageBuffer.isEmpty()));
+    }
+
+    @Override
+    public synchronized boolean isFailed()
+    {
+        return failure != null;
     }
 
     @Override

@@ -44,6 +44,8 @@ public interface ExchangeClientBuffer
 
     boolean isFinished();
 
+    boolean isFailed();
+
     long getRemainingCapacityInBytes();
 
     long getRetainedSizeInBytes();
