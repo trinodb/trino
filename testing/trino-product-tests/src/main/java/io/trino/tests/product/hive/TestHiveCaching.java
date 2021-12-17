@@ -26,11 +26,11 @@ import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_CACHING;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.hive.util.CachingTestUtils.getCacheStats;
 import static io.trino.tests.product.utils.QueryAssertions.assertEventually;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
@@ -59,7 +59,7 @@ public class TestHiveCaching
         long initialNonLocalReads = beforeCacheStats.getNonLocalReads();
         long initialAsyncDownloadedMb = beforeCacheStats.getAsyncDownloadedMb();
 
-        assertThat(query("SELECT * FROM " + cachedTableName))
+        assertThat(onTrino().executeQuery("SELECT * FROM " + cachedTableName))
                 .containsExactlyInOrder(tableData);
 
         assertEventually(
@@ -81,7 +81,7 @@ public class TestHiveCaching
                     long beforeQueryRemoteReads = beforeQueryCacheStats.getRemoteReads();
                     long beforeQueryNonLocalReads = beforeQueryCacheStats.getNonLocalReads();
 
-                    assertThat(query("SELECT * FROM " + cachedTableName))
+                    assertThat(onTrino().executeQuery("SELECT * FROM " + cachedTableName))
                             .containsExactlyInOrder(tableData);
 
                     // query via caching catalog should read exclusively from cache
@@ -92,7 +92,7 @@ public class TestHiveCaching
                     assertEquals(afterQueryCacheStats.getNonLocalReads(), beforeQueryNonLocalReads);
                 });
 
-        query("DROP TABLE " + nonCachedTableName);
+        onTrino().executeQuery("DROP TABLE " + nonCachedTableName);
     }
 
     /**
@@ -107,12 +107,12 @@ public class TestHiveCaching
         }
         String randomData = randomDataBuilder.toString();
 
-        query("DROP TABLE IF EXISTS " + tableName);
-        query("CREATE TABLE " + tableName + " (col varchar) WITH (format='TEXTFILE')");
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("CREATE TABLE " + tableName + " (col varchar) WITH (format='TEXTFILE')");
 
         for (int i = 0; i < NUMBER_OF_FILES; ++i) {
             // use `format` to overcome SQL query length limit
-            query("INSERT INTO " + tableName + " SELECT format('%1$s%1$s%1$s%1$s%1$s', '" + randomData + "')");
+            onTrino().executeQuery("INSERT INTO " + tableName + " SELECT format('%1$s%1$s%1$s%1$s%1$s', '" + randomData + "')");
         }
 
         Row row = row(randomData.repeat(5));
