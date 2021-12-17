@@ -78,14 +78,14 @@ public class PhasedExecutionSchedule
     }
 
     @Override
-    public Set<StageExecution> getStagesToSchedule()
+    public StagesScheduleResult getStagesToSchedule()
     {
         removeCompletedStages();
         addPhasesIfNecessary();
         if (isFinished()) {
-            return ImmutableSet.of();
+            return new StagesScheduleResult(ImmutableSet.of());
         }
-        return activeSources;
+        return new StagesScheduleResult(activeSources);
     }
 
     private void removeCompletedStages()
