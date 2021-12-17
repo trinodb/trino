@@ -194,15 +194,7 @@ public class PipelinedStageExecution
         stateMachine.addStateChangeListener(state -> {
             if (!state.canScheduleMoreTasks()) {
                 taskLifecycleListener.noMoreTasks(stage.getFragment().getId());
-
-                // update output buffers
-                for (PlanFragmentId sourceFragment : exchangeSources.keySet()) {
-                    OutputBufferManager outputBufferManager = outputBufferManagers.get(sourceFragment);
-                    outputBufferManager.noMoreBuffers();
-                    for (RemoteTask sourceTask : sourceTasks.get(stage.getFragment().getId())) {
-                        sourceTask.setOutputBuffers(outputBufferManager.getOutputBuffers());
-                    }
-                }
+                updateSourceTasksOutputBuffers(OutputBufferManager::noMoreBuffers);
             }
         });
     }
@@ -350,13 +342,7 @@ public class PipelinedStageExecution
 
         // update output buffers
         OutputBufferId outputBufferId = new OutputBufferId(task.getTaskId().getPartitionId());
-        for (PlanFragmentId sourceFragment : exchangeSources.keySet()) {
-            OutputBufferManager outputBufferManager = outputBufferManagers.get(sourceFragment);
-            outputBufferManager.addOutputBuffer(outputBufferId);
-            for (RemoteTask sourceTask : sourceTasks.get(stage.getFragment().getId())) {
-                sourceTask.setOutputBuffers(outputBufferManager.getOutputBuffers());
-            }
-        }
+        updateSourceTasksOutputBuffers(outputBufferManager -> outputBufferManager.addOutputBuffer(outputBufferId));
 
         return Optional.of(task);
     }
@@ -491,6 +477,17 @@ public class PipelinedStageExecution
             completeSources.add(remoteSource.getId());
             for (RemoteTask task : getAllTasks()) {
                 task.noMoreSplits(remoteSource.getId());
+            }
+        }
+    }
+
+    private synchronized void updateSourceTasksOutputBuffers(Consumer<OutputBufferManager> updater)
+    {
+        for (PlanFragmentId sourceFragment : exchangeSources.keySet()) {
+            OutputBufferManager outputBufferManager = outputBufferManagers.get(sourceFragment);
+            updater.accept(outputBufferManager);
+            for (RemoteTask sourceTask : sourceTasks.get(sourceFragment)) {
+                sourceTask.setOutputBuffers(outputBufferManager.getOutputBuffers());
             }
         }
     }
