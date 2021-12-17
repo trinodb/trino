@@ -26,6 +26,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.execution.TestQueryRunnerUtil.createQuery;
 import static io.trino.execution.TestQueryRunnerUtil.waitForQueryState;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
@@ -39,7 +40,7 @@ public class TestPendingStageState
             throws Exception
     {
         queryRunner = TpchQueryRunnerBuilder.builder().buildWithoutCatalogs();
-        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", "10000"));
+        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "10000"));
     }
 
     @Test(timeOut = 30_000)
