@@ -163,7 +163,13 @@ public class StreamingExchangeClientBuffer
     @Override
     public synchronized boolean isFinished()
     {
-        return failure != null || (noMoreTasks && activeTasks.isEmpty() && bufferedPages.isEmpty());
+        return failure == null && noMoreTasks && activeTasks.isEmpty() && bufferedPages.isEmpty();
+    }
+
+    @Override
+    public synchronized boolean isFailed()
+    {
+        return failure != null;
     }
 
     @Override
