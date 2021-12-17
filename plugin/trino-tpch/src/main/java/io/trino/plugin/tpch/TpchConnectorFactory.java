@@ -43,6 +43,7 @@ public class TpchConnectorFactory
     public static final String TPCH_MAX_ROWS_PER_PAGE_PROPERTY = "tpch.max-rows-per-page";
     public static final String TPCH_TABLE_SCAN_REDIRECTION_CATALOG = "tpch.table-scan-redirection-catalog";
     public static final String TPCH_TABLE_SCAN_REDIRECTION_SCHEMA = "tpch.table-scan-redirection-schema";
+    public static final String TPCH_SPLITS_PER_NODE = "tpch.splits-per-node";
     private static final int DEFAULT_MAX_ROWS_PER_PAGE = 1_000_000;
 
     private final int defaultSplitsPerNode;
@@ -143,10 +144,10 @@ public class TpchConnectorFactory
     private int getSplitsPerNode(Map<String, String> properties)
     {
         try {
-            return Integer.parseInt(firstNonNull(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
+            return Integer.parseInt(firstNonNull(properties.get(TPCH_SPLITS_PER_NODE), String.valueOf(defaultSplitsPerNode)));
         }
         catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid property tpch.splits-per-node");
+            throw new IllegalArgumentException("Invalid property " + TPCH_SPLITS_PER_NODE);
         }
     }
 
