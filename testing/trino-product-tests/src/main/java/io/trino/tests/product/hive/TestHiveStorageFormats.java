@@ -61,7 +61,6 @@ import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
@@ -951,7 +950,7 @@ public class TestHiveStorageFormats
 
     private void setAdminRole()
     {
-        setAdminRole(defaultQueryExecutor().getConnection());
+        setAdminRole(onTrino().getConnection());
     }
 
     private void setAdminRole(Connection connection)
@@ -997,7 +996,7 @@ public class TestHiveStorageFormats
 
     private static void setSessionProperties(StorageFormat storageFormat)
     {
-        setSessionProperties(defaultQueryExecutor().getConnection(), storageFormat);
+        setSessionProperties(onTrino().getConnection(), storageFormat);
     }
 
     private static void setSessionProperties(Connection connection, StorageFormat storageFormat)

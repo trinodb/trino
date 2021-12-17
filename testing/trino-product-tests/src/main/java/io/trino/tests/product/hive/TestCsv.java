@@ -24,12 +24,12 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public class TestCsv
@@ -49,20 +49,20 @@ public class TestCsv
 
     private void testInsertIntoCsvTable(String tableName, String additionalTableProperties)
     {
-        query("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
-        query(format(
+        onTrino().executeQuery(format(
                 "CREATE TABLE %s(" +
                         "  name varchar, " +
                         "  comment varchar " +
                         ") WITH (format='CSV' %s)",
                 tableName, additionalTableProperties));
 
-        query(format("INSERT INTO %s SELECT name, comment FROM tpch.tiny.nation", tableName));
+        onTrino().executeQuery(format("INSERT INTO %s SELECT name, comment FROM tpch.tiny.nation", tableName));
 
         assertSelect("SELECT max(name), max(comment) FROM %s", tableName);
 
-        query("DROP TABLE " + tableName);
+        onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
     @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
@@ -82,9 +82,9 @@ public class TestCsv
     private void testCreateCsvTableAs(String additionalParameters)
     {
         String tableName = "test_csv_table";
-        query("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
-        query(format(
+        onTrino().executeQuery(format(
                 "CREATE TABLE %s WITH (format='CSV' %s) AS " +
                         "SELECT " +
                         "CAST(nationkey AS varchar) AS nationkey, CAST(name AS varchar) AS name, CAST(comment AS varchar) AS comment " +
@@ -94,7 +94,7 @@ public class TestCsv
 
         assertSelect("SELECT max(name), max(comment) FROM %s", tableName);
 
-        query("DROP TABLE " + tableName);
+        onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
     @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
@@ -113,9 +113,9 @@ public class TestCsv
 
     private void testInsertIntoPartitionedCsvTable(String tableName, String additionalParameters)
     {
-        query("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
-        query(format(
+        onTrino().executeQuery(format(
                 "CREATE TABLE %s(" +
                         "  name varchar, " +
                         "  comment varchar, " +
@@ -124,11 +124,11 @@ public class TestCsv
                 tableName,
                 additionalParameters));
 
-        query(format("INSERT INTO %s SELECT name, comment, regionkey FROM tpch.tiny.nation", tableName));
+        onTrino().executeQuery(format("INSERT INTO %s SELECT name, comment, regionkey FROM tpch.tiny.nation", tableName));
 
         assertSelect("SELECT max(name), max(comment), max(regionkey) FROM %s", tableName);
 
-        query("DROP TABLE " + tableName);
+        onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
     @Test(groups = {STORAGE_FORMATS, HMS_ONLY})
@@ -149,9 +149,9 @@ public class TestCsv
 
     private void testCreatePartitionedCsvTableAs(String tableName, String additionalParameters)
     {
-        query("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
-        query(format(
+        onTrino().executeQuery(format(
                 "CREATE TABLE %s WITH (format='CSV', partitioned_by = ARRAY['regionkey'] %s) AS " +
                         "SELECT cast(nationkey AS varchar) AS nationkey, cast(name AS varchar) AS name, regionkey FROM tpch.tiny.nation",
                 tableName,
@@ -159,16 +159,16 @@ public class TestCsv
 
         assertSelect("SELECT max(name), max(regionkey) FROM %s", tableName);
 
-        query("DROP TABLE " + tableName);
+        onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
     private static void assertSelect(String query, String tableName)
     {
-        QueryResult expected = query(format(query, "tpch.tiny.nation"));
+        QueryResult expected = onTrino().executeQuery(format(query, "tpch.tiny.nation"));
         List<Row> expectedRows = expected.rows().stream()
                 .map((columns) -> row(columns.toArray()))
                 .collect(toImmutableList());
-        QueryResult actual = query(format(query, tableName));
+        QueryResult actual = onTrino().executeQuery(format(query, tableName));
         assertThat(actual)
                 .hasColumns(expected.getColumnTypes())
                 .containsOnly(expectedRows);
@@ -198,7 +198,7 @@ public class TestCsv
                         "('3', 'c', 'C')",
                 tableName));
 
-        assertThat(query(format("SELECT * FROM %s", tableName)))
+        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
                 .containsOnly(
                         row("1", "a", "A"),
                         row("2", "b", "B"),
@@ -223,13 +223,13 @@ public class TestCsv
                         "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'",
                 tableName));
 
-        query(format(
+        onTrino().executeQuery(format(
                 "INSERT INTO %s(a, b, c) VALUES " +
                         "('1', 'a', 'A'), " +
                         "('2', 'b', 'B'), " +
                         "('3', 'c', 'C')",
                 tableName));
-        assertThat(query(format("SELECT * FROM %s", tableName)))
+        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
                 .containsOnly(
                         row("1", "a", "A"),
                         row("2", "b", "B"),

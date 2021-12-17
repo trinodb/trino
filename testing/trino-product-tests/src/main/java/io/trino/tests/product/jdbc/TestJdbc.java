@@ -38,13 +38,12 @@ import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.trino.tempto.internal.convention.SqlResultDescriptor.sqlResultDescriptorForResource;
-import static io.trino.tempto.query.QueryExecutor.defaultQueryExecutor;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.JDBC;
 import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
 import static io.trino.tests.product.utils.JdbcDriverUtils.getSessionProperty;
 import static io.trino.tests.product.utils.JdbcDriverUtils.resetSessionProperty;
 import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.Locale.CHINESE;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -80,14 +79,14 @@ public class TestJdbc
             throws SQLException
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME).getNameInDatabase();
-        assertThat(query("SELECT * FROM " + tableNameInDatabase)).hasNoRows();
+        assertThat(onTrino().executeQuery("SELECT * FROM " + tableNameInDatabase)).hasNoRows();
 
         try (Statement statement = connection().createStatement()) {
             assertThat(statement.executeUpdate("insert into " + tableNameInDatabase + " select * from nation"))
                     .isEqualTo(25);
         }
 
-        assertThat(query("SELECT * FROM " + tableNameInDatabase)).matches(PRESTO_NATION_RESULT);
+        assertThat(onTrino().executeQuery("SELECT * FROM " + tableNameInDatabase)).matches(PRESTO_NATION_RESULT);
     }
 
     @Test(groups = JDBC)
@@ -216,6 +215,6 @@ public class TestJdbc
 
     private Connection connection()
     {
-        return defaultQueryExecutor().getConnection();
+        return onTrino().getConnection();
     }
 }
