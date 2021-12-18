@@ -355,40 +355,69 @@ jobs:
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
 
+  build-test-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
+      - name: Fetch base ref to find merge-base for GIB
+        run: .github/bin/git-fetch-base-ref.sh
+      - uses: actions/setup-java@v2
+        with:
+          distribution: 'zulu'
+          java-version: 11
+          cache: 'maven'
+      - name: Maven install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+      - id: set-matrix
+        run: |
+          cat <<EOF > .github/test-matrix.yaml
+          include:
+            - { modules: core/trino-main }
+            - { modules: testing/trino-tests }
+            - { modules: plugin/trino-raptor-legacy }
+            - { modules: plugin/trino-accumulo }
+            - { modules: plugin/trino-cassandra }
+            - { modules: plugin/trino-clickhouse }
+            - { modules: plugin/trino-hive }
+            - { modules: plugin/trino-hive, profile: test-parquet }
+            - { modules: plugin/trino-hive, profile: test-failure-recovery }
+            - { modules: plugin/trino-hive, profile: test-fault-tolerant-execution }
+            - { modules: plugin/trino-elasticsearch }
+            - { modules: plugin/trino-elasticsearch, profile: test-stats }
+            - { modules: plugin/trino-mongodb }
+            - { modules: plugin/trino-kafka }
+            - { modules: plugin/trino-pinot }
+            - { modules: plugin/trino-redis }
+            - { modules: plugin/trino-mysql }
+            - { modules: plugin/trino-postgresql }
+            - { modules: plugin/trino-sqlserver }
+            - { modules: plugin/trino-memsql }
+            - { modules: plugin/trino-oracle }
+            - { modules: plugin/trino-kudu }
+            - { modules: plugin/trino-druid }
+            - { modules: plugin/trino-iceberg }
+            - { modules: plugin/trino-iceberg, profile: test-failure-recovery }
+            - { modules: [ plugin/trino-phoenix, plugin/trino-phoenix5 ] }
+            - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
+            - { modules: plugin/trino-bigquery }
+          EOF
+          ./.github/bin/build-matrix-from-impacted.py -v -m .github/test-matrix.yaml -o matrix.json
+          echo "Matrix: $(jq '.' matrix.json)"
+          echo "::set-output name=matrix::$(jq -c '.' matrix.json)"
+
   test:
     runs-on: ubuntu-latest
+    needs: build-test-matrix
+    if: needs.build-test-matrix.outputs.matrix != '{}'
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - { modules: core/trino-main }
-          - { modules: testing/trino-tests }
-          - { modules: plugin/trino-raptor-legacy }
-          - { modules: plugin/trino-accumulo }
-          - { modules: plugin/trino-cassandra }
-          - { modules: plugin/trino-clickhouse }
-          - { modules: plugin/trino-hive }
-          - { modules: plugin/trino-hive, profile: test-parquet }
-          - { modules: plugin/trino-hive, profile: test-failure-recovery }
-          - { modules: plugin/trino-hive, profile: test-fault-tolerant-execution }
-          - { modules: plugin/trino-elasticsearch }
-          - { modules: plugin/trino-elasticsearch, profile: test-stats }
-          - { modules: plugin/trino-mongodb }
-          - { modules: plugin/trino-kafka }
-          - { modules: plugin/trino-pinot }
-          - { modules: plugin/trino-redis }
-          - { modules: plugin/trino-mysql }
-          - { modules: plugin/trino-postgresql }
-          - { modules: plugin/trino-sqlserver }
-          - { modules: plugin/trino-memsql }
-          - { modules: plugin/trino-oracle }
-          - { modules: plugin/trino-kudu }
-          - { modules: plugin/trino-druid }
-          - { modules: plugin/trino-iceberg }
-          - { modules: plugin/trino-iceberg, profile: test-failure-recovery }
-          - { modules: [ plugin/trino-phoenix, plugin/trino-phoenix5 ] }
-          - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
-          - { modules: plugin/trino-bigquery }
+      matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
@@ -413,25 +442,25 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl "${{ matrix.modules }}"
       - name: Maven Tests
-        if: matrix.modules != 'trino-memsql'
-        run: $MAVEN test ${MAVEN_TEST} -pl :${{ join(matrix.modules, ':,') }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) } || ''}
+        if: matrix.modules != 'plugin/trino-memsql'
+        run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
       - name: Memsql Tests
         env:
           MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
-        if: matrix.modules == 'trino-memsql' && env.MEMSQL_LICENSE != ''
+        if: matrix.modules == 'plugin/trino-memsql' && env.MEMSQL_LICENSE != ''
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-memsql -Dmemsql.license=${MEMSQL_LICENSE}
       - name: Cloud BigQuery Tests
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
-        if: matrix.modules == 'trino-bigquery' && env.BIGQUERY_CREDENTIALS_KEY != ''
+        if: matrix.modules == 'plugin/trino-bigquery' && env.BIGQUERY_CREDENTIALS_KEY != ''
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
       - name: Cloud BigQuery Case Insensitive Mapping Tests
         env:
           BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
-        if: matrix.modules == 'trino-bigquery' && env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != ''
+        if: matrix.modules == 'plugin/trino-bigquery' && env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != ''
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
       - name: Sanitize artifact name
@@ -439,8 +468,8 @@ jobs:
         run: |
           # Generate a valid artifact name and make it available to next steps as
           # an environment variable ARTIFACT_NAME
-          # ", :, <, >, |, *, ?, \, / are not allowed in artifact names but we only use : so we remove it
-          name=$(echo -n "${{ matrix.modules }}" | sed -e 's/[:]//g')
+          # ", :, <, >, |, *, ?, \, / are not allowed in artifact names, replace it with an underscore
+          name=$(echo -n "${{ matrix.modules }}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
           echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
       - name: Upload test results
         uses: actions/upload-artifact@v2
