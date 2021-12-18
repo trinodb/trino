@@ -15,6 +15,7 @@ package io.trino.sql.analyzer;
 
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
+import io.trino.security.AccessControl;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizersFactory;
@@ -29,6 +30,7 @@ public class QueryExplainerFactory
     private final PlanFragmenter planFragmenter;
     private final PlannerContext plannerContext;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
+    private final AccessControl accessControl;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
 
@@ -38,6 +40,7 @@ public class QueryExplainerFactory
             PlanFragmenter planFragmenter,
             PlannerContext plannerContext,
             StatementAnalyzerFactory statementAnalyzerFactory,
+            AccessControl accessControl,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator)
     {
@@ -45,6 +48,7 @@ public class QueryExplainerFactory
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.plannerContext = requireNonNull(plannerContext, "metadata is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
     }
@@ -57,6 +61,7 @@ public class QueryExplainerFactory
                 plannerContext,
                 analyzerFactory,
                 statementAnalyzerFactory,
+                accessControl,
                 statsCalculator,
                 costCalculator);
     }

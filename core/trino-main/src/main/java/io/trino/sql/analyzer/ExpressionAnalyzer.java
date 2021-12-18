@@ -296,6 +296,32 @@ public class ExpressionAnalyzer
     private final Function<Node, ResolvedWindow> getResolvedWindow;
     private final List<Field> sourceFields = new ArrayList<>();
 
+    private ExpressionAnalyzer(
+            PlannerContext plannerContext,
+            AccessControl accessControl,
+            StatementAnalyzerFactory statementAnalyzerFactory,
+            Analysis analysis,
+            Session session,
+            TypeProvider types,
+            WarningCollector warningCollector)
+    {
+        this(
+                plannerContext,
+                accessControl,
+                (node, correlationSupport) -> statementAnalyzerFactory.createStatementAnalyzer(
+                        analysis,
+                        session,
+                        warningCollector,
+                        correlationSupport),
+                session,
+                types,
+                analysis.getParameters(),
+                warningCollector,
+                analysis.isDescribe(),
+                analysis::getType,
+                analysis::getWindow);
+    }
+
     ExpressionAnalyzer(
             PlannerContext plannerContext,
             AccessControl accessControl,
@@ -2664,6 +2690,7 @@ public class ExpressionAnalyzer
 
     public static ExpressionAnalysis analyzePatternRecognitionExpression(
             Session session,
+            PlannerContext plannerContext,
             StatementAnalyzerFactory statementAnalyzerFactory,
             AccessControl accessControl,
             Scope scope,
@@ -2672,7 +2699,7 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             Set<String> labels)
     {
-        ExpressionAnalyzer analyzer = statementAnalyzerFactory.createExpressionAnalyzer(analysis, session, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
         analyzer.analyze(expression, scope, labels);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
@@ -2691,7 +2718,9 @@ public class ExpressionAnalyzer
 
     public static ExpressionAnalysis analyzeExpressions(
             Session session,
+            PlannerContext plannerContext,
             StatementAnalyzerFactory statementAnalyzerFactory,
+            AccessControl accessControl,
             TypeProvider types,
             Iterable<Expression> expressions,
             Map<NodeRef<Parameter>, Expression> parameters,
@@ -2699,7 +2728,7 @@ public class ExpressionAnalyzer
             QueryType queryType)
     {
         Analysis analysis = new Analysis(null, parameters, queryType);
-        ExpressionAnalyzer analyzer = statementAnalyzerFactory.createExpressionAnalyzer(analysis, session, types, warningCollector);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, types, warningCollector);
         for (Expression expression : expressions) {
             analyzer.analyze(
                     expression,
@@ -2722,6 +2751,7 @@ public class ExpressionAnalyzer
 
     public static ExpressionAnalysis analyzeExpression(
             Session session,
+            PlannerContext plannerContext,
             StatementAnalyzerFactory statementAnalyzerFactory,
             AccessControl accessControl,
             Scope scope,
@@ -2730,7 +2760,7 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
-        ExpressionAnalyzer analyzer = statementAnalyzerFactory.createExpressionAnalyzer(analysis, session, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
         analyzer.analyze(expression, scope, correlationSupport);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
@@ -2750,6 +2780,7 @@ public class ExpressionAnalyzer
 
     public static ExpressionAnalysis analyzeWindow(
             Session session,
+            PlannerContext plannerContext,
             StatementAnalyzerFactory statementAnalyzerFactory,
             AccessControl accessControl,
             Scope scope,
@@ -2759,7 +2790,7 @@ public class ExpressionAnalyzer
             ResolvedWindow window,
             Node originalNode)
     {
-        ExpressionAnalyzer analyzer = statementAnalyzerFactory.createExpressionAnalyzer(analysis, session, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = new ExpressionAnalyzer(plannerContext, accessControl, statementAnalyzerFactory, analysis, session, TypeProvider.empty(), warningCollector);
         analyzer.analyzeWindow(window, scope, originalNode, correlationSupport);
 
         updateAnalysis(analysis, analyzer, session, accessControl);

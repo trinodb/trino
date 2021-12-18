@@ -2025,6 +2025,7 @@ class StatementAnalyzer
 
             return ExpressionAnalyzer.analyzePatternRecognitionExpression(
                     session,
+                    plannerContext,
                     statementAnalyzerFactory,
                     accessControl,
                     scope,
@@ -2070,7 +2071,9 @@ class StatementAnalyzer
 
             Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.analyzeExpressions(
                     session,
+                    plannerContext,
                     statementAnalyzerFactory,
+                    accessControl,
                     TypeProvider.empty(),
                     ImmutableList.of(samplePercentage),
                     analysis.getParameters(),
@@ -2757,6 +2760,7 @@ class StatementAnalyzer
         {
             ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeWindow(
                     session,
+                    plannerContext,
                     statementAnalyzerFactory,
                     accessControl,
                     scope,
@@ -3541,6 +3545,7 @@ class StatementAnalyzer
         {
             return ExpressionAnalyzer.analyzeExpression(
                     session,
+                    plannerContext,
                     statementAnalyzerFactory,
                     accessControl,
                     scope,
@@ -3554,6 +3559,7 @@ class StatementAnalyzer
         {
             return ExpressionAnalyzer.analyzeExpression(
                     session,
+                    plannerContext,
                     statementAnalyzerFactory,
                     accessControl,
                     scope,
@@ -3585,6 +3591,7 @@ class StatementAnalyzer
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                         createViewSession(filter.getCatalog(), filter.getSchema(), Identity.forUser(filter.getIdentity()).build(), session.getPath()), // TODO: path should be included in row filter
+                        plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
                         scope,
@@ -3639,6 +3646,7 @@ class StatementAnalyzer
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                         createViewSession(mask.getCatalog(), mask.getSchema(), Identity.forUser(mask.getIdentity()).build(), session.getPath()), // TODO: path should be included in row filter
+                        plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
                         scope,
@@ -4061,7 +4069,9 @@ class StatementAnalyzer
                     expression = new FieldReference(toIntExact(ordinal - 1));
                 }
 
-                ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
+                ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
+                        session,
+                        plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
                         orderByScope,

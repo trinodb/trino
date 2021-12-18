@@ -370,8 +370,8 @@ public class LocalQueryRunner
                 tablePropertyManager,
                 analyzePropertyManager,
                 tableProceduresPropertyManager);
-        this.statsCalculator = createNewStatsCalculator(plannerContext, new TypeAnalyzer(statementAnalyzerFactory));
-        this.scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, new TypeAnalyzer(statementAnalyzerFactory));
+        this.statsCalculator = createNewStatsCalculator(plannerContext, new TypeAnalyzer(plannerContext, statementAnalyzerFactory, accessControl));
+        this.scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, new TypeAnalyzer(plannerContext, statementAnalyzerFactory, accessControl));
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
@@ -843,7 +843,7 @@ public class LocalQueryRunner
         tableExecuteContextManager.registerTableExecuteContextForQuery(taskContext.getQueryContext().getQueryId());
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 plannerContext,
-                new TypeAnalyzer(statementAnalyzerFactory),
+                new TypeAnalyzer(plannerContext, statementAnalyzerFactory, accessControl),
                 Optional.empty(),
                 pageSourceManager,
                 indexManager,
@@ -961,7 +961,7 @@ public class LocalQueryRunner
     {
         return planOptimizersProvider.getPlanOptimizers(
                 plannerContext,
-                new TypeAnalyzer(statementAnalyzerFactory),
+                new TypeAnalyzer(plannerContext, statementAnalyzerFactory, accessControl),
                 taskManagerConfig,
                 forceSingleNode,
                 splitManager,
@@ -1002,7 +1002,7 @@ public class LocalQueryRunner
                 new PlanSanityChecker(true),
                 idAllocator,
                 getPlannerContext(),
-                new TypeAnalyzer(statementAnalyzerFactory),
+                new TypeAnalyzer(plannerContext, statementAnalyzerFactory, accessControl),
                 statsCalculator,
                 costCalculator,
                 warningCollector);
@@ -1019,6 +1019,7 @@ public class LocalQueryRunner
                 planFragmenter,
                 plannerContext,
                 statementAnalyzerFactory,
+                accessControl,
                 statsCalculator,
                 costCalculator);
     }
