@@ -77,12 +77,16 @@ public interface GroupByHash
             BlockTypeOperators blockTypeOperators,
             UpdateMemory updateMemory)
     {
+        if (useEnhancedGroupBy && hashTypes.stream().allMatch(type -> type.equals(BIGINT))) {
+            return new MultiChannelBigintGroupByHashInlineGID(hashChannels, inputHashChannel, expectedSize, updateMemory);
+        }
         if (hashTypes.size() == 1 && hashTypes.get(0).equals(BIGINT) && hashChannels.length == 1) {
             if (useEnhancedGroupBy) {
-                return new BigintGroupByHashInlineGIDBigArray(hashChannels[0], inputHashChannel.isPresent(), expectedSize, updateMemory);
+                return new BigintGroupByHashInlineGID(hashChannels[0], inputHashChannel.isPresent(), expectedSize, updateMemory);
             }
             return new BigintGroupByHash(hashChannels[0], inputHashChannel.isPresent(), expectedSize, updateMemory);
         }
+
         return new MultiChannelGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, joinCompiler, blockTypeOperators, updateMemory);
     }
 

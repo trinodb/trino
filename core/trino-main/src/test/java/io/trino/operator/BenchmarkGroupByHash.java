@@ -43,6 +43,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
+import org.openjdk.jmh.profile.AsyncProfiler;
 import org.openjdk.jmh.profile.DTraceAsmProfiler;
 import org.openjdk.jmh.runner.RunnerException;
 
@@ -86,7 +87,27 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public void groupByHashPreCompute(BenchmarkData data, Blackhole blackhole)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, getJoinCompiler(), TYPE_OPERATOR_FACTORY, NOOP);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), data.groupCount, false, data.getJoinCompiler(), TYPE_OPERATOR_FACTORY, NOOP);
+        addInputPagesToHash(groupByHash, data.getPages());
+
+        buildPages(groupByHash, blackhole);
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(POSITIONS)
+    public void groupByHashPreComputeInline(BenchmarkData data, Blackhole blackhole)
+    {
+        GroupByHash groupByHash = new MultiChannelGroupByHashInline(data.getTypes(), data.getChannels(), data.getHashChannel(), data.groupCount, false, data.getJoinCompiler(), TYPE_OPERATOR_FACTORY, NOOP);
+        addInputPagesToHash(groupByHash, data.getPages());
+
+        buildPages(groupByHash, blackhole);
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(POSITIONS)
+    public void groupByHashPreComputeInlineMultiChannelBigInt(BenchmarkData data, Blackhole blackhole)
+    {
+        GroupByHash groupByHash = new MultiChannelBigintGroupByHashInlineGID(data.getChannels(), data.getHashChannel(), data.groupCount, NOOP);
         addInputPagesToHash(groupByHash, data.getPages());
 
         buildPages(groupByHash, blackhole);
@@ -128,7 +149,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public void addPagePreCompute(BenchmarkData data, Blackhole blackhole)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, getJoinCompiler(), TYPE_OPERATOR_FACTORY, NOOP);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, data.getJoinCompiler(), TYPE_OPERATOR_FACTORY, NOOP);
         addInputPagesToHash(groupByHash, data.getPages());
 
         buildPages(groupByHash, blackhole);
@@ -163,6 +184,15 @@ public class BenchmarkGroupByHash
     public void bigintGroupByHashBatch(SingleChannelBenchmarkData data, Blackhole blackhole)
     {
         GroupByHash groupByHash = new BigintGroupByHashBatchNoRehash(0, data.getHashEnabled(), data.expectedSize, NOOP);
+        benchmarkGroupByHash(data, groupByHash, blackhole);
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(POSITIONS)
+    public void bigintGroupByHashMultiChannel(SingleChannelBenchmarkData data, Blackhole blackhole)
+    {
+        GroupByHash groupByHash = new MultiChannelBigintGroupByHashInlineGID(new int[] {0},
+                data.getHashEnabled() ? Optional.of(1) : Optional.empty(), data.expectedSize, NOOP);
         benchmarkGroupByHash(data, groupByHash, blackhole);
     }
 
@@ -315,7 +345,7 @@ public class BenchmarkGroupByHash
         PageBuilder pageBuilder = new PageBuilder(types);
         for (int position = 0; position < positionCount; position++) {
             int rand = ThreadLocalRandom.current().nextInt(groupCount);
-            Slice value = Slices.wrappedBuffer(ByteBuffer.allocate(4).putInt(rand));
+            Slice value = Slices.wrappedBuffer(ByteBuffer.allocate(4).putInt(rand).flip());
             pageBuilder.declarePosition();
             for (int channel = 0; channel < channelCount; channel++) {
                 VARCHAR.writeSlice(pageBuilder.getBlockBuilder(channel), value);
@@ -432,6 +462,7 @@ public class BenchmarkGroupByHash
         private Optional<Integer> hashChannel;
         private List<Type> types;
         private int[] channels;
+        private JoinCompiler joinCompiler;
 
         @Setup
         public void setup()
@@ -453,6 +484,8 @@ public class BenchmarkGroupByHash
             for (int i = 0; i < channelCount; i++) {
                 channels[i] = i;
             }
+
+            this.joinCompiler = new JoinCompiler(TYPE_OPERATORS);
         }
 
         public List<Page> getPages()
@@ -474,22 +507,22 @@ public class BenchmarkGroupByHash
         {
             return channels;
         }
-    }
 
-    private static JoinCompiler getJoinCompiler()
-    {
-        return new JoinCompiler(TYPE_OPERATORS);
-    }
-
-    static {
-        // pollute BigintGroupByHash profile by different block types
-        SingleChannelBenchmarkData singleChannelBenchmarkData = new SingleChannelBenchmarkData();
-        singleChannelBenchmarkData.setup(true);
-        BenchmarkGroupByHash hash = new BenchmarkGroupByHash();
-        for (int i = 0; i < 5; ++i) {
-            hash.bigintGroupByHash(singleChannelBenchmarkData, fakeBlackhole());
+        public JoinCompiler getJoinCompiler()
+        {
+            return joinCompiler;
         }
     }
+
+//    static {
+//        // pollute BigintGroupByHash profile by different block types
+//        SingleChannelBenchmarkData singleChannelBenchmarkData = new SingleChannelBenchmarkData();
+//        singleChannelBenchmarkData.setup(true);
+//        BenchmarkGroupByHash hash = new BenchmarkGroupByHash();
+//        for (int i = 0; i < 5; ++i) {
+//            hash.bigintGroupByHash(singleChannelBenchmarkData, fakeBlackhole());
+//        }
+//    }
 
     private static Blackhole fakeBlackhole()
     {
@@ -501,42 +534,64 @@ public class BenchmarkGroupByHash
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();
+        data.dataType = "BIGINT";
+        data.groupCount = 8;
+        data.channelCount = 2;
         data.setup();
-        new BenchmarkGroupByHash().groupByHashPreCompute(data, fakeBlackhole());
-        new BenchmarkGroupByHash().addPagePreCompute(data, fakeBlackhole());
+//        new BenchmarkGroupByHash().groupByHashPreCompute(data, fakeBlackhole());
+//        new BenchmarkGroupByHash().addPagePreCompute(data, fakeBlackhole());
 
 //        SingleChannelBenchmarkData singleChannelBenchmarkData = new SingleChannelBenchmarkData();
 //        singleChannelBenchmarkData.setup();
 //        new BenchmarkGroupByHash().bigintGroupByHashBatch(singleChannelBenchmarkData);
 
+        String profilerOutputDir = profilerOutputDir();
+        new BenchmarkGroupByHash().groupByHashPreComputeInlineMultiChannelBigInt(data, fakeBlackhole());
         benchmark(BenchmarkGroupByHash.class)
-                .includeMethod("bigintGroupByHash")
-                .includeMethod("bigintGroupByHashGID")
-                .includeMethod("bigintGroupByHashBatchGID")
-                .includeMethod("bigintGroupByHashGIDBigArray")
+//                .includeMethod("bigintGroupByHash")
+//                .includeMethod("bigintGroupByHashGID")
+//                .includeMethod("bigintGroupByHashMultiChannel")
+//                .includeMethod("bigintGroupByHashBatchGID")
+//                .includeMethod("bigintGroupByHashGIDBigArray")
+//                .includeMethod("groupByHashPreCompute")
+//                .includeMethod("groupByHashPreComputeInline")
+                .includeMethod("groupByHashPreComputeInlineMultiChannelBigInt")
+//                .includeMethod("groupByHashPreCompute.*")
+//                .includeMethod("baseline")
+//                .includeMethod("baselineBigArray")
                 .withOptions(optionsBuilder -> optionsBuilder
 //                        .addProfiler(GCProfiler.class)
-//                        .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=text;output=flamegraph", asyncProfilerDir()))
-                        .addProfiler(DTraceAsmProfiler.class, "event=branch-misses")
-//                        .addProfiler(DTraceAsmProfiler.class)
+                        .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=text;output=flamegraph", profilerOutputDir))
+//                        .addProfiler(DTraceAsmProfiler.class, "event=branch-misses")
+//                        .addProfiler(DTraceAsmProfiler.class, String.format("hotThreshold=0.1;tooBigThreshold=2000;saveLog=true;saveLogTo=%s", profilerOutputDir, profilerOutputDir))
                         .jvmArgs("-Xmx32g")
+//                        .param("hashEnabled", "true")
                         .param("hashEnabled", "false")
-                        .param("expectedSize", "6000000")
-                        .param("groupCount", "3000000")
+//                        .param("expectedSize", "10000")
+//                        .param("groupCount", "8", "1000", "100000", "1000000", "2000000", "3000000", "5000000", "10000000")
+                        .param("groupCount", "8")
+//                        .param("groupCount", "8")
+//                        .param("channelCount", "2", "5", "10")
+                        .param("channelCount", "1")
+                        .param("dataType", "BIGINT")
                         .forks(1)
-                        .warmupIterations(20))
+//                        .jvmArgsAppend("-XX:+UnlockDiagnosticVMOptions", "-XX:+TraceClassLoading", "-XX:+LogCompilation", "-XX:+DebugNonSafepoints", "-XX:+PrintAssembly", "-XX:+PrintInlining")
+                        .warmupIterations(40)
+                        .measurementIterations(10))
                 .run();
     }
 
-    private static String asyncProfilerDir()
+    private static String profilerOutputDir()
     {
         try {
             String jmhDir = "jmh";
             new File(jmhDir).mkdirs();
-            return jmhDir + "/" + String.valueOf(Files.list(Paths.get(jmhDir))
+            String outDir = jmhDir + "/" + String.valueOf(Files.list(Paths.get(jmhDir))
                     .map(path -> Integer.parseInt(path.getFileName().toString()) + 1)
                     .sorted(Comparator.reverseOrder())
                     .findFirst().orElse(0));
+            new File(outDir).mkdirs();
+            return outDir;
         }
         catch (IOException e) {
             throw new RuntimeException(e);

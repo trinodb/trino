@@ -62,7 +62,7 @@ public final class CompilerUtils
     {
         log.debug("Defining class: %s", classDefinition.getName());
         return classGenerator(classLoader)
-//                .dumpClassFilesTo(Paths.get("/Users/lukaszstec/work/sb-trino/testing/trino-benchmark/target/generated-sources"))
+//                .dumpClassFilesTo(Paths.get("/Users/lukaszstec/work/sb-trino/core/trino-main/target/generated-sources"))
                 .defineClass(classDefinition, superType);
     }
 }

@@ -13,6 +13,7 @@
  */
 package io.trino.jmh;
 
+import org.intellij.lang.annotations.Language;
 import org.openjdk.jmh.results.RunResult;
 import org.openjdk.jmh.results.format.ResultFormatType;
 import org.openjdk.jmh.runner.Runner;
@@ -57,7 +58,7 @@ public final class Benchmarks
         private BenchmarkBuilder(ChainedOptionsBuilder optionsBuilder, Class<?> benchmarkClass)
         {
             this.optionsBuilder = requireNonNull(optionsBuilder, "optionsBuilder is null");
-            this.benchmarkClass = benchmarkClass;
+            this.benchmarkClass = requireNonNull(benchmarkClass, "benchmarkClass is null");
         }
 
         public BenchmarkBuilder withOptions(Consumer<ChainedOptionsBuilder> optionsConsumer)
@@ -72,9 +73,9 @@ public final class Benchmarks
             return this;
         }
 
-        public BenchmarkBuilder includeMethod(String benchmarkMethod)
+        public BenchmarkBuilder includeMethod(@Language("RegExp") String benchmarkMethod)
         {
-            optionsBuilder.include("^\\Q" + benchmarkClass.getName() + "." + benchmarkMethod + "\\E$");
+            optionsBuilder.include("^\\Q" + benchmarkClass.getName() + ".\\E(" + benchmarkMethod + ")$");
             return this;
         }
 
