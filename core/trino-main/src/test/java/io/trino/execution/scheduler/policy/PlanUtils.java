@@ -23,6 +23,7 @@ import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
@@ -40,8 +41,11 @@ import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
+import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
+import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
@@ -74,6 +78,22 @@ final class PlanUtils
                         .collect(toImmutableList()),
                 ImmutableListMultimap.of(),
                 ImmutableList.of());
+
+        return createFragment(planNode);
+    }
+
+    static PlanFragment createAggregationFragment(String name, PlanFragment sourceFragment)
+    {
+        RemoteSourceNode source = new RemoteSourceNode(new PlanNodeId("source_id"), sourceFragment.getId(), ImmutableList.of(), Optional.empty(), REPARTITION, RetryPolicy.NONE);
+        PlanNode planNode = new AggregationNode(
+                new PlanNodeId(name + "_id"),
+                source,
+                ImmutableMap.of(),
+                singleGroupingSet(ImmutableList.of()),
+                ImmutableList.of(),
+                FINAL,
+                Optional.empty(),
+                Optional.empty());
 
         return createFragment(planNode);
     }
@@ -112,6 +132,11 @@ final class PlanUtils
 
     static PlanFragment createJoinPlanFragment(JoinNode.Type joinType, String name, PlanFragment buildFragment, PlanFragment probeFragment)
     {
+        return createJoinPlanFragment(joinType, PARTITIONED, name, buildFragment, probeFragment);
+    }
+
+    static PlanFragment createJoinPlanFragment(JoinNode.Type joinType, JoinNode.DistributionType distributionType, String name, PlanFragment buildFragment, PlanFragment probeFragment)
+    {
         RemoteSourceNode probe = new RemoteSourceNode(new PlanNodeId("probe_id"), probeFragment.getId(), ImmutableList.of(), Optional.empty(), REPARTITION, RetryPolicy.NONE);
         RemoteSourceNode build = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), Optional.empty(), REPARTITION, RetryPolicy.NONE);
         PlanNode planNode = new JoinNode(
@@ -126,11 +151,56 @@ final class PlanUtils
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
+                Optional.of(distributionType),
                 Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
         return createFragment(planNode);
+    }
+
+    static PlanFragment createBroadcastAndPartitionedJoinPlanFragment(
+            String name,
+            PlanFragment broadcastBuildFragment,
+            PlanFragment partitionedBuildFragment,
+            PlanFragment probeFragment)
+    {
+        RemoteSourceNode probe = new RemoteSourceNode(new PlanNodeId("probe_id"), probeFragment.getId(), ImmutableList.of(), Optional.empty(), REPARTITION, RetryPolicy.NONE);
+        RemoteSourceNode broadcastBuild = new RemoteSourceNode(new PlanNodeId("broadcast_build_id"), broadcastBuildFragment.getId(), ImmutableList.of(), Optional.empty(), REPLICATE, RetryPolicy.NONE);
+        RemoteSourceNode partitionedBuild = new RemoteSourceNode(new PlanNodeId("partitioned_build_id"), partitionedBuildFragment.getId(), ImmutableList.of(), Optional.empty(), REPARTITION, RetryPolicy.NONE);
+        PlanNode broadcastPlanNode = new JoinNode(
+                new PlanNodeId(name + "_broadcast_id"),
+                INNER,
+                probe,
+                broadcastBuild,
+                ImmutableList.of(),
+                probe.getOutputSymbols(),
+                broadcastBuild.getOutputSymbols(),
+                false,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(REPLICATED),
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.empty());
+        PlanNode partitionedPlanNode = new JoinNode(
+                new PlanNodeId(name + "_partitioned_id"),
+                INNER,
+                broadcastPlanNode,
+                partitionedBuild,
+                ImmutableList.of(),
+                broadcastPlanNode.getOutputSymbols(),
+                partitionedBuild.getOutputSymbols(),
+                false,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(PARTITIONED),
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.empty());
+
+        return createFragment(partitionedPlanNode);
     }
 
     static PlanFragment createTableScanPlanFragment(String name)
