@@ -379,6 +379,7 @@ jobs:
           - ":trino-mysql"
           - ":trino-postgresql"
           - ":trino-sqlserver"
+          - ":trino-memsql"
           - ":trino-oracle"
           - ":trino-kudu"
           - ":trino-druid"
@@ -386,6 +387,7 @@ jobs:
           - ":trino-iceberg -P test-failure-recovery"
           - ":trino-phoenix,:trino-phoenix5"
           - ":trino-jdbc,:trino-base-jdbc,:trino-thrift,:trino-memory"
+          - ":trino-bigquery"
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
@@ -401,12 +403,36 @@ jobs:
       - name: Configure Problem Matchers
         run: |
           echo "::add-matcher::.github/problem-matcher.json"
+      - name: Cleanup node
+        # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
+        if: matrix.modules == ':trino-memsql'
+        run: .github/bin/cleanup-node.sh
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
+        if: matrix.modules != ':trino-memsql'
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }}
+      # Additional tests for selected modules
+      - name: Memsql Tests
+        env:
+          MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
+        if: matrix.modules == ':trino-memsql' && env.MEMSQL_LICENSE != ''
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-memsql -Dmemsql.license=${MEMSQL_LICENSE}
+      - name: Cloud BigQuery Tests
+        env:
+          BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
+        if: matrix.modules == ':trino-bigquery' && env.BIGQUERY_CREDENTIALS_KEY != ''
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
+      - name: Cloud BigQuery Case Insensitive Mapping Tests
+        env:
+          BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
+        if: matrix.modules == ':trino-bigquery' && env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != ''
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
       - name: Sanitize artifact name
         if: always()
         run: |
@@ -432,116 +458,6 @@ jobs:
         with:
           # Name prefix is checked in the `Annotate checks` workflow
           name: test report ${{ github.job }} (${{ env.ARTIFACT_NAME }})
-          path: |
-            **/surefire-reports/TEST-*.xml
-          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
-
-  test-memsql:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
-      - name: Fetch base ref to find merge-base for GIB
-        run: .github/bin/git-fetch-base-ref.sh
-      - uses: actions/setup-java@v2
-        with:
-          distribution: 'zulu'
-          java-version: 11
-          cache: 'maven'
-      - name: Configure Problem Matchers
-        run: |
-          echo "::add-matcher::.github/problem-matcher.json"
-      - name: Cleanup node
-        # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
-        run: .github/bin/cleanup-node.sh
-      - name: Maven Install
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-memsql
-      - name: Memsql Tests
-        env:
-          MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
-        run: |
-          if [ "${MEMSQL_LICENSE}" != "" ]; then
-            $MAVEN test ${MAVEN_TEST} -pl :trino-memsql -Dmemsql.license=${MEMSQL_LICENSE}
-          fi
-      - name: Upload test results
-        uses: actions/upload-artifact@v2
-        # Upload all test reports only on failure, because the artifacts are large
-        if: failure()
-        with:
-          name: result ${{ github.job }}
-          path: |
-            **/target/surefire-reports
-            **/target/checkstyle-*
-      - name: Upload test report
-        uses: actions/upload-artifact@v2
-        # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
-        if: always()
-        with:
-          # Name prefix is checked in the `Annotate checks` workflow
-          name: test report ${{ github.job }}
-          path: |
-            **/surefire-reports/TEST-*.xml
-          retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
-
-  test-bigquery:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0 # checkout all commits to be able to determine merge base for GIB
-      - name: Fetch base ref to find merge-base for GIB
-        run: .github/bin/git-fetch-base-ref.sh
-      - uses: actions/setup-java@v2
-        with:
-          distribution: 'zulu'
-          java-version: 11
-          cache: 'maven'
-      - name: Configure Problem Matchers
-        run: |
-          echo "::add-matcher::.github/problem-matcher.json"
-      - name: Maven Install
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl :trino-bigquery
-      - name: Basic BigQuery Tests
-        run: $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery
-      - name: Cloud BigQuery Tests
-        env:
-          BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
-        run: |
-          if [ "${BIGQUERY_CREDENTIALS_KEY}" != "" ]; then
-            $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
-          fi
-      - name: Cloud BigQuery Case Insensitive Mapping Tests
-        env:
-          BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
-        run: |
-          if [ "${BIGQUERY_CREDENTIALS_KEY}" != "" ]; then
-            $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
-          fi
-      - name: Upload test results
-        uses: actions/upload-artifact@v2
-        # Upload all test reports only on failure, because the artifacts are large
-        if: failure()
-        with:
-          name: result ${{ github.job }}
-          path: |
-            **/target/surefire-reports
-            **/target/checkstyle-*
-      - name: Upload test report
-        uses: actions/upload-artifact@v2
-        # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
-        if: always()
-        with:
-          # Name prefix is checked in the `Annotate checks` workflow
-          name: test report ${{ github.job }}
           path: |
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
