@@ -1,0 +1,110 @@
+{
+  "include": [
+    {
+      "modules": [
+        "core/trino-main"
+      ]
+    },
+    {
+      "modules": [
+        "testing/trino-tests"
+      ]
+    },
+    {
+      "modules": [
+        "plugin/trino-raptor-legacy"
+      ]
+    },
+    {
+      "modules": [
+        "plugin/trino-accumulo"
+      ]
+    },
+    {
+      "modules": [
+        "plugin/trino-cassandra"
+      ]
+    },
+    {
+      "modules": [
+        "plugin/trino-clickhouse"
+      ]
+    },
+    {
+      "modules": [
+        "plugin/trino-hive",
+        "lib/trino-orc"
+      ]
+    },
+    {
+      "modules": [
+        "plugin/trino-hive",
+        "lib/trino-parquet"
+      ],
+      "options": "-P test-parquet"
+    },
+    {
+      "modules": [
+        "plugin/trino-hive"
+      ],
+      "options": "-P test-failure-recovery"
+    },
+    {
+      "modules": [
+        "plugin/trino-mongodb",
+        "plugin/trino-kafka",
+        "plugin/trino-elasticsearch"
+      ]
+    },
+    {
+      "modules": [
+        "plugin/trino-elasticsearch"
+      ],
+      "options": "-P test-stats"
+    },
+    {
+      "modules": [
+        "plugin/trino-redis"
+      ]
+    },
+    {
+      "modules": [
+        "plugin/trino-sqlserver",
+        "plugin/trino-postgresql",
+        "plugin/trino-mysql"
+      ]
+    },
+    {
+      "modules": [
+        "plugin/trino-memsql"
+      ]
+    },
+    {
+      "modules": [
+        "plugin/trino-oracle"
+      ]
+    },
+    {
+      "modules": [
+        "plugin/trino-kudu"
+      ]
+    },
+    {
+      "modules": [
+        "plugin/trino-iceberg",
+        "plugin/trino-druid"
+      ]
+    },
+    {
+      "modules": [
+        "plugin/trino-phoenix",
+        "plugin/trino-phoenix5"
+      ]
+    },
+    {
+      "modules": [
+        "plugin/trino-bigquery"
+      ]
+    }
+  ]
+}
