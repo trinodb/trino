@@ -304,16 +304,19 @@ public final class DomainTranslator
     public static ExtractionResult getExtractionResult(PlannerContext plannerContext, Session session, Expression predicate, TypeProvider types)
     {
         // This is a limited type analyzer for the simple expressions used in this method
-        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new StatementAnalyzerFactory(
+        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(
                 plannerContext,
-                new SqlParser(),
-                new AllowAllAccessControl(),
-                user -> ImmutableSet.of(),
-                new TableProceduresRegistry(),
-                new SessionPropertyManager(),
-                new TablePropertyManager(),
-                new AnalyzePropertyManager(),
-                new TableProceduresPropertyManager()));
+                new StatementAnalyzerFactory(
+                        plannerContext,
+                        new SqlParser(),
+                        new AllowAllAccessControl(),
+                        user -> ImmutableSet.of(),
+                        new TableProceduresRegistry(),
+                        new SessionPropertyManager(),
+                        new TablePropertyManager(),
+                        new AnalyzePropertyManager(),
+                        new TableProceduresPropertyManager()),
+                new AllowAllAccessControl());
         return new Visitor(plannerContext, session, types, typeAnalyzer).process(predicate, false);
     }
 

@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.TablePropertyManager;
+import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -42,18 +43,25 @@ import static java.util.Objects.requireNonNull;
  */
 public class TypeAnalyzer
 {
+    private final PlannerContext plannerContext;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
+    private final AccessControl accessControl;
 
     @Inject
-    public TypeAnalyzer(StatementAnalyzerFactory statementAnalyzerFactory)
+    public TypeAnalyzer(PlannerContext plannerContext, StatementAnalyzerFactory statementAnalyzerFactory, AccessControl accessControl)
     {
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     public Map<NodeRef<Expression>, Type> getTypes(Session session, TypeProvider inputTypes, Iterable<Expression> expressions)
     {
-        return analyzeExpressions(session,
+        return analyzeExpressions(
+                session,
+                plannerContext,
                 statementAnalyzerFactory,
+                accessControl,
                 inputTypes,
                 expressions,
                 ImmutableMap.of(),
@@ -74,10 +82,13 @@ public class TypeAnalyzer
 
     public static TypeAnalyzer createTestingTypeAnalyzer(PlannerContext plannerContext)
     {
-        return new TypeAnalyzer(createTestingStatementAnalyzerFactory(
+        return new TypeAnalyzer(
                 plannerContext,
-                new AllowAllAccessControl(),
-                new TablePropertyManager(),
-                new AnalyzePropertyManager()));
+                createTestingStatementAnalyzerFactory(
+                        plannerContext,
+                        new AllowAllAccessControl(),
+                        new TablePropertyManager(),
+                        new AnalyzePropertyManager()),
+                new AllowAllAccessControl());
     }
 }

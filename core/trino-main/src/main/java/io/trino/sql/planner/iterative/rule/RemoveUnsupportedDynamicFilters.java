@@ -89,16 +89,19 @@ public class RemoveUnsupportedDynamicFilters
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         // This is a limited type analyzer for the simple expressions used in dynamic filters
-        this.typeAnalyzer = new TypeAnalyzer(new StatementAnalyzerFactory(
+        this.typeAnalyzer = new TypeAnalyzer(
                 plannerContext,
-                new SqlParser(),
-                new AllowAllAccessControl(),
-                user -> ImmutableSet.of(),
-                new TableProceduresRegistry(),
-                new SessionPropertyManager(),
-                new TablePropertyManager(),
-                new AnalyzePropertyManager(),
-                new TableProceduresPropertyManager()));
+                new StatementAnalyzerFactory(
+                        plannerContext,
+                        new SqlParser(),
+                        new AllowAllAccessControl(),
+                        user -> ImmutableSet.of(),
+                        new TableProceduresRegistry(),
+                        new SessionPropertyManager(),
+                        new TablePropertyManager(),
+                        new AnalyzePropertyManager(),
+                        new TableProceduresPropertyManager()),
+                new AllowAllAccessControl());
     }
 
     @Override

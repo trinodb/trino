@@ -25,7 +25,6 @@ import io.trino.security.AccessControl;
 import io.trino.spi.security.GroupProvider;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.TypeProvider;
 
 import javax.inject.Inject;
 
@@ -101,30 +100,6 @@ public class StatementAnalyzerFactory
                 tableProceduresPropertyManager,
                 warningCollector,
                 correlationSupport);
-    }
-
-    // this is only for the static factory methods on ExpressionAnalyzer, and should not be used for any other purpose
-    ExpressionAnalyzer createExpressionAnalyzer(
-            Analysis analysis,
-            Session session,
-            TypeProvider types,
-            WarningCollector warningCollector)
-    {
-        return new ExpressionAnalyzer(
-                plannerContext,
-                accessControl,
-                (node, correlationSupport) -> createStatementAnalyzer(
-                        analysis,
-                        session,
-                        warningCollector,
-                        correlationSupport),
-                session,
-                types,
-                analysis.getParameters(),
-                warningCollector,
-                analysis.isDescribe(),
-                analysis::getType,
-                analysis::getWindow);
     }
 
     public static StatementAnalyzerFactory createTestingStatementAnalyzerFactory(

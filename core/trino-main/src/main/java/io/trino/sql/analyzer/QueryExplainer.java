@@ -17,6 +17,7 @@ import io.trino.Session;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlFormatter;
@@ -58,6 +59,7 @@ public class QueryExplainer
     private final PlannerContext plannerContext;
     private final AnalyzerFactory analyzerFactory;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
+    private final AccessControl accessControl;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
 
@@ -67,6 +69,7 @@ public class QueryExplainer
             PlannerContext plannerContext,
             AnalyzerFactory analyzerFactory,
             StatementAnalyzerFactory statementAnalyzerFactory,
+            AccessControl accessControl,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator)
     {
@@ -75,6 +78,7 @@ public class QueryExplainer
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
     }
@@ -163,7 +167,7 @@ public class QueryExplainer
                 planOptimizers,
                 idAllocator,
                 plannerContext,
-                new TypeAnalyzer(statementAnalyzerFactory),
+                new TypeAnalyzer(plannerContext, statementAnalyzerFactory, accessControl),
                 statsCalculator,
                 costCalculator,
                 warningCollector);
