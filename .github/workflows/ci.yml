@@ -352,26 +352,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        modules:
-          - ":trino-main"
-          - ":trino-tests"
-          - ":trino-raptor-legacy"
-          - ":trino-accumulo"
-          - ":trino-cassandra"
-          - ":trino-clickhouse"
-          - ":trino-hive,:trino-orc"
-          - ":trino-hive,:trino-parquet -P test-parquet"
-          - ":trino-hive -P test-failure-recovery"
-          - ":trino-mongodb,:trino-kafka,:trino-elasticsearch"
-          - ":trino-elasticsearch -P test-stats"
-          - ":trino-redis"
-          - ":trino-sqlserver,:trino-postgresql,:trino-mysql"
-          - ":trino-memsql"
-          - ":trino-oracle"
-          - ":trino-kudu"
-          - ":trino-iceberg,:trino-druid"
-          - ":trino-phoenix,:trino-phoenix5"
-          - ":trino-bigquery"
+        include:
+          - modules: :trino-main
+          - modules: :trino-tests
+          - modules: :trino-raptor-legacy
+          - modules: :trino-accumulo
+          - modules: :trino-cassandra
+          - modules: :trino-clickhouse
+          - modules: :trino-hive,:trino-orc
+          - modules: :trino-hive,:trino-parquet
+            options: -P test-parquet
+          - modules: :trino-hive
+            options: -P test-failure-recovery
+          - modules: :trino-mongodb,:trino-kafka,:trino-elasticsearch
+          - modules: :trino-elasticsearch
+            options: -P test-stats
+          - modules: :trino-redis
+          - modules: :trino-sqlserver,:trino-postgresql,:trino-mysql
+          - modules: :trino-memsql
+          - modules: :trino-oracle
+          - modules: :trino-kudu
+          - modules: :trino-iceberg,:trino-druid
+          - modules: :trino-phoenix,:trino-phoenix5
+          - modules: :trino-bigquery
     timeout-minutes: 60
     env:
       MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
@@ -399,10 +402,10 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
+          $RETRY $MAVEN install ${MAVEN_FAST_INSTALL} -am -pl "${{ matrix.modules }}"
       - name: Maven Tests
         if: matrix.modules != 'plugin/trino-memsql'
-        run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }}
+        run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.options }}
       # Additional tests for selected modules
       - name: Memsql Tests
         if: matrix.modules == 'plugin/trino-memsql' && env.MEMSQL_LICENSE != ''
