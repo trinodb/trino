@@ -30,6 +30,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.aggregation.AccumulatorCompiler.generateAccumulatorFactory;
+import static java.util.Objects.requireNonNull;
 
 public class TestingAggregationFunction
 {
@@ -51,6 +52,21 @@ public class TestingAggregationFunction
         intermediateType = (intermediateTypes.size() == 1) ? getOnlyElement(intermediateTypes) : RowType.anonymous(intermediateTypes);
         this.finalType = signature.getReturnType();
         this.factory = generateAccumulatorFactory(signature, aggregationMetadata, functionNullability, ImmutableList.of());
+        distinctFactory = new DistinctAccumulatorFactory(
+                factory,
+                parameterTypes,
+                new JoinCompiler(TYPE_OPERATORS),
+                new BlockTypeOperators(TYPE_OPERATORS),
+                TEST_SESSION);
+    }
+
+    public TestingAggregationFunction(List<Type> parameterTypes, List<Type> intermediateTypes, Type finalType, AccumulatorFactory factory)
+    {
+        this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
+        requireNonNull(intermediateTypes, "intermediateTypes is null");
+        this.intermediateType = (intermediateTypes.size() == 1) ? getOnlyElement(intermediateTypes) : RowType.anonymous(intermediateTypes);
+        this.finalType = requireNonNull(finalType, "finalType is null");
+        this.factory = requireNonNull(factory, "factory is null");
         distinctFactory = new DistinctAccumulatorFactory(
                 factory,
                 parameterTypes,

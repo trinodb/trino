@@ -113,7 +113,7 @@ public class PluginManager
             return;
         }
 
-        pluginsProvider.loadPlugins(this::loadPlugin, this::createClassLoader);
+        pluginsProvider.loadPlugins(this::loadPlugin, PluginManager::createClassLoader);
 
         metadataManager.verifyTypes();
 
@@ -228,9 +228,9 @@ public class PluginManager
         }
     }
 
-    private PluginClassLoader createClassLoader(List<URL> urls)
+    public static PluginClassLoader createClassLoader(List<URL> urls)
     {
-        ClassLoader parent = getClass().getClassLoader();
+        ClassLoader parent = PluginManager.class.getClassLoader();
         return new PluginClassLoader(urls, parent, SPI_PACKAGES);
     }
 

@@ -371,7 +371,8 @@ public final class StateCompiler
             }
         }
 
-        DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader());
+        // grouped aggregation state fields use engine classes, so generated class must be able to see both plugin and system classes
+        DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader(), StateCompiler.class.getClassLoader());
         Class<? extends T> singleStateClass = generateSingleStateClass(clazz, fieldTypes, classLoader);
         Class<? extends T> groupedStateClass = generateGroupedStateClass(clazz, fieldTypes, classLoader);
 
