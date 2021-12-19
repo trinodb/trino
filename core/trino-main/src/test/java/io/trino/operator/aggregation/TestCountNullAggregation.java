@@ -28,7 +28,6 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import org.testng.annotations.BeforeClass;
 
 import java.util.List;
 
@@ -37,10 +36,9 @@ import static io.trino.spi.type.BigintType.BIGINT;
 public class TestCountNullAggregation
         extends AbstractTestAggregationFunction
 {
-    @BeforeClass
-    public void setup()
+    public TestCountNullAggregation()
     {
-        functionResolution.addFunctions(new FunctionListBuilder().aggregates(CountNull.class).getFunctions());
+        super(new FunctionListBuilder().aggregates(CountNull.class).getFunctions());
     }
 
     @Override

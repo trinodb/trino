@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.trino.block.BlockAssertions;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.SqlFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.window.PagesWindowIndex;
@@ -41,7 +42,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestAggregationFunction
 {
-    protected final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+    protected final TestingFunctionResolution functionResolution;
+
+    protected AbstractTestAggregationFunction()
+    {
+        this(ImmutableList.of());
+    }
+
+    protected AbstractTestAggregationFunction(List<? extends SqlFunction> functions)
+    {
+        functionResolution = new TestingFunctionResolution(functions);
+    }
 
     protected abstract Block[] getSequenceBlocks(int start, int length);
 

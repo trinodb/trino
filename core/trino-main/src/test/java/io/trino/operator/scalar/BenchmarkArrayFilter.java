@@ -16,7 +16,6 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.trino.jmh.Benchmarks;
 import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionListBuilder;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.ResolvedFunction;
@@ -121,8 +120,7 @@ public class BenchmarkArrayFilter
         @Setup
         public void setup()
         {
-            TestingFunctionResolution functionResolution = new TestingFunctionResolution()
-                    .addFunctions(new FunctionListBuilder().function(EXACT_ARRAY_FILTER_FUNCTION).getFunctions());
+            TestingFunctionResolution functionResolution = new TestingFunctionResolution(ImmutableList.of(EXACT_ARRAY_FILTER_FUNCTION));
             ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];

@@ -138,7 +138,7 @@ public class TestSetSessionTask
     {
         testSetSession("bar", new StringLiteral("baz"), "baz");
         testSetSession("bar",
-                new TestingFunctionResolution(transactionManager, metadata)
+                new TestingFunctionResolution(transactionManager, plannerContext)
                         .functionCallBuilder(QualifiedName.of("concat"))
                         .addArgument(VARCHAR, new StringLiteral("ban"))
                         .addArgument(VARCHAR, new StringLiteral("ana"))
@@ -169,7 +169,7 @@ public class TestSetSessionTask
     @Test
     public void testSetSessionWithParameters()
     {
-        FunctionCall functionCall = new TestingFunctionResolution(transactionManager, metadata)
+        FunctionCall functionCall = new TestingFunctionResolution(transactionManager, plannerContext)
                 .functionCallBuilder(QualifiedName.of("concat"))
                 .addArgument(VARCHAR, new StringLiteral("ban"))
                 .addArgument(VARCHAR, new Parameter(0))
