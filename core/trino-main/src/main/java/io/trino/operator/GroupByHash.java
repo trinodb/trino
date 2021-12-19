@@ -30,6 +30,7 @@ import static io.trino.SystemSessionProperties.isUseEnhancedGroupByEnabled;
 import static io.trino.spi.type.BigintType.BIGINT;
 
 public interface GroupByHash
+        extends AutoCloseable
 {
     static GroupByHash createGroupByHash(
             Session session,
@@ -78,7 +79,7 @@ public interface GroupByHash
             UpdateMemory updateMemory)
     {
         if (useEnhancedGroupBy && hashTypes.stream().allMatch(type -> type.equals(BIGINT))) {
-            return new MultiChannelBigintGroupByHashInlineGID(hashChannels, inputHashChannel, expectedSize, updateMemory);
+            return new MultiChannelBigintGroupByHashInlineOffHeap(hashChannels, inputHashChannel, expectedSize, updateMemory);
         }
         if (hashTypes.size() == 1 && hashTypes.get(0).equals(BIGINT) && hashChannels.length == 1) {
             if (useEnhancedGroupBy) {
@@ -135,5 +136,10 @@ public interface GroupByHash
         int getGroupId();
 
         void evaluatePage(PageBuilder pageBuilder, List<InMemoryHashAggregationBuilder.Aggregator> aggregators);
+    }
+
+    @Override
+    default void close()
+    {
     }
 }

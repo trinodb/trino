@@ -113,6 +113,26 @@ public class BenchmarkGroupByHash
         buildPages(groupByHash, blackhole);
     }
 
+    @Benchmark
+    @OperationsPerInvocation(POSITIONS)
+    public void groupByHashPreComputeInlineMultiChannelBigIntBB(BenchmarkData data, Blackhole blackhole)
+    {
+        GroupByHash groupByHash = new MultiChannelBigintGroupByHashInlineBB(data.getChannels(), data.getHashChannel(), data.groupCount, NOOP);
+        addInputPagesToHash(groupByHash, data.getPages());
+
+        buildPages(groupByHash, blackhole);
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(POSITIONS)
+    public void groupByHashPreComputeInlineMultiChannelBigIntOffHeap(BenchmarkData data, Blackhole blackhole)
+    {
+        GroupByHash groupByHash = new MultiChannelBigintGroupByHashInlineOffHeap(data.getChannels(), data.getHashChannel(), data.groupCount, NOOP);
+        addInputPagesToHash(groupByHash, data.getPages());
+
+        buildPages(groupByHash, blackhole);
+    }
+
     private void buildPages(GroupByHash groupByHash, Blackhole blackhole)
     {
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
@@ -556,23 +576,25 @@ public class BenchmarkGroupByHash
 //                .includeMethod("groupByHashPreCompute")
 //                .includeMethod("groupByHashPreComputeInline")
                 .includeMethod("groupByHashPreComputeInlineMultiChannelBigInt")
+//                .includeMethod("groupByHashPreComputeInlineMultiChannelBigIntBB")
+                .includeMethod("groupByHashPreComputeInlineMultiChannelBigIntOffHeap")
 //                .includeMethod("groupByHashPreCompute.*")
 //                .includeMethod("baseline")
 //                .includeMethod("baselineBigArray")
                 .withOptions(optionsBuilder -> optionsBuilder
 //                        .addProfiler(GCProfiler.class)
-                        .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=text;output=flamegraph", profilerOutputDir))
+//                        .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=text;output=flamegraph", profilerOutputDir))
 //                        .addProfiler(DTraceAsmProfiler.class, "event=branch-misses")
 //                        .addProfiler(DTraceAsmProfiler.class, String.format("hotThreshold=0.1;tooBigThreshold=2000;saveLog=true;saveLogTo=%s", profilerOutputDir, profilerOutputDir))
                         .jvmArgs("-Xmx32g")
 //                        .param("hashEnabled", "true")
                         .param("hashEnabled", "false")
 //                        .param("expectedSize", "10000")
-//                        .param("groupCount", "8", "1000", "100000", "1000000", "2000000", "3000000", "5000000", "10000000")
-                        .param("groupCount", "8")
+                        .param("groupCount", "8", "1000", "100000", "1000000", "2000000", "3000000", "5000000", "10000000")
+//                        .param("groupCount", "8")
 //                        .param("groupCount", "8")
 //                        .param("channelCount", "2", "5", "10")
-                        .param("channelCount", "1")
+                        .param("channelCount", "1", "2", "10")
                         .param("dataType", "BIGINT")
                         .forks(1)
 //                        .jvmArgsAppend("-XX:+UnlockDiagnosticVMOptions", "-XX:+TraceClassLoading", "-XX:+LogCompilation", "-XX:+DebugNonSafepoints", "-XX:+PrintAssembly", "-XX:+PrintInlining")

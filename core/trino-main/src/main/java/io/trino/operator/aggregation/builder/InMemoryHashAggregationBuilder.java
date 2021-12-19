@@ -128,7 +128,9 @@ public class InMemoryHashAggregationBuilder
     }
 
     @Override
-    public void close() {}
+    public void close() {
+        this.groupByHash.close();
+    }
 
     @Override
     public Work<?> processPage(Page page)
