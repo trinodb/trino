@@ -103,8 +103,7 @@ public class BenchmarkArraySort
         @Setup
         public void setup()
         {
-            TestingFunctionResolution functionResolution = new TestingFunctionResolution()
-                    .addFunctions(extractFunctions(BenchmarkArraySort.class));
+            TestingFunctionResolution functionResolution = new TestingFunctionResolution(extractFunctions(BenchmarkArraySort.class));
             ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];

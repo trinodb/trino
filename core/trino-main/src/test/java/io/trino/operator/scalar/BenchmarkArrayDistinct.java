@@ -108,8 +108,7 @@ public class BenchmarkArrayDistinct
         @Setup
         public void setup()
         {
-            TestingFunctionResolution functionResolution = new TestingFunctionResolution()
-                    .addFunctions(extractFunctions(BenchmarkArrayDistinct.class));
+            TestingFunctionResolution functionResolution = new TestingFunctionResolution(extractFunctions(BenchmarkArrayDistinct.class));
             ExpressionCompiler compiler = functionResolution.getExpressionCompiler();
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();

@@ -40,8 +40,7 @@ public class TestEvaluateClassifierPredictions
     @Test
     public void testEvaluateClassifierPredictions()
     {
-        TestingFunctionResolution functionResolution = new TestingFunctionResolution()
-                .addFunctions(extractFunctions(new MLPlugin().getFunctions()));
+        TestingFunctionResolution functionResolution = new TestingFunctionResolution(extractFunctions(new MLPlugin().getFunctions()));
         TestingAggregationFunction aggregation = functionResolution.getAggregateFunction(
                 QualifiedName.of("evaluate_classifier_predictions"),
                 fromTypes(BIGINT, BIGINT));
