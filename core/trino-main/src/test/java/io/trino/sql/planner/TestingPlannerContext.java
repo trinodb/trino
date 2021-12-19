@@ -13,16 +13,21 @@
  */
 package io.trino.sql.planner;
 
+import io.trino.FeaturesConfig;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.MetadataManager.TestMetadataManagerBuilder;
 import io.trino.metadata.SqlFunction;
+import io.trino.metadata.TypeRegistry;
+import io.trino.spi.type.ParametricType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.InternalTypeManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +35,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.metadata.FunctionExtractor.extractFunctions;
-import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Objects.requireNonNull;
 
 public final class TestingPlannerContext
@@ -48,6 +52,8 @@ public final class TestingPlannerContext
     {
         private Metadata metadata;
         private TransactionManager transactionManager;
+        private final List<Type> types = new ArrayList<>();
+        private final List<ParametricType> parametricTypes = new ArrayList<>();
         private final List<SqlFunction> functions = new ArrayList<>();
 
         private Builder() {}
@@ -68,6 +74,18 @@ public final class TestingPlannerContext
             return this;
         }
 
+        public Builder addType(Type type)
+        {
+            types.add(type);
+            return this;
+        }
+
+        public Builder addParametricType(ParametricType parametricType)
+        {
+            parametricTypes.add(parametricType);
+            return this;
+        }
+
         public Builder addFunctions(Set<Class<?>> functionClasses)
         {
             return addFunctions(extractFunctions(functionClasses));
@@ -81,7 +99,10 @@ public final class TestingPlannerContext
 
         public PlannerContext build()
         {
-            TypeManager typeManager = TESTING_TYPE_MANAGER;
+            TypeRegistry typeRegistry = new TypeRegistry(new TypeOperators(), new FeaturesConfig());
+            TypeManager typeManager = new InternalTypeManager(typeRegistry);
+            types.forEach(typeRegistry::addType);
+            parametricTypes.forEach(typeRegistry::addParametricType);
 
             Metadata metadata = this.metadata;
             if (metadata == null) {

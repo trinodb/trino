@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.security.AllowAllAccessControl;
@@ -34,7 +34,6 @@ import io.trino.transaction.TransactionManager;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -52,10 +51,10 @@ public class TestingFunctionResolution
 
     public TestingFunctionResolution()
     {
-        this(ImmutableSet.of());
+        this(ImmutableList.of());
     }
 
-    public TestingFunctionResolution(Set<Class<?>> functions)
+    public TestingFunctionResolution(List<? extends SqlFunction> functions)
     {
         transactionManager = createTestTransactionManager();
         plannerContext = plannerContextBuilder()
@@ -67,20 +66,14 @@ public class TestingFunctionResolution
 
     public TestingFunctionResolution(LocalQueryRunner localQueryRunner)
     {
-        this(localQueryRunner.getTransactionManager(), localQueryRunner.getMetadata());
+        this(localQueryRunner.getTransactionManager(), localQueryRunner.getPlannerContext());
     }
 
-    public TestingFunctionResolution(TransactionManager transactionManager, Metadata metadata)
+    public TestingFunctionResolution(TransactionManager transactionManager, PlannerContext plannerContext)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.plannerContext = plannerContextBuilder().withMetadata(metadata).build();
-    }
-
-    public TestingFunctionResolution addFunctions(List<? extends SqlFunction> functions)
-    {
-        metadata.addFunctions(functions);
-        return this;
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
     }
 
     public PlannerContext getPlannerContext()

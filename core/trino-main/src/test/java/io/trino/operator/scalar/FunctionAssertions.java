@@ -233,7 +233,7 @@ public final class FunctionAssertions
         runner = LocalQueryRunner.builder(session)
                 .withFeaturesConfig(featuresConfig)
                 .build();
-        testingFunctionResolution = new TestingFunctionResolution(runner.getTransactionManager(), runner.getMetadata());
+        testingFunctionResolution = new TestingFunctionResolution(runner);
     }
 
     public Metadata getMetadata()
