@@ -317,8 +317,8 @@ public class HiveMetadata
     public static final String PRESTO_VIEW_COMMENT = "Presto View";
     public static final String PRESTO_VIEW_EXPANDED_TEXT_MARKER = "/* Presto View */";
 
-    private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
-    private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
+    public static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
+    public static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
     public static final String SKIP_HEADER_COUNT_KEY = serdeConstants.HEADER_COUNT;
     public static final String SKIP_FOOTER_COUNT_KEY = serdeConstants.FOOTER_COUNT;

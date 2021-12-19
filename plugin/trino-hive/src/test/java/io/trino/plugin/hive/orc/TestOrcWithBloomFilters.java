@@ -93,10 +93,8 @@ public class TestOrcWithBloomFilters
                 getSession(),
                 sql,
                 queryStats -> {
-                    // This should be evaluated to 0
-                    assertThat(queryStats.getPhysicalInputPositions()).isGreaterThan(0);
-                    // This should be evaluated to 0
-                    assertThat(queryStats.getProcessedInputPositions()).isEqualTo(queryStats.getPhysicalInputPositions());
+                    assertThat(queryStats.getPhysicalInputPositions()).isEqualTo(0);
+                    assertThat(queryStats.getProcessedInputPositions()).isEqualTo(0);
                 },
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
     }
