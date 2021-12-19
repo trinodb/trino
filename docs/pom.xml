@@ -12,6 +12,7 @@
     <name>trino-docs</name>
     <packaging>pom</packaging>
 
+    <!-- TODO remove this comment, this is only to test GIB changes -->
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
