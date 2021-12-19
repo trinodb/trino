@@ -296,7 +296,8 @@ public class TestDeduplicationExchangeClientBuffer
             assertEquals(buffer.getRetainedSizeInBytes(), page1.getRetainedSizeInBytes());
 
             buffer.addPages(task, ImmutableList.of(page2));
-            assertTrue(buffer.isFinished());
+            assertFalse(buffer.isFinished());
+            assertTrue(buffer.isFailed());
             assertNotBlocked(buffer.isBlocked());
             assertEquals(buffer.getRetainedSizeInBytes(), 0);
             assertEquals(buffer.getBufferedPageCount(), 0);
@@ -366,7 +367,8 @@ public class TestDeduplicationExchangeClientBuffer
             assertFalse(buffer.isFinished());
 
             buffer.noMoreTasks();
-            assertTrue(buffer.isFinished());
+            assertFalse(buffer.isFinished());
+            assertTrue(buffer.isFailed());
         }
 
         // single task producing no results, fail after noMoreTasks
@@ -381,7 +383,8 @@ public class TestDeduplicationExchangeClientBuffer
             assertFalse(buffer.isFinished());
 
             buffer.taskFailed(taskId, new RuntimeException());
-            assertTrue(buffer.isFinished());
+            assertFalse(buffer.isFinished());
+            assertTrue(buffer.isFailed());
         }
 
         // single task producing one page, fail after noMoreTasks
@@ -397,7 +400,8 @@ public class TestDeduplicationExchangeClientBuffer
             assertFalse(buffer.isFinished());
 
             buffer.taskFailed(taskId, new RuntimeException());
-            assertTrue(buffer.isFinished());
+            assertFalse(buffer.isFinished());
+            assertTrue(buffer.isFailed());
         }
 
         // single task producing one page, finish after noMoreTasks

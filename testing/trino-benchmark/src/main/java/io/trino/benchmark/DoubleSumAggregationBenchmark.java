@@ -16,7 +16,6 @@ package io.trino.benchmark;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.OperatorFactory;
-import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.LocalQueryRunner;
 
@@ -43,7 +42,6 @@ public class DoubleSumAggregationBenchmark
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(
                 1,
                 new PlanNodeId("test"),
-                Step.SINGLE,
                 ImmutableList.of(doubleSum.bind(ImmutableList.of(0))),
                 false);
         return ImmutableList.of(tableScanOperator, aggregationOperator);

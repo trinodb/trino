@@ -147,6 +147,12 @@ public class TestingExchangeClientBuffer
         return finished;
     }
 
+    @Override
+    public boolean isFailed()
+    {
+        return false;
+    }
+
     public synchronized void setFinished(boolean finished)
     {
         this.finished = finished;

@@ -27,11 +27,11 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.expression.BytecodeExpressions;
-import io.airlift.slice.Slice;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.FunctionNullability;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind;
+import io.trino.operator.window.InternalWindowIndex;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -41,8 +41,6 @@ import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.function.WindowIndex;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.Type;
 import io.trino.sql.gen.Binding;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.CompilerOperations;
@@ -50,13 +48,12 @@ import io.trino.sql.gen.CompilerOperations;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.bytecode.Access.FINAL;
@@ -68,18 +65,15 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantLong;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.not;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
-import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.String.format;
@@ -89,35 +83,45 @@ public final class AccumulatorCompiler
 {
     private AccumulatorCompiler() {}
 
-    public static GenericAccumulatorFactoryBinder generateAccumulatorFactoryBinder(BoundSignature boundSignature, AggregationMetadata metadata)
+    public static AccumulatorFactory generateAccumulatorFactory(
+            BoundSignature boundSignature,
+            AggregationMetadata metadata,
+            FunctionNullability functionNullability,
+            List<LambdaProvider> lambdaProviders)
     {
         // change types used in Aggregation methods to types used in the core Trino engine to simplify code generation
         metadata = normalizeAggregationMethods(metadata);
 
         DynamicClassLoader classLoader = new DynamicClassLoader(AccumulatorCompiler.class.getClassLoader());
 
-        Class<? extends Accumulator> accumulatorClass = generateAccumulatorClass(
+        List<Boolean> argumentNullable = functionNullability.getArgumentNullable()
+                .subList(0, functionNullability.getArgumentNullable().size() - metadata.getLambdaInterfaces().size());
+
+        Constructor<? extends Accumulator> accumulatorConstructor = generateAccumulatorClass(
                 boundSignature,
                 Accumulator.class,
                 metadata,
+                argumentNullable,
                 classLoader);
 
-        Class<? extends GroupedAccumulator> groupedAccumulatorClass = generateAccumulatorClass(
+        Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor = generateAccumulatorClass(
                 boundSignature,
                 GroupedAccumulator.class,
                 metadata,
+                argumentNullable,
                 classLoader);
 
-        return new GenericAccumulatorFactoryBinder(
-                accumulatorClass,
-                metadata.getRemoveInputFunction().isPresent(),
-                groupedAccumulatorClass);
+        return new CompiledAccumulatorFactory(
+                accumulatorConstructor,
+                groupedAccumulatorConstructor,
+                lambdaProviders);
     }
 
-    private static <T> Class<? extends T> generateAccumulatorClass(
+    private static <T> Constructor<? extends T> generateAccumulatorClass(
             BoundSignature boundSignature,
             Class<T> accumulatorInterface,
             AggregationMetadata metadata,
+            List<Boolean> argumentNullable,
             DynamicClassLoader classLoader)
     {
         boolean grouped = accumulatorInterface == GroupedAccumulator.class;
@@ -149,68 +153,30 @@ public final class AccumulatorCompiler
             lambdaProviderFields.add(definition.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, LambdaProvider.class));
         }
 
-        FieldDefinition maskChannelField = definition.declareField(a(PRIVATE, FINAL), "maskChannel", int.class);
-
-        int inputChannelCount = countInputChannels(metadata.getInputParameterKinds());
-        ImmutableList.Builder<FieldDefinition> inputFieldsBuilder = ImmutableList.builderWithExpectedSize(inputChannelCount);
-        for (int i = 0; i < inputChannelCount; i++) {
-            inputFieldsBuilder.add(definition.declareField(a(PRIVATE, FINAL), "inputChannel" + i, int.class));
-        }
-        List<FieldDefinition> inputChannelFields = inputFieldsBuilder.build();
-
-        // Generate constructor
+        // Generate constructors
         generateConstructor(
                 definition,
                 stateFieldAndDescriptors,
-                inputChannelFields,
-                maskChannelField,
                 lambdaProviderFields,
                 callSiteBinder,
                 grouped);
-
-        generatePrivateConstructor(definition);
+        generateCopyConstructor(
+                definition,
+                stateFieldAndDescriptors,
+                lambdaProviderFields);
 
         // Generate methods
-        generateCopy(definition, stateFieldAndDescriptors, lambdaProviderFields, maskChannelField, inputChannelFields);
+        generateCopy(definition, Accumulator.class);
 
         generateAddInput(
                 definition,
                 stateFields,
-                inputChannelFields,
-                maskChannelField,
-                boundSignature.getArgumentTypes(),
-                metadata.getInputParameterKinds(),
+                argumentNullable,
                 lambdaProviderFields,
                 metadata.getInputFunction(),
                 callSiteBinder,
                 grouped);
-        generateAddOrRemoveInputWindowIndex(
-                definition,
-                stateFields,
-                metadata.getInputParameterKinds(),
-                lambdaProviderFields,
-                metadata.getInputFunction(),
-                "addInput",
-                callSiteBinder);
-        metadata.getRemoveInputFunction().ifPresent(
-                removeInputFunction -> generateAddOrRemoveInputWindowIndex(
-                        definition,
-                        stateFields,
-                        metadata.getInputParameterKinds(),
-                        lambdaProviderFields,
-                        removeInputFunction,
-                        "removeInput",
-                        callSiteBinder));
         generateGetEstimatedSize(definition, stateFields);
-
-        generateGetIntermediateType(
-                definition,
-                callSiteBinder,
-                stateDescriptors.stream()
-                        .map(stateDescriptor -> stateDescriptor.getSerializer().getSerializedType())
-                        .collect(toImmutableList()));
-
-        generateGetFinalType(definition, callSiteBinder, boundSignature.getReturnType());
 
         generateAddIntermediateAsCombine(
                 definition,
@@ -221,10 +187,10 @@ public final class AccumulatorCompiler
                 grouped);
 
         if (grouped) {
-            generateGroupedEvaluateIntermediate(definition, stateFieldAndDescriptors);
+            generateGroupedEvaluateIntermediate(definition, stateFieldAndDescriptors, true);
         }
         else {
-            generateEvaluateIntermediate(definition, stateFieldAndDescriptors);
+            generateEvaluateIntermediate(definition, stateFieldAndDescriptors, true);
         }
 
         if (grouped) {
@@ -237,32 +203,116 @@ public final class AccumulatorCompiler
         if (grouped) {
             generatePrepareFinal(definition);
         }
-        return defineClass(definition, accumulatorInterface, callSiteBinder.getBindings(), classLoader);
-    }
 
-    private static void generateGetIntermediateType(ClassDefinition definition, CallSiteBinder callSiteBinder, List<Type> type)
-    {
-        MethodDefinition methodDefinition = definition.declareMethod(a(PUBLIC), "getIntermediateType", type(Type.class));
-
-        if (type.size() == 1) {
-            methodDefinition.getBody()
-                    .append(constantType(callSiteBinder, getOnlyElement(type)))
-                    .retObject();
+        Class<? extends T> accumulatorClass = defineClass(definition, accumulatorInterface, callSiteBinder.getBindings(), classLoader);
+        try {
+            return accumulatorClass.getConstructor(List.class);
         }
-        else {
-            methodDefinition.getBody()
-                    .append(constantType(callSiteBinder, RowType.anonymous(type)))
-                    .retObject();
+        catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
         }
     }
 
-    private static void generateGetFinalType(ClassDefinition definition, CallSiteBinder callSiteBinder, Type type)
+    public static Constructor<? extends WindowAccumulator> generateWindowAccumulatorClass(
+            BoundSignature boundSignature,
+            AggregationMetadata metadata,
+            FunctionNullability functionNullability)
     {
-        MethodDefinition methodDefinition = definition.declareMethod(a(PUBLIC), "getFinalType", type(Type.class));
+        DynamicClassLoader classLoader = new DynamicClassLoader(AccumulatorCompiler.class.getClassLoader());
 
-        methodDefinition.getBody()
-                .append(constantType(callSiteBinder, type))
-                .retObject();
+        List<Boolean> argumentNullable = functionNullability.getArgumentNullable()
+                .subList(0, functionNullability.getArgumentNullable().size() - metadata.getLambdaInterfaces().size());
+
+        ClassDefinition definition = new ClassDefinition(
+                a(PUBLIC, FINAL),
+                makeClassName(boundSignature.getName() + WindowAccumulator.class.getSimpleName()),
+                type(Object.class),
+                type(WindowAccumulator.class));
+
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
+
+        List<AccumulatorStateDescriptor<?>> stateDescriptors = metadata.getAccumulatorStateDescriptors();
+        List<StateFieldAndDescriptor> stateFieldAndDescriptors = new ArrayList<>();
+        for (int i = 0; i < stateDescriptors.size(); i++) {
+            stateFieldAndDescriptors.add(new StateFieldAndDescriptor(
+                    stateDescriptors.get(i),
+                    definition.declareField(a(PRIVATE, FINAL), "stateSerializer_" + i, AccumulatorStateSerializer.class),
+                    definition.declareField(a(PRIVATE, FINAL), "stateFactory_" + i, AccumulatorStateFactory.class),
+                    definition.declareField(a(PRIVATE, FINAL), "state_" + i, AccumulatorState.class)));
+        }
+        List<FieldDefinition> stateFields = stateFieldAndDescriptors.stream()
+                .map(StateFieldAndDescriptor::getStateField)
+                .collect(toImmutableList());
+
+        int lambdaCount = metadata.getLambdaInterfaces().size();
+        List<FieldDefinition> lambdaProviderFields = new ArrayList<>(lambdaCount);
+        for (int i = 0; i < lambdaCount; i++) {
+            lambdaProviderFields.add(definition.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, LambdaProvider.class));
+        }
+
+        // Generate constructor
+        generateWindowAccumulatorConstructor(
+                definition,
+                stateFieldAndDescriptors,
+                lambdaProviderFields,
+                callSiteBinder);
+        generateCopyConstructor(
+                definition,
+                stateFieldAndDescriptors,
+                lambdaProviderFields);
+
+        // Generate methods
+        generateCopy(definition, WindowAccumulator.class);
+        generateAddOrRemoveInputWindowIndex(
+                definition,
+                stateFields,
+                argumentNullable,
+                lambdaProviderFields,
+                metadata.getInputFunction(),
+                "addInput",
+                callSiteBinder);
+        metadata.getRemoveInputFunction().ifPresent(
+                removeInputFunction -> generateAddOrRemoveInputWindowIndex(
+                        definition,
+                        stateFields,
+                        argumentNullable,
+                        lambdaProviderFields,
+                        removeInputFunction,
+                        "removeInput",
+                        callSiteBinder));
+
+        generateEvaluateFinal(definition, stateFields, metadata.getOutputFunction(), callSiteBinder);
+        generateGetEstimatedSize(definition, stateFields);
+
+        Class<? extends WindowAccumulator> windowAccumulatorClass = defineClass(definition, WindowAccumulator.class, callSiteBinder.getBindings(), classLoader);
+        try {
+            return windowAccumulatorClass.getConstructor(List.class);
+        }
+        catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void generateWindowAccumulatorConstructor(
+            ClassDefinition definition,
+            List<StateFieldAndDescriptor> stateFieldAndDescriptors,
+            List<FieldDefinition> lambdaProviderFields,
+            CallSiteBinder callSiteBinder)
+    {
+        Parameter lambdaProviders = arg("lambdaProviders", type(List.class, LambdaProvider.class));
+        MethodDefinition method = definition.declareConstructor(
+                a(PUBLIC),
+                lambdaProviders);
+
+        BytecodeBlock body = method.getBody();
+        Variable thisVariable = method.getThis();
+
+        body.comment("super();")
+                .append(thisVariable)
+                .invokeConstructor(Object.class);
+        initializeStateFields(method, stateFieldAndDescriptors, callSiteBinder, false);
+        initializeLambdaProviderFields(method, lambdaProviderFields, lambdaProviders);
+        body.ret();
     }
 
     private static void generateGetEstimatedSize(ClassDefinition definition, List<FieldDefinition> stateFields)
@@ -284,10 +334,7 @@ public final class AccumulatorCompiler
     private static void generateAddInput(
             ClassDefinition definition,
             List<FieldDefinition> stateField,
-            List<FieldDefinition> inputChannelFields,
-            FieldDefinition maskChannelField,
-            List<Type> inputTypes,
-            List<AggregationParameterKind> parameterKinds,
+            List<Boolean> argumentNullable,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder,
@@ -297,42 +344,35 @@ public final class AccumulatorCompiler
         if (grouped) {
             parameters.add(arg("groupIdsBlock", GroupByIdBlock.class));
         }
-        Parameter page = arg("page", Page.class);
-        parameters.add(page);
+        Parameter arguments = arg("arguments", Page.class);
+        parameters.add(arguments);
+        Parameter mask = arg("mask", Optional.class);
+        parameters.add(mask);
 
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "addInput", type(void.class), parameters.build());
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
-        Variable thisVariable = method.getThis();
 
         if (grouped) {
             generateEnsureCapacity(scope, stateField, body);
         }
 
-        Variable masksBlock = scope.declareVariable(Block.class, "masksBlock");
-        body.comment("masksBlock = extractMaskBlock(%s, page);", maskChannelField.getName())
-                .append(thisVariable.getField(maskChannelField))
-                .append(page)
-                .invokeStatic(AggregationUtils.class, "extractMaskBlock", Block.class, int.class, Page.class)
-                .putVariable(masksBlock);
-
-        ImmutableList.Builder<Variable> variablesBuilder = ImmutableList.builderWithExpectedSize(inputChannelFields.size());
-        for (int i = 0; i < inputChannelFields.size(); i++) {
-            FieldDefinition inputChannelField = inputChannelFields.get(i);
-            Variable blockVariable = scope.declareVariable(Block.class, "block" + i);
-            variablesBuilder.add(blockVariable);
-            body.comment("%s = page.getBlock(%s);", blockVariable.getName(), inputChannelField.getName())
-                    .append(page)
-                    .append(thisVariable.getField(inputChannelField))
-                    .invokeVirtual(Page.class, "getBlock", Block.class, int.class)
-                    .putVariable(blockVariable);
+        List<Variable> parameterVariables = new ArrayList<>();
+        for (int i = 0; i < argumentNullable.size(); i++) {
+            parameterVariables.add(scope.declareVariable(Block.class, "block" + i));
         }
-        List<Variable> parameterVariables = variablesBuilder.build();
+        Variable masksBlock = scope.declareVariable("masksBlock", body, mask.invoke("orElse", Object.class, constantNull(Object.class)).cast(Block.class));
+
+        // Get all parameter blocks
+        for (int i = 0; i < parameterVariables.size(); i++) {
+            body.comment("%s = arguments.getBlock(%d);", parameterVariables.get(i).getName(), i)
+                    .append(parameterVariables.get(i).set(arguments.invoke("getBlock", Block.class, constantInt(i))));
+        }
 
         BytecodeBlock block = generateInputForLoop(
+                arguments,
                 stateField,
-                inputTypes,
-                parameterKinds,
+                argumentNullable,
                 inputFunction,
                 scope,
                 parameterVariables,
@@ -348,7 +388,7 @@ public final class AccumulatorCompiler
     private static void generateAddOrRemoveInputWindowIndex(
             ClassDefinition definition,
             List<FieldDefinition> stateField,
-            List<AggregationParameterKind> parameterKinds,
+            List<Boolean> argumentNullable,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
             String generatedFunctionName,
@@ -357,7 +397,6 @@ public final class AccumulatorCompiler
         // TODO: implement masking based on maskChannel field once Window Functions support DISTINCT arguments to the functions.
 
         Parameter index = arg("index", WindowIndex.class);
-        Parameter channels = arg("channels", type(List.class, Integer.class));
         Parameter startPosition = arg("startPosition", int.class);
         Parameter endPosition = arg("endPosition", int.class);
 
@@ -365,7 +404,7 @@ public final class AccumulatorCompiler
                 a(PUBLIC),
                 generatedFunctionName,
                 type(void.class),
-                ImmutableList.of(index, channels, startPosition, endPosition));
+                ImmutableList.of(index, startPosition, endPosition));
         Scope scope = method.getScope();
 
         Variable position = scope.declareVariable(int.class, "position");
@@ -378,12 +417,10 @@ public final class AccumulatorCompiler
                 binding.getType(),
                 getInvokeFunctionOnWindowIndexParameters(
                         scope,
-                        inputFunction.type().parameterArray(),
-                        parameterKinds,
+                        argumentNullable.size(),
                         lambdaProviderFields,
                         stateField,
                         index,
-                        channels,
                         position));
 
         method.getBody()
@@ -392,34 +429,20 @@ public final class AccumulatorCompiler
                         .condition(BytecodeExpressions.lessThanOrEqual(position, endPosition))
                         .update(position.increment())
                         .body(new IfStatement()
-                                .condition(anyParametersAreNull(parameterKinds, index, channels, position))
+                                .condition(anyParametersAreNull(argumentNullable, index, position))
                                 .ifFalse(invokeInputFunction)))
                 .ret();
     }
 
     private static BytecodeExpression anyParametersAreNull(
-            List<AggregationParameterKind> parameterKinds,
+            List<Boolean> argumentNullable,
             Variable index,
-            Variable channels,
             Variable position)
     {
-        int inputChannel = 0;
-
         BytecodeExpression isNull = constantFalse();
-        for (AggregationParameterKind parameterKind : parameterKinds) {
-            switch (parameterKind) {
-                case BLOCK_INPUT_CHANNEL:
-                case INPUT_CHANNEL:
-                    BytecodeExpression getChannel = channels.invoke("get", Object.class, constantInt(inputChannel)).cast(int.class);
-                    isNull = BytecodeExpressions.or(isNull, index.invoke("isNull", boolean.class, getChannel, position));
-                    inputChannel++;
-                    break;
-                case NULLABLE_BLOCK_INPUT_CHANNEL:
-                    inputChannel++;
-                    break;
-                case BLOCK_INDEX:
-                case STATE:
-                    // TODO
+        for (int inputChannel = 0; inputChannel < argumentNullable.size(); inputChannel++) {
+            if (!argumentNullable.get(inputChannel)) {
+                isNull = BytecodeExpressions.or(isNull, index.invoke("isNull", boolean.class, constantInt(inputChannel), position));
             }
         }
 
@@ -428,69 +451,30 @@ public final class AccumulatorCompiler
 
     private static List<BytecodeExpression> getInvokeFunctionOnWindowIndexParameters(
             Scope scope,
-            Class<?>[] parameterTypes,
-            List<AggregationParameterKind> parameterKinds,
+            int inputParameterCount,
             List<FieldDefinition> lambdaProviderFields,
             List<FieldDefinition> stateField,
             Variable index,
-            Variable channels,
             Variable position)
     {
-        int inputChannel = 0;
-        int stateIndex = 0;
-        verify(parameterTypes.length == parameterKinds.size() + lambdaProviderFields.size());
         List<BytecodeExpression> expressions = new ArrayList<>();
 
-        for (int i = 0; i < parameterKinds.size(); i++) {
-            AggregationParameterKind parameterKind = parameterKinds.get(i);
-            Class<?> parameterType = parameterTypes[i];
-            BytecodeExpression getChannel = channels.invoke("get", Object.class, constantInt(inputChannel)).cast(int.class);
-            switch (parameterKind) {
-                case STATE:
-                    expressions.add(scope.getThis().getField(stateField.get(stateIndex)));
-                    stateIndex++;
-                    break;
-                case BLOCK_INDEX:
-                    // index.getSingleValueBlock(channel, position) generates always a page with only one position
-                    expressions.add(constantInt(0));
-                    break;
-                case BLOCK_INPUT_CHANNEL:
-                case NULLABLE_BLOCK_INPUT_CHANNEL:
-                    expressions.add(index.invoke(
-                            "getSingleValueBlock",
-                            Block.class,
-                            getChannel,
-                            position));
-                    inputChannel++;
-                    break;
-                case INPUT_CHANNEL:
-                    if (parameterType == long.class) {
-                        expressions.add(index.invoke("getLong", long.class, getChannel, position));
-                    }
-                    else if (parameterType == double.class) {
-                        expressions.add(index.invoke("getDouble", double.class, getChannel, position));
-                    }
-                    else if (parameterType == boolean.class) {
-                        expressions.add(index.invoke("getBoolean", boolean.class, getChannel, position));
-                    }
-                    else if (parameterType == Slice.class) {
-                        expressions.add(index.invoke("getSlice", Slice.class, getChannel, position));
-                    }
-                    else {
-                        BytecodeExpression expression = index.invoke("getObject", Object.class, getChannel, position);
-                        if (parameterType != Object.class) {
-                            expression = expression.cast(parameterType);
-                        }
-                        expressions.add(expression);
-                    }
-
-                    inputChannel++;
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported parameter type: " + parameterKind);
-            }
+        // state parameters
+        for (FieldDefinition field : stateField) {
+            expressions.add(scope.getThis().getField(field));
         }
 
+        // input parameters
+        for (int i = 0; i < inputParameterCount; i++) {
+            expressions.add(index.cast(InternalWindowIndex.class).invoke("getRawBlock", Block.class, constantInt(i), position));
+        }
+
+        // position parameter
+        if (inputParameterCount > 0) {
+            expressions.add(index.cast(InternalWindowIndex.class).invoke("getRawBlockPosition", int.class, position));
+        }
+
+        // lambda parameters
         for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
             expressions.add(scope.getThis().getField(lambdaProviderField)
                     .invoke("getLambda", Object.class));
@@ -500,9 +484,9 @@ public final class AccumulatorCompiler
     }
 
     private static BytecodeBlock generateInputForLoop(
+            Variable arguments,
             List<FieldDefinition> stateField,
-            List<Type> inputTypes,
-            List<AggregationParameterKind> parameterKinds,
+            List<Boolean> argumentNullable,
             MethodHandle inputFunction,
             Scope scope,
             List<Variable> parameterVariables,
@@ -512,12 +496,11 @@ public final class AccumulatorCompiler
             boolean grouped)
     {
         // For-loop over rows
-        Variable page = scope.getVariable("page");
         Variable positionVariable = scope.declareVariable(int.class, "position");
         Variable rowsVariable = scope.declareVariable(int.class, "rows");
 
         BytecodeBlock block = new BytecodeBlock()
-                .append(page)
+                .append(arguments)
                 .invokeVirtual(Page.class, "getPositionCount", int.class)
                 .putVariable(rowsVariable)
                 .initializeVariable(positionVariable);
@@ -526,32 +509,16 @@ public final class AccumulatorCompiler
                 scope,
                 stateField,
                 positionVariable,
-                inputTypes,
                 parameterVariables,
-                parameterKinds,
                 lambdaProviderFields,
                 inputFunction,
                 callSiteBinder,
                 grouped);
 
         //  Wrap with null checks
-        List<Boolean> nullable = new ArrayList<>();
-        for (AggregationParameterKind parameterKind : parameterKinds) {
-            switch (parameterKind) {
-                case INPUT_CHANNEL:
-                case BLOCK_INPUT_CHANNEL:
-                    nullable.add(false);
-                    break;
-                case NULLABLE_BLOCK_INPUT_CHANNEL:
-                    nullable.add(true);
-                    break;
-                default: // do nothing
-            }
-        }
-        checkState(nullable.size() == parameterVariables.size(), "Number of parameters does not match");
-        for (int i = 0; i < parameterVariables.size(); i++) {
-            if (!nullable.get(i)) {
-                Variable variableDefinition = parameterVariables.get(i);
+        for (int parameterIndex = 0; parameterIndex < parameterVariables.size(); parameterIndex++) {
+            if (!argumentNullable.get(parameterIndex)) {
+                Variable variableDefinition = parameterVariables.get(parameterIndex);
                 loopBody = new IfStatement("if(!%s.isNull(position))", variableDefinition.getName())
                         .condition(new BytecodeBlock()
                                 .getVariable(variableDefinition)
@@ -591,9 +558,7 @@ public final class AccumulatorCompiler
             Scope scope,
             List<FieldDefinition> stateField,
             Variable position,
-            List<Type> inputTypes,
             List<Variable> parameterVariables,
-            List<AggregationParameterKind> parameterKinds,
             List<FieldDefinition> lambdaProviderFields,
             MethodHandle inputFunction,
             CallSiteBinder callSiteBinder,
@@ -607,97 +572,46 @@ public final class AccumulatorCompiler
 
         block.comment("Call input function with unpacked Block arguments");
 
-        Class<?>[] parameters = inputFunction.type().parameterArray();
-        int inputChannel = 0;
-        int stateIndex = 0;
-        verify(parameters.length == parameterKinds.size() + lambdaProviderFields.size());
-        for (int i = 0; i < parameterKinds.size(); i++) {
-            AggregationParameterKind parameterKind = parameterKinds.get(i);
-            switch (parameterKind) {
-                case STATE:
-                    block.append(scope.getThis().getField(stateField.get(stateIndex)));
-                    stateIndex++;
-                    break;
-                case BLOCK_INDEX:
-                    block.getVariable(position);
-                    break;
-                case BLOCK_INPUT_CHANNEL:
-                case NULLABLE_BLOCK_INPUT_CHANNEL:
-                    block.getVariable(parameterVariables.get(inputChannel));
-                    inputChannel++;
-                    break;
-                case INPUT_CHANNEL:
-                    BytecodeBlock getBlockBytecode = new BytecodeBlock()
-                            .getVariable(parameterVariables.get(inputChannel));
-                    pushStackType(scope, block, inputTypes.get(inputChannel), getBlockBytecode, parameters[i], callSiteBinder);
-                    inputChannel++;
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported parameter type: " + parameterKind);
-            }
+        List<BytecodeExpression> parameters = new ArrayList<>();
+
+        // state parameters
+        for (FieldDefinition field : stateField) {
+            parameters.add(scope.getThis().getField(field));
         }
+
+        // input parameters
+        parameters.addAll(parameterVariables);
+
+        // position parameter
+        if (!parameterVariables.isEmpty()) {
+            parameters.add(position);
+        }
+
+        // lambda parameters
         for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
-            block.append(scope.getThis().getField(lambdaProviderField)
+            parameters.add(scope.getThis().getField(lambdaProviderField)
                     .invoke("getLambda", Object.class));
         }
 
-        block.append(invoke(callSiteBinder.bind(inputFunction), "input"));
+        block.append(invoke(callSiteBinder.bind(inputFunction), "input", parameters));
         return block;
-    }
-
-    // Assumes that there is a variable named 'position' in the block, which is the current index
-    private static void pushStackType(Scope scope, BytecodeBlock block, Type sqlType, BytecodeBlock getBlockBytecode, Class<?> parameter, CallSiteBinder callSiteBinder)
-    {
-        Variable position = scope.getVariable("position");
-        if (parameter == long.class) {
-            block.comment("%s.getLong(block, position)", sqlType.getTypeSignature())
-                    .append(constantType(callSiteBinder, sqlType))
-                    .append(getBlockBytecode)
-                    .append(position)
-                    .invokeInterface(Type.class, "getLong", long.class, Block.class, int.class);
-        }
-        else if (parameter == double.class) {
-            block.comment("%s.getDouble(block, position)", sqlType.getTypeSignature())
-                    .append(constantType(callSiteBinder, sqlType))
-                    .append(getBlockBytecode)
-                    .append(position)
-                    .invokeInterface(Type.class, "getDouble", double.class, Block.class, int.class);
-        }
-        else if (parameter == boolean.class) {
-            block.comment("%s.getBoolean(block, position)", sqlType.getTypeSignature())
-                    .append(constantType(callSiteBinder, sqlType))
-                    .append(getBlockBytecode)
-                    .append(position)
-                    .invokeInterface(Type.class, "getBoolean", boolean.class, Block.class, int.class);
-        }
-        else if (parameter == Slice.class) {
-            block.comment("%s.getSlice(block, position)", sqlType.getTypeSignature())
-                    .append(constantType(callSiteBinder, sqlType))
-                    .append(getBlockBytecode)
-                    .append(position)
-                    .invokeInterface(Type.class, "getSlice", Slice.class, Block.class, int.class);
-        }
-        else {
-            block.comment("%s.getObject(block, position)", sqlType.getTypeSignature())
-                    .append(constantType(callSiteBinder, sqlType))
-                    .append(getBlockBytecode)
-                    .append(position)
-                    .invokeInterface(Type.class, "getObject", Object.class, Block.class, int.class);
-            if (sqlType.getJavaType() != Object.class) {
-                block.checkCast(sqlType.getJavaType());
-            }
-        }
     }
 
     private static void generateAddIntermediateAsCombine(
             ClassDefinition definition,
             List<StateFieldAndDescriptor> stateFieldAndDescriptors,
             List<FieldDefinition> lambdaProviderFields,
-            MethodHandle combineFunction,
+            Optional<MethodHandle> combineFunction,
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
         MethodDefinition method = declareAddIntermediate(definition, grouped);
+        if (combineFunction.isEmpty()) {
+            method.getBody()
+                    .append(newInstance(UnsupportedOperationException.class, constantString("Aggregation is not decomposable")))
+                    .throwObject();
+            return;
+        }
         Scope scope = method.getScope();
         BytecodeBlock body = method.getBody();
         Variable thisVariable = method.getThis();
@@ -767,7 +681,7 @@ public final class AccumulatorCompiler
             loopBody.append(scope.getThis().getField(lambdaProviderField)
                     .invoke("getLambda", Object.class));
         }
-        loopBody.append(invoke(callSiteBinder.bind(combineFunction), "combine"));
+        loopBody.append(invoke(callSiteBinder.bind(combineFunction.get()), "combine"));
 
         if (grouped) {
             // skip rows with null group id
@@ -847,11 +761,18 @@ public final class AccumulatorCompiler
         return block;
     }
 
-    private static void generateGroupedEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors)
+    private static void generateGroupedEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, boolean decomposable)
     {
         Parameter groupId = arg("groupId", int.class);
         Parameter out = arg("out", BlockBuilder.class);
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "evaluateIntermediate", type(void.class), groupId, out);
+
+        if (!decomposable) {
+            method.getBody()
+                    .append(newInstance(UnsupportedOperationException.class, constantString("Aggregation is not decomposable")))
+                    .throwObject();
+            return;
+        }
 
         Variable thisVariable = method.getThis();
         BytecodeBlock body = method.getBody();
@@ -880,7 +801,7 @@ public final class AccumulatorCompiler
         }
     }
 
-    private static void generateEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors)
+    private static void generateEvaluateIntermediate(ClassDefinition definition, List<StateFieldAndDescriptor> stateFieldAndDescriptors, boolean decomposable)
     {
         Parameter out = arg("out", BlockBuilder.class);
         MethodDefinition method = definition.declareMethod(
@@ -888,6 +809,13 @@ public final class AccumulatorCompiler
                 "evaluateIntermediate",
                 type(void.class),
                 out);
+
+        if (!decomposable) {
+            method.getBody()
+                    .append(newInstance(UnsupportedOperationException.class, constantString("Aggregation is not decomposable")))
+                    .throwObject();
+            return;
+        }
 
         Variable thisVariable = method.getThis();
         BytecodeBlock body = method.getBody();
@@ -985,18 +913,13 @@ public final class AccumulatorCompiler
     private static void generateConstructor(
             ClassDefinition definition,
             List<StateFieldAndDescriptor> stateFieldAndDescriptors,
-            List<FieldDefinition> inputChannelFields,
-            FieldDefinition maskChannelField,
             List<FieldDefinition> lambdaProviderFields,
-            CallSiteBinder callSiteBinder, boolean grouped)
+            CallSiteBinder callSiteBinder,
+            boolean grouped)
     {
-        Parameter inputChannels = arg("inputChannels", type(List.class, Integer.class));
-        Parameter maskChannel = arg("maskChannel", type(Optional.class, Integer.class));
         Parameter lambdaProviders = arg("lambdaProviders", type(List.class, LambdaProvider.class));
         MethodDefinition method = definition.declareConstructor(
                 a(PUBLIC),
-                inputChannels,
-                maskChannel,
                 lambdaProviders);
 
         BytecodeBlock body = method.getBody();
@@ -1006,131 +929,119 @@ public final class AccumulatorCompiler
                 .append(thisVariable)
                 .invokeConstructor(Object.class);
 
+        body.append(generateRequireNotNull(lambdaProviders));
+        initializeStateFields(method, stateFieldAndDescriptors, callSiteBinder, grouped);
+        initializeLambdaProviderFields(method, lambdaProviderFields, lambdaProviders);
+
+        body.ret();
+    }
+
+    private static void initializeStateFields(
+            MethodDefinition method,
+            List<StateFieldAndDescriptor> stateFieldAndDescriptors,
+            CallSiteBinder callSiteBinder,
+            boolean grouped)
+    {
+        BytecodeBlock body = method.getBody();
+        Variable thisVariable = method.getThis();
+
         for (StateFieldAndDescriptor fieldAndDescriptor : stateFieldAndDescriptors) {
             AccumulatorStateDescriptor<?> accumulatorStateDescriptor = fieldAndDescriptor.getAccumulatorStateDescriptor();
             body.append(thisVariable.setField(
                     fieldAndDescriptor.getStateSerializerField(),
                     loadConstant(callSiteBinder, accumulatorStateDescriptor.getSerializer(), AccumulatorStateSerializer.class)));
+            body.append(generateRequireNotNull(thisVariable, fieldAndDescriptor.getStateSerializerField()));
+
             body.append(thisVariable.setField(
                     fieldAndDescriptor.getStateFactoryField(),
                     loadConstant(callSiteBinder, accumulatorStateDescriptor.getFactory(), AccumulatorStateFactory.class)));
+            body.append(generateRequireNotNull(thisVariable, fieldAndDescriptor.getStateFactoryField()));
+
+            // create the state object
+            FieldDefinition stateField = fieldAndDescriptor.getStateField();
+            BytecodeExpression stateFactory = thisVariable.getField(fieldAndDescriptor.getStateFactoryField());
+            BytecodeExpression createStateInstance = stateFactory.invoke(grouped ? "createGroupedState" : "createSingleState", AccumulatorState.class);
+            body.append(thisVariable.setField(stateField, createStateInstance.cast(stateField.getType())));
+            body.append(generateRequireNotNull(thisVariable, stateField));
         }
+    }
+
+    private static void initializeLambdaProviderFields(MethodDefinition method, List<FieldDefinition> lambdaProviderFields, Parameter lambdaProviders)
+    {
+        BytecodeBlock body = method.getBody();
+        Variable thisVariable = method.getThis();
+
         for (int i = 0; i < lambdaProviderFields.size(); i++) {
             body.append(thisVariable.setField(
                     lambdaProviderFields.get(i),
                     lambdaProviders.invoke("get", Object.class, constantInt(i))
                             .cast(LambdaProvider.class)));
+            body.append(generateRequireNotNull(thisVariable, lambdaProviderFields.get(i)));
         }
-
-        body.append(thisVariable.setField(maskChannelField, invokeStatic(type(CompilerOperations.class), "optionalChannelToIntOrNegative", type(int.class), ImmutableList.of(type(Optional.class, Integer.class)), generateRequireNotNull(maskChannel))));
-        // Validate inputChannels argument list
-        body.append(generateRequireNotNull(inputChannels))
-                .push(inputChannelFields.size())
-                .invokeStatic(type(CompilerOperations.class), "validateChannelsListLength", type(void.class), ImmutableList.of(type(List.class, Integer.class), type(int.class)));
-        // Initialize inputChannels fields
-        if (!inputChannelFields.isEmpty()) {
-            // Assign each inputChannel field from the list or assign -1 if the input list is empty (eg: intermediate aggregations don't use the input parameters)
-            BytecodeBlock assignFromList = new BytecodeBlock().comment("(this.inputChannel = %s.get(i), ...)", inputChannels.getName());
-            BytecodeBlock assignNegative = new BytecodeBlock().comment("(this.inputChannel = -1, ...)");
-            for (int i = 0; i < inputChannelFields.size(); i++) {
-                FieldDefinition inputChannelField = inputChannelFields.get(i);
-                assignFromList.append(thisVariable.setField(
-                        inputChannelField,
-                        inputChannels.invoke("get", Object.class, constantInt(i)).cast(int.class)));
-                assignNegative.append(thisVariable.setField(inputChannelField, constantInt(-1)));
-            }
-            body.append(new IfStatement("if(%s.isEmpty())", inputChannels.getName())
-                    .condition(new BytecodeBlock().append(inputChannels).invokeInterface(List.class, "isEmpty", boolean.class))
-                    .ifTrue(assignNegative)
-                    .ifFalse(assignFromList));
-        }
-
-        String createState;
-        if (grouped) {
-            createState = "createGroupedState";
-        }
-        else {
-            createState = "createSingleState";
-        }
-
-        for (StateFieldAndDescriptor stateFieldAndDescriptor : stateFieldAndDescriptors) {
-            FieldDefinition stateField = stateFieldAndDescriptor.getStateField();
-            BytecodeExpression stateFactory = thisVariable.getField(stateFieldAndDescriptor.getStateFactoryField());
-
-            body.append(thisVariable.setField(stateField, stateFactory.invoke(createState, AccumulatorState.class).cast(stateField.getType())));
-        }
-        body.ret();
     }
 
-    private static void generatePrivateConstructor(ClassDefinition definition)
+    private static void generateCopyConstructor(
+            ClassDefinition definition,
+            List<StateFieldAndDescriptor> stateFieldAndDescriptors,
+            List<FieldDefinition> lambdaProviderFields)
     {
-        MethodDefinition method = definition.declareConstructor(a(PRIVATE));
+        Parameter source = arg("source", definition.getType());
+        MethodDefinition method = definition.declareConstructor(
+                a(PUBLIC),
+                source);
 
         BytecodeBlock body = method.getBody();
+        Variable thisVariable = method.getThis();
+
         body.comment("super();")
-                .append(method.getThis())
-                .invokeConstructor(Object.class)
-                .ret();
-    }
+                .append(thisVariable)
+                .invokeConstructor(Object.class);
 
-    private static void generateCopy(
-            ClassDefinition definition,
-            List<StateFieldAndDescriptor> stateFieldsAndDescriptors,
-            List<FieldDefinition> lambdaProviderFields,
-            FieldDefinition maskChannelField,
-            List<FieldDefinition> inputChannelFields)
-    {
-        MethodDefinition copy = definition.declareMethod(a(PUBLIC), "copy", type(Accumulator.class));
-        Variable thisVariable = copy.getThis();
+        body.append(generateRequireNotNull(source));
 
-        Variable instanceCopy = copy.getScope().declareVariable(definition.getType(), "instanceCopy");
-        copy.getBody().append(instanceCopy.set(newInstance(definition.getType())));
-
-        for (StateFieldAndDescriptor descriptor : stateFieldsAndDescriptors) {
+        for (StateFieldAndDescriptor descriptor : stateFieldAndDescriptors) {
             FieldDefinition stateSerializerField = descriptor.getStateSerializerField();
+            body.append(thisVariable.setField(stateSerializerField, source.getField(stateSerializerField)));
+            body.append(generateRequireNotNull(thisVariable, stateSerializerField));
+
             FieldDefinition stateFactoryField = descriptor.getStateFactoryField();
+            body.append(thisVariable.setField(stateFactoryField, source.getField(stateFactoryField)));
+            body.append(generateRequireNotNull(thisVariable, stateFactoryField));
+
             FieldDefinition stateField = descriptor.getStateField();
-            copy.getBody()
-                    .append(instanceCopy.setField(stateSerializerField, thisVariable.getField(stateSerializerField)))
-                    .append(instanceCopy.setField(stateFactoryField, thisVariable.getField(stateFactoryField)))
-                    .append(instanceCopy.setField(stateField, thisVariable.getField(stateField).invoke("copy", AccumulatorState.class, ImmutableList.of()).cast(stateField.getType())));
+            body.append(thisVariable.setField(stateField, source.getField(stateField).invoke("copy", AccumulatorState.class).cast(stateField.getType())));
+            body.append(generateRequireNotNull(thisVariable, stateField));
         }
 
         for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
-            copy.getBody()
-                    .append(instanceCopy.setField(lambdaProviderField, thisVariable.getField(lambdaProviderField)));
+            body.append(thisVariable.setField(lambdaProviderField, source.getField(lambdaProviderField)));
+            body.append(generateRequireNotNull(thisVariable, lambdaProviderField));
         }
 
-        copy.getBody()
-                .append(instanceCopy.setField(maskChannelField, thisVariable.getField(maskChannelField)));
+        body.ret();
+    }
 
-        for (FieldDefinition inputChannelField : inputChannelFields) {
-            copy.getBody()
-                    .append(instanceCopy.setField(inputChannelField, thisVariable.getField(inputChannelField)));
-        }
-
+    private static void generateCopy(ClassDefinition definition, Class<?> returnType)
+    {
+        MethodDefinition copy = definition.declareMethod(a(PUBLIC), "copy", type(returnType));
         copy.getBody()
-                .append(instanceCopy.ret());
+                .append(newInstance(definition.getType(), copy.getScope().getThis()).ret());
     }
 
     private static BytecodeExpression generateRequireNotNull(Variable variable)
     {
-        return invokeStatic(Objects.class, "requireNonNull", Object.class, variable.cast(Object.class), constantString(variable.getName() + " is null"))
-                .cast(variable.getType());
+        return generateRequireNotNull(variable, variable.getName() + " is null");
     }
 
-    private static int countInputChannels(List<AggregationParameterKind> parameterKinds)
+    private static BytecodeExpression generateRequireNotNull(Variable variable, FieldDefinition field)
     {
-        int parameters = 0;
-        for (AggregationParameterKind parameterKind : parameterKinds) {
-            if (parameterKind == INPUT_CHANNEL ||
-                    parameterKind == BLOCK_INPUT_CHANNEL ||
-                    parameterKind == NULLABLE_BLOCK_INPUT_CHANNEL) {
-                parameters++;
-            }
-        }
+        return generateRequireNotNull(variable.getField(field), field.getName() + " is null");
+    }
 
-        return parameters;
+    private static BytecodeExpression generateRequireNotNull(BytecodeExpression expression, String message)
+    {
+        return invokeStatic(Objects.class, "requireNonNull", Object.class, expression.cast(Object.class), constantString(message))
+                .cast(expression.getType());
     }
 
     private static AggregationMetadata normalizeAggregationMethods(AggregationMetadata metadata)
@@ -1139,10 +1050,9 @@ public final class AccumulatorCompiler
         int stateParameterCount = metadata.getAccumulatorStateDescriptors().size();
         int lambdaParameterCount = metadata.getLambdaInterfaces().size();
         return new AggregationMetadata(
-                metadata.getInputParameterKinds(),
                 castStateParameters(metadata.getInputFunction(), stateParameterCount, lambdaParameterCount),
                 metadata.getRemoveInputFunction().map(removeFunction -> castStateParameters(removeFunction, stateParameterCount, lambdaParameterCount)),
-                castStateParameters(metadata.getCombineFunction(), stateParameterCount * 2, lambdaParameterCount),
+                metadata.getCombineFunction().map(combineFunction -> castStateParameters(combineFunction, stateParameterCount * 2, lambdaParameterCount)),
                 castStateParameters(metadata.getOutputFunction(), stateParameterCount, 0),
                 metadata.getAccumulatorStateDescriptors(),
                 metadata.getLambdaInterfaces());

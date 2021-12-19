@@ -37,9 +37,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
 import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.SIGN_LONG_MASK;
@@ -83,11 +80,6 @@ public class DecimalSumAggregation
     public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         Type inputType = getOnlyElement(boundSignature.getArgumentTypes());
-        return generateAggregation(inputType);
-    }
-
-    private static AggregationMetadata generateAggregation(Type inputType)
-    {
         checkArgument(inputType instanceof DecimalType, "type must be Decimal");
         MethodHandle inputFunction;
         Class<LongDecimalWithOverflowState> stateInterface = LongDecimalWithOverflowState.class;
@@ -101,10 +93,9 @@ public class DecimalSumAggregation
         }
 
         return new AggregationMetadata(
-                ImmutableList.of(STATE, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 inputFunction,
                 Optional.empty(),
-                COMBINE_FUNCTION,
+                Optional.of(COMBINE_FUNCTION),
                 LONG_DECIMAL_OUTPUT_FUNCTION,
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         stateInterface,

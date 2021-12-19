@@ -15,13 +15,16 @@ package io.trino.sql.analyzer;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Column;
 import io.trino.execution.warnings.WarningCollector;
@@ -3156,7 +3159,7 @@ class StatementAnalyzer
                     }
                     if (identifierChainBasis.get().getBasisType() == TABLE) {
                         RelationType relationType = identifierChainBasis.get().getRelationType().orElseThrow();
-                        List<Field> fields = relationType.resolveVisibleFieldsWithRelationPrefix(Optional.of(prefix));
+                        List<Field> fields = filterInaccessibleFields(relationType.resolveVisibleFieldsWithRelationPrefix(Optional.of(prefix)));
                         if (fields.isEmpty()) {
                             throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed from relation that has no columns");
                         }
@@ -3182,7 +3185,7 @@ class StatementAnalyzer
                     throw semanticException(NOT_SUPPORTED, allColumns, "Column aliases not supported");
                 }
 
-                List<Field> fields = (List<Field>) scope.getRelationType().getVisibleFields();
+                List<Field> fields = filterInaccessibleFields((List<Field>) scope.getRelationType().getVisibleFields());
                 if (fields.isEmpty()) {
                     if (node.getFrom().isEmpty()) {
                         throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed in queries without FROM clause");
@@ -3192,6 +3195,44 @@ class StatementAnalyzer
 
                 analyzeAllColumnsFromTable(fields, allColumns, node, scope, outputExpressionBuilder, selectExpressionBuilder, scope.getRelationType(), true);
             }
+        }
+
+        private List<Field> filterInaccessibleFields(List<Field> fields)
+        {
+            if (!SystemSessionProperties.isHideInaccesibleColumns(session)) {
+                return fields;
+            }
+
+            List<Field> accessibleFields = new ArrayList<>();
+
+            //collect fields by table
+            ListMultimap<QualifiedObjectName, Field> tableFieldsMap = ArrayListMultimap.create();
+            fields.forEach(field -> {
+                Optional<QualifiedObjectName> originTable = field.getOriginTable();
+                if (originTable.isPresent()) {
+                    tableFieldsMap.put(originTable.get(), field);
+                }
+                else {
+                    // keep anonymous fields accessible
+                    accessibleFields.add(field);
+                }
+            });
+
+            tableFieldsMap.asMap().forEach((table, tableFields) -> {
+                Set<String> accessibleColumns = accessControl.filterColumns(
+                        session.toSecurityContext(),
+                        table.asCatalogSchemaTableName(),
+                        tableFields.stream()
+                                .map(field -> field.getOriginColumnName().get())
+                                .collect(toImmutableSet()));
+                accessibleFields.addAll(tableFields.stream()
+                        .filter(field -> accessibleColumns.contains(field.getOriginColumnName().get()))
+                        .collect(toImmutableList()));
+            });
+
+            return fields.stream()
+                .filter(field -> accessibleFields.contains(field))
+                .collect(toImmutableList());
         }
 
         private void analyzeAllColumnsFromTable(

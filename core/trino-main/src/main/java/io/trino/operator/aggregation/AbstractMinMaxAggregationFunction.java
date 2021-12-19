@@ -23,8 +23,8 @@ import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
+import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind;
 import io.trino.operator.aggregation.state.BlockPositionState;
 import io.trino.operator.aggregation.state.BlockPositionStateSerializer;
 import io.trino.operator.aggregation.state.GenericBooleanState;
@@ -46,10 +46,11 @@ import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.orderableTypeParameter;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -121,11 +122,6 @@ public abstract class AbstractMinMaxAggregationFunction
 
         MethodHandle compareMethodHandle = getMinMaxCompare(functionDependencies, type, invocationConvention, min);
 
-        return generateAggregation(type, compareMethodHandle);
-    }
-
-    protected AggregationMetadata generateAggregation(Type type, MethodHandle compareMethodHandle)
-    {
         MethodHandle inputFunction;
         MethodHandle combineFunction;
         MethodHandle outputFunction;
@@ -169,11 +165,12 @@ public abstract class AbstractMinMaxAggregationFunction
             outputFunction = BLOCK_POSITION_OUTPUT_FUNCTION.bindTo(type);
         }
 
+        inputFunction = normalizeInputMethod(inputFunction, boundSignature, createInputParameterKinds(type));
+
         return new AggregationMetadata(
-                createInputParameterKinds(type),
                 inputFunction,
                 Optional.empty(),
-                combineFunction,
+                Optional.of(combineFunction),
                 outputFunction,
                 ImmutableList.of(accumulatorStateDescriptor));
     }

@@ -13,7 +13,6 @@
  */
 package io.trino.operator.window;
 
-import io.trino.metadata.Signature;
 import io.trino.operator.aggregation.LambdaProvider;
 import io.trino.spi.function.WindowFunction;
 
@@ -21,11 +20,7 @@ import java.util.List;
 
 public interface WindowFunctionSupplier
 {
-    Signature getSignature();
-
-    String getDescription();
-
-    WindowFunction createWindowFunction(List<Integer> argumentChannels, boolean ignoreNulls, List<LambdaProvider> lambdaProviders);
+    WindowFunction createWindowFunction(boolean ignoreNulls, List<LambdaProvider> lambdaProviders);
 
     List<Class<?>> getLambdaInterfaces();
 }

@@ -17,12 +17,14 @@ import io.trino.Session;
 import io.trino.testing.AbstractTestFailureRecovery;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveFailureRecovery
@@ -37,6 +39,17 @@ public class TestHiveFailureRecovery
                 .setCoordinatorProperties(coordinatorProperties)
                 .setExtraProperties(configProperties)
                 .build();
+    }
+
+    @Override
+    protected void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn)
+    {
+        @Language("SQL") String sql = format(
+                "CREATE TABLE %s WITH (format = 'TEXTFILE', partitioned_by=array['%s']) AS SELECT %s FROM tpch.tiny.lineitem",
+                tableName,
+                partitionColumn,
+                String.join(",", columns));
+        getQueryRunner().execute(sql);
     }
 
     @Override

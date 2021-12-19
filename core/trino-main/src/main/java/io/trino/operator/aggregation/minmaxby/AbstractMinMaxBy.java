@@ -46,10 +46,6 @@ import java.util.Optional;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateFactory;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateSerializer;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
@@ -111,10 +107,9 @@ public abstract class AbstractMinMaxBy
             MethodHandle outputMethod = generateOutput(keyType, valueType);
 
             return new AggregationMetadata(
-                    ImmutableList.of(STATE, STATE, NULLABLE_BLOCK_INPUT_CHANNEL, BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                     inputMethod,
                     Optional.empty(),
-                    combineMethod,
+                    Optional.of(combineMethod),
                     outputMethod,
                     ImmutableList.of(
                             getAccumulatorStateDescriptor(keyType),

@@ -755,7 +755,7 @@ public class TestWebUi
         assertResponseCode(client, getLocation(baseUri, "/ui/api/unknown"), SC_NOT_FOUND);
 
         // logout
-        assertRedirect(client, getLogoutLocation(baseUri), getUiLocation(baseUri), false);
+        assertOk(client, getLogoutLocation(baseUri));
         assertThat(cookieManager.getCookieStore().getCookies()).isEmpty();
         assertRedirect(client, getUiLocation(baseUri), "http://example.com/authorize", false);
     }

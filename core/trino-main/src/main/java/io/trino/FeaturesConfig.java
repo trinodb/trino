@@ -23,7 +23,6 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
-import io.trino.operator.RetryPolicy;
 import io.trino.sql.analyzer.RegexLibrary;
 
 import javax.validation.constraints.DecimalMax;
@@ -41,7 +40,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "analyzer.experimental-syntax-enabled",
@@ -147,10 +145,7 @@ public class FeaturesConfig
     private boolean disableSetPropertiesSecurityCheckForCreateDdl;
     private boolean incrementalHashArrayLoadFactorEnabled = true;
 
-    private RetryPolicy retryPolicy = RetryPolicy.NONE;
-    private int retryAttempts = 4;
-    private Duration retryInitialDelay = new Duration(10, SECONDS);
-    private Duration retryMaxDelay = new Duration(1, MINUTES);
+    private boolean hideInaccesibleColumns;
 
     public enum JoinReorderingStrategy
     {
@@ -1116,57 +1111,16 @@ public class FeaturesConfig
         return this;
     }
 
-    @NotNull
-    public RetryPolicy getRetryPolicy()
+    public boolean isHideInaccesibleColumns()
     {
-        return retryPolicy;
+        return hideInaccesibleColumns;
     }
 
-    @Config("retry-policy")
-    public FeaturesConfig setRetryPolicy(RetryPolicy retryPolicy)
+    @Config("hide-inaccessible-columns")
+    @ConfigDescription("When enabled non-accessible columns are silently filtered from results from SELECT * statements")
+    public FeaturesConfig setHideInaccesibleColumns(boolean hideInaccesibleColumns)
     {
-        this.retryPolicy = retryPolicy;
-        return this;
-    }
-
-    @Min(0)
-    public int getRetryAttempts()
-    {
-        return retryAttempts;
-    }
-
-    @Config("retry-attempts")
-    public FeaturesConfig setRetryAttempts(int retryAttempts)
-    {
-        this.retryAttempts = retryAttempts;
-        return this;
-    }
-
-    @NotNull
-    public Duration getRetryInitialDelay()
-    {
-        return retryInitialDelay;
-    }
-
-    @Config("retry-initial-delay")
-    @ConfigDescription("Initial delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt up to 'retry_max_delay'")
-    public FeaturesConfig setRetryInitialDelay(Duration retryInitialDelay)
-    {
-        this.retryInitialDelay = retryInitialDelay;
-        return this;
-    }
-
-    @NotNull
-    public Duration getRetryMaxDelay()
-    {
-        return retryMaxDelay;
-    }
-
-    @Config("retry-max-delay")
-    @ConfigDescription("Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'")
-    public FeaturesConfig setRetryMaxDelay(Duration retryMaxDelay)
-    {
-        this.retryMaxDelay = retryMaxDelay;
+        this.hideInaccesibleColumns = hideInaccesibleColumns;
         return this;
     }
 }

@@ -51,7 +51,6 @@ import io.trino.operator.aggregation.DoubleHistogramAggregation;
 import io.trino.operator.aggregation.DoubleRegressionAggregation;
 import io.trino.operator.aggregation.DoubleSumAggregation;
 import io.trino.operator.aggregation.GeometricMeanAggregations;
-import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.aggregation.IntervalDayToSecondAverageAggregation;
 import io.trino.operator.aggregation.IntervalDayToSecondSumAggregation;
 import io.trino.operator.aggregation.IntervalYearToMonthAverageAggregation;
@@ -343,7 +342,6 @@ import static io.trino.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST;
 import static io.trino.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static io.trino.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
-import static io.trino.operator.window.AggregateWindowFunction.supplier;
 import static io.trino.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -384,7 +382,7 @@ import static java.util.concurrent.TimeUnit.HOURS;
 public class FunctionRegistry
 {
     private final Cache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
-    private final Cache<FunctionKey, InternalAggregationFunction> specializedAggregationCache;
+    private final Cache<FunctionKey, AggregationMetadata> specializedAggregationCache;
     private final Cache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private volatile FunctionMap functions = new FunctionMap();
 
@@ -838,12 +836,7 @@ public class FunctionRegistry
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlFunction function = functions.get(functionId);
         try {
-            if (function instanceof SqlAggregationFunction) {
-                InternalAggregationFunction aggregationFunction = specializedAggregationCache.get(new FunctionKey(functionId, boundSignature), () -> specializedAggregation(functionId, boundSignature, functionDependencies));
-                return supplier(function.getFunctionMetadata().getSignature(), aggregationFunction);
-            }
             return specializedWindowCache.get(new FunctionKey(functionId, boundSignature), () -> specializeWindow(functionId, boundSignature, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
@@ -858,7 +851,7 @@ public class FunctionRegistry
         return function.specialize(boundSignature, functionDependencies);
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public AggregationMetadata getAggregateFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         try {
             return specializedAggregationCache.get(new FunctionKey(functionId, boundSignature), () -> specializedAggregation(functionId, boundSignature, functionDependencies));
@@ -869,11 +862,10 @@ public class FunctionRegistry
         }
     }
 
-    private InternalAggregationFunction specializedAggregation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    private AggregationMetadata specializedAggregation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) functions.get(functionId);
-        AggregationMetadata aggregationMetadata = aggregationFunction.specialize(boundSignature, functionDependencies);
-        return new InternalAggregationFunction(boundSignature, aggregationMetadata);
+        return aggregationFunction.specialize(boundSignature, functionDependencies);
     }
 
     public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)

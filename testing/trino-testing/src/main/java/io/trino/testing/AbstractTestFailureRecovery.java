@@ -21,9 +21,15 @@ import io.trino.Session;
 import io.trino.client.StageStats;
 import io.trino.client.StatementStats;
 import io.trino.execution.FailureInjector.InjectedFailureType;
+import io.trino.operator.OperatorStats;
+import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
+import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.spi.ErrorType;
+import io.trino.spi.QueryId;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.AbstractThrowableAssert;
+import org.intellij.lang.annotations.Language;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -31,23 +37,33 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
+import static io.trino.FeaturesConfig.JoinDistributionType.PARTITIONED;
+import static io.trino.FeaturesConfig.JoinReorderingStrategy.NONE;
+import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.execution.FailureInjector.FAILURE_INJECTION_MESSAGE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_FAILURE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_FAILURE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_TIMEOUT;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_FAILURE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
+import static io.trino.spi.predicate.Domain.singleValue;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.SUPPLIER;
 import static java.lang.Integer.parseInt;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -60,6 +76,7 @@ import static org.testng.Assert.assertEquals;
 public abstract class AbstractTestFailureRecovery
         extends AbstractTestQueryFramework
 {
+    private static final String PARTITIONED_LINEITEM = "partitioned_lineitem";
     protected static final int INVOCATION_COUNT = 3;
     private static final Duration MAX_ERROR_DURATION = new Duration(10, SECONDS);
     private static final Duration REQUEST_TIMEOUT = new Duration(10, SECONDS);
@@ -69,7 +86,7 @@ public abstract class AbstractTestFailureRecovery
             throws Exception
     {
         return createQueryRunner(
-                ImmutableList.of(NATION, ORDERS, CUSTOMER),
+                ImmutableList.of(NATION, ORDERS, CUSTOMER, SUPPLIER),
                 ImmutableMap.<String, String>builder()
                         .put("query.remote-task.max-error-duration", MAX_ERROR_DURATION.toString())
                         .put("exchange.max-error-duration", MAX_ERROR_DURATION.toString())
@@ -78,9 +95,6 @@ public abstract class AbstractTestFailureRecovery
                         .put("retry-attempts", "1")
                         .put("failure-injection.request-timeout", new Duration(REQUEST_TIMEOUT.toMillis() * 2, MILLISECONDS).toString())
                         .put("exchange.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
-                        // TODO: re-enable once failure recover supported for this functionality
-                        .put("enable-dynamic-filtering", "false")
-                        .put("distributed-sort", "false")
                         .build(),
                 ImmutableMap.<String, String>builder()
                         .put("scheduler.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
@@ -89,6 +103,18 @@ public abstract class AbstractTestFailureRecovery
 
     protected abstract QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
             throws Exception;
+
+    @BeforeClass
+    @Override
+    public void init()
+            throws Exception
+    {
+        super.init();
+        // setup partitioned fact table for dynamic partition pruning
+        createPartitionedLineitemTable(PARTITIONED_LINEITEM, ImmutableList.of("orderkey", "partkey", "suppkey"), "suppkey");
+    }
+
+    protected abstract void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn);
 
     @Test(invocationCount = INVOCATION_COUNT)
     public void testSimpleSelect()
@@ -105,30 +131,62 @@ public abstract class AbstractTestFailureRecovery
     @Test(invocationCount = INVOCATION_COUNT)
     public void testJoin()
     {
-        testSelect("SELECT * FROM orders o, customer c WHERE o.custkey = c.custkey AND c.nationKey = 1");
+        @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
+                "AND supplier.name = 'Supplier#000000001'";
+        // Test without dynamic filtering
+        testSelect(selectQuery, Optional.of(enableDynamicFiltering(false)));
+
+        testSelect(
+                selectQuery,
+                Optional.of(enableDynamicFiltering(true)),
+                queryId -> {
+                    DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(queryId);
+                    assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1);
+                    DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
+                    assertThat(domainStats.getSimplifiedDomain())
+                            .isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+                    OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(queryId, getQualifiedTableName(PARTITIONED_LINEITEM));
+                    // Currently, stats from all attempts are combined.
+                    // Asserting on multiple of 615L as well in case the probe scan was completed twice
+                    assertThat(probeStats.getInputPositions()).isIn(615L, 1230L);
+                });
     }
 
     protected void testSelect(String query)
     {
+        testSelect(query, Optional.empty());
+    }
+
+    protected void testSelect(String query, Optional<Session> session)
+    {
+        testSelect(query, session, queryId -> {});
+    }
+
+    protected void testSelect(String query, Optional<Session> session, Consumer<QueryId> queryAssertion)
+    {
         assertThatQuery(query)
+                .withSession(session)
                 .experiencing(TASK_MANAGEMENT_REQUEST_FAILURE)
                 .at(leafStage())
-                .finishesSuccessfully();
+                .finishesSuccessfully(queryAssertion);
 
         assertThatQuery(query)
+                .withSession(session)
                 .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
                 .at(boundaryDistributedStage())
-                .finishesSuccessfully();
+                .finishesSuccessfully(queryAssertion);
 
         assertThatQuery(query)
+                .withSession(session)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(leafStage())
-                .finishesSuccessfully();
+                .finishesSuccessfully(queryAssertion);
 
         assertThatQuery(query)
+                .withSession(session)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.EXTERNAL))
                 .at(intermediateDistributedStage())
-                .finishesSuccessfully();
+                .finishesSuccessfully(queryAssertion);
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
@@ -417,18 +475,19 @@ public abstract class AbstractTestFailureRecovery
             String tableName = "table_" + randomTableSuffix();
             setup.ifPresent(sql -> getQueryRunner().execute(session, resolveTableName(sql, tableName)));
 
-            MaterializedResult result = null;
+            ResultWithQueryId<MaterializedResult> resultWithQueryId = null;
             RuntimeException failure = null;
             try {
                 Session sessionWithToken = Session.builder(session)
                         .setTraceToken(traceToken)
                         .build();
-                result = getQueryRunner().execute(sessionWithToken, resolveTableName(query, tableName));
+                resultWithQueryId = getDistributedQueryRunner().executeWithQueryId(sessionWithToken, resolveTableName(query, tableName));
             }
             catch (RuntimeException e) {
                 failure = e;
             }
 
+            MaterializedResult result = resultWithQueryId == null ? null : resultWithQueryId.getResult();
             Optional<MaterializedResult> updatedTableContent = Optional.empty();
             if (result != null && result.getUpdateCount().isPresent()) {
                 updatedTableContent = Optional.of(getQueryRunner().execute(session, "SELECT * FROM " + tableName));
@@ -455,10 +514,15 @@ public abstract class AbstractTestFailureRecovery
                 throw failure;
             }
 
-            return new ExecutionResult(result, updatedTableContent, updatedTableStatistics);
+            return new ExecutionResult(resultWithQueryId, updatedTableContent, updatedTableStatistics);
         }
 
         public void finishesSuccessfully()
+        {
+            finishesSuccessfully(queryId -> {});
+        }
+
+        public void finishesSuccessfully(Consumer<QueryId> queryAssertion)
         {
             ExecutionResult expected = executeExpected();
             MaterializedResult expectedQueryResult = expected.getQueryResult();
@@ -491,6 +555,8 @@ public abstract class AbstractTestFailureRecovery
             else {
                 assertEqualsIgnoreOrder(actualQueryResult, expectedQueryResult, "For query: \n " + query);
             }
+
+            queryAssertion.accept(actual.getQueryId());
         }
 
         public AbstractThrowableAssert<?, ? extends Throwable> failsWithErrorThat()
@@ -508,15 +574,18 @@ public abstract class AbstractTestFailureRecovery
     private static class ExecutionResult
     {
         private final MaterializedResult queryResult;
+        private final QueryId queryId;
         private final Optional<MaterializedResult> updatedTableContent;
         private final Optional<MaterializedResult> updatedTableStatistics;
 
         private ExecutionResult(
-                MaterializedResult queryResult,
+                ResultWithQueryId<MaterializedResult> resultWithQueryId,
                 Optional<MaterializedResult> updatedTableContent,
                 Optional<MaterializedResult> updatedTableStatistics)
         {
-            this.queryResult = requireNonNull(queryResult, "queryResult is null");
+            requireNonNull(resultWithQueryId, "resultWithQueryId is null");
+            this.queryResult = resultWithQueryId.getResult();
+            this.queryId = resultWithQueryId.getQueryId();
             this.updatedTableContent = requireNonNull(updatedTableContent, "updatedTableContent is null");
             this.updatedTableStatistics = requireNonNull(updatedTableStatistics, "updatedTableStatistics is null");
         }
@@ -524,6 +593,11 @@ public abstract class AbstractTestFailureRecovery
         public MaterializedResult getQueryResult()
         {
             return queryResult;
+        }
+
+        public QueryId getQueryId()
+        {
+            return queryId;
         }
 
         public Optional<MaterializedResult> getUpdatedTableContent()
@@ -599,5 +673,16 @@ public abstract class AbstractTestFailureRecovery
     {
         StatementStats statementStats = result.getStatementStats().orElseThrow(() -> new IllegalArgumentException("statement stats is not present"));
         return requireNonNull(statementStats.getRootStage(), "root stage is null");
+    }
+
+    private Session enableDynamicFiltering(boolean enabled)
+    {
+        Session defaultSession = getQueryRunner().getDefaultSession();
+        return Session.builder(defaultSession)
+                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.toString(enabled))
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
+                .setCatalogSessionProperty(defaultSession.getCatalog().orElseThrow(), "dynamic_filtering_wait_timeout", "1h")
+                .build();
     }
 }

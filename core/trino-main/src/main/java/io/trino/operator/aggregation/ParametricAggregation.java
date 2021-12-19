@@ -26,6 +26,7 @@ import io.trino.metadata.Signature;
 import io.trino.metadata.SignatureBinder;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.ParametricImplementationsGroup;
+import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.spi.TrinoException;
@@ -33,12 +34,14 @@ import io.trino.spi.function.AccumulatorState;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.StringJoiner;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.operator.ParametricFunctionHelpers.bindDependencies;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateFactory;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateSerializer;
 import static io.trino.operator.aggregation.state.StateCompiler.getSerializedType;
@@ -117,11 +120,23 @@ public class ParametricAggregation
         MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), functionBinding, functionDependencies);
         Optional<MethodHandle> removeInputHandle = concreteImplementation.getRemoveInputFunction().map(
                 removeInputFunction -> bindDependencies(removeInputFunction, concreteImplementation.getRemoveInputDependencies(), functionBinding, functionDependencies));
-        MethodHandle combineHandle = bindDependencies(concreteImplementation.getCombineFunction(), concreteImplementation.getCombineDependencies(), functionBinding, functionDependencies);
+
+        Optional<MethodHandle> combineHandle = concreteImplementation.getCombineFunction();
+        if (getAggregationMetadata().isDecomposable()) {
+            checkArgument(combineHandle.isPresent(), "Decomposable method %s does not have a combine method", boundSignature.getName());
+            combineHandle = combineHandle.map(combineFunction -> bindDependencies(combineFunction, concreteImplementation.getCombineDependencies(), functionBinding, functionDependencies));
+        }
+        else {
+            checkArgument(concreteImplementation.getCombineFunction().isEmpty(), "Decomposable method %s does not have a combine method", boundSignature.getName());
+        }
+
         MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), functionBinding, functionDependencies);
 
+        List<AggregationParameterKind> inputParameterKinds = concreteImplementation.getInputParameterKinds();
+        inputHandle = normalizeInputMethod(inputHandle, boundSignature, inputParameterKinds);
+        removeInputHandle = removeInputHandle.map(function -> normalizeInputMethod(function, boundSignature, inputParameterKinds));
+
         return new AggregationMetadata(
-                concreteImplementation.getInputParameterKinds(),
                 inputHandle,
                 removeInputHandle,
                 combineHandle,

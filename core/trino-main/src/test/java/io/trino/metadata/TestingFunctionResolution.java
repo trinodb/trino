@@ -142,7 +142,7 @@ public class TestingFunctionResolution
             ResolvedFunction resolvedFunction = metadata.resolveFunction(session, name, parameterTypes);
             return new TestingAggregationFunction(
                     resolvedFunction.getSignature(),
-                    metadata.getAggregationFunctionMetadata(resolvedFunction),
+                    resolvedFunction.getFunctionNullability(),
                     metadata.getAggregateFunctionImplementation(resolvedFunction));
         });
     }
