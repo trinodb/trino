@@ -20,6 +20,7 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.UuidType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
@@ -57,6 +58,9 @@ public class TestClickHouseTypeMapping
     // no DST in 1970, but has DST in later years (e.g. 2018)
     private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
 
+    // minutes offset change since 1970-01-01, no DST
+    private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
+
     private TestingClickHouseServer clickhouseServer;
 
     @BeforeClass
@@ -70,6 +74,9 @@ public class TestClickHouseTypeMapping
         checkIsGap(vilnius, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
         LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
         checkIsDoubled(vilnius, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
+
+        LocalDate timeGapInKathmandu = LocalDate.of(1986, 1, 1);
+        checkIsGap(kathmandu, timeGapInKathmandu.atStartOfDay());
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
@@ -333,7 +340,10 @@ public class TestClickHouseTypeMapping
         return new Object[][] {
                 {UTC},
                 {jvmZone},
+                // using two non-JVM zones so that we don't need to worry what ClickHouse system zone is
                 {vilnius},
+                {kathmandu},
+                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
         };
     }
 
