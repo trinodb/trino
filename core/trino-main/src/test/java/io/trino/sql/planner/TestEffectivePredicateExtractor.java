@@ -40,6 +40,7 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeSignature;
@@ -126,6 +127,7 @@ public class TestEffectivePredicateExtractor
     private static final Symbol E = new Symbol("e");
     private static final Symbol F = new Symbol("f");
     private static final Symbol G = new Symbol("g");
+    private static final Symbol R = new Symbol("r");
     private static final Expression AE = A.toSymbolReference();
     private static final Expression BE = B.toSymbolReference();
     private static final Expression CE = C.toSymbolReference();
@@ -221,6 +223,7 @@ public class TestEffectivePredicateExtractor
                 .put(D, new TestingColumnHandle("d"))
                 .put(E, new TestingColumnHandle("e"))
                 .put(F, new TestingColumnHandle("f"))
+                .put(R, new TestingColumnHandle("r"))
                 .build();
 
         Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C, D, E, F)));
@@ -598,6 +601,7 @@ public class TestEffectivePredicateExtractor
                 .put(A, BIGINT)
                 .put(B, BIGINT)
                 .put(D, DOUBLE)
+                .put(R, RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)))
                 .build());
 
         // one column
@@ -642,6 +646,18 @@ public class TestEffectivePredicateExtractor
                         types,
                         typeAnalyzer),
                 new IsNullPredicate(AE));
+
+        // nested row
+        assertEquals(
+                effectivePredicateExtractor.extract(
+                        SESSION,
+                        new ValuesNode(
+                                newId(),
+                                ImmutableList.of(R),
+                                ImmutableList.of(new Row(ImmutableList.of(new Row(ImmutableList.of(bigintLiteral(1), new NullLiteral())))))),
+                        types,
+                        typeAnalyzer),
+                TRUE_LITERAL);
 
         // many rows
         List<Expression> rows = IntStream.range(0, 500)
