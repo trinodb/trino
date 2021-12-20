@@ -18,26 +18,19 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.type.InternalTypeManager;
 
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class PrometheusQueryRunner
 {
-    private static final Metadata METADATA = createTestMetadataManager();
-    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA, new TypeOperators());
-
     private PrometheusQueryRunner() {}
 
     public static DistributedQueryRunner createPrometheusQueryRunner(PrometheusServer server)
@@ -75,7 +68,7 @@ public final class PrometheusQueryRunner
         config.setMaxQueryRangeDuration(new Duration(21, DAYS));
         config.setCacheDuration(new Duration(30, SECONDS));
         config.setReadTimeout(new Duration(10, SECONDS));
-        return new PrometheusClient(config, METRIC_CODEC, TYPE_MANAGER);
+        return new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
     }
 
     public static void main(String[] args)

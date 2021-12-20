@@ -97,7 +97,6 @@ import static io.trino.plugin.hive.AbstractTestHive.getAllSplits;
 import static io.trino.plugin.hive.AbstractTestHive.getSplits;
 import static io.trino.plugin.hive.HiveTableRedirectionsProvider.NO_REDIRECTIONS;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
-import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
@@ -110,6 +109,7 @@ import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -209,7 +209,7 @@ public abstract class AbstractTestHiveFileSystem
                 hivePartitionManager,
                 newDirectExecutorService(),
                 heartbeatService,
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 NOOP_METADATA_PROVIDER,
                 locationService,
                 partitionUpdateCodec,
@@ -238,7 +238,7 @@ public abstract class AbstractTestHiveFileSystem
                 config.getSplitLoaderConcurrency(),
                 config.getMaxSplitsPerSecond(),
                 config.getRecursiveDirWalkerEnabled(),
-                TYPE_MANAGER);
+                TESTING_TYPE_MANAGER);
         TypeOperators typeOperators = new TypeOperators();
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
         pageSinkProvider = new HivePageSinkProvider(
@@ -247,7 +247,7 @@ public abstract class AbstractTestHiveFileSystem
                 PAGE_SORTER,
                 metastoreClient,
                 new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), blockTypeOperators),
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 config,
                 locationService,
                 partitionUpdateCodec,
@@ -256,7 +256,7 @@ public abstract class AbstractTestHiveFileSystem
                 getHiveSessionProperties(config),
                 new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 hdfsEnvironment,
                 config,
                 getDefaultHivePageSourceFactories(hdfsEnvironment, config),

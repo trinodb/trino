@@ -15,7 +15,6 @@ package io.trino.sql;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
@@ -36,10 +35,10 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.testing.assertions.Assert.assertEquals;
@@ -47,8 +46,7 @@ import static java.util.Collections.emptyMap;
 
 public class TestSqlToRowExpressionTranslator
 {
-    private final Metadata metadata = createTestMetadataManager();
-    private final LiteralEncoder literalEncoder = new LiteralEncoder(TEST_SESSION, metadata);
+    private final LiteralEncoder literalEncoder = new LiteralEncoder(PLANNER_CONTEXT);
 
     @Test(timeOut = 10_000)
     public void testPossibleExponentialOptimizationTime()
@@ -92,7 +90,7 @@ public class TestSqlToRowExpressionTranslator
 
     private RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)
     {
-        return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata, TEST_SESSION, true);
+        return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), PLANNER_CONTEXT.getMetadata(), TEST_SESSION, true);
     }
 
     private Expression simplifyExpression(Expression expression)
@@ -100,15 +98,15 @@ public class TestSqlToRowExpressionTranslator
         // Testing simplified expressions is important, since simplification may create CASTs or function calls that cannot be simplified by the ExpressionOptimizer
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, metadata, TEST_SESSION, expressionTypes);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-        return literalEncoder.toExpression(value, expressionTypes.get(NodeRef.of(expression)));
+        return literalEncoder.toExpression(TEST_SESSION, value, expressionTypes.get(NodeRef.of(expression)));
     }
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata,
+                PLANNER_CONTEXT,
                 new AllowAllAccessControl(),
                 TEST_SESSION,
                 TypeProvider.empty(),

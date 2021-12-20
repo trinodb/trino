@@ -38,9 +38,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
-import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
@@ -62,6 +59,7 @@ import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -96,7 +94,7 @@ public class TestPushPredicateIntoTableScan
     @BeforeClass
     public void setUpBeforeClass()
     {
-        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getMetadata(), new TypeOperators(), new TypeAnalyzer(new SqlParser(), tester().getMetadata()));
+        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), createTestingTypeAnalyzer(tester().getPlannerContext()));
 
         CatalogName catalogName = tester().getCurrentConnectorId();
         tester().getQueryRunner().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());

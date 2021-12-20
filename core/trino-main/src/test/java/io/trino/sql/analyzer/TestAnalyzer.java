@@ -30,16 +30,21 @@ import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
+import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.MaterializedViewDefinition;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
@@ -61,6 +66,7 @@ import io.trino.spi.transaction.IsolationLevel;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.rewrite.ShowQueriesRewrite;
@@ -158,8 +164,10 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
@@ -167,6 +175,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -201,7 +210,9 @@ public class TestAnalyzer
 
     private TransactionManager transactionManager;
     private AccessControl accessControl;
-    private Metadata metadata;
+    private PlannerContext plannerContext;
+    private TablePropertyManager tablePropertyManager;
+    private AnalyzePropertyManager analyzePropertyManager;
 
     @Test
     public void testTooManyArguments()
@@ -5159,14 +5170,19 @@ public class TestAnalyzer
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         this.accessControl = accessControlManager;
 
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
         metadata.addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        plannerContext = plannerContextBuilder().withMetadata(metadata).build();
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CATALOG_NAME);
         TestingMetadata testingConnectorMetadata = (TestingMetadata) tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getMetadata(null);
         catalogManager.registerCatalog(tpchTestCatalog);
-        metadata.getTablePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getTableProperties());
-        metadata.getAnalyzePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getAnalyzeProperties());
+
+        tablePropertyManager = new TablePropertyManager();
+        tablePropertyManager.addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getTableProperties());
+
+        analyzePropertyManager = new AnalyzePropertyManager();
+        analyzePropertyManager.addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getAnalyzeProperties());
 
         catalogManager.registerCatalog(createTestingCatalog(SECOND_CATALOG, SECOND_CATALOG_NAME));
         catalogManager.registerCatalog(createTestingCatalog(THIRD_CATALOG, THIRD_CATALOG_NAME));
@@ -5312,10 +5328,10 @@ public class TestAnalyzer
 
         // for identifier chain resolving tests
         catalogManager.registerCatalog(createTestingCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS_NAME));
-        Type singleFieldRowType = metadata.fromSqlType("row(f1 bigint)");
-        Type rowType = metadata.fromSqlType("row(f1 bigint, f2 bigint)");
-        Type nestedRowType = metadata.fromSqlType("row(f1 row(f11 bigint, f12 bigint), f2 boolean)");
-        Type doubleNestedRowType = metadata.fromSqlType("row(f1 row(f11 row(f111 bigint, f112 bigint), f12 boolean), f2 boolean)");
+        Type singleFieldRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint)");
+        Type rowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint, f2 bigint)");
+        Type nestedRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 row(f11 bigint, f12 bigint), f2 boolean)");
+        Type doubleNestedRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 row(f11 row(f111 bigint, f112 bigint), f12 boolean), f2 boolean)");
 
         SchemaTableName b = new SchemaTableName("a", "b");
         inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
@@ -5482,10 +5498,19 @@ public class TestAnalyzer
                 .execute(SETUP_SESSION, consumer);
     }
 
-    private static Analyzer createAnalyzer(Session session, Metadata metadata, AccessControl accessControl)
+    private Analyzer createAnalyzer(Session session, AccessControl accessControl)
     {
-        StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(metadata, SQL_PARSER, accessControl)));
-        AnalyzerFactory analyzerFactory = new AnalyzerFactory(metadata, SQL_PARSER, accessControl, user -> ImmutableSet.of(), statementRewrite);
+        StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(
+                plannerContext.getMetadata(),
+                SQL_PARSER,
+                accessControl,
+                new SessionPropertyManager(),
+                new SchemaPropertyManager(),
+                new ColumnPropertyManager(),
+                tablePropertyManager,
+                new MaterializedViewPropertyManager())));
+        StatementAnalyzerFactory statementAnalyzerFactory = createTestingStatementAnalyzerFactory(plannerContext, accessControl, tablePropertyManager, analyzePropertyManager);
+        AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, statementRewrite);
         return analyzerFactory.createAnalyzer(
                 session,
                 emptyList(),
@@ -5509,7 +5534,7 @@ public class TestAnalyzer
                 .singleStatement()
                 .readUncommitted()
                 .execute(clientSession, session -> {
-                    Analyzer analyzer = createAnalyzer(session, metadata, accessControl);
+                    Analyzer analyzer = createAnalyzer(session, accessControl);
                     Statement statement = SQL_PARSER.createStatement(query, new ParsingOptions(
                             new FeaturesConfig().isParseDecimalLiteralsAsDouble() ? AS_DOUBLE : AS_DECIMAL));
                     return analyzer.analyze(statement);
@@ -5543,7 +5568,7 @@ public class TestAnalyzer
                 connector,
                 SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
-                new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
+                new InformationSchemaConnector(catalogName, nodeManager, plannerContext.getMetadata(), accessControl),
                 systemId,
                 new SystemConnector(
                         nodeManager,

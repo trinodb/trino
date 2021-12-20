@@ -20,7 +20,6 @@ import io.trino.connector.CatalogName;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -59,11 +58,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
-import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
-import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.QualifiedName;
@@ -615,27 +610,6 @@ public interface Metadata
     List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
 
     //
-    // Types
-    //
-
-    Type getType(TypeSignature signature);
-
-    Type fromSqlType(String sqlType);
-
-    Type getType(TypeId id);
-
-    default Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
-    {
-        return getType(new TypeSignature(baseTypeName, typeParameters));
-    }
-
-    Collection<Type> getTypes();
-
-    Collection<ParametricType> getParametricTypes();
-
-    void verifyTypes();
-
-    //
     // Functions
     //
 
@@ -674,34 +648,6 @@ public interface Metadata
     AggregationMetadata getAggregateFunctionImplementation(ResolvedFunction resolvedFunction);
 
     FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention);
-
-    ProcedureRegistry getProcedureRegistry();
-
-    TableProceduresRegistry getTableProcedureRegistry();
-
-    //
-    // Blocks
-    //
-
-    BlockEncodingSerde getBlockEncodingSerde();
-
-    //
-    // Properties
-    //
-
-    SessionPropertyManager getSessionPropertyManager();
-
-    SchemaPropertyManager getSchemaPropertyManager();
-
-    TablePropertyManager getTablePropertyManager();
-
-    MaterializedViewPropertyManager getMaterializedViewPropertyManager();
-
-    ColumnPropertyManager getColumnPropertyManager();
-
-    AnalyzePropertyManager getAnalyzePropertyManager();
-
-    TableProceduresPropertyManager getTableProceduresPropertyManager();
 
     /**
      * Creates the specified materialized view with the specified view definition.

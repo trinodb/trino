@@ -32,6 +32,7 @@ import io.trino.metadata.AllNodes;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SqlFunction;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.SessionPropertyDefaults;
@@ -41,9 +42,10 @@ import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.security.SystemAccessControl;
+import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
-import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Plan;
 import io.trino.transaction.TransactionManager;
@@ -187,7 +189,7 @@ public class DistributedQueryRunner
         }
 
         // copy session using property manager in coordinator
-        defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getMetadata().getSessionPropertyManager(), defaultSession.getIdentity().getExtraCredentials());
+        defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getSessionPropertyManager(), defaultSession.getIdentity().getExtraCredentials());
         this.trinoClient = closer.register(new TestingTrinoClient(coordinator, defaultSession));
 
         waitForAllNodesGloballyVisible();
@@ -327,9 +329,21 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public AnalyzerFactory getAnalyzerFactory()
+    public TypeManager getTypeManager()
     {
-        return coordinator.getAnalyzerFactory();
+        return coordinator.getTypeManager();
+    }
+
+    @Override
+    public QueryExplainer getQueryExplainer()
+    {
+        return coordinator.getQueryExplainer();
+    }
+
+    @Override
+    public SessionPropertyManager getSessionPropertyManager()
+    {
+        return coordinator.getSessionPropertyManager();
     }
 
     @Override

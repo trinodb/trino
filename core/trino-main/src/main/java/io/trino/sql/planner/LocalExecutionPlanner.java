@@ -157,7 +157,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.spiller.SingleStreamSpillerFactory;
 import io.trino.spiller.SpillerFactory;
@@ -165,6 +164,7 @@ import io.trino.split.MappedRecordSet;
 import io.trino.split.PageSinkManager;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
@@ -358,6 +358,7 @@ public class LocalExecutionPlanner
 {
     private static final Logger log = Logger.get(LocalExecutionPlanner.class);
 
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final TypeAnalyzer typeAnalyzer;
     private final Optional<ExplainAnalyzeContext> explainAnalyzeContext;
@@ -382,13 +383,12 @@ public class LocalExecutionPlanner
     private final OperatorFactories operatorFactories;
     private final OrderingCompiler orderingCompiler;
     private final DynamicFilterConfig dynamicFilterConfig;
-    private final TypeOperators typeOperators;
     private final BlockTypeOperators blockTypeOperators;
     private final TableExecuteContextManager tableExecuteContextManager;
 
     @Inject
     public LocalExecutionPlanner(
-            Metadata metadata,
+            PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             Optional<ExplainAnalyzeContext> explainAnalyzeContext,
             PageSourceProvider pageSourceProvider,
@@ -409,16 +409,16 @@ public class LocalExecutionPlanner
             OperatorFactories operatorFactories,
             OrderingCompiler orderingCompiler,
             DynamicFilterConfig dynamicFilterConfig,
-            TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators,
             TableExecuteContextManager tableExecuteContextManager)
     {
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.indexManager = requireNonNull(indexManager, "indexManager is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.exchangeClientSupplier = exchangeClientSupplier;
-        this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
         this.expressionCompiler = requireNonNull(expressionCompiler, "expressionCompiler is null");
@@ -437,7 +437,6 @@ public class LocalExecutionPlanner
         this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.dynamicFilterConfig = requireNonNull(dynamicFilterConfig, "dynamicFilterConfig is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
     }
@@ -554,7 +553,7 @@ public class LocalExecutionPlanner
                                 plan.getId(),
                                 outputTypes,
                                 pagePreprocessor,
-                                new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session))),
+                                new PagesSerdeFactory(plannerContext.getBlockEncodingSerde(), isExchangeCompressionEnabled(session))),
                         physicalOperation),
                 context.getDriverInstanceCount());
 
@@ -885,7 +884,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     exchangeClientSupplier,
-                    new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)),
+                    new PagesSerdeFactory(plannerContext.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)),
                     orderingCompiler,
                     types,
                     outputChannels,
@@ -905,7 +904,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     exchangeClientSupplier,
-                    new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)),
+                    new PagesSerdeFactory(plannerContext.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)),
                     node.getRetryPolicy());
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
@@ -1025,7 +1024,7 @@ public class LocalExecutionPlanner
                     1000,
                     maxPartialTopNMemorySize,
                     joinCompiler,
-                    typeOperators,
+                    plannerContext.getTypeOperators(),
                     blockTypeOperators);
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
@@ -1631,7 +1630,7 @@ public class LocalExecutionPlanner
                     (int) node.getCount(),
                     sortChannels,
                     sortOrders,
-                    typeOperators);
+                    plannerContext.getTypeOperators());
 
             return new PhysicalOperation(operator, source.getLayout(), context, source);
         }
@@ -2000,7 +1999,7 @@ public class LocalExecutionPlanner
                     tableScanNode.getAssignments(),
                     context.getTypes(),
                     metadata,
-                    typeOperators);
+                    plannerContext.getTypeOperators());
         }
 
         @Override
@@ -2025,7 +2024,7 @@ public class LocalExecutionPlanner
                     Map<NodeRef<Expression>, Type> types = typeAnalyzer.getTypes(session, TypeProvider.empty(), row);
                     checkState(types.get(NodeRef.of(row)) instanceof RowType, "unexpected type of Values row: %s", types);
                     // evaluate the literal value
-                    Object result = new ExpressionInterpreter(row, metadata, session, types).evaluate();
+                    Object result = new ExpressionInterpreter(row, plannerContext, session, types).evaluate();
                     for (int j = 0; j < outputTypes.size(); j++) {
                         // divide row into fields
                         writeNativeValue(outputTypes.get(j), pageBuilder.getBlockBuilder(j), readNativeValue(outputTypes.get(j), (SingleRowBlock) result, j));
@@ -2139,7 +2138,7 @@ public class LocalExecutionPlanner
             List<Integer> remappedProbeKeyChannels = remappedProbeKeyChannelsBuilder.build();
             Function<RecordSet, RecordSet> probeKeyNormalizer = recordSet -> {
                 if (!overlappingFieldSets.isEmpty()) {
-                    recordSet = new FieldSetFilteringRecordSet(typeOperators, recordSet, overlappingFieldSets);
+                    recordSet = new FieldSetFilteringRecordSet(plannerContext.getTypeOperators(), recordSet, overlappingFieldSets);
                 }
                 return new MappedRecordSet(recordSet, remappedProbeKeyChannels);
             };

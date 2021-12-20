@@ -17,8 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
@@ -29,7 +27,6 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolResolver;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter;
@@ -75,6 +72,8 @@ import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.ExpressionTestUtils.resolveFunctionCalls;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -152,8 +151,6 @@ public class TestExpressionInterpreter
     };
 
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
-    private static final Metadata METADATA = FUNCTION_RESOLUTION.getMetadata();
 
     @Test
     public void testAnd()
@@ -1926,8 +1923,8 @@ public class TestExpressionInterpreter
 
     static Object optimize(Expression parsedExpression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, METADATA, SYMBOL_TYPES, parsedExpression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(parsedExpression, METADATA, TEST_SESSION, expressionTypes);
+        Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, PLANNER_CONTEXT, SYMBOL_TYPES, parsedExpression);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(parsedExpression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
         return interpreter.optimize(INPUTS);
     }
 
@@ -1939,12 +1936,12 @@ public class TestExpressionInterpreter
                 .execute(TEST_SESSION, transactionSession -> {
                     Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(transactionSession));
                     parsedExpression = rewriteIdentifiersToSymbolReferences(parsedExpression);
-                    parsedExpression = resolveFunctionCalls(METADATA, transactionSession, SYMBOL_TYPES, parsedExpression);
+                    parsedExpression = resolveFunctionCalls(PLANNER_CONTEXT, transactionSession, SYMBOL_TYPES, parsedExpression);
                     parsedExpression = CanonicalizeExpressionRewriter.rewrite(
                             parsedExpression,
                             transactionSession,
-                            METADATA,
-                            new TypeAnalyzer(SQL_PARSER, METADATA),
+                            PLANNER_CONTEXT.getMetadata(),
+                            createTestingTypeAnalyzer(PLANNER_CONTEXT),
                             SYMBOL_TYPES);
                     return parsedExpression;
                 });
@@ -1959,7 +1956,7 @@ public class TestExpressionInterpreter
     {
         assertRoundTrip(expression);
 
-        Expression parsedExpression = ExpressionTestUtils.createExpression(expression, METADATA, SYMBOL_TYPES);
+        Expression parsedExpression = ExpressionTestUtils.createExpression(expression, PLANNER_CONTEXT, SYMBOL_TYPES);
 
         return evaluate(parsedExpression);
     }
@@ -1974,8 +1971,8 @@ public class TestExpressionInterpreter
 
     private static Object evaluate(Expression expression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, METADATA, SYMBOL_TYPES, expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes);
+        Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, PLANNER_CONTEXT, SYMBOL_TYPES, expression);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
 
         return interpreter.evaluate(INPUTS);
     }

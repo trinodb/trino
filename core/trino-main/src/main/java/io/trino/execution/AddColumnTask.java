@@ -17,7 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
@@ -25,6 +25,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Expression;
@@ -55,14 +56,16 @@ import static java.util.Objects.requireNonNull;
 public class AddColumnTask
         implements DataDefinitionTask<AddColumn>
 {
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final AccessControl accessControl;
+    private final ColumnPropertyManager columnPropertyManager;
 
     @Inject
-    public AddColumnTask(Metadata metadata, AccessControl accessControl)
+    public AddColumnTask(PlannerContext plannerContext, AccessControl accessControl, ColumnPropertyManager columnPropertyManager)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
     }
 
     @Override
@@ -80,7 +83,7 @@ public class AddColumnTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName);
         if (tableHandle.isEmpty()) {
             if (!statement.isTableExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
@@ -88,16 +91,16 @@ public class AddColumnTask
             return immediateVoidFuture();
         }
 
-        CatalogName catalogName = getRequiredCatalogHandle(metadata, session, statement, tableName.getCatalogName());
+        CatalogName catalogName = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, tableName.getCatalogName());
 
         accessControl.checkCanAddColumns(session.toSecurityContext(), tableName);
 
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
+        Map<String, ColumnHandle> columnHandles = plannerContext.getMetadata().getColumnHandles(session, tableHandle.get());
 
         ColumnDefinition element = statement.getColumn();
         Type type;
         try {
-            type = metadata.getType(toTypeSignature(element.getType()));
+            type = plannerContext.getTypeManager().getType(toTypeSignature(element.getType()));
         }
         catch (TypeNotFoundException e) {
             throw semanticException(TYPE_NOT_FOUND, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
@@ -111,17 +114,17 @@ public class AddColumnTask
             }
             return immediateVoidFuture();
         }
-        if (!element.isNullable() && !metadata.getConnectorCapabilities(session, catalogName).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
+        if (!element.isNullable() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogName).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
             throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", catalogName.getCatalogName(), element.getName());
         }
 
         Map<String, Expression> sqlProperties = mapFromProperties(element.getProperties());
-        Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
+        Map<String, Object> columnProperties = columnPropertyManager.getProperties(
                 catalogName,
                 tableName.getCatalogName(),
                 sqlProperties,
                 session,
-                metadata,
+                plannerContext,
                 accessControl,
                 parameterExtractor(statement, parameters),
                 true);
@@ -134,7 +137,7 @@ public class AddColumnTask
                 .setProperties(columnProperties)
                 .build();
 
-        metadata.addColumn(session, tableHandle.get(), column);
+        plannerContext.getMetadata().addColumn(session, tableHandle.get(), column);
 
         return immediateVoidFuture();
     }

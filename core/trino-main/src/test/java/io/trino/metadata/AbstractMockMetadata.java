@@ -25,7 +25,6 @@ import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -64,10 +63,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
-import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.QualifiedName;
@@ -84,6 +80,7 @@ import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
 public abstract class AbstractMockMetadata
         implements Metadata
@@ -93,7 +90,7 @@ public abstract class AbstractMockMetadata
         return new AbstractMockMetadata() {};
     }
 
-    private final ResolvedFunctionDecoder functionDecoder = new ResolvedFunctionDecoder(this::getType);
+    private final ResolvedFunctionDecoder functionDecoder = new ResolvedFunctionDecoder(TESTING_TYPE_MANAGER::getType);
 
     @Override
     public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName)
@@ -719,46 +716,6 @@ public abstract class AbstractMockMetadata
     }
 
     //
-    // Types
-    //
-
-    @Override
-    public Type getType(TypeSignature signature)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Type fromSqlType(String sqlType)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Type getType(TypeId id)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void verifyTypes()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Collection<Type> getTypes()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Collection<ParametricType> getParametricTypes()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    //
     // Functions
     //
 
@@ -854,74 +811,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ProcedureRegistry getProcedureRegistry()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public TableProceduresRegistry getTableProcedureRegistry()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    //
-    // Blocks
-    //
-
-    @Override
-    public BlockEncodingSerde getBlockEncodingSerde()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    //
-    // Properties
-    //
-
-    @Override
-    public SessionPropertyManager getSessionPropertyManager()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public SchemaPropertyManager getSchemaPropertyManager()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public TablePropertyManager getTablePropertyManager()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ColumnPropertyManager getColumnPropertyManager()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public AnalyzePropertyManager getAnalyzePropertyManager()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public TableProceduresPropertyManager getTableProceduresPropertyManager()
     {
         throw new UnsupportedOperationException();
     }

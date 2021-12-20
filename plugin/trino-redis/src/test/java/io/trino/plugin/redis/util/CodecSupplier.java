@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.trino.metadata.Metadata;
 import io.trino.plugin.base.TypeDeserializer;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 
 import java.util.function.Supplier;
 
@@ -31,11 +31,11 @@ public final class CodecSupplier<T>
     private final JsonCodecFactory codecFactory;
     private final Class<T> clazz;
 
-    public CodecSupplier(Class<T> clazz, Metadata metadata)
+    public CodecSupplier(Class<T> clazz, TypeManager typeManager)
     {
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(typeManager, "typeManager is null");
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(metadata::getType)));
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(typeManager::getType)));
         this.codecFactory = new JsonCodecFactory(objectMapperProvider);
         this.clazz = requireNonNull(clazz, "clazz is null");
     }

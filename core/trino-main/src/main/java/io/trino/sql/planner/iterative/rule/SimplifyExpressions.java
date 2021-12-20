@@ -15,8 +15,8 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
@@ -37,25 +37,25 @@ import static java.util.Objects.requireNonNull;
 public class SimplifyExpressions
         extends ExpressionRewriteRuleSet
 {
-    public static Expression rewrite(Expression expression, Session session, SymbolAllocator symbolAllocator, Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public static Expression rewrite(Expression expression, Session session, SymbolAllocator symbolAllocator, PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
     {
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         if (expression instanceof SymbolReference) {
             return expression;
         }
         Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
-        expression = pushDownNegations(metadata, expression, expressionTypes);
-        expression = extractCommonPredicates(metadata, expression);
+        expression = pushDownNegations(plannerContext.getMetadata(), expression, expressionTypes);
+        expression = extractCommonPredicates(plannerContext.getMetadata(), expression);
         expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, metadata, session, expressionTypes);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes);
         Object optimized = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-        return new LiteralEncoder(session, metadata).toExpression(optimized, expressionTypes.get(NodeRef.of(expression)));
+        return new LiteralEncoder(plannerContext).toExpression(session, optimized, expressionTypes.get(NodeRef.of(expression)));
     }
 
-    public SimplifyExpressions(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public SimplifyExpressions(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
     {
-        super(createRewrite(metadata, typeAnalyzer));
+        super(createRewrite(plannerContext, typeAnalyzer));
     }
 
     @Override
@@ -69,11 +69,11 @@ public class SimplifyExpressions
                 patternRecognitionExpressionRewrite()); // ApplyNode and AggregationNode are not supported, because ExpressionInterpreter doesn't support them
     }
 
-    private static ExpressionRewriter createRewrite(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    private static ExpressionRewriter createRewrite(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
     {
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
-        return (expression, context) -> rewrite(expression, context.getSession(), context.getSymbolAllocator(), metadata, typeAnalyzer);
+        return (expression, context) -> rewrite(expression, context.getSession(), context.getSymbolAllocator(), plannerContext, typeAnalyzer);
     }
 }

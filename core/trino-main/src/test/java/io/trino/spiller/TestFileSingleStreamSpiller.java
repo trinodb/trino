@@ -24,6 +24,7 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.PageAssertions;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -41,7 +42,6 @@ import static com.google.common.io.MoreFiles.listFiles;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -107,7 +107,7 @@ public class TestFileSingleStreamSpiller
     {
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                createTestMetadataManager().getBlockEncodingSerde(),
+                new TestingBlockEncodingSerde(),
                 new SpillerStats(),
                 ImmutableList.of(spillPath.toPath()),
                 1.0,

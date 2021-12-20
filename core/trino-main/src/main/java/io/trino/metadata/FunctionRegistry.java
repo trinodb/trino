@@ -276,7 +276,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -387,7 +386,7 @@ public class FunctionRegistry
     private volatile FunctionMap functions = new FunctionMap();
 
     public FunctionRegistry(
-            Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier,
+            BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,
             TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators,
@@ -615,7 +614,7 @@ public class FunctionRegistry
                 .functions(MAP_FILTER_FUNCTION, new MapTransformKeysFunction(blockTypeOperators), MAP_TRANSFORM_VALUES_FUNCTION)
                 .function(FORMAT_FUNCTION)
                 .function(TRY_CAST)
-                .function(new LiteralFunction(blockEncodingSerdeSupplier))
+                .function(new LiteralFunction(blockEncodingSerde))
                 .function(new GenericEqualOperator(typeOperators))
                 .function(new GenericHashCodeOperator(typeOperators))
                 .function(new GenericXxHash64Operator(typeOperators))

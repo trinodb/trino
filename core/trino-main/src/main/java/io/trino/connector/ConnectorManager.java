@@ -25,12 +25,21 @@ import io.trino.connector.system.SystemTablesProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.index.IndexManager;
+import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.MetadataManager;
+import io.trino.metadata.ProcedureRegistry;
+import io.trino.metadata.SchemaPropertyManager;
+import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableProceduresPropertyManager;
+import io.trino.metadata.TableProceduresRegistry;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -52,14 +61,13 @@ import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.session.PropertyMetadata;
-import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSinkManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.RecordPageSourceProvider;
 import io.trino.split.SplitManager;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.transaction.TransactionManager;
-import io.trino.type.InternalTypeManager;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -107,7 +115,16 @@ public class ConnectorManager
     private final VersionEmbedder versionEmbedder;
     private final TransactionManager transactionManager;
     private final EventListenerManager eventListenerManager;
-    private final TypeOperators typeOperators;
+    private final TypeManager typeManager;
+    private final ProcedureRegistry procedureRegistry;
+    private final TableProceduresRegistry tableProceduresRegistry;
+    private final SessionPropertyManager sessionPropertyManager;
+    private final SchemaPropertyManager schemaPropertyManager;
+    private final ColumnPropertyManager columnPropertyManager;
+    private final TablePropertyManager tablePropertyManager;
+    private final MaterializedViewPropertyManager materializedViewPropertyManager;
+    private final AnalyzePropertyManager analyzePropertyManager;
+    private final TableProceduresPropertyManager tableProceduresPropertyManager;
 
     private final boolean schedulerIncludeCoordinator;
 
@@ -137,7 +154,16 @@ public class ConnectorManager
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager,
             EventListenerManager eventListenerManager,
-            TypeOperators typeOperators,
+            TypeManager typeManager,
+            ProcedureRegistry procedureRegistry,
+            TableProceduresRegistry tableProceduresRegistry,
+            SessionPropertyManager sessionPropertyManager,
+            SchemaPropertyManager schemaPropertyManager,
+            ColumnPropertyManager columnPropertyManager,
+            TablePropertyManager tablePropertyManager,
+            MaterializedViewPropertyManager materializedViewPropertyManager,
+            AnalyzePropertyManager analyzePropertyManager,
+            TableProceduresPropertyManager tableProceduresPropertyManager,
             NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.metadataManager = metadataManager;
@@ -156,7 +182,16 @@ public class ConnectorManager
         this.versionEmbedder = versionEmbedder;
         this.transactionManager = transactionManager;
         this.eventListenerManager = eventListenerManager;
-        this.typeOperators = typeOperators;
+        this.typeManager = typeManager;
+        this.procedureRegistry = procedureRegistry;
+        this.tableProceduresRegistry = tableProceduresRegistry;
+        this.sessionPropertyManager = sessionPropertyManager;
+        this.schemaPropertyManager = schemaPropertyManager;
+        this.columnPropertyManager = columnPropertyManager;
+        this.tablePropertyManager = tablePropertyManager;
+        this.materializedViewPropertyManager = materializedViewPropertyManager;
+        this.analyzePropertyManager = analyzePropertyManager;
+        this.tableProceduresPropertyManager = tableProceduresPropertyManager;
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
     }
 
@@ -300,22 +335,22 @@ public class ConnectorManager
         connector.getPartitioningProvider()
                 .ifPresent(partitioningProvider -> nodePartitioningManager.addPartitioningProvider(catalogName, partitioningProvider));
 
-        metadataManager.getProcedureRegistry().addProcedures(catalogName, connector.getProcedures());
+        procedureRegistry.addProcedures(catalogName, connector.getProcedures());
         Set<TableProcedureMetadata> tableProcedures = connector.getTableProcedures();
-        metadataManager.getTableProcedureRegistry().addTableProcedures(catalogName, tableProcedures);
+        tableProceduresRegistry.addTableProcedures(catalogName, tableProcedures);
 
         connector.getAccessControl()
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(catalogName, accessControl));
 
-        metadataManager.getTablePropertyManager().addProperties(catalogName, connector.getTableProperties());
-        metadataManager.getMaterializedViewPropertyManager().addProperties(catalogName, connector.getMaterializedViewProperties());
-        metadataManager.getColumnPropertyManager().addProperties(catalogName, connector.getColumnProperties());
-        metadataManager.getSchemaPropertyManager().addProperties(catalogName, connector.getSchemaProperties());
-        metadataManager.getAnalyzePropertyManager().addProperties(catalogName, connector.getAnalyzeProperties());
+        tablePropertyManager.addProperties(catalogName, connector.getTableProperties());
+        materializedViewPropertyManager.addProperties(catalogName, connector.getMaterializedViewProperties());
+        columnPropertyManager.addProperties(catalogName, connector.getColumnProperties());
+        schemaPropertyManager.addProperties(catalogName, connector.getSchemaProperties());
+        analyzePropertyManager.addProperties(catalogName, connector.getAnalyzeProperties());
         for (TableProcedureMetadata tableProcedure : tableProcedures) {
-            metadataManager.getTableProceduresPropertyManager().addProperties(catalogName, tableProcedure.getName(), tableProcedure.getProperties());
+            tableProceduresPropertyManager.addProperties(catalogName, tableProcedure.getName(), tableProcedure.getProperties());
         }
-        metadataManager.getSessionPropertyManager().addConnectorSessionProperties(catalogName, connector.getSessionProperties());
+        sessionPropertyManager.addConnectorSessionProperties(catalogName, connector.getSessionProperties());
     }
 
     public synchronized void dropConnection(String catalogName)
@@ -338,16 +373,16 @@ public class ConnectorManager
         pageSinkManager.removeConnectorPageSinkProvider(catalogName);
         indexManager.removeIndexProvider(catalogName);
         nodePartitioningManager.removePartitioningProvider(catalogName);
-        metadataManager.getProcedureRegistry().removeProcedures(catalogName);
-        metadataManager.getTableProcedureRegistry().removeProcedures(catalogName);
+        procedureRegistry.removeProcedures(catalogName);
+        tableProceduresRegistry.removeProcedures(catalogName);
         accessControlManager.removeCatalogAccessControl(catalogName);
-        metadataManager.getTablePropertyManager().removeProperties(catalogName);
-        metadataManager.getMaterializedViewPropertyManager().removeProperties(catalogName);
-        metadataManager.getColumnPropertyManager().removeProperties(catalogName);
-        metadataManager.getSchemaPropertyManager().removeProperties(catalogName);
-        metadataManager.getAnalyzePropertyManager().removeProperties(catalogName);
-        metadataManager.getTableProceduresPropertyManager().removeProperties(catalogName);
-        metadataManager.getSessionPropertyManager().removeConnectorSessionProperties(catalogName);
+        tablePropertyManager.removeProperties(catalogName);
+        materializedViewPropertyManager.removeProperties(catalogName);
+        columnPropertyManager.removeProperties(catalogName);
+        schemaPropertyManager.removeProperties(catalogName);
+        analyzePropertyManager.removeProperties(catalogName);
+        tableProceduresPropertyManager.removeProperties(catalogName);
+        sessionPropertyManager.removeConnectorSessionProperties(catalogName);
 
         MaterializedConnector materializedConnector = connectors.remove(catalogName);
         if (materializedConnector != null) {
@@ -366,8 +401,8 @@ public class ConnectorManager
         ConnectorContext context = new ConnectorContextInstance(
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogName, schedulerIncludeCoordinator),
                 versionEmbedder,
-                new InternalTypeManager(metadataManager, typeOperators),
-                new InternalMetadataProvider(metadataManager),
+                typeManager,
+                new InternalMetadataProvider(metadataManager, typeManager),
                 pageSorter,
                 pageIndexerFactory,
                 factory.getDuplicatePluginClassLoaderFactory());

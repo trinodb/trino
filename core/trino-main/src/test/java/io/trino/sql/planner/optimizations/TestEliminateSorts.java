@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.spi.connector.SortOrder;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -34,6 +33,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
@@ -90,7 +90,7 @@ public class TestEliminateSorts
 
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
-        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), getQueryRunner().getMetadata());
+        TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(getQueryRunner().getPlannerContext());
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new IterativeOptimizer(
                         getQueryRunner().getMetadata(),
@@ -100,7 +100,7 @@ public class TestEliminateSorts
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
                                 new DetermineTableScanNodePartitioning(getQueryRunner().getMetadata(), getQueryRunner().getNodePartitioningManager(), new TaskCountEstimator(() -> 10)))),
-                new AddExchanges(getQueryRunner().getMetadata(), getQueryRunner().getTypeOperators(), typeAnalyzer, getQueryRunner().getStatsCalculator()));
+                new AddExchanges(getQueryRunner().getPlannerContext(), typeAnalyzer, getQueryRunner().getStatsCalculator()));
 
         assertPlan(sql, pattern, optimizers);
     }

@@ -20,7 +20,6 @@ import io.trino.SequencePageBuilder;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Lifespan;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import io.trino.operator.project.CursorProcessor;
@@ -70,11 +69,11 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.ExpressionTestUtils.createExpression;
 import static io.trino.sql.ExpressionTestUtils.getTypes;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSplit.createLocalSplit;
 import static java.util.Locale.ENGLISH;
@@ -95,7 +94,6 @@ public class BenchmarkScanFilterAndProjectOperator
     private static final Map<String, Type> TYPE_MAP = ImmutableMap.of("bigint", BIGINT, "varchar", VARCHAR);
 
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
-    private static final Metadata METADATA = createTestMetadataManager();
 
     private static final int TOTAL_POSITIONS = 1_000_000;
     private static final DataSize FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = DataSize.of(500, KILOBYTE);
@@ -143,9 +141,9 @@ public class BenchmarkScanFilterAndProjectOperator
                     .mapToObj(i -> new TestingColumnHandle(Integer.toString(i)))
                     .collect(toImmutableList());
 
-            PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(METADATA, 0);
-            PageProcessor pageProcessor = new ExpressionCompiler(METADATA, pageFunctionCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
-            CursorProcessor cursorProcessor = new ExpressionCompiler(METADATA, pageFunctionCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
+            PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getMetadata(), 0);
+            PageProcessor pageProcessor = new ExpressionCompiler(PLANNER_CONTEXT.getMetadata(), pageFunctionCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
+            CursorProcessor cursorProcessor = new ExpressionCompiler(PLANNER_CONTEXT.getMetadata(), pageFunctionCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
 
             createTaskContext();
             createScanFilterAndProjectOperatorFactories(createInputPages(types), pageProcessor, cursorProcessor, columnHandles, types);
@@ -225,13 +223,13 @@ public class BenchmarkScanFilterAndProjectOperator
 
         private RowExpression rowExpression(String value)
         {
-            Expression expression = createExpression(value, METADATA, TypeProvider.copyOf(symbolTypes));
+            Expression expression = createExpression(value, PLANNER_CONTEXT, TypeProvider.copyOf(symbolTypes));
 
             return SqlToRowExpressionTranslator.translate(
                     expression,
-                    getTypes(TEST_SESSION, METADATA, TypeProvider.copyOf(symbolTypes), expression),
+                    getTypes(TEST_SESSION, PLANNER_CONTEXT, TypeProvider.copyOf(symbolTypes), expression),
                     sourceLayout,
-                    METADATA,
+                    PLANNER_CONTEXT.getMetadata(),
                     TEST_SESSION,
                     true);
         }

@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.ExpressionInterpreter;
@@ -81,14 +81,14 @@ public class FilterStatsCalculator
 {
     static final double UNKNOWN_FILTER_COEFFICIENT = 0.9;
 
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final ScalarStatsCalculator scalarStatsCalculator;
     private final StatsNormalizer normalizer;
 
     @Inject
-    public FilterStatsCalculator(Metadata metadata, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer)
+    public FilterStatsCalculator(PlannerContext plannerContext, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
         this.normalizer = requireNonNull(normalizer, "normalizer is null");
     }
@@ -109,20 +109,20 @@ public class FilterStatsCalculator
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, predicate, types);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(predicate, metadata, session, expressionTypes);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(predicate, plannerContext, session, expressionTypes);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
         if (value == null) {
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
             value = false;
         }
-        return new LiteralEncoder(session, metadata).toExpression(value, BOOLEAN);
+        return new LiteralEncoder(plannerContext).toExpression(session, value, BOOLEAN);
     }
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata,
+                plannerContext,
                 new AllowAllAccessControl(),
                 session,
                 types,
@@ -417,7 +417,7 @@ public class FilterStatsCalculator
             }
 
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    metadata,
+                    plannerContext,
                     new AllowAllAccessControl(),
                     session,
                     types,
@@ -440,7 +440,7 @@ public class FilterStatsCalculator
 
         private OptionalDouble doubleValueFromLiteral(Type type, Literal literal)
         {
-            Object literalValue = LiteralInterpreter.evaluate(metadata, session, getExpressionTypes(session, literal, types), literal);
+            Object literalValue = LiteralInterpreter.evaluate(plannerContext, session, getExpressionTypes(session, literal, types), literal);
             return toStatsRepresentation(type, literalValue);
         }
     }

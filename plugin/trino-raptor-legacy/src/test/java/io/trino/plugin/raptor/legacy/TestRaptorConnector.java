@@ -40,12 +40,9 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.TestingNodeManager;
-import io.trino.type.InternalTypeManager;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.testng.annotations.AfterMethod;
@@ -58,7 +55,6 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.scalar.timestamp.VarcharToTimestampCast.castToShortTimestamp;
 import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
@@ -70,6 +66,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.DateTimeUtils.parseDate;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -86,7 +83,6 @@ public class TestRaptorConnector
     @BeforeMethod
     public void setup()
     {
-        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
         Jdbi dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         metadataDao = dbi.onDemand(MetadataDao.class);
@@ -110,7 +106,7 @@ public class TestRaptorConnector
                         config),
                 new RaptorNodePartitioningProvider(nodeSupplier),
                 new RaptorSessionProperties(config),
-                new RaptorTableProperties(typeManager),
+                new RaptorTableProperties(TESTING_TYPE_MANAGER),
                 ImmutableSet.of(),
                 Optional.empty(),
                 dbi);

@@ -56,7 +56,6 @@ import io.trino.split.SplitSource;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.HashGenerationOptimizer;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -89,6 +88,7 @@ import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -245,7 +245,7 @@ public abstract class AbstractOperatorBenchmark
                 ImmutableList.copyOf(symbolTypes.keySet()));
         verify(hashExpression.isPresent());
 
-        Map<NodeRef<Expression>, Type> expressionTypes = new TypeAnalyzer(localQueryRunner.getSqlParser(), localQueryRunner.getMetadata())
+        Map<NodeRef<Expression>, Type> expressionTypes = createTestingTypeAnalyzer(localQueryRunner.getPlannerContext())
                 .getTypes(session, TypeProvider.copyOf(symbolTypes), hashExpression.get());
 
         RowExpression translated = translate(hashExpression.get(), expressionTypes, symbolToInputMapping.build(), localQueryRunner.getMetadata(), session, false);

@@ -66,7 +66,7 @@ public class TestShowQueries
                         .build(),
                 ImmutableMap.of());
         queryRunner.getCatalogManager().registerCatalog(createBogusTestingCatalog("testing_catalog"));
-        queryRunner.getMetadata().getSessionPropertyManager().addConnectorSessionProperties(new CatalogName("testing_catalog"), List.of());
+        queryRunner.getSessionPropertyManager().addConnectorSessionProperties(new CatalogName("testing_catalog"), List.of());
         assertions = new QueryAssertions(queryRunner);
     }
 

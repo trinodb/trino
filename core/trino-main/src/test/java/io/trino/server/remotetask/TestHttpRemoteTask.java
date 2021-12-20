@@ -47,8 +47,10 @@ import io.trino.execution.TaskStatus;
 import io.trino.execution.TaskTestUtils;
 import io.trino.execution.TestSqlTaskManager;
 import io.trino.execution.buffer.OutputBuffers;
+import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.HandleResolver;
+import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
@@ -65,6 +67,7 @@ import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.Symbol;
@@ -77,7 +80,6 @@ import io.trino.testing.TestingSplit;
 import io.trino.type.TypeDeserializer;
 import org.testng.annotations.Test;
 
-import javax.inject.Singleton;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
@@ -108,6 +110,7 @@ import java.util.function.BooleanSupplier;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
@@ -123,6 +126,7 @@ import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -437,7 +441,7 @@ public class TestHttpRemoteTask
                     @Override
                     public void configure(Binder binder)
                     {
-                        binder.bind(JsonMapper.class);
+                        binder.bind(JsonMapper.class).in(SINGLETON);
                         binder.bind(Metadata.class).toInstance(createTestMetadataManager());
                         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
@@ -446,13 +450,10 @@ public class TestHttpRemoteTask
                         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
-                    }
 
-                    @Provides
-                    @Singleton
-                    public BlockEncodingSerde createBlockEncodingSerde(Metadata metadata)
-                    {
-                        return metadata.getBlockEncodingSerde();
+                        binder.bind(TypeManager.class).toInstance(TESTING_TYPE_MANAGER);
+                        binder.bind(BlockEncodingManager.class).in(SINGLETON);
+                        binder.bind(BlockEncodingSerde.class).to(InternalBlockEncodingSerde.class).in(SINGLETON);
                     }
 
                     @Provides

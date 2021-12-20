@@ -218,7 +218,7 @@ public abstract class AbstractTestingTrinoClient<T>
     {
         return columns.stream()
                 .map(Column::getType)
-                .map(trinoServer.getMetadata()::fromSqlType)
+                .map(trinoServer.getTypeManager()::fromSqlType)
                 .collect(toImmutableList());
     }
 }

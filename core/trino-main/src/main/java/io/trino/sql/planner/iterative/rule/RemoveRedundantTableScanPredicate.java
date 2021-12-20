@@ -19,12 +19,11 @@ import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -60,14 +59,12 @@ public class RemoveRedundantTableScanPredicate
             filter().with(source().matching(
                     tableScan().capturedAs(TABLE_SCAN)));
 
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
-    private final TypeOperators typeOperators;
 
-    public RemoveRedundantTableScanPredicate(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer)
+    public RemoveRedundantTableScanPredicate(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
@@ -87,8 +84,7 @@ public class RemoveRedundantTableScanPredicate
                 filterNode.getPredicate(),
                 context.getSession(),
                 context.getSymbolAllocator(),
-                context.getIdAllocator(),
-                typeOperators);
+                context.getIdAllocator());
 
         if (rewritten instanceof FilterNode
                 && Objects.equals(((FilterNode) rewritten).getPredicate(), filterNode.getPredicate())) {
@@ -103,15 +99,13 @@ public class RemoveRedundantTableScanPredicate
             Expression predicate,
             Session session,
             SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            TypeOperators typeOperators)
+            PlanNodeIdAllocator idAllocator)
     {
-        Expression deterministicPredicate = filterDeterministicConjuncts(metadata, predicate);
-        Expression nonDeterministicPredicate = filterNonDeterministicConjuncts(metadata, predicate);
+        Expression deterministicPredicate = filterDeterministicConjuncts(plannerContext.getMetadata(), predicate);
+        Expression nonDeterministicPredicate = filterNonDeterministicConjuncts(plannerContext.getMetadata(), predicate);
 
-        DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
-                metadata,
-                typeOperators,
+        DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(
+                plannerContext,
                 session,
                 deterministicPredicate,
                 symbolAllocator.getTypes());
@@ -145,11 +139,11 @@ public class RemoveRedundantTableScanPredicate
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
         Expression resultingPredicate = createResultingPredicate(
-                metadata,
+                plannerContext,
                 session,
                 symbolAllocator,
                 typeAnalyzer,
-                new DomainTranslator(session, metadata).toPredicate(unenforcedDomain.transformKeys(assignments::get)),
+                new DomainTranslator(plannerContext).toPredicate(session, unenforcedDomain.transformKeys(assignments::get)),
                 nonDeterministicPredicate,
                 decomposedPredicate.getRemainingExpression());
 

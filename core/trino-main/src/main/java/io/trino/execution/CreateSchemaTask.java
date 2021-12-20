@@ -19,11 +19,13 @@ import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.SchemaPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.Expression;
 
@@ -48,14 +50,16 @@ import static java.util.Objects.requireNonNull;
 public class CreateSchemaTask
         implements DataDefinitionTask<CreateSchema>
 {
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final AccessControl accessControl;
+    private final SchemaPropertyManager schemaPropertyManager;
 
     @Inject
-    public CreateSchemaTask(Metadata metadata, AccessControl accessControl)
+    public CreateSchemaTask(PlannerContext plannerContext, AccessControl accessControl, SchemaPropertyManager schemaPropertyManager)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
     }
 
     @Override
@@ -71,11 +75,17 @@ public class CreateSchemaTask
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
-        return internalExecute(statement, metadata, accessControl, stateMachine.getSession(), parameters);
+        return internalExecute(statement, plannerContext, accessControl, schemaPropertyManager, stateMachine.getSession(), parameters);
     }
 
     @VisibleForTesting
-    static ListenableFuture<Void> internalExecute(CreateSchema statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
+    static ListenableFuture<Void> internalExecute(
+            CreateSchema statement,
+            PlannerContext plannerContext,
+            AccessControl accessControl,
+            SchemaPropertyManager schemaPropertyManager,
+            Session session,
+            List<Expression> parameters)
     {
         CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()));
 
@@ -83,28 +93,28 @@ public class CreateSchemaTask
 
         accessControl.checkCanCreateSchema(session.toSecurityContext(), schema);
 
-        if (metadata.schemaExists(session, schema)) {
+        if (plannerContext.getMetadata().schemaExists(session, schema)) {
             if (!statement.isNotExists()) {
                 throw semanticException(SCHEMA_ALREADY_EXISTS, statement, "Schema '%s' already exists", schema);
             }
             return immediateVoidFuture();
         }
 
-        CatalogName catalogName = getRequiredCatalogHandle(metadata, session, statement, schema.getCatalogName());
+        CatalogName catalogName = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, schema.getCatalogName());
 
-        Map<String, Object> properties = metadata.getSchemaPropertyManager().getProperties(
+        Map<String, Object> properties = schemaPropertyManager.getProperties(
                 catalogName,
                 schema.getCatalogName(),
                 mapFromProperties(statement.getProperties()),
                 session,
-                metadata,
+                plannerContext,
                 accessControl,
                 parameterExtractor(statement, parameters),
                 true);
 
-        TrinoPrincipal principal = getCreatePrincipal(statement, session, metadata, catalogName.getCatalogName());
+        TrinoPrincipal principal = getCreatePrincipal(statement, session, plannerContext.getMetadata(), catalogName.getCatalogName());
         try {
-            metadata.createSchema(session, schema, properties, principal);
+            plannerContext.getMetadata().createSchema(session, schema, properties, principal);
         }
         catch (TrinoException e) {
             // connectors are not required to handle the ignoreExisting flag

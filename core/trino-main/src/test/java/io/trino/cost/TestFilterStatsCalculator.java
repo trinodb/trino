@@ -16,22 +16,20 @@ package io.trino.cost;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TestingTransactionManager;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.sql.ExpressionTestUtils.planExpression;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
@@ -57,7 +55,6 @@ public class TestFilterStatsCalculator
     private PlanNodeStatsEstimate zeroStatistics;
     private TypeProvider standardTypes;
     private Session session;
-    private Metadata metadata;
 
     @BeforeClass
     public void setUp()
@@ -153,8 +150,7 @@ public class TestFilterStatsCalculator
                 .build());
 
         session = testSessionBuilder().build();
-        metadata = createTestMetadataManager();
-        statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, new TypeAnalyzer(new SqlParser(), metadata)), new StatsNormalizer());
+        statsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer());
     }
 
     @Test
@@ -577,7 +573,7 @@ public class TestFilterStatsCalculator
 
     private PlanNodeStatsAssertion assertExpression(String expression)
     {
-        return assertExpression(planExpression(metadata, session, standardTypes, expression(expression)));
+        return assertExpression(planExpression(PLANNER_CONTEXT, session, standardTypes, expression(expression)));
     }
 
     private PlanNodeStatsAssertion assertExpression(Expression expression)

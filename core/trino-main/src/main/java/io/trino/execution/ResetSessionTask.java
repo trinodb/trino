@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ResetSession;
 
@@ -34,11 +35,13 @@ public class ResetSessionTask
         implements DataDefinitionTask<ResetSession>
 {
     private final Metadata metadata;
+    private final SessionPropertyManager sessionPropertyManager;
 
     @Inject
-    public ResetSessionTask(Metadata metadata)
+    public ResetSessionTask(Metadata metadata, SessionPropertyManager sessionPropertyManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
     }
 
     @Override
@@ -61,14 +64,14 @@ public class ResetSessionTask
 
         // validate the property name
         if (parts.size() == 1) {
-            if (metadata.getSessionPropertyManager().getSystemSessionPropertyMetadata(parts.get(0)).isEmpty()) {
+            if (sessionPropertyManager.getSystemSessionPropertyMetadata(parts.get(0)).isEmpty()) {
                 throw semanticException(INVALID_SESSION_PROPERTY, statement, "Session property '%s' does not exist", statement.getName());
             }
         }
         else {
             CatalogName catalogName = metadata.getCatalogHandle(stateMachine.getSession(), parts.get(0))
                     .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, statement, "Catalog '%s' does not exist", parts.get(0)));
-            if (metadata.getSessionPropertyManager().getConnectorSessionPropertyMetadata(catalogName, parts.get(1)).isEmpty()) {
+            if (sessionPropertyManager.getConnectorSessionPropertyMetadata(catalogName, parts.get(1)).isEmpty()) {
                 throw semanticException(INVALID_SESSION_PROPERTY, statement, "Session property '%s' does not exist", statement.getName());
             }
         }

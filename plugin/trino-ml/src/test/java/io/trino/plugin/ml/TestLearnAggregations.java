@@ -15,9 +15,15 @@ package io.trino.plugin.ml;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.trino.FeaturesConfig;
 import io.trino.RowPageBuilder;
+import io.trino.client.NodeVersion;
+import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.DisabledSystemSecurityMetadata;
+import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.metadata.TypeRegistry;
 import io.trino.operator.aggregation.Aggregator;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.plugin.ml.type.ClassifierParametricType;
@@ -27,8 +33,11 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.transaction.TransactionManager;
+import io.trino.type.BlockTypeOperators;
+import io.trino.type.InternalTypeManager;
 import org.testng.annotations.Test;
 
 import java.util.OptionalInt;
@@ -38,23 +47,40 @@ import static io.trino.metadata.FunctionExtractor.extractFunctions;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeSignatureParameter.typeParameter;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.StructuralTestUtil.mapBlockOf;
+import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestLearnAggregations
 {
-    private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
-    private static final MetadataManager METADATA = (MetadataManager) FUNCTION_RESOLUTION.getMetadata();
+    private static final TestingFunctionResolution FUNCTION_RESOLUTION;
 
     static {
-        METADATA.addParametricType(new ClassifierParametricType());
-        METADATA.addType(ModelType.MODEL);
-        METADATA.addType(RegressorType.REGRESSOR);
-        METADATA.addFunctions(extractFunctions(new MLPlugin().getFunctions()));
+        TransactionManager transactionManager = createTestTransactionManager();
+        TypeOperators typeOperators = new TypeOperators();
+        TypeRegistry typeRegistry = new TypeRegistry(typeOperators, new FeaturesConfig());
+        InternalTypeManager typeManager = new InternalTypeManager(typeRegistry);
+        MetadataManager metadata = new MetadataManager(
+                new FeaturesConfig(),
+                new DisabledSystemSecurityMetadata(),
+                transactionManager,
+                typeOperators,
+                new BlockTypeOperators(typeOperators),
+                typeManager,
+                new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager),
+                NodeVersion.UNKNOWN);
+
+        typeRegistry.addParametricType(new ClassifierParametricType());
+        typeRegistry.addType(ModelType.MODEL);
+        typeRegistry.addType(RegressorType.REGRESSOR);
+        metadata.addFunctions(extractFunctions(new MLPlugin().getFunctions()));
+        FUNCTION_RESOLUTION = new TestingFunctionResolution(transactionManager, metadata);
     }
 
     @Test
@@ -89,7 +115,7 @@ public class TestLearnAggregations
 
     private static Page getPage()
     {
-        Type mapType = METADATA.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature()), TypeSignatureParameter.typeParameter(DOUBLE.getTypeSignature())));
+        Type mapType = TESTING_TYPE_MANAGER.getParameterizedType("map", ImmutableList.of(typeParameter(BIGINT.getTypeSignature()), typeParameter(DOUBLE.getTypeSignature())));
         int datapoints = 100;
         RowPageBuilder builder = RowPageBuilder.rowPageBuilder(BIGINT, mapType, VARCHAR);
         Random rand = new Random(0);

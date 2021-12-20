@@ -48,10 +48,6 @@ public class ProcedureRegistry
 {
     private final Map<CatalogName, Map<SchemaTableName, Procedure>> connectorProcedures = new ConcurrentHashMap<>();
 
-    public ProcedureRegistry()
-    {
-    }
-
     public void addProcedures(CatalogName catalogName, Collection<Procedure> procedures)
     {
         requireNonNull(catalogName, "catalogName is null");

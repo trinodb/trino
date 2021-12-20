@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.predicate.Domain;
@@ -30,7 +29,6 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.Cast;
@@ -175,8 +173,6 @@ public class TestDomainTranslator
     private static final long COLOR_VALUE_2 = 2;
 
     private TestingFunctionResolution functionResolution;
-    private Metadata metadata;
-    private TypeOperators typeOperators;
     private LiteralEncoder literalEncoder;
     private DomainTranslator domainTranslator;
 
@@ -184,17 +180,14 @@ public class TestDomainTranslator
     public void setup()
     {
         functionResolution = new TestingFunctionResolution();
-        metadata = functionResolution.getMetadata();
-        typeOperators = new TypeOperators();
-        literalEncoder = new LiteralEncoder(TEST_SESSION, metadata);
-        domainTranslator = new DomainTranslator(TEST_SESSION, metadata);
+        literalEncoder = new LiteralEncoder(functionResolution.getPlannerContext());
+        domainTranslator = new DomainTranslator(functionResolution.getPlannerContext());
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         functionResolution = null;
-        metadata = null;
         literalEncoder = null;
         domainTranslator = null;
     }
@@ -802,7 +795,7 @@ public class TestDomainTranslator
     @Test
     public void testFromBasicComparisonsWithNaN()
     {
-        Expression nanDouble = literalEncoder.toExpression(Double.NaN, DOUBLE);
+        Expression nanDouble = literalEncoder.toExpression(TEST_SESSION, Double.NaN, DOUBLE);
 
         assertPredicateIsAlwaysFalse(equal(C_DOUBLE, nanDouble));
         assertPredicateIsAlwaysFalse(greaterThan(C_DOUBLE, nanDouble));
@@ -820,7 +813,7 @@ public class TestDomainTranslator
         assertPredicateIsAlwaysFalse(not(notEqual(C_DOUBLE, nanDouble)));
         assertUnsupportedPredicate(not(isDistinctFrom(C_DOUBLE, nanDouble)));
 
-        Expression nanReal = literalEncoder.toExpression((long) Float.floatToIntBits(Float.NaN), REAL);
+        Expression nanReal = literalEncoder.toExpression(TEST_SESSION, (long) Float.floatToIntBits(Float.NaN), REAL);
 
         assertPredicateIsAlwaysFalse(equal(C_REAL, nanReal));
         assertPredicateIsAlwaysFalse(greaterThan(C_REAL, nanReal));
@@ -1081,9 +1074,9 @@ public class TestDomainTranslator
 
     private void testInPredicate(Symbol symbol, Symbol symbol2, Type type, Object one, Object two)
     {
-        Expression oneExpression = literalEncoder.toExpression(one, type);
-        Expression twoExpression = literalEncoder.toExpression(two, type);
-        Expression nullExpression = literalEncoder.toExpression(null, type);
+        Expression oneExpression = literalEncoder.toExpression(TEST_SESSION, one, type);
+        Expression twoExpression = literalEncoder.toExpression(TEST_SESSION, two, type);
+        Expression nullExpression = literalEncoder.toExpression(TEST_SESSION, null, type);
         Expression otherSymbol = symbol2.toSymbolReference();
 
         // IN, single value
@@ -1154,10 +1147,10 @@ public class TestDomainTranslator
 
     private void testInPredicateWithFloatingPoint(Symbol symbol, Symbol symbol2, Type type, Object one, Object two, Object nan)
     {
-        Expression oneExpression = literalEncoder.toExpression(one, type);
-        Expression twoExpression = literalEncoder.toExpression(two, type);
-        Expression nanExpression = literalEncoder.toExpression(nan, type);
-        Expression nullExpression = literalEncoder.toExpression(null, type);
+        Expression oneExpression = literalEncoder.toExpression(TEST_SESSION, one, type);
+        Expression twoExpression = literalEncoder.toExpression(TEST_SESSION, two, type);
+        Expression nanExpression = literalEncoder.toExpression(TEST_SESSION, nan, type);
+        Expression nullExpression = literalEncoder.toExpression(TEST_SESSION, null, type);
         Expression otherSymbol = symbol2.toSymbolReference();
 
         // IN, single value
@@ -1476,7 +1469,7 @@ public class TestDomainTranslator
     {
         Type columnType = columnValues.getType();
         Type literalType = literalValues.getType();
-        Type superType = new TypeCoercion(metadata::getType).getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
+        Type superType = new TypeCoercion(functionResolution.getPlannerContext().getTypeManager()::getType).getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
 
         Expression max = toExpression(literalValues.getMax(), literalType);
         Expression min = toExpression(literalValues.getMin(), literalType);
@@ -1936,13 +1929,13 @@ public class TestDomainTranslator
         return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
-                    return DomainTranslator.fromPredicate(metadata, typeOperators, transactionSession, originalPredicate, TYPES);
+                    return DomainTranslator.getExtractionResult(functionResolution.getPlannerContext(), transactionSession, originalPredicate, TYPES);
                 });
     }
 
     private Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
-        return domainTranslator.toPredicate(tupleDomain);
+        return domainTranslator.toPredicate(TEST_SESSION, tupleDomain);
     }
 
     private static Expression unprocessableExpression1(Symbol symbol)
@@ -2046,7 +2039,7 @@ public class TestDomainTranslator
     private InPredicate in(Expression expression, Type expressisonType, List<?> values)
     {
         List<Type> types = nCopies(values.size(), expressisonType);
-        List<Expression> expressions = literalEncoder.toExpressions(values, types);
+        List<Expression> expressions = literalEncoder.toExpressions(TEST_SESSION, values, types);
         return new InPredicate(expression, new InListExpression(expressions));
     }
 
@@ -2150,7 +2143,7 @@ public class TestDomainTranslator
 
     private Expression colorLiteral(long value)
     {
-        return literalEncoder.toExpression(value, COLOR);
+        return literalEncoder.toExpression(TEST_SESSION, value, COLOR);
     }
 
     private Expression varbinaryLiteral(Slice value)
@@ -2196,7 +2189,7 @@ public class TestDomainTranslator
 
     private Expression toExpression(Object object, Type type)
     {
-        return literalEncoder.toExpression(object, type);
+        return literalEncoder.toExpression(TEST_SESSION, object, type);
     }
 
     private static <T> TupleDomain<T> tupleDomain(T key, Domain domain)

@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.TrinoException;
@@ -32,9 +31,9 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
@@ -122,49 +121,46 @@ import static java.util.Objects.requireNonNull;
 public class UnwrapCastInComparison
         extends ExpressionRewriteRuleSet
 {
-    public UnwrapCastInComparison(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer)
+    public UnwrapCastInComparison(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
     {
-        super(createRewrite(metadata, typeOperators, typeAnalyzer));
+        super(createRewrite(plannerContext, typeAnalyzer));
     }
 
-    private static ExpressionRewriter createRewrite(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer)
+    private static ExpressionRewriter createRewrite(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
     {
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
-        return (expression, context) -> unwrapCasts(context.getSession(), metadata, typeOperators, typeAnalyzer, context.getSymbolAllocator().getTypes(), expression);
+        return (expression, context) -> unwrapCasts(context.getSession(), plannerContext, typeAnalyzer, context.getSymbolAllocator().getTypes(), expression);
     }
 
     public static Expression unwrapCasts(Session session,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
             Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, typeOperators, typeAnalyzer, session, types), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(plannerContext, typeAnalyzer, session, types), expression);
     }
 
     private static class Visitor
             extends io.trino.sql.tree.ExpressionRewriter<Void>
     {
-        private final Metadata metadata;
-        private final TypeOperators typeOperators;
+        private final PlannerContext plannerContext;
         private final TypeAnalyzer typeAnalyzer;
         private final Session session;
         private final TypeProvider types;
         private final InterpretedFunctionInvoker functionInvoker;
         private final LiteralEncoder literalEncoder;
 
-        public Visitor(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer, Session session, TypeProvider types)
+        public Visitor(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, Session session, TypeProvider types)
         {
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata);
-            this.literalEncoder = new LiteralEncoder(session, metadata);
+            this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getMetadata());
+            this.literalEncoder = new LiteralEncoder(plannerContext);
         }
 
         @Override
@@ -181,7 +177,7 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Object right = new ExpressionInterpreter(expression.getRight(), metadata, session, typeAnalyzer.getTypes(session, types, expression.getRight()))
+            Object right = new ExpressionInterpreter(expression.getRight(), plannerContext, session, typeAnalyzer.getTypes(session, types, expression.getRight()))
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
             Cast cast = (Cast) expression.getLeft();
@@ -243,7 +239,7 @@ public class UnwrapCastInComparison
                 }
             }
 
-            ResolvedFunction sourceToTarget = metadata.getCoercion(session, sourceType, targetType);
+            ResolvedFunction sourceToTarget = plannerContext.getMetadata().getCoercion(session, sourceType, targetType);
 
             Optional<Type.Range> sourceRange = sourceType.getRange();
             if (sourceRange.isPresent()) {
@@ -276,15 +272,15 @@ public class UnwrapCastInComparison
                         case GREATER_THAN:
                             return falseIfNotNull(cast.getExpression());
                         case GREATER_THAN_OR_EQUAL:
-                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(max, sourceType));
+                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
                         case LESS_THAN_OR_EQUAL:
                             return trueIfNotNull(cast.getExpression());
                         case LESS_THAN:
-                            return new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(max, sourceType));
+                            return new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
                         case EQUAL:
                         case NOT_EQUAL:
                         case IS_DISTINCT_FROM:
-                            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(max, sourceType));
+                            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
                     }
                     throw new UnsupportedOperationException("Not yet implemented: " + operator);
                 }
@@ -316,15 +312,15 @@ public class UnwrapCastInComparison
                         case LESS_THAN:
                             return falseIfNotNull(cast.getExpression());
                         case LESS_THAN_OR_EQUAL:
-                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(min, sourceType));
+                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
                         case GREATER_THAN_OR_EQUAL:
                             return trueIfNotNull(cast.getExpression());
                         case GREATER_THAN:
-                            return new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(min, sourceType));
+                            return new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
                         case EQUAL:
                         case NOT_EQUAL:
                         case IS_DISTINCT_FROM:
-                            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(min, sourceType));
+                            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
                     }
                     throw new UnsupportedOperationException("Not yet implemented: " + operator);
                 }
@@ -332,7 +328,7 @@ public class UnwrapCastInComparison
 
             ResolvedFunction targetToSource;
             try {
-                targetToSource = metadata.getCoercion(session, targetType, sourceType);
+                targetToSource = plannerContext.getMetadata().getCoercion(session, targetType, sourceType);
             }
             catch (OperatorNotFoundException e) {
                 // Without a cast between target -> source, there's nothing more we can do
@@ -369,14 +365,14 @@ public class UnwrapCastInComparison
                     case LESS_THAN:
                     case LESS_THAN_OR_EQUAL:
                         if (sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMin(), literalInSourceType) == 0) {
-                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                         }
-                        return new ComparisonExpression(LESS_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+                        return new ComparisonExpression(LESS_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                     case GREATER_THAN:
                     case GREATER_THAN_OR_EQUAL:
                         // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
                         // larger than the next value in the source type
-                        return new ComparisonExpression(GREATER_THAN, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+                        return new ComparisonExpression(GREATER_THAN, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                 }
                 throw new UnsupportedOperationException("Not yet implemented: " + operator);
             }
@@ -394,18 +390,18 @@ public class UnwrapCastInComparison
                     case LESS_THAN_OR_EQUAL:
                         // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
                         // smaller than the next value in the source type
-                        return new ComparisonExpression(LESS_THAN, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+                        return new ComparisonExpression(LESS_THAN, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                     case GREATER_THAN:
                     case GREATER_THAN_OR_EQUAL:
                         if (sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMax(), literalInSourceType) == 0) {
-                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+                            return new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                         }
-                        return new ComparisonExpression(GREATER_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+                        return new ComparisonExpression(GREATER_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                 }
                 throw new UnsupportedOperationException("Not yet implemented: " + operator);
             }
 
-            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
+            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
         }
 
         private boolean hasInjectiveImplicitCoercion(Type source, Type target, Object value)
@@ -473,7 +469,7 @@ public class UnwrapCastInComparison
                 return false;
             }
 
-            boolean coercible = new TypeCoercion(metadata::getType).canCoerce(source, target);
+            boolean coercible = new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(source, target);
             if (source instanceof VarcharType && target instanceof CharType) {
                 VarcharType sourceVarchar = (VarcharType) source;
                 CharType targetChar = (CharType) target;
@@ -512,7 +508,7 @@ public class UnwrapCastInComparison
             requireNonNull(first, "first is null");
             requireNonNull(second, "second is null");
             // choice of placing unordered values first or last does not matter for this code
-            MethodHandle comparisonOperator = typeOperators.getComparisonUnorderedLastOperator(type, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            MethodHandle comparisonOperator = plannerContext.getTypeOperators().getComparisonUnorderedLastOperator(type, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
             try {
                 return (int) (long) comparisonOperator.invoke(first, second);
             }

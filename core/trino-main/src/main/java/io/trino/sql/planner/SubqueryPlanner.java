@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.SuccessorsFunction;
 import com.google.common.graph.Traverser;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationType;
@@ -75,7 +75,7 @@ class SubqueryPlanner
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap;
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final TypeCoercion typeCoercion;
     private final Session session;
     private final Map<NodeRef<Node>, RelationPlan> recursiveSubqueries;
@@ -85,7 +85,7 @@ class SubqueryPlanner
             SymbolAllocator symbolAllocator,
             PlanNodeIdAllocator idAllocator,
             Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap,
-            Metadata metadata,
+            PlannerContext plannerContext,
             TypeCoercion typeCoercion,
             Optional<TranslationMap> outerContext,
             Session session,
@@ -95,7 +95,7 @@ class SubqueryPlanner
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeCoercion, "typeCoercion is null");
         requireNonNull(outerContext, "outerContext is null");
         requireNonNull(session, "session is null");
@@ -105,7 +105,7 @@ class SubqueryPlanner
         this.symbolAllocator = symbolAllocator;
         this.idAllocator = idAllocator;
         this.lambdaDeclarationToSymbolMap = lambdaDeclarationToSymbolMap;
-        this.metadata = metadata;
+        this.plannerContext = plannerContext;
         this.typeCoercion = typeCoercion;
         this.session = session;
         this.recursiveSubqueries = recursiveSubqueries;
@@ -308,7 +308,7 @@ class SubqueryPlanner
 
     private RelationPlan planSubquery(Expression subquery, TranslationMap outerContext)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, Optional.of(outerContext), session, recursiveSubqueries)
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, Optional.of(outerContext), session, recursiveSubqueries)
                 .process(subquery, null);
     }
 

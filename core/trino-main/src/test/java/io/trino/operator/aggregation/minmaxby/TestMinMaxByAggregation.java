@@ -14,15 +14,19 @@
 package io.trino.operator.aggregation.minmaxby;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.FeaturesConfig;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.metadata.TypeRegistry;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -52,6 +56,7 @@ import static org.testng.Assert.assertNotNull;
 public class TestMinMaxByAggregation
 {
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
+    private static final Collection<Type> STANDARD_TYPES = new TypeRegistry(new TypeOperators(), new FeaturesConfig()).getTypes();
 
     @Test
     public void testAllRegistered()
@@ -71,7 +76,7 @@ public class TestMinMaxByAggregation
     private static List<Type> getTypes()
     {
         return new ImmutableList.Builder<Type>()
-                .addAll(FUNCTION_RESOLUTION.getMetadata().getTypes())
+                .addAll(STANDARD_TYPES)
                 .add(VARCHAR)
                 .add(createDecimalType(1))
                 .add(RowType.anonymous(ImmutableList.of(BIGINT, VARCHAR, DOUBLE)))
