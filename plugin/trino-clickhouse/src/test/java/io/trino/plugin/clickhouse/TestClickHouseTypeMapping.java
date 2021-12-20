@@ -147,7 +147,7 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("double", "1.79769E308", DOUBLE, "DOUBLE '1.79769E308'")
                 .addRoundTrip("double", "2.225E-307", DOUBLE, "DOUBLE '2.225E-307'")
 
-                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_decimal"))
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_double"))
 
                 .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
 
