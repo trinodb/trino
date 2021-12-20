@@ -223,6 +223,9 @@ public class TestHiveConnectorTest
             case SUPPORTS_DELETE:
                 return true;
 
+            case SUPPORTS_UPDATE:
+                return true;
+
             case SUPPORTS_MULTI_STATEMENT_WRITES:
                 return true;
 
@@ -257,6 +260,13 @@ public class TestHiveConnectorTest
     {
         assertThatThrownBy(super::testDeleteWithSubquery)
                 .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        assertThatThrownBy(super::testUpdate)
+                .hasMessage("Hive update is only supported for ACID transactional tables");
     }
 
     @Override
