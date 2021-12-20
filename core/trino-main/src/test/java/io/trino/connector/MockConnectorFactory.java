@@ -92,7 +92,7 @@ public class MockConnectorFactory
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Set<Procedure> procedures;
-    private final Boolean allowMissingColumnsOnInsert;
+    private final boolean allowMissingColumnsOnInsert;
 
     // access control
     private final ListRoleGrants roleGrants;
@@ -122,7 +122,8 @@ public class MockConnectorFactory
             Function<SchemaTableName, List<List<?>>> data,
             Set<Procedure> procedures,
             ListRoleGrants roleGrants,
-            Optional<ConnectorAccessControl> accessControl, boolean allowMissingColumnsOnInsert)
+            Optional<ConnectorAccessControl> accessControl,
+            boolean allowMissingColumnsOnInsert)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");

@@ -1366,38 +1366,6 @@ class AstBuilder
     }
 
     @Override
-    public Node visitDeny(SqlBaseParser.DenyContext context)
-    {
-        Optional<List<String>> privileges;
-        if (context.ALL() != null) {
-            privileges = Optional.empty();
-        }
-        else {
-            privileges = Optional.of(context.privilege().stream()
-                    .map(SqlBaseParser.PrivilegeContext::getText)
-                    .collect(toList()));
-        }
-
-        Optional<GrantOnType> type;
-        if (context.SCHEMA() != null) {
-            type = Optional.of(GrantOnType.SCHEMA);
-        }
-        else if (context.TABLE() != null) {
-            type = Optional.of(GrantOnType.TABLE);
-        }
-        else {
-            type = Optional.empty();
-        }
-
-        return new Deny(
-                getLocation(context),
-                privileges,
-                type,
-                getQualifiedName(context.qualifiedName()),
-                getPrincipalSpecification(context.grantee));
-    }
-
-    @Override
     public Node visitRevoke(SqlBaseParser.RevokeContext context)
     {
         Optional<List<String>> privileges;

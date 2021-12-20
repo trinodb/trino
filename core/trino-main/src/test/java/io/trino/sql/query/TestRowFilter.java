@@ -48,7 +48,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestRowFilter
 {
     private static final String CATALOG = "local";
+    private static final String CATALOG_MISSING_COLUMNS = "local-missing-columns";
     private static final String MOCK_CATALOG = "mock";
+    private static final String MOCK_CATALOG_MISSING_COLUMNS = "mockmissingcolumns";
     private static final String USER = "user";
     private static final String VIEW_OWNER = "view-owner";
     private static final String RUN_AS_USER = "run-as-user";
@@ -59,13 +61,22 @@ public class TestRowFilter
             .setIdentity(Identity.forUser(USER).build())
             .build();
 
+    private static final Session SESSION_MISSING_COLUMNS = testSessionBuilder()
+            .setCatalog(CATALOG_MISSING_COLUMNS)
+            .setSchema(TINY_SCHEMA_NAME)
+            .setIdentity(Identity.forUser(USER).build())
+            .build();
+
     private QueryAssertions assertions;
+    private QueryAssertions assertionsMissingColumns;
     private TestingAccessControlManager accessControl;
+    private TestingAccessControlManager accessControlMissingColumns;
 
     @BeforeClass
     public void init()
     {
         LocalQueryRunner runner = LocalQueryRunner.builder(SESSION).build();
+        LocalQueryRunner runner_missing_columns = LocalQueryRunner.builder(SESSION_MISSING_COLUMNS).build();
 
         runner.createCatalog(CATALOG, new TpchConnectorFactory(1), ImmutableMap.of());
 
@@ -107,13 +118,36 @@ public class TestRowFilter
                     }
                     throw new UnsupportedOperationException();
                 })
-                .withallowMissingColumnsOnInsert(true)
                 .build();
 
         runner.createCatalog(MOCK_CATALOG, mock, ImmutableMap.of());
 
         assertions = new QueryAssertions(runner);
         accessControl = assertions.getQueryRunner().getAccessControl();
+
+        MockConnectorFactory mockMissingColumns = MockConnectorFactory.builder()
+                .withGetViews((s, prefix) -> ImmutableMap.<SchemaTableName, ConnectorViewDefinition>builder()
+                        .put(new SchemaTableName("default", "nation_view"), view)
+                        .build())
+                .withGetColumns(schemaTableName -> {
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {
+                        return TPCH_NATION_WITH_OPTIONAL_COLUMN;
+                    }
+                    throw new UnsupportedOperationException();
+                })
+                .withData(schemaTableName -> {
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {
+                        return TPCH_NATION_DATA;
+                    }
+                    throw new UnsupportedOperationException();
+                })
+                .withallowMissingColumnsOnInsert(true)
+                .build();
+
+        runner_missing_columns.createCatalog(MOCK_CATALOG_MISSING_COLUMNS, mockMissingColumns, ImmutableMap.of());
+
+        assertionsMissingColumns = new QueryAssertions(runner_missing_columns);
+        accessControlMissingColumns = assertionsMissingColumns.getQueryRunner().getAccessControl();
     }
 
     @AfterClass(alwaysRun = true)
@@ -564,22 +598,31 @@ public class TestRowFilter
     }
 
     @Test
-    public void testRowFilterOnOptionalColumn() {
-        accessControl.reset();
-        accessControl.rowFilter(
-                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_optional_column"),
-                USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "optional is null"));
+    public void testRowFilterOnOptionalColumn()
+    {
+        accessControlMissingColumns.reset();
 
-        assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation_with_optional_column VALUES (101, 'POLAND', 0, 'No comment', 'some string')"))
-                .isInstanceOf(TrinoException.class)
-                .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
-        assertions.query("INSERT INTO mock.tiny.nation_with_optional_column VALUES (0, 'POLAND', 0, 'No comment', null)")
+        assertionsMissingColumns.query("INSERT INTO mockmissingcolumns.tiny.nation_with_optional_column(nationkey, name, regionkey, comment) VALUES (0, 'POLAND', 0, 'No comment')")
                 .assertThat()
                 .skippingTypesCheck()
                 .matches("VALUES BIGINT '1'");
-        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation_with_optional_column SET name = 'POLAND'"))
+
+        accessControlMissingColumns.rowFilter(
+                new QualifiedObjectName(MOCK_CATALOG_MISSING_COLUMNS, "tiny", "nation_with_optional_column"),
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "length(optional) > 2"));
+
+        assertionsMissingColumns.query("INSERT INTO mockmissingcolumns.tiny.nation_with_optional_column(nationkey, name, regionkey, comment, optional) VALUES (0, 'POLAND', 0, 'No comment', 'some string')")
+                .assertThat()
+                .skippingTypesCheck()
+                .matches("VALUES BIGINT '1'");
+
+        assertThatThrownBy(() -> assertionsMissingColumns.query("INSERT INTO mockmissingcolumns.tiny.nation_with_optional_column(nationkey, name, regionkey, comment, optional) VALUES (0, 'POLAND', 0, 'No comment', 'so')"))
                 .isInstanceOf(TrinoException.class)
-                .hasMessageContaining("Updating a table with a row filter is not supported");
+                .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
+
+        assertThatThrownBy(() -> assertionsMissingColumns.query("INSERT INTO mockmissingcolumns.tiny.nation_with_optional_column(nationkey, name, regionkey, comment, optional) VALUES (0, 'POLAND', 0, 'No comment', null)"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Access Denied: Cannot insert row that does not match to a row filter");
     }
 }

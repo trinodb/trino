@@ -123,7 +123,7 @@ public class MockConnector
     private final Optional<ConnectorAccessControl> accessControl;
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Set<Procedure> procedures;
-    private final Boolean allowMissingColumnsOnInsert;
+    private final boolean allowMissingColumnsOnInsert;
 
     MockConnector(
             Function<ConnectorSession, List<String>> listSchemaNames,
