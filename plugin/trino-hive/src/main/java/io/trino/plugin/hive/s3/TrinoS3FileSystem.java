@@ -465,7 +465,7 @@ public class TrinoS3FileSystem
     public FSDataOutputStream create(Path path, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress)
             throws IOException
     {
-        // Ignore the overwrite flag, since Trino always writes to unique file names.
+        // Ignore the overwrite flag, since Trino Hive connector *usually* writes to unique file names.
         // Checking for file existence is thus an unnecessary, expensive operation.
         return new FSDataOutputStream(createOutputStream(path), statistics);
     }
