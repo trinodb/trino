@@ -301,6 +301,11 @@ public class TestStargateTypeMapping
         checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
 
         SqlDataTypeTest testCases = SqlDataTypeTest.create()
+                .addRoundTrip("date", "DATE '-5877641-06-23'", DATE, "DATE '-5877641-06-23'") // min value in Trino (the epoch is integer min)
+                .addRoundTrip("date", "DATE '1582-10-04'", DATE, "DATE '1582-10-04'")
+                .addRoundTrip("date", "DATE '1582-10-05'", DATE, "DATE '1582-10-05'") // begin julian->gregorian switch
+                .addRoundTrip("date", "DATE '1582-10-14'", DATE, "DATE '1582-10-14'") // end julian->gregorian switch
+                .addRoundTrip("date", "DATE '1582-10-15'", DATE, "DATE '1582-10-15'")
                 .addRoundTrip("date", "DATE '1952-04-03'", DATE, "DATE '1952-04-03'") // before epoch
                 .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
                 .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
@@ -309,7 +314,9 @@ public class TestStargateTypeMapping
                 .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'") // date of local time change forward at midnight in JVM zone
                 .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'") // date of local time change forward at midnight in some zone
                 .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'") // date of local time change backward at midnight in some zone
-                .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'"); // historical date, surprisingly common in actual data
+                .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'") // historical date, surprisingly common in actual data
+                .addRoundTrip("date", "DATE '9999-12-31'", DATE, "DATE '9999-12-31'")
+                .addRoundTrip("date", "DATE '5881580-07-11'", DATE, "DATE '5881580-07-11'"); // max value in Trino (the epoch is integer max)
         for (String timeZoneId : List.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
