@@ -93,7 +93,7 @@ public abstract class BaseQueryAssertionsTest
     {
         QueryAssert queryAssert = assertThat(query("SELECT X'001234'"));
         assertThatThrownBy(() -> queryAssert.matches("VALUES '001234'"))
-                .hasMessageContaining("[Output types] expected:<[var[char(6)]]> but was:<[var[binary]]>");
+                .hasMessageContaining("[Output types for query [SELECT X'001234']] expected:<[var[char(6)]]> but was:<[var[binary]]>");
     }
 
     @Test
@@ -103,11 +103,11 @@ public abstract class BaseQueryAssertionsTest
 
         QueryAssert queryAssert = assertThat(query("VALUES 'foobar'"));
         assertThatThrownBy(queryAssert::returnsEmptyResult)
-                .hasMessage("[rows] \nExpecting empty but was:<[[foobar]]>");
+                .hasMessage("[Rows for query [VALUES 'foobar']] \nExpecting empty but was:<[[foobar]]>");
 
         queryAssert = assertThat(query("VALUES 'foo', 'bar'"));
         assertThatThrownBy(queryAssert::returnsEmptyResult)
-                .hasMessage("[rows] \nExpecting empty but was:<[[foo], [bar]]>");
+                .hasMessage("[Rows for query [VALUES 'foo', 'bar']] \nExpecting empty but was:<[[foo], [bar]]>");
     }
 
     @Test
