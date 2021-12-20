@@ -71,7 +71,7 @@ specific property.
 ^^^^^^^^^^^^
 
 The properties of type ``duration`` support values describing an
-amount of time, using the syntax of a non-negative number followed by a time
+amount of time, using the syntax of a non-negative integer followed by a time
 unit. For example, the value ``7m`` describes seven minutes.
 
 The ``duration`` type supports the following units:
