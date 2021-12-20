@@ -365,6 +365,7 @@ public class SnowflakeSplitSource
                 executorService,
                 hiveConfig.isSkipDeletionForAlter(),
                 hiveConfig.isSkipTargetCleanupOnRollback(),
+                hiveConfig.isDeleteSchemaLocationsFallback(),
                 Optional.of(new Duration(5, SECONDS)),
                 Executors.newScheduledThreadPool(1));
     }

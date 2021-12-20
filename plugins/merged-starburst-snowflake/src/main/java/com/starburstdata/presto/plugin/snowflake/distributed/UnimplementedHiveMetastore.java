@@ -109,7 +109,7 @@ class UnimplementedHiveMetastore
     }
 
     @Override
-    public void dropDatabase(HiveIdentity identity, String databaseName)
+    public void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
     {
         throw new UnsupportedOperationException();
     }
