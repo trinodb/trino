@@ -80,8 +80,8 @@ public abstract class AbstractTestFailureRecovery
 {
     private static final String PARTITIONED_LINEITEM = "partitioned_lineitem";
     protected static final int INVOCATION_COUNT = 1;
-    private static final Duration MAX_ERROR_DURATION = new Duration(10, SECONDS);
-    private static final Duration REQUEST_TIMEOUT = new Duration(10, SECONDS);
+    private static final Duration MAX_ERROR_DURATION = new Duration(5, SECONDS);
+    private static final Duration REQUEST_TIMEOUT = new Duration(5, SECONDS);
 
     @Override
     protected final QueryRunner createQueryRunner()
