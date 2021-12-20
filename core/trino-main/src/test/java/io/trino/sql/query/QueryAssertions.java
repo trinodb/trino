@@ -511,7 +511,7 @@ public class QueryAssertions
                             timestamp.getEpochMicros(),
                             timestamp.getPicosOfMicros());
                 }
-                else if (object instanceof SqlTimestampWithTimeZone) {
+                if (object instanceof SqlTimestampWithTimeZone) {
                     SqlTimestampWithTimeZone timestamp = (SqlTimestampWithTimeZone) object;
                     return String.format(
                             "%s [p = %s, epochMillis = %s, fraction = %s, tz = %s]",
@@ -521,11 +521,11 @@ public class QueryAssertions
                             timestamp.getPicosOfMilli(),
                             timestamp.getTimeZoneKey());
                 }
-                else if (object instanceof SqlTime) {
+                if (object instanceof SqlTime) {
                     SqlTime time = (SqlTime) object;
                     return String.format("%s [picos = %s]", time, time.getPicos());
                 }
-                else if (object instanceof SqlTimeWithTimeZone) {
+                if (object instanceof SqlTimeWithTimeZone) {
                     SqlTimeWithTimeZone time = (SqlTimeWithTimeZone) object;
                     return String.format(
                             "%s [picos = %s, offset = %s]",
