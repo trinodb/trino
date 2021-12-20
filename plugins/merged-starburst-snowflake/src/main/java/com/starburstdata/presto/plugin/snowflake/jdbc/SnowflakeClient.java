@@ -89,6 +89,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -115,8 +116,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingSqlDate;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingSqlDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
@@ -186,6 +185,7 @@ public class SnowflakeClient
 {
     public static final String IDENTIFIER_QUOTE = "\"";
 
+    private static final DateTimeFormatter SNOWFLAKE_DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
     private static final DateTimeFormatter SNOWFLAKE_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
     private static final DateTimeFormatter SNOWFLAKE_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSS");
     private static final int SNOWFLAKE_MAX_TIMESTAMP_PRECISION = 9;
@@ -200,7 +200,7 @@ public class SnowflakeClient
             .put(DoubleType.DOUBLE, WriteMapping.doubleMapping("double precision", doubleWriteFunction()))
             .put(RealType.REAL, WriteMapping.longMapping("real", realWriteFunction()))
             .put(VARBINARY, WriteMapping.sliceMapping("varbinary", varbinaryWriteFunction()))
-            .put(DateType.DATE, WriteMapping.longMapping("date", dateWriteFunctionUsingSqlDate()))
+            .put(DateType.DATE, WriteMapping.longMapping("date", dateWriteFunctionUsingString()))
             .build();
     private static final UtcTimeZoneCalendar UTC_TZ_PASSING_CALENDAR = UtcTimeZoneCalendar.getUtcTimeZoneCalendarInstance();
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone(ZoneId.of("UTC"));
@@ -366,7 +366,10 @@ public class SnowflakeClient
         }
 
         if (typeHandle.getJdbcType() == DATE) {
-            return Optional.of(dateColumnMappingUsingSqlDate());
+            return Optional.of(ColumnMapping.longMapping(
+                    DateType.DATE,
+                    (resultSet, columnIndex) -> LocalDate.ofEpochDay(resultSet.getLong(columnIndex)).toEpochDay(),
+                    dateWriteFunctionUsingString()));
         }
 
         if (typeHandle.getJdbcType() == Types.TIME) {
@@ -522,6 +525,11 @@ public class SnowflakeClient
     private static SliceWriteFunction charWriteFunction(CharType charType)
     {
         return (statement, index, value) -> statement.setString(index, Chars.padSpaces(value, charType).toStringUtf8());
+    }
+
+    private static LongWriteFunction dateWriteFunctionUsingString()
+    {
+        return (statement, index, day) -> statement.setString(index, SNOWFLAKE_DATE_FORMATTER.format(LocalDate.ofEpochDay(day)));
     }
 
     private static ColumnMapping timestampWithTimezoneColumnMapping(int precision)

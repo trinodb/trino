@@ -290,6 +290,17 @@ public abstract class BaseSnowflakeTypeMappingTest
     public void testDateMapping()
     {
         SqlDataTypeTest.create()
+                .addRoundTrip("date", "'-5877641-06-23'", DATE, "date '-5877641-06-23'") // The epoch is integer min
+                .addRoundTrip("date", "'-9999-12-31'", DATE, "date '-9999-12-31'")
+                .addRoundTrip("date", "'-0999-12-31'", DATE, "date '-0999-12-31'")
+                .addRoundTrip("date", "'-0099-12-31'", DATE, "date '-0099-12-31'")
+                .addRoundTrip("date", "'-0009-12-31'", DATE, "date '-0009-12-31'")
+                .addRoundTrip("date", "'0000-01-01'", DATE, "date '0000-01-01'")
+                .addRoundTrip("date", "'0001-01-01'", DATE, "date '0001-01-01'")
+                .addRoundTrip("date", "'1582-10-04'", DATE, "date '1582-10-04'")
+                .addRoundTrip("date", "'1582-10-05'", DATE, "date '1582-10-05'") // begin julian->gregorian switch
+                .addRoundTrip("date", "'1582-10-14'", DATE, "date '1582-10-14'") // end julian->gregorian switch
+                .addRoundTrip("date", "'1582-10-15'", DATE, "date '1582-10-15'")
                 .addRoundTrip("date", "'1952-04-03'", DATE, "date '1952-04-03'")
                 .addRoundTrip("date", "'1970-01-01'", DATE, "date '1970-01-01'")
                 .addRoundTrip("date", "'1970-02-03'", DATE, "date '1970-02-03'")
@@ -297,7 +308,20 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .addRoundTrip("date", "'1983-10-01'", DATE, "date '1983-10-01'")
                 .addRoundTrip("date", "'2017-01-01'", DATE, "date '2017-01-01'")
                 .addRoundTrip("date", "'2017-07-01'", DATE, "date '2017-07-01'")
+                .addRoundTrip("date", "'9999-12-31'", DATE, "date '9999-12-31'")
+                .addRoundTrip("date", "'5881580-07-11'", DATE, "date '5881580-07-11'") // The epoch is integer max
+                .addRoundTrip("date", "NULL", DATE, "CAST(NULL as date)")
                 .execute(getQueryRunner(), trinoCreateAsSelect())
+                .execute(getQueryRunner(), snowflakeCreateAsSelect());
+    }
+
+    @Test
+    public void testDateOverflow()
+    {
+        // Snowflake causes overflow when the date value is out of integer range
+        SqlDataTypeTest.create()
+                .addRoundTrip("date", "'-5877641-06-22'", DATE, "date '5881580-07-11'") // '-5877641-06-22' is integer min - 1
+                .addRoundTrip("date", "'5881580-07-12'", DATE, "date '-5877641-06-23'") // '5881580-07-12' is integer max + 1
                 .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
