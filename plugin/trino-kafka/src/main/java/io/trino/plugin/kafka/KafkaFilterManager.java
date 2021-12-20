@@ -46,7 +46,7 @@ import java.util.function.Function;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.OFFSET_TIMESTAMP_FIELD;
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.PARTITION_ID_FIELD;
@@ -174,7 +174,7 @@ public class KafkaFilterManager
     {
         final long transferTimestamp = floorDiv(timestamp, MICROSECONDS_PER_MILLISECOND);
         Map<TopicPartition, OffsetAndTimestamp> topicPartitionOffsets = kafkaConsumer.offsetsForTimes(ImmutableMap.of(topicPartition, transferTimestamp));
-        return Optional.ofNullable(getOnlyElement(topicPartitionOffsets.values(), null)).map(OffsetAndTimestamp::offset);
+        return topicPartitionOffsets.values().stream().collect(toOptional()).map(OffsetAndTimestamp::offset);
     }
 
     private static Map<TopicPartition, Long> overridePartitionBeginOffsets(Map<TopicPartition, Long> partitionBeginOffsets,
