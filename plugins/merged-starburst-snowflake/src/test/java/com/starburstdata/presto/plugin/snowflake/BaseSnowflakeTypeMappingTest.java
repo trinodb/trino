@@ -10,7 +10,6 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import io.trino.Session;
-import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -39,6 +38,7 @@ import java.util.function.BiFunction;
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeType.TIME;
@@ -290,15 +290,13 @@ public abstract class BaseSnowflakeTypeMappingTest
     public void testDateMapping()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("date", "'1952-04-03'", DateType.DATE, "date '1952-04-03'")
-                .addRoundTrip("date", "'1970-01-01'", DateType.DATE, "date '1970-01-01'")
-                .addRoundTrip("date", "'1970-02-03'", DateType.DATE, "date '1970-02-03'")
-                .addRoundTrip("date", "'1983-04-01'", DateType.DATE, "date '1983-04-01'")
-                .addRoundTrip("date", "'1983-10-01'", DateType.DATE, "date '1983-10-01'")
-                .addRoundTrip("date", "'2017-01-01'", DateType.DATE, "date '2017-01-01'")
-                .addRoundTrip("date", "'2017-07-01'", DateType.DATE, "date '2017-07-01'")
-                .addRoundTrip("date", "'2017-01-01'", DateType.DATE, "date '2017-01-01'")
-                .addRoundTrip("date", "'1970-01-01'", DateType.DATE, "date '1970-01-01'")
+                .addRoundTrip("date", "'1952-04-03'", DATE, "date '1952-04-03'")
+                .addRoundTrip("date", "'1970-01-01'", DATE, "date '1970-01-01'")
+                .addRoundTrip("date", "'1970-02-03'", DATE, "date '1970-02-03'")
+                .addRoundTrip("date", "'1983-04-01'", DATE, "date '1983-04-01'")
+                .addRoundTrip("date", "'1983-10-01'", DATE, "date '1983-10-01'")
+                .addRoundTrip("date", "'2017-01-01'", DATE, "date '2017-01-01'")
+                .addRoundTrip("date", "'2017-07-01'", DATE, "date '2017-07-01'")
                 .execute(getQueryRunner(), trinoCreateAsSelect())
                 .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
