@@ -100,7 +100,6 @@ public class TestClickHouseTypeMapping
 
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_basic_types"))
 
-                // TODO test ClickHouse Nullable(...)
                 .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
                 .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
                 .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
@@ -109,6 +108,15 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
 
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("Nullable(bigint)", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .addRoundTrip("Nullable(integer)", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .addRoundTrip("Nullable(smallint)", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("Nullable(tinyint)", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .addRoundTrip("Nullable(double)", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .addRoundTrip("Nullable(real)", "NULL", REAL, "CAST(NULL AS REAL)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_nullable_types"));
     }
 
     @Test
@@ -141,10 +149,13 @@ public class TestClickHouseTypeMapping
 
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_decimal"))
 
-                // TODO test ClickHouse Nullable(...)
                 .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
 
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("Nullable(double)", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.trino_test_nullable_double"));
     }
 
     @Test
@@ -170,11 +181,15 @@ public class TestClickHouseTypeMapping
 
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_decimal"))
 
-                // TODO test ClickHouse Nullable(decimal(....))
                 .addRoundTrip("decimal(3, 1)", "NULL", createDecimalType(3, 1), "CAST(NULL AS decimal(3,1))")
                 .addRoundTrip("decimal(30, 5)", "NULL", createDecimalType(30, 5), "CAST(NULL AS decimal(30,5))")
 
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("Nullable(decimal(3, 1))", "NULL", createDecimalType(3, 1), "CAST(NULL AS decimal(3,1))")
+                .addRoundTrip("Nullable(decimal(30, 5))", "NULL", createDecimalType(30, 5), "CAST(NULL AS decimal(30,5))")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_nullable_decimal"));
     }
 
     @Test
