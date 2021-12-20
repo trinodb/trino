@@ -112,6 +112,24 @@ public abstract class BaseTestHiveFailureRecovery
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
+    public void testInsertIntoNewPartitionBucketed()
+    {
+        testTableModification(
+                Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p'], bucketed_by = ARRAY['orderkey'], bucket_count = 4) AS SELECT *, 'partition1' p FROM orders"),
+                "INSERT INTO <table> SELECT *, 'partition2' p FROM orders",
+                Optional.of("DROP TABLE <table>"));
+    }
+
+    @Test(invocationCount = INVOCATION_COUNT)
+    public void testInsertIntoExistingPartitionBucketed()
+    {
+        testTableModification(
+                Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p'], bucketed_by = ARRAY['orderkey'], bucket_count = 4) AS SELECT *, 'partition1' p FROM orders"),
+                "INSERT INTO <table> SELECT *, 'partition1' p FROM orders",
+                Optional.of("DROP TABLE <table>"));
+    }
+
+    @Test(invocationCount = INVOCATION_COUNT)
     public void testReplaceExistingPartition()
     {
         testTableModification(
