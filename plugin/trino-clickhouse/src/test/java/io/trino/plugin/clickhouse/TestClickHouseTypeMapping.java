@@ -26,6 +26,8 @@ import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
@@ -42,15 +44,33 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.time.ZoneOffset.UTC;
 
 public class TestClickHouseTypeMapping
         extends AbstractTestQueryFramework
 {
+    private final ZoneId jvmZone = ZoneId.systemDefault();
+
+    // no DST in 1970, but has DST in later years (e.g. 2018)
+    private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
+
     private TestingClickHouseServer clickhouseServer;
+
+    @BeforeClass
+    public void setUp()
+    {
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
+
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
+        checkIsGap(vilnius, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
+        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
+        checkIsDoubled(vilnius, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
+    }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
     {
@@ -289,35 +309,32 @@ public class TestClickHouseTypeMapping
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
     }
 
-    @Test
-    public void testDate()
+    @Test(dataProvider = "testTimestampDataProvider")
+    public void testDate(ZoneId sessionZone)
     {
-        ZoneId jvmZone = ZoneId.systemDefault();
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+        SqlDataTypeTest.create()
+                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
+                .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
+                .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
+                .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
+                .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+    }
 
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
-        checkIsGap(someZone, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
-        checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
-
-        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
-                    .build();
-            SqlDataTypeTest.create()
-                    .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
-                    .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
-                    .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
-                    .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
-                    .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
-                    .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
-                    .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
-            .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"))
-            .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
-        }
+    @DataProvider
+    public Object[][] testTimestampDataProvider()
+    {
+        return new Object[][] {
+                {UTC},
+                {jvmZone},
+                {vilnius},
+        };
     }
 
     @Test
