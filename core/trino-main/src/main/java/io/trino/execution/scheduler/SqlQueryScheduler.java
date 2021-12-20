@@ -859,6 +859,9 @@ public class SqlQueryScheduler
                     if (queryStateMachine.isDone()) {
                         return;
                     }
+                    if (queryStateMachine.getQueryState() == QueryState.STARTING && (state == RUNNING || state.isDone())) {
+                        queryStateMachine.transitionToRunning();
+                    }
                     // if any coordinator stage failed transition directly to failure
                     if (state == FAILED) {
                         RuntimeException failureCause = stageExecution.getFailureCause()
