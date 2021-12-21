@@ -4,12 +4,11 @@ import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
 
-public class OffHeapByteBuffer
+public class ArrayFastByteBuffer
         implements FastByteBuffer
 {
-    public static boolean USE_OFF_HEAP = false;
-
-    static final Unsafe UNSAFE = getUnsafe();
+    private static final Unsafe UNSAFE = getUnsafe();
+    private static final int BYTE_ARRAY_BASE_OFFSET = UNSAFE.arrayBaseOffset(byte[].class);
 
     private static Unsafe getUnsafe()
     {
@@ -23,37 +22,37 @@ public class OffHeapByteBuffer
         }
     }
 
-    long address;
+    private final byte[] array;
     private final int capacity;
 
-    public OffHeapByteBuffer(int capacity)
+    public ArrayFastByteBuffer(int capacity)
     {
         this.capacity = capacity;
-        this.address = UNSAFE.allocateMemory(capacity);
+        this.array = new byte[capacity];
     }
 
     @Override
     public void close()
     {
-        UNSAFE.freeMemory(address);
     }
 
     @Override
     public void copyFrom(FastByteBuffer src, int srcPosition, int destPosition, int length)
     {
-        UNSAFE.copyMemory(((OffHeapByteBuffer) src).address + srcPosition, address + destPosition, length);
+        ArrayFastByteBuffer srcArray = (ArrayFastByteBuffer) src;
+        System.arraycopy(srcArray.array, srcPosition, array, destPosition, length);
     }
 
     @Override
     public void putInt(int position, int value)
     {
-        UNSAFE.putInt(address + position, value);
+        UNSAFE.putInt(array, BYTE_ARRAY_BASE_OFFSET + position, value);
     }
 
     @Override
     public int getInt(int position)
     {
-        return UNSAFE.getInt(address + position);
+        return UNSAFE.getInt(array, BYTE_ARRAY_BASE_OFFSET + position);
     }
 
     @Override
@@ -65,36 +64,47 @@ public class OffHeapByteBuffer
     @Override
     public void putLong(int position, long value)
     {
-        UNSAFE.putLong(address + position, value);
+        UNSAFE.putLong(array, BYTE_ARRAY_BASE_OFFSET + position, value);
     }
 
     @Override
     public byte get(int position)
     {
-        return UNSAFE.getByte(address + position);
+//        return array[position];
+        return UNSAFE.getByte(array, BYTE_ARRAY_BASE_OFFSET + position);
     }
 
     @Override
     public void put(int position, byte value)
     {
-        UNSAFE.putByte(address + position, value);
+        UNSAFE.putByte(array, BYTE_ARRAY_BASE_OFFSET + position, value);
+//        array[position] = value;
     }
 
     @Override
     public long getLong(int position)
     {
-        return UNSAFE.getLong(address + position);
+        return UNSAFE.getLong(array, BYTE_ARRAY_BASE_OFFSET + position);
     }
+
+//    @Override
+//    public boolean subArrayEquals(FastByteBuffer other, int thisOffset, int otherOffset, int length)
+//    {
+//        byte[] otherArray = ((ArrayFastByteBuffer) other).array;
+//
+//        return Arrays.equals(array, thisOffset, thisOffset + length, otherArray, otherOffset, otherOffset + length);
+//    }
 
     @Override
     public boolean subArrayEquals(FastByteBuffer other, int thisOffset, int otherOffset, int length)
     {
-        long thisPosition = address + thisOffset;
-        long otherPosition = ((OffHeapByteBuffer) other).address + otherOffset;
+        long thisPosition = BYTE_ARRAY_BASE_OFFSET + thisOffset;
+        long otherPosition = BYTE_ARRAY_BASE_OFFSET + otherOffset;
+        byte[] otherArray = ((ArrayFastByteBuffer) other).array;
 
         int i = 0;
         for (; i <= length - 8; i += 8) {
-            if (UNSAFE.getLong(thisPosition) != UNSAFE.getLong(otherPosition)) {
+            if (UNSAFE.getLong(this.array, thisPosition) != UNSAFE.getLong(otherArray, otherPosition)) {
                 return false;
             }
             thisPosition += 8;
@@ -102,7 +112,7 @@ public class OffHeapByteBuffer
         }
 
         if (i <= length - 4) {
-            if (UNSAFE.getInt(thisPosition) != UNSAFE.getInt(otherPosition)) {
+            if (UNSAFE.getInt(this.array, thisPosition) != UNSAFE.getInt(otherArray, otherPosition)) {
                 return false;
             }
             thisPosition += 4;
@@ -111,7 +121,7 @@ public class OffHeapByteBuffer
         }
 
         for (; i < length; i++) {
-            if (UNSAFE.getByte(thisPosition) != UNSAFE.getByte(otherPosition)) {
+            if (UNSAFE.getByte(this.array, thisPosition) != UNSAFE.getByte(otherArray, otherPosition)) {
                 return false;
             }
             thisPosition++;

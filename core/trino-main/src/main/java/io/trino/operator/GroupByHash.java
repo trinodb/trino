@@ -79,7 +79,7 @@ public interface GroupByHash
             UpdateMemory updateMemory)
     {
         if (useEnhancedGroupBy && hashTypes.stream().allMatch(type -> type.equals(BIGINT))) {
-            return new MultiChannelBigintGroupByHashInlineOffHeap(hashChannels, inputHashChannel, expectedSize, updateMemory);
+            return new MultiChannelBigintGroupByHashInlineBatch(hashChannels, inputHashChannel, expectedSize, updateMemory);
         }
         if (hashTypes.size() == 1 && hashTypes.get(0).equals(BIGINT) && hashChannels.length == 1) {
             if (useEnhancedGroupBy) {
@@ -88,7 +88,7 @@ public interface GroupByHash
             return new BigintGroupByHash(hashChannels[0], inputHashChannel.isPresent(), expectedSize, updateMemory);
         }
 
-        return new MultiChannelGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, joinCompiler, blockTypeOperators, updateMemory);
+        return new MultiChannelGroupByHashBatch(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, joinCompiler, blockTypeOperators, updateMemory);
     }
 
     long getEstimatedSize();

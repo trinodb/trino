@@ -23,7 +23,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
@@ -38,17 +37,16 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static io.trino.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class MultiChannelBigintGroupByHashInlineGID
+public class MultiChannelBigintGroupByHashInline
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiChannelBigintGroupByHashInlineGID.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiChannelBigintGroupByHashInline.class).instanceSize();
 
     private static final float FILL_RATIO = 0.75f;
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
@@ -56,6 +54,7 @@ public class MultiChannelBigintGroupByHashInlineGID
 
     private final int[] hashChannels;
     private final Optional<Integer> inputHashChannel;
+    private final int isNullBufferSize;
 
     private int hashCapacity;
     private int maxFill;
@@ -80,7 +79,7 @@ public class MultiChannelBigintGroupByHashInlineGID
     private final int entrySize;
     private final List<Type> types;
 
-    public MultiChannelBigintGroupByHashInlineGID(
+    public MultiChannelBigintGroupByHashInline(
             int[] hashChannels,
             Optional<Integer> inputHashChannel,
             int expectedSize,
@@ -91,8 +90,8 @@ public class MultiChannelBigintGroupByHashInlineGID
         this.hashChannels = requireNonNull(hashChannels, "hashChannels is null");
         checkArgument(hashChannels.length > 0, "hashChannels.length must be at least 1");
         this.inputHashChannel = requireNonNull(inputHashChannel, "inputHashChannel is null");
-        hashCapacity = arraySize(expectedSize, FILL_RATIO);
-        int isNullBufferSize = (int) Math.ceil(((double) hashChannels.length) / 64);
+        this.hashCapacity = arraySize(expectedSize, FILL_RATIO);
+        this.isNullBufferSize = (int) Math.ceil(((double) hashChannels.length) / 64);
         this.valuesBuffer = new long[hashChannels.length + isNullBufferSize];
         this.isNullBuffer = new boolean[hashChannels.length];
 
@@ -164,7 +163,7 @@ public class MultiChannelBigintGroupByHashInlineGID
             @Override
             public void appendValuesTo(PageBuilder pageBuilder, int outputChannelOffset)
             {
-                MultiChannelBigintGroupByHashInlineGID.this.appendValuesTo(hashTable, groupToHashPosition[currentGroupId], pageBuilder, outputChannelOffset);
+                MultiChannelBigintGroupByHashInline.this.appendValuesTo(hashTable, groupToHashPosition[currentGroupId], pageBuilder, outputChannelOffset);
             }
 
             @Override
@@ -241,7 +240,7 @@ public class MultiChannelBigintGroupByHashInlineGID
     {
         Block[] blocks = new Block[hashChannels.length];
         for (int i = 0; i < hashChannels.length; i++) {
-            Block block = page.getBlock(i);
+            Block block = page.getBlock(hashChannels[i]);
             if (block instanceof RunLengthEncodedBlock) {
                 throw new UnsupportedOperationException();
             }
@@ -280,12 +279,16 @@ public class MultiChannelBigintGroupByHashInlineGID
 
     private int putIfAbsent(int position, Block[] blocks)
     {
+        // clear bitset
+        for (int i = hashChannels.length; i < valuesBuffer.length; i++) {
+            valuesBuffer[i] = 0;
+        }
         for (int i = 0; i < blocks.length; i++) {
             boolean isNull = blocks[i].isNull(position);
             isNullBuffer[i] = isNull;
             valuesBuffer[i] = BIGINT.getLong(blocks[i], position) * (isNull ? 0 : 1);
             int wordIndex = i + i >> 6;
-            valuesBuffer[wordIndex] |= (isNull ? 1L : 0) << i;
+            valuesBuffer[hashChannels.length + wordIndex] |= (isNull ? 1L : 0) << i;
         }
 
         int hashPosition = getHashPosition(valuesBuffer, 0, hashChannels.length, mask);
@@ -306,7 +309,7 @@ public class MultiChannelBigintGroupByHashInlineGID
                 return groupId;
             }
             if (valueEqualsBuffer(hashPosition)) {
-                return (int) hashTable[hashPosition];
+                return (int) current;
             }
 
             hashPosition = hashPosition + entrySize;

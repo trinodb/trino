@@ -42,10 +42,10 @@ import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class MultiChannelBigintGroupByHashInlineOffHeap
+public class MultiChannelBigintGroupByHashInlineFastBB
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiChannelBigintGroupByHashInlineOffHeap.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiChannelBigintGroupByHashInlineFastBB.class).instanceSize();
 
     private static final float FILL_RATIO = 0.75f;
 
@@ -65,7 +65,7 @@ public class MultiChannelBigintGroupByHashInlineOffHeap
 
     private final List<Type> types;
 
-    public MultiChannelBigintGroupByHashInlineOffHeap(
+    public MultiChannelBigintGroupByHashInlineFastBB(
             int[] hashChannels,
             Optional<Integer> inputHashChannel,
             int expectedSize,
@@ -138,7 +138,7 @@ public class MultiChannelBigintGroupByHashInlineOffHeap
             @Override
             public void appendValuesTo(PageBuilder pageBuilder, int outputChannelOffset)
             {
-                MultiChannelBigintGroupByHashInlineOffHeap.this.appendValuesTo(hashTable, hashTable.groupToHashPosition[currentGroupId], pageBuilder, outputChannelOffset);
+                MultiChannelBigintGroupByHashInlineFastBB.this.appendValuesTo(hashTable, hashTable.groupToHashPosition[currentGroupId], pageBuilder, outputChannelOffset);
             }
 
             @Override
@@ -241,7 +241,7 @@ public class MultiChannelBigintGroupByHashInlineOffHeap
         return hashTable.getCapacity();
     }
 
-    private boolean valueEqualsBuffer(int hashPosition, OffHeapByteBuffer hashTable, int hashChannelsLength, OffHeapByteBuffer valuesBuffer, int valuesBufferIsNullOffset, int isNullOffset)
+    private boolean valueEqualsBuffer(int hashPosition, FastByteBuffer hashTable, int hashChannelsLength, FastByteBuffer valuesBuffer, int valuesBufferIsNullOffset, int isNullOffset)
     {
         return hashTable.subArrayEquals(valuesBuffer, hashPosition + Integer.BYTES, 0, valuesBufferIsNullOffset);
     }
@@ -315,13 +315,13 @@ public class MultiChannelBigintGroupByHashInlineOffHeap
                 return false;
             }
 
-            NoRehashHashTable hashTable = MultiChannelBigintGroupByHashInlineOffHeap.this.hashTable;
+            NoRehashHashTable hashTable = MultiChannelBigintGroupByHashInlineFastBB.this.hashTable;
             while (lastPosition < positionCount && !hashTable.needRehash()) {
                 hashTable.putIfAbsent(lastPosition, blocks);
                 lastPosition++;
                 if (hashTable.needRehash()) {
                     tryRehash();
-                    hashTable = MultiChannelBigintGroupByHashInlineOffHeap.this.hashTable;
+                    hashTable = MultiChannelBigintGroupByHashInlineFastBB.this.hashTable;
                 }
             }
             return lastPosition == positionCount;
@@ -362,14 +362,14 @@ public class MultiChannelBigintGroupByHashInlineOffHeap
                 return false;
             }
 
-            NoRehashHashTable hashTable = MultiChannelBigintGroupByHashInlineOffHeap.this.hashTable;
+            NoRehashHashTable hashTable = MultiChannelBigintGroupByHashInlineFastBB.this.hashTable;
             while (lastPosition < positionCount && !hashTable.needRehash()) {
                 // output the group id for this row
                 BIGINT.writeLong(blockBuilder, hashTable.putIfAbsent(lastPosition, blocks));
                 lastPosition++;
                 if (hashTable.needRehash()) {
                     tryRehash();
-                    hashTable = MultiChannelBigintGroupByHashInlineOffHeap.this.hashTable;
+                    hashTable = MultiChannelBigintGroupByHashInlineFastBB.this.hashTable;
                 }
             }
             return lastPosition == positionCount;
@@ -392,13 +392,13 @@ public class MultiChannelBigintGroupByHashInlineOffHeap
         private final int hashCapacity;
         private final int maxFill;
         private final int mask;
-        private final OffHeapByteBuffer hashTable;
+        private final FastByteBuffer hashTable;
         private final int[] groupToHashPosition;
 
         private final int entrySize;
         private final int isNullOffset;
 
-        private final OffHeapByteBuffer valuesBuffer;
+        private final FastByteBuffer valuesBuffer;
         private final int valuesBufferIsNullOffset;
 
         private int hashTableSize;
@@ -420,7 +420,7 @@ public class MultiChannelBigintGroupByHashInlineOffHeap
                 int[] groupToHashPosition,
                 long hashCollisions)
         {
-            this.valuesBuffer = OffHeapByteBuffer.allocate(hashChannelsCount * Long.BYTES + hashChannelsCount);
+            this.valuesBuffer = FastByteBuffer.allocate(hashChannelsCount * Long.BYTES + hashChannelsCount);
             this.hashCapacity = hashCapacity;
             this.groupToHashPosition = groupToHashPosition;
 
@@ -430,7 +430,7 @@ public class MultiChannelBigintGroupByHashInlineOffHeap
             this.entrySize = valuesBuffer.capacity() + Integer.BYTES;
             this.maxFill = calculateMaxFill(hashCapacity);
             this.mask = hashCapacity - 1;
-            this.hashTable = OffHeapByteBuffer.allocate(entrySize * hashCapacity);
+            this.hashTable = FastByteBuffer.allocate(entrySize * hashCapacity);
             this.hashCollisions = hashCollisions;
             for (int i = 0; i <= hashTable.capacity() - entrySize; i += entrySize) {
                 this.hashTable.putInt(i, -1);
@@ -487,7 +487,7 @@ public class MultiChannelBigintGroupByHashInlineOffHeap
             return hashCapacity;
         }
 
-        private boolean valueEqualsBuffer(int hashPosition, OffHeapByteBuffer hashTable)
+        private boolean valueEqualsBuffer(int hashPosition, FastByteBuffer hashTable)
         {
             return hashTable.subArrayEquals(valuesBuffer, hashPosition + Integer.BYTES, 0, valuesBufferIsNullOffset);
         }
@@ -515,8 +515,8 @@ public class MultiChannelBigintGroupByHashInlineOffHeap
 
         public void copyFrom(NoRehashHashTable other)
         {
-            OffHeapByteBuffer otherHashTable = other.hashTable;
-            OffHeapByteBuffer thisHashTable = this.hashTable;
+            FastByteBuffer otherHashTable = other.hashTable;
+            FastByteBuffer thisHashTable = this.hashTable;
             for (int i = 0; i <= otherHashTable.capacity() - entrySize; i += entrySize) {
                 if (otherHashTable.getInt(i) != -1) {
                     int hashPosition = getHashPosition(otherHashTable, i + Integer.BYTES);
@@ -539,7 +539,7 @@ public class MultiChannelBigintGroupByHashInlineOffHeap
             return hashTable.getLong(hashPosition + Integer.BYTES + index * Long.BYTES);
         }
 
-        private int getHashPosition(OffHeapByteBuffer values, int startPosition)
+        private int getHashPosition(FastByteBuffer values, int startPosition)
         {
             long hash = getHash(values, startPosition);
 
@@ -551,7 +551,7 @@ public class MultiChannelBigintGroupByHashInlineOffHeap
             return getHash(hashTable, startPosition);
         }
 
-        private long getHash(OffHeapByteBuffer values, int startPosition)
+        private long getHash(FastByteBuffer values, int startPosition)
         {
             long result = 1;
             for (int i = startPosition; i <= startPosition + (hashChannelsCount - 1) * Long.BYTES; i += Long.BYTES) {
