@@ -155,6 +155,7 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizers;
+import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -1058,7 +1059,7 @@ public class LocalQueryRunner
 
     public interface PlanOptimizersProvider
     {
-        PlanOptimizers getPlanOptimizers(
+        PlanOptimizersFactory getPlanOptimizers(
                 PlannerContext plannerContext,
                 TypeAnalyzer typeAnalyzer,
                 TaskManagerConfig taskManagerConfig,
