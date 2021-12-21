@@ -307,6 +307,17 @@ public abstract class AbstractTestFailureRecovery
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test(invocationCount = 200)
+    public void testExplainAnalyzeStress()
+    {
+        assertThatQuery("EXPLAIN ANALYZE SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus")
+                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
+                // using boundary stage so we observe task failures
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .finishesSuccessfully();
+    }
+
     @Test(invocationCount = INVOCATION_COUNT)
     public void testRequestTimeouts()
     {

@@ -152,6 +152,22 @@ public abstract class BaseTestHiveFailureRecovery
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test(invocationCount = 500)
+    public void testInsertIntoExistingPartitionBucketedStress()
+    {
+        Optional<Session> session = Optional.empty();
+        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p'], bucketed_by = ARRAY['orderkey'], bucket_count = 4) AS SELECT *, 'partition1' p FROM orders");
+        Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
+
+        assertThatQuery("INSERT INTO <table> SELECT *, 'partition1' p FROM orders")
+                .withSession(session)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                .at(rootStage())
+                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+    }
+
     @Test(invocationCount = INVOCATION_COUNT)
     public void testReplaceExistingPartition()
     {
