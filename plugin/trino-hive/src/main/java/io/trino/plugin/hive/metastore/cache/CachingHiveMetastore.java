@@ -68,6 +68,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -91,6 +92,7 @@ import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig.is
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 
 /**
  * Hive Metastore Cache
@@ -253,6 +255,17 @@ public class CachingHiveMetastore
         tableStatisticsCache.invalidateAll();
         partitionStatisticsCache.invalidateAll();
         rolesCache.invalidateAll();
+    }
+
+    public void flushPartitionCache(String schemaName, String tableName, List<String> partitionColumns, List<String> partitionValues)
+    {
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(partitionColumns, "partitionColumns is null");
+        requireNonNull(partitionValues, "partitionValues is null");
+
+        String providedPartitionName = makePartName(partitionColumns, partitionValues);
+        invalidatePartitionCache(schemaName, tableName, partitionNameToCheck -> partitionNameToCheck.map(value -> value.equals(providedPartitionName)).orElse(false));
     }
 
     private static <K, V> V get(LoadingCache<K, V> cache, K key)
@@ -876,15 +889,25 @@ public class CachingHiveMetastore
 
     private void invalidatePartitionCache(String databaseName, String tableName)
     {
+        invalidatePartitionCache(databaseName, tableName, partitionName -> true);
+    }
+
+    private void invalidatePartitionCache(String databaseName, String tableName, Predicate<Optional<String>> partitionPredicate)
+    {
         HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
+
+        Predicate<WithIdentity<HivePartitionName>> hivePartitionPredicate =
+                partitionName -> partitionName.getKey().getHiveTableName().equals(hiveTableName) &&
+                        partitionPredicate.test(partitionName.getKey().getPartitionName());
+
         partitionCache.asMap().keySet().stream()
-                .filter(partitionName -> partitionName.getKey().getHiveTableName().equals(hiveTableName))
+                .filter(hivePartitionPredicate)
                 .forEach(partitionCache::invalidate);
         partitionFilterCache.asMap().keySet().stream()
                 .filter(partitionFilter -> partitionFilter.getKey().getHiveTableName().equals(hiveTableName))
                 .forEach(partitionFilterCache::invalidate);
         partitionStatisticsCache.asMap().keySet().stream()
-                .filter(partitionFilter -> partitionFilter.getKey().getHiveTableName().equals(hiveTableName))
+                .filter(hivePartitionPredicate)
                 .forEach(partitionStatisticsCache::invalidate);
     }
 

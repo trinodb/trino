@@ -41,6 +41,7 @@ public class HiveMinioDataLake
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
 
     private State state = State.INITIAL;
+    private AmazonS3 s3Client;
 
     public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount)
     {
@@ -76,7 +77,7 @@ public class HiveMinioDataLake
         state = State.STARTING;
         minio.start();
         hiveHadoop.start();
-        AmazonS3 s3Client = AmazonS3ClientBuilder
+        s3Client = AmazonS3ClientBuilder
                 .standard()
                 .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
                         "http://localhost:" + minio.getMinioApiEndpoint().getPort(),
@@ -86,7 +87,14 @@ public class HiveMinioDataLake
                         new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY)))
                 .build();
         s3Client.createBucket(this.bucketName);
+        closer.register(() -> s3Client.shutdown());
         state = State.STARTED;
+    }
+
+    public AmazonS3 getS3Client()
+    {
+        checkState(state == State.STARTED, "Can't provide client when MinIO state is: %s", state);
+        return s3Client;
     }
 
     public void stop()
