@@ -270,6 +270,17 @@ public class TestHiveConnectorTest
     }
 
     @Override
+    public void testUpdateRowConcurrently()
+            throws Exception
+    {
+        // TODO (https://github.com/trinodb/trino/issues/10518) test this with a TestHiveConnectorTest version that creates ACID tables by default, or in some other way
+        assertThatThrownBy(super::testUpdateRowConcurrently)
+                .hasMessage("Unexpected concurrent update failure")
+                .getCause()
+                .hasMessage("Hive update is only supported for ACID transactional tables");
+    }
+
+    @Override
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
         assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
