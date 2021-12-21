@@ -20,13 +20,13 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static io.trino.spi.block.BlockUtil.countUsedPositions;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 
@@ -71,7 +71,7 @@ public class LongArrayBlockBuilder
         hasNonNullValue = true;
         positionCount++;
         if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Byte.BYTES + Long.BYTES);
+            blockBuilderStatus.addBytes(LongArrayBlock.SIZE_IN_BYTES_PER_POSITION);
         }
         return this;
     }
@@ -94,7 +94,7 @@ public class LongArrayBlockBuilder
         hasNullValue = true;
         positionCount++;
         if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Byte.BYTES + Long.BYTES);
+            blockBuilderStatus.addBytes(LongArrayBlock.SIZE_IN_BYTES_PER_POSITION);
         }
         return this;
     }
@@ -139,21 +139,27 @@ public class LongArrayBlockBuilder
     }
 
     @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.of(LongArrayBlock.SIZE_IN_BYTES_PER_POSITION);
+    }
+
+    @Override
     public long getSizeInBytes()
     {
-        return (Long.BYTES + Byte.BYTES) * (long) positionCount;
+        return LongArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
     }
 
     @Override
     public long getRegionSizeInBytes(int position, int length)
     {
-        return (Long.BYTES + Byte.BYTES) * (long) length;
+        return LongArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) length;
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
     {
-        return (Long.BYTES + Byte.BYTES) * (long) countUsedPositions(positions);
+        return LongArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) selectedPositionsCount;
     }
 
     @Override

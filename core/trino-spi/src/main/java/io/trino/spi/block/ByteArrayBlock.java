@@ -20,18 +20,19 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
-import static io.trino.spi.block.BlockUtil.countUsedPositions;
 
 public class ByteArrayBlock
         implements Block
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ByteArrayBlock.class).instanceSize();
+    public static final int SIZE_IN_BYTES_PER_POSITION = Byte.BYTES + Byte.BYTES;
 
     private final int arrayOffset;
     private final int positionCount;
@@ -79,21 +80,21 @@ public class ByteArrayBlock
     }
 
     @Override
-    public long getRegionSizeInBytes(int position, int length)
+    public OptionalInt fixedSizeInBytesPerPosition()
     {
-        return (Byte.BYTES + Byte.BYTES) * (long) length;
+        return OptionalInt.of(SIZE_IN_BYTES_PER_POSITION);
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public long getRegionSizeInBytes(int position, int length)
     {
-        return getPositionsSizeInBytes(positions, countUsedPositions(positions));
+        return SIZE_IN_BYTES_PER_POSITION * (long) length;
     }
 
     @Override
     public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
     {
-        return (long) (Byte.BYTES + Byte.BYTES) * selectedPositionsCount;
+        return (long) SIZE_IN_BYTES_PER_POSITION * selectedPositionsCount;
     }
 
     @Override
