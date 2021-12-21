@@ -34,7 +34,6 @@ import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.TestGroups.TRINO_JDBC;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSyncPartitionMetadata
@@ -60,7 +59,7 @@ public class TestSyncPartitionMetadata
         query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD')");
         assertPartitions(tableName, row("a", "1"), row("b", "2"), row("f", "9"));
         assertQueryFailure(() -> query("SELECT payload, col_x, col_y FROM " + tableName + " ORDER BY 1, 2, 3 ASC"))
-                .hasMessageContaining(format("Partition location does not exist: hdfs://hadoop-master:9000%s/%s/col_x=b/col_y=2", warehouseDirectory, tableName));
+                .hasMessageContaining("Partition location does not exist: hdfs://hadoop-master:9000%s/%s/col_x=b/col_y=2", warehouseDirectory, tableName);
         cleanup(tableName);
     }
 
@@ -133,7 +132,7 @@ public class TestSyncPartitionMetadata
         hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation(tableName) + "/COL_X=a/cOl_y=1", dataSource);
 
         assertThatThrownBy(() -> query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD', false)"))
-                .hasMessageContaining(format("One or more partitions already exist for table 'default.%s'", tableName));
+                .hasMessageContaining("One or more partitions already exist for table 'default.%s'", tableName);
         assertPartitions(tableName, row("a", "1"), row("b", "2"));
     }
 
