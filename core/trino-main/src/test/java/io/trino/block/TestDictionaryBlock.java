@@ -252,12 +252,12 @@ public class TestDictionaryBlock
 
         assertEquals(
                 dictionary.getSizeInBytes(),
-                valuesBlock.getPositionsSizeInBytes(new boolean[] {true, false, true, false, false, false}) + 4 * Integer.BYTES);
+                valuesBlock.getPositionsSizeInBytes(new boolean[] {true, false, true, false, false, false}, 2) + 4 * Integer.BYTES);
         assertFalse(dictionary.isCompact());
 
         assertEquals(
                 dictionaryWithAllPositionsUsed.getSizeInBytes(),
-                valuesBlock.getPositionsSizeInBytes(new boolean[] {true, true, true, false, true, true}) + 6 * Integer.BYTES);
+                valuesBlock.getPositionsSizeInBytes(new boolean[] {true, true, true, false, true, true}, 5) + 6 * Integer.BYTES);
         // dictionary is not compact (even though all positions were used) because it's unnested
         assertFalse(dictionaryWithAllPositionsUsed.isCompact());
 

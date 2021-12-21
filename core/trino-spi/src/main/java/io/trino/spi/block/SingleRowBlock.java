@@ -16,6 +16,7 @@ package io.trino.spi.block;
 
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static io.trino.spi.block.BlockUtil.ensureBlocksAreLoaded;
@@ -56,6 +57,12 @@ public class SingleRowBlock
     public int getPositionCount()
     {
         return fieldBlocks.length;
+    }
+
+    @Override
+    public OptionalInt fixedSizeInBytesPerPosition()
+    {
+        return OptionalInt.empty();
     }
 
     @Override

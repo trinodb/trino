@@ -221,11 +221,11 @@ public abstract class AbstractTestBlock
 
         boolean[] positions = new boolean[block.getPositionCount()];
         fill(positions, 0, firstHalf.getPositionCount(), true);
-        assertEquals(block.getPositionsSizeInBytes(positions), expectedFirstHalfSize);
+        assertEquals(block.getPositionsSizeInBytes(positions, firstHalf.getPositionCount()), expectedFirstHalfSize);
         fill(positions, true);
-        assertEquals(block.getPositionsSizeInBytes(positions), expectedBlockSize);
+        assertEquals(block.getPositionsSizeInBytes(positions, positions.length), expectedBlockSize);
         fill(positions, 0, firstHalf.getPositionCount(), false);
-        assertEquals(block.getPositionsSizeInBytes(positions), expectedSecondHalfSize);
+        assertEquals(block.getPositionsSizeInBytes(positions, positions.length - firstHalf.getPositionCount()), expectedSecondHalfSize);
     }
 
     // expectedValueType is required since otherwise the expected value type is unknown when expectedValue is null.
