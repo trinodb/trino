@@ -183,6 +183,9 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery(format("CREATE VIEW %s.%s AS SELECT * FROM %s.%s", schemaX, viewName, schemaY, tableName));
 
         assertThat(onTrino().executeQuery(format("SELECT COUNT(*) FROM %s.%s", schemaX, viewName))).containsOnly(row(25));
+
+        onHive().executeQuery(format("DROP SCHEMA %s CASCADE", schemaX));
+        onHive().executeQuery(format("DROP SCHEMA %s CASCADE", schemaY));
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -199,6 +202,8 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery(format("CREATE VIEW %s AS SELECT * FROM %s", viewName, tableName));
 
         assertThat(onTrino().executeQuery(format("SELECT COUNT(*) FROM %s.%s", schemaX, viewName))).containsOnly(row(25));
+
+        onHive().executeQuery(format("DROP SCHEMA %s CASCADE", schemaX));
     }
 
     @Test(groups = HIVE_VIEWS)
