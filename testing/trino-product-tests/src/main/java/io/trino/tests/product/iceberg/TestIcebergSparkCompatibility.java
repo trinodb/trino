@@ -762,8 +762,8 @@ public class TestIcebergSparkCompatibility
             "with€euro",
             "with non-ascii ąęłóść Θ Φ Δ",
             "with👨‍🏭combining character",
-            " 👨‍🏭",
-            "👨‍🏭 ");
+            "👨‍🏭 ",
+            " 👨‍🏭");
 
     private static final String TRINO_INSERTED_PARTITION_VALUES =
             Streams.mapWithIndex(SPECIAL_CHARACTER_VALUES.stream(), ((value, index) -> format("(%d, '%s')", index, escapeTrinoString(value))))
