@@ -44,7 +44,6 @@ import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.cr
 import static io.trino.plugin.raptor.legacy.storage.RaptorStorageManager.xxhash64;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.io.File.createTempFile;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
@@ -225,7 +224,7 @@ public class TestShardRecovery
         // restore should fail
         assertTrinoExceptionThrownBy(() -> recoveryManager.restoreFromBackup(shardUuid, size, OptionalLong.of(xxhash64)))
                 .hasErrorCode(RAPTOR_BACKUP_CORRUPTION)
-                .hasMessage(format("Backup is corrupt after read: %s", shardUuid));
+                .hasMessage("Backup is corrupt after read: %s", shardUuid);
 
         // verify quarantine exists
         List<String> quarantined = listFiles(storageService.getQuarantineFile(shardUuid).getParentFile());
