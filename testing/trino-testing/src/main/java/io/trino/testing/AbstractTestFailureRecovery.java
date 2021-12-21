@@ -206,7 +206,7 @@ public abstract class AbstractTestFailureRecovery
                 .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                 // using boundary stage so we observe task failures
                 .at(boundaryDistributedStage())
-                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer.*3 failures"))
                 .finishesSuccessfully();
     }
 
@@ -363,7 +363,8 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(boundaryCoordinatorStage())
-                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+                // original exception message is lost sometimes
+                .failsAlways(failure -> failure.hasMessageFindingMatch("\\Q" + FAILURE_INJECTION_MESSAGE + "\\E|Remote task failed.*"));
 
         assertThatQuery(query)
                 .withSession(session)
