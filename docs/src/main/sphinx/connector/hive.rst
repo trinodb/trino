@@ -965,7 +965,12 @@ Procedures
 
 * ``system.flush_metadata_cache()``
 
-  Flush Hive metadata caches.
+  Flush all Hive metadata caches.
+
+* ``system.flush_metadata_cache(schema_name => ..., table_name => ..., partition_columns => ARRAY[...], partition_values => ARRAY[...])``
+
+  Flush Hive metadata cache entries connected with selected partition.
+  Procedure requires named parameters to be passed
 
 Special columns
 ---------------
