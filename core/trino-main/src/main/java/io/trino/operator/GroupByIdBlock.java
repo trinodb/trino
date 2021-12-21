@@ -19,6 +19,7 @@ import io.trino.spi.block.BlockBuilder;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.function.BiConsumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -64,9 +65,15 @@ public class GroupByIdBlock
     }
 
     @Override
-    public long getPositionsSizeInBytes(boolean[] positions)
+    public OptionalInt fixedSizeInBytesPerPosition()
     {
-        return block.getPositionsSizeInBytes(positions);
+        return block.fixedSizeInBytesPerPosition();
+    }
+
+    @Override
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionCount)
+    {
+        return block.getPositionsSizeInBytes(positions, selectedPositionCount);
     }
 
     @Override
