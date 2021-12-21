@@ -17,7 +17,6 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
@@ -366,7 +365,7 @@ public class RcFileTester
             throws Exception
     {
         // json does not support null keys, so we just write the first value
-        Object nullKeyWrite = Iterables.getFirst(writeValues, null);
+        Object nullKeyWrite = stream(writeValues).findFirst().orElse(null);
 
         // values in simple map and mix in some null values
         testRoundTripType(

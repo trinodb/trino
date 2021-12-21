@@ -38,7 +38,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
@@ -245,7 +244,7 @@ public class DriverContext
 
     public CounterStat getInputDataSize()
     {
-        OperatorContext inputOperator = getFirst(operatorContexts, null);
+        OperatorContext inputOperator = operatorContexts.stream().findFirst().orElse(null);
         if (inputOperator != null) {
             return inputOperator.getInputDataSize();
         }
@@ -256,7 +255,7 @@ public class DriverContext
 
     public CounterStat getInputPositions()
     {
-        OperatorContext inputOperator = getFirst(operatorContexts, null);
+        OperatorContext inputOperator = operatorContexts.stream().findFirst().orElse(null);
         if (inputOperator != null) {
             return inputOperator.getInputPositions();
         }
@@ -333,7 +332,7 @@ public class DriverContext
         Duration elapsedTime = new Duration(nanosBetween(createNanos, executionEndTime == null ? System.nanoTime() : endNanos.get()), NANOSECONDS);
 
         List<OperatorStats> operators = getOperatorStats();
-        OperatorStats inputOperator = getFirst(operators, null);
+        OperatorStats inputOperator = operators.stream().findFirst().orElse(null);
 
         DataSize physicalInputDataSize;
         long physicalInputPositions;

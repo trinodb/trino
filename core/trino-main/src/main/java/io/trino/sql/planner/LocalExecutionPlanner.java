@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
@@ -2131,7 +2130,7 @@ public class LocalExecutionPlanner
                 if (potentialProbeInputs.size() > 1) {
                     overlappingFieldSetsBuilder.add(potentialProbeInputs.stream().collect(toImmutableSet()));
                 }
-                remappedProbeKeyChannelsBuilder.add(Iterables.getFirst(potentialProbeInputs, null));
+                remappedProbeKeyChannelsBuilder.add(potentialProbeInputs.stream().findFirst().orElse(null));
             }
             List<Set<Integer>> overlappingFieldSets = overlappingFieldSetsBuilder.build();
             List<Integer> remappedProbeKeyChannels = remappedProbeKeyChannelsBuilder.build();

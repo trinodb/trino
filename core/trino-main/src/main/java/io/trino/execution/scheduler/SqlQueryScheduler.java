@@ -101,7 +101,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
@@ -889,7 +888,7 @@ public class SqlQueryScheduler
                 });
             }
 
-            Optional<PipelinedStageExecution> root = Optional.ofNullable(getFirst(stageExecutions, null));
+            Optional<PipelinedStageExecution> root = stageExecutions.stream().findFirst();
             root.ifPresent(stageExecution -> stageExecution.addStateChangeListener(state -> {
                 if (state == FINISHED) {
                     queryStateMachine.transitionToFinishing();
