@@ -57,6 +57,10 @@
                     <groupId>com.google.guava</groupId>
                     <artifactId>guava-jdk5</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>commons-codec</groupId>
+                    <artifactId>commons-codec</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
