@@ -54,6 +54,14 @@ jobs:
           - ":trino-hive -P test-failure-recovery"
           - ":trino-hive -P test-failure-recovery"
           - ":trino-hive -P test-failure-recovery"
+          - ":trino-hive -P test-failure-recovery"
+          - ":trino-hive -P test-failure-recovery"
+          - ":trino-hive -P test-failure-recovery"
+          - ":trino-hive -P test-failure-recovery"
+          - ":trino-hive -P test-failure-recovery"
+          - ":trino-hive -P test-failure-recovery"
+          - ":trino-hive -P test-failure-recovery"
+          - ":trino-hive -P test-failure-recovery"
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
