@@ -26,7 +26,6 @@ import org.testng.annotations.Test;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -324,19 +323,19 @@ public class TestDictionaryBlock
         for (int position : ImmutableList.of(-1, 6)) {
             assertThatThrownBy(() -> finalDictionaryBlock.getPositions(new int[] {position}, 0, 1))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage(format("Invalid position %d in block with %d positions", position, finalDictionaryBlock.getPositionCount()));
+                    .hasMessage("Invalid position %d in block with %d positions", position, finalDictionaryBlock.getPositionCount());
         }
 
         for (int offset : ImmutableList.of(-1, 6)) {
             assertThatThrownBy(() -> finalDictionaryBlock.getPositions(new int[] {0}, offset, 1))
                     .isInstanceOf(IndexOutOfBoundsException.class)
-                    .hasMessage(format("Invalid offset %d and length 1 in array with 1 elements", offset));
+                    .hasMessage("Invalid offset %d and length 1 in array with 1 elements", offset);
         }
 
         for (int length : ImmutableList.of(-1, 6)) {
             assertThatThrownBy(() -> finalDictionaryBlock.getPositions(new int[] {0}, 0, length))
                     .isInstanceOf(IndexOutOfBoundsException.class)
-                    .hasMessage(format("Invalid offset 0 and length %d in array with 1 elements", length));
+                    .hasMessage("Invalid offset 0 and length %d in array with 1 elements", length);
         }
     }
 
