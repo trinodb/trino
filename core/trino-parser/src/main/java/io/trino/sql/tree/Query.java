@@ -86,6 +86,17 @@ public class Query
         return queryBody;
     }
 
+    public Query ofQueryBody(QueryBody queryBody)
+    {
+        return new Query(
+            super.getLocation(),
+            this.with,
+            queryBody,
+            this.orderBy,
+            this.offset,
+            this.limit);
+    }
+
     public Optional<OrderBy> getOrderBy()
     {
         return orderBy;
