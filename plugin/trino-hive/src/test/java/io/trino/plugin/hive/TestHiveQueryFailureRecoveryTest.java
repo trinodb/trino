@@ -23,6 +23,7 @@ import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -70,6 +71,14 @@ public class TestHiveQueryFailureRecoveryTest
                         .put("hive.s3.streaming.enabled", "false")
                         .buildOrThrow())
                 .build();
+    }
+
+    @Test(invocationCount = 20)
+    public void testAbc()
+    {
+        String name = "testAbc_" + randomTableSuffix();
+        query("CREATE TABLE " + name + " WITH (partitioned_by = ARRAY['p']) AS SELECT *, 'partition1' p FROM orders");
+        query("DROP TABLE " + name);
     }
 
     @AfterClass(alwaysRun = true)

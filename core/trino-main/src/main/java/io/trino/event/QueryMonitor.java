@@ -132,6 +132,7 @@ public class QueryMonitor
 
     public void queryCreatedEvent(BasicQueryInfo queryInfo)
     {
+        log.info("XXXXXXXX query created id="  + queryInfo.getQueryId() + "; query=" + queryInfo.getQuery());
         eventListenerManager.queryCreated(
                 new QueryCreatedEvent(
                         queryInfo.getQueryStats().getCreateTime().toDate().toInstant(),
@@ -537,7 +538,8 @@ public class QueryMonitor
                     running,
                     finishing,
                     queryStartTime,
-                    queryEndTime);
+                    queryEndTime,
+                    queryInfo.getQuery());
         }
         catch (Exception e) {
             log.error(e, "Error logging query timeline");
@@ -566,7 +568,8 @@ public class QueryMonitor
                 0,
                 0,
                 queryStartTime,
-                queryEndTime);
+                queryEndTime,
+                queryInfo.getQuery());
     }
 
     private static void logQueryTimeline(
@@ -579,9 +582,10 @@ public class QueryMonitor
             long runningMillis,
             long finishingMillis,
             DateTime queryStartTime,
-            DateTime queryEndTime)
+            DateTime queryEndTime,
+            String query)
     {
-        log.info("TIMELINE: Query %s :: Transaction:[%s] :: elapsed %sms :: planning %sms :: waiting %sms :: scheduling %sms :: running %sms :: finishing %sms :: begin %s :: end %s",
+        log.info("TIMELINE: Query %s :: Transaction:[%s] :: elapsed %sms :: planning %sms :: waiting %sms :: scheduling %sms :: running %sms :: finishing %sms :: begin %s :: end %s; query=%s",
                 queryId,
                 transactionId,
                 elapsedMillis,
@@ -591,7 +595,8 @@ public class QueryMonitor
                 runningMillis,
                 finishingMillis,
                 queryStartTime,
-                queryEndTime);
+                queryEndTime,
+                query);
     }
 
     private static List<StageCpuDistribution> getCpuDistributions(QueryInfo queryInfo)

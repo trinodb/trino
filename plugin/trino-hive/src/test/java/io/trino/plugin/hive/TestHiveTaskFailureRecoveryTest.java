@@ -29,7 +29,6 @@ import java.util.Map;
 
 import static io.trino.plugin.exchange.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveTaskFailureRecoveryTest
         extends BaseHiveFailureRecoveryTest
@@ -75,13 +74,6 @@ public class TestHiveTaskFailureRecoveryTest
                         .put("hive.s3.streaming.enabled", "false")
                         .buildOrThrow())
                 .build();
-    }
-
-    @Override
-    public void testJoinDynamicFilteringEnabled()
-    {
-        assertThatThrownBy(super::testJoinDynamicFilteringEnabled)
-                .hasMessageContaining("Dynamic filtering is not supported with automatic task retries enabled");
     }
 
     @AfterClass(alwaysRun = true)
