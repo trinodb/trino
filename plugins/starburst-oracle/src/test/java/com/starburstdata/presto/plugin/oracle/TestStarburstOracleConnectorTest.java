@@ -68,11 +68,6 @@ public class TestStarburstOracleConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return true;
 
-            case SUPPORTS_CREATE_SCHEMA:
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
-                // TODO drop after merging on top of https://github.com/trinodb/trino/pull/7361
-                return false;
-
             default:
                 return super.hasBehavior(connectorBehavior);
         }
