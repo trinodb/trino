@@ -20,6 +20,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.plugin.exchange.FileSystemExchangePlugin;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -90,6 +91,7 @@ public final class HiveQueryRunner
     {
         private boolean skipTimezoneSetup;
         private ImmutableMap.Builder<String, String> hiveProperties = ImmutableMap.builder();
+        private Map<String, String> exchangeManagerProperties = ImmutableMap.of();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
         private Optional<String> initialSchemasLocationBase = Optional.empty();
         private Function<DistributedQueryRunner, HiveMetastore> metastore = queryRunner -> {
@@ -125,6 +127,12 @@ public final class HiveQueryRunner
         public SELF addHiveProperty(String key, String value)
         {
             this.hiveProperties.put(key, value);
+            return self();
+        }
+
+        public SELF setExchangeManagerProperties(Map<String, String> exchangeManagerProperties)
+        {
+            this.exchangeManagerProperties = ImmutableMap.copyOf(requireNonNull(exchangeManagerProperties, "exchangeManagerProperties is null"));
             return self();
         }
 
@@ -166,6 +174,11 @@ public final class HiveQueryRunner
 
                 HiveMetastore metastore = this.metastore.apply(queryRunner);
                 queryRunner.installPlugin(new TestingHivePlugin(metastore, module));
+
+                if (!exchangeManagerProperties.isEmpty()) {
+                    queryRunner.installPlugin(new FileSystemExchangePlugin());
+                    queryRunner.loadExchangeManager("filesystem", exchangeManagerProperties);
+                }
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {

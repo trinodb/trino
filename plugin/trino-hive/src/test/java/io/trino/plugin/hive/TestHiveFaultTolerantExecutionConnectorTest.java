@@ -20,7 +20,7 @@ public class TestHiveFaultTolerantExecutionConnectorTest
 {
     public TestHiveFaultTolerantExecutionConnectorTest()
     {
-        super(BaseFaultTolerantExecutionConnectorTest.getExtraProperties());
+        super(BaseFaultTolerantExecutionConnectorTest.getExtraProperties(), BaseFaultTolerantExecutionConnectorTest.getExchangeManagerProperties());
     }
 
     @Override

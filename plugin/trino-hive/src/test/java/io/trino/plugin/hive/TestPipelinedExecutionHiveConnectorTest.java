@@ -20,6 +20,6 @@ public class TestPipelinedExecutionHiveConnectorTest
 {
     public TestPipelinedExecutionHiveConnectorTest()
     {
-        super(ImmutableMap.of());
+        super(ImmutableMap.of(), ImmutableMap.of());
     }
 }

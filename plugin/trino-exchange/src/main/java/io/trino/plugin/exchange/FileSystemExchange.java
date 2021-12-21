@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.testing.exchange;
+package io.trino.plugin.exchange;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -26,11 +26,12 @@ import io.trino.spi.exchange.ExchangeSourceSplitter;
 import io.trino.spi.exchange.ExchangeSourceStatistics;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.crypto.SecretKey;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.net.URI;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -44,26 +45,27 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.server.testing.exchange.LocalFileSystemExchangeSink.COMMITTED_MARKER_FILE_NAME;
-import static io.trino.server.testing.exchange.LocalFileSystemExchangeSink.DATA_FILE_SUFFIX;
-import static java.nio.file.Files.createDirectories;
+import static io.trino.plugin.exchange.FileSystemExchangeManager.PATH_SEPARATOR;
+import static io.trino.plugin.exchange.FileSystemExchangeSink.COMMITTED_MARKER_FILE_NAME;
+import static io.trino.plugin.exchange.FileSystemExchangeSink.DATA_FILE_SUFFIX;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class LocalFileSystemExchange
+public class FileSystemExchange
         implements Exchange
 {
     private static final Pattern PARTITION_FILE_NAME_PATTERN = Pattern.compile("(\\d+)\\.data");
 
-    private final Path baseDirectory;
+    private final URI baseDirectory;
+    private final FileSystemExchangeStorage exchangeStorage;
     private final ExchangeContext exchangeContext;
     private final int outputPartitionCount;
+    private final Optional<SecretKey> secretKey;
 
     @GuardedBy("this")
-    private final Set<LocalFileSystemExchangeSinkHandle> allSinks = new HashSet<>();
+    private final Set<Integer> allPartitions = new HashSet<>();
     @GuardedBy("this")
-    private final Set<LocalFileSystemExchangeSinkHandle> finishedSinks = new HashSet<>();
+    private final Set<Integer> finishedPartitions = new HashSet<>();
     @GuardedBy("this")
     private boolean noMoreSinks;
 
@@ -71,17 +73,19 @@ public class LocalFileSystemExchange
     @GuardedBy("this")
     private boolean exchangeSourceHandlesCreated;
 
-    public LocalFileSystemExchange(Path baseDirectory, ExchangeContext exchangeContext, int outputPartitionCount)
+    public FileSystemExchange(URI baseDirectory, FileSystemExchangeStorage exchangeStorage, ExchangeContext exchangeContext, int outputPartitionCount, Optional<SecretKey> secretKey)
     {
         this.baseDirectory = requireNonNull(baseDirectory, "baseDirectory is null");
+        this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
         this.exchangeContext = requireNonNull(exchangeContext, "exchangeContext is null");
         this.outputPartitionCount = outputPartitionCount;
+        this.secretKey = requireNonNull(secretKey, "secretKey is null");
     }
 
     public void initialize()
     {
         try {
-            createDirectories(getExchangeDirectory());
+            exchangeStorage.createDirectories(getExchangeDirectory());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -89,13 +93,10 @@ public class LocalFileSystemExchange
     }
 
     @Override
-    public synchronized ExchangeSinkHandle addSink(int taskPartitionId)
+    public synchronized ExchangeSinkHandle addSink(int partitionId)
     {
-        LocalFileSystemExchangeSinkHandle sinkHandle = new LocalFileSystemExchangeSinkHandle(
-                exchangeContext.getQueryId(),
-                exchangeContext.getStageId(),
-                taskPartitionId);
-        allSinks.add(sinkHandle);
+        FileSystemExchangeSinkHandle sinkHandle = new FileSystemExchangeSinkHandle(partitionId, secretKey);
+        allPartitions.add(partitionId);
         return sinkHandle;
     }
 
@@ -111,19 +112,26 @@ public class LocalFileSystemExchange
     @Override
     public ExchangeSinkInstanceHandle instantiateSink(ExchangeSinkHandle sinkHandle, int taskAttemptId)
     {
-        LocalFileSystemExchangeSinkHandle localFileSystemSinkHandle = (LocalFileSystemExchangeSinkHandle) sinkHandle;
-        Path outputDirectory = getExchangeDirectory()
-                .resolve(Integer.toString(localFileSystemSinkHandle.getTaskPartitionId()))
-                .resolve(Integer.toString(taskAttemptId));
-        return new LocalFileSystemExchangeSinkInstanceHandle(localFileSystemSinkHandle, outputDirectory, outputPartitionCount);
+        FileSystemExchangeSinkHandle fileSystemExchangeSinkHandle = (FileSystemExchangeSinkHandle) sinkHandle;
+        URI outputDirectory = getExchangeDirectory()
+                .resolve(fileSystemExchangeSinkHandle.getPartitionId() + PATH_SEPARATOR)
+                .resolve(taskAttemptId + PATH_SEPARATOR);
+        try {
+            exchangeStorage.createDirectories(outputDirectory);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        return new FileSystemExchangeSinkInstanceHandle(fileSystemExchangeSinkHandle, outputDirectory, outputPartitionCount);
     }
 
     @Override
     public void sinkFinished(ExchangeSinkInstanceHandle handle)
     {
         synchronized (this) {
-            LocalFileSystemExchangeSinkInstanceHandle localHandle = (LocalFileSystemExchangeSinkInstanceHandle) handle;
-            finishedSinks.add(localHandle.getSinkHandle());
+            FileSystemExchangeSinkInstanceHandle instanceHandle = (FileSystemExchangeSinkInstanceHandle) handle;
+            finishedPartitions.add(instanceHandle.getSinkHandle().getPartitionId());
         }
         checkInputReady();
     }
@@ -136,7 +144,7 @@ public class LocalFileSystemExchange
             if (exchangeSourceHandlesCreated) {
                 return;
             }
-            if (noMoreSinks && finishedSinks.containsAll(allSinks)) {
+            if (noMoreSinks && finishedPartitions.containsAll(allPartitions)) {
                 // input is ready, create exchange source handles
                 exchangeSourceHandles = createExchangeSourceHandles();
                 exchangeSourceHandlesCreated = true;
@@ -149,57 +157,58 @@ public class LocalFileSystemExchange
 
     private synchronized List<ExchangeSourceHandle> createExchangeSourceHandles()
     {
-        Multimap<Integer, Path> partitionFilesMap = ArrayListMultimap.create();
-        for (LocalFileSystemExchangeSinkHandle sinkHandle : finishedSinks) {
-            Path committedAttemptPath = getCommittedAttemptPath(sinkHandle);
-            Map<Integer, Path> partitions = getCommittedPartitions(committedAttemptPath);
+        Multimap<Integer, URI> partitionFilesMap = ArrayListMultimap.create();
+        for (Integer partitionId : finishedPartitions) {
+            URI committedAttemptPath = getCommittedAttemptPath(partitionId);
+            Map<Integer, URI> partitions = getCommittedPartitions(committedAttemptPath);
             partitions.forEach(partitionFilesMap::put);
         }
 
         ImmutableList.Builder<ExchangeSourceHandle> result = ImmutableList.builder();
         for (Integer partitionId : partitionFilesMap.keySet()) {
-            result.add(new LocalFileSystemExchangeSourceHandle(partitionId, ImmutableList.copyOf(partitionFilesMap.get(partitionId))));
+            result.add(new FileSystemExchangeSourceHandle(partitionId, ImmutableList.copyOf(partitionFilesMap.get(partitionId)), secretKey));
         }
         return result.build();
     }
 
-    private Path getCommittedAttemptPath(LocalFileSystemExchangeSinkHandle sinkHandle)
+    private URI getCommittedAttemptPath(int partitionId)
     {
-        Path sinkOutputBasePath = getExchangeDirectory()
-                .resolve(Integer.toString(sinkHandle.getTaskPartitionId()));
+        URI sinkOutputBasePath = getExchangeDirectory()
+                .resolve(partitionId + PATH_SEPARATOR);
         try {
-            List<Path> attemptPaths = Files.list(sinkOutputBasePath)
-                    .filter(Files::isDirectory)
-                    .collect(toImmutableList());
-            checkState(!attemptPaths.isEmpty(), "no attempts found for sink %s", sinkHandle);
+            List<URI> attemptPaths = exchangeStorage.listDirectories(sinkOutputBasePath).collect(toImmutableList());
+            checkState(!attemptPaths.isEmpty(), "no attempts found under sink output path %s", sinkOutputBasePath);
 
-            List<Path> committedAttemptPaths = attemptPaths.stream()
-                    .filter(LocalFileSystemExchange::isCommitted)
-                    .collect(toImmutableList());
-            checkState(!committedAttemptPaths.isEmpty(), "no committed attempts found for %s", sinkHandle);
-
-            return committedAttemptPaths.get(0);
+            return attemptPaths.stream()
+                    .filter(this::isCommitted)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException(format("no committed attempts found under sink output path %s", sinkOutputBasePath)));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
-    private static boolean isCommitted(Path attemptPath)
+    private boolean isCommitted(URI attemptPath)
     {
-        Path commitMarkerFilePath = attemptPath.resolve(COMMITTED_MARKER_FILE_NAME);
-        return Files.exists(commitMarkerFilePath);
+        URI commitMarkerFilePath = attemptPath.resolve(COMMITTED_MARKER_FILE_NAME);
+        try {
+            return exchangeStorage.exists(commitMarkerFilePath);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
-    private static Map<Integer, Path> getCommittedPartitions(Path committedAttemptPath)
+    private Map<Integer, URI> getCommittedPartitions(URI committedAttemptPath)
     {
         try {
-            List<Path> partitionFiles = Files.list(committedAttemptPath)
-                    .filter(path -> path.toString().endsWith(DATA_FILE_SUFFIX))
+            List<URI> partitionFiles = exchangeStorage.listFiles(committedAttemptPath)
+                    .filter(file -> file.getPath().endsWith(DATA_FILE_SUFFIX))
                     .collect(toImmutableList());
-            ImmutableMap.Builder<Integer, Path> result = ImmutableMap.builder();
-            for (Path partitionFile : partitionFiles) {
-                Matcher matcher = PARTITION_FILE_NAME_PATTERN.matcher(partitionFile.getFileName().toString());
+            ImmutableMap.Builder<Integer, URI> result = ImmutableMap.builder();
+            for (URI partitionFile : partitionFiles) {
+                Matcher matcher = PARTITION_FILE_NAME_PATTERN.matcher(new File(partitionFile.getPath()).getName());
                 checkState(matcher.matches(), "unexpected partition file: %s", partitionFile);
                 int partitionId = Integer.parseInt(matcher.group(1));
                 result.put(partitionId, partitionFile);
@@ -211,9 +220,9 @@ public class LocalFileSystemExchange
         }
     }
 
-    private Path getExchangeDirectory()
+    private URI getExchangeDirectory()
     {
-        return baseDirectory.resolve(exchangeContext.getQueryId() + "." + exchangeContext.getStageId());
+        return baseDirectory.resolve(exchangeContext.getQueryId() + "." + exchangeContext.getStageId() + PATH_SEPARATOR);
     }
 
     @Override
@@ -225,9 +234,8 @@ public class LocalFileSystemExchange
     @Override
     public ExchangeSourceSplitter split(ExchangeSourceHandle handle, long targetSizeInBytes)
     {
-        // always split for testing
-        LocalFileSystemExchangeSourceHandle localHandle = (LocalFileSystemExchangeSourceHandle) handle;
-        Iterator<Path> filesIterator = localHandle.getFiles().iterator();
+        FileSystemExchangeSourceHandle sourceHandle = (FileSystemExchangeSourceHandle) handle;
+        Iterator<URI> filesIterator = sourceHandle.getFiles().iterator();
         return new ExchangeSourceSplitter()
         {
             @Override
@@ -240,7 +248,7 @@ public class LocalFileSystemExchange
             public Optional<ExchangeSourceHandle> getNext()
             {
                 if (filesIterator.hasNext()) {
-                    return Optional.of(new LocalFileSystemExchangeSourceHandle(localHandle.getPartitionId(), ImmutableList.of(filesIterator.next())));
+                    return Optional.of(new FileSystemExchangeSourceHandle(sourceHandle.getPartitionId(), ImmutableList.of(filesIterator.next()), secretKey));
                 }
                 return Optional.empty();
             }
@@ -255,11 +263,11 @@ public class LocalFileSystemExchange
     @Override
     public ExchangeSourceStatistics getExchangeSourceStatistics(ExchangeSourceHandle handle)
     {
-        LocalFileSystemExchangeSourceHandle localHandle = (LocalFileSystemExchangeSourceHandle) handle;
+        FileSystemExchangeSourceHandle sourceHandle = (FileSystemExchangeSourceHandle) handle;
         long sizeInBytes = 0;
-        for (Path file : localHandle.getFiles()) {
+        for (URI file : sourceHandle.getFiles()) {
             try {
-                sizeInBytes += Files.size(file);
+                sizeInBytes += exchangeStorage.size(file, secretKey);
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -272,7 +280,7 @@ public class LocalFileSystemExchange
     public void close()
     {
         try {
-            deleteRecursively(getExchangeDirectory(), ALLOW_INSECURE);
+            exchangeStorage.deleteRecursively(getExchangeDirectory());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

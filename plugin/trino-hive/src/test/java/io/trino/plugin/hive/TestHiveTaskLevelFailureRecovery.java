@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
 
 public class TestHiveTaskLevelFailureRecovery
@@ -20,6 +21,8 @@ public class TestHiveTaskLevelFailureRecovery
 {
     protected TestHiveTaskLevelFailureRecovery()
     {
-        super(RetryPolicy.TASK);
+        super(RetryPolicy.TASK, ImmutableMap.of(
+                "exchange.base-directory", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager",
+                "exchange.encryption-enabled", "true"));
     }
 }

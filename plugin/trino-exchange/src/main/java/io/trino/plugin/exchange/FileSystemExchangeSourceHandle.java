@@ -11,29 +11,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.testing.exchange;
+package io.trino.plugin.exchange;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 
-import java.nio.file.Path;
+import javax.crypto.SecretKey;
+
+import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class LocalFileSystemExchangeSourceHandle
+public class FileSystemExchangeSourceHandle
         implements ExchangeSourceHandle
 {
     private final int partitionId;
-    private final List<Path> files;
+    private final List<URI> files;
+    private final Optional<SecretKey> secretKey;
 
     @JsonCreator
-    public LocalFileSystemExchangeSourceHandle(@JsonProperty("partitionId") int partitionId, @JsonProperty("files") List<Path> files)
+    public FileSystemExchangeSourceHandle(
+            @JsonProperty("partitionId") int partitionId,
+            @JsonProperty("files") List<URI> files,
+            @JsonProperty("secretKey") Optional<SecretKey> secretKey)
     {
         this.partitionId = partitionId;
         this.files = ImmutableList.copyOf(requireNonNull(files, "files is null"));
+        this.secretKey = requireNonNull(secretKey, "secretKey is null");
     }
 
     @Override
@@ -44,8 +54,16 @@ public class LocalFileSystemExchangeSourceHandle
     }
 
     @JsonProperty
-    public List<Path> getFiles()
+    public List<URI> getFiles()
     {
         return files;
+    }
+
+    @JsonProperty
+    @JsonSerialize(contentUsing = SecretKeySerializer.class)
+    @JsonDeserialize(contentUsing = SecretKeyDeserializer.class)
+    public Optional<SecretKey> getSecretKey()
+    {
+        return secretKey;
     }
 }

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
 
 public class TestHiveQueryLevelFailureRecovery
@@ -20,6 +21,6 @@ public class TestHiveQueryLevelFailureRecovery
 {
     protected TestHiveQueryLevelFailureRecovery()
     {
-        super(RetryPolicy.QUERY);
+        super(RetryPolicy.QUERY, ImmutableMap.of());
     }
 }

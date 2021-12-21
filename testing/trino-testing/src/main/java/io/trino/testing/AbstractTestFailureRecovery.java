@@ -66,10 +66,12 @@ public abstract class AbstractTestFailureRecovery
     private static final Duration REQUEST_TIMEOUT = new Duration(10, SECONDS);
 
     private final RetryPolicy retryPolicy;
+    private final Map<String, String> exchangeManagerProperties;
 
-    protected AbstractTestFailureRecovery(RetryPolicy retryPolicy)
+    protected AbstractTestFailureRecovery(RetryPolicy retryPolicy, Map<String, String> exchangeManagerProperties)
     {
         this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+        this.exchangeManagerProperties = requireNonNull(exchangeManagerProperties, "exchangeManagerProperties is null");
     }
 
     @Override
@@ -93,10 +95,15 @@ public abstract class AbstractTestFailureRecovery
                         .build(),
                 ImmutableMap.<String, String>builder()
                         .put("scheduler.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
-                        .build());
+                        .build(),
+                exchangeManagerProperties);
     }
 
-    protected abstract QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
+    protected abstract QueryRunner createQueryRunner(
+            List<TpchTable<?>> requiredTpchTables,
+            Map<String, String> configProperties,
+            Map<String, String> coordinatorProperties,
+            Map<String, String> exchangeManagerProperties)
             throws Exception;
 
     @Test(invocationCount = INVOCATION_COUNT)

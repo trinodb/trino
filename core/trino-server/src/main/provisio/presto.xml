@@ -270,4 +270,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/exchange">
+        <artifact id="${project.groupId}:trino-exchange:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>

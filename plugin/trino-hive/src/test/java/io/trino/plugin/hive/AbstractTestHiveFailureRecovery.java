@@ -29,19 +29,24 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public abstract class AbstractTestHiveFailureRecovery
         extends AbstractTestFailureRecovery
 {
-    protected AbstractTestHiveFailureRecovery(RetryPolicy retryPolicy)
+    protected AbstractTestHiveFailureRecovery(RetryPolicy retryPolicy, Map<String, String> exchangeManagerProperties)
     {
-        super(retryPolicy);
+        super(retryPolicy, exchangeManagerProperties);
     }
 
     @Override
-    protected final QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
+    protected final QueryRunner createQueryRunner(
+            List<TpchTable<?>> requiredTpchTables,
+            Map<String, String> configProperties,
+            Map<String, String> coordinatorProperties,
+            Map<String, String> exchangeManagerProperties)
             throws Exception
     {
         return HiveQueryRunner.builder()
                 .setInitialTables(requiredTpchTables)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setExtraProperties(configProperties)
+                .setExchangeManagerProperties(exchangeManagerProperties)
                 .build();
     }
 

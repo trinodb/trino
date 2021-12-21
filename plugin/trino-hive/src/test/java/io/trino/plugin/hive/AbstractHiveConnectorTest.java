@@ -178,12 +178,14 @@ public abstract class AbstractHiveConnectorTest
     private final String catalog;
     private final Session bucketedSession;
     private final Map<String, String> extraProperties;
+    private final Map<String, String> exchangeManagerProperties;
 
-    protected AbstractHiveConnectorTest(Map<String, String> extraProperties)
+    protected AbstractHiveConnectorTest(Map<String, String> extraProperties, Map<String, String> exchangeManagerProperties)
     {
         this.catalog = HIVE_CATALOG;
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
         this.extraProperties = ImmutableMap.copyOf(requireNonNull(extraProperties, "extraProperties is null"));
+        this.exchangeManagerProperties = ImmutableMap.copyOf(requireNonNull(exchangeManagerProperties, "exchangeManagerProperties is null"));
     }
 
     @Override
@@ -192,6 +194,7 @@ public abstract class AbstractHiveConnectorTest
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
+                .setExchangeManagerProperties(exchangeManagerProperties)
                 .setHiveProperties(ImmutableMap.of(
                         "hive.allow-register-partition-procedure", "true",
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used

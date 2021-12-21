@@ -558,6 +558,14 @@ public class DistributedQueryRunner
     }
 
     @Override
+    public void loadExchangeManager(String name, Map<String, String> properties)
+    {
+        for (TestingTrinoServer server : servers) {
+            server.loadExchangeManager(name, properties);
+        }
+    }
+
+    @Override
     public final void close()
     {
         cancelAllQueries();

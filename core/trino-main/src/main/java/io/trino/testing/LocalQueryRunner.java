@@ -752,6 +752,12 @@ public class LocalQueryRunner
         throw new UnsupportedOperationException("failure injection is not supported");
     }
 
+    @Override
+    public void loadExchangeManager(String name, Map<String, String> properties)
+    {
+        exchangeManagerRegistry.loadExchangeManager(name, properties);
+    }
+
     public List<Driver> createDrivers(@Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
         return createDrivers(defaultSession, sql, outputFactory, taskContext);

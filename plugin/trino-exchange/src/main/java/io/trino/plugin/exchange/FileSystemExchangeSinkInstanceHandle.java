@@ -11,27 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.testing.exchange;
+package io.trino.plugin.exchange;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 
-import java.nio.file.Path;
+import java.net.URI;
 
 import static java.util.Objects.requireNonNull;
 
-public class LocalFileSystemExchangeSinkInstanceHandle
+public class FileSystemExchangeSinkInstanceHandle
         implements ExchangeSinkInstanceHandle
 {
-    private final LocalFileSystemExchangeSinkHandle sinkHandle;
-    private final Path outputDirectory;
+    private final FileSystemExchangeSinkHandle sinkHandle;
+    private final URI outputDirectory;
     private final int outputPartitionCount;
 
     @JsonCreator
-    public LocalFileSystemExchangeSinkInstanceHandle(
-            @JsonProperty("sinkHandle") LocalFileSystemExchangeSinkHandle sinkHandle,
-            @JsonProperty("outputDirectory") Path outputDirectory,
+    public FileSystemExchangeSinkInstanceHandle(
+            @JsonProperty("sinkHandle") FileSystemExchangeSinkHandle sinkHandle,
+            @JsonProperty("outputDirectory") URI outputDirectory,
             @JsonProperty("outputPartitionCount") int outputPartitionCount)
     {
         this.sinkHandle = requireNonNull(sinkHandle, "sinkHandle is null");
@@ -40,13 +40,13 @@ public class LocalFileSystemExchangeSinkInstanceHandle
     }
 
     @JsonProperty
-    public LocalFileSystemExchangeSinkHandle getSinkHandle()
+    public FileSystemExchangeSinkHandle getSinkHandle()
     {
         return sinkHandle;
     }
 
     @JsonProperty
-    public Path getOutputDirectory()
+    public URI getOutputDirectory()
     {
         return outputDirectory;
     }

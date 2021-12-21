@@ -22,9 +22,9 @@ public abstract class AbstractTestFaultTolerantExecutionAggregations
     protected final QueryRunner createQueryRunner()
             throws Exception
     {
-        return createQueryRunner(BaseFaultTolerantExecutionConnectorTest.getExtraProperties());
+        return createQueryRunner(BaseFaultTolerantExecutionConnectorTest.getExtraProperties(), BaseFaultTolerantExecutionConnectorTest.getExchangeManagerProperties());
     }
 
-    protected abstract QueryRunner createQueryRunner(Map<String, String> extraProperties)
+    protected abstract QueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> exchangeManagerProperties)
             throws Exception;
 }
