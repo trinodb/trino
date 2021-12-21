@@ -410,10 +410,19 @@ public class DictionaryBlock
                 used[id] = true;
             }
         }
-        long dictionarySize = dictionary.getPositionsSizeInBytes(used, usedIds);
+
+        long dictionarySize;
         if (usedIds == used.length) {
-            // dictionary is discovered to be compact, store updated size information
-            this.uniqueIds = usedIds;
+            // discovered dictionary is compact
+            dictionarySize = dictionary.getSizeInBytes();
+            if (sizeInBytes < 0) {
+                // save the information about compactness
+                this.uniqueIds = usedIds;
+                this.sizeInBytes = dictionarySize + (Integer.BYTES * (long) positionCount);
+            }
+        }
+        else {
+            dictionarySize = dictionary.getPositionsSizeInBytes(used, usedIds);
         }
         return dictionarySize + (Integer.BYTES * (long) selectedPositionsCount);
     }
@@ -543,20 +552,25 @@ public class DictionaryBlock
 
         int[] newIds = new int[length];
         boolean isCompact = length >= dictionary.getPositionCount() && isCompact();
-        boolean[] seen = null;
-        if (isCompact) {
-            seen = new boolean[dictionary.getPositionCount()];
-        }
+        boolean[] usedIds = isCompact ? new boolean[dictionary.getPositionCount()] : null;
+        int uniqueIds = 0;
         for (int i = 0; i < length; i++) {
-            newIds[i] = getId(positions[offset + i]);
-            if (isCompact) {
-                seen[newIds[i]] = true;
+            int id = getId(positions[offset + i]);
+            newIds[i] = id;
+            if (usedIds != null) {
+                uniqueIds += usedIds[id] ? 0 : 1;
+                usedIds[id] = true;
             }
         }
-        for (int i = 0; i < dictionary.getPositionCount() && isCompact; i++) {
-            isCompact &= seen[i];
+        // All positions must have been referenced in order to be compact
+        isCompact &= (usedIds != null && usedIds.length == uniqueIds);
+        DictionaryBlock result = new DictionaryBlock(newIds.length, dictionary, newIds, isCompact, getDictionarySourceId());
+        if (usedIds != null && !isCompact) {
+            // resulting dictionary is not compact, but we know the number of unique ids and which positions are used
+            result.uniqueIds = uniqueIds;
+            result.sizeInBytes = dictionary.getPositionsSizeInBytes(usedIds, uniqueIds) + (Integer.BYTES * (long) length);
         }
-        return new DictionaryBlock(newIds.length, getDictionary(), newIds, isCompact, getDictionarySourceId());
+        return result;
     }
 
     @Override
