@@ -31,6 +31,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import io.trino.testing.TestingSession;
 import org.testng.annotations.Test;
 
@@ -318,6 +319,19 @@ public class TestAccessControl
 
         assertAccessAllowed(viewOwnerSession, "DROP VIEW " + functionAccessViewName);
         assertAccessAllowed(viewOwnerSession, "DROP VIEW " + invokerFunctionAccessViewName);
+    }
+
+    @Test
+    public void testFunctionAccessControl()
+    {
+        assertAccessDenied(
+                "SELECT reverse('a')",
+                "Cannot execute function reverse",
+                new TestingPrivilege(Optional.empty(), "reverse", EXECUTE_FUNCTION));
+
+        TestingPrivilege denyNonReverseFunctionCalls = new TestingPrivilege(Optional.empty(), name -> !name.equals("reverse"), EXECUTE_FUNCTION);
+        assertAccessAllowed("SELECT reverse('a')", denyNonReverseFunctionCalls);
+        assertAccessDenied("SELECT concat('a', 'b')", "Cannot execute function concat", denyNonReverseFunctionCalls);
     }
 
     @Test
