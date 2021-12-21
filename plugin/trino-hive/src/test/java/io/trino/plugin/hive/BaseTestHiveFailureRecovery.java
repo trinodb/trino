@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.trino.Session;
+import io.trino.spi.ErrorType;
 import io.trino.testing.AbstractTestFailureRecovery;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -21,6 +22,12 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.execution.FailureInjector.FAILURE_INJECTION_MESSAGE;
+import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_FAILURE;
+import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_FAILURE;
+import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_TIMEOUT;
+import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_FAILURE;
+import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -118,6 +125,22 @@ public abstract class BaseTestHiveFailureRecovery
                 Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p'], bucketed_by = ARRAY['orderkey'], bucket_count = 4) AS SELECT *, 'partition1' p FROM orders"),
                 "INSERT INTO <table> SELECT *, 'partition2' p FROM orders",
                 Optional.of("DROP TABLE <table>"));
+    }
+
+    @Test(invocationCount = 500)
+    public void testInsertIntoNewPartitionBucketedStress()
+    {
+        Optional<Session> session = Optional.empty();
+        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p'], bucketed_by = ARRAY['orderkey'], bucket_count = 4) AS SELECT *, 'partition1' p FROM orders");
+        Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
+
+        assertThatQuery("INSERT INTO <table> SELECT *, 'partition2' p FROM orders")
+                .withSession(session)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                .at(boundaryCoordinatorStage())
+                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
     }
 
     @Test(invocationCount = INVOCATION_COUNT)

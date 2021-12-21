@@ -436,7 +436,7 @@ public abstract class AbstractTestFailureRecovery
                 .finishesSuccessfully();
     }
 
-    private FailureRecoveryAssert assertThatQuery(String query)
+    protected FailureRecoveryAssert assertThatQuery(String query)
     {
         return new FailureRecoveryAssert(query);
     }
