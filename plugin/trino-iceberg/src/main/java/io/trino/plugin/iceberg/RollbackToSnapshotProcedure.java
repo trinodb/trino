@@ -74,7 +74,7 @@ public class RollbackToSnapshotProcedure
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             SchemaTableName schemaTableName = new SchemaTableName(schema, table);
             Table icebergTable = catalogFactory.create(clientSession.getIdentity()).loadTable(clientSession, schemaTableName);
-            icebergTable.rollback().toSnapshotId(snapshotId).commit();
+            icebergTable.manageSnapshots().setCurrentSnapshot(snapshotId).commit();
         }
     }
 }
