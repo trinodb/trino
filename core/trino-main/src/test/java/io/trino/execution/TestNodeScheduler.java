@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.hash.Hashing;
@@ -417,7 +416,9 @@ public class TestNodeScheduler
     {
         setUpNodes();
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
-        InternalNode chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
+        InternalNode chosenNode = nodeManager.getActiveConnectorNodes(CONNECTOR_ID).stream()
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No active nodes found for connector: " + CONNECTOR_ID));
         TaskId taskId = new TaskId(new StageId("test", 1), 1, 0);
         RemoteTask remoteTask = remoteTaskFactory.createTableScanTask(
                 taskId,
@@ -439,7 +440,9 @@ public class TestNodeScheduler
     {
         setUpNodes();
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
-        InternalNode chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
+        InternalNode chosenNode = nodeManager.getActiveConnectorNodes(CONNECTOR_ID).stream()
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No active nodes found for connector: " + CONNECTOR_ID));
 
         TaskId taskId1 = new TaskId(new StageId("test", 1), 1, 0);
         RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(taskId1,

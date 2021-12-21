@@ -18,7 +18,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.jmx.CacheStatsMBean;
@@ -734,7 +733,9 @@ public class CachingHiveMetastore
         requireNonNull(partitionNames, "partitionNames is null");
         checkArgument(stream(partitionNames).findAny().isPresent(), "partitionNames is empty");
 
-        WithIdentity<HivePartitionName> firstPartition = Iterables.get(partitionNames, 0);
+        WithIdentity<HivePartitionName> firstPartition = stream(partitionNames)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("partitionNames is empty"));
 
         HiveTableName hiveTableName = firstPartition.getKey().getHiveTableName();
         HiveIdentity identity = updateIdentity(firstPartition.getIdentity());

@@ -14,7 +14,6 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.Iterables;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule.Context;
@@ -25,13 +24,13 @@ import io.trino.sql.planner.plan.SetOperationNode;
 import io.trino.sql.planner.plan.UnionNode;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Multimaps.asMap;
 
 class SetOperationMerge
 {
@@ -180,8 +179,8 @@ class SetOperationMerge
     private void addMergedMappings(SetOperationNode child, int childIndex, ImmutableListMultimap.Builder<Symbol, Symbol> newMappingsBuilder)
     {
         newSources.addAll(child.getSources());
-        for (Map.Entry<Symbol, Collection<Symbol>> mapping : node.getSymbolMapping().asMap().entrySet()) {
-            Symbol input = Iterables.get(mapping.getValue(), childIndex);
+        for (Map.Entry<Symbol, List<Symbol>> mapping : asMap(node.getSymbolMapping()).entrySet()) {
+            Symbol input = mapping.getValue().get(childIndex);
             newMappingsBuilder.putAll(mapping.getKey(), child.getSymbolMapping().get(input));
         }
     }
@@ -189,8 +188,8 @@ class SetOperationMerge
     private void addOriginalMappings(PlanNode child, int childIndex, ImmutableListMultimap.Builder<Symbol, Symbol> newMappingsBuilder)
     {
         newSources.add(child);
-        for (Map.Entry<Symbol, Collection<Symbol>> mapping : node.getSymbolMapping().asMap().entrySet()) {
-            newMappingsBuilder.put(mapping.getKey(), Iterables.get(mapping.getValue(), childIndex));
+        for (Map.Entry<Symbol, List<Symbol>> mapping : asMap(node.getSymbolMapping()).entrySet()) {
+            newMappingsBuilder.put(mapping.getKey(), mapping.getValue().get(childIndex));
         }
     }
 }

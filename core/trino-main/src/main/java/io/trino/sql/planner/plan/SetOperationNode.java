@@ -20,7 +20,6 @@ import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
@@ -35,6 +34,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Multimaps.asMap;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -69,8 +69,8 @@ public abstract class SetOperationNode
 
         // Make sure each source positionally corresponds to their Symbol values in the Multimap
         for (int i = 0; i < sources.size(); i++) {
-            for (Collection<Symbol> expectedInputs : this.outputToInputs.asMap().values()) {
-                checkArgument(sources.get(i).getOutputSymbols().contains(Iterables.get(expectedInputs, i)), "Source does not provide required symbols");
+            for (List<Symbol> expectedInputs : asMap(this.outputToInputs).values()) {
+                checkArgument(sources.get(i).getOutputSymbols().contains(expectedInputs.get(i)), "Source does not provide required symbols");
             }
         }
     }
@@ -109,8 +109,8 @@ public abstract class SetOperationNode
     public Map<Symbol, SymbolReference> sourceSymbolMap(int sourceIndex)
     {
         ImmutableMap.Builder<Symbol, SymbolReference> builder = ImmutableMap.builder();
-        for (Map.Entry<Symbol, Collection<Symbol>> entry : outputToInputs.asMap().entrySet()) {
-            builder.put(entry.getKey(), Iterables.get(entry.getValue(), sourceIndex).toSymbolReference());
+        for (Map.Entry<Symbol, List<Symbol>> entry : asMap(outputToInputs).entrySet()) {
+            builder.put(entry.getKey(), entry.getValue().get(sourceIndex).toSymbolReference());
         }
 
         return builder.build();
