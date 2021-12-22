@@ -37,7 +37,7 @@ public class TestHiveFailureRecoveryMinIO
             throws Exception
     {
         this.bucketName = "test-hive-insert-overwrite-" + randomTableSuffix(); // randomizing bucket name to ensure cached TrinoS3FileSystem objects are not reused
-        this.dockerizedS3DataLake = new HiveMinioDataLake(bucketName, ImmutableMap.of(), HiveHadoop.DEFAULT_IMAGE);
+        this.dockerizedS3DataLake = new HiveMinioDataLake(bucketName, ImmutableMap.of(), HiveHadoop.HIVE3_IMAGE);
         this.dockerizedS3DataLake.start();
 
         return S3HiveQueryRunner.builder(dockerizedS3DataLake)
