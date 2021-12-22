@@ -1222,6 +1222,12 @@ public class HiveMetadata
     }
 
     @Override
+    public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        executeDelete(session, tableHandle);
+    }
+
+    @Override
     public ConnectorTableHandle beginStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
