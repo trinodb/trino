@@ -191,7 +191,7 @@ public class BackgroundHiveSplitLoader
     public BackgroundHiveSplitLoader(
             Table table,
             AcidTransaction transaction,
-            Iterable<HivePartitionMetadata> partitions,
+            Iterator<HivePartitionMetadata> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringWaitTimeout,

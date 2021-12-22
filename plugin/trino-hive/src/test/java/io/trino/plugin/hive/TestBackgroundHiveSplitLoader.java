@@ -516,7 +516,7 @@ public class TestBackgroundHiveSplitLoader
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
                 NO_ACID_TRANSACTION,
-                () -> new Iterator<>()
+                new Iterator<>()
                 {
                     private boolean threw;
 
@@ -1070,7 +1070,7 @@ public class TestBackgroundHiveSplitLoader
         return new BackgroundHiveSplitLoader(
                 table,
                 NO_ACID_TRANSACTION,
-                hivePartitionMetadatas,
+                hivePartitionMetadatas.iterator(),
                 compactEffectivePredicate,
                 dynamicFilter,
                 dynamicFilteringProbeBlockingTimeout,
@@ -1103,7 +1103,7 @@ public class TestBackgroundHiveSplitLoader
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
                 NO_ACID_TRANSACTION,
-                hivePartitionMetadatas,
+                hivePartitionMetadatas.iterator(),
                 TupleDomain.none(),
                 DynamicFilter.EMPTY,
                 new Duration(0, SECONDS),
@@ -1149,10 +1149,10 @@ public class TestBackgroundHiveSplitLoader
                 Optional.empty());
     }
 
-    private static Iterable<HivePartitionMetadata> createPartitionMetadataWithOfflinePartitions()
+    private static Iterator<HivePartitionMetadata> createPartitionMetadataWithOfflinePartitions()
             throws RuntimeException
     {
-        return () -> new AbstractIterator<>()
+        return new AbstractIterator<>()
         {
             // This iterator is crafted to return a valid partition for the first calls to
             // hasNext() and next(), and then it should throw for the second call to hasNext()
