@@ -1,0 +1,1 @@
+select foo('\\some strings') from tbl;'\some strings'

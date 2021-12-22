@@ -1,0 +1,1 @@
+select c from tbl where c rlike '\\some other strings';'\some other strings'

@@ -1,0 +1,1 @@
+show create table d.t
