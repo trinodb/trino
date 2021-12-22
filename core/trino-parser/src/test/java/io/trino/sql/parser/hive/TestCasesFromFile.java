@@ -13,18 +13,11 @@
  */
 package io.trino.sql.parser.hive;
 
-import io.trino.sql.tree.Node;
 import org.testng.annotations.Test;
 
 public class TestCasesFromFile
         extends SQLTester
 {
-    @Test
-    public void testCase01()
-    {
-        runHiveSQLFromFile("hive/parser/cases/case1.sql");
-    }
-
     @Test
     public void testCase02()
     {
@@ -37,11 +30,5 @@ public class TestCasesFromFile
     {
         checkASTNodeFromFile("hive/parser/cases/lateral-presto-2.sql",
                 "hive/parser/cases/lateral-hive-2.sql");
-    }
-
-    @Test
-    public void testCase100()
-    {
-        Node node = runHiveSQLFromFile("hive/parser/cases/case100.sql");
     }
 }

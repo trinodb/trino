@@ -14,6 +14,7 @@
 package io.trino.sql;
 
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.sql.parser.ParsingOptions;
 
 import static io.trino.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
@@ -24,7 +25,9 @@ public final class ParsingUtil
 {
     public static ParsingOptions createParsingOptions(Session session)
     {
-        return new ParsingOptions(isParseDecimalLiteralsAsDouble(session) ? AS_DOUBLE : AS_DECIMAL);
+        ParsingOptions parsingOptions = new ParsingOptions(isParseDecimalLiteralsAsDouble(session) ? AS_DOUBLE : AS_DECIMAL);
+        parsingOptions.setIfUseHiveParser(SystemSessionProperties.isEnableHiveSqlSynTax(session));
+        return parsingOptions;
     }
 
     private ParsingUtil() {}

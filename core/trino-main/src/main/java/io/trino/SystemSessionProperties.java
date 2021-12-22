@@ -150,6 +150,7 @@ public final class SystemSessionProperties
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
+    public static final String ENABLE_HIVE_SQL_SYNTAX = "enable_hive_syntax";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -694,6 +695,11 @@ public final class SystemSessionProperties
                         "Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'",
                         queryManagerConfig.getRetryMaxDelay(),
                         false),
+                booleanProperty(
+                    ENABLE_HIVE_SQL_SYNTAX,
+                    "Experimental: Use hive sql syntax",
+                    false,
+                    false),
                 booleanProperty(
                         HIDE_INACCESSIBLE_COLUMNS,
                         "When enabled non-accessible columns are silently filtered from results from SELECT * statements",
@@ -1259,5 +1265,10 @@ public final class SystemSessionProperties
     public static boolean isHideInaccesibleColumns(Session session)
     {
         return session.getSystemProperty(HIDE_INACCESSIBLE_COLUMNS, Boolean.class);
+    }
+
+    public static boolean isEnableHiveSqlSynTax(Session session)
+    {
+        return session.getSystemProperty(ENABLE_HIVE_SQL_SYNTAX, Boolean.class);
     }
 }
