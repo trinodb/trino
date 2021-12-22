@@ -141,7 +141,6 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Iterables.transform;
 import static io.trino.sql.ExpressionFormatter.formatExpression;
 import static io.trino.sql.ExpressionFormatter.formatGroupBy;
 import static io.trino.sql.ExpressionFormatter.formatOrderBy;
@@ -737,7 +736,7 @@ public final class SqlFormatter
             }
 
             builder.append("VALUES (");
-            Joiner.on(", ").appendTo(builder, transform(node.getValues(), ExpressionFormatter::formatExpression));
+            Joiner.on(", ").appendTo(builder, node.getValues().stream().map(ExpressionFormatter::formatExpression).iterator());
             builder.append(")");
 
             return null;

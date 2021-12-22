@@ -13,7 +13,6 @@
  */
 package io.trino.server;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -65,7 +64,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
@@ -124,7 +123,7 @@ public class TaskResource
     {
         List<TaskInfo> allTaskInfo = taskManager.getAllTaskInfo();
         if (shouldSummarize(uriInfo)) {
-            allTaskInfo = ImmutableList.copyOf(transform(allTaskInfo, TaskInfo::summarize));
+            allTaskInfo = allTaskInfo.stream().map(TaskInfo::summarize).collect(toImmutableList());
         }
         return allTaskInfo;
     }

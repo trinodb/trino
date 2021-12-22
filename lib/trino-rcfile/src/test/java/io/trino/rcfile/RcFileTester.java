@@ -113,8 +113,9 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Functions.constant;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.advance;
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -316,7 +317,7 @@ public class RcFileTester
         testRoundTripType(type, writeValues, skipFormatsSet);
 
         // all nulls
-        assertRoundTrip(type, transform(writeValues, constant(null)), skipFormatsSet);
+        assertRoundTrip(type, stream(writeValues).map(constant(null)).collect(toList()), skipFormatsSet);
 
         // values wrapped in struct
         if (structTestsEnabled) {
@@ -325,10 +326,10 @@ public class RcFileTester
 
         // values wrapped in a struct wrapped in a struct
         if (complexStructuralTestsEnabled) {
-            Iterable<Object> simpleStructs = transform(insertNullEvery(5, writeValues), RcFileTester::toHiveStruct);
+            Iterable<Object> simpleStructs = stream(insertNullEvery(5, writeValues)).map(RcFileTester::toHiveStruct).collect(toImmutableList());
             testRoundTripType(
                     RowType.from(ImmutableList.of(RowType.field("field", createRowType(type)))),
-                    transform(simpleStructs, Collections::singletonList),
+                    stream(simpleStructs).map(Collections::singletonList).collect(toImmutableList()),
                     skipFormatsSet);
         }
 
@@ -346,7 +347,7 @@ public class RcFileTester
         if (complexStructuralTestsEnabled) {
             testListRoundTrip(
                     createListType(type),
-                    transform(writeValues, RcFileTester::toHiveList),
+                    stream(writeValues).map(RcFileTester::toHiveList).collect(toImmutableList()),
                     skipFormatsSet);
         }
     }
@@ -357,7 +358,7 @@ public class RcFileTester
         // values in simple struct and mix in some null values
         testRoundTripType(
                 createRowType(type),
-                transform(insertNullEvery(5, writeValues), RcFileTester::toHiveStruct),
+                stream(insertNullEvery(5, writeValues)).map(RcFileTester::toHiveStruct).collect(toImmutableList()),
                 skipFormats);
     }
 
@@ -370,7 +371,7 @@ public class RcFileTester
         // values in simple map and mix in some null values
         testRoundTripType(
                 createMapType(type),
-                transform(insertNullEvery(5, writeValues), value -> toHiveMap(nullKeyWrite, value)),
+                stream(insertNullEvery(5, writeValues)).map(value -> toHiveMap(nullKeyWrite, value)).collect(toImmutableList()),
                 skipFormats);
     }
 
@@ -380,7 +381,7 @@ public class RcFileTester
         // values in simple list and mix in some null values
         testRoundTripType(
                 createListType(type),
-                transform(insertNullEvery(5, writeValues), RcFileTester::toHiveList),
+                stream(insertNullEvery(5, writeValues)).map(RcFileTester::toHiveList).collect(toImmutableList()),
                 skipFormats);
     }
 

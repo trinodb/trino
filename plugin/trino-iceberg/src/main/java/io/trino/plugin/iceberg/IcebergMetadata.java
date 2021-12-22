@@ -19,7 +19,6 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
@@ -97,6 +96,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
@@ -283,7 +283,7 @@ public class IcebergMetadata
 
             Iterable<FileScanTask> files = () -> lazyFiles.get().iterator();
 
-            Iterable<TupleDomain<ColumnHandle>> discreteTupleDomain = Iterables.transform(files, fileScan -> {
+            Iterable<TupleDomain<ColumnHandle>> discreteTupleDomain = () -> stream(files).map(fileScan -> {
                 // Extract partition values in the data file
                 Map<Integer, Optional<String>> partitionColumnValueStrings = getPartitionKeys(fileScan);
                 Map<ColumnHandle, NullableValue> partitionValues = partitionSourceIds.stream()
@@ -301,7 +301,7 @@ public class IcebergMetadata
                                 }));
 
                 return TupleDomain.fromFixedValues(partitionValues);
-            });
+            }).iterator();
 
             discretePredicates = new DiscretePredicates(
                     columns.values().stream()

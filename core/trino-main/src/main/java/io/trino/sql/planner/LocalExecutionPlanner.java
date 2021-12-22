@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
@@ -2144,8 +2143,8 @@ public class LocalExecutionPlanner
             };
 
             // Declare the input and output schemas for the index and acquire the actual Index
-            List<ColumnHandle> lookupSchema = Lists.transform(lookupSymbolSchema, forMap(node.getAssignments()));
-            List<ColumnHandle> outputSchema = Lists.transform(node.getOutputSymbols(), forMap(node.getAssignments()));
+            List<ColumnHandle> lookupSchema = lookupSymbolSchema.stream().map(forMap(node.getAssignments())).collect(toImmutableList());
+            List<ColumnHandle> outputSchema = node.getOutputSymbols().stream().map(forMap(node.getAssignments())).collect(toImmutableList());
             ConnectorIndex index = indexManager.getIndex(session, node.getIndexHandle(), lookupSchema, outputSchema);
 
             OperatorFactory operatorFactory = new IndexSourceOperator.IndexSourceOperatorFactory(context.getNextOperatorId(), node.getId(), index, probeKeyNormalizer);
@@ -2187,8 +2186,8 @@ public class LocalExecutionPlanner
         {
             List<IndexJoinNode.EquiJoinClause> clauses = node.getCriteria();
 
-            List<Symbol> probeSymbols = Lists.transform(clauses, IndexJoinNode.EquiJoinClause::getProbe);
-            List<Symbol> indexSymbols = Lists.transform(clauses, IndexJoinNode.EquiJoinClause::getIndex);
+            List<Symbol> probeSymbols = clauses.stream().map(IndexJoinNode.EquiJoinClause::getProbe).collect(toImmutableList());
+            List<Symbol> indexSymbols = clauses.stream().map(IndexJoinNode.EquiJoinClause::getIndex).collect(toImmutableList());
 
             // Plan probe side
             PhysicalOperation probeSource = node.getProbeSource().accept(this, context);
@@ -2345,8 +2344,8 @@ public class LocalExecutionPlanner
 
             List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
 
-            List<Symbol> leftSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft);
-            List<Symbol> rightSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
+            List<Symbol> leftSymbols = clauses.stream().map(JoinNode.EquiJoinClause::getLeft).collect(toImmutableList());
+            List<Symbol> rightSymbols = clauses.stream().map(JoinNode.EquiJoinClause::getRight).collect(toImmutableList());
 
             switch (node.getType()) {
                 case INNER:

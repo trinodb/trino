@@ -16,7 +16,6 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import io.trino.plugin.hive.acid.AcidOperation;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
@@ -47,6 +46,7 @@ import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 
@@ -296,14 +296,14 @@ public class MockThriftMetastoreClient
         if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE) || !ImmutableSet.of(TEST_PARTITION1, TEST_PARTITION2).containsAll(names)) {
             throw new NoSuchObjectException();
         }
-        return Lists.transform(names, name -> {
+        return names.stream().map(name -> {
             try {
                 return new Partition(ImmutableList.copyOf(Warehouse.getPartValuesFromPartName(name)), TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of());
             }
             catch (MetaException e) {
                 throw new RuntimeException(e);
             }
-        });
+        }).collect(toImmutableList());
     }
 
     @Override

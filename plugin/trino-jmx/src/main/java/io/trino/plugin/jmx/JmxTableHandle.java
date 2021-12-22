@@ -27,7 +27,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class JmxTableHandle
@@ -125,6 +125,6 @@ public class JmxTableHandle
     {
         return new ConnectorTableMetadata(
                 tableName,
-                ImmutableList.copyOf(transform(columnHandles, JmxColumnHandle::getColumnMetadata)));
+                columnHandles.stream().map(JmxColumnHandle::getColumnMetadata).collect(toImmutableList()));
     }
 }

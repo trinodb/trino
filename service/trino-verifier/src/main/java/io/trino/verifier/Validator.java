@@ -629,10 +629,10 @@ public class Validator
         Multiset<List<Object>> test = ImmutableSortedMultiset.copyOf(rowComparator(precision), testResults);
 
         try {
-            Iterable<ChangedRow> diff = ImmutableSortedMultiset.<ChangedRow>naturalOrder()
-                    .addAll(Iterables.transform(Multisets.difference(control, test), row -> new ChangedRow(Changed.REMOVED, row, precision)))
-                    .addAll(Iterables.transform(Multisets.difference(test, control), row -> new ChangedRow(Changed.ADDED, row, precision)))
-                    .build();
+            ImmutableSortedMultiset.Builder<ChangedRow> builder = ImmutableSortedMultiset.naturalOrder();
+            Multisets.difference(control, test).stream().map(row -> new ChangedRow(Changed.REMOVED, row, precision)).forEach(builder::add);
+            Multisets.difference(test, control).stream().map(row -> new ChangedRow(Changed.ADDED, row, precision)).forEach(builder::add);
+            Iterable<ChangedRow> diff = builder.build();
             diff = Iterables.limit(diff, 100);
 
             StringBuilder sb = new StringBuilder();

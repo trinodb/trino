@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -52,7 +51,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
@@ -412,7 +411,7 @@ public class TaskContext
         // check for end state to avoid callback ordering problems
         updateStatsIfDone(taskStateMachine.getState());
 
-        List<PipelineStats> pipelineStats = ImmutableList.copyOf(transform(pipelineContexts, PipelineContext::getPipelineStats));
+        List<PipelineStats> pipelineStats = pipelineContexts.stream().map(PipelineContext::getPipelineStats).collect(toImmutableList());
 
         long lastExecutionEndTime = 0;
 

@@ -15,7 +15,6 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.connector.ConstantProperty;
@@ -735,7 +734,7 @@ public class AddLocalExchanges
             }
 
             // this build consumes the input completely, so we do not pass through parent preferences
-            List<Symbol> buildHashSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
+            List<Symbol> buildHashSymbols = node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight).collect(toImmutableList());
             StreamPreferredProperties buildPreference;
             if (getTaskConcurrency(session) > 1) {
                 buildPreference = exactlyPartitionedOn(buildHashSymbols);

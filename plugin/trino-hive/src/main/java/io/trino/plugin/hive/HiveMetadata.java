@@ -21,7 +21,6 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
@@ -2530,7 +2529,7 @@ public class HiveMetadata
             // Do not create tuple domains for every partition at the same time!
             // There can be a huge number of partitions so use an iterable so
             // all domains do not need to be in memory at the same time.
-            Iterable<TupleDomain<ColumnHandle>> partitionDomains = Iterables.transform(partitions, (hivePartition) -> TupleDomain.fromFixedValues(hivePartition.getKeys()));
+            Iterable<TupleDomain<ColumnHandle>> partitionDomains = () -> partitions.stream().map(hivePartition -> TupleDomain.fromFixedValues(hivePartition.getKeys())).iterator();
             discretePredicates = Optional.of(new DiscretePredicates(partitionColumns, partitionDomains));
         }
 

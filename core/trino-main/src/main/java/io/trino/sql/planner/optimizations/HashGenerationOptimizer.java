@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
@@ -45,7 +44,6 @@ import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
-import io.trino.sql.planner.plan.IndexJoinNode.EquiJoinClause;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -324,11 +322,11 @@ public class HashGenerationOptimizer
 
             // join does not pass through preferred hash symbols since they take more memory and since
             // the join node filters, may take more compute
-            Optional<HashComputation> leftHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft));
+            Optional<HashComputation> leftHashComputation = computeHash(clauses.stream().map(JoinNode.EquiJoinClause::getLeft).collect(toImmutableList()));
             PlanWithProperties left = planAndEnforce(node.getLeft(), new HashComputationSet(leftHashComputation), true, new HashComputationSet(leftHashComputation));
             Symbol leftHashSymbol = left.getRequiredHashSymbol(leftHashComputation.get());
 
-            Optional<HashComputation> rightHashComputation = computeHash(Lists.transform(clauses, JoinNode.EquiJoinClause::getRight));
+            Optional<HashComputation> rightHashComputation = computeHash(clauses.stream().map(JoinNode.EquiJoinClause::getRight).collect(toImmutableList()));
             // drop undesired hash symbols from build to save memory
             PlanWithProperties right = planAndEnforce(node.getRight(), new HashComputationSet(rightHashComputation), true, new HashComputationSet(rightHashComputation));
             Symbol rightHashSymbol = right.getRequiredHashSymbol(rightHashComputation.get());
@@ -442,7 +440,7 @@ public class HashGenerationOptimizer
 
             // join does not pass through preferred hash symbols since they take more memory and since
             // the join node filters, may take more compute
-            Optional<HashComputation> probeHashComputation = computeHash(Lists.transform(clauses, IndexJoinNode.EquiJoinClause::getProbe));
+            Optional<HashComputation> probeHashComputation = computeHash(clauses.stream().map(IndexJoinNode.EquiJoinClause::getProbe).collect(toImmutableList()));
             PlanWithProperties probe = planAndEnforce(
                     node.getProbeSource(),
                     new HashComputationSet(probeHashComputation),
@@ -450,7 +448,7 @@ public class HashGenerationOptimizer
                     new HashComputationSet(probeHashComputation));
             Symbol probeHashSymbol = probe.getRequiredHashSymbol(probeHashComputation.get());
 
-            Optional<HashComputation> indexHashComputation = computeHash(Lists.transform(clauses, EquiJoinClause::getIndex));
+            Optional<HashComputation> indexHashComputation = computeHash(clauses.stream().map(IndexJoinNode.EquiJoinClause::getIndex).collect(toImmutableList()));
             HashComputationSet requiredHashes = new HashComputationSet(indexHashComputation);
             PlanWithProperties index = planAndEnforce(node.getIndexSource(), requiredHashes, true, requiredHashes);
             Symbol indexHashSymbol = index.getRequiredHashSymbol(indexHashComputation.get());

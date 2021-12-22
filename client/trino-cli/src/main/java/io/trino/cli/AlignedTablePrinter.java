@@ -23,6 +23,7 @@ import io.trino.client.Row;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,7 +32,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.partition;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.client.ClientStandardTypes.BIGINT;
 import static io.trino.client.ClientStandardTypes.DECIMAL;
@@ -190,7 +191,7 @@ public class AlignedTablePrinter
         Iterable<List<String>> hexLines = partition(hexPairs, bytesPerLine);
 
         // lines: ["61 62 63", ...]
-        Iterable<String> lines = transform(hexLines, HEX_BYTE_JOINER::join);
+        Iterator<String> lines = stream(hexLines).map(HEX_BYTE_JOINER::join).iterator();
 
         // joined: "61 62 63\n..."
         return HEX_LINE_JOINER.join(lines);

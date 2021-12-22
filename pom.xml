@@ -1676,8 +1676,6 @@
                             <exclusion>com/google/common/collect/Iterables.getLast:(Ljava/lang/Iterable;)Ljava/lang/Object;</exclusion>
                             <exclusion>com/google/common/collect/Iterables.getLast:(Ljava/lang/Iterable;Ljava/lang/Object;)Ljava/lang/Object;</exclusion>
                             <!-- TODO: requires getting to common understanding which of those we want to enable -->
-                            <exclusion>com/google/common/collect/Iterables.transform:(Ljava/lang/Iterable;Lcom/google/common/base/Function;)Ljava/lang/Iterable;</exclusion>
-                            <exclusion>com/google/common/collect/Lists.transform:(Ljava/util/List;Lcom/google/common/base/Function;)Ljava/util/List;</exclusion>
                             <exclusion>com/google/common/collect/Iterables.isEmpty:(Ljava/lang/Iterable;)Z</exclusion>
                             <exclusion>com/google/common/collect/Iterables.concat:(Ljava/lang/Iterable;Ljava/lang/Iterable;)Ljava/lang/Iterable;</exclusion>
                             <exclusion>com/google/common/collect/Iterables.concat:(Ljava/lang/Iterable;Ljava/lang/Iterable;Ljava/lang/Iterable;)Ljava/lang/Iterable;</exclusion>

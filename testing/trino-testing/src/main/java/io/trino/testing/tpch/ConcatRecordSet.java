@@ -23,7 +23,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.transform;
+import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
 
 class ConcatRecordSet
@@ -53,8 +53,8 @@ class ConcatRecordSet
         // NOTE: the ConcatRecordCursor implementation relies on the fact that the
         // cursor creation in the Iterable is lazy so DO NOT materialize this into
         // an ImmutableList
-        Iterable<RecordCursor> recordCursors = transform(recordSets, RecordSet::cursor);
-        return new ConcatRecordCursor(recordCursors.iterator(), types);
+        Iterator<RecordCursor> recordCursorsIterator = stream(recordSets).map(RecordSet::cursor).iterator();
+        return new ConcatRecordCursor(recordCursorsIterator, types);
     }
 
     private static class ConcatRecordCursor

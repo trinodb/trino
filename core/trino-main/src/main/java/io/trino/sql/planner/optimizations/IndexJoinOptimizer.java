@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
@@ -62,6 +61,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
@@ -117,8 +117,8 @@ public class IndexJoinOptimizer
             PlanNode rightRewritten = context.rewrite(node.getRight());
 
             if (!node.getCriteria().isEmpty()) { // Index join only possible with JOIN criteria
-                List<Symbol> leftJoinSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
-                List<Symbol> rightJoinSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
+                List<Symbol> leftJoinSymbols = node.getCriteria().stream().map(JoinNode.EquiJoinClause::getLeft).collect(toImmutableList());
+                List<Symbol> rightJoinSymbols = node.getCriteria().stream().map(JoinNode.EquiJoinClause::getRight).collect(toImmutableList());
 
                 Optional<PlanNode> leftIndexCandidate = IndexSourceRewriter.rewriteWithIndex(
                         leftRewritten,

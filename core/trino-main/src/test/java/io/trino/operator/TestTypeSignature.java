@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.Lists.transform;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.TypeSignature.arrayType;
@@ -41,7 +41,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
-import static java.util.Arrays.asList;
+import static java.util.Arrays.stream;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -194,7 +194,7 @@ public class TestTypeSignature
 
     private static TypeSignature rowSignature(NamedTypeSignature... columns)
     {
-        return new TypeSignature("row", transform(asList(columns), TypeSignatureParameter::namedTypeParameter));
+        return new TypeSignature("row", stream(columns).map(TypeSignatureParameter::namedTypeParameter).collect(toImmutableList()));
     }
 
     private static NamedTypeSignature namedParameter(String name, TypeSignature value)

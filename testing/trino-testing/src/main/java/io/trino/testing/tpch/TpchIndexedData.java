@@ -17,9 +17,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchMetadata;
@@ -46,6 +44,7 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
 
 public class TpchIndexedData
@@ -93,10 +92,10 @@ public class TpchIndexedData
 
     private static <T> List<T> extractPositionValues(List<T> values, List<Integer> positions)
     {
-        return Lists.transform(positions, position -> {
+        return positions.stream().map(position -> {
             checkPositionIndex(position, values.size());
             return values.get(position);
-        });
+        }).collect(toImmutableList());
     }
 
     private static IndexedTable indexTable(RecordSet recordSet, List<String> outputColumns, List<String> keyColumns)
@@ -187,14 +186,14 @@ public class TpchIndexedData
         {
             checkArgument(recordSet.getColumnTypes().equals(keyTypes), "Input RecordSet keys do not match expected key type");
 
-            Iterable<RecordSet> outputRecordSets = Iterables.transform(tupleIterable(recordSet), key -> {
+            Iterable<RecordSet> outputRecordSets = () -> stream(tupleIterable(recordSet)).map(key -> {
                 for (Object value : key.getValues()) {
                     if (value == null) {
                         throw new IllegalArgumentException("TPCH index does not support null values");
                     }
                 }
                 return lookupKey(key);
-            });
+            }).iterator();
 
             return new ConcatRecordSet(outputRecordSets, outputTypes);
         }

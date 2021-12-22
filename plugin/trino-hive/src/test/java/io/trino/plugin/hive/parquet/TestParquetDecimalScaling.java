@@ -52,7 +52,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.transform;
 import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.maximumValue;
 import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.minimumValue;
 import static io.trino.spi.type.Decimals.overflows;
@@ -63,6 +62,7 @@ import static java.lang.Integer.MAX_VALUE;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
@@ -499,7 +499,7 @@ public class TestParquetDecimalScaling
     {
         Properties tableProperties = new Properties();
         tableProperties.setProperty("columns", Joiner.on(',').join(columnNames));
-        tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(objectInspectors, ObjectInspector::getTypeName)));
+        tableProperties.setProperty("columns.types", objectInspectors.stream().map(ObjectInspector::getTypeName).collect(joining(",")));
         return tableProperties;
     }
 
