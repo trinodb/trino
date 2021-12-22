@@ -675,6 +675,13 @@ public abstract class AbstractTestOracleTypeMapping
                         .atStartOfDay().minusMinutes(1)).size() == 2);
 
         SqlDataTypeTest dateTests = SqlDataTypeTest.create()
+                // min value in Oracle
+                .addRoundTrip("DATE", "DATE '-4712-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '-4712-01-01 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '-0001-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '-0001-01-01 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '0001-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '0001-01-01 00:00:00.000'")
+                // day before and after julian->gregorian calendar switch
+                .addRoundTrip("DATE", "DATE '1582-10-04'", TIMESTAMP_MILLIS, "TIMESTAMP '1582-10-04 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '1582-10-15'", TIMESTAMP_MILLIS, "TIMESTAMP '1582-10-15 00:00:00.000'")
                 // before epoch
                 .addRoundTrip("DATE", "DATE '1952-04-03'", TIMESTAMP_MILLIS, "TIMESTAMP '1952-04-03 00:00:00.000'")
                 .addRoundTrip("DATE", "DATE '1970-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000'")
@@ -685,7 +692,9 @@ public abstract class AbstractTestOracleTypeMapping
                 // (possible DST on southern hemisphere)
                 .addRoundTrip("DATE", "DATE '2017-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '2017-01-01 00:00:00.000'")
                 .addRoundTrip("DATE", "DATE '1983-04-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1983-04-01 00:00:00.000'")
-                .addRoundTrip("DATE", "DATE '1983-10-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1983-10-01 00:00:00.000'");
+                .addRoundTrip("DATE", "DATE '1983-10-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1983-10-01 00:00:00.000'")
+                // max value in Oracle
+                .addRoundTrip("DATE", "DATE '9999-12-31'", TIMESTAMP_MILLIS, "TIMESTAMP '9999-12-31 00:00:00.000'");
 
         for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), ZoneId.systemDefault().getId(), ZoneId.of("Europe/Vilnius").getId())) {
             Session session = Session.builder(getSession())
@@ -697,11 +706,43 @@ public abstract class AbstractTestOracleTypeMapping
         }
     }
 
+    @Test
+    public void testJulianGregorianDate()
+    {
+        // Oracle TO_DATE function returns +10 days during julian and gregorian calendar switch
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_julian_dt", "(ts date)")) {
+            assertUpdate(format("INSERT INTO %s VALUES (DATE '1582-10-05')", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES TIMESTAMP '1582-10-15 00:00:00.000'");
+        }
+    }
+
+    @Test
+    public void testUnsupportedDate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_dt", "(ts date)")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (DATE '-4713-12-31')", table.getName()),
+                    "\\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (DATE '0000-01-01')", table.getName()),
+                    "\\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (DATE '10000-01-01')", table.getName()),
+                    "\\QFailed to insert data: ORA-01862: the numeric value does not match the length of the format item\n");
+        }
+    }
+
     @Test(dataProvider = "testTimestampDataProvider")
     public void testTimestamp(ZoneId sessionZone)
     {
         // using two non-JVM zones so that we don't need to worry what Oracle system zone is
         SqlDataTypeTest tests = SqlDataTypeTest.create()
+                // min value in Oracle
+                .addRoundTrip("timestamp", "TIMESTAMP '-4712-01-01 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '-4712-01-01 00:00:00.000'")
+                .addRoundTrip("timestamp", "TIMESTAMP '-0001-01-01 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '-0001-01-01 00:00:00.000'")
+                // day before and after julian->gregorian calendar switch
+                .addRoundTrip("timestamp", "TIMESTAMP '1582-10-04 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1582-10-04 00:00:00.000'")
+                .addRoundTrip("timestamp", "TIMESTAMP '1582-10-15 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1582-10-15 00:00:00.000'")
                 // before epoch
                 .addRoundTrip("timestamp", "TIMESTAMP '1958-01-01 13:18:03.123'", TIMESTAMP_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123'")
                 // after epoch
@@ -713,7 +754,9 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInJvmZone1), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInJvmZone1))
                 .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInJvmZone2), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInJvmZone2))
                 .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInVilnius), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInVilnius))
-                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInKathmandu), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInKathmandu));
+                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInKathmandu), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInKathmandu))
+                // max value in Oracle
+                .addRoundTrip("timestamp", "TIMESTAMP '9999-12-31 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '9999-12-31 00:00:00.000'");
 
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -721,6 +764,32 @@ public abstract class AbstractTestOracleTypeMapping
         tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"));
         tests.execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
         tests.execute(getQueryRunner(), session, oracleCreateAndInsert("test_timestamp"));
+    }
+
+    @Test
+    public void testJulianGregorianTimestamp()
+    {
+        // Oracle TO_TIMESTAMP function returns +10 days during julian and gregorian calendar switch
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_julian_ts", "(ts date)")) {
+            assertUpdate(format("INSERT INTO %s VALUES (timestamp '1582-10-05')", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES TIMESTAMP '1582-10-15 00:00:00.000'");
+        }
+    }
+
+    @Test
+    public void testUnsupportedTimestamp()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_ts", "(ts timestamp)")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (TIMESTAMP '-4713-12-31 00:00:00.000')", table.getName()),
+                    "\\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (TIMESTAMP '0000-01-01 00:00:00.000')", table.getName()),
+                    "\\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (TIMESTAMP '10000-01-01 00:00:00.000')", table.getName()),
+                    "\\QFailed to insert data: ORA-01862: the numeric value does not match the length of the format item\n");
+        }
     }
 
     @DataProvider
