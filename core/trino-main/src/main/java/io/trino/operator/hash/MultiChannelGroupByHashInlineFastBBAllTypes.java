@@ -11,19 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator;
+package io.trino.operator.hash;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.trino.operator.GroupByHash;
+import io.trino.operator.GroupByIdBlock;
+import io.trino.operator.UpdateMemory;
+import io.trino.operator.Work;
 import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
-import it.unimi.dsi.fastutil.HashCommon;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
@@ -42,15 +42,16 @@ import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class MultiChannelBigintGroupByHashInlineFastBB
+public class MultiChannelGroupByHashInlineFastBBAllTypes
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiChannelBigintGroupByHashInlineFastBB.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiChannelGroupByHashInlineFastBBAllTypes.class).instanceSize();
 
     private static final float FILL_RATIO = 0.75f;
 
     private final int[] hashChannels;
     private final Optional<Integer> inputHashChannel;
+    private final HashTableFactory hashTableFactory;
 
     // the hash table with value + groupId entries.
     // external groupId is the position/index in this table and artificial groupId concatenated.
@@ -65,7 +66,8 @@ public class MultiChannelBigintGroupByHashInlineFastBB
 
     private final List<Type> types;
 
-    public MultiChannelBigintGroupByHashInlineFastBB(
+    public MultiChannelGroupByHashInlineFastBBAllTypes(
+            List<? extends Type> hashTypes,
             int[] hashChannels,
             Optional<Integer> inputHashChannel,
             int expectedSize,
@@ -76,7 +78,8 @@ public class MultiChannelBigintGroupByHashInlineFastBB
         this.hashChannels = requireNonNull(hashChannels, "hashChannels is null");
         checkArgument(hashChannels.length > 0, "hashChannels.length must be at least 1");
         this.inputHashChannel = requireNonNull(inputHashChannel, "inputHashChannel is null");
-        this.hashTable = NoRehashHashTable.create(hashChannels.length, expectedSize);
+        this.hashTableFactory = new HashTableFactory(hashTypes, hashChannels);
+        this.hashTable = hashTableFactory.create(expectedSize);
 
         // This interface is used for actively reserving memory (push model) for rehash.
         // The caller can also query memory usage on this object (pull model)
@@ -138,7 +141,7 @@ public class MultiChannelBigintGroupByHashInlineFastBB
             @Override
             public void appendValuesTo(PageBuilder pageBuilder, int outputChannelOffset)
             {
-                MultiChannelBigintGroupByHashInlineFastBB.this.appendValuesTo(hashTable, hashTable.groupToHashPosition[currentGroupId], pageBuilder, outputChannelOffset);
+                MultiChannelGroupByHashInlineFastBBAllTypes.this.appendValuesTo(hashTable, hashTable.groupToHashPosition[currentGroupId], pageBuilder, outputChannelOffset);
             }
 
             @Override
@@ -193,7 +196,7 @@ public class MultiChannelBigintGroupByHashInlineFastBB
 
         if (inputHashChannel.isPresent()) {
             BlockBuilder hashBlockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
-            BIGINT.writeLong(hashBlockBuilder, hashTable.getHash(hashPosition + 1));
+            BIGINT.writeLong(hashBlockBuilder, hashTable.getHash(hashPosition));
         }
     }
 
@@ -202,30 +205,14 @@ public class MultiChannelBigintGroupByHashInlineFastBB
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
 
-        return new AddPageWork(getBlocks(page));
-    }
-
-    private Block[] getBlocks(Page page)
-    {
-        Block[] blocks = new Block[hashChannels.length];
-        for (int i = 0; i < hashChannels.length; i++) {
-            Block block = page.getBlock(i);
-            if (block instanceof RunLengthEncodedBlock) {
-                throw new UnsupportedOperationException();
-            }
-            if (block instanceof DictionaryBlock) {
-                throw new UnsupportedOperationException();
-            }
-            blocks[i] = block;
-        }
-        return blocks;
+        return new AddPageWork(page);
     }
 
     @Override
     public Work<GroupByIdBlock> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        return new GetGroupIdsWork(getBlocks(page));
+        return new GetGroupIdsWork(page);
     }
 
     @Override
@@ -239,11 +226,6 @@ public class MultiChannelBigintGroupByHashInlineFastBB
     public int getCapacity()
     {
         return hashTable.getCapacity();
-    }
-
-    private boolean valueEqualsBuffer(int hashPosition, FastByteBuffer hashTable, int hashChannelsLength, FastByteBuffer valuesBuffer, int valuesBufferIsNullOffset, int isNullOffset)
-    {
-        return hashTable.subArrayEquals(valuesBuffer, hashPosition + Integer.BYTES, 0, valuesBufferIsNullOffset);
     }
 
     private boolean tryRehash()
@@ -269,9 +251,9 @@ public class MultiChannelBigintGroupByHashInlineFastBB
 
         expectedHashCollisions += estimateNumberOfHashCollisions(getGroupCount(), hashTable.getCapacity());
 
-        NoRehashHashTable newHashTable = new NoRehashHashTable(
-                hashChannels.length,
+        NoRehashHashTable newHashTable = hashTableFactory.create(
                 newCapacity,
+                hashTable.hashTableRow.takeOverflow(),
                 Arrays.copyOf(hashTable.groupToHashPosition, newCapacity),
                 hashTable.getHashCollisions());
 
@@ -296,18 +278,18 @@ public class MultiChannelBigintGroupByHashInlineFastBB
     private class AddPageWork
             implements Work<Void>
     {
-        private final Block[] blocks;
+        private final Page page;
         private int lastPosition;
 
-        private AddPageWork(Block[] blocks)
+        private AddPageWork(Page page)
         {
-            this.blocks = requireNonNull(blocks, "blocks is null");
+            this.page = requireNonNull(page, "page is null");
         }
 
         @Override
         public boolean process()
         {
-            int positionCount = blocks[0].getPositionCount();
+            int positionCount = page.getPositionCount();
             checkState(lastPosition < positionCount, "position count out of bound");
             // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
             // We can only proceed if tryRehash() successfully did a rehash.
@@ -315,13 +297,13 @@ public class MultiChannelBigintGroupByHashInlineFastBB
                 return false;
             }
 
-            NoRehashHashTable hashTable = MultiChannelBigintGroupByHashInlineFastBB.this.hashTable;
+            NoRehashHashTable hashTable = MultiChannelGroupByHashInlineFastBBAllTypes.this.hashTable;
             while (lastPosition < positionCount && !hashTable.needRehash()) {
-                hashTable.putIfAbsent(lastPosition, blocks);
+                hashTable.putIfAbsent(lastPosition, page);
                 lastPosition++;
                 if (hashTable.needRehash()) {
                     tryRehash();
-                    hashTable = MultiChannelBigintGroupByHashInlineFastBB.this.hashTable;
+                    hashTable = MultiChannelGroupByHashInlineFastBBAllTypes.this.hashTable;
                 }
             }
             return lastPosition == positionCount;
@@ -338,21 +320,21 @@ public class MultiChannelBigintGroupByHashInlineFastBB
             implements Work<GroupByIdBlock>
     {
         private final BlockBuilder blockBuilder;
-        private final Block[] blocks;
+        private final Page page;
         private boolean finished;
         private int lastPosition;
 
-        private GetGroupIdsWork(Block[] blocks)
+        private GetGroupIdsWork(Page page)
         {
-            this.blocks = requireNonNull(blocks, "blocks is null");
+            this.page = requireNonNull(page, "page is null");
             // we know the exact size required for the block
-            this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(blocks[0].getPositionCount());
+            this.blockBuilder = BIGINT.createFixedSizeBlockBuilder(page.getPositionCount());
         }
 
         @Override
         public boolean process()
         {
-            int positionCount = blocks[0].getPositionCount();
+            int positionCount = page.getPositionCount();
             checkState(lastPosition < positionCount, "position count out of bound");
             checkState(!finished);
 
@@ -362,14 +344,14 @@ public class MultiChannelBigintGroupByHashInlineFastBB
                 return false;
             }
 
-            NoRehashHashTable hashTable = MultiChannelBigintGroupByHashInlineFastBB.this.hashTable;
+            NoRehashHashTable hashTable = MultiChannelGroupByHashInlineFastBBAllTypes.this.hashTable;
             while (lastPosition < positionCount && !hashTable.needRehash()) {
                 // output the group id for this row
-                BIGINT.writeLong(blockBuilder, hashTable.putIfAbsent(lastPosition, blocks));
+                BIGINT.writeLong(blockBuilder, hashTable.putIfAbsent(lastPosition, page));
                 lastPosition++;
                 if (hashTable.needRehash()) {
                     tryRehash();
-                    hashTable = MultiChannelBigintGroupByHashInlineFastBB.this.hashTable;
+                    hashTable = MultiChannelGroupByHashInlineFastBBAllTypes.this.hashTable;
                 }
             }
             return lastPosition == positionCount;
@@ -378,94 +360,120 @@ public class MultiChannelBigintGroupByHashInlineFastBB
         @Override
         public GroupByIdBlock getResult()
         {
-            checkState(lastPosition == blocks[0].getPositionCount(), "process has not yet finished");
+            checkState(lastPosition == page.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
             return new GroupByIdBlock(getGroupCount(), blockBuilder.build());
         }
     }
 
+    static class HashTableFactory
+    {
+        private final int dataValuesLength;
+        private final int hashChannelsCount;
+        private final RowExtractor rowExtractor;
+
+        public HashTableFactory(List<? extends Type> hashTypes, int[] hashChannels)
+        {
+            hashChannelsCount = hashChannels.length;
+            ColumnValueExtractor[] columnValueExtractors = hashTypes.stream().map(ColumnValueExtractor::columnValueExtractor).toArray(ColumnValueExtractor[]::new);
+            this.rowExtractor = new RowExtractor(hashChannels, columnValueExtractors);
+            this.dataValuesLength = Arrays.stream(columnValueExtractors).mapToInt(ColumnValueExtractor::getSummarySize).sum();
+        }
+
+        public NoRehashHashTable create(int expectedSize)
+        {
+            return NoRehashHashTable.create(hashChannelsCount, expectedSize, rowExtractor, dataValuesLength);
+        }
+
+        public NoRehashHashTable create(int totalEntryCount, FastByteBuffer overflow, int[] groupToHashPosition, long hashCollisions)
+        {
+            return new NoRehashHashTable(
+                    rowExtractor,
+                    hashChannelsCount,
+                    totalEntryCount,
+                    overflow,
+                    groupToHashPosition,
+                    hashCollisions,
+                    dataValuesLength);
+        }
+    }
+
     static class NoRehashHashTable
             implements AutoCloseable
     {
-        private final int hashChannelsCount;
         private final int hashCapacity;
         private final int maxFill;
         private final int mask;
-        private final FastByteBuffer hashTable;
         private final int[] groupToHashPosition;
-
-        private final int entrySize;
-        private final int isNullOffset;
-
-        private final FastByteBuffer valuesBuffer;
-        private final int valuesBufferIsNullOffset;
 
         private int hashTableSize;
         private long hashCollisions;
+        private final RowExtractor rowExtractor;
+        private final GroupByHashTableAccess rowBuffer;
+        private final GroupByHashTableAccess hashTableRow;
 
-        public static NoRehashHashTable create(int hashChannelsCount, int expectedSize)
+        public static NoRehashHashTable create(
+                int hashChannelsCount,
+                int expectedSize,
+                RowExtractor rowExtractor,
+                int dataValuesLength)
         {
             int hashCapacity = arraySize(expectedSize, FILL_RATIO);
             return new NoRehashHashTable(
+                    rowExtractor,
                     hashChannelsCount,
                     hashCapacity,
+                    FastByteBuffer.allocate(128 * 1024),
                     new int[hashCapacity],
-                    0);
+                    0,
+                    dataValuesLength);
         }
 
         public NoRehashHashTable(
+                RowExtractor rowExtractor,
                 int hashChannelsCount,
                 int hashCapacity,
+                FastByteBuffer overflow,
                 int[] groupToHashPosition,
-                long hashCollisions)
+                long hashCollisions,
+                int dataValuesLength)
         {
-            this.valuesBuffer = FastByteBuffer.allocate(hashChannelsCount * Long.BYTES + hashChannelsCount);
+            this.rowExtractor = rowExtractor;
+            this.rowBuffer = new GroupByHashTableAccess(1, FastByteBuffer.allocate(1024), hashChannelsCount, 0, dataValuesLength);
             this.hashCapacity = hashCapacity;
             this.groupToHashPosition = groupToHashPosition;
 
-            this.hashChannelsCount = hashChannelsCount;
-            this.valuesBufferIsNullOffset = hashChannelsCount * Long.BYTES;
-
-            this.entrySize = valuesBuffer.capacity() + Integer.BYTES;
             this.maxFill = calculateMaxFill(hashCapacity);
             this.mask = hashCapacity - 1;
-            this.hashTable = FastByteBuffer.allocate(entrySize * hashCapacity);
+            this.hashTableRow = new GroupByHashTableAccess(hashCapacity, overflow, hashChannelsCount, 1, dataValuesLength);
             this.hashCollisions = hashCollisions;
-            for (int i = 0; i <= hashTable.capacity() - entrySize; i += entrySize) {
-                this.hashTable.putInt(i, -1);
-            }
-            this.isNullOffset = Integer.BYTES + (hashChannelsCount * Long.BYTES);
         }
 
-        private int putIfAbsent(int position, Block[] blocks)
+        private int putIfAbsent(int position, Page page)
         {
-            for (int i = 0; i < blocks.length; i++) {
-                byte isNull = (byte) (blocks[i].isNull(position) ? 1 : 0);
-                valuesBuffer.putLong(i * Long.BYTES, BIGINT.getLong(blocks[i], position) & (isNull - 1)); // isNull -1 makes 0 to all 1s mask and 1 to all 0s mask
-                valuesBuffer.put(valuesBufferIsNullOffset + i, isNull);
-            }
+            rowExtractor.copyToRow(page, position, rowBuffer);
 
-            int hashPosition = getHashPosition(valuesBuffer, 0);
+            int hashPosition = getHashPosition(rowBuffer, 0);
             // look for an empty slot or a slot containing this key
             while (true) {
-                int current = hashTable.getInt(hashPosition);
+                int current = hashTableRow.getGroupId(hashPosition);
 
                 if (current == -1) {
                     // empty slot found
                     int groupId = hashTableSize++;
-                    hashTable.putInt(hashPosition, groupId);
-                    hashTable.copyFrom(valuesBuffer, 0, hashPosition + Integer.BYTES, valuesBuffer.capacity());
+                    hashTableRow.putEntry(hashPosition, groupId, rowBuffer);
                     groupToHashPosition[groupId] = hashPosition;
 //                System.out.println(hashPosition + ": v=" + value + ", " + hashTableSize);
                     return groupId;
                 }
-                if (valueEqualsBuffer(hashPosition, hashTable)) {
+
+                if (hashTableRow.keyEquals(hashPosition, rowBuffer, 0)) {
                     return current;
                 }
 
-                hashPosition = hashPosition + entrySize;
-                if (hashPosition >= hashTable.capacity()) {
+                hashPosition = hashPosition + hashTableRow.getEntrySize();
+                if (hashPosition >= hashTableRow.capacity()) {
                     hashPosition = 0;
                 }
                 hashCollisions++;
@@ -487,48 +495,40 @@ public class MultiChannelBigintGroupByHashInlineFastBB
             return hashCapacity;
         }
 
-        private boolean valueEqualsBuffer(int hashPosition, FastByteBuffer hashTable)
-        {
-            return hashTable.subArrayEquals(valuesBuffer, hashPosition + Integer.BYTES, 0, valuesBufferIsNullOffset);
-        }
-
         public long getEstimatedSize()
         {
-            return hashTable.capacity() + sizeOf(groupToHashPosition);
-        }
-
-        private byte isNull(int hashPosition, int i)
-        {
-            return hashTable.get(hashPosition + isNullOffset + i);
+            return hashTableRow.getEstimatedSize() + sizeOf(groupToHashPosition);
         }
 
         @Override
         public void close()
         {
             try {
-                hashTable.close();
+                hashTableRow.close();
             }
             finally {
-                valuesBuffer.close();
+                rowBuffer.close();
             }
         }
 
         public void copyFrom(NoRehashHashTable other)
         {
-            FastByteBuffer otherHashTable = other.hashTable;
-            FastByteBuffer thisHashTable = this.hashTable;
+            GroupByHashTableAccess otherHashTable = other.hashTableRow;
+            GroupByHashTableAccess thisHashTable = this.hashTableRow;
+            int entrySize = hashTableRow.getEntrySize();
             for (int i = 0; i <= otherHashTable.capacity() - entrySize; i += entrySize) {
-                if (otherHashTable.getInt(i) != -1) {
-                    int hashPosition = getHashPosition(otherHashTable, i + Integer.BYTES);
+                if (otherHashTable.getGroupId(i) != -1) {
+                    int hashPosition = getHashPosition(otherHashTable, i);
                     // look for an empty slot or a slot containing this key
-                    while (thisHashTable.getInt(hashPosition) != -1) {
+                    while (thisHashTable.getGroupId(hashPosition) != -1) {
                         hashPosition = hashPosition + entrySize;
                         if (hashPosition >= thisHashTable.capacity()) {
                             hashPosition = 0;
                         }
                         hashCollisions++;
                     }
-                    thisHashTable.copyFrom(otherHashTable, i, hashPosition, entrySize);
+                    // we can just copy data because overflow is reused
+                    thisHashTable.copyEntryFrom(otherHashTable, i, hashPosition);
                 }
             }
             hashTableSize += other.getSize();
@@ -536,36 +536,29 @@ public class MultiChannelBigintGroupByHashInlineFastBB
 
         public long getValue(int hashPosition, int index)
         {
-            return hashTable.getLong(hashPosition + Integer.BYTES + index * Long.BYTES);
+            return hashTableRow.getLongValue(hashPosition, index);
         }
 
-        private int getHashPosition(FastByteBuffer values, int startPosition)
+        private int getHashPosition(GroupByHashTableAccess row, int position)
         {
-            long hash = getHash(values, startPosition);
+            long hash = murmurHash3(row.getHash(position));
 
-            return (int) (hash & mask) * entrySize;
+            return (int) (hash & mask) * hashTableRow.getEntrySize();
         }
 
         public long getHash(int startPosition)
         {
-            return getHash(hashTable, startPosition);
-        }
-
-        private long getHash(FastByteBuffer values, int startPosition)
-        {
-            long result = 1;
-            for (int i = startPosition; i <= startPosition + (hashChannelsCount - 1) * Long.BYTES; i += Long.BYTES) {
-                long element = values.getLong(i);
-                long elementHash = HashCommon.mix(element);
-                result = 31 * result + elementHash;
-            }
-
-            return murmurHash3(result);
+            return hashTableRow.getHash(startPosition + Integer.BYTES);
         }
 
         public long getHashCollisions()
         {
             return hashCollisions;
+        }
+
+        public int isNull(int hashPosition, int index)
+        {
+            return hashTableRow.isNull(hashPosition, index);
         }
     }
 

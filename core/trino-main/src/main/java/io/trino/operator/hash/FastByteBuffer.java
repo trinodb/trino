@@ -1,4 +1,4 @@
-package io.trino.operator;
+package io.trino.operator.hash;
 
 public interface FastByteBuffer
 {
@@ -27,4 +27,21 @@ public interface FastByteBuffer
     long getLong(int position);
 
     boolean subArrayEquals(FastByteBuffer other, int thisOffset, int otherOffset, int length);
+
+    default void clear()
+    {
+        clear(capacity());
+    }
+
+    void clear(int upToPosition);
+
+    default void putByteUnsigned(int position, int value)
+    {
+        put(position, (byte) value);
+    }
+
+    default int getByteUnsigned(int position)
+    {
+        return Byte.toUnsignedInt(get(position));
+    }
 }

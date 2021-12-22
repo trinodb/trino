@@ -11,10 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator;
+package io.trino.operator.hash.bigint;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import io.trino.operator.GroupByHash;
+import io.trino.operator.GroupByIdBlock;
+import io.trino.operator.UpdateMemory;
+import io.trino.operator.Work;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;

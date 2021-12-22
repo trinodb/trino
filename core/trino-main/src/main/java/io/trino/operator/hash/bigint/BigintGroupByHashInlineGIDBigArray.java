@@ -11,10 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator;
+package io.trino.operator.hash.bigint;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import io.trino.array.LongBigArray;
+import io.trino.operator.GroupByHash;
+import io.trino.operator.GroupByIdBlock;
+import io.trino.operator.UpdateMemory;
+import io.trino.operator.Work;
+import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -32,21 +38,21 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static io.trino.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
+import static it.unimi.dsi.fastutil.Arrays.quickSort;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class BigintGroupByHashNoRehash
+public class BigintGroupByHashInlineGIDBigArray
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BigintGroupByHashNoRehash.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BigintGroupByHashInlineGIDBigArray.class).instanceSize();
 
     private static final float FILL_RATIO = 0.75f;
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
@@ -59,13 +65,16 @@ public class BigintGroupByHashNoRehash
     private int maxFill;
     private int mask;
 
-    // the hash table with values. groupId is the position/index in this table.
-    private long[] hashTable;
+    // the hash table with value + groupId entries.
+    // external groupId is the position/index in this table and artificial groupId concatenated.
+    private LongBigArray hashTable;
     private int hashTableSize;
-    private boolean containsNullKey;
+    private LongBigArray groupToValue;
 
     // groupId for the null value
-    private static final int nullGroupId = -1;
+    private int nullGroupId = -1;
+    // group id for the value 0
+    private int zeroKeyGroupId = -1;
 
     private DictionaryLookBack dictionaryLookBack;
     private long hashCollisions;
@@ -75,9 +84,9 @@ public class BigintGroupByHashNoRehash
     private final UpdateMemory updateMemory;
     private long preallocatedMemoryInBytes;
     private long currentPageSizeInBytes;
-    private boolean containsNull;
+    private int hashTableLength;
 
-    public BigintGroupByHashNoRehash(int hashChannel, boolean outputRawHash, int expectedSize, UpdateMemory updateMemory)
+    public BigintGroupByHashInlineGIDBigArray(int hashChannel, boolean outputRawHash, int expectedSize, UpdateMemory updateMemory)
     {
         checkArgument(hashChannel >= 0, "hashChannel must be at least zero");
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
@@ -89,7 +98,11 @@ public class BigintGroupByHashNoRehash
 
         maxFill = calculateMaxFill(hashCapacity);
         mask = hashCapacity - 1;
-        hashTable = new long[hashCapacity + 1]; // + 1 is for value 0 if present
+        hashTable = new LongBigArray();
+        hashTableLength = toIntExact(2L * (hashCapacity + 1));
+        hashTable.ensureCapacity(hashTableLength); // + 1 is for value 0 if present
+        groupToValue = new LongBigArray();
+        groupToValue.ensureCapacity(hashCapacity);
 
         // This interface is used for actively reserving memory (push model) for rehash.
         // The caller can also query memory usage on this object (pull model)
@@ -100,7 +113,8 @@ public class BigintGroupByHashNoRehash
     public long getEstimatedSize()
     {
         return INSTANCE_SIZE +
-                sizeOf(hashTable) +
+                hashTable.sizeOf() +
+                groupToValue.sizeOf() +
                 preallocatedMemoryInBytes;
     }
 
@@ -128,7 +142,142 @@ public class BigintGroupByHashNoRehash
         return hashTableSize;
     }
 
-    public void appendValuesTo(int groupId, PageBuilder pageBuilder, int outputChannelOffset)
+    @Override
+    public GroupCursor consecutiveGroups()
+    {
+        return new GroupCursor()
+        {
+            private int currentGroupId = -1;
+
+            @Override
+            public boolean hasNext()
+            {
+                return currentGroupId + 1 < hashTableSize;
+            }
+
+            @Override
+            public void next()
+            {
+                currentGroupId++;
+            }
+
+            @Override
+            public void appendValuesTo(PageBuilder pageBuilder, int outputChannelOffset)
+            {
+                BigintGroupByHashInlineGIDBigArray.this.appendValuesTo(groupToValue.get(currentGroupId), currentGroupId, pageBuilder, outputChannelOffset);
+            }
+
+            @Override
+            public int getGroupId()
+            {
+                return currentGroupId;
+            }
+
+            @Override
+            public void evaluatePage(PageBuilder pageBuilder, List<InMemoryHashAggregationBuilder.Aggregator> aggregators)
+            {
+                List<Type> types = getTypes();
+                while (!pageBuilder.isFull() && hasNext()) {
+                    next();
+
+                    appendValuesTo(pageBuilder, 0);
+
+                    pageBuilder.declarePosition();
+                    for (int i = 0; i < aggregators.size(); i++) {
+                        InMemoryHashAggregationBuilder.Aggregator aggregator = aggregators.get(i);
+                        BlockBuilder output = pageBuilder.getBlockBuilder(types.size() + i);
+                        aggregator.evaluate(getGroupId(), output);
+                    }
+                }
+            }
+        };
+    }
+
+    @Override
+    public GroupCursor hashSortedGroups()
+    {
+        LongBigArray packedHashTable = new LongBigArray();
+        long packedLength = hashTableSize * 2L;
+        packedHashTable.ensureCapacity(packedLength);
+        int packedIndex = 0;
+        for (int i = 0; i < hashTableLength; i += 2) {
+            if (hashTable.get(i) != 0) {
+                packedHashTable.set(packedIndex, hashTable.get(i));
+                packedHashTable.set(packedIndex, hashTable.get(i + 1));
+                packedIndex++;
+            }
+        }
+        if (nullGroupId > 0) {
+            packedHashTable.set(packedLength - 1, nullGroupId);
+        }
+        quickSort(
+                0,
+                hashTableSize,
+                (left, right) -> Long.compare(
+                        BigintType.hash(packedHashTable.get(left * 2L)),
+                        BigintType.hash(packedHashTable.get(right * 2L))),
+                (a, b) -> {
+                    long tempValue = packedHashTable.get(a);
+                    long tempGroupId = packedHashTable.get(a + 1);
+                    packedHashTable.set(a, packedHashTable.get(b));
+                    packedHashTable.set(a + 1, packedHashTable.get(b + 1));
+                    packedHashTable.set(b, tempValue);
+                    packedHashTable.set(b + 1, tempGroupId);
+                });
+        return new GroupCursor()
+        {
+            int i = -1;
+
+            @Override
+            public boolean hasNext()
+            {
+                return i + 1 < packedLength;
+            }
+
+            @Override
+            public void next()
+            {
+                i++;
+            }
+
+            @Override
+            public void appendValuesTo(PageBuilder pageBuilder, int outputChannelOffset)
+            {
+                BigintGroupByHashInlineGIDBigArray.this.appendValuesTo(packedHashTable.get(i), (int) packedHashTable.get(i + 1), pageBuilder, outputChannelOffset);
+            }
+
+            @Override
+            public int getGroupId()
+            {
+                return (int) packedHashTable.get(i + 1);
+            }
+
+            @Override
+            public void evaluatePage(PageBuilder pageBuilder, List<InMemoryHashAggregationBuilder.Aggregator> aggregators)
+            {
+                List<Type> types = getTypes();
+                while (!pageBuilder.isFull() && hasNext()) {
+                    next();
+
+                    appendValuesTo(pageBuilder, 0);
+
+                    pageBuilder.declarePosition();
+                    for (int i = 0; i < aggregators.size(); i++) {
+                        InMemoryHashAggregationBuilder.Aggregator aggregator = aggregators.get(i);
+                        BlockBuilder output = pageBuilder.getBlockBuilder(types.size() + i);
+                        aggregator.evaluate(getGroupId(), output);
+                    }
+                }
+            }
+        };
+    }
+
+    public void appendValuesTo(int hashPosition, int groupId, PageBuilder pageBuilder, int outputChannelOffset)
+    {
+        appendValuesTo(groupId == nullGroupId ? -1 : hashTable.get(hashPosition), groupId, pageBuilder, outputChannelOffset);
+    }
+
+    public void appendValuesTo(long value, int groupId, PageBuilder pageBuilder, int outputChannelOffset)
     {
         checkArgument(groupId >= 0 || groupId == nullGroupId, "groupId is negative");
         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
@@ -136,7 +285,7 @@ public class BigintGroupByHashNoRehash
             blockBuilder.appendNull();
         }
         else {
-            BIGINT.writeLong(blockBuilder, hashTable[groupId]);
+            BIGINT.writeLong(blockBuilder, value);
         }
 
         if (outputRawHash) {
@@ -145,7 +294,7 @@ public class BigintGroupByHashNoRehash
                 BIGINT.writeLong(hashBlockBuilder, NULL_HASH_CODE);
             }
             else {
-                BIGINT.writeLong(hashBlockBuilder, AbstractLongType.hash(hashTable[groupId]));
+                BIGINT.writeLong(hashBlockBuilder, AbstractLongType.hash(value));
             }
         }
     }
@@ -185,18 +334,18 @@ public class BigintGroupByHashNoRehash
     {
         Block block = page.getBlock(hashChannel);
         if (block.isNull(position)) {
-            return containsNull;
+            return nullGroupId >= 0;
         }
 
         long value = BIGINT.getLong(block, position);
         if (value == 0) {
-            return containsNullKey;
+            return zeroKeyGroupId >= 0;
         }
         int hashPosition = getHashPosition(value, mask);
 
         // look for an empty slot or a slot containing this key
         while (true) {
-            long current = hashTable[hashPosition];
+            long current = hashTable.get(hashPosition);
             if (current == 0) {
                 return false;
             }
@@ -204,14 +353,11 @@ public class BigintGroupByHashNoRehash
                 return true;
             }
 
-            // increment position and mask to handle wrap around
-            hashPosition = (hashPosition + 1) & mask;
+            hashPosition = hashPosition + 2;
+            if (hashPosition >= hashCapacity * 2) {
+                hashPosition = 0;
+            }
         }
-    }
-
-    public long getRawHash(int groupId)
-    {
-        return BigintType.hash(hashTable[groupId]);
     }
 
     @VisibleForTesting
@@ -224,42 +370,53 @@ public class BigintGroupByHashNoRehash
     private int putIfAbsent(int position, Block block)
     {
         if (block.isNull(position)) {
-            containsNull = true;
+            if (nullGroupId < 0) {
+                nullGroupId = hashTableSize++;
+            }
             return nullGroupId;
         }
 
         long value = BIGINT.getLong(block, position);
         if (value == 0) {
-            hashTableSize += containsNullKey ? 0 : 1;
-            containsNullKey = true;
-            return hashCapacity;
+            if (zeroKeyGroupId < 0) {
+                zeroKeyGroupId = hashTableSize++;
+                hashTable.set(hashTableLength - 1, zeroKeyGroupId);
+            }
+            return zeroKeyGroupId;
         }
 
         int hashPosition = getHashPosition(value, mask);
         // look for an empty slot or a slot containing this key
         while (true) {
-            long current = hashTable[hashPosition];
+            long current = hashTable.get(hashPosition);
 
             if (current == 0) {
                 // empty slot found
-                hashTable[hashPosition] = value;
-                hashTableSize++;
-                return hashPosition;
+                hashTable.set(hashPosition, value);
+                int groupId = hashTableSize++;
+                hashTable.set(hashPosition + 1, groupId);
+                groupToValue.set(groupId, value);
+                if (needRehash()) {
+                    tryRehash();
+                }
+//                System.out.println(hashPosition + ": v=" + value + ", " + hashTableSize);
+                return groupId;
             }
             if (value == current) {
-                return hashPosition;
+                return (int) hashTable.get(hashPosition + 1);
             }
 
-            // increment position and mask to handle wrap around
-            hashPosition = (hashPosition + 1) & mask;
+            hashPosition = hashPosition + 2;
+            if (hashPosition >= hashCapacity * 2) {
+                hashPosition = 0;
+            }
             hashCollisions++;
         }
     }
 
     private boolean tryRehash()
     {
-        long newCapacityLong = hashCapacity * 2L;
-        return tryRehash(newCapacityLong);
+        return tryRehash(hashCapacity * 2L);
     }
 
     private boolean tryEnsureCapacity(long totalNewCapacity)
@@ -272,12 +429,11 @@ public class BigintGroupByHashNoRehash
 
     private boolean tryRehash(long newCapacityLong)
     {
-        checkArgument(hashTableSize == 0, "rehash not supported %s", hashTableSize);
         if (newCapacityLong > Integer.MAX_VALUE) {
             throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
         }
         int newCapacity = toIntExact(newCapacityLong);
-
+//        System.out.println("rehash: old: " + hashCapacity + " new: " + newCapacity);
         // An estimate of how much extra memory is needed before we can go ahead and expand the hash table.
         // This includes the new capacity for values, groupIds, and valuesByGroupId as well as the size of the current page
         preallocatedMemoryInBytes = (newCapacity - hashCapacity) * (long) (Long.BYTES + Integer.BYTES) + (calculateMaxFill(newCapacity) - maxFill) * Long.BYTES + currentPageSizeInBytes;
@@ -289,10 +445,44 @@ public class BigintGroupByHashNoRehash
 
         expectedHashCollisions += estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
 
-        mask = newCapacity - 1;
+        LongBigArray newHashTable = new LongBigArray();
+        int newHashTableLength = 2 * newCapacity + 1;
+        newHashTable.ensureCapacity(newHashTableLength);
+        int newMask = newCapacity - 1;
+        for (int i = 0; i < hashCapacity * 2; i += 2) {
+            long value = hashTable.get(i);
+            long groupId = hashTable.get(i + 1);
+            if (groupId == nullGroupId) {
+                continue;
+            }
+            int hashPosition = getHashPosition(value, newMask);
+            // look for an empty slot or a slot containing this key
+            while (newHashTable.get(hashPosition) != 0) {
+                hashPosition = hashPosition + 2;
+                if (hashPosition >= newCapacity * 2) {
+                    hashPosition = 0;
+                }
+                hashCollisions++;
+            }
+            newHashTable.set(hashPosition, value);
+            newHashTable.set(hashPosition + 1, groupId);
+//            System.out.println("rehash " + i + " -> " + hashPosition + ": v=" + value + ", " + groupId);
+        }
+        if (zeroKeyGroupId > 0) {
+            newHashTable.set(newHashTableLength - 1, zeroKeyGroupId);
+        }
+
+        this.mask = newMask;
         hashCapacity = newCapacity;
+        hashTable = newHashTable;
+        hashTableLength = newHashTableLength;
         maxFill = calculateMaxFill(hashCapacity);
-        hashTable = new long[hashCapacity + 1];
+
+        groupToValue.ensureCapacity(hashCapacity);
+//        System.out.println("new mask: " + mask
+//                + " hashCapacity: "
+//                + hashCapacity +
+//                " hashTable.length: " + hashTable.length);
 
         return true;
     }
@@ -304,7 +494,7 @@ public class BigintGroupByHashNoRehash
 
     private static int getHashPosition(long rawHash, int mask)
     {
-        return (int) (murmurHash3(rawHash) & mask);
+        return (int) (murmurHash3(rawHash) & mask) * 2;
     }
 
     private static int calculateMaxFill(int hashSize)
@@ -353,7 +543,6 @@ public class BigintGroupByHashNoRehash
         {
             int positionCount = block.getPositionCount();
             checkState(lastPosition < positionCount, "position count out of bound");
-            tryEnsureCapacity(positionCount);
             // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
             // We can only proceed if tryRehash() successfully did a rehash.
             if (needRehash() && !tryRehash()) {
@@ -484,7 +673,6 @@ public class BigintGroupByHashNoRehash
             int positionCount = block.getPositionCount();
             checkState(lastPosition < positionCount, "position count out of bound");
             checkState(!finished);
-            tryEnsureCapacity(positionCount);
 
             // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
             // We can only proceed if tryRehash() successfully did a rehash.

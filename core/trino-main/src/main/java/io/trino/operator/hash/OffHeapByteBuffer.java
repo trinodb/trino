@@ -1,4 +1,4 @@
-package io.trino.operator;
+package io.trino.operator.hash;
 
 import sun.misc.Unsafe;
 
@@ -118,5 +118,11 @@ public class OffHeapByteBuffer
             otherPosition++;
         }
         return true;
+    }
+
+    @Override
+    public void clear(int upTo)
+    {
+        UNSAFE.setMemory(address, upTo, (byte) 0);
     }
 }

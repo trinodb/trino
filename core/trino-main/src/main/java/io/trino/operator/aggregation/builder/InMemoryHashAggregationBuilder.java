@@ -128,7 +128,8 @@ public class InMemoryHashAggregationBuilder
     }
 
     @Override
-    public void close() {
+    public void close()
+    {
         this.groupByHash.close();
     }
 

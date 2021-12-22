@@ -16,6 +16,11 @@ package io.trino.operator;
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.Session;
 import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
+import io.trino.operator.hash.ColumnValueExtractor;
+import io.trino.operator.hash.MultiChannelBigintGroupByHashInlineBatch;
+import io.trino.operator.hash.MultiChannelGroupByHashBatch;
+import io.trino.operator.hash.MultiChannelGroupByHashInlineFastBBAllTypes;
+import io.trino.operator.hash.bigint.BigintGroupByHashInlineGID;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
@@ -78,6 +83,10 @@ public interface GroupByHash
             BlockTypeOperators blockTypeOperators,
             UpdateMemory updateMemory)
     {
+
+        if (useEnhancedGroupBy && hashTypes.stream().allMatch(ColumnValueExtractor::isSupported)) {
+            return new MultiChannelGroupByHashInlineFastBBAllTypes(hashTypes, hashChannels, inputHashChannel, expectedSize, updateMemory);
+        }
         if (useEnhancedGroupBy && hashTypes.stream().allMatch(type -> type.equals(BIGINT))) {
             return new MultiChannelBigintGroupByHashInlineBatch(hashChannels, inputHashChannel, expectedSize, updateMemory);
         }

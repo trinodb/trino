@@ -415,7 +415,7 @@ public class BigintGroupByHash
             long hashPosition = getHashPosition(value, newMask);
             while (newGroupIds.get(hashPosition) != -1) {
                 hashPosition = (hashPosition + 1) & newMask;
-//                hashCollisions++;
+                hashCollisions++;
             }
 
             // record the mapping

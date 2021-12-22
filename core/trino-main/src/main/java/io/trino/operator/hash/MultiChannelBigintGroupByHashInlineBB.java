@@ -11,9 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator;
+package io.trino.operator.hash;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.trino.operator.GroupByHash;
+import io.trino.operator.GroupByIdBlock;
+import io.trino.operator.UpdateMemory;
+import io.trino.operator.Work;
 import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -22,10 +26,10 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -42,10 +46,10 @@ import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class MultiChannelBigintGroupByHashInlineBatch
+public class MultiChannelBigintGroupByHashInlineBB
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiChannelBigintGroupByHashInlineBatch.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiChannelBigintGroupByHashInlineBB.class).instanceSize();
 
     private static final float FILL_RATIO = 0.75f;
 
@@ -58,61 +62,49 @@ public class MultiChannelBigintGroupByHashInlineBatch
 
     // the hash table with value + groupId entries.
     // external groupId is the position/index in this table and artificial groupId concatenated.
-    private long[] hashTable;
+    private ByteBuffer hashTable;
     private int hashTableSize;
     private int[] groupToHashPosition;
 
     private long hashCollisions;
     private double expectedHashCollisions;
 
+    private final int entrySize;
+    private final ByteBuffer valuesBuffer;
+    private final int valuesBufferIsNullOffset;
+    private final int isNullOffset;
+
     // reserve enough memory before rehash
     private final UpdateMemory updateMemory;
     private long preallocatedMemoryInBytes;
     private long currentPageSizeInBytes;
 
-    private final long[][] valuesBuffer;
-    private boolean[][] isNullBuffer;
-    private final int entrySize;
     private final List<Type> types;
-    private final int batchSize;
-    private final int[] hashPositions;
-    private final int[] current;
 
-    public MultiChannelBigintGroupByHashInlineBatch(
+    public MultiChannelBigintGroupByHashInlineBB(
             int[] hashChannels,
             Optional<Integer> inputHashChannel,
             int expectedSize,
             UpdateMemory updateMemory)
     {
-        this(hashChannels, inputHashChannel, expectedSize, updateMemory, 32);
-    }
-
-    public MultiChannelBigintGroupByHashInlineBatch(
-            int[] hashChannels,
-            Optional<Integer> inputHashChannel,
-            int expectedSize,
-            UpdateMemory updateMemory,
-            int batchSize)
-    {
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
-        this.batchSize = batchSize;
-        this.hashPositions = new int[batchSize];
-        this.current = new int[batchSize];
+
         this.hashChannels = requireNonNull(hashChannels, "hashChannels is null");
         checkArgument(hashChannels.length > 0, "hashChannels.length must be at least 1");
         this.inputHashChannel = requireNonNull(inputHashChannel, "inputHashChannel is null");
         hashCapacity = arraySize(expectedSize, FILL_RATIO);
-        int isNullBufferSize = (int) Math.ceil(((double) hashChannels.length) / 64);
-        this.valuesBuffer = new long[batchSize][hashChannels.length + isNullBufferSize];
-        this.isNullBuffer = new boolean[batchSize][hashChannels.length];
+        this.valuesBuffer = ByteBuffer.allocate(hashChannels.length * Long.BYTES + hashChannels.length);
 
-        this.entrySize = valuesBuffer[0].length + 1;
+        this.entrySize = valuesBuffer.capacity() + Integer.BYTES;
         maxFill = calculateMaxFill(hashCapacity);
         mask = hashCapacity - 1;
-        hashTable = new long[entrySize * hashCapacity];
-        Arrays.fill(hashTable, -1);
+        hashTable = ByteBuffer.allocate(entrySize * hashCapacity);
+        for (int i = 0; i <= hashTable.capacity() - entrySize; i += entrySize) {
+            hashTable.putInt(i, -1);
+        }
         groupToHashPosition = new int[hashCapacity];
-
+        valuesBufferIsNullOffset = hashChannels.length * Long.BYTES;
+        isNullOffset = Integer.BYTES + (hashChannels.length * Long.BYTES);
         // This interface is used for actively reserving memory (push model) for rehash.
         // The caller can also query memory usage on this object (pull model)
         this.updateMemory = requireNonNull(updateMemory, "updateMemory is null");
@@ -123,7 +115,7 @@ public class MultiChannelBigintGroupByHashInlineBatch
     public long getEstimatedSize()
     {
         return INSTANCE_SIZE +
-                sizeOf(hashTable) +
+                hashTable.capacity() +
                 sizeOf(groupToHashPosition) +
                 preallocatedMemoryInBytes;
     }
@@ -174,7 +166,7 @@ public class MultiChannelBigintGroupByHashInlineBatch
             @Override
             public void appendValuesTo(PageBuilder pageBuilder, int outputChannelOffset)
             {
-                MultiChannelBigintGroupByHashInlineBatch.this.appendValuesTo(hashTable, groupToHashPosition[currentGroupId], pageBuilder, outputChannelOffset);
+                MultiChannelBigintGroupByHashInlineBB.this.appendValuesTo(hashTable, groupToHashPosition[currentGroupId], pageBuilder, outputChannelOffset);
             }
 
             @Override
@@ -214,15 +206,15 @@ public class MultiChannelBigintGroupByHashInlineBatch
         appendValuesTo(hashTable, hashPosition, pageBuilder, outputChannelOffset);
     }
 
-    public void appendValuesTo(long[] hashTable, int hashPosition, PageBuilder pageBuilder, int outputChannelOffset)
+    public void appendValuesTo(ByteBuffer hashTable, int hashPosition, PageBuilder pageBuilder, int outputChannelOffset)
     {
         for (int i = 0; i < hashChannels.length; i++) {
             BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
-            if (isNull(hashPosition, i)) {
+            if (isNull(hashPosition, i) == 1) {
                 blockBuilder.appendNull();
             }
             else {
-                BIGINT.writeLong(blockBuilder, hashTable[hashPosition + 1 + i]);
+                BIGINT.writeLong(blockBuilder, hashTable.getLong(hashPosition + Integer.BYTES + i * Long.BYTES));
             }
             outputChannelOffset++;
         }
@@ -233,10 +225,9 @@ public class MultiChannelBigintGroupByHashInlineBatch
         }
     }
 
-    private boolean isNull(int hashPosition, int i)
+    private byte isNull(int hashPosition, int i)
     {
-        int wordIndex = i >> 6;
-        return (hashTable[hashPosition + 1 + hashChannels.length + wordIndex] & (1L << i)) != 0;
+        return hashTable.get(hashPosition + isNullOffset + i);
     }
 
     @Override
@@ -276,11 +267,6 @@ public class MultiChannelBigintGroupByHashInlineBatch
         throw new UnsupportedOperationException();
     }
 
-    public long getRawHash(int groupId)
-    {
-        return BigintType.hash(hashTable[groupId]);
-    }
-
     @VisibleForTesting
     @Override
     public int getCapacity()
@@ -288,118 +274,63 @@ public class MultiChannelBigintGroupByHashInlineBatch
         return hashCapacity;
     }
 
-    private void putIfAbsent(int[] positionsToProcess, int positionToProcessCount, Block[] blocks, int[] outGroupIds)
+    private int putIfAbsent(int position, Block[] blocks)
     {
-        copyValues(positionsToProcess, positionToProcessCount, blocks);
-
-        getHashPositions(positionToProcessCount);
-
-        do {
-            positionToProcessCount = processIteration(outGroupIds, positionsToProcess, positionToProcessCount);
+        for (int i = 0; i < blocks.length; i++) {
+            byte isNull = (byte) (blocks[i].isNull(position) ? 1 : 0);
+            valuesBuffer.putLong(i * Long.BYTES, BIGINT.getLong(blocks[i], position) & (isNull - 1)); // isNull -1 makes 0 to all 1s mask and 1 to all 0s mask
+            valuesBuffer.put(valuesBufferIsNullOffset + i, isNull);
         }
-        while (positionToProcessCount > 0);
-    }
 
-    private int processIteration(int[] outGroupIds, int[] positionsToProcess, int positionToProcessCount)
-    {
-        getCurrent(positionToProcessCount);
+        int hashPosition = getHashPosition(valuesBuffer, 0, hashChannels.length, mask);
+        // look for an empty slot or a slot containing this key
+        while (true) {
+            int current = hashTable.getInt(hashPosition);
 
-        int remainingToProcess = 0;
-        for (int i = 0; i < positionToProcessCount; i++) {
-            int hashPosition = hashPositions[i];
-            int currentPosition = positionsToProcess[i];
-            if (current[i] == -1) {
-                if (hashTable[hashPosition] == -1) {
-                    // empty slot found
-                    int groupId = hashTableSize++;
-                    hashTable[hashPosition] = groupId;
-                    System.arraycopy(valuesBuffer[i], 0, hashTable, hashPosition + 1, valuesBuffer[i].length);
-                    groupToHashPosition[groupId] = hashPosition;
-
-                    outGroupIds[currentPosition] = groupId;
-                    continue;
+            if (current == -1) {
+                // empty slot found
+                int groupId = hashTableSize++;
+                hashTable.putInt(hashPosition, groupId);
+                System.arraycopy(valuesBuffer.array(), 0, hashTable.array(), hashPosition + Integer.BYTES, valuesBuffer.capacity());
+                groupToHashPosition[groupId] = hashPosition;
+                if (needRehash()) {
+                    tryRehash();
                 }
-                // mid-batch conflict
-                current[i] = (int) hashTable[hashPosition];
+//                System.out.println(hashPosition + ": v=" + value + ", " + hashTableSize);
+                return groupId;
             }
-            if (valueEqualsBuffer(i, hashPosition)) {
-                outGroupIds[currentPosition] = current[i];
-                continue;
+            if (valueEqualsBuffer(hashPosition)) {
+                return hashTable.getInt(hashPosition);
             }
 
             hashPosition = hashPosition + entrySize;
-            if (hashPosition >= hashTable.length) {
+            if (hashPosition >= hashTable.capacity()) {
                 hashPosition = 0;
             }
-            positionsToProcess[remainingToProcess] = currentPosition;
-            swapBuffers(i, remainingToProcess);
-            hashPositions[remainingToProcess++] = hashPosition;
-
             hashCollisions++;
         }
-        return remainingToProcess;
     }
 
-    private void swapBuffers(int first, int second)
+    private boolean valueEqualsBuffer(int hashPosition)
     {
-        long[] tempValues = valuesBuffer[first];
-        boolean[] tempIsNull = isNullBuffer[first];
-        valuesBuffer[first] = valuesBuffer[second];
-        isNullBuffer[first] = isNullBuffer[second];
-        valuesBuffer[second] = tempValues;
-        isNullBuffer[second] = tempIsNull;
-    }
-
-    private void getCurrent(int positionCount)
-    {
-        for (int positionIndex = 0; positionIndex < positionCount; positionIndex++) {
-            current[positionIndex] = (int) hashTable[hashPositions[positionIndex]];
-        }
-    }
-
-    private void getHashPositions(int positionCount)
-    {
-        for (int positionIndex = 0; positionIndex < positionCount; positionIndex++) {
-            int hashPosition = getHashPosition(valuesBuffer[positionIndex], 0, hashChannels.length, mask);
-            hashPositions[positionIndex] = hashPosition;
-        }
-    }
-
-    private void copyValues(int[] positions, int positionCount, Block[] blocks)
-    {
-        // clear bitset
-        for (int buffer = 0; buffer < valuesBuffer.length; buffer++) {
-            long[] buff = valuesBuffer[buffer];
-            for (int i = hashChannels.length; i < buff.length; i++) {
-                buff[i] = 0;
+        for (int i = 0; i < hashChannels.length; i++) {
+            byte bufferIsNull = valuesBuffer.get(valuesBufferIsNullOffset + i);
+            if (bufferIsNull != isNull(hashPosition, i)) {
+                // null and not null
+                return false;
             }
-        }
-
-        for (int i = 0; i < blocks.length; i++) {
-            for (int positionIndex = 0; positionIndex < positionCount; positionIndex++) {
-                int position = positions[positionIndex];
-                boolean isNull = blocks[i].isNull(position);
-                isNullBuffer[positionIndex][i] = isNull;
-                valuesBuffer[positionIndex][i] = BIGINT.getLong(blocks[i], position) * (isNull ? 0 : 1);
-                int wordIndex = i + i >> 6;
-                valuesBuffer[positionIndex][hashChannels.length + wordIndex] |= (isNull ? 1L : 0) << i;
+            if (bufferIsNull == 1) {
+                // both null
+                return true;
             }
-        }
-    }
-
-    private boolean valueEqualsBuffer(int valuesIndex, int hashPosition)
-    {
-        int hashTablePosition = hashPosition + 1;
-        long[] values = valuesBuffer[valuesIndex];
-        for (int i = 0; i < values.length; i++) {
-            if (hashTable[hashTablePosition++] != values[i]) {
+            // both not null
+            if (!Arrays.equals(
+                    hashTable.array(), hashPosition + Integer.BYTES, hashPosition + isNullOffset,
+                    valuesBuffer.array(), 0, valuesBufferIsNullOffset)) {
                 return false;
             }
         }
         return true;
-//        return Arrays.equals(
-//                hashTable, hashPosition + 1, hashPosition + 1 + valuesBuffer[valuesIndex].length,
-//                valuesBuffer[valuesIndex], 0, valuesBuffer[valuesIndex].length);
     }
 
     private boolean tryRehash()
@@ -425,52 +356,27 @@ public class MultiChannelBigintGroupByHashInlineBatch
 
         expectedHashCollisions += estimateNumberOfHashCollisions(getGroupCount(), hashCapacity);
 
-        long[] newHashTable = new long[entrySize * newCapacity];
-        for (int i = 0; i <= newHashTable.length - entrySize; i += entrySize) {
-            newHashTable[i] = -1;
+        ByteBuffer newHashTable = ByteBuffer.allocate(entrySize * newCapacity);
+        for (int i = 0; i <= newHashTable.capacity() - entrySize; i += entrySize) {
+            newHashTable.putInt(i, -1);
         }
-
         int newMask = newCapacity - 1;
-        int rehashBatchSize = 256;
-        int[] positionsToProcess = new int[rehashBatchSize];
-        int[] hashPositions = new int[rehashBatchSize];
-        int[] current = new int[rehashBatchSize];
-        int positionToProcessCount = 0;
-        for (int oldHashTablePosition = 0; oldHashTablePosition <= hashTable.length - entrySize; oldHashTablePosition += (entrySize * rehashBatchSize)) {
-            for (int i = 0; i < Math.min(rehashBatchSize, hashTable.length - oldHashTablePosition); i++) {
-                if (hashTable[oldHashTablePosition + (i * entrySize)] != -1) {
-                    positionsToProcess[positionToProcessCount++] = oldHashTablePosition + i * entrySize;
+        for (int i = 0; i <= hashTable.capacity() - entrySize; i += entrySize) {
+            int hashPosition = getHashPosition(hashTable, i, hashChannels.length, newMask);
+            // look for an empty slot or a slot containing this key
+            while (newHashTable.getInt(hashPosition) != -1) {
+                hashPosition = hashPosition + entrySize;
+                if (hashPosition >= newHashTable.capacity()) {
+                    hashPosition = 0;
                 }
+                hashCollisions++;
             }
-            for (int i = 0; i < positionToProcessCount; i++) {
-                hashPositions[i] = getHashPosition(hashTable, positionsToProcess[i], hashChannels.length, newMask);
-            }
-
-            do {
-                for (int i = 0; i < positionToProcessCount; i++) {
-                    current[i] = (int) newHashTable[hashPositions[i]];
-                }
-
-                int remainingToProcess = 0;
-                for (int i = 0; i < positionToProcessCount; i++) {
-                    int hashPosition = hashPositions[i];
-                    int currentPosition = positionsToProcess[i];
-                    if (current[i] == -1 && newHashTable[hashPosition] == -1) {
-                        System.arraycopy(hashTable, currentPosition, newHashTable, hashPosition, entrySize);
-                        groupToHashPosition[(int) hashTable[currentPosition]] = hashPosition;
-                        continue;
-                    }
-                    hashPosition = hashPosition + entrySize;
-                    if (hashPosition >= newHashTable.length) {
-                        hashPosition = 0;
-                    }
-                    positionsToProcess[remainingToProcess] = currentPosition;
-                    hashPositions[remainingToProcess++] = hashPosition;
-                    hashCollisions++;
-                }
-                positionToProcessCount = remainingToProcess;
-            }
-            while (positionToProcessCount > 0);
+            System.arraycopy(
+                    hashTable.array(),
+                    i,
+                    newHashTable.array(),
+                    hashPosition,
+                    entrySize);
 //            System.out.println("rehash " + i + " -> " + hashPosition + ": v=" + value + ", " + groupId);
         }
 
@@ -492,23 +398,18 @@ public class MultiChannelBigintGroupByHashInlineBatch
         return hashTableSize >= maxFill;
     }
 
-    private boolean needRehash(int newGroups)
-    {
-        return hashTableSize + newGroups >= maxFill;
-    }
-
-    private int getHashPosition(long[] values, int startPosition, int length, int mask)
+    private int getHashPosition(ByteBuffer values, int startPosition, int length, int mask)
     {
         long hash = getHash(values, startPosition, length);
 
         return (int) (hash & mask) * entrySize;
     }
 
-    private long getHash(long[] values, int startPosition, int length)
+    private long getHash(ByteBuffer values, int startPosition, int length)
     {
         int result = 1;
-        for (int i = startPosition; i < startPosition + length; i++) {
-            long element = values[i];
+        for (int i = startPosition; i <= startPosition + (length - 1) * Long.BYTES; i += Long.BYTES) {
+            long element = values.getLong(i);
             int elementHash = (int) (element ^ (element >>> 32));
             result = 31 * result + elementHash;
         }
@@ -543,22 +444,19 @@ public class MultiChannelBigintGroupByHashInlineBatch
         {
             int positionCount = blocks[0].getPositionCount();
             checkState(lastPosition < positionCount, "position count out of bound");
-
-            int[] groupIds = new int[positionCount];
-            int[] positions = new int[batchSize];
-
-            for (int batchStart = lastPosition; batchStart < positionCount; batchStart += batchSize) {
-                if (needRehash(batchSize) && !tryRehash()) {
-                    return false;
-                }
-                int currentBatchSize = Math.min(batchSize, positionCount - batchStart);
-                for (int batchOffset = 0; batchOffset < currentBatchSize; batchOffset++) {
-                    positions[batchOffset] = batchStart + batchOffset;
-                }
-                putIfAbsent(positions, currentBatchSize, blocks, groupIds);
-                lastPosition += currentBatchSize;
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
             }
 
+            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
+            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
+            while (lastPosition < positionCount && !needRehash()) {
+                // get the group for the current row
+                putIfAbsent(lastPosition, blocks);
+                lastPosition++;
+            }
             return lastPosition == positionCount;
         }
 
@@ -591,26 +489,19 @@ public class MultiChannelBigintGroupByHashInlineBatch
             checkState(lastPosition < positionCount, "position count out of bound");
             checkState(!finished);
 
-            int[] groupIds = new int[positionCount];
-            int[] positions = new int[batchSize];
-
-            for (int batchStart = lastPosition; batchStart < positionCount; batchStart += batchSize) {
-                if (needRehash(batchSize) && !tryRehash()) {
-                    return false;
-                }
-                int currentBatchSize = Math.min(batchSize, positionCount - batchStart);
-                for (int batchOffset = 0; batchOffset < currentBatchSize; batchOffset++) {
-                    positions[batchOffset] = batchStart + batchOffset;
-                }
-                putIfAbsent(positions, currentBatchSize, blocks, groupIds);
-
-                for (int batchOffset = 0; batchOffset < currentBatchSize; batchOffset++) {
-                    BIGINT.writeLong(blockBuilder, groupIds[batchStart + batchOffset]);
-                }
-
-                lastPosition += currentBatchSize;
+            // needRehash() == false indicates we have reached capacity boundary and a rehash is needed.
+            // We can only proceed if tryRehash() successfully did a rehash.
+            if (needRehash() && !tryRehash()) {
+                return false;
             }
 
+            // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
+            // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
+            while (lastPosition < positionCount && !needRehash()) {
+                // output the group id for this row
+                BIGINT.writeLong(blockBuilder, putIfAbsent(lastPosition, blocks));
+                lastPosition++;
+            }
             return lastPosition == positionCount;
         }
 

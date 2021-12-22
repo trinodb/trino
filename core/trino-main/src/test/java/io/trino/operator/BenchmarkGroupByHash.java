@@ -19,6 +19,18 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.trino.array.LongBigArray;
+import io.trino.operator.hash.MultiChannelBigintGroupByHashInline;
+import io.trino.operator.hash.MultiChannelBigintGroupByHashInlineBB;
+import io.trino.operator.hash.MultiChannelBigintGroupByHashInlineBatch;
+import io.trino.operator.hash.MultiChannelBigintGroupByHashInlineFastBB;
+import io.trino.operator.hash.MultiChannelGroupByHashBatch;
+import io.trino.operator.hash.MultiChannelGroupByHashInline;
+import io.trino.operator.hash.MultiChannelGroupByHashInlineFastBBAllTypes;
+import io.trino.operator.hash.OffHeapByteBuffer;
+import io.trino.operator.hash.bigint.BigintGroupByHashBatchInlineGID;
+import io.trino.operator.hash.bigint.BigintGroupByHashBatchNoRehash;
+import io.trino.operator.hash.bigint.BigintGroupByHashInlineGID;
+import io.trino.operator.hash.bigint.BigintGroupByHashInlineGIDBigArray;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
@@ -108,6 +120,16 @@ public class BenchmarkGroupByHash
     public void groupByHashPreComputeInline(BenchmarkData data, Blackhole blackhole)
     {
         GroupByHash groupByHash = new MultiChannelGroupByHashInline(data.getTypes(), data.getChannels(), data.getHashChannel(), data.getExpectedSize(), false, data.getJoinCompiler(), TYPE_OPERATOR_FACTORY, NOOP);
+        addInputPagesToHash(groupByHash, data.getPages());
+
+        buildPages(groupByHash, blackhole);
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(POSITIONS)
+    public void groupByHashPreComputeInlineAllTypes(BenchmarkData data, Blackhole blackhole)
+    {
+        GroupByHash groupByHash = new MultiChannelGroupByHashInlineFastBBAllTypes(data.getTypes(), data.getChannels(), data.getHashChannel(), data.getExpectedSize(), NOOP);
         addInputPagesToHash(groupByHash, data.getPages());
 
         buildPages(groupByHash, blackhole);
@@ -628,9 +650,10 @@ public class BenchmarkGroupByHash
 //                .includeMethod("bigintGroupByHashGIDBigArray")
                 .includeMethod("groupByHashPreCompute")
 //                .includeMethod("groupByHashPreComputeInline")
+                .includeMethod("groupByHashPreComputeInlineAllTypes")
 //                .includeMethod("groupByHashPreComputeInlineMultiChannelBigInt")
 //                .includeMethod("groupByHashPreComputeInlineMultiChannelBigIntBB")
-//                .includeMethod("groupByHashPreComputeInlineMultiChannelBigIntFastBB")
+                .includeMethod("groupByHashPreComputeInlineMultiChannelBigIntFastBB")
 //                .includeMethod("groupByHashPreComputeBatch")
                 .includeMethod("groupByHashPreComputeInlineMultiChannelBigIntBatch")
 //                .includeMethod("groupByHashPreCompute.*")
@@ -638,27 +661,26 @@ public class BenchmarkGroupByHash
 //                .includeMethod("baselineBigArray")
                 .withOptions(optionsBuilder -> optionsBuilder
 //                        .addProfiler(GCProfiler.class)
-                        .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=text;output=flamegraph", profilerOutputDir))
+//                        .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=text;output=flamegraph", profilerOutputDir))
 //                        .addProfiler(DTraceAsmProfiler.class, "event=branch-misses")
 //                        .addProfiler(DTraceAsmProfiler.class, String.format("hotThreshold=0.1;tooBigThreshold=3000;saveLog=true;saveLogTo=%s", profilerOutputDir, profilerOutputDir))
                         .jvmArgs("-Xmx32g")
 //                        .param("hashEnabled", "true")
                         .param("hashEnabled", "false")
 //                        .param("expectedSize", "10000")
-                        .param("groupCount", "3000000")
-//                        .param("groupCount", "8")
-//                        .param("groupCount", "8")
-//                        .param("channelCount", "2", "5", "10")
-                        .param("channelCount", "5", "10")
+//                        .param("groupCount", "3000000")
+                        .param("groupCount", "8")
+                        .param("channelCount", "2")
+//                        .param("channelCount", "5")
                         .param("dataType", "BIGINT")
                         .param("useOffHeap", "false")
                         .param("batchSize", "16")
-//                        .param("rehash", "true")
+                        .param("rehash", "true")
                         .forks(1)
 //                        .jvmArgsAppend("-XX:+UnlockDiagnosticVMOptions", "-XX:+TraceClassLoading", "-XX:+LogCompilation", "-XX:+DebugNonSafepoints", "-XX:+PrintAssembly", "-XX:+PrintInlining")
 //                        .jvmArgsAppend("-XX:MaxInlineSize=300", "-XX:InlineSmallCode=3000")
-                        .warmupIterations(40)
-                        .measurementIterations(10))
+                        .warmupIterations(5)
+                        .measurementIterations(5))
                 .run();
         File dir = new File(profilerOutputDir);
         if (dir.list().length == 0) {

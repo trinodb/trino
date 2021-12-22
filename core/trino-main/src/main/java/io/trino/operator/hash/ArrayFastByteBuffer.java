@@ -1,4 +1,4 @@
-package io.trino.operator;
+package io.trino.operator.hash;
 
 import sun.misc.Unsafe;
 
@@ -128,5 +128,11 @@ public class ArrayFastByteBuffer
             otherPosition++;
         }
         return true;
+    }
+
+    @Override
+    public void clear(int upToPosition)
+    {
+        UNSAFE.setMemory(array, BYTE_ARRAY_BASE_OFFSET, upToPosition, (byte) 0);
     }
 }
