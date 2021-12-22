@@ -91,7 +91,7 @@ public class SourcePartitionedScheduler
         FINISHED
     }
 
-    private final PipelinedStageExecution stageExecution;
+    private final StageExecution stageExecution;
     private final SplitSource splitSource;
     private final SplitPlacementPolicy splitPlacementPolicy;
     private final int splitBatchSize;
@@ -110,7 +110,7 @@ public class SourcePartitionedScheduler
     private SettableFuture<Void> whenFinishedOrNewLifespanAdded = SettableFuture.create();
 
     private SourcePartitionedScheduler(
-            PipelinedStageExecution stageExecution,
+            StageExecution stageExecution,
             PlanNodeId partitionedNode,
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
@@ -150,7 +150,7 @@ public class SourcePartitionedScheduler
      * minimal management from the caller, which is ideal for use as a stage scheduler.
      */
     public static StageScheduler newSourcePartitionedSchedulerAsStageScheduler(
-            PipelinedStageExecution stageExecution,
+            StageExecution stageExecution,
             PlanNodeId partitionedNode,
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
@@ -204,7 +204,7 @@ public class SourcePartitionedScheduler
      * transitioning of the object will not work properly.
      */
     public static SourceScheduler newSourcePartitionedSchedulerAsSourceScheduler(
-            PipelinedStageExecution stageExecution,
+            StageExecution stageExecution,
             PlanNodeId partitionedNode,
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
