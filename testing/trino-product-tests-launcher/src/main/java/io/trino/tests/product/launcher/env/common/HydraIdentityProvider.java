@@ -63,10 +63,11 @@ public class HydraIdentityProvider
                 .withStartupCheckStrategy(new OneShotStartupCheckStrategy())
                 .setTemporary(true);
 
-        DockerContainer hydraConsent = new DockerContainer("oryd/hydra-login-consent-node:v1.4.2", "hydra-consent")
-                .withEnv("HYDRA_ADMIN_URL", "https://hydra:4445")
-                .withEnv("NODE_TLS_REJECT_UNAUTHORIZED", "0")
-                .waitingFor(Wait.forHttp("/").forPort(3000).forStatusCode(200));
+        DockerContainer hydraConsent = new DockerContainer("python:3.10.1-alpine", "hydra-consent")
+                .withCopyFileToContainer(forHostPath(configDir.getPath("login_and_consent_server.py")), "/")
+                .withCommand("python", "/login_and_consent_server.py")
+                .withExposedPorts(3000)
+                .waitingFor(Wait.forHttp("/healthz").forPort(3000).forStatusCode(200));
 
         binder.exposePort(hydraConsent, 3000);
 
@@ -76,12 +77,12 @@ public class HydraIdentityProvider
                 .withEnv("URLS_SELF_ISSUER", "https://hydra:4444/")
                 .withEnv("URLS_CONSENT", "http://hydra-consent:3000/consent")
                 .withEnv("URLS_LOGIN", "http://hydra-consent:3000/login")
-                .withEnv("SERVE_TLS_KEY_PATH", "/tmp/certs/localhost.pem")
-                .withEnv("SERVE_TLS_CERT_PATH", "/tmp/certs/localhost.pem")
+                .withEnv("SERVE_TLS_KEY_PATH", "/tmp/certs/hydra.pem")
+                .withEnv("SERVE_TLS_CERT_PATH", "/tmp/certs/hydra.pem")
                 .withEnv("STRATEGIES_ACCESS_TOKEN", "jwt")
                 .withEnv("TTL_ACCESS_TOKEN", TTL_ACCESS_TOKEN_IN_SECONDS + "s")
                 .withCommand("serve", "all")
-                .withCopyFileToContainer(forHostPath(configDir.getPath("cert")), "/tmp/certs")
+                .withCopyFileToContainer(forHostPath(configDir.getPath("cert/hydra.pem")), "/tmp/certs/hydra.pem")
                 .waitingFor(new WaitAllStrategy()
                         .withStrategy(Wait.forLogMessage(".*Setting up http server on :4444.*", 1))
                         .withStrategy(Wait.forLogMessage(".*Setting up http server on :4445.*", 1)));
@@ -99,14 +100,22 @@ public class HydraIdentityProvider
             if (isPrestoContainer(dockerContainer.getLogicalName())) {
                 dockerContainer
                         .withCopyFileToContainer(
-                                forHostPath(configDir.getPath("cert")),
-                                CONTAINER_PRESTO_ETC + "/hydra/cert");
+                                forHostPath(configDir.getPath("cert/trino.pem")),
+                                CONTAINER_PRESTO_ETC + "/trino.pem")
+                        .withCopyFileToContainer(
+                                forHostPath(configDir.getPath("cert/hydra.pem")),
+                                CONTAINER_PRESTO_ETC + "/hydra.pem");
             }
         });
 
-        builder.configureContainer(TESTS, dockerContainer -> dockerContainer.withCopyFileToContainer(
-                forHostPath(configDir.getPath("tempto-configuration-for-docker-oauth2.yaml")),
-                CONTAINER_TEMPTO_PROFILE_CONFIG));
+        builder.configureContainer(TESTS, dockerContainer ->
+                dockerContainer
+                        .withCopyFileToContainer(
+                                forHostPath(configDir.getPath("tempto-configuration-for-docker-oauth2.yaml")),
+                                CONTAINER_TEMPTO_PROFILE_CONFIG)
+                        .withCopyFileToContainer(
+                                forHostPath(configDir.getPath("cert/truststore.jks")),
+                                "/docker/presto-product-tests/truststore.jks"));
     }
 
     public DockerContainer createClient(
