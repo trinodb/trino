@@ -13,11 +13,11 @@
  */
 package io.trino.execution.scheduler.policy;
 
-import io.trino.execution.scheduler.PipelinedStageExecution;
+import io.trino.execution.scheduler.StageExecution;
 
 import java.util.Collection;
 
 public interface ExecutionPolicy
 {
-    ExecutionSchedule createExecutionSchedule(Collection<PipelinedStageExecution> stages);
+    ExecutionSchedule createExecutionSchedule(Collection<StageExecution> stages);
 }
