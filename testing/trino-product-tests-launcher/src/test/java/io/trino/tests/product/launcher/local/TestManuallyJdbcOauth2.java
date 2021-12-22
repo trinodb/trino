@@ -48,7 +48,7 @@ public class TestManuallyJdbcOauth2
     /**
      * This test is here to allow manually tests OAuth2 implementation through jdbc.
      * It's configured in a way that allows it to connect to SinglenodeOauth2 environment. In order for it to work,
-     * one must add to /etc/hosts following entries. They need to be removed before running Selenium tests against SinglenodeHydraSelenium environment.
+     * one must add to /etc/hosts following entries. They need to be removed before running automated tests against SinglenodeOAuth2* environments.
      * 127.0.0.1 presto-master
      * 127.0.0.1 hydra
      * 127.0.0.1 hydra-consent
