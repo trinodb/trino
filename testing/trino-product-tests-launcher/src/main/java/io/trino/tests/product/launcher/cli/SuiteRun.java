@@ -16,6 +16,9 @@ package io.trino.tests.product.launcher.cli;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
+import com.google.common.io.Files;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -40,11 +43,14 @@ import picocli.CommandLine.Option;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
@@ -124,6 +130,9 @@ public class SuiteRun
         @Option(names = "--cli-executable", paramLabel = "<jar>", description = "Path to CLI executable " + DEFAULT_VALUE, defaultValue = "${cli.bin}")
         public File cliJar;
 
+        @Option(names = "--impacted-features", paramLabel = "<txt>", description = "Path to impacted feature list " + DEFAULT_VALUE)
+        public Optional<File> impactedFeatures;
+
         @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory " + DEFAULT_VALUE)
         public Optional<Path> logsDirBase;
 
@@ -192,6 +201,7 @@ public class SuiteRun
             List<String> suiteNames = requireNonNull(suiteRunOptions.suites, "suiteRunOptions.suites is null");
             EnvironmentConfig environmentConfig = configFactory.getConfig(environmentOptions.config);
             ImmutableList.Builder<TestRunResult> suiteResults = ImmutableList.builder();
+            Optional<Set<String>> impactedFeatures = readImpactedFeatures(suiteRunOptions.impactedFeatures);
 
             suiteNames.forEach(suiteName -> {
                 Suite suite = suiteFactory.getSuite(suiteName);
@@ -200,14 +210,28 @@ public class SuiteRun
                         .map(suiteRun -> suiteRun.withConfigApplied(environmentConfig))
                         .collect(toImmutableList());
 
-                log.info("Running suite '%s' with config '%s' and test runs:\n%s",
-                        suiteName,
-                        environmentConfig.getConfigName(),
-                        formatSuiteTestRuns(suiteTestRuns));
+                List<TestRunResult> testRunsResults;
+                if (impactedFeatures.isPresent() && suite.getTestedFeatures(environmentConfig).isPresent() &&
+                        Sets.intersection(suite.getTestedFeatures(environmentConfig).get(), impactedFeatures.get()).isEmpty()) {
+                    log.info("Only non-relevant features impacted - skipping suite '%s' with config '%s' and test runs:\n%s",
+                            suiteName,
+                            environmentConfig.getConfigName(),
+                            formatSuiteTestRuns(suiteTestRuns));
 
-                List<TestRunResult> testRunsResults = suiteTestRuns.stream()
-                        .map(testRun -> executeSuiteTestRun(suiteName, testRun, environmentConfig))
-                        .collect(toImmutableList());
+                    testRunsResults = suiteTestRuns.stream()
+                            .map(testRun -> skipSuiteTestRun(suiteName, testRun, environmentConfig))
+                            .collect(toImmutableList());
+                }
+                else {
+                    log.info("Running suite '%s' with config '%s' and test runs:\n%s",
+                            suiteName,
+                            environmentConfig.getConfigName(),
+                            formatSuiteTestRuns(suiteTestRuns));
+
+                    testRunsResults = suiteTestRuns.stream()
+                            .map(testRun -> executeSuiteTestRun(suiteName, testRun, environmentConfig))
+                            .collect(toImmutableList());
+                }
 
                 suiteResults.addAll(testRunsResults);
             });
@@ -220,6 +244,19 @@ public class SuiteRun
             }
 
             return ExitCode.OK;
+        }
+
+        private Optional<Set<String>> readImpactedFeatures(Optional<File> impactedFeatures)
+        {
+            return impactedFeatures.map(impConnectors -> {
+                try {
+                    return ImmutableSet.copyOf(Files.asCharSource(impConnectors, StandardCharsets.UTF_8).readLines());
+                }
+                catch (IOException e) {
+                    log.warn(e, "Couldn't read file %s", impConnectors);
+                    return null;
+                }
+            });
         }
 
         private String formatSuiteTestRuns(List<SuiteTestRun> suiteTestRuns)
@@ -275,6 +312,11 @@ public class SuiteRun
             Stopwatch stopwatch = Stopwatch.createStarted();
             Optional<Throwable> exception = runTest(runId, environmentConfig, testRunOptions);
             return new TestRunResult(suiteName, runId, suiteTestRun, environmentConfig, succinctNanos(stopwatch.stop().elapsed(NANOSECONDS)), exception);
+        }
+
+        public TestRunResult skipSuiteTestRun(String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
+        {
+            return new TestRunResult(suiteName, null, suiteTestRun, environmentConfig, succinctNanos(0), Optional.empty());
         }
 
         private static String generateRandomRunId()
@@ -371,7 +413,12 @@ public class SuiteRun
 
         public boolean hasFailed()
         {
-            return this.throwable.isPresent();
+            return throwable.isPresent();
+        }
+
+        public boolean wasSkipped()
+        {
+            return runId == null;
         }
 
         @Override
@@ -395,9 +442,17 @@ public class SuiteRun
                     suiteRun.getEnvironmentName(),
                     environmentConfig.getConfigName(),
                     suiteRun.getExtraOptions(),
-                    hasFailed() ? "FAILED" : "SUCCESS",
+                    getStatusString(),
                     duration,
                     throwable.map(Throwable::getMessage).orElse("-")};
+        }
+
+        private String getStatusString()
+        {
+            if (wasSkipped()) {
+                return "SKIPPED";
+            }
+            return hasFailed() ? "FAILED" : "SUCCESS";
         }
     }
 }

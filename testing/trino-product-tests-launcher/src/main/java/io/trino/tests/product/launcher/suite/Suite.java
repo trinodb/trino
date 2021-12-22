@@ -17,13 +17,22 @@ import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.configs.ConfigDefault;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.tests.product.launcher.Configurations.nameForSuiteClass;
 
 public abstract class Suite
 {
+    public static final Optional<Set<String>> ALL_FEATURES = Optional.empty();
+
     public abstract List<SuiteTestRun> getTestRuns(EnvironmentConfig config);
+
+    public Optional<Set<String>> getTestedFeatures(EnvironmentConfig ignoredConfig)
+    {
+        return ALL_FEATURES;
+    }
 
     @Override
     public String toString()
