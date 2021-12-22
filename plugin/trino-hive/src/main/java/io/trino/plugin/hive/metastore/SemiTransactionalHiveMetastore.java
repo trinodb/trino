@@ -3289,7 +3289,7 @@ public class SemiTransactionalHiveMetastore
         {
             try {
                 metastore.createTable(identity, newTable, privileges);
-                log.info("AAAAAAAAAAAAAAA: past createTable: %s for name %s.%s", newTable.getDatabaseName(), newTable.getTableName());
+                log.info("AAAAAAAAAAAAAAA: past createTable; name %s.%s", newTable.getDatabaseName(), newTable.getTableName());
             }
             catch (RuntimeException e) {
                 boolean done = false;
@@ -3301,7 +3301,7 @@ public class SemiTransactionalHiveMetastore
                         Optional<String> existingTableQueryId = getPrestoQueryId(table);
                         if (existingTableQueryId.isPresent() && existingTableQueryId.get().equals(queryId)) {
                             // ignore table if it was already created by the same query during retries
-                            log.info("AAAAAAAAAAAAAAA: setting done=true(ignore): %s for name %s.%s; queryId=%s", newTable.getDatabaseName(), newTable.getTableName(), queryId);
+                            log.info("AAAAAAAAAAAAAAA: setting done=true(ignore): name %s.%s; queryId=%s", newTable.getDatabaseName(), newTable.getTableName(), queryId);
                             done = true;
                         }
                         else {
@@ -3313,7 +3313,7 @@ public class SemiTransactionalHiveMetastore
                                 e = new TrinoException(TRANSACTION_CONFLICT, format("Table already exists with a different schema: '%s'", newTable.getTableName()));
                             }
                             else {
-                                log.info("AAAAAAAAAAAAAAA: setting done=ignoreExisting(%s): %s for name %s.%s", ignoreExisting, newTable.getDatabaseName(), newTable.getTableName());
+                                log.info("AAAAAAAAAAAAAAA: setting done=ignoreExisting(%s): name %s.%s", ignoreExisting, newTable.getDatabaseName(), newTable.getTableName());
                                 done = ignoreExisting;
                             }
                         }
@@ -3330,7 +3330,7 @@ public class SemiTransactionalHiveMetastore
                     throw e;
                 }
             }
-            log.info("AAAAAAAAAAAAAAA: set tableCreated=true: %s for name %s.%s", newTable.getDatabaseName(), newTable.getTableName());
+            log.info("AAAAAAAAAAAAAAA: set tableCreated=true name %s.%s", newTable.getDatabaseName(), newTable.getTableName());
             tableCreated = true;
         }
 
