@@ -109,6 +109,21 @@ public class QuerySpecification
         return select;
     }
 
+    public QuerySpecification ofSelect(Select select)
+    {
+        return new QuerySpecification(
+            super.getLocation(),
+            select,
+            this.from,
+            this.where,
+            this.groupBy,
+            this.having,
+            this.windows,
+            this.orderBy,
+            this.offset,
+            this.limit);
+    }
+
     public Optional<Relation> getFrom()
     {
         return from;

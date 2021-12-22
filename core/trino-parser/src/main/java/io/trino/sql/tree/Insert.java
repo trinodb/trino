@@ -28,6 +28,7 @@ public final class Insert
     private final Table table;
     private final Query query;
     private final Optional<List<Identifier>> columns;
+    private final boolean overwrite;
 
     public Insert(Table table, Optional<List<Identifier>> columns, Query query)
     {
@@ -36,15 +37,36 @@ public final class Insert
 
     private Insert(Optional<NodeLocation> location, Table table, Optional<List<Identifier>> columns, Query query)
     {
+        this(location, table, columns, query, false);
+    }
+
+    public Insert(QualifiedName target, Optional<List<Identifier>> columns, Query query, boolean overwrite)
+    {
+        this(Optional.empty(), new Table(target), columns, query, overwrite);
+    }
+
+    public Insert(Optional<NodeLocation> location, QualifiedName target, Optional<List<Identifier>> columns, Query query, boolean overwrite)
+    {
+        this(location, new Table(target), columns, query, overwrite);
+    }
+
+    private Insert(Optional<NodeLocation> location, Table table, Optional<List<Identifier>> columns, Query query, boolean overwrite)
+    {
         super(location);
         this.table = requireNonNull(table, "target is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.query = requireNonNull(query, "query is null");
+        this.overwrite = overwrite;
     }
 
     public Table getTable()
     {
         return table;
+    }
+
+    public boolean isOverwrite()
+    {
+        return overwrite;
     }
 
     public QualifiedName getTarget()
@@ -91,17 +113,19 @@ public final class Insert
         }
         Insert o = (Insert) obj;
         return Objects.equals(table, o.table) &&
-                Objects.equals(columns, o.columns) &&
-                Objects.equals(query, o.query);
+            Objects.equals(columns, o.columns) &&
+            Objects.equals(overwrite, o.overwrite) &&
+            Objects.equals(query, o.query);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("table", table)
-                .add("columns", columns)
-                .add("query", query)
-                .toString();
+            .add("table", table)
+            .add("columns", columns)
+            .add("overwrite", overwrite)
+            .add("query", query)
+            .toString();
     }
 }

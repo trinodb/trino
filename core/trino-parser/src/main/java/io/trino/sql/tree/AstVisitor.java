@@ -13,6 +13,10 @@
  */
 package io.trino.sql.tree;
 
+import io.trino.sql.parser.hive.AddPartition;
+import io.trino.sql.parser.hive.CreateTableLike;
+import io.trino.sql.parser.hive.LoadData;
+
 import javax.annotation.Nullable;
 
 public abstract class AstVisitor<R, C>
@@ -1078,6 +1082,21 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitQueryPeriod(QueryPeriod node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    public R visitAddPartition(AddPartition node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    public R visitCreateTableLike(CreateTableLike node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    public R visitLoadData(LoadData node, C context)
     {
         return visitNode(node, context);
     }

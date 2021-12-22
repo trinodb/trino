@@ -45,6 +45,14 @@ public class Select
         this.selectItems = ImmutableList.copyOf(requireNonNull(selectItems, "selectItems"));
     }
 
+    public Select ofSelectItems(List<SelectItem> selectItems)
+    {
+        return new Select(
+            super.getLocation(),
+            this.distinct,
+            selectItems);
+    }
+
     public boolean isDistinct()
     {
         return distinct;

@@ -17,6 +17,8 @@ import static java.util.Objects.requireNonNull;
 
 public class ParsingOptions
 {
+    boolean ifUseHiveParser;
+
     public enum DecimalLiteralTreatment
     {
         AS_DOUBLE,
@@ -25,6 +27,16 @@ public class ParsingOptions
     }
 
     private final DecimalLiteralTreatment decimalLiteralTreatment;
+
+    public void setIfUseHiveParser(boolean ifUseHiveParser)
+    {
+        this.ifUseHiveParser = ifUseHiveParser;
+    }
+
+    public boolean useHiveParser()
+    {
+        return ifUseHiveParser;
+    }
 
     public ParsingOptions()
     {

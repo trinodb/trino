@@ -13,6 +13,7 @@
  */
 package io.trino.sql.parser;
 
+import io.trino.sql.parser.hive.HiveAstBuilder;
 import io.trino.sql.tree.DataType;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Node;
@@ -25,6 +26,7 @@ import org.antlr.v4.runtime.CommonToken;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.DefaultErrorStrategy;
 import org.antlr.v4.runtime.InputMismatchException;
+import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RecognitionException;
@@ -33,6 +35,7 @@ import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.Pair;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
+import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.Arrays;
@@ -67,6 +70,7 @@ public class SqlParser
             .specialToken(SqlBaseLexer.INTEGER_VALUE, "<integer>")
             .ignoredRule(SqlBaseParser.RULE_nonReserved)
             .build();
+    private boolean enhancedErrorHandlerEnabled;
 
     private final BiConsumer<SqlBaseLexer, SqlBaseParser> initializer;
 
@@ -82,36 +86,63 @@ public class SqlParser
 
     public Statement createStatement(String sql, ParsingOptions parsingOptions)
     {
-        return (Statement) invokeParser("statement", sql, SqlBaseParser::singleStatement, parsingOptions);
+        Node node = invokeParser("statement",
+                sql, SqlBaseParser::singleStatement, parsingOptions, "singleStatement");
+        Statement statement = (Statement) node;
+        return statement;
     }
 
     public Expression createExpression(String expression, ParsingOptions parsingOptions)
     {
-        return (Expression) invokeParser("expression", expression, SqlBaseParser::standaloneExpression, parsingOptions);
+        Node node = invokeParser("expression", expression,
+                SqlBaseParser::standaloneExpression, parsingOptions, "standaloneExpression");
+        Expression ex = (Expression) node;
+        return ex;
+    }
+
+    public DataType createType(String expression, ParsingOptions parsingOptions)
+    {
+        DataType dataType = (DataType) invokeParser("type", expression,
+                SqlBaseParser::standaloneExpression, parsingOptions, "type");
+        return dataType;
     }
 
     public DataType createType(String expression)
     {
-        return (DataType) invokeParser("type", expression, SqlBaseParser::standaloneType, new ParsingOptions());
+        return createType(expression, new ParsingOptions());
     }
 
     public PathSpecification createPathSpecification(String expression)
     {
-        return (PathSpecification) invokeParser("path specification", expression, SqlBaseParser::standalonePathSpecification, new ParsingOptions());
+        PathSpecification plan = (PathSpecification) invokeParser("path specification",
+                expression, SqlBaseParser::standaloneType, new ParsingOptions(), "standalonePathSpecification");
+        return plan;
     }
 
     public RowPattern createRowPattern(String pattern)
     {
-        return (RowPattern) invokeParser("row pattern", pattern, SqlBaseParser::standaloneRowPattern, new ParsingOptions());
+        return (RowPattern) invokeParser("row pattern",
+            pattern,
+            SqlBaseParser::standaloneRowPattern, new ParsingOptions(),
+            "prestoPattern");
     }
 
-    private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)
+    private Node invokeParser(String name, String sql, Function<SqlBaseParser,
+            ParserRuleContext> parseFunction, ParsingOptions parsingOptions, String type)
+    {
+        if (!parsingOptions.useHiveParser()) {
+            return invokePrestoParser(name, sql, parsingOptions, type);
+        }
+        else {
+            return invokeSparkBasedHiveParser(name, sql, parsingOptions, type);
+        }
+    }
+
+    private Node invokeCommonParser(String name, String type,
+                                    Lexer lexer, Parser parser, AbstractParseTreeVisitor<Node> visitor)
     {
         try {
-            SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(sql)));
             CommonTokenStream tokenStream = new CommonTokenStream(lexer);
-            SqlBaseParser parser = new SqlBaseParser(tokenStream);
-            initializer.accept(lexer, parser);
 
             // Override the default error strategy to not attempt inserting or deleting a token.
             // Otherwise, it messes up error reporting
@@ -136,7 +167,162 @@ public class SqlParser
             lexer.addErrorListener(LEXER_ERROR_LISTENER);
 
             parser.removeErrorListeners();
-            parser.addErrorListener(PARSER_ERROR_HANDLER);
+
+            if (enhancedErrorHandlerEnabled) {
+                parser.addErrorListener(PARSER_ERROR_HANDLER);
+            }
+            else {
+                parser.addErrorListener(LEXER_ERROR_LISTENER);
+            }
+
+            ParserRuleContext tree = getTree(type, parser, tokenStream);
+
+            return visitor.visit(tree);
+        }
+        catch (StackOverflowError e) {
+            throw new ParsingException(name + " is too large (stack overflow while parsing)");
+        }
+    }
+
+    private ParserRuleContext getTree(String type, Parser parser, CommonTokenStream tokenStream)
+    {
+        ParserRuleContext tree = null;
+        if (type.startsWith("spark")) {
+            Function<io.hivesql.sql.parser.SqlBaseParser, ParserRuleContext> parseFunction = null;
+            if (type.endsWith("singleStatement")) {
+                parseFunction = io.hivesql.sql.parser.SqlBaseParser::singleStatement;
+            }
+            else if (type.endsWith("standaloneExpression")) {
+                parseFunction = io.hivesql.sql.parser.SqlBaseParser::singleExpression;
+            }
+            else if (type.endsWith("type")) {
+                parseFunction = io.hivesql.sql.parser.SqlBaseParser::singleDataType;
+            }
+            else {
+                parseFunction = io.hivesql.sql.parser.SqlBaseParser::singleStatement;
+            }
+            try {
+                // first, try parsing with potentially faster SLL mode
+                parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
+                tree = parseFunction.apply((io.hivesql.sql.parser.SqlBaseParser) parser);
+            }
+            catch (ParseCancellationException ex) {
+                // if we fail, parse with LL mode
+                tokenStream.reset(); // rewind input stream
+                parser.reset();
+
+                parser.getInterpreter().setPredictionMode(PredictionMode.LL);
+                tree = parseFunction.apply((io.hivesql.sql.parser.SqlBaseParser) parser);
+            }
+        }
+        else if (type.startsWith("presto")) {
+            Function<SqlBaseParser, ParserRuleContext> parseFunction = null;
+            if (type.endsWith("singleStatement")) {
+                parseFunction = SqlBaseParser::singleStatement;
+            }
+            else if (type.endsWith("standaloneExpression")) {
+                parseFunction = SqlBaseParser::standaloneExpression;
+            }
+            else if (type.endsWith("type")) {
+                parseFunction = SqlBaseParser::standaloneType;
+            }
+            else if (type.endsWith("Pattern")) {
+                parseFunction = SqlBaseParser::standaloneRowPattern;
+            }
+            else {
+                parseFunction = SqlBaseParser::standalonePathSpecification;
+            }
+            try {
+                // first, try parsing with potentially faster SLL mode
+                parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
+                tree = parseFunction.apply((SqlBaseParser) parser);
+            }
+            catch (ParseCancellationException ex) {
+                // if we fail, parse with LL mode
+                tokenStream.reset(); // rewind input stream
+                parser.reset();
+
+                parser.getInterpreter().setPredictionMode(PredictionMode.LL);
+                tree = parseFunction.apply((SqlBaseParser) parser);
+            }
+        }
+        return tree;
+    }
+
+    private Node invokeSparkBasedHiveParser(String name, String sql, ParsingOptions parsingOptions, String type)
+    {
+        try {
+            io.hivesql.sql.parser.SqlBaseLexer lexer = new io.hivesql.sql.parser.SqlBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(sql)));
+            CommonTokenStream tokenStream = new CommonTokenStream(lexer);
+            io.hivesql.sql.parser.SqlBaseParser parser = new io.hivesql.sql.parser.SqlBaseParser(tokenStream);
+            parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames()), parser));
+
+            HiveAstBuilder hiveAstBuilder = new HiveAstBuilder(parsingOptions);
+
+            return invokeCommonParser(name, "spark_" + type, lexer,
+                parser, hiveAstBuilder);
+        }
+        catch (StackOverflowError e) {
+            throw new ParsingException(name + " is too large (stack overflow while parsing)");
+        }
+    }
+
+    private Node invokePrestoParser(String name, String sql,
+                                    ParsingOptions parsingOptions, String type)
+    {
+        try {
+            SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(sql)));
+            CommonTokenStream tokenStream = new CommonTokenStream(lexer);
+            SqlBaseParser parser = new SqlBaseParser(tokenStream);
+            parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames()), parser));
+
+            AstBuilder hiveAstBuilder = new AstBuilder(parsingOptions);
+
+            return invokeCommonParser(name, "presto_" + type, lexer,
+                parser, hiveAstBuilder);
+        }
+        catch (StackOverflowError e) {
+            throw new ParsingException(name + " is too large (stack overflow while parsing)");
+        }
+    }
+
+    private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)
+    {
+        try {
+            SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(sql)));
+            CommonTokenStream tokenStream = new CommonTokenStream(lexer);
+            SqlBaseParser parser = new SqlBaseParser(tokenStream);
+
+            // Override the default error strategy to not attempt inserting or deleting a token.
+            // Otherwise, it messes up error reporting
+            parser.setErrorHandler(new DefaultErrorStrategy()
+            {
+                @Override
+                public Token recoverInline(Parser recognizer)
+                        throws RecognitionException
+                {
+                    if (nextTokensContext == null) {
+                        throw new InputMismatchException(recognizer);
+                    }
+                    else {
+                        throw new InputMismatchException(recognizer, nextTokensState, nextTokensContext);
+                    }
+                }
+            });
+
+            parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames()), parser));
+
+            lexer.removeErrorListeners();
+            lexer.addErrorListener(LEXER_ERROR_LISTENER);
+
+            parser.removeErrorListeners();
+
+            if (enhancedErrorHandlerEnabled) {
+                parser.addErrorListener(PARSER_ERROR_HANDLER);
+            }
+            else {
+                parser.addErrorListener(LEXER_ERROR_LISTENER);
+            }
 
             ParserRuleContext tree;
             try {
@@ -146,7 +332,7 @@ public class SqlParser
             }
             catch (ParseCancellationException ex) {
                 // if we fail, parse with LL mode
-                tokenStream.seek(0); // rewind input stream
+                tokenStream.reset(); // rewind input stream
                 parser.reset();
 
                 parser.getInterpreter().setPredictionMode(PredictionMode.LL);
@@ -164,9 +350,9 @@ public class SqlParser
             extends SqlBaseBaseListener
     {
         private final List<String> ruleNames;
-        private final SqlBaseParser parser;
+        private final Parser parser;
 
-        public PostProcessor(List<String> ruleNames, SqlBaseParser parser)
+        public PostProcessor(List<String> ruleNames, Parser parser)
         {
             this.ruleNames = ruleNames;
             this.parser = parser;
@@ -177,7 +363,7 @@ public class SqlParser
         {
             Token token = context.QUOTED_IDENTIFIER().getSymbol();
             if (token.getText().length() == 2) { // empty identifier
-                throw new ParsingException("Zero-length delimited identifier not allowed", null, token.getLine(), token.getCharPositionInLine() + 1);
+                throw new ParsingException("Zero-length delimited identifier not allowed", null, token.getLine(), token.getCharPositionInLine());
             }
         }
 
@@ -186,10 +372,10 @@ public class SqlParser
         {
             Token token = context.BACKQUOTED_IDENTIFIER().getSymbol();
             throw new ParsingException(
-                    "backquoted identifiers are not supported; use double quotes to quote identifiers",
-                    null,
-                    token.getLine(),
-                    token.getCharPositionInLine() + 1);
+                "backquoted identifiers are not supported; use double quotes to quote identifiers",
+                null,
+                token.getLine(),
+                token.getCharPositionInLine());
         }
 
         @Override
@@ -197,17 +383,17 @@ public class SqlParser
         {
             Token token = context.DIGIT_IDENTIFIER().getSymbol();
             throw new ParsingException(
-                    "identifiers must not start with a digit; surround the identifier with double quotes",
-                    null,
-                    token.getLine(),
-                    token.getCharPositionInLine() + 1);
+                "identifiers must not start with a digit; surround the identifier with double quotes",
+                null,
+                token.getLine(),
+                token.getCharPositionInLine());
         }
 
         @Override
         public void exitNonReserved(SqlBaseParser.NonReservedContext context)
         {
             // we can't modify the tree during rule enter/exit event handling unless we're dealing with a terminal.
-            // Otherwise, ANTLR gets confused and fires spurious notifications.
+            // Otherwise, ANTLR gets confused an fires spurious notifications.
             if (!(context.getChild(0) instanceof TerminalNode)) {
                 int rule = ((ParserRuleContext) context.getChild(0)).getRuleIndex();
                 throw new AssertionError("nonReserved can only contain tokens. Found nested rule: " + ruleNames.get(rule));
