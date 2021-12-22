@@ -1675,8 +1675,6 @@
                             <!-- getLast has lower complexity for array based lists than the stream analogue (O(1) vs O(log(N)) -->
                             <exclusion>com/google/common/collect/Iterables.getLast:(Ljava/lang/Iterable;)Ljava/lang/Object;</exclusion>
                             <exclusion>com/google/common/collect/Iterables.getLast:(Ljava/lang/Iterable;Ljava/lang/Object;)Ljava/lang/Object;</exclusion>
-                            <!-- TODO: requires getting to common understanding which of those we want to enable -->
-                            <exclusion>com/google/common/collect/Iterables.getLast:(Ljava/lang/Iterable;)Ljava/lang/Object;</exclusion>
                         </exclusions>
                     </configuration>
                 </plugin>
