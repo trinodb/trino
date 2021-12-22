@@ -89,6 +89,7 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Functions.constant;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -118,7 +119,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Arrays.stream;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
@@ -361,7 +361,7 @@ public class ParquetTester
         for (CompressionCodecName compressionCodecName : writerCompressions) {
             for (ConnectorSession session : sessions) {
                 try (TempFile tempFile = new TempFile("test", "parquet")) {
-                    OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
+                    OptionalInt min = Stream.of(writeValues).mapToInt(Iterables::size).min();
                     checkState(min.isPresent());
                     writeParquetColumnTrino(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodecName);
                     assertFileContents(
@@ -439,7 +439,7 @@ public class ParquetTester
                         expectedValues,
                         pageSource,
                         Optional.of(getParquetMaxReadBlockSize(session).toBytes()));
-                assertFalse(stream(expectedValues).allMatch(Iterator::hasNext));
+                assertFalse(Stream.of(expectedValues).allMatch(Iterator::hasNext));
             }
         }
     }
@@ -464,7 +464,7 @@ public class ParquetTester
             else {
                 assertPageSource(columnTypes, expectedValues, pageSource);
             }
-            assertFalse(stream(expectedValues).allMatch(Iterator::hasNext));
+            assertFalse(Stream.of(expectedValues).allMatch(Iterator::hasNext));
         }
     }
 
@@ -602,7 +602,7 @@ public class ParquetTester
                         () -> {});
         Object row = objectInspector.create();
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
-        while (stream(valuesByField).allMatch(Iterator::hasNext)) {
+        while (Stream.of(valuesByField).allMatch(Iterator::hasNext)) {
             for (int field = 0; field < fields.size(); field++) {
                 Object value = valuesByField[field].next();
                 objectInspector.setStructFieldData(row, fields.get(field), value);
@@ -655,21 +655,21 @@ public class ParquetTester
 
     private static Iterator<?>[] getIterators(Iterable<?>[] values)
     {
-        return stream(values)
+        return Stream.of(values)
                 .map(Iterable::iterator)
                 .toArray(Iterator<?>[]::new);
     }
 
     private Iterable<?>[] transformToNulls(Iterable<?>[] values)
     {
-        return stream(values)
+        return Stream.of(values)
                 .map(v -> transform(v, constant(null)))
                 .toArray(Iterable<?>[]::new);
     }
 
     private static Iterable<?>[] reverse(Iterable<?>[] iterables)
     {
-        return stream(iterables)
+        return Stream.of(iterables)
                 .map(ImmutableList::copyOf)
                 .map(Lists::reverse)
                 .toArray(Iterable<?>[]::new);
@@ -677,7 +677,7 @@ public class ParquetTester
 
     private static Iterable<?>[] insertNullEvery(int n, Iterable<?>[] iterables)
     {
-        return stream(iterables)
+        return Stream.of(iterables)
                 .map(itr -> insertNullEvery(n, itr))
                 .toArray(Iterable<?>[]::new);
     }
