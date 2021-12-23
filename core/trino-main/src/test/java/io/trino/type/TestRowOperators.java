@@ -55,6 +55,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.SqlDecimal.decimal;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -263,7 +264,14 @@ public class TestRowOperators
         assertFunction(
                 "CAST(JSON '[12345.67,1234567890.1,123.456,12345678.12345678,null,null,null]' AS ROW(REAL, DOUBLE, DECIMAL(10, 5), DECIMAL(38, 8), REAL, DOUBLE, DECIMAL(7, 7)))",
                 RowType.anonymous(ImmutableList.of(REAL, DOUBLE, createDecimalType(10, 5), createDecimalType(38, 8), REAL, DOUBLE, createDecimalType(7, 7))),
-                asList(12345.67f, 1234567890.1, decimal("123.45600"), decimal("12345678.12345678"), null, null, null));
+                asList(
+                        12345.67f,
+                        1234567890.1,
+                        decimal("123.45600", createDecimalType(10, 5)),
+                        decimal("12345678.12345678", createDecimalType(38, 8)),
+                        null,
+                        null,
+                        null));
 
         assertFunction(
                 "CAST(JSON '{" +
@@ -280,7 +288,14 @@ public class TestRowOperators
                         RowType.field("real_null", REAL),
                         RowType.field("double_null", DOUBLE),
                         RowType.field("decimal_null", createDecimalType(7, 7)))),
-                asList(12345.67f, 1234567890.1, decimal("123.45600"), decimal("12345678.12345678"), null, null, null));
+                asList(
+                        12345.67f,
+                        1234567890.1,
+                        decimal("123.45600", createDecimalType(10, 5)),
+                        decimal("12345678.12345678", createDecimalType(38, 8)),
+                        null,
+                        null,
+                        null));
 
         // varchar, json
         assertFunction(
@@ -388,8 +403,8 @@ public class TestRowOperators
         assertFunction("ROW(ROW('ab'))[1][1]", createVarcharType(2), "ab");
         assertFunction("CAST(ROW(ARRAY[NULL]) AS ROW(a ARRAY(BIGINT)))[1]", new ArrayType(BIGINT), asList((Integer) null));
 
-        assertDecimalFunction("CAST(row(1.0, 123123123456.6549876543) AS ROW(col0 decimal(2,1), col1 decimal(22,10)))[1]", decimal("1.0"));
-        assertDecimalFunction("CAST(row(1.0, 123123123456.6549876543) AS ROW(col0 decimal(2,1), col1 decimal(22,10)))[2]", decimal("123123123456.6549876543"));
+        assertDecimalFunction("CAST(row(1.0, 123123123456.6549876543) AS ROW(col0 decimal(2,1), col1 decimal(22,10)))[1]", decimal("1.0", createDecimalType(2, 1)));
+        assertDecimalFunction("CAST(row(1.0, 123123123456.6549876543) AS ROW(col0 decimal(2,1), col1 decimal(22,10)))[2]", decimal("123123123456.6549876543", createDecimalType(22, 10)));
     }
 
     @Test
