@@ -363,7 +363,7 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(boundaryCoordinatorStage())
-                // original exception message is lost sometimes
+                // TODO(https://github.com/trinodb/trino/issues/10395 original exception message is lost sometimes
                 .failsAlways(failure -> failure.hasMessageFindingMatch("\\Q" + FAILURE_INJECTION_MESSAGE + "\\E|Remote task failed.*"));
 
         assertThatQuery(query)
@@ -372,7 +372,8 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(rootStage())
-                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+                // TODO(https://github.com/trinodb/trino/issues/10395 original exception message is lost sometimes
+                .failsAlways(failure -> failure.hasMessageFindingMatch("\\Q" + FAILURE_INJECTION_MESSAGE + "\\E|Remote task failed.*"));
 
         assertThatQuery(query)
                 .withSession(session)
