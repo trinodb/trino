@@ -162,6 +162,12 @@
             <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-testing</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.projectlombok</groupId>
+                    <artifactId>lombok</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
