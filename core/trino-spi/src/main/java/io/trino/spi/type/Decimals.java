@@ -75,17 +75,6 @@ public final class Decimals
 
     public static DecimalParseResult parse(String stringValue)
     {
-        return parse(stringValue, false);
-    }
-
-    // visible for testing
-    public static DecimalParseResult parseIncludeLeadingZerosInPrecision(String stringValue)
-    {
-        return parse(stringValue, true);
-    }
-
-    private static DecimalParseResult parse(String stringValue, boolean includeLeadingZerosInPrecision)
-    {
         Matcher matcher = DECIMAL_PATTERN.matcher(stringValue);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Invalid decimal value '" + stringValue + "'");
@@ -104,15 +93,9 @@ public final class Decimals
         }
 
         int scale = fractionalPart.length();
-        int precision;
-        if (includeLeadingZerosInPrecision) {
-            precision = leadingZeros.length() + integralPart.length() + scale;
-        }
-        else {
-            precision = integralPart.length() + scale;
-            if (precision == 0) {
-                precision = 1;
-            }
+        int precision = integralPart.length() + scale;
+        if (precision == 0) {
+            precision = 1;
         }
 
         String unscaledValue = sign + leadingZeros + integralPart + fractionalPart;
