@@ -450,6 +450,11 @@ public class PostgreSqlClient
         if (mapping.isPresent()) {
             return mapping;
         }
+
+        if (jdbcTypeName.startsWith("_")) {
+            return Optional.of(jsonColumnMapping());
+        }
+
         switch (jdbcTypeName) {
             case "money":
                 return Optional.of(moneyColumnMapping());
@@ -694,6 +699,7 @@ public class PostgreSqlClient
         if (type.equals(jsonType)) {
             return WriteMapping.sliceMapping("jsonb", typedVarcharWriteFunction("json"));
         }
+
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("uuid", uuidWriteFunction());
         }
@@ -1214,7 +1220,17 @@ public class PostgreSqlClient
     {
         return ColumnMapping.sliceMapping(
                 jsonType,
-                (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
+                (resultSet, columnIndex) -> {
+                    final Object jsonObject = resultSet.getObject(columnIndex);
+                    if (jsonObject instanceof Array) {
+                        Array array = (Array) jsonObject;
+                        Object[] list = (Object[]) array.getArray();
+                        return utf8Slice(JacksonUtils.deserialize(list));
+                    }
+                    else {
+                        return jsonParse(utf8Slice(resultSet.getString(columnIndex)));
+                    }
+                },
                 typedVarcharWriteFunction("json"),
                 DISABLE_PUSHDOWN);
     }
