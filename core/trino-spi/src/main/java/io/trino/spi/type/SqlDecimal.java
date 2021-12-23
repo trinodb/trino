@@ -33,6 +33,20 @@ public final class SqlDecimal
         this.scale = scale;
     }
 
+    public static SqlDecimal decimal(String value, DecimalType type)
+    {
+        DecimalParseResult parseResult = Decimals.parse(value);
+        BigInteger unscaledValue;
+        if (parseResult.getType().isShort()) {
+            unscaledValue = BigInteger.valueOf((Long) parseResult.getObject());
+        }
+        else {
+            unscaledValue = ((Int128) parseResult.getObject()).toBigInteger();
+        }
+
+        return new SqlDecimal(unscaledValue, type.getPrecision(), type.getScale());
+    }
+
     public int getPrecision()
     {
         return precision;
@@ -41,17 +55,6 @@ public final class SqlDecimal
     public int getScale()
     {
         return scale;
-    }
-
-    public static SqlDecimal of(String decimalValue)
-    {
-        BigDecimal bigDecimal = new BigDecimal(decimalValue);
-        return new SqlDecimal(bigDecimal.unscaledValue(), bigDecimal.precision(), bigDecimal.scale());
-    }
-
-    public static SqlDecimal of(String unscaledValue, int precision, int scale)
-    {
-        return new SqlDecimal(new BigInteger(unscaledValue), precision, scale);
     }
 
     public static SqlDecimal of(long unscaledValue, int precision, int scale)

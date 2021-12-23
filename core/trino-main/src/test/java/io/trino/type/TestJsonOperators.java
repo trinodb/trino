@@ -38,6 +38,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.SqlDecimal.decimal;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
@@ -278,11 +279,11 @@ public class TestJsonOperators
     public void testCastToDecimal()
     {
         assertFunction("cast(JSON 'null' as DECIMAL(10,3))", createDecimalType(10, 3), null);
-        assertFunction("cast(JSON '128' as DECIMAL(10,3))", createDecimalType(10, 3), decimal("128.000"));
-        assertFunction("cast(cast(DECIMAL '123456789012345678901234567890.12345678' as JSON) as DECIMAL(38,8))", createDecimalType(38, 8), decimal("123456789012345678901234567890.12345678"));
-        assertFunction("cast(JSON '123.456' as DECIMAL(10,5))", createDecimalType(10, 5), decimal("123.45600"));
-        assertFunction("cast(JSON 'true' as DECIMAL(10,5))", createDecimalType(10, 5), decimal("1.00000"));
-        assertFunction("cast(JSON 'false' as DECIMAL(10,5))", createDecimalType(10, 5), decimal("0.00000"));
+        assertFunction("cast(JSON '128' as DECIMAL(10,3))", createDecimalType(10, 3), decimal("128.000", createDecimalType(10, 3)));
+        assertFunction("cast(cast(DECIMAL '123456789012345678901234567890.12345678' as JSON) as DECIMAL(38,8))", createDecimalType(38, 8), decimal("123456789012345678901234567890.12345678", createDecimalType(38, 8)));
+        assertFunction("cast(JSON '123.456' as DECIMAL(10,5))", createDecimalType(10, 5), decimal("123.45600", createDecimalType(10, 5)));
+        assertFunction("cast(JSON 'true' as DECIMAL(10,5))", createDecimalType(10, 5), decimal("1.00000", createDecimalType(10, 5)));
+        assertFunction("cast(JSON 'false' as DECIMAL(10,5))", createDecimalType(10, 5), decimal("0.00000", createDecimalType(10, 5)));
         assertInvalidCast("cast(JSON '1234567890123456' as DECIMAL(10,3))", "Cannot cast input json to DECIMAL(10,3)");
         assertInvalidCast("cast(JSON '{ \"x\" : 123}' as DECIMAL(10,3))", "Cannot cast '{\"x\":123}' to DECIMAL(10,3)");
         assertInvalidCast("cast(JSON '\"abc\"' as DECIMAL(10,3))", "Cannot cast '\"abc\"' to DECIMAL(10,3)");
