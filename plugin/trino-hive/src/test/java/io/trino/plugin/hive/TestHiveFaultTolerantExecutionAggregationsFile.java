@@ -14,22 +14,23 @@
 package io.trino.plugin.hive;
 
 import io.trino.testing.AbstractTestFaultTolerantExecutionAggregations;
+import io.trino.testing.BaseFaultTolerantExecutionConnectorTest;
 import io.trino.testing.QueryRunner;
 
 import java.util.Map;
 
 import static io.trino.tpch.TpchTable.getTables;
 
-public class TestHiveFaultTolerantExecutionAggregations
+public class TestHiveFaultTolerantExecutionAggregationsFile
         extends AbstractTestFaultTolerantExecutionAggregations
 {
     @Override
-    protected QueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> exchangeManagerProperties)
+    protected QueryRunner createQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
         return HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
-                .setExchangeManagerProperties(exchangeManagerProperties)
+                .setExchangeManagerProperties(BaseFaultTolerantExecutionConnectorTest.getExchangeManagerPropertiesFile())
                 .setInitialTables(getTables())
                 .build();
     }

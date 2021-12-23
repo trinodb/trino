@@ -313,12 +313,13 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-exchange</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>software.amazon.awssdk</groupId>
-                    <artifactId>sdk-core</artifactId>
-                </exclusion>
-            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-exchange</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -426,6 +427,16 @@
                                 <exclude>**/TestHive*FailureRecovery.java</exclude>
                                 <exclude>**/TestHiveFaultTolerantExecution*.java</exclude>
                             </excludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.basepom.maven</groupId>
+                        <artifactId>duplicate-finder-maven-plugin</artifactId>
+                        <configuration>
+                            <ignoredResourcePatterns>
+                                <ignoredResourcePattern>mime.types</ignoredResourcePattern>
+                                <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                            </ignoredResourcePatterns>
                         </configuration>
                     </plugin>
                 </plugins>

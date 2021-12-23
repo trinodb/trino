@@ -34,6 +34,7 @@ public class TestExchangeS3Config
                 .setS3AwsAccessKey(null)
                 .setS3AwsSecretKey(null)
                 .setS3Region(null)
+                .setS3Endpoint(null)
                 .setS3MaxErrorRetries(10)
                 .setDeletionThreadCount(max(1, Runtime.getRuntime().availableProcessors() / 2))
                 .setS3UploadPartSize(DataSize.of(5, MEGABYTE)));
@@ -46,6 +47,7 @@ public class TestExchangeS3Config
                 .put("exchange.s3.aws-access-key", "access")
                 .put("exchange.s3.aws-secret-key", "secret")
                 .put("exchange.s3.region", "us-west-1")
+                .put("exchange.s3.endpoint", "https://s3.us-east-1.amazonaws.com")
                 .put("exchange.s3.max-error-retries", "8")
                 .put("exchange.s3.deletion.thread-count", "3")
                 .put("exchange.s3.upload.part-size", "10MB")
@@ -55,6 +57,7 @@ public class TestExchangeS3Config
                 .setS3AwsAccessKey("access")
                 .setS3AwsSecretKey("secret")
                 .setS3Region("us-west-1")
+                .setS3Endpoint("https://s3.us-east-1.amazonaws.com")
                 .setS3MaxErrorRetries(8)
                 .setDeletionThreadCount(3)
                 .setS3UploadPartSize(DataSize.of(10, MEGABYTE));

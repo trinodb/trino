@@ -252,6 +252,13 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-exchange</artifactId>
+                <type>test-jar</type>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-geospatial</artifactId>
                 <version>${project.version}</version>
             </dependency>

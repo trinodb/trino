@@ -43,7 +43,7 @@ public abstract class BaseFaultTolerantExecutionConnectorTest
                 .build();
     }
 
-    public static Map<String, String> getExchangeManagerProperties()
+    public static Map<String, String> getExchangeManagerPropertiesFile()
     {
         return ImmutableMap.<String, String>builder()
                 .put("exchange.base-directory", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager")

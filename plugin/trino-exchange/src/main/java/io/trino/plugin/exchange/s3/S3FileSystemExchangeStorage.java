@@ -100,6 +100,7 @@ public class S3FileSystemExchangeStorage
     private static final String DIRECTORY_SUFFIX = "_$folder$";
 
     private final Region region;
+    private final String endpoint;
     private final int multiUploadPartSize;
     private final S3Client s3Client;
     private final S3AsyncClient s3AsyncClient;
@@ -115,6 +116,7 @@ public class S3FileSystemExchangeStorage
         else {
             this.region = null;
         }
+        this.endpoint = config.getS3Endpoint();
         this.multiUploadPartSize = toIntExact(config.getS3UploadPartSize().toBytes());
 
         AwsCredentialsProvider credentialsProvider = createAwsCredentialsProvider(config);
@@ -408,6 +410,9 @@ public class S3FileSystemExchangeStorage
         if (region != null) {
             clientBuilder = clientBuilder.region(region);
         }
+        if (endpoint != null) {
+            clientBuilder = clientBuilder.endpointOverride(URI.create(endpoint));
+        }
 
         return clientBuilder.build();
     }
@@ -420,6 +425,9 @@ public class S3FileSystemExchangeStorage
 
         if (region != null) {
             clientBuilder = clientBuilder.region(region);
+        }
+        if (endpoint != null) {
+            clientBuilder = clientBuilder.endpointOverride(URI.create(endpoint));
         }
 
         return clientBuilder.build();

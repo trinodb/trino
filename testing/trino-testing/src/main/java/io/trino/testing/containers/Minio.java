@@ -11,13 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.containers;
+package io.trino.testing.containers;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
-import io.trino.testing.containers.BaseTestContainer;
 import org.testcontainers.containers.Network;
 
 import java.util.Map;

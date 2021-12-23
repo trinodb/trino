@@ -31,6 +31,7 @@ public class ExchangeS3Config
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
     private String s3Region;
+    private String s3Endpoint;
     private int s3MaxErrorRetries = 10;
     private int deletionThreadCount = max(1, Runtime.getRuntime().availableProcessors() / 2);
     private DataSize s3UploadPartSize = DataSize.of(5, MEGABYTE);
@@ -69,6 +70,18 @@ public class ExchangeS3Config
     public ExchangeS3Config setS3Region(String s3Region)
     {
         this.s3Region = s3Region;
+        return this;
+    }
+
+    public String getS3Endpoint()
+    {
+        return s3Endpoint;
+    }
+
+    @Config("exchange.s3.endpoint")
+    public ExchangeS3Config setS3Endpoint(String s3Endpoint)
+    {
+        this.s3Endpoint = s3Endpoint;
         return this;
     }
 

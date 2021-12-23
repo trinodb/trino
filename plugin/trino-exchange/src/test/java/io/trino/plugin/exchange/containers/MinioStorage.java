@@ -11,25 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.containers;
+package io.trino.plugin.exchange.containers;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.containers.Minio;
 import io.trino.util.AutoCloseableCloser;
 import org.testcontainers.containers.Network;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
-import java.util.Map;
+import java.net.URI;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.Network.newNetwork;
+import static software.amazon.awssdk.regions.Region.US_EAST_1;
 
-public class HiveMinioDataLake
+public class MinioStorage
         implements AutoCloseable
 {
     public static final String ACCESS_KEY = "accesskey";
@@ -37,18 +37,12 @@ public class HiveMinioDataLake
 
     private final String bucketName;
     private final Minio minio;
-    private final HiveHadoop hiveHadoop;
 
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
 
     private State state = State.INITIAL;
 
-    public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount)
-    {
-        this(bucketName, hiveHadoopFilesToMount, HiveHadoop.DEFAULT_IMAGE);
-    }
-
-    public HiveMinioDataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage)
+    public MinioStorage(String bucketName)
     {
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
         Network network = closer.register(newNetwork());
@@ -60,15 +54,6 @@ public class HiveMinioDataLake
                                 .put("MINIO_SECRET_KEY", SECRET_KEY)
                                 .build())
                         .build());
-        this.hiveHadoop = closer.register(
-                HiveHadoop.builder()
-                        .withFilesToMount(ImmutableMap.<String, String>builder()
-                                .put("hive_s3_insert_overwrite/hive-core-site.xml", "/etc/hadoop/conf/core-site.xml")
-                                .putAll(hiveHadoopFilesToMount)
-                                .build())
-                        .withImage(hiveHadoopImage)
-                        .withNetwork(network)
-                        .build());
     }
 
     public void start()
@@ -76,35 +61,21 @@ public class HiveMinioDataLake
         checkState(state == State.INITIAL, "Already started: %s", state);
         state = State.STARTING;
         minio.start();
-        hiveHadoop.start();
-        AmazonS3 s3Client = AmazonS3ClientBuilder
-                .standard()
-                .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
-                        "http://localhost:" + minio.getMinioApiEndpoint().getPort(),
-                        "us-east-1"))
-                .withPathStyleAccessEnabled(true)
-                .withCredentials(new AWSStaticCredentialsProvider(
-                        new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY)))
+        S3Client s3Client = S3Client.builder()
+                .endpointOverride(URI.create("http://localhost:" + minio.getMinioApiEndpoint().getPort()))
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(ACCESS_KEY, SECRET_KEY)))
+                .region(US_EAST_1)
                 .build();
-        s3Client.createBucket(this.bucketName);
+        CreateBucketRequest createBucketRequest = CreateBucketRequest.builder()
+                .bucket(bucketName)
+                .build();
+        s3Client.createBucket(createBucketRequest);
         state = State.STARTED;
-    }
-
-    public void stop()
-            throws Exception
-    {
-        closer.close();
-        state = State.STOPPED;
     }
 
     public Minio getMinio()
     {
         return minio;
-    }
-
-    public HiveHadoop getHiveHadoop()
-    {
-        return hiveHadoop;
     }
 
     public String getBucketName()
@@ -116,7 +87,8 @@ public class HiveMinioDataLake
     public void close()
             throws Exception
     {
-        stop();
+        closer.close();
+        state = State.STOPPED;
     }
 
     private enum State
