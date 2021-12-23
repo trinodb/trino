@@ -27,10 +27,16 @@ import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 public class TestLongDecimalAverageAggregation
         extends AbstractTestDecimalAverageAggregation
 {
-    private static final DecimalType LONG_DECIMAL_TYPE = DecimalType.createDecimalType(MAX_SHORT_PRECISION + 1);
+    private static final DecimalType LONG_DECIMAL_TYPE = DecimalType.createDecimalType(MAX_SHORT_PRECISION + 1, 2);
 
     @Override
     protected DecimalType getDecimalType()
+    {
+        return LONG_DECIMAL_TYPE;
+    }
+
+    @Override
+    protected DecimalType getExpectedType()
     {
         return LONG_DECIMAL_TYPE;
     }
@@ -44,6 +50,6 @@ public class TestLongDecimalAverageAggregation
     @Override
     protected List<Type> getFunctionParameterTypes()
     {
-        return ImmutableList.of(DecimalType.createDecimalType(MAX_SHORT_PRECISION + 1, 2));
+        return ImmutableList.of(LONG_DECIMAL_TYPE);
     }
 }

@@ -33,19 +33,6 @@ public final class SqlDecimal
         this.scale = scale;
     }
 
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        SqlDecimal that = (SqlDecimal) o;
-        return Objects.equals(unscaledValue, that.unscaledValue);
-    }
-
     public int getPrecision()
     {
         return precision;
@@ -73,9 +60,22 @@ public final class SqlDecimal
     }
 
     @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        SqlDecimal that = (SqlDecimal) o;
+        return precision == that.precision && scale == that.scale && unscaledValue.equals(that.unscaledValue);
+    }
+
+    @Override
     public int hashCode()
     {
-        return Objects.hash(unscaledValue);
+        return Objects.hash(unscaledValue, precision, scale);
     }
 
     @JsonValue
