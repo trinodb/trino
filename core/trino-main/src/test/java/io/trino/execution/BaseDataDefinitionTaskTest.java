@@ -22,17 +22,17 @@ import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.MaterializedViewDefinition;
-import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
-import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.TableSchema;
 import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -40,6 +40,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
+import io.trino.spi.security.TrinoPrincipal;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
@@ -52,13 +54,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -71,6 +78,7 @@ public abstract class BaseDataDefinitionTaskTest
     public static final String SCHEMA = "schema";
     protected Session testSession;
     protected MockMetadata metadata;
+    protected PlannerContext plannerContext;
     protected TransactionManager transactionManager;
     protected QueryStateMachine queryStateMachine;
 
@@ -79,17 +87,13 @@ public abstract class BaseDataDefinitionTaskTest
     {
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
-        TablePropertyManager tablePropertyManager = new TablePropertyManager();
-        MaterializedViewPropertyManager materializedViewPropertyManager = new MaterializedViewPropertyManager();
         Catalog testCatalog = createBogusTestingCatalog(CATALOG_NAME);
         catalogManager.registerCatalog(testCatalog);
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-        metadata = new MockMetadata(
-                tablePropertyManager,
-                materializedViewPropertyManager,
-                testCatalog.getConnectorCatalogName());
+        metadata = new MockMetadata(testCatalog.getConnectorCatalogName());
+        plannerContext = plannerContextBuilder().withMetadata(metadata).build();
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
     }
 
@@ -172,33 +176,16 @@ public abstract class BaseDataDefinitionTaskTest
     protected static class MockMetadata
             extends AbstractMockMetadata
     {
-        private final TablePropertyManager tablePropertyManager;
-        private final MaterializedViewPropertyManager materializedViewPropertyManager;
         private final CatalogName catalogHandle;
+        private final List<CatalogSchemaName> schemas = new CopyOnWriteArrayList<>();
+        private final AtomicBoolean failCreateSchema = new AtomicBoolean();
         private final Map<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
         private final Map<SchemaTableName, ViewDefinition> views = new ConcurrentHashMap<>();
         private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
 
-        public MockMetadata(
-                TablePropertyManager tablePropertyManager,
-                MaterializedViewPropertyManager materializedViewPropertyManager,
-                CatalogName catalogHandle)
+        public MockMetadata(CatalogName catalogHandle)
         {
-            this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
-            this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
-        }
-
-        @Override
-        public TablePropertyManager getTablePropertyManager()
-        {
-            return tablePropertyManager;
-        }
-
-        @Override
-        public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
-        {
-            return materializedViewPropertyManager;
         }
 
         @Override
@@ -208,6 +195,29 @@ public abstract class BaseDataDefinitionTaskTest
                 return Optional.of(catalogHandle);
             }
             return Optional.empty();
+        }
+
+        public void failCreateSchema()
+        {
+            failCreateSchema.set(true);
+        }
+
+        @Override
+        public boolean schemaExists(Session session, CatalogSchemaName schema)
+        {
+            return schemas.contains(schema);
+        }
+
+        @Override
+        public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, TrinoPrincipal principal)
+        {
+            if (failCreateSchema.get()) {
+                throw new TrinoException(DIVISION_BY_ZERO, "TEST create schema fail: " + schema);
+            }
+            if (schemas.contains(schema)) {
+                throw new TrinoException(ALREADY_EXISTS, "Schema already exists");
+            }
+            schemas.add(schema);
         }
 
         @Override

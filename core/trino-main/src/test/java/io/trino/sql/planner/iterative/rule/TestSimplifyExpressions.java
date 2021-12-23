@@ -13,14 +13,12 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
@@ -34,7 +32,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -43,6 +40,8 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.ExpressionUtils.extractPredicates;
 import static io.trino.sql.ExpressionUtils.logicalExpression;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -50,7 +49,6 @@ import static org.testng.Assert.assertEquals;
 public class TestSimplifyExpressions
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final Metadata METADATA = createTestMetadataManager();
 
     @Test
     public void testPushesDownNegations()
@@ -249,7 +247,7 @@ public class TestSimplifyExpressions
         ParsingOptions parsingOptions = new ParsingOptions();
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, parsingOptions));
         Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, parsingOptions));
-        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)), METADATA, new TypeAnalyzer(SQL_PARSER, METADATA));
+        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT));
         assertEquals(
                 normalize(rewritten),
                 normalize(expectedExpression));
@@ -318,7 +316,7 @@ public class TestSimplifyExpressions
         ParsingOptions parsingOptions = new ParsingOptions();
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, parsingOptions));
         Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, parsingOptions));
-        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(numericAndBooleanSymbolTypeMapFor(actualExpression)), METADATA, new TypeAnalyzer(SQL_PARSER, METADATA));
+        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(numericAndBooleanSymbolTypeMapFor(actualExpression)), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT));
         assertEquals(
                 normalize(rewritten),
                 normalize(expectedExpression));

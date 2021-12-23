@@ -165,7 +165,8 @@ public class TestStreamingExchangeClientBuffer
             RuntimeException error = new RuntimeException();
             buffer.taskFailed(TASK_0, error);
 
-            assertTrue(buffer.isFinished());
+            assertFalse(buffer.isFinished());
+            assertTrue(buffer.isFailed());
             assertTrue(buffer.isBlocked().isDone());
             assertThatThrownBy(buffer::pollPage).isEqualTo(error);
         }

@@ -13,7 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
-import io.airlift.slice.Slices;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 
 import java.util.concurrent.ThreadLocalRandom;
@@ -37,6 +37,6 @@ public class TestApproximateCountDistinctLongDecimal
     {
         long low = ThreadLocalRandom.current().nextLong();
         long high = ThreadLocalRandom.current().nextLong();
-        return Slices.wrappedLongArray(low, high);
+        return Int128.valueOf(high, low);
     }
 }

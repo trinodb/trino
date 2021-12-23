@@ -22,13 +22,15 @@ import io.trino.metadata.AllNodes;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SqlFunction;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
+import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
-import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
@@ -127,9 +129,21 @@ public final class StandaloneQueryRunner
     }
 
     @Override
-    public AnalyzerFactory getAnalyzerFactory()
+    public TypeManager getTypeManager()
     {
-        return server.getAnalyzerFactory();
+        return server.getTypeManager();
+    }
+
+    @Override
+    public QueryExplainer getQueryExplainer()
+    {
+        return server.getQueryExplainer();
+    }
+
+    @Override
+    public SessionPropertyManager getSessionPropertyManager()
+    {
+        return server.getSessionPropertyManager();
     }
 
     @Override

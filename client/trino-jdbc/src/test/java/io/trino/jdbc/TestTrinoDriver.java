@@ -448,7 +448,7 @@ public class TestTrinoDriver
                 String sql = "SELECT 123 x, 'foo' y, CAST(NULL AS bigint) z";
                 assertThatThrownBy(() -> statement.executeUpdate(sql))
                         .isInstanceOf(SQLException.class)
-                        .hasMessage(format("SQL is not an update statement: %s", sql));
+                        .hasMessage("SQL is not an update statement: %s", sql);
             }
         }
     }
@@ -462,7 +462,7 @@ public class TestTrinoDriver
                 String sql = "INSERT INTO test_table VALUES (1)";
                 assertThatThrownBy(() -> statement.executeQuery(sql))
                         .isInstanceOf(SQLException.class)
-                        .hasMessage(format("SQL statement is not a query: %s", sql));
+                        .hasMessage("SQL statement is not a query: %s", sql);
             }
         }
     }

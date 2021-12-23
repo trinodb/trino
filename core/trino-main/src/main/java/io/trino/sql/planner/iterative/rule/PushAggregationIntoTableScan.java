@@ -30,6 +30,7 @@ import io.trino.spi.connector.SortItem;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.OrderingScheme;
@@ -60,6 +61,7 @@ import static io.trino.sql.planner.plan.Patterns.Aggregation.step;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
+import static java.util.Objects.requireNonNull;
 
 public class PushAggregationIntoTableScan
         implements Rule<AggregationNode>
@@ -75,11 +77,11 @@ public class PushAggregationIntoTableScan
                     .matching(PushAggregationIntoTableScan::hasNoMasks)
                     .with(source().matching(tableScan().capturedAs(TABLE_SCAN)));
 
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
 
-    public PushAggregationIntoTableScan(Metadata metadata)
+    public PushAggregationIntoTableScan(PlannerContext plannerContext)
     {
-        this.metadata = metadata;
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
     }
 
     @Override
@@ -112,13 +114,13 @@ public class PushAggregationIntoTableScan
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        return pushAggregationIntoTableScan(metadata, context, node, captures.get(TABLE_SCAN), node.getAggregations(), node.getGroupingSets().getGroupingKeys())
+        return pushAggregationIntoTableScan(plannerContext, context, node, captures.get(TABLE_SCAN), node.getAggregations(), node.getGroupingSets().getGroupingKeys())
                 .map(Rule.Result::ofPlanNode)
                 .orElseGet(Rule.Result::empty);
     }
 
     public static Optional<PlanNode> pushAggregationIntoTableScan(
-            Metadata metadata,
+            PlannerContext plannerContext,
             Context context,
             PlanNode aggregationNode,
             TableScanNode tableScan,
@@ -135,7 +137,7 @@ public class PushAggregationIntoTableScan
 
         List<AggregateFunction> aggregateFunctions = aggregationsList.stream()
                 .map(Entry::getValue)
-                .map(aggregation -> toAggregateFunction(metadata, context, aggregation))
+                .map(aggregation -> toAggregateFunction(plannerContext.getMetadata(), context, aggregation))
                 .collect(toImmutableList());
 
         List<Symbol> aggregationOutputSymbols = aggregationsList.stream()
@@ -146,7 +148,7 @@ public class PushAggregationIntoTableScan
                 .map(groupByColumn -> assignments.get(groupByColumn.getName()))
                 .collect(toImmutableList());
 
-        Optional<AggregationApplicationResult<TableHandle>> aggregationPushdownResult = metadata.applyAggregation(
+        Optional<AggregationApplicationResult<TableHandle>> aggregationPushdownResult = plannerContext.getMetadata().applyAggregation(
                 context.getSession(),
                 tableScan.getTable(),
                 aggregateFunctions,
@@ -177,7 +179,7 @@ public class PushAggregationIntoTableScan
         }
 
         List<Expression> newProjections = result.getProjections().stream()
-                .map(expression -> ConnectorExpressionTranslator.translate(expression, variableMappings, new LiteralEncoder(context.getSession(), metadata)))
+                .map(expression -> ConnectorExpressionTranslator.translate(context.getSession(), expression, variableMappings, new LiteralEncoder(plannerContext)))
                 .collect(toImmutableList());
 
         verify(aggregationOutputSymbols.size() == newProjections.size());

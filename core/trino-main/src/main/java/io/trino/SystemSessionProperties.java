@@ -149,6 +149,7 @@ public final class SystemSessionProperties
     public static final String RETRY_ATTEMPTS = "retry_attempts";
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
+    public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -676,22 +677,28 @@ public final class SystemSessionProperties
                         RETRY_POLICY,
                         "Retry policy",
                         RetryPolicy.class,
-                        featuresConfig.getRetryPolicy(),
+                        queryManagerConfig.getRetryPolicy(),
                         false),
                 integerProperty(
                         RETRY_ATTEMPTS,
                         "Maximum number of retry attempts",
-                        featuresConfig.getRetryAttempts(),
+                        queryManagerConfig.getRetryAttempts(),
                         false),
                 durationProperty(
                         RETRY_INITIAL_DELAY,
                         "Initial delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt up to 'retry_max_delay'",
-                        featuresConfig.getRetryInitialDelay(),
+                        queryManagerConfig.getRetryInitialDelay(),
                         false),
                 durationProperty(
                         RETRY_MAX_DELAY,
                         "Maximum delay before initiating a retry attempt. Delay increases exponentially for each subsequent attempt starting from 'retry_initial_delay'",
-                        featuresConfig.getRetryMaxDelay(),
+                        queryManagerConfig.getRetryMaxDelay(),
+                        false),
+                booleanProperty(
+                        HIDE_INACCESSIBLE_COLUMNS,
+                        "When enabled non-accessible columns are silently filtered from results from SELECT * statements",
+                        featuresConfig.isHideInaccesibleColumns(),
+                        value -> validateHideInaccesibleColumns(value, featuresConfig.isHideInaccesibleColumns()),
                         false));
     }
 
@@ -1002,6 +1009,11 @@ public final class SystemSessionProperties
 
     public static boolean isDistributedSortEnabled(Session session)
     {
+        if (getRetryPolicy(session) != RetryPolicy.NONE) {
+            // distributed sort is not supported with failure recovery capabilities enabled
+            return false;
+        }
+
         return session.getSystemProperty(DISTRIBUTED_SORT, Boolean.class);
     }
 
@@ -1023,6 +1035,13 @@ public final class SystemSessionProperties
     public static int getMaxGroupingSets(Session session)
     {
         return session.getSystemProperty(MAX_GROUPING_SETS, Integer.class);
+    }
+
+    private static void validateHideInaccesibleColumns(boolean value, boolean defaultValue)
+    {
+        if (defaultValue == true && value == false) {
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s cannot be disabled with session property when it was enabled with configuration", HIDE_INACCESSIBLE_COLUMNS));
+        }
     }
 
     public static OptionalInt getMaxDriversPerTask(Session session)
@@ -1215,11 +1234,8 @@ public final class SystemSessionProperties
     {
         RetryPolicy retryPolicy = session.getSystemProperty(RETRY_POLICY, RetryPolicy.class);
         if (retryPolicy != RetryPolicy.NONE) {
-            if (isEnableDynamicFiltering(session)) {
-                throw new TrinoException(NOT_SUPPORTED, "Dynamic filtering is not supported with automatic retries enabled");
-            }
-            if (isDistributedSortEnabled(session)) {
-                throw new TrinoException(NOT_SUPPORTED, "Distributed sort is not supported with automatic retries enabled");
+            if (retryPolicy != RetryPolicy.QUERY && isEnableDynamicFiltering(session)) {
+                throw new TrinoException(NOT_SUPPORTED, "Dynamic filtering is not supported with automatic task retries enabled");
             }
         }
         return retryPolicy;
@@ -1238,5 +1254,10 @@ public final class SystemSessionProperties
     public static Duration getRetryMaxDelay(Session session)
     {
         return session.getSystemProperty(RETRY_MAX_DELAY, Duration.class);
+    }
+
+    public static boolean isHideInaccesibleColumns(Session session)
+    {
+        return session.getSystemProperty(HIDE_INACCESSIBLE_COLUMNS, Boolean.class);
     }
 }

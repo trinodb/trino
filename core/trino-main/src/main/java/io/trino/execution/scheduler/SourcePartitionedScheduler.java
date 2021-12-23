@@ -417,7 +417,7 @@ public class SourcePartitionedScheduler
         if (anySourceTaskBlocked) {
             // Dynamic filters might not be collected due to build side source tasks being blocked on full buffer.
             // In such case probe split generation that is waiting for dynamic filters should be unblocked to prevent deadlock.
-            dynamicFilterService.unblockStageDynamicFilters(stageExecution.getStageId().getQueryId(), stageExecution.getFragment());
+            dynamicFilterService.unblockStageDynamicFilters(stageExecution.getStageId().getQueryId(), stageExecution.getAttemptId(), stageExecution.getFragment());
         }
 
         if (groupedExecution) {

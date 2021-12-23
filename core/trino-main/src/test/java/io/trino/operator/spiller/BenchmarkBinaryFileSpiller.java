@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import io.trino.spiller.FileSingleStreamSpillerFactory;
 import io.trino.spiller.GenericSpillerFactory;
@@ -45,7 +46,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -60,7 +60,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class BenchmarkBinaryFileSpiller
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, BIGINT, DOUBLE, createUnboundedVarcharType(), DOUBLE);
-    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = createTestMetadataManager().getBlockEncodingSerde();
+    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new TestingBlockEncodingSerde();
     private static final Path SPILL_PATH = Paths.get(System.getProperty("java.io.tmpdir"), "spills");
 
     @Benchmark

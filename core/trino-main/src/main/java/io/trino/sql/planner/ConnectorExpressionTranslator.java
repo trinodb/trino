@@ -44,9 +44,9 @@ public final class ConnectorExpressionTranslator
 {
     private ConnectorExpressionTranslator() {}
 
-    public static Expression translate(ConnectorExpression expression, Map<String, Symbol> variableMappings, LiteralEncoder literalEncoder)
+    public static Expression translate(Session session, ConnectorExpression expression, Map<String, Symbol> variableMappings, LiteralEncoder literalEncoder)
     {
-        return new ConnectorToSqlExpressionTranslator(variableMappings, literalEncoder).translate(expression);
+        return new ConnectorToSqlExpressionTranslator(variableMappings, literalEncoder).translate(session, expression);
     }
 
     public static Optional<ConnectorExpression> translate(Session session, Expression expression, TypeAnalyzer types, TypeProvider inputTypes)
@@ -66,19 +66,19 @@ public final class ConnectorExpressionTranslator
             this.literalEncoder = requireNonNull(literalEncoder, "literalEncoder is null");
         }
 
-        public Expression translate(ConnectorExpression expression)
+        public Expression translate(Session session, ConnectorExpression expression)
         {
             if (expression instanceof Variable) {
                 return variableMappings.get(((Variable) expression).getName()).toSymbolReference();
             }
 
             if (expression instanceof Constant) {
-                return literalEncoder.toExpression(((Constant) expression).getValue(), expression.getType());
+                return literalEncoder.toExpression(session, ((Constant) expression).getValue(), expression.getType());
             }
 
             if (expression instanceof FieldDereference) {
                 FieldDereference dereference = (FieldDereference) expression;
-                return new SubscriptExpression(translate(dereference.getTarget()), new LongLiteral(Long.toString(dereference.getField() + 1)));
+                return new SubscriptExpression(translate(session, dereference.getTarget()), new LongLiteral(Long.toString(dereference.getField() + 1)));
             }
 
             throw new UnsupportedOperationException("Expression type not supported: " + expression.getClass().getName());

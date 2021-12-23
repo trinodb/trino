@@ -17,10 +17,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
+import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableProceduresPropertyManager;
+import io.trino.metadata.TableProceduresRegistry;
+import io.trino.metadata.TablePropertyManager;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -75,13 +82,25 @@ import static java.util.stream.Collectors.toList;
 public class RemoveUnsupportedDynamicFilters
         implements PlanOptimizer
 {
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
 
-    public RemoveUnsupportedDynamicFilters(Metadata metadata)
+    public RemoveUnsupportedDynamicFilters(PlannerContext plannerContext)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeAnalyzer = new TypeAnalyzer(new SqlParser(), metadata);
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        // This is a limited type analyzer for the simple expressions used in dynamic filters
+        this.typeAnalyzer = new TypeAnalyzer(
+                plannerContext,
+                new StatementAnalyzerFactory(
+                        plannerContext,
+                        new SqlParser(),
+                        new AllowAllAccessControl(),
+                        user -> ImmutableSet.of(),
+                        new TableProceduresRegistry(),
+                        new SessionPropertyManager(),
+                        new TablePropertyManager(),
+                        new AnalyzePropertyManager(),
+                        new TableProceduresPropertyManager()));
     }
 
     @Override
@@ -102,7 +121,7 @@ public class RemoveUnsupportedDynamicFilters
         {
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            this.typeCoercion = new TypeCoercion(metadata::getType);
+            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         }
 
         @Override
@@ -291,7 +310,7 @@ public class RemoveUnsupportedDynamicFilters
 
         private Expression removeDynamicFilters(Expression expression, Set<DynamicFilterId> allowedDynamicFilterIds, ImmutableSet.Builder<DynamicFilterId> consumedDynamicFilterIds)
         {
-            return combineConjuncts(metadata, extractConjuncts(expression)
+            return combineConjuncts(plannerContext.getMetadata(), extractConjuncts(expression)
                     .stream()
                     .map(this::removeNestedDynamicFilters)
                     .filter(conjunct ->
@@ -332,7 +351,7 @@ public class RemoveUnsupportedDynamicFilters
         private boolean doesSaturatedFloorCastOperatorExist(Type fromType, Type toType)
         {
             try {
-                metadata.getCoercion(session, SATURATED_FLOOR_CAST, fromType, toType);
+                plannerContext.getMetadata().getCoercion(session, SATURATED_FLOOR_CAST, fromType, toType);
             }
             catch (OperatorNotFoundException e) {
                 return false;
@@ -347,7 +366,7 @@ public class RemoveUnsupportedDynamicFilters
             if (extractResult.getDynamicConjuncts().isEmpty()) {
                 return rewrittenExpression;
             }
-            return combineConjuncts(metadata, extractResult.getStaticConjuncts());
+            return combineConjuncts(plannerContext.getMetadata(), extractResult.getStaticConjuncts());
         }
 
         private Expression removeNestedDynamicFilters(Expression expression)
@@ -375,7 +394,7 @@ public class RemoveUnsupportedDynamicFilters
                     if (!modified) {
                         return node;
                     }
-                    return combinePredicates(metadata, node.getOperator(), expressionBuilder.build());
+                    return combinePredicates(plannerContext.getMetadata(), node.getOperator(), expressionBuilder.build());
                 }
             }, expression);
         }

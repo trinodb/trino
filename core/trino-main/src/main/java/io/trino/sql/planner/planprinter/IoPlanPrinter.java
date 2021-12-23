@@ -20,7 +20,6 @@ import io.trino.Session;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsAndCosts;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -30,7 +29,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.FilterNode;
@@ -65,26 +64,24 @@ import static java.util.Objects.requireNonNull;
 public class IoPlanPrinter
 {
     private final Plan plan;
-    private final Metadata metadata;
-    private final TypeOperators typeOperators;
+    private final PlannerContext plannerContext;
     private final Session session;
     private final ValuePrinter valuePrinter;
 
-    private IoPlanPrinter(Plan plan, Metadata metadata, TypeOperators typeOperators, Session session)
+    private IoPlanPrinter(Plan plan, PlannerContext plannerContext, Session session)
     {
         this.plan = requireNonNull(plan, "plan is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.session = requireNonNull(session, "session is null");
-        this.valuePrinter = new ValuePrinter(metadata, session);
+        this.valuePrinter = new ValuePrinter(plannerContext.getMetadata(), session);
     }
 
     /**
      * @throws io.trino.NotInTransactionException if called without an active transaction
      */
-    public static String textIoPlan(Plan plan, Metadata metadata, TypeOperators typeOperators, Session session)
+    public static String textIoPlan(Plan plan, PlannerContext plannerContext, Session session)
     {
-        return new IoPlanPrinter(plan, metadata, typeOperators, session).print();
+        return new IoPlanPrinter(plan, plannerContext, session).print();
     }
 
     private String print()
@@ -618,9 +615,8 @@ public class IoPlanPrinter
             PlanNode source = node.getSource();
             if (source instanceof TableScanNode) {
                 TableScanNode tableScanNode = (TableScanNode) source;
-                DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
-                        metadata,
-                        typeOperators,
+                DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(
+                        plannerContext,
                         session,
                         node.getPredicate(),
                         plan.getTypes());
@@ -691,8 +687,8 @@ public class IoPlanPrinter
         private void addInputTableConstraints(TupleDomain<ColumnHandle> filterDomain, TableScanNode tableScan, IoPlanBuilder context)
         {
             TableHandle table = tableScan.getTable();
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, table);
-            TupleDomain<ColumnHandle> predicateDomain = metadata.getTableProperties(session, table).getPredicate();
+            TableMetadata tableMetadata = plannerContext.getMetadata().getTableMetadata(session, table);
+            TupleDomain<ColumnHandle> predicateDomain = plannerContext.getMetadata().getTableProperties(session, table).getPredicate();
             EstimatedStatsAndCost estimatedStatsAndCost = getEstimatedStatsAndCost(tableScan);
             context.addInputTableColumnInfo(
                     new IoPlan.TableColumnInfo(
@@ -724,7 +720,7 @@ public class IoPlanPrinter
             checkArgument(!constraint.isNone());
             ImmutableSet.Builder<ColumnConstraint> columnConstraints = ImmutableSet.builder();
             for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
-                ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle, entry.getKey());
+                ColumnMetadata columnMetadata = plannerContext.getMetadata().getColumnMetadata(session, tableHandle, entry.getKey());
                 columnConstraints.add(new ColumnConstraint(
                         columnMetadata.getName(),
                         columnMetadata.getType(),

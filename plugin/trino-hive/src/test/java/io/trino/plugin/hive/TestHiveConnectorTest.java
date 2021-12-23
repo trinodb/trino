@@ -118,7 +118,6 @@ import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
-import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.spi.security.Identity.ofUser;
@@ -151,6 +150,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -195,6 +195,7 @@ public class TestHiveConnectorTest
                         "hive.writer-sort-buffer-size", "1MB",
                         // Make weighted split scheduling more conservative to avoid OOMs in test
                         "hive.minimum-assigned-split-weight", "0.5"))
+                .addExtraProperty("legacy.allow-set-view-authorization", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
 
@@ -3146,14 +3147,14 @@ public class TestHiveConnectorTest
 
         // verify cannot query more than 1000 partitions
         assertThatThrownBy(() -> query("SELECT count(*) FROM " + tableName + " WHERE part1 IS NULL AND part2 <= 1001"))
-                .hasMessage(format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+                .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
         assertThatThrownBy(() -> query("SELECT count(*) FROM " + tableName))
-                .hasMessage(format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+                .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
 
         // verify we can query with a predicate that is not representable as a TupleDomain
         // TODO this shouldn't fail
         assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // may be translated to Domain.all
-                .hasMessage(format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+                .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
         assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))  // may be translated to Domain.all except nulls
                 .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
 
@@ -8319,7 +8320,7 @@ public class TestHiveConnectorTest
 
     private Type canonicalizeType(Type type)
     {
-        return TYPE_MANAGER.getType(toHiveType(type).getTypeSignature());
+        return TESTING_TYPE_MANAGER.getType(toHiveType(type).getTypeSignature());
     }
 
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)
@@ -8421,7 +8422,7 @@ public class TestHiveConnectorTest
     private JsonCodec<IoPlan> getIoPlanCodec()
     {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(getQueryRunner().getMetadata())));
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(getQueryRunner().getTypeManager())));
         return new JsonCodecFactory(objectMapperProvider).jsonCodec(IoPlan.class);
     }
 

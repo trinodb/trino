@@ -64,23 +64,28 @@ import io.trino.memory.MemoryPoolAssignmentsRequest;
 import io.trino.memory.MemoryResource;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
+import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.DiscoveryNodeManager;
 import io.trino.metadata.ForNodeManager;
 import io.trino.metadata.HandleJsonModule;
+import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
+import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.StaticCatalogStore;
 import io.trino.metadata.StaticCatalogStoreConfig;
 import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.metadata.TableProceduresPropertyManager;
+import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
+import io.trino.metadata.TypeRegistry;
 import io.trino.operator.ExchangeClientConfig;
 import io.trino.operator.ExchangeClientFactory;
 import io.trino.operator.ExchangeClientSupplier;
@@ -103,6 +108,7 @@ import io.trino.spi.VersionEmbedder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spiller.FileSingleStreamSpillerFactory;
@@ -119,7 +125,9 @@ import io.trino.split.PageSinkProvider;
 import io.trino.split.PageSourceManager;
 import io.trino.split.PageSourceProvider;
 import io.trino.split.SplitManager;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlEnvironmentConfig;
+import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
@@ -134,6 +142,7 @@ import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TransactionManagerConfig;
 import io.trino.type.BlockTypeOperators;
+import io.trino.type.InternalTypeManager;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeOperatorsCache;
 import io.trino.type.TypeSignatureDeserializer;
@@ -211,6 +220,7 @@ public class ServerMainModule
         configBinder(binder).bindConfig(SqlEnvironmentConfig.class);
 
         newOptionalBinder(binder, ExplainAnalyzeContext.class);
+        binder.bind(StatementAnalyzerFactory.class).in(Scopes.SINGLETON);
 
         // GC Monitor
         binder.bind(GcMonitor.class).to(JmxGcMonitor.class).in(Scopes.SINGLETON);
@@ -369,12 +379,17 @@ public class ServerMainModule
         newExporter(binder).export(TypeOperatorsCache.class).as(factory -> factory.generatedNameOf(TypeOperators.class));
         binder.bind(BlockTypeOperators.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TypeOperatorsCache.class).withGeneratedName();
+        binder.bind(ProcedureRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(TableProceduresRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(PlannerContext.class).in(Scopes.SINGLETON);
 
         // type
         binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
         jsonBinder(binder).addKeyDeserializerBinding(TypeSignature.class).to(TypeSignatureKeyDeserializer.class);
+        binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(TypeManager.class).to(InternalTypeManager.class).in(Scopes.SINGLETON);
         newSetBinder(binder, Type.class);
 
         // split manager
@@ -427,8 +442,10 @@ public class ServerMainModule
         binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
 
         // block encodings
+        binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
+        binder.bind(BlockEncodingSerde.class).to(InternalBlockEncodingSerde.class).in(Scopes.SINGLETON);
 
         // thread visualizer
         jaxrsBinder(binder).bind(ThreadResource.class);
@@ -516,13 +533,6 @@ public class ServerMainModule
     public static ScheduledExecutorService createAsyncHttpTimeoutExecutor(TaskManagerConfig config)
     {
         return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("async-http-timeout-%s"));
-    }
-
-    @Provides
-    @Singleton
-    public static BlockEncodingSerde createBlockEncodingSerde(Metadata metadata)
-    {
-        return metadata.getBlockEncodingSerde();
     }
 
     public static class ExecutorCleanup

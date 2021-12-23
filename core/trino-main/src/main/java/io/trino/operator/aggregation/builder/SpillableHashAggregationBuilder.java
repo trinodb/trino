@@ -23,7 +23,7 @@ import io.trino.operator.MergeHashSort;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.Work;
 import io.trino.operator.WorkProcessor;
-import io.trino.operator.aggregation.AccumulatorFactory;
+import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spiller.Spiller;
@@ -49,7 +49,7 @@ public class SpillableHashAggregationBuilder
 {
     private InMemoryHashAggregationBuilder hashAggregationBuilder;
     private final SpillerFactory spillerFactory;
-    private final List<AccumulatorFactory> accumulatorFactories;
+    private final List<AggregatorFactory> aggregatorFactories;
     private final AggregationNode.Step step;
     private final int expectedGroups;
     private final List<Type> groupByTypes;
@@ -75,7 +75,7 @@ public class SpillableHashAggregationBuilder
     private boolean producingOutput;
 
     public SpillableHashAggregationBuilder(
-            List<AccumulatorFactory> accumulatorFactories,
+            List<AggregatorFactory> aggregatorFactories,
             AggregationNode.Step step,
             int expectedGroups,
             List<Type> groupByTypes,
@@ -88,7 +88,7 @@ public class SpillableHashAggregationBuilder
             JoinCompiler joinCompiler,
             BlockTypeOperators blockTypeOperators)
     {
-        this.accumulatorFactories = accumulatorFactories;
+        this.aggregatorFactories = aggregatorFactories;
         this.step = step;
         this.expectedGroups = expectedGroups;
         this.groupByTypes = groupByTypes;
@@ -247,7 +247,7 @@ public class SpillableHashAggregationBuilder
     private ListenableFuture<Void> spillToDisk()
     {
         checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
-        hashAggregationBuilder.setOutputPartial();
+        hashAggregationBuilder.setSpillOutput();
 
         if (spiller.isEmpty()) {
             spiller = Optional.of(spillerFactory.create(
@@ -269,12 +269,12 @@ public class SpillableHashAggregationBuilder
     {
         checkState(spiller.isPresent());
 
-        hashAggregationBuilder.setOutputPartial();
+        hashAggregationBuilder.setSpillOutput();
         mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateSystemMemoryContext(), blockTypeOperators));
 
         WorkProcessor<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,
-                hashAggregationBuilder.buildIntermediateTypes(),
+                hashAggregationBuilder.buildSpillTypes(),
                 ImmutableList.<WorkProcessor<Page>>builder()
                         .addAll(spiller.get().getSpills().stream()
                                 .map(WorkProcessor::fromIterator)
@@ -294,7 +294,7 @@ public class SpillableHashAggregationBuilder
 
         WorkProcessor<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,
-                hashAggregationBuilder.buildIntermediateTypes(),
+                hashAggregationBuilder.buildSpillTypes(),
                 spiller.get().getSpills().stream()
                         .map(WorkProcessor::fromIterator)
                         .collect(toImmutableList()),
@@ -306,7 +306,7 @@ public class SpillableHashAggregationBuilder
     private WorkProcessor<Page> mergeSortedPages(WorkProcessor<Page> sortedPages, long memoryLimitForMerge)
     {
         merger = Optional.of(new MergingHashAggregationBuilder(
-                accumulatorFactories,
+                aggregatorFactories,
                 step,
                 expectedGroups,
                 groupByTypes,
@@ -331,7 +331,7 @@ public class SpillableHashAggregationBuilder
         }
 
         hashAggregationBuilder = new InMemoryHashAggregationBuilder(
-                accumulatorFactories,
+                aggregatorFactories,
                 step,
                 expectedGroups,
                 groupByTypes,

@@ -13,6 +13,7 @@
  */
 package io.trino.jmh;
 
+import org.intellij.lang.annotations.Language;
 import org.openjdk.jmh.results.RunResult;
 import org.openjdk.jmh.results.format.ResultFormatType;
 import org.openjdk.jmh.runner.Runner;
@@ -38,10 +39,9 @@ public final class Benchmarks
     {
         ChainedOptionsBuilder optionsBuilder = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include("^\\Q" + benchmarkClass.getName() + ".\\E")
                 .resultFormat(ResultFormatType.JSON)
                 .result(format("%s/%s-result-%s.json", System.getProperty("java.io.tmpdir"), benchmarkClass.getSimpleName(), ISO_DATE_TIME.format(LocalDateTime.now())));
-        return new BenchmarkBuilder(optionsBuilder);
+        return new BenchmarkBuilder(optionsBuilder, benchmarkClass);
     }
 
     public static BenchmarkBuilder benchmark(Class<?> benchmarkClass, WarmupMode warmupMode)
@@ -53,10 +53,12 @@ public final class Benchmarks
     public static class BenchmarkBuilder
     {
         private final ChainedOptionsBuilder optionsBuilder;
+        private final Class<?> benchmarkClass;
 
-        private BenchmarkBuilder(ChainedOptionsBuilder optionsBuilder)
+        private BenchmarkBuilder(ChainedOptionsBuilder optionsBuilder, Class<?> benchmarkClass)
         {
             this.optionsBuilder = requireNonNull(optionsBuilder, "optionsBuilder is null");
+            this.benchmarkClass = requireNonNull(benchmarkClass, "benchmarkClass is null");
         }
 
         public BenchmarkBuilder withOptions(Consumer<ChainedOptionsBuilder> optionsConsumer)
@@ -65,9 +67,24 @@ public final class Benchmarks
             return this;
         }
 
+        public BenchmarkBuilder includeAll()
+        {
+            optionsBuilder.include("^\\Q" + benchmarkClass.getName() + ".\\E");
+            return this;
+        }
+
+        public BenchmarkBuilder includeMethod(@Language("RegExp") String benchmarkMethod)
+        {
+            optionsBuilder.include("^\\Q" + benchmarkClass.getName() + ".\\E(" + benchmarkMethod + ")$");
+            return this;
+        }
+
         public Collection<RunResult> run()
                 throws RunnerException
         {
+            if (optionsBuilder.build().getIncludes().isEmpty()) {
+                includeAll();
+            }
             return new Runner(optionsBuilder.build()).run();
         }
     }

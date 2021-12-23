@@ -16,9 +16,11 @@ package io.trino.operator.window.pattern;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.window.InternalWindowIndex;
 import io.trino.operator.window.PagesWindowIndex;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
 
@@ -61,7 +63,7 @@ import static java.util.Objects.requireNonNull;
  * WindowIndex interface.
  */
 public class ProjectingPagesWindowIndex
-        implements WindowIndex
+        implements InternalWindowIndex
 {
     private final PagesIndex pagesIndex;
     private final int start;
@@ -222,6 +224,37 @@ public class ProjectingPagesWindowIndex
         }
         int channelIndex = channel - firstProjectedChannel;
         projectedTypes.get(channelIndex).appendTo(compute(position, channelIndex), 0, output);
+    }
+
+    @Override
+    public Block getRawBlock(int channel, int position)
+    {
+        if (channel < firstProjectedChannel) {
+            return pagesIndex.getRawBlock(channel, position(position));
+        }
+
+        int channelIndex = channel - firstProjectedChannel;
+        Block compute = compute(position, channelIndex);
+
+        // if there are no non-projected columns, no correction needed
+        if (firstProjectedChannel == 0) {
+            return compute;
+        }
+
+        // projection always creates a single row block, and will not align with the blocks from the pages index,
+        // so we use an RLE block of the same length as the raw block
+        int rawBlockPositionCount = pagesIndex.getRawBlock(0, position(position)).getPositionCount();
+        return new RunLengthEncodedBlock(compute, rawBlockPositionCount);
+    }
+
+    @Override
+    public int getRawBlockPosition(int position)
+    {
+        // if there are no non-projected columns then all blocks will have one position
+        if (firstProjectedChannel == 0) {
+            return 0;
+        }
+        return pagesIndex.getRawBlockPosition(position(position));
     }
 
     /**

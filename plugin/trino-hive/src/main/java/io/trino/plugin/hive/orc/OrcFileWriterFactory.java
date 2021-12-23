@@ -227,7 +227,7 @@ public class OrcFileWriterFactory
     public static OrcDataSink createOrcDataSink(FileSystem fileSystem, Path path)
             throws IOException
     {
-        return new OutputStreamOrcDataSink(fileSystem.create(path));
+        return new OutputStreamOrcDataSink(fileSystem.create(path, false));
     }
 
     private static CompressionKind getCompression(Properties schema, JobConf configuration)

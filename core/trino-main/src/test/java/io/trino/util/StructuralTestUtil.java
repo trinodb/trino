@@ -16,11 +16,11 @@ package io.trino.util;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.metadata.Metadata;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDecimal;
@@ -31,14 +31,12 @@ import io.trino.spi.type.TypeSignatureParameter;
 import java.math.BigDecimal;
 import java.util.Map;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToRawIntBits;
 
 public final class StructuralTestUtil
 {
-    private static final Metadata METADATA = createTestMetadataManager();
-
     private StructuralTestUtil() {}
 
     public static Block arrayBlockOf(Type elementType, Object... values)
@@ -65,7 +63,7 @@ public final class StructuralTestUtil
 
     public static MapType mapType(Type keyType, Type valueType)
     {
-        return (MapType) METADATA.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
                 TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
     }
@@ -124,18 +122,20 @@ public final class StructuralTestUtil
             else if (element instanceof byte[]) {
                 type.writeSlice(blockBuilder, Slices.wrappedBuffer((byte[]) element));
             }
-            else if (element instanceof SqlDecimal) {
-                type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(((SqlDecimal) element).getUnscaledValue()));
-            }
-            else if (element instanceof BigDecimal) {
-                type.writeSlice(blockBuilder, Decimals.encodeScaledValue((BigDecimal) element));
-            }
             else {
                 type.writeSlice(blockBuilder, (Slice) element);
             }
         }
         else {
-            type.writeObject(blockBuilder, element);
+            if (element instanceof SqlDecimal) {
+                type.writeObject(blockBuilder, Int128.valueOf(((SqlDecimal) element).getUnscaledValue()));
+            }
+            else if (element instanceof BigDecimal) {
+                type.writeObject(blockBuilder, Decimals.valueOf((BigDecimal) element));
+            }
+            else {
+                type.writeObject(blockBuilder, element);
+            }
         }
     }
 }

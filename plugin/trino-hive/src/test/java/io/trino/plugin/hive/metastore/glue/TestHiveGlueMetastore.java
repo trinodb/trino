@@ -23,7 +23,6 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.slice.Slice;
 import io.trino.plugin.hive.AbstractTestHiveLocal;
 import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveTestUtils;
 import io.trino.plugin.hive.HiveType;
@@ -84,6 +83,7 @@ import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.decimalOf;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
@@ -195,14 +195,10 @@ public class TestHiveGlueMetastore
         glueConfig.setDefaultWarehouseDir(tempDir.toURI().toString());
         glueConfig.setAssumeCanonicalPartitionKeys(true);
 
-        HiveConfig hiveConfig = new HiveConfig();
-        hiveConfig.setTableStatisticsEnabled(true);
-
         Executor executor = new BoundedExecutor(this.executor, 10);
         return new GlueHiveMetastore(
                 HDFS_ENVIRONMENT,
                 glueConfig,
-                hiveConfig,
                 executor,
                 new DefaultGlueColumnStatisticsProviderFactory(glueConfig, executor, executor),
                 Optional.empty(),
@@ -746,7 +742,7 @@ public class TestHiveGlueMetastore
 
             List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("a_column", BigintType.BIGINT));
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(TEXTFILE));
-            ConnectorOutputTableHandle createTableHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+            ConnectorOutputTableHandle createTableHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
 
             // write data
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, createTableHandle);
@@ -791,7 +787,7 @@ public class TestHiveGlueMetastore
                     new ColumnMetadata("part_column", BigintType.BIGINT));
 
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(TEXTFILE, ImmutableList.of("part_column")));
-            ConnectorOutputTableHandle createTableHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+            ConnectorOutputTableHandle createTableHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
 
             // write data
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, createTableHandle);

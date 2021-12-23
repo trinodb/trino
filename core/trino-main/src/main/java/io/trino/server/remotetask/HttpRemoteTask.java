@@ -307,6 +307,7 @@ public final class HttpRemoteTask
             this.outboundDynamicFiltersCollector = new DynamicFiltersCollector(this::triggerUpdate);
             dynamicFilterService.registerDynamicFilterConsumer(
                     taskId.getQueryId(),
+                    taskId.getAttemptId(),
                     outboundDynamicFilterIds,
                     outboundDynamicFiltersCollector::updateDomains);
 

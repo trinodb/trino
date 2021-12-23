@@ -14,10 +14,10 @@
 package io.trino.orc.stream;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDecompressor;
 import io.trino.orc.checkpoint.DecimalStreamCheckpoint;
+import io.trino.spi.type.Int128;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -30,22 +30,21 @@ import java.util.Random;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcDecompressor.createOrcDecompressor;
 import static io.trino.orc.metadata.CompressionKind.SNAPPY;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 
 public class TestLongDecimalStream
-        extends AbstractTestValueStream<Slice, DecimalStreamCheckpoint, DecimalOutputStream, DecimalInputStream>
+        extends AbstractTestValueStream<Int128, DecimalStreamCheckpoint, DecimalOutputStream, DecimalInputStream>
 {
     @Test
     public void test()
             throws IOException
     {
         Random random = new Random(0);
-        List<List<Slice>> groups = new ArrayList<>();
+        List<List<Int128>> groups = new ArrayList<>();
         for (int groupIndex = 0; groupIndex < 3; groupIndex++) {
-            List<Slice> group = new ArrayList<>();
+            List<Int128> group = new ArrayList<>();
             for (int i = 0; i < 1000; i++) {
                 BigInteger value = new BigInteger(120, random);
-                group.add(unscaledDecimal(value));
+                group.add(Int128.valueOf(value));
             }
             groups.add(group);
         }
@@ -59,7 +58,7 @@ public class TestLongDecimalStream
     }
 
     @Override
-    protected void writeValue(DecimalOutputStream outputStream, Slice value)
+    protected void writeValue(DecimalOutputStream outputStream, Int128 value)
     {
         outputStream.writeUnscaledValue(value);
     }
@@ -73,11 +72,11 @@ public class TestLongDecimalStream
     }
 
     @Override
-    protected Slice readValue(DecimalInputStream valueStream)
+    protected Int128 readValue(DecimalInputStream valueStream)
             throws IOException
     {
         long[] decimal = new long[2];
         valueStream.nextLongDecimal(decimal, 1);
-        return Slices.wrappedLongArray(decimal);
+        return Int128.valueOf(decimal);
     }
 }

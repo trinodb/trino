@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.ResolvedField;
@@ -307,6 +308,25 @@ class TranslationMap
                         new SubscriptExpression(
                                 treeRewriter.rewrite(node.getBase(), context),
                                 new LongLiteral(Long.toString(index + 1))));
+            }
+
+            @Override
+            public Expression rewriteSubscriptExpression(SubscriptExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<Expression> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                Type baseType = analysis.getType(node.getBase());
+                if (baseType instanceof RowType) {
+                    // Do not rewrite subscript index into symbol. Row subscript index is required to be a literal.
+                    Expression rewrittenBase = treeRewriter.rewrite(node.getBase(), context);
+                    return coerceIfNecessary(node, new SubscriptExpression(rewrittenBase, node.getIndex()));
+                }
+
+                Expression rewritten = treeRewriter.defaultRewrite(node, context);
+                return coerceIfNecessary(node, rewritten);
             }
 
             @Override

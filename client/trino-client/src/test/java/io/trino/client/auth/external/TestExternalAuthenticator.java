@@ -46,7 +46,6 @@ import static io.trino.client.auth.external.ExternalAuthenticator.TOKEN_URI_FIEL
 import static io.trino.client.auth.external.ExternalAuthenticator.toAuthentication;
 import static io.trino.client.auth.external.MockTokenPoller.onPoll;
 import static io.trino.client.auth.external.TokenPollResult.successful;
-import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static java.net.URI.create;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -126,7 +125,7 @@ public class TestExternalAuthenticator
     {
         assertThatThrownBy(() -> buildAuthentication("Bearer x_token_server=\"http://[1.1.1.1]\""))
                 .isInstanceOf(ClientException.class)
-                .hasMessageContaining(format("Failed to parse URI for field '%s'", TOKEN_URI_FIELD))
+                .hasMessageContaining("Failed to parse URI for field '%s'", TOKEN_URI_FIELD)
                 .hasRootCauseInstanceOf(URISyntaxException.class)
                 .hasRootCauseMessage("Malformed IPv6 address at index 8: http://[1.1.1.1]");
     }

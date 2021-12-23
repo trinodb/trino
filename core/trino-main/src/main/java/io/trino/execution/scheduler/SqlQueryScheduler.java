@@ -297,6 +297,9 @@ public class SqlQueryScheduler
         if (queryStateMachine.isDone()) {
             return Optional.empty();
         }
+        if (attempt > 0 && retryPolicy == RetryPolicy.QUERY) {
+            dynamicFilterService.registerQueryRetry(queryStateMachine.getQueryId(), attempt);
+        }
         DistributedStagesScheduler distributedStagesScheduler = PipelinedDistributedStagesScheduler.create(
                 queryStateMachine,
                 schedulerStats,
@@ -712,6 +715,18 @@ public class SqlQueryScheduler
         }
     }
 
+    /**
+     * Scheduler for stages that must be executed on coordinator.
+     * <p>
+     * Scheduling for coordinator only stages must be represented as a separate entity to
+     * ensure the coordinator stages/tasks are never restarted in an event of a failure.
+     * <p>
+     * Coordinator only tasks cannot be restarted due to the nature of operations
+     * they perform. For example commit operations for DML statements are performed as a
+     * coordinator only task (via {@link io.trino.operator.TableFinishOperator}). Today it is
+     * not required for a commit operation to be side effect free and idempotent what makes it
+     * impossible to safely retry.
+     */
     private static class CoordinatorStagesScheduler
     {
         private static final int[] SINGLE_PARTITION = new int[] {0};
@@ -1006,6 +1021,20 @@ public class SqlQueryScheduler
         }
     }
 
+    /**
+     * Scheduler for stages executed on workers.
+     * <p>
+     * As opposed to {@link CoordinatorStagesScheduler} this component is designed
+     * to facilitate failure recovery.
+     * <p>
+     * In an event of a failure the system may decide to terminate an active scheduler
+     * and create a new one to initiate a new query attempt.
+     * <p>
+     * Stages scheduled by this scheduler are assumed to be safe to retry.
+     * <p>
+     * The implementation is responsible for task creation and orchestration as well as
+     * split enumeration, split assignment and state transitioning for the tasks scheduled.
+     */
     private interface DistributedStagesScheduler
     {
         void schedule();
@@ -1023,6 +1052,9 @@ public class SqlQueryScheduler
         Optional<StageFailureInfo> getFailureCause();
     }
 
+    /**
+     * A {@link DistributedStagesScheduler} implementation facilitating pipelined execution mode.
+     */
     private static class PipelinedDistributedStagesScheduler
             implements DistributedStagesScheduler
     {
@@ -1433,9 +1465,8 @@ public class SqlQueryScheduler
                         return;
                     }
                     int numberOfTasks = stageExecution.getAllTasks().size();
-                    // TODO: support dynamic filter for failure retries
                     if (!state.canScheduleMoreTasks()) {
-                        dynamicFilterService.stageCannotScheduleMoreTasks(stageExecution.getStageId(), numberOfTasks);
+                        dynamicFilterService.stageCannotScheduleMoreTasks(stageExecution.getStageId(), stageExecution.getAttemptId(), numberOfTasks);
                     }
                     if (numberOfTasks != 0) {
                         stateMachine.transitionToRunning();

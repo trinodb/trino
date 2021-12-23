@@ -44,6 +44,8 @@ name from the properties file.
 
 .. include:: jdbc-common-configurations.fragment
 
+.. include:: jdbc-procedures.fragment
+
 .. include:: jdbc-case-insensitive-matching.fragment
 
 .. _druid-type-mapping:

@@ -14,11 +14,11 @@
 
 package io.trino.plugin.hive.coercions;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.RealType;
 
 import java.util.function.Function;
@@ -99,12 +99,12 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            Slice coercedValue = shortToLongCast(fromType.getLong(block, position),
+            Int128 coercedValue = shortToLongCast(fromType.getLong(block, position),
                     fromType.getPrecision(),
                     fromType.getScale(),
                     toType.getPrecision(),
                     toType.getScale());
-            toType.writeSlice(blockBuilder, coercedValue);
+            toType.writeObject(blockBuilder, coercedValue);
         }
     }
 
@@ -119,7 +119,7 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            long returnValue = longToShortCast(fromType.getSlice(block, position),
+            long returnValue = longToShortCast((Int128) fromType.getObject(block, position),
                     fromType.getPrecision(),
                     fromType.getScale(),
                     toType.getPrecision(),
@@ -139,12 +139,12 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            Slice coercedValue = longToLongCast(fromType.getSlice(block, position),
+            Int128 coercedValue = longToLongCast((Int128) fromType.getObject(block, position),
                     fromType.getPrecision(),
                     fromType.getScale(),
                     toType.getPrecision(),
                     toType.getScale());
-            toType.writeSlice(blockBuilder, coercedValue);
+            toType.writeObject(blockBuilder, coercedValue);
         }
     }
 
@@ -189,7 +189,7 @@ public final class DecimalCoercers
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
             toType.writeDouble(blockBuilder,
-                    longDecimalToDouble(fromType.getSlice(block, position), fromType.getScale()));
+                    longDecimalToDouble((Int128) fromType.getObject(block, position), fromType.getScale()));
         }
     }
 
@@ -234,7 +234,7 @@ public final class DecimalCoercers
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
             toType.writeLong(blockBuilder,
-                    longDecimalToReal(fromType.getSlice(block, position), fromType.getScale()));
+                    longDecimalToReal((Int128) fromType.getObject(block, position), fromType.getScale()));
         }
     }
 
@@ -275,7 +275,7 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            toType.writeSlice(blockBuilder,
+            toType.writeObject(blockBuilder,
                     doubleToLongDecimal(fromType.getDouble(block, position), toType.getPrecision(), toType.getScale()));
         }
     }
@@ -317,7 +317,7 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            toType.writeSlice(blockBuilder,
+            toType.writeObject(blockBuilder,
                     realToLongDecimal(fromType.getLong(block, position), toType.getPrecision(), toType.getScale()));
         }
     }

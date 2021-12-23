@@ -70,7 +70,6 @@ import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -130,12 +129,14 @@ import java.util.function.Predicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Comparators.lexicographical;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
+import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter.convertPartition;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
@@ -182,7 +183,6 @@ public class GlueHiveMetastore
     public GlueHiveMetastore(
             HdfsEnvironment hdfsEnvironment,
             GlueHiveMetastoreConfig glueConfig,
-            HiveConfig hiveConfig,
             @ForGlueHiveMetastore Executor partitionsReadExecutor,
             GlueColumnStatisticsProviderFactory columnStatisticsProviderFactory,
             @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler,
@@ -290,16 +290,15 @@ public class GlueHiveMetastore
     {
         try {
             return stats.getGetAllDatabases().call(() -> {
-                List<String> databaseNames = new ArrayList<>();
-                String nextToken = null;
-
-                do {
-                    GetDatabasesResult result = glueClient.getDatabases(new GetDatabasesRequest().withCatalogId(catalogId).withNextToken(nextToken));
-                    nextToken = result.getNextToken();
-                    result.getDatabaseList().forEach(database -> databaseNames.add(database.getName()));
-                }
-                while (nextToken != null);
-
+                List<String> databaseNames = getPaginatedResults(
+                        glueClient::getDatabases,
+                        new GetDatabasesRequest().withCatalogId(catalogId),
+                        GetDatabasesRequest::setNextToken,
+                        GetDatabasesResult::getNextToken)
+                        .map(GetDatabasesResult::getDatabaseList)
+                        .flatMap(List::stream)
+                        .map(com.amazonaws.services.glue.model.Database::getName)
+                        .collect(toImmutableList());
                 return databaseNames;
             });
         }
@@ -448,22 +447,18 @@ public class GlueHiveMetastore
     {
         try {
             return stats.getGetAllTables().call(() -> {
-                List<String> tableNames = new ArrayList<>();
-                String nextToken = null;
-
-                do {
-                    GetTablesResult result = glueClient.getTables(new GetTablesRequest()
-                            .withCatalogId(catalogId)
-                            .withDatabaseName(databaseName)
-                            .withNextToken(nextToken));
-                    result.getTableList().stream()
-                            .filter(tableFilter)
-                            .map(com.amazonaws.services.glue.model.Table::getName)
-                            .forEach(tableNames::add);
-                    nextToken = result.getNextToken();
-                }
-                while (nextToken != null);
-
+                List<String> tableNames = getPaginatedResults(
+                        glueClient::getTables,
+                        new GetTablesRequest()
+                                .withCatalogId(catalogId)
+                                .withDatabaseName(databaseName),
+                        GetTablesRequest::setNextToken,
+                        GetTablesResult::getNextToken)
+                        .map(GetTablesResult::getTableList)
+                        .flatMap(List::stream)
+                        .filter(tableFilter)
+                        .map(com.amazonaws.services.glue.model.Table::getName)
+                        .collect(toImmutableList());
                 return tableNames;
             });
         }
@@ -488,21 +483,18 @@ public class GlueHiveMetastore
     {
         try {
             return stats.getGetAllViews().call(() -> {
-                List<String> views = new ArrayList<>();
-                String nextToken = null;
-
-                do {
-                    GetTablesResult result = glueClient.getTables(new GetTablesRequest()
-                            .withCatalogId(catalogId)
-                            .withDatabaseName(databaseName)
-                            .withNextToken(nextToken));
-                    result.getTableList().stream()
-                            .filter(table -> VIRTUAL_VIEW.name().equals(table.getTableType()))
-                            .forEach(table -> views.add(table.getName()));
-                    nextToken = result.getNextToken();
-                }
-                while (nextToken != null);
-
+                List<String> views = getPaginatedResults(
+                        glueClient::getTables,
+                        new GetTablesRequest()
+                                .withCatalogId(catalogId)
+                                .withDatabaseName(databaseName),
+                        GetTablesRequest::setNextToken,
+                        GetTablesResult::getNextToken)
+                        .map(GetTablesResult::getTableList)
+                        .flatMap(List::stream)
+                        .filter(table -> VIRTUAL_VIEW.name().equals(table.getTableType()))
+                        .map(com.amazonaws.services.glue.model.Table::getName)
+                        .collect(toImmutableList());
                 return views;
             });
         }
@@ -542,9 +534,17 @@ public class GlueHiveMetastore
         }
     }
 
+    // TODO: respect deleteData
     @Override
-    public void dropDatabase(HiveIdentity identity, String databaseName)
+    public void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
     {
+        Optional<String> location = Optional.empty();
+        if (deleteData) {
+            location = getDatabase(databaseName)
+                    .orElseThrow(() -> new SchemaNotFoundException(databaseName))
+                    .getLocation();
+        }
+
         try {
             stats.getDropDatabase().call(() ->
                     glueClient.deleteDatabase(new DeleteDatabaseRequest().withCatalogId(catalogId).withName(databaseName)));
@@ -554,6 +554,10 @@ public class GlueHiveMetastore
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+
+        if (deleteData) {
+            location.ifPresent(path -> deleteDir(hdfsContext, hdfsEnvironment, new Path(path), true));
         }
     }
 
@@ -832,28 +836,24 @@ public class GlueHiveMetastore
     {
         try {
             return stats.getGetPartitions().call(() -> {
-                List<Partition> partitions = new ArrayList<>();
-                String nextToken = null;
-
                 // Reuse immutable field instances opportunistically between partitions
                 GluePartitionConverter converter = new GluePartitionConverter(table);
 
-                do {
-                    GetPartitionsResult result = glueClient.getPartitions(new GetPartitionsRequest()
-                            .withCatalogId(catalogId)
-                            .withDatabaseName(table.getDatabaseName())
-                            .withTableName(table.getTableName())
-                            .withExpression(expression)
-                            .withSegment(segment)
-                            .withNextToken(nextToken)
-                            .withMaxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS));
-                    result.getPartitions().stream()
-                            .map(converter)
-                            .forEach(partitions::add);
-                    nextToken = result.getNextToken();
-                }
-                while (nextToken != null);
-
+                List<Partition> partitions = getPaginatedResults(
+                        glueClient::getPartitions,
+                        new GetPartitionsRequest()
+                                .withCatalogId(catalogId)
+                                .withDatabaseName(table.getDatabaseName())
+                                .withTableName(table.getTableName())
+                                .withExpression(expression)
+                                .withSegment(segment)
+                                .withMaxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS),
+                        GetPartitionsRequest::setNextToken,
+                        GetPartitionsResult::getNextToken)
+                        .map(GetPartitionsResult::getPartitions)
+                        .flatMap(List::stream)
+                        .map(converter)
+                        .collect(toImmutableList());
                 return partitions;
             });
         }

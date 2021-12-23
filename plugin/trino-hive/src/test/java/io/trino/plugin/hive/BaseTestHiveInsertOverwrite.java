@@ -59,7 +59,6 @@ public abstract class BaseTestHiveInsertOverwrite
                 dockerizedS3DataLake,
                 ImmutableMap.<String, String>builder()
                         // This is required when using MinIO which requires path style access
-                        .put("hive.s3.path-style-access", "true")
                         .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
                         .put("hive.non-managed-table-writes-enabled", "true")
                         .build());

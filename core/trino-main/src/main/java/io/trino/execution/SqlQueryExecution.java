@@ -31,7 +31,6 @@ import io.trino.execution.scheduler.SqlQueryScheduler;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.memory.VersionedMemoryPoolId;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.ForScheduler;
 import io.trino.server.BasicQueryInfo;
@@ -39,7 +38,7 @@ import io.trino.server.DynamicFilterService;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
@@ -94,8 +93,7 @@ public class SqlQueryExecution
 {
     private final QueryStateMachine stateMachine;
     private final Slug slug;
-    private final Metadata metadata;
-    private final TypeOperators typeOperators;
+    private final PlannerContext plannerContext;
     private final SplitSourceFactory splitSourceFactory;
     private final NodePartitioningManager nodePartitioningManager;
     private final NodeScheduler nodeScheduler;
@@ -124,8 +122,7 @@ public class SqlQueryExecution
             PreparedQuery preparedQuery,
             QueryStateMachine stateMachine,
             Slug slug,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             AnalyzerFactory analyzerFactory,
             SplitSourceFactory splitSourceFactory,
             NodePartitioningManager nodePartitioningManager,
@@ -150,8 +147,7 @@ public class SqlQueryExecution
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
@@ -462,8 +458,7 @@ public class SqlQueryExecution
         LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(),
                 planOptimizers,
                 idAllocator,
-                metadata,
-                typeOperators,
+                plannerContext,
                 typeAnalyzer,
                 statsCalculator,
                 costCalculator,
@@ -475,7 +470,7 @@ public class SqlQueryExecution
         SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, stateMachine.getWarningCollector());
 
         // extract inputs
-        List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extractInputs(fragmentedPlan);
+        List<Input> inputs = new InputExtractor(plannerContext.getMetadata(), stateMachine.getSession()).extractInputs(fragmentedPlan);
         stateMachine.setInputs(inputs);
 
         stateMachine.setOutput(analysis.getTarget());
@@ -514,7 +509,7 @@ public class SqlQueryExecution
                 schedulerStats,
                 dynamicFilterService,
                 tableExecuteContextManager,
-                metadata,
+                plannerContext.getMetadata(),
                 splitSourceFactory,
                 coordinatorTaskManager);
 
@@ -683,8 +678,7 @@ public class SqlQueryExecution
     {
         private final SplitSchedulerStats schedulerStats;
         private final int scheduleSplitBatchSize;
-        private final Metadata metadata;
-        private final TypeOperators typeOperators;
+        private final PlannerContext plannerContext;
         private final AnalyzerFactory analyzerFactory;
         private final SplitSourceFactory splitSourceFactory;
         private final NodePartitioningManager nodePartitioningManager;
@@ -707,8 +701,7 @@ public class SqlQueryExecution
         @Inject
         SqlQueryExecutionFactory(
                 QueryManagerConfig config,
-                Metadata metadata,
-                TypeOperators typeOperators,
+                PlannerContext plannerContext,
                 AnalyzerFactory analyzerFactory,
                 SplitSourceFactory splitSourceFactory,
                 NodePartitioningManager nodePartitioningManager,
@@ -732,8 +725,7 @@ public class SqlQueryExecution
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
             this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
@@ -769,8 +761,7 @@ public class SqlQueryExecution
                     preparedQuery,
                     stateMachine,
                     slug,
-                    metadata,
-                    typeOperators,
+                    plannerContext,
                     analyzerFactory,
                     splitSourceFactory,
                     nodePartitioningManager,

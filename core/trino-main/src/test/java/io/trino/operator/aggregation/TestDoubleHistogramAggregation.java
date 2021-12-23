@@ -21,17 +21,22 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.MapType;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Map;
-import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.trino.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static io.trino.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
+import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -39,33 +44,35 @@ import static org.testng.Assert.assertTrue;
 
 public class TestDoubleHistogramAggregation
 {
-    private final AccumulatorFactory factory;
+    private final TestingAggregationFunction function;
+    private final Type intermediateType;
+    private final Type finalType;
     private final Page input;
 
     public TestDoubleHistogramAggregation()
     {
-        TestingAggregationFunction function = new TestingFunctionResolution().getAggregateFunction(
+        function = new TestingFunctionResolution().getAggregateFunction(
                 QualifiedName.of("numeric_histogram"),
                 fromTypes(BIGINT, DOUBLE, DOUBLE));
-        factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
-
+        intermediateType = function.getIntermediateType();
+        finalType = function.getFinalType();
         input = makeInput(10);
     }
 
     @Test
     public void test()
     {
-        Accumulator singleStep = factory.createAccumulator();
-        singleStep.addInput(input);
-        Block expected = getFinalBlock(singleStep);
+        Aggregator singleStep = getAggregator(SINGLE);
+        singleStep.processPage(input);
+        Block expected = getFinalBlock(finalType, singleStep);
 
-        Accumulator partialStep = factory.createAccumulator();
-        partialStep.addInput(input);
-        Block partialBlock = getIntermediateBlock(partialStep);
+        Aggregator partialStep = getAggregator(PARTIAL);
+        partialStep.processPage(input);
+        Block partialBlock = getIntermediateBlock(intermediateType, partialStep);
 
-        Accumulator finalStep = factory.createAccumulator();
-        finalStep.addIntermediate(partialBlock);
-        Block actual = getFinalBlock(finalStep);
+        Aggregator finalStep = getAggregator(FINAL);
+        finalStep.processPage(new Page(partialBlock));
+        Block actual = getFinalBlock(finalType, finalStep);
 
         assertEquals(extractSingleValue(actual), extractSingleValue(expected));
     }
@@ -73,19 +80,19 @@ public class TestDoubleHistogramAggregation
     @Test
     public void testMerge()
     {
-        Accumulator singleStep = factory.createAccumulator();
-        singleStep.addInput(input);
-        Block singleStepResult = getFinalBlock(singleStep);
+        Aggregator singleStep = getAggregator(SINGLE);
+        singleStep.processPage(input);
+        Block singleStepResult = getFinalBlock(finalType, singleStep);
 
-        Accumulator partialStep = factory.createAccumulator();
-        partialStep.addInput(input);
-        Block intermediate = getIntermediateBlock(partialStep);
+        Aggregator partialStep = getAggregator(PARTIAL);
+        partialStep.processPage(input);
+        Block intermediate = getIntermediateBlock(intermediateType, partialStep);
 
-        Accumulator finalStep = factory.createAccumulator();
+        Aggregator finalStep = getAggregator(FINAL);
 
-        finalStep.addIntermediate(intermediate);
-        finalStep.addIntermediate(intermediate);
-        Block actual = getFinalBlock(finalStep);
+        finalStep.processPage(new Page(intermediate));
+        finalStep.processPage(new Page(intermediate));
+        Block actual = getFinalBlock(finalType, finalStep);
 
         Map<Double, Double> expected = Maps.transformValues(extractSingleValue(singleStepResult), value -> value * 2);
 
@@ -95,8 +102,8 @@ public class TestDoubleHistogramAggregation
     @Test
     public void testNull()
     {
-        Accumulator accumulator = factory.createAccumulator();
-        Block result = getFinalBlock(accumulator);
+        Aggregator aggregator = getAggregator(SINGLE);
+        Block result = getFinalBlock(finalType, aggregator);
 
         assertTrue(result.getPositionCount() == 1);
         assertTrue(result.isNull(0));
@@ -105,11 +112,16 @@ public class TestDoubleHistogramAggregation
     @Test
     public void testBadNumberOfBuckets()
     {
-        Accumulator singleStep = factory.createAccumulator();
-        assertThatThrownBy(() -> singleStep.addInput(makeInput(0)))
+        Aggregator singleStep = getAggregator(SINGLE);
+        assertThatThrownBy(() -> singleStep.processPage(makeInput(0)))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("numeric_histogram bucket count must be greater than one");
-        getFinalBlock(singleStep);
+        getFinalBlock(finalType, singleStep);
+    }
+
+    private Aggregator getAggregator(Step step)
+    {
+        return function.createAggregatorFactory(step, step.isInputRaw() ? ImmutableList.of(0, 1, 2) : ImmutableList.of(0), OptionalInt.empty()).createAggregator();
     }
 
     private static Map<Double, Double> extractSingleValue(Block block)

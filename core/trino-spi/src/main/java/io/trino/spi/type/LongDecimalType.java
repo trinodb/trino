@@ -13,8 +13,6 @@
  */
 package io.trino.spi.type;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -29,25 +27,20 @@ import io.trino.spi.function.ScalarOperator;
 import java.math.BigInteger;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.trino.spi.block.Int128ArrayBlock.INT128_BYTES;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
-import static io.trino.spi.type.Decimals.decodeUnscaledValue;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.compare;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.isNegative;
 import static java.lang.invoke.MethodHandles.lookup;
 
 final class LongDecimalType
         extends DecimalType
 {
-    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(LongDecimalType.class, lookup(), Slice.class);
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(LongDecimalType.class, lookup(), Int128.class);
 
     LongDecimalType(int precision, int scale)
     {
-        super(precision, scale, Slice.class);
+        super(precision, scale, Int128.class);
         checkArgument(Decimals.MAX_SHORT_PRECISION < precision && precision <= Decimals.MAX_PRECISION, "Invalid precision: %s", precision);
         checkArgument(0 <= scale && scale <= precision, "Invalid scale for precision %s: %s", precision, scale);
     }
@@ -61,7 +54,7 @@ final class LongDecimalType
     @Override
     public int getFixedSize()
     {
-        return UNSCALED_DECIMAL_128_SLICE_LENGTH;
+        return Int128.SIZE;
     }
 
     @Override
@@ -97,10 +90,8 @@ final class LongDecimalType
         if (block.isNull(position)) {
             return null;
         }
-        Slice slice = getSlice(block, position);
-        BigInteger unscaledValue = decodeUnscaledValue(slice);
-        // sanity check: disallow "negative zero" in case we get a corrupted result from somewhere
-        checkArgument(unscaledValue.signum() != 0 || !isNegative(slice), "The encoded long decimal is invalid: negative zero");
+        Int128 value = (Int128) getObject(block, position);
+        BigInteger unscaledValue = value.toBigInteger();
         return new SqlDecimal(unscaledValue, getPrecision(), getScale());
     }
 
@@ -118,59 +109,39 @@ final class LongDecimalType
     }
 
     @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value)
+    public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        writeSlice(blockBuilder, value, 0, value.length());
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
-    {
-        if (length != INT128_BYTES) {
-            throw new IllegalStateException("Expected entry size to be exactly " + INT128_BYTES + " but was " + length);
-        }
-        blockBuilder.writeLong(value.getLong(offset));
-        blockBuilder.writeLong(value.getLong(offset + SIZE_OF_LONG));
+        Int128 decimal = (Int128) value;
+        blockBuilder.writeLong(decimal.getHigh());
+        blockBuilder.writeLong(decimal.getLow());
         blockBuilder.closeEntry();
     }
 
     @Override
-    public Slice getSlice(Block block, int position)
+    public Object getObject(Block block, int position)
     {
-        return Slices.wrappedLongArray(
+        return Int128.valueOf(
                 block.getLong(position, 0),
                 block.getLong(position, SIZE_OF_LONG));
     }
 
     @ScalarOperator(EQUAL)
-    private static boolean equalOperator(Slice left, Slice right)
+    private static boolean equalOperator(Int128 left, Int128 right)
     {
-        return equal(
-                left.getLong(0),
-                left.getLong(SIZE_OF_LONG),
-                right.getLong(0),
-                right.getLong(SIZE_OF_LONG));
+        return left.equals(right);
     }
 
     @ScalarOperator(EQUAL)
     private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
     {
-        return equal(
-                leftBlock.getLong(leftPosition, 0),
-                leftBlock.getLong(leftPosition, SIZE_OF_LONG),
-                rightBlock.getLong(rightPosition, 0),
-                rightBlock.getLong(rightPosition, SIZE_OF_LONG));
-    }
-
-    private static boolean equal(long leftLow, long leftHigh, long rightLow, long rightHigh)
-    {
-        return leftLow == rightLow && leftHigh == rightHigh;
+        return leftBlock.getLong(leftPosition, 0) == rightBlock.getLong(rightPosition, 0) &&
+                leftBlock.getLong(leftPosition, SIZE_OF_LONG) == rightBlock.getLong(rightPosition, SIZE_OF_LONG);
     }
 
     @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(Slice value)
+    private static long xxHash64Operator(Int128 value)
     {
-        return xxHash64(value.getLong(0), value.getLong(SIZE_OF_LONG));
+        return xxHash64(value.getHigh(), value.getLow());
     }
 
     @ScalarOperator(XX_HASH_64)
@@ -185,18 +156,18 @@ final class LongDecimalType
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
-    private static long comparisonOperator(Slice left, Slice right)
+    private static long comparisonOperator(Int128 left, Int128 right)
     {
-        return compare(left, right);
+        return left.compareTo(right);
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
     {
-        long leftLow = leftBlock.getLong(leftPosition, 0);
-        long leftHigh = leftBlock.getLong(leftPosition, SIZE_OF_LONG);
-        long rightLow = rightBlock.getLong(rightPosition, 0);
-        long rightHigh = rightBlock.getLong(rightPosition, SIZE_OF_LONG);
-        return compare(leftLow, leftHigh, rightLow, rightHigh);
+        return Int128.compare(
+                leftBlock.getLong(leftPosition, 0),
+                leftBlock.getLong(leftPosition, SIZE_OF_LONG),
+                rightBlock.getLong(rightPosition, 0),
+                rightBlock.getLong(rightPosition, SIZE_OF_LONG));
     }
 }

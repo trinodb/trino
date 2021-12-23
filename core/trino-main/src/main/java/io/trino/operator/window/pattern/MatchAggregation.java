@@ -13,22 +13,25 @@
  */
 package io.trino.operator.window.pattern;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.operator.aggregation.Accumulator;
-import io.trino.operator.aggregation.AccumulatorFactory;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.metadata.BoundSignature;
+import io.trino.metadata.FunctionNullability;
+import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.LambdaProvider;
+import io.trino.operator.aggregation.WindowAccumulator;
+import io.trino.operator.window.MappedWindowIndex;
 import io.trino.operator.window.matcher.ArrayView;
 import io.trino.operator.window.pattern.SetEvaluator.SetEvaluatorSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 
+import java.lang.reflect.Constructor;
 import java.util.List;
-import java.util.Optional;
+import java.util.function.Supplier;
 
+import static io.trino.operator.aggregation.AccumulatorCompiler.generateWindowAccumulatorClass;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -66,34 +69,22 @@ public class MatchAggregation
 {
     private static final int ROWS_UNTIL_MEMORY_REPORT = 1000;
 
-    private final String name;
-    private final List<Integer> argumentChannels;
-    private final AccumulatorFactory accumulatorFactory;
+    private final BoundSignature boundSignature;
+    private final Supplier<WindowAccumulator> accumulatorFactory;
+    private final MappedWindowIndex mappedWindowIndex;
     private final SetEvaluator setEvaluator;
     private final AggregatedMemoryContext memoryContextSupplier;
     private final LocalMemoryContext memoryContext;
 
-    private Accumulator accumulator;
+    private WindowAccumulator accumulator;
     private int rowsFromMemoryReport;
     private Block resultOnEmpty;
 
-    private MatchAggregation(String name, InternalAggregationFunction function, List<Integer> argumentChannels, List<LambdaProvider> lambdaProviders, SetEvaluator setEvaluator, AggregatedMemoryContext memoryContextSupplier)
+    private MatchAggregation(BoundSignature boundSignature, Supplier<WindowAccumulator> accumulatorFactory, List<Integer> argumentChannels, SetEvaluator setEvaluator, AggregatedMemoryContext memoryContextSupplier)
     {
-        this.name = requireNonNull(name, "name is null");
-        this.argumentChannels = ImmutableList.copyOf(argumentChannels);
-        this.accumulatorFactory = function.bind(
-                argumentChannels,
-                Optional.empty(),
-                ImmutableList.of(),
-                ImmutableList.of(),
-                ImmutableList.of(),
-                null,
-                false,
-                null,
-                null,
-                lambdaProviders,
-                null);
-
+        this.boundSignature = requireNonNull(boundSignature, "boundSignature is null");
+        this.accumulatorFactory = requireNonNull(accumulatorFactory, "accumulatorFactory is null");
+        this.mappedWindowIndex = new MappedWindowIndex(argumentChannels);
         this.setEvaluator = setEvaluator;
         this.memoryContextSupplier = memoryContextSupplier;
         this.memoryContext = memoryContextSupplier.newLocalMemoryContext(MatchAggregation.class.getSimpleName());
@@ -101,10 +92,10 @@ public class MatchAggregation
     }
 
     // for copying when forking threads during pattern matching phase
-    private MatchAggregation(String name, List<Integer> argumentChannels, AccumulatorFactory accumulatorFactory, SetEvaluator setEvaluator, Accumulator accumulator, AggregatedMemoryContext memoryContextSupplier)
+    private MatchAggregation(BoundSignature boundSignature, MappedWindowIndex mappedWindowIndex, Supplier<WindowAccumulator> accumulatorFactory, SetEvaluator setEvaluator, WindowAccumulator accumulator, AggregatedMemoryContext memoryContextSupplier)
     {
-        this.name = name;
-        this.argumentChannels = argumentChannels;
+        this.boundSignature = boundSignature;
+        this.mappedWindowIndex = mappedWindowIndex;
         this.accumulatorFactory = accumulatorFactory;
         this.setEvaluator = setEvaluator;
         this.memoryContextSupplier = memoryContextSupplier;
@@ -122,7 +113,7 @@ public class MatchAggregation
 
     private void resetAccumulator()
     {
-        accumulator = accumulatorFactory.createAccumulator();
+        accumulator = accumulatorFactory.get();
     }
 
     /**
@@ -135,12 +126,14 @@ public class MatchAggregation
     public Block aggregate(int currentRow, ArrayView matchedLabels, long matchNumber, ProjectingPagesWindowIndex windowIndex, int partitionStart, int patternStart)
     {
         // new positions to aggregate since the last time this aggregation was run
+        mappedWindowIndex.setDelegate(windowIndex);
         ArrayView positions = setEvaluator.resolveNewPositions(currentRow, matchedLabels, partitionStart, patternStart);
         for (int i = 0; i < positions.length(); i++) {
             int position = positions.get(i); // position from partition start
             windowIndex.setLabelAndMatchNumber(position, matchedLabels.get(position + partitionStart - patternStart), matchNumber);
-            accumulator.addInput(windowIndex, argumentChannels, position, position);
+            accumulator.addInput(mappedWindowIndex, position, position);
         }
+        mappedWindowIndex.setDelegate(null);
 
         // report accumulator and SetEvaluator memory usage every time a new portion of `ROWS_UNTIL_MEMORY_REPORT` rows was aggregated
         rowsFromMemoryReport += positions.length();
@@ -149,7 +142,7 @@ public class MatchAggregation
             memoryContext.setBytes(accumulator.getEstimatedSize() + setEvaluator.getAllPositionsSizeInBytes());
         }
 
-        BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(null, 1);
+        BlockBuilder blockBuilder = boundSignature.getReturnType().createBlockBuilder(null, 1);
         accumulator.evaluateFinal(blockBuilder);
         return blockBuilder.build();
     }
@@ -167,8 +160,8 @@ public class MatchAggregation
         if (resultOnEmpty != null) {
             return resultOnEmpty;
         }
-        BlockBuilder blockBuilder = accumulator.getFinalType().createBlockBuilder(null, 1);
-        accumulatorFactory.createAccumulator().evaluateFinal(blockBuilder);
+        BlockBuilder blockBuilder = boundSignature.getReturnType().createBlockBuilder(null, 1);
+        accumulatorFactory.get().evaluateFinal(blockBuilder);
         resultOnEmpty = blockBuilder.build();
         return resultOnEmpty;
     }
@@ -181,38 +174,54 @@ public class MatchAggregation
 
     public MatchAggregation copy()
     {
-        Accumulator accumulatorCopy;
+        WindowAccumulator accumulatorCopy;
         try {
             accumulatorCopy = accumulator.copy();
         }
         catch (UnsupportedOperationException e) {
-            throw new TrinoException(NOT_SUPPORTED, format("aggregate function %s does not support copying", name), e);
+            throw new TrinoException(NOT_SUPPORTED, format("aggregate function %s does not support copying", boundSignature.getName()), e);
         }
 
-        return new MatchAggregation(name, argumentChannels, accumulatorFactory, setEvaluator.copy(), accumulatorCopy, memoryContextSupplier);
+        return new MatchAggregation(boundSignature, mappedWindowIndex, accumulatorFactory, setEvaluator.copy(), accumulatorCopy, memoryContextSupplier);
     }
 
     public static class MatchAggregationInstantiator
     {
-        private final String name;
-        private final InternalAggregationFunction function;
+        private final BoundSignature boundSignature;
+        private final Supplier<WindowAccumulator> accumulatorFactory;
         private final List<Integer> argumentChannels;
-        private final List<LambdaProvider> lambdaProviders;
         private final SetEvaluatorSupplier setEvaluatorSupplier;
 
-        public MatchAggregationInstantiator(String name, InternalAggregationFunction function, List<Integer> argumentChannels, List<LambdaProvider> lambdaProviders, SetEvaluatorSupplier setEvaluatorSupplier)
+        public MatchAggregationInstantiator(
+                BoundSignature boundSignature,
+                AggregationMetadata aggregationMetadata,
+                FunctionNullability functionNullability,
+                List<Integer> argumentChannels,
+                List<LambdaProvider> lambdaProviders,
+                SetEvaluatorSupplier setEvaluatorSupplier)
         {
-            this.name = requireNonNull(name, "name is null");
-            this.function = requireNonNull(function, "function is null");
+            this.boundSignature = boundSignature;
             this.argumentChannels = requireNonNull(argumentChannels, "argumentChannels is null");
-            this.lambdaProviders = requireNonNull(lambdaProviders, "lambdaProviders is null");
             this.setEvaluatorSupplier = requireNonNull(setEvaluatorSupplier, "setEvaluatorSupplier is null");
+
+            Constructor<? extends WindowAccumulator> constructor = generateWindowAccumulatorClass(boundSignature, aggregationMetadata, functionNullability);
+            this.accumulatorFactory = () -> createWindowAccumulator(constructor, lambdaProviders);
         }
 
         public MatchAggregation get(AggregatedMemoryContext memoryContextSupplier)
         {
             requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
-            return new MatchAggregation(name, function, argumentChannels, lambdaProviders, setEvaluatorSupplier.get(), memoryContextSupplier);
+            return new MatchAggregation(boundSignature, accumulatorFactory, argumentChannels, setEvaluatorSupplier.get(), memoryContextSupplier);
+        }
+
+        private static WindowAccumulator createWindowAccumulator(Constructor<? extends WindowAccumulator> constructor, List<LambdaProvider> lambdaProviders)
+        {
+            try {
+                return constructor.newInstance(lambdaProviders);
+            }
+            catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }

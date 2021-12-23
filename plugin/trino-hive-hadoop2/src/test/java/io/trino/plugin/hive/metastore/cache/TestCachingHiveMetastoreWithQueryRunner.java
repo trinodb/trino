@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.hive.HivePlugin;
+import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.DistributedQueryRunner;
@@ -34,6 +35,7 @@ import static com.google.common.collect.Lists.cartesianProduct;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.plugin.hive.authentication.HiveIdentity.none;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -50,7 +52,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
     private static final Session ALICE = getTestSession(new Identity.Builder(ALICE_NAME).build());
 
     private DistributedQueryRunner queryRunner;
-    private File temporaryDirectory;
+    private File temporaryMetastoreDirectory;
 
     @BeforeMethod
     public void createQueryRunner()
@@ -61,10 +63,10 @@ public class TestCachingHiveMetastoreWithQueryRunner
                 .setNodeCount(1)
                 .build();
         queryRunner.installPlugin(new HivePlugin());
-        temporaryDirectory = createTempDir();
+        temporaryMetastoreDirectory = createTempDir();
         queryRunner.createCatalog(CATALOG, "hive", ImmutableMap.of(
                 "hive.metastore", "file",
-                "hive.metastore.catalog.dir", temporaryDirectory.toURI().toString(),
+                "hive.metastore.catalog.dir", temporaryMetastoreDirectory.toURI().toString(),
                 "hive.security", "sql-standard",
                 "hive.metastore-cache-ttl", "60m",
                 "hive.metastore-refresh-interval", "10m"));
@@ -77,7 +79,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
             throws IOException
     {
         queryRunner.close();
-        deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
+        deleteRecursively(temporaryMetastoreDirectory.toPath(), ALLOW_INSECURE);
     }
 
     private static Session getTestSession(Identity identity)
@@ -112,6 +114,26 @@ public class TestCachingHiveMetastoreWithQueryRunner
         queryRunner.execute(revokeRoleStatement);
         assertThatThrownBy(() -> queryRunner.execute(ALICE, "SELECT * FROM test"))
                 .hasMessageContaining("Access Denied");
+    }
+
+    @Test
+    public void testFlushHiveMetastoreCacheProcedureCallable()
+    {
+        queryRunner.execute("CREATE TABLE cached (initial varchar)");
+        queryRunner.execute("SELECT initial FROM cached");
+
+        // Rename column name in Metastore outside Trino
+        FileHiveMetastore fileHiveMetastore = FileHiveMetastore.createTestingFileHiveMetastore(temporaryMetastoreDirectory);
+        fileHiveMetastore.renameColumn(none(), "test", "cached", "initial", "renamed");
+
+        String renamedColumnQuery = "SELECT renamed FROM cached";
+        // Should fail as Trino has old metadata cached
+        assertThatThrownBy(() -> queryRunner.execute(renamedColumnQuery))
+                .hasMessageMatching(".*Column 'renamed' cannot be resolved");
+
+        // Should success after flushing Trino JDBC metadata cache
+        queryRunner.execute("CALL system.flush_metadata_cache()");
+        queryRunner.execute(renamedColumnQuery);
     }
 
     @DataProvider

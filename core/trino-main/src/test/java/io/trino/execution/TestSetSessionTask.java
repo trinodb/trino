@@ -20,12 +20,14 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
@@ -52,6 +54,7 @@ import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
@@ -75,6 +78,8 @@ public class TestSetSessionTask
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
+    private final PlannerContext plannerContext;
+    private final SessionPropertyManager sessionPropertyManager;
 
     public TestSetSessionTask()
     {
@@ -83,8 +88,9 @@ public class TestSetSessionTask
         accessControl = new AllowAllAccessControl();
 
         metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
-
-        metadata.getSessionPropertyManager().addSystemSessionProperty(stringProperty(
+        plannerContext = plannerContextBuilder().withMetadata(metadata).build();
+        sessionPropertyManager = new SessionPropertyManager();
+        sessionPropertyManager.addSystemSessionProperty(stringProperty(
                 CATALOG_NAME,
                 "test property",
                 null,
@@ -111,7 +117,7 @@ public class TestSetSessionTask
                         null,
                         false));
 
-        metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), sessionProperties);
+        sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), sessionProperties);
 
         catalogManager.registerCatalog(bogusTestingCatalog);
     }
@@ -198,7 +204,7 @@ public class TestSetSessionTask
                 metadata,
                 WarningCollector.NOOP,
                 Optional.empty());
-        getFutureValue(new SetSessionTask(metadata, accessControl).execute(new SetSession(qualifiedPropName, expression), stateMachine, parameters, WarningCollector.NOOP));
+        getFutureValue(new SetSessionTask(plannerContext, accessControl, sessionPropertyManager).execute(new SetSession(qualifiedPropName, expression), stateMachine, parameters, WarningCollector.NOOP));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
         assertEquals(sessionProperties, ImmutableMap.of(qualifiedPropName.toString(), expectedValue));

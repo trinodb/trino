@@ -13,34 +13,21 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
-import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
-import io.trino.spi.security.GroupProvider;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.analyzer.Analysis;
-import io.trino.sql.analyzer.AnalyzerFactory;
-import io.trino.sql.analyzer.CorrelationSupport;
-import io.trino.sql.analyzer.ExpressionAnalysis;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
-import io.trino.sql.analyzer.RelationId;
-import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.type.IntervalDayTimeType;
 
@@ -50,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.SystemSessionProperties.TIME_ZONE_ID;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
@@ -58,6 +44,8 @@ import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
+import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
+import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -65,20 +53,14 @@ import static java.util.Objects.requireNonNull;
 public class SetTimeZoneTask
         implements DataDefinitionTask<SetTimeZone>
 {
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final AccessControl accessControl;
-    private final SqlParser sqlParser;
-    private final AnalyzerFactory analyzerFactory;
-    private final GroupProvider groupProvider;
 
     @Inject
-    public SetTimeZoneTask(Metadata metadata, AccessControl accessControl, SqlParser sqlParser, AnalyzerFactory analyzerFactory, GroupProvider groupProvider)
+    public SetTimeZoneTask(PlannerContext plannerContext, AccessControl accessControl)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
-        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
     }
 
     @Override
@@ -109,33 +91,28 @@ public class SetTimeZoneTask
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
-        Session session = stateMachine.getSession();
-        Analysis analysis = analyzeStatement(statement, stateMachine, parameters, session);
-        Scope scope = Scope.builder()
-                .withRelationType(RelationId.anonymous(), new RelationType())
-                .build();
-        ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                session,
-                metadata,
-                groupProvider,
+        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
+        ExpressionAnalyzer analyzer = createConstantAnalyzer(
+                plannerContext,
                 accessControl,
-                sqlParser,
-                scope,
-                analysis,
-                expression,
-                warningCollector,
-                CorrelationSupport.ALLOWED);
-        Expression rewrittenExpression = rewriteExpression(expression, analysis);
-        Type type = expressionAnalysis.getType(expression);
+                stateMachine.getSession(),
+                parameterLookup,
+                warningCollector);
+
+        Type type = analyzer.analyze(expression, Scope.create());
         if (!(type instanceof VarcharType || type instanceof IntervalDayTimeType)) {
             throw new TrinoException(TYPE_MISMATCH, format("Expected expression of varchar or interval day-time type, but '%s' has %s type", expression, type.getDisplayName()));
         }
 
-        Map<NodeRef<Expression>, Type> expressionTypes = ImmutableMap.<NodeRef<Expression>, Type>builder()
-                .put(NodeRef.of(rewrittenExpression), type)
-                .build();
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(rewrittenExpression, metadata, session, expressionTypes);
-        Object timeZoneValue = interpreter.evaluate();
+        Object timeZoneValue = evaluateConstantExpression(
+                expression,
+                analyzer.getExpressionCoercions(),
+                analyzer.getTypeOnlyCoercions(),
+                plannerContext,
+                stateMachine.getSession(),
+                accessControl,
+                ImmutableSet.of(),
+                parameterLookup);
 
         TimeZoneKey timeZoneKey;
         if (timeZoneValue instanceof Slice) {
@@ -148,46 +125,6 @@ public class SetTimeZoneTask
             throw new IllegalStateException(format("Time Zone expression '%s' not supported", expression));
         }
         return timeZoneKey.getId();
-    }
-
-    private Analysis analyzeStatement(
-            SetTimeZone statement,
-            QueryStateMachine stateMachine,
-            List<Expression> parameters,
-            Session session)
-    {
-        return analyzerFactory.createAnalyzer(
-                session,
-                parameters,
-                parameterExtractor(statement, parameters),
-                stateMachine.getWarningCollector())
-                .analyze(statement);
-    }
-
-    private static Expression rewriteExpression(Expression expression, Analysis analysis)
-    {
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
-        {
-            @Override
-            public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
-                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
-
-                FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
-                rewritten = new FunctionCall(
-                        rewritten.getLocation(),
-                        resolvedFunction.toQualifiedName(),
-                        rewritten.getWindow(),
-                        rewritten.getFilter(),
-                        rewritten.getOrderBy(),
-                        rewritten.isDistinct(),
-                        rewritten.getNullTreatment(),
-                        rewritten.getProcessingMode(),
-                        rewritten.getArguments());
-                return rewritten;
-            }
-        }, expression, null);
     }
 
     private static long getZoneOffsetMinutes(long interval)

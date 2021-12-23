@@ -31,8 +31,9 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -81,11 +82,13 @@ public class RealAverageAggregation
         AccumulatorStateSerializer<LongState> longStateSerializer = StateCompiler.generateStateSerializer(longStateInterface);
         AccumulatorStateSerializer<DoubleState> doubleStateSerializer = StateCompiler.generateStateSerializer(doubleStateInterface);
 
+        MethodHandle inputFunction = normalizeInputMethod(INPUT_FUNCTION, boundSignature, STATE, STATE, INPUT_CHANNEL);
+        MethodHandle removeFunction = normalizeInputMethod(REMOVE_INPUT_FUNCTION, boundSignature, STATE, STATE, INPUT_CHANNEL);
+
         return new AggregationMetadata(
-                ImmutableList.of(STATE, STATE, INPUT_CHANNEL),
-                INPUT_FUNCTION,
-                Optional.of(REMOVE_INPUT_FUNCTION),
-                COMBINE_FUNCTION,
+                inputFunction,
+                Optional.of(removeFunction),
+                Optional.of(COMBINE_FUNCTION),
                 OUTPUT_FUNCTION,
                 ImmutableList.of(
                         new AccumulatorStateDescriptor<>(

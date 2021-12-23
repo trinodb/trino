@@ -230,7 +230,6 @@ import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableRedirectionsProvider.NO_REDIRECTIONS;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
-import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.trino.plugin.hive.HiveTestUtils.arrayType;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
@@ -270,6 +269,7 @@ import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -294,6 +294,7 @@ import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -815,11 +816,12 @@ public abstract class AbstractTestHive
                 false,
                 false,
                 true,
+                true,
                 false,
                 1000,
                 Optional.empty(),
                 true,
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 NOOP_METADATA_PROVIDER,
                 locationService,
                 partitionUpdateCodec,
@@ -876,14 +878,14 @@ public abstract class AbstractTestHive
                 hiveConfig.getSplitLoaderConcurrency(),
                 hiveConfig.getMaxSplitsPerSecond(),
                 false,
-                TYPE_MANAGER);
+                TESTING_TYPE_MANAGER);
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
                 hdfsEnvironment,
                 PAGE_SORTER,
                 metastoreClient,
                 new GroupByHashPageIndexerFactory(JOIN_COMPILER, BLOCK_TYPE_OPERATORS),
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 getHiveConfig(),
                 locationService,
                 partitionUpdateCodec,
@@ -892,7 +894,7 @@ public abstract class AbstractTestHive
                 getHiveSessionProperties(hiveConfig),
                 new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 hdfsEnvironment,
                 hiveConfig,
                 getDefaultHivePageSourceFactories(hdfsEnvironment, hiveConfig),
@@ -901,7 +903,7 @@ public abstract class AbstractTestHive
                 Optional.empty());
         nodePartitioningProvider = new HiveNodePartitioningProvider(
                 new TestingNodeManager("fake-environment"),
-                TYPE_MANAGER);
+                TESTING_TYPE_MANAGER);
     }
 
     protected HdfsConfiguration createTestHdfsConfiguration()
@@ -1174,7 +1176,7 @@ public abstract class AbstractTestHive
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorTableHandle tableHandle = getTableHandle(metadata, schemaTableName);
 
-            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
+            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
             sink.appendPage(dataBefore.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
@@ -1239,7 +1241,7 @@ public abstract class AbstractTestHive
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorTableHandle tableHandle = getTableHandle(metadata, schemaTableName);
 
-            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
+            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
             sink.appendPage(dataAfter.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
@@ -2436,7 +2438,7 @@ public abstract class AbstractTestHive
                 // begin creating the table
                 ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateRollbackTable, CREATE_TABLE_COLUMNS, createTableProperties(RCBINARY));
 
-                ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+                ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
 
                 // write the data
                 ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
@@ -2485,7 +2487,7 @@ public abstract class AbstractTestHive
                 targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath, "q1");
                 transaction.getMetastore()
-                        .createTable(session, table, privileges, Optional.empty(), false, EMPTY_TABLE_STATISTICS);
+                        .createTable(session, table, privileges, Optional.empty(), Optional.empty(), false, EMPTY_TABLE_STATISTICS, false);
                 Optional<Table> tableHandle = transaction.getMetastore().getTable(new HiveIdentity(session), schemaName, tableName);
                 assertTrue(tableHandle.isPresent());
                 transaction.commit();
@@ -2495,7 +2497,7 @@ public abstract class AbstractTestHive
             try (Transaction transaction = newTransaction()) {
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath.suffix("_2"), "q2");
                 transaction.getMetastore()
-                        .createTable(session, table, privileges, Optional.empty(), false, EMPTY_TABLE_STATISTICS);
+                        .createTable(session, table, privileges, Optional.empty(), Optional.empty(), false, EMPTY_TABLE_STATISTICS, false);
                 transaction.commit();
                 fail("Expected exception");
             }
@@ -2507,7 +2509,7 @@ public abstract class AbstractTestHive
             try (Transaction transaction = newTransaction()) {
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath.suffix("_3"), "q3");
                 transaction.getMetastore()
-                        .createTable(session, table, privileges, Optional.empty(), true, EMPTY_TABLE_STATISTICS);
+                        .createTable(session, table, privileges, Optional.empty(), Optional.empty(), true, EMPTY_TABLE_STATISTICS, false);
                 transaction.commit();
             }
 
@@ -2516,7 +2518,7 @@ public abstract class AbstractTestHive
             try (Transaction transaction = newTransaction()) {
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath.suffix("_4"), "q4");
                 transaction.getMetastore()
-                        .createTable(session, table, privileges, Optional.empty(), true, EMPTY_TABLE_STATISTICS);
+                        .createTable(session, table, privileges, Optional.empty(), Optional.empty(), true, EMPTY_TABLE_STATISTICS, false);
                 transaction.commit();
                 fail("Expected exception");
             }
@@ -2594,7 +2596,7 @@ public abstract class AbstractTestHive
                                     .build())
                             .build());
 
-            ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+            ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
 
             // write the data
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
@@ -2853,7 +2855,7 @@ public abstract class AbstractTestHive
                 ConnectorMetadata metadata = transaction.getMetadata();
                 List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", HYPER_LOG_LOG));
                 ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(invalidTable, columns, createTableProperties(storageFormat));
-                metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+                metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
                 fail("create table with unsupported type should fail for storage format " + storageFormat);
             }
             catch (TrinoException e) {
@@ -3085,7 +3087,7 @@ public abstract class AbstractTestHive
                             .setStorageFormat(StorageFormat.createNullable(null, null, null))
                             .setSerdeParameters(ImmutableMap.of()));
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner, session.getUser());
-            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), true, EMPTY_TABLE_STATISTICS);
+            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), Optional.empty(), true, EMPTY_TABLE_STATISTICS, false);
             transaction.commit();
         }
 
@@ -3117,7 +3119,7 @@ public abstract class AbstractTestHive
 
             List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", createUnboundedVarcharType()));
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(TEXTFILE));
-            ConnectorOutputTableHandle handle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+            ConnectorOutputTableHandle handle = metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
             metadata.finishCreateTable(session, handle, ImmutableList.of(), ImmutableList.of());
 
             transaction.commit();
@@ -3642,7 +3644,7 @@ public abstract class AbstractTestHive
             // begin creating the table
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, CREATE_TABLE_COLUMNS, createTableProperties(storageFormat));
 
-            ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+            ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
 
             // write the data
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
@@ -3814,7 +3816,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
 
             // "stage" insert data
-            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
+            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
             sink.appendPage(CREATE_TABLE_DATA.toPage());
             sink.appendPage(CREATE_TABLE_DATA.toPage());
@@ -3936,7 +3938,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
 
             // "stage" insert data
-            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
+            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
             for (int i = 0; i < 4; i++) {
                 sink.appendPage(overwriteData.toPage());
@@ -4144,7 +4146,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
 
             // "stage" insert data
-            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
+            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
             stagingPathRoot = getStagingPathRoot(insertTableHandle);
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
             sink.appendPage(CREATE_TABLE_PARTITIONED_DATA_2ND.toPage());
@@ -4196,7 +4198,7 @@ public abstract class AbstractTestHive
             ConnectorSession session = newSession();
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
 
-            metadata.beginInsert(session, tableHandle);
+            metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
             fail("expected failure");
         }
         catch (TrinoException e) {
@@ -4260,7 +4262,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
 
             // "stage" insert data
-            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
+            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
             stagingPathRoot = getStagingPathRoot(insertTableHandle);
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
             sink.appendPage(CREATE_TABLE_PARTITIONED_DATA.toPage());
@@ -4408,7 +4410,7 @@ public abstract class AbstractTestHive
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorSession session = newSession(sessionProperties);
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
+            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
             queryId = session.getQueryId();
             writePath = getStagingPathRoot(insertTableHandle);
             targetPath = getTargetPathRoot(insertTableHandle);
@@ -4894,7 +4896,7 @@ public abstract class AbstractTestHive
 
     protected static ConnectorSplitSource getSplits(ConnectorSplitManager splitManager, Transaction transaction, ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING, DynamicFilter.EMPTY);
+        return splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING, DynamicFilter.EMPTY, Constraint.alwaysTrue());
     }
 
     protected String getPartitionId(Object partition)
@@ -5110,7 +5112,7 @@ public abstract class AbstractTestHive
                     .setSerdeParameters(ImmutableMap.of());
 
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner, session.getUser());
-            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), true, EMPTY_TABLE_STATISTICS);
+            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), Optional.empty(), true, EMPTY_TABLE_STATISTICS, false);
 
             transaction.commit();
         }
@@ -5538,7 +5540,7 @@ public abstract class AbstractTestHive
 
                 // Query 2: insert
                 session = newSession();
-                ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
+                ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
                 rollbackIfEquals(tag, ROLLBACK_AFTER_BEGIN_INSERT);
                 writePath = getStagingPathRoot(insertTableHandle);
                 targetPath = getTargetPathRoot(insertTableHandle);

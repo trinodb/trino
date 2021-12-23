@@ -300,7 +300,7 @@ public class OracleClient
                             shortDecimalWriteFunction(decimalType),
                             FULL_PUSHDOWN));
                 }
-                return Optional.of(ColumnMapping.sliceMapping(
+                return Optional.of(ColumnMapping.objectMapping(
                         decimalType,
                         longDecimalReadFunction(decimalType, roundingMode),
                         longDecimalWriteFunction(decimalType),
@@ -461,7 +461,7 @@ public class OracleClient
             if (((DecimalType) type).isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction((DecimalType) type));
             }
-            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction((DecimalType) type));
+            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction((DecimalType) type));
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
             return WriteMapping.longMapping("timestamp(3)", oracleTimestampWriteFunction());

@@ -19,9 +19,10 @@ import io.trino.RowPagesBuilder;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.AggregatedMemoryContext;
-import io.trino.metadata.Metadata;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -38,7 +39,6 @@ import java.util.concurrent.ExecutionException;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -69,15 +69,15 @@ public class TestBinaryFileSpiller
     @BeforeMethod
     public void setUp()
     {
-        Metadata metadata = createTestMetadataManager();
         spillerStats = new SpillerStats();
         FeaturesConfig featuresConfig = new FeaturesConfig();
         featuresConfig.setSpillerSpillPaths(spillPath.getAbsolutePath());
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
         NodeSpillConfig nodeSpillConfig = new NodeSpillConfig();
-        singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(metadata, spillerStats, featuresConfig, nodeSpillConfig);
+        BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
+        singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig, nodeSpillConfig);
         factory = new GenericSpillerFactory(singleStreamSpillerFactory);
-        PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(metadata.getBlockEncodingSerde(), nodeSpillConfig.isSpillCompressionEnabled());
+        PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(blockEncodingSerde, nodeSpillConfig.isSpillCompressionEnabled());
         pagesSerde = pagesSerdeFactory.createPagesSerde();
         memoryContext = newSimpleAggregatedMemoryContext();
     }

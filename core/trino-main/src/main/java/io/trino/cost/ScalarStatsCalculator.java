@@ -16,7 +16,6 @@ package io.trino.cost;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DecimalType;
@@ -24,6 +23,7 @@ import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.ExpressionInterpreter;
@@ -63,13 +63,13 @@ import static java.util.Objects.requireNonNull;
 
 public class ScalarStatsCalculator
 {
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
 
     @Inject
-    public ScalarStatsCalculator(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public ScalarStatsCalculator(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
     {
-        this.metadata = requireNonNull(metadata, "metadata cannot be null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext cannot be null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
@@ -113,9 +113,9 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitLiteral(Literal node, Void context)
         {
-            ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, new AllowAllAccessControl(), session, ImmutableMap.of(), WarningCollector.NOOP);
+            ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext, new AllowAllAccessControl(), session, ImmutableMap.of(), WarningCollector.NOOP);
             Type type = analyzer.analyze(node, Scope.create());
-            Object value = evaluate(metadata, session, analyzer.getExpressionTypes(), node);
+            Object value = evaluate(plannerContext, session, analyzer.getExpressionTypes(), node);
 
             OptionalDouble doubleValue = toStatsRepresentation(type, value);
             SymbolStatsEstimate.Builder estimate = SymbolStatsEstimate.builder()
@@ -133,7 +133,7 @@ public class ScalarStatsCalculator
         protected SymbolStatsEstimate visitFunctionCall(FunctionCall node, Void context)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, node, types);
-            ExpressionInterpreter interpreter = new ExpressionInterpreter(node, metadata, session, expressionTypes);
+            ExpressionInterpreter interpreter = new ExpressionInterpreter(node, plannerContext, session, expressionTypes);
             Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
             if (value == null || value instanceof NullLiteral) {
@@ -155,7 +155,7 @@ public class ScalarStatsCalculator
         private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
         {
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    metadata,
+                    plannerContext,
                     new AllowAllAccessControl(),
                     session,
                     types,

@@ -35,7 +35,7 @@ import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.LO
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
-import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 
 public class TestTablePartitioningSelect
         extends ProductTest
@@ -95,12 +95,12 @@ public class TestTablePartitioningSelect
         String tableNameInDatabase = tablesState.get(TABLE_NAME).getNameInDatabase();
 
         String selectFromOnePartitionsSql = "SELECT * FROM " + tableNameInDatabase + " WHERE part_col = 2";
-        QueryResult onePartitionQueryResult = query(selectFromOnePartitionsSql);
+        QueryResult onePartitionQueryResult = onTrino().executeQuery(selectFromOnePartitionsSql);
         assertThat(onePartitionQueryResult).containsOnly(row(42, 2));
 
         try {
             // This query should fail or return null values for invalid partition data
-            assertThat(query("SELECT * FROM " + tableNameInDatabase)).containsOnly(row(42, 2), row(null, 1));
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableNameInDatabase)).containsOnly(row(42, 2), row(null, 1));
         }
         catch (QueryExecutionException expectedDueToInvalidPartitionData) {
         }

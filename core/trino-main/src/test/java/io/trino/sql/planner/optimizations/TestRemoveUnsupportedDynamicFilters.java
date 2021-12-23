@@ -22,13 +22,11 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
-import io.trino.spi.type.TypeOperators;
-import io.trino.sql.parser.SqlParser;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -54,6 +52,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.combineDisjuncts;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
@@ -69,8 +68,8 @@ import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 public class TestRemoveUnsupportedDynamicFilters
         extends BasePlanTest
 {
+    private PlannerContext plannerContext;
     private Metadata metadata;
-    private final TypeOperators typeOperators = new TypeOperators();
     private PlanBuilder builder;
     private Symbol lineitemOrderKeySymbol;
     private TableScanNode lineitemTableScanNode;
@@ -81,7 +80,8 @@ public class TestRemoveUnsupportedDynamicFilters
     @BeforeClass
     public void setup()
     {
-        metadata = getQueryRunner().getMetadata();
+        plannerContext = getQueryRunner().getPlannerContext();
+        metadata = plannerContext.getMetadata();
         builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata, TEST_SESSION);
         CatalogName catalogName = getCurrentConnectorId();
         lineitemTableHandle = new TableHandle(
@@ -479,12 +479,10 @@ public class TestRemoveUnsupportedDynamicFilters
         return getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(metadata).optimize(root, session, builder.getTypes(), new SymbolAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP);
+            PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(plannerContext).optimize(root, session, builder.getTypes(), new SymbolAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP);
             new DynamicFiltersChecker().validate(rewrittenPlan,
                     session,
-                    metadata,
-                    typeOperators,
-                    new TypeAnalyzer(new SqlParser(), metadata),
+                    plannerContext, createTestingTypeAnalyzer(plannerContext),
                     builder.getTypes(),
                     WarningCollector.NOOP);
             return rewrittenPlan;
