@@ -62,6 +62,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.SqlDecimal.decimal;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -151,10 +152,18 @@ public class TestArrayOperators
 
         assertFunction("CAST(ARRAY [ARRAY[1.0], ARRAY[2.0, 3.0]] AS ARRAY<ARRAY<DOUBLE>>)", new ArrayType(new ArrayType(DOUBLE)), asList(asList(1.0), asList(2.0, 3.0)));
         assertFunction("CAST(ARRAY [ARRAY[1.0E0], ARRAY[2.0E0, 3.0E0]] AS ARRAY<ARRAY<DECIMAL(2,1)>>)",
-                new ArrayType(new ArrayType(createDecimalType(2, 1))), asList(asList(decimal("1.0")), asList(decimal("2.0"), decimal("3.0"))));
+                new ArrayType(new ArrayType(createDecimalType(2, 1))), asList(
+                        asList(decimal("1.0", createDecimalType(2, 1))),
+                        asList(
+                                decimal("2.0", createDecimalType(2, 1)),
+                                decimal("3.0", createDecimalType(2, 1)))));
         assertFunction("CAST(ARRAY [ARRAY[1.0E0], ARRAY[2.0E0, 3.0E0]] AS ARRAY<ARRAY<DECIMAL(20,10)>>)",
                 new ArrayType(new ArrayType(createDecimalType(20, 10))),
-                asList(asList(decimal("0000000001.0000000000")), asList(decimal("0000000002.0000000000"), decimal("0000000003.0000000000"))));
+                asList(
+                        asList(decimal("0000000001.0000000000", createDecimalType(20, 10))),
+                        asList(
+                                decimal("0000000002.0000000000", createDecimalType(20, 10)),
+                                decimal("0000000003.0000000000", createDecimalType(20, 10)))));
 
         assertInvalidFunction("CAST(ARRAY [1, null, 3] AS ARRAY<TIMESTAMP>)", TYPE_MISMATCH);
         assertInvalidFunction("CAST(ARRAY [1, null, 3] AS ARRAY<ARRAY<TIMESTAMP>>)", TYPE_MISMATCH);
@@ -264,10 +273,22 @@ public class TestArrayOperators
                 asList(1.0, 0.0, 1234567890.0, 1234567890.1, 3.14, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, null));
         assertFunction("CAST(JSON '[true, false, 128, 123.456, \"3.14\", null]' AS ARRAY<DECIMAL(10, 5)>)",
                 new ArrayType(createDecimalType(10, 5)),
-                asList(decimal("1.00000"), decimal("0.00000"), decimal("128.00000"), decimal("123.45600"), decimal("3.14000"), null));
+                asList(
+                        decimal("1.00000", createDecimalType(10, 5)),
+                        decimal("0.00000", createDecimalType(10, 5)),
+                        decimal("128.00000", createDecimalType(10, 5)),
+                        decimal("123.45600", createDecimalType(10, 5)),
+                        decimal("3.14000", createDecimalType(10, 5)),
+                        null));
         assertFunction("CAST(JSON '[true, false, 128, 12345678.12345678, \"3.14\", null]' AS ARRAY<DECIMAL(38, 8)>)",
                 new ArrayType(createDecimalType(38, 8)),
-                asList(decimal("1.00000000"), decimal("0.00000000"), decimal("128.00000000"), decimal("12345678.12345678"), decimal("3.14000000"), null));
+                asList(
+                        decimal("1.00000000", createDecimalType(38, 8)),
+                        decimal("0.00000000", createDecimalType(38, 8)),
+                        decimal("128.00000000", createDecimalType(38, 8)),
+                        decimal("12345678.12345678", createDecimalType(38, 8)),
+                        decimal("3.14000000", createDecimalType(38, 8)),
+                        null));
 
         // varchar, json
         assertFunction("CAST(JSON '[true, false, 12, 12.3, \"puppies\", \"kittens\", \"null\", \"\", null]' AS ARRAY<VARCHAR>)",
@@ -327,16 +348,24 @@ public class TestArrayOperators
         assertInvalidCast("CAST(JSON '[\"a\", \"b\"]' AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Cannot cast 'a' to BIGINT\n[\"a\",\"b\"]");
         assertInvalidCast("CAST(JSON '[1234567890123.456]' AS ARRAY<INTEGER>)", "Cannot cast to array(integer). Out of range for integer: 1.234567890123456E12\n[1.234567890123456E12]");
 
-        assertFunction("CAST(JSON '[1, 2.0, 3]' AS ARRAY(DECIMAL(10,5)))", new ArrayType(createDecimalType(10, 5)), ImmutableList.of(decimal("1.00000"), decimal("2.00000"), decimal("3.00000")));
-        assertFunction("CAST(CAST(ARRAY [1, 2.0, 3] as JSON) AS ARRAY(DECIMAL(10,5)))", new ArrayType(createDecimalType(10, 5)), ImmutableList.of(decimal("1.00000"), decimal("2.00000"), decimal("3.00000")));
+        assertFunction("CAST(JSON '[1, 2.0, 3]' AS ARRAY(DECIMAL(10,5)))", new ArrayType(createDecimalType(10, 5)), ImmutableList.of(
+                decimal("1.00000", createDecimalType(10, 5)),
+                decimal("2.00000", createDecimalType(10, 5)),
+                decimal("3.00000", createDecimalType(10, 5))));
+        assertFunction("CAST(CAST(ARRAY [1, 2.0, 3] as JSON) AS ARRAY(DECIMAL(10,5)))", new ArrayType(createDecimalType(10, 5)), ImmutableList.of(
+                decimal("1.00000", createDecimalType(10, 5)),
+                decimal("2.00000", createDecimalType(10, 5)),
+                decimal("3.00000", createDecimalType(10, 5))));
         assertFunction(
                 "CAST(CAST(ARRAY [123456789012345678901234567890.12345678, 1.2] as JSON) AS ARRAY(DECIMAL(38,8)))",
                 new ArrayType(createDecimalType(38, 8)),
-                ImmutableList.of(decimal("123456789012345678901234567890.12345678"), decimal("1.20000000")));
+                ImmutableList.of(
+                        decimal("123456789012345678901234567890.12345678", createDecimalType(38, 8)),
+                        decimal("1.20000000", createDecimalType(38, 8))));
         assertFunction(
                 "CAST(CAST(ARRAY [12345.87654] as JSON) AS ARRAY(DECIMAL(7,2)))",
                 new ArrayType(createDecimalType(7, 2)),
-                ImmutableList.of(decimal("12345.88")));
+                ImmutableList.of(decimal("12345.88", createDecimalType(7, 2))));
         assertInvalidCast("CAST(CAST(ARRAY [12345.12345] as JSON) AS ARRAY(DECIMAL(6,2)))");
     }
 
@@ -375,19 +404,33 @@ public class TestArrayOperators
         assertFunction(
                 "ARRAY [ARRAY[1.0], ARRAY[2.0, 3.0]]",
                 new ArrayType(new ArrayType(createDecimalType(2, 1))),
-                asList(asList(decimal("1.0")), asList(decimal("2.0"), decimal("3.0"))));
+                asList(
+                        asList(decimal("1.0", createDecimalType(2, 1))),
+                        asList(
+                                decimal("2.0", createDecimalType(2, 1)),
+                                decimal("3.0", createDecimalType(2, 1)))));
         assertFunction(
                 "ARRAY[1.0, 2.0, 3.11]",
                 new ArrayType(createDecimalType(3, 2)),
-                asList(decimal("1.00"), decimal("2.00"), decimal("3.11")));
+                asList(
+                        decimal("1.00", createDecimalType(3, 2)),
+                        decimal("2.00", createDecimalType(3, 2)),
+                        decimal("3.11", createDecimalType(3, 2))));
         assertFunction(
                 "ARRAY[1, 2.0, 3.11]",
                 new ArrayType(createDecimalType(12, 2)),
-                asList(decimal("0000000001.00"), decimal("0000000002.00"), decimal("0000000003.11")));
+                asList(
+                        decimal("0000000001.00", createDecimalType(12, 2)),
+                        decimal("0000000002.00", createDecimalType(12, 2)),
+                        decimal("0000000003.11", createDecimalType(12, 2))));
         assertFunction(
                 "ARRAY [ARRAY[1.0], ARRAY[2.0, 123456789123456.789]]",
                 new ArrayType(new ArrayType(createDecimalType(18, 3))),
-                asList(asList(decimal("000000000000001.000")), asList(decimal("000000000000002.000"), decimal("123456789123456.789"))));
+                asList(
+                        asList(decimal("000000000000001.000", createDecimalType(18, 3))),
+                        asList(
+                                decimal("000000000000002.000", createDecimalType(18, 3)),
+                                decimal("123456789123456.789", createDecimalType(18, 3)))));
     }
 
     @Test
@@ -415,11 +458,17 @@ public class TestArrayOperators
         assertFunction(
                 "ARRAY[1.0] || ARRAY [2.0, 3.11]",
                 new ArrayType(createDecimalType(3, 2)),
-                ImmutableList.of(decimal("1.00"), decimal("2.00"), decimal("3.11")));
+                ImmutableList.of(
+                        decimal("1.00", createDecimalType(3, 2)),
+                        decimal("2.00", createDecimalType(3, 2)),
+                        decimal("3.11", createDecimalType(3, 2))));
         assertFunction(
                 "ARRAY[1.0] || ARRAY [2.0] || ARRAY [123456789123456.789]",
                 new ArrayType(createDecimalType(18, 3)),
-                ImmutableList.of(decimal("000000000000001.000"), decimal("000000000000002.000"), decimal("123456789123456.789")));
+                ImmutableList.of(
+                        decimal("000000000000001.000", createDecimalType(18, 3)),
+                        decimal("000000000000002.000", createDecimalType(18, 3)),
+                        decimal("123456789123456.789", createDecimalType(18, 3))));
 
         // Tests for concatenating multiple arrays
         List<Object> nullList = Collections.nCopies(2, null);
@@ -470,11 +519,17 @@ public class TestArrayOperators
         assertFunction(
                 "ARRAY [2.0, 3.11] || 1.0",
                 new ArrayType(createDecimalType(3, 2)),
-                asList(decimal("2.00"), decimal("3.11"), decimal("1.00")));
+                asList(
+                        decimal("2.00", createDecimalType(3, 2)),
+                        decimal("3.11", createDecimalType(3, 2)),
+                        decimal("1.00", createDecimalType(3, 2))));
         assertFunction(
                 "ARRAY[1.0] || 2.0 || 123456789123456.789",
                 new ArrayType(createDecimalType(18, 3)),
-                asList(decimal("000000000000001.000"), decimal("000000000000002.000"), decimal("123456789123456.789")));
+                asList(
+                        decimal("000000000000001.000", createDecimalType(18, 3)),
+                        decimal("000000000000002.000", createDecimalType(18, 3)),
+                        decimal("123456789123456.789", createDecimalType(18, 3))));
 
         assertThatThrownBy(() -> assertFunction("ARRAY [ARRAY[1]] || ARRAY ['x']", new ArrayType(new ArrayType(INTEGER)), null))
                 .isInstanceOf(TrinoException.class)
@@ -622,10 +677,10 @@ public class TestArrayOperators
         assertFunction("ARRAY_MIN(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '2222-05-10 12:34:56.123456789'])",
                 createTimestampType(9),
                 timestamp(9, "2020-05-10 12:34:56.123456789"));
-        assertDecimalFunction("ARRAY_MIN(ARRAY [2.1, 2.2, 2.3])", decimal("2.1"));
-        assertDecimalFunction("ARRAY_MIN(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223])", decimal("2.111111222111111114111"));
-        assertDecimalFunction("ARRAY_MIN(ARRAY [1.9, 2, 2.3])", decimal("0000000001.9"));
-        assertDecimalFunction("ARRAY_MIN(ARRAY [2.22222222222222222, 2.3])", decimal("2.22222222222222222"));
+        assertDecimalFunction("ARRAY_MIN(ARRAY [2.1, 2.2, 2.3])", decimal("2.1", createDecimalType(2, 1)));
+        assertDecimalFunction("ARRAY_MIN(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223])", decimal("2.111111222111111114111", createDecimalType(22, 21)));
+        assertDecimalFunction("ARRAY_MIN(ARRAY [1.9, 2, 2.3])", decimal("0000000001.9", createDecimalType(11, 1)));
+        assertDecimalFunction("ARRAY_MIN(ARRAY [2.22222222222222222, 2.3])", decimal("2.22222222222222222", createDecimalType(18, 17)));
 
         assertFunction("ARRAY_MIN(ARRAY [ROW(NaN()), ROW(2), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(2.0));
         assertFunction("ARRAY_MIN(ARRAY [ROW(2), ROW(NaN()), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(2.0));
@@ -698,10 +753,10 @@ public class TestArrayOperators
         assertFunction("ARRAY_MAX(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'])",
                 createTimestampType(9),
                 timestamp(9, "2020-05-10 12:34:56.123456789"));
-        assertDecimalFunction("ARRAY_MAX(ARRAY [2.1, 2.2, 2.3])", decimal("2.3"));
-        assertDecimalFunction("ARRAY_MAX(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223])", decimal("2.222222222222223000000"));
-        assertDecimalFunction("ARRAY_MAX(ARRAY [1.9, 2, 2.3])", decimal("0000000002.3"));
-        assertDecimalFunction("ARRAY_MAX(ARRAY [2.22222222222222222, 2.3])", decimal("2.30000000000000000"));
+        assertDecimalFunction("ARRAY_MAX(ARRAY [2.1, 2.2, 2.3])", decimal("2.3", createDecimalType(2, 1)));
+        assertDecimalFunction("ARRAY_MAX(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223])", decimal("2.222222222222223000000", createDecimalType(22, 21)));
+        assertDecimalFunction("ARRAY_MAX(ARRAY [1.9, 2, 2.3])", decimal("0000000002.3", createDecimalType(11, 1)));
+        assertDecimalFunction("ARRAY_MAX(ARRAY [2.22222222222222222, 2.3])", decimal("2.30000000000000000", createDecimalType(18, 17)));
 
         assertFunction("ARRAY_MAX(ARRAY [ROW(NaN()), ROW(2), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(3.0));
         assertFunction("ARRAY_MAX(ARRAY [ROW(2), ROW(NaN()), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(3.0));
@@ -802,10 +857,10 @@ public class TestArrayOperators
         assertFunction("ARRAY [infinity()][1]", DOUBLE, POSITIVE_INFINITY);
         assertFunction("ARRAY [-infinity()][1]", DOUBLE, NEGATIVE_INFINITY);
         assertFunction("ARRAY [sqrt(-1)][1]", DOUBLE, NaN);
-        assertDecimalFunction("ARRAY [2.1, 2.2, 2.3][3]", decimal("2.3"));
-        assertDecimalFunction("ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223][3]", decimal("2.222222222222223000000"));
-        assertDecimalFunction("ARRAY [1.9, 2, 2.3][3]", decimal("0000000002.3"));
-        assertDecimalFunction("ARRAY [2.22222222222222222, 2.3][1]", decimal("2.22222222222222222"));
+        assertDecimalFunction("ARRAY [2.1, 2.2, 2.3][3]", decimal("2.3", createDecimalType(2, 1)));
+        assertDecimalFunction("ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223][3]", decimal("2.222222222222223000000", createDecimalType(22, 21)));
+        assertDecimalFunction("ARRAY [1.9, 2, 2.3][3]", decimal("0000000002.3", createDecimalType(11, 1)));
+        assertDecimalFunction("ARRAY [2.22222222222222222, 2.3][1]", decimal("2.22222222222222222", createDecimalType(18, 17)));
     }
 
     @Test
@@ -883,10 +938,10 @@ public class TestArrayOperators
                 "ELEMENT_AT(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], 2)",
                 createTimestampType(9),
                 timestamp(9, "1111-05-10 12:34:56.123456789"));
-        assertDecimalFunction("ELEMENT_AT(ARRAY [2.1, 2.2, 2.3], 3)", decimal("2.3"));
-        assertDecimalFunction("ELEMENT_AT(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223], 3)", decimal("2.222222222222223000000"));
-        assertDecimalFunction("ELEMENT_AT(ARRAY [1.9, 2, 2.3], -1)", decimal("0000000002.3"));
-        assertDecimalFunction("ELEMENT_AT(ARRAY [2.22222222222222222, 2.3], -2)", decimal("2.22222222222222222"));
+        assertDecimalFunction("ELEMENT_AT(ARRAY [2.1, 2.2, 2.3], 3)", decimal("2.3", createDecimalType(2, 1)));
+        assertDecimalFunction("ELEMENT_AT(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223], 3)", decimal("2.222222222222223000000", createDecimalType(22, 21)));
+        assertDecimalFunction("ELEMENT_AT(ARRAY [1.9, 2, 2.3], -1)", decimal("0000000002.3", createDecimalType(11, 1)));
+        assertDecimalFunction("ELEMENT_AT(ARRAY [2.22222222222222222, 2.3], -2)", decimal("2.22222222222222222", createDecimalType(18, 17)));
     }
 
     @Test
@@ -905,11 +960,17 @@ public class TestArrayOperators
         assertFunction(
                 "ARRAY_SORT(ARRAY [2.3, 2.1, 2.2])",
                 new ArrayType(createDecimalType(2, 1)),
-                ImmutableList.of(decimal("2.1"), decimal("2.2"), decimal("2.3")));
+                ImmutableList.of(
+                        decimal("2.1", createDecimalType(2, 1)),
+                        decimal("2.2", createDecimalType(2, 1)),
+                        decimal("2.3", createDecimalType(2, 1))));
         assertFunction(
                 "ARRAY_SORT(ARRAY [2, 1.900, 2.330])",
                 new ArrayType(createDecimalType(13, 3)),
-                ImmutableList.of(decimal("0000000001.900"), decimal("0000000002.000"), decimal("0000000002.330")));
+                ImmutableList.of(
+                        decimal("0000000001.900", createDecimalType(13, 3)),
+                        decimal("0000000002.000", createDecimalType(13, 3)),
+                        decimal("0000000002.330", createDecimalType(13, 3))));
         assertFunction("ARRAY_SORT(ARRAY['z', 'f', 's', 'd', 'g'])", new ArrayType(createVarcharType(1)), ImmutableList.of("d", "f", "g", "s", "z"));
         assertFunction("ARRAY_SORT(ARRAY[TRUE, FALSE])", new ArrayType(BOOLEAN), ImmutableList.of(false, true));
         assertFunction("ARRAY_SORT(ARRAY[22.1E0, 11.1E0, 1.1E0, 44.1E0])", new ArrayType(DOUBLE), ImmutableList.of(1.1, 11.1, 22.1, 44.1));
@@ -1020,7 +1081,12 @@ public class TestArrayOperators
                         "WHEN x = y THEN 0 " +
                         "ELSE -1 END)",
                 new ArrayType(createDecimalType(2, 1)),
-                asList(null, null, decimal("2.3"), decimal("2.2"), decimal("2.1")));
+                asList(
+                        null,
+                        null,
+                        decimal("2.3", createDecimalType(2, 1)),
+                        decimal("2.2", createDecimalType(2, 1)),
+                        decimal("2.1", createDecimalType(2, 1))));
         assertFunction(
                 "ARRAY_SORT(ARRAY[TIMESTAMP '1111-06-10 12:34:56.123456789', TIMESTAMP '2020-05-10 12:34:56.123456789'], (x, y) -> CASE " +
                         "WHEN month(x) > month(y) THEN 1 " +
@@ -1115,11 +1181,15 @@ public class TestArrayOperators
         assertFunction(
                 "ARRAY_DISTINCT(ARRAY [2.3, 2.3, 2.2])",
                 new ArrayType(createDecimalType(2, 1)),
-                ImmutableList.of(decimal("2.3"), decimal("2.2")));
+                ImmutableList.of(
+                        decimal("2.3", createDecimalType(2, 1)),
+                        decimal("2.2", createDecimalType(2, 1))));
         assertFunction(
                 "ARRAY_DISTINCT(ARRAY [2.330, 1.900, 2.330])",
                 new ArrayType(createDecimalType(4, 3)),
-                ImmutableList.of(decimal("2.330"), decimal("1.900")));
+                ImmutableList.of(
+                        decimal("2.330", createDecimalType(4, 3)),
+                        decimal("1.900", createDecimalType(4, 3))));
 
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_DISTINCT(ARRAY[2, 3, 4, 1, 2])");
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_DISTINCT(ARRAY[CAST(5 AS BIGINT), NULL, CAST(12 AS BIGINT), NULL])");
@@ -1142,8 +1212,12 @@ public class TestArrayOperators
         assertFunction("SLICE(ARRAY [1, 2, 3, 4], -5, 5)", new ArrayType(INTEGER), ImmutableList.of());
         assertFunction("SLICE(ARRAY [1, 2, 3, 4], -6, 5)", new ArrayType(INTEGER), ImmutableList.of());
         assertFunction("SLICE(ARRAY [ARRAY [1], ARRAY [2, 3], ARRAY [4, 5, 6]], 1, 2)", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1), ImmutableList.of(2, 3)));
-        assertFunction("SLICE(ARRAY [2.3, 2.3, 2.2], 2, 3)", new ArrayType(createDecimalType(2, 1)), ImmutableList.of(decimal("2.3"), decimal("2.2")));
-        assertFunction("SLICE(ARRAY [2.330, 1.900, 2.330], 1, 2)", new ArrayType(createDecimalType(4, 3)), ImmutableList.of(decimal("2.330"), decimal("1.900")));
+        assertFunction("SLICE(ARRAY [2.3, 2.3, 2.2], 2, 3)", new ArrayType(createDecimalType(2, 1)), ImmutableList.of(
+                decimal("2.3", createDecimalType(2, 1)),
+                decimal("2.2", createDecimalType(2, 1))));
+        assertFunction("SLICE(ARRAY [2.330, 1.900, 2.330], 1, 2)", new ArrayType(createDecimalType(4, 3)), ImmutableList.of(
+                decimal("2.330", createDecimalType(4, 3)),
+                decimal("1.900", createDecimalType(4, 3))));
 
         assertInvalidFunction("SLICE(ARRAY [1, 2, 3, 4], 1, -1)", INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("SLICE(ARRAY [1, 2, 3, 4], 0, 1)", INVALID_FUNCTION_ARGUMENT);
@@ -1231,11 +1305,17 @@ public class TestArrayOperators
         assertFunction(
                 "ARRAY_INTERSECT(ARRAY [2.3, 2.3, 2.2], ARRAY[2.2, 2.3])",
                 new ArrayType(createDecimalType(2, 1)),
-                ImmutableList.of(decimal("2.3"), decimal("2.2")));
+                ImmutableList.of(
+                        decimal("2.3", createDecimalType(2, 1)),
+                        decimal("2.2", createDecimalType(2, 1))));
         assertFunction("ARRAY_INTERSECT(ARRAY [2.330, 1.900, 2.330], ARRAY [2.3300, 1.9000])", new ArrayType(createDecimalType(5, 4)),
-                ImmutableList.of(decimal("2.3300"), decimal("1.9000")));
+                ImmutableList.of(
+                        decimal("2.3300", createDecimalType(5, 4)),
+                        decimal("1.9000", createDecimalType(5, 4))));
         assertFunction("ARRAY_INTERSECT(ARRAY [2, 3], ARRAY[2.0, 3.0])", new ArrayType(createDecimalType(11, 1)),
-                ImmutableList.of(decimal("00000000002.0"), decimal("00000000003.0")));
+                ImmutableList.of(
+                        decimal("00000000002.0", createDecimalType(11, 1)),
+                        decimal("00000000003.0", createDecimalType(11, 1))));
         assertFunction("ARRAY_INTERSECT(ARRAY [true], ARRAY [true])", new ArrayType(BOOLEAN), ImmutableList.of(true));
         assertFunction("ARRAY_INTERSECT(ARRAY [true, false], ARRAY [true])", new ArrayType(BOOLEAN), ImmutableList.of(true));
         assertFunction("ARRAY_INTERSECT(ARRAY [true, true], ARRAY [true, true])", new ArrayType(BOOLEAN), ImmutableList.of(true));
@@ -1599,19 +1679,29 @@ public class TestArrayOperators
         assertFunction(
                 "ARRAY_REMOVE(ARRAY [1.0, 2.0, 3.0], 2.0)",
                 new ArrayType(createDecimalType(2, 1)),
-                ImmutableList.of(decimal("1.0"), decimal("3.0")));
+                ImmutableList.of(
+                        decimal("1.0", createDecimalType(2, 1)),
+                        decimal("3.0", createDecimalType(2, 1))));
         assertFunction(
                 "ARRAY_REMOVE(ARRAY [1.0, 2.0, 3.0], 4.0)",
                 new ArrayType(createDecimalType(2, 1)),
-                ImmutableList.of(decimal("1.0"), decimal("2.0"), decimal("3.0")));
+                ImmutableList.of(
+                        decimal("1.0", createDecimalType(2, 1)),
+                        decimal("2.0", createDecimalType(2, 1)),
+                        decimal("3.0", createDecimalType(2, 1))));
         assertFunction(
                 "ARRAY_REMOVE(ARRAY [1234567890.1234567890, 9876543210.9876543210, 123123123456.6549876543], 1234567890.1234567890)",
                 new ArrayType(createDecimalType(22, 10)),
-                ImmutableList.of(decimal("9876543210.9876543210"), decimal("123123123456.6549876543")));
+                ImmutableList.of(
+                        decimal("9876543210.9876543210", createDecimalType(22, 10)),
+                        decimal("123123123456.6549876543", createDecimalType(22, 10))));
         assertFunction(
                 "ARRAY_REMOVE(ARRAY [1234567890.1234567890, 9876543210.9876543210, 123123123456.6549876543], 4.0)",
                 new ArrayType(createDecimalType(22, 10)),
-                ImmutableList.of(decimal("1234567890.1234567890"), decimal("9876543210.9876543210"), decimal("123123123456.6549876543")));
+                ImmutableList.of(
+                        decimal("1234567890.1234567890", createDecimalType(22, 10)),
+                        decimal("9876543210.9876543210", createDecimalType(22, 10)),
+                        decimal("123123123456.6549876543", createDecimalType(22, 10))));
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_REMOVE(ARRAY ['foo', 'bar', 'baz'], 'foo')");
 
         assertInvalidFunction("ARRAY_REMOVE(ARRAY [ARRAY[CAST(null AS BIGINT)]], ARRAY[CAST(1 AS BIGINT)])", NOT_SUPPORTED);
