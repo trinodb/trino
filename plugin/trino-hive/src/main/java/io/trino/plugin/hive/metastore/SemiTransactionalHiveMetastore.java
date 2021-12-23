@@ -1375,15 +1375,37 @@ public class SemiTransactionalHiveMetastore
             return;
         }
 
-        commit();
+        try {
+            commit();
+        }
+        catch (Throwable commitFailure) {
+            try {
+                postCommitCleanup(identity, transaction, false);
+            }
+            catch (Throwable cleanupFailure) {
+                if (cleanupFailure != commitFailure) {
+                    commitFailure.addSuppressed(cleanupFailure);
+                }
+            }
+            throw commitFailure;
+        }
+        postCommitCleanup(identity, transaction, true);
+    }
 
+    private void postCommitCleanup(HiveIdentity identity, Optional<HiveTransaction> transaction, boolean commit)
+    {
         clearCurrentTransaction();
         long transactionId = transaction.get().getTransactionId();
         ScheduledFuture<?> heartbeatTask = transaction.get().getHeartbeatTask();
         heartbeatTask.cancel(true);
 
-        // Any failure around aborted transactions, etc would be handled by Hive Metastore commit and TrinoException will be thrown
-        delegate.commitTransaction(identity, transactionId);
+        if (commit) {
+            // Any failure around aborted transactions, etc would be handled by Hive Metastore commit and TrinoException will be thrown
+            delegate.commitTransaction(identity, transactionId);
+        }
+        else {
+            delegate.abortTransaction(identity, transactionId);
+        }
     }
 
     @GuardedBy("this")

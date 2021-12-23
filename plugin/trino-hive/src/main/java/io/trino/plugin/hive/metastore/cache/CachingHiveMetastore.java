@@ -947,6 +947,12 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public void abortTransaction(HiveIdentity identity, long transactionId)
+    {
+        delegate.abortTransaction(identity, transactionId);
+    }
+
+    @Override
     public void sendTransactionHeartbeat(HiveIdentity identity, long transactionId)
     {
         delegate.sendTransactionHeartbeat(identity, transactionId);

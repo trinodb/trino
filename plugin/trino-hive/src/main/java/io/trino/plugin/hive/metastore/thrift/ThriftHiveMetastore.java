@@ -1616,6 +1616,27 @@ public class ThriftHiveMetastore
     }
 
     @Override
+    public void abortTransaction(HiveIdentity identity, long transactionId)
+    {
+        try {
+            retry()
+                    .stopOnIllegalExceptions()
+                    .run("abortTransaction", stats.getAbortTransaction().wrap(() -> {
+                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient(identity)) {
+                            metastoreClient.abortTransaction(transactionId);
+                        }
+                        return null;
+                    }));
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
     public void sendTransactionHeartbeat(HiveIdentity identity, long transactionId)
     {
         try {
