@@ -845,12 +845,24 @@ public abstract class AbstractTestParquetReader
             int scale = ThreadLocalRandom.current().nextInt(precision);
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT32 test (DECIMAL(%d, %d)); }", precision, scale));
             ContiguousSet<Integer> intValues = intsBetween(-1_000, 1_000);
-            ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
-            for (Integer value : intValues) {
-                expectedValues.add(SqlDecimal.of(value, precision, scale));
-            }
-            tester.testRoundTrip(javaIntObjectInspector, intValues, expectedValues.build(), createDecimalType(precision, scale), Optional.of(parquetSchema));
-            tester.testRoundTrip(javaIntObjectInspector, intValues, expectedValues.build(), createDecimalType(MAX_PRECISION, scale), Optional.of(parquetSchema));
+            int expectedPrecision = precision;
+            tester.testRoundTrip(
+                    javaIntObjectInspector,
+                    intValues,
+                    intValues.stream()
+                            .map(value -> SqlDecimal.of(value, expectedPrecision, scale))
+                            .collect(Collectors.toList()),
+                    createDecimalType(precision, scale),
+                    Optional.of(parquetSchema));
+
+            tester.testRoundTrip(
+                    javaIntObjectInspector,
+                    intValues,
+                    intValues.stream()
+                            .map(value -> SqlDecimal.of(value, MAX_PRECISION, scale))
+                            .collect(Collectors.toList()),
+                    createDecimalType(MAX_PRECISION, scale),
+                    Optional.of(parquetSchema));
         }
     }
 
@@ -862,12 +874,24 @@ public abstract class AbstractTestParquetReader
             int scale = ThreadLocalRandom.current().nextInt(precision);
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", precision, scale));
             ContiguousSet<Long> longValues = longsBetween(-1_000, 1_000);
-            ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
-            for (Long value : longValues) {
-                expectedValues.add(SqlDecimal.of(value, precision, scale));
-            }
-            tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), createDecimalType(precision, scale), Optional.of(parquetSchema));
-            tester.testRoundTrip(javaLongObjectInspector, longValues, expectedValues.build(), createDecimalType(MAX_PRECISION, scale), Optional.of(parquetSchema));
+            int expectedPrecision = precision;
+            tester.testRoundTrip(
+                    javaLongObjectInspector,
+                    longValues,
+                    longValues.stream()
+                            .map(value -> SqlDecimal.of(value, expectedPrecision, scale))
+                            .collect(Collectors.toList()),
+                    createDecimalType(precision, scale),
+                    Optional.of(parquetSchema));
+
+            tester.testRoundTrip(
+                    javaLongObjectInspector,
+                    longValues,
+                    longValues.stream()
+                            .map(value -> SqlDecimal.of(value, MAX_PRECISION, scale))
+                            .collect(Collectors.toList()),
+                    createDecimalType(MAX_PRECISION, scale),
+                    Optional.of(parquetSchema));
         }
     }
 
@@ -886,6 +910,7 @@ public abstract class AbstractTestParquetReader
         for (int precision = 1; precision < MAX_PRECISION; precision++) {
             int scale = ThreadLocalRandom.current().nextInt(precision);
             ImmutableList.Builder<SqlDecimal> expectedValues = new ImmutableList.Builder<>();
+            ImmutableList.Builder<SqlDecimal> expectedValuesMaxPrecision = new ImmutableList.Builder<>();
             ImmutableList.Builder<HiveDecimal> writeValues = new ImmutableList.Builder<>();
 
             BigInteger start = BigDecimal.valueOf(Math.pow(10, precision - 1)).negate().toBigInteger();
@@ -894,6 +919,7 @@ public abstract class AbstractTestParquetReader
             for (BigInteger value = start; value.compareTo(end) < 0; value = value.add(step)) {
                 writeValues.add(HiveDecimal.create(value, scale));
                 expectedValues.add(new SqlDecimal(value, precision, scale));
+                expectedValuesMaxPrecision.add(new SqlDecimal(value, MAX_PRECISION, scale));
             }
             tester.testRoundTrip(new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(precision, scale)),
                     writeValues.build(),
@@ -901,7 +927,7 @@ public abstract class AbstractTestParquetReader
                     createDecimalType(precision, scale));
             tester.testRoundTrip(new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(precision, scale)),
                     writeValues.build(),
-                    expectedValues.build(),
+                    expectedValuesMaxPrecision.build(),
                     createDecimalType(MAX_PRECISION, scale));
         }
     }
