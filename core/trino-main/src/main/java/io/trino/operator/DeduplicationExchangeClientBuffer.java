@@ -41,6 +41,7 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static io.trino.operator.RetryPolicy.QUERY;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -264,6 +265,11 @@ public class DeduplicationExchangeClientBuffer
                     Throwable failure = null;
                     for (Throwable taskFailure : failures) {
                         if (failure == null) {
+                            failure = taskFailure;
+                        }
+                        else if (failure instanceof TrinoException && ((TrinoException) failure).getErrorCode().equals(REMOTE_TASK_FAILED.toErrorCode()) && failure != taskFailure) {
+                            // prefer to not prapagate marker REMOTE_TASK_FAILED failure externally
+                            taskFailure.addSuppressed(failure);
                             failure = taskFailure;
                         }
                         else if (failure != taskFailure) {

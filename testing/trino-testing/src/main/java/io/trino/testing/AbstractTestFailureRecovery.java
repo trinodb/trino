@@ -364,7 +364,7 @@ public abstract class AbstractTestFailureRecovery
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(boundaryCoordinatorStage())
                 // original exception message is lost sometimes
-                .failsAlways(failure -> failure.hasMessageFindingMatch("\\Q" + FAILURE_INJECTION_MESSAGE + "\\E|Remote task failed.*"));
+                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
 
         assertThatQuery(query)
                 .withSession(session)
