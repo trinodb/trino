@@ -23,6 +23,7 @@ import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
@@ -171,6 +172,8 @@ import static java.util.Objects.requireNonNull;
 public final class MetadataManager
         implements Metadata
 {
+    private static final Logger log = Logger.get(MetadataManager.class);
+
     @VisibleForTesting
     public static final int MAX_TABLE_REDIRECTIONS = 10;
 
@@ -2608,8 +2611,12 @@ public final class MetadataManager
         {
             checkState(!finished, "Query is already finished");
             if (catalogs.putIfAbsent(catalogMetadata.getCatalogName(), catalogMetadata) == null) {
+                log.warn(new RuntimeException(), "AAAAAAAAAAA registering catalog " + catalogMetadata.getCatalogName() + " (" + catalogMetadata + ") for query " + session.getQueryId() + " in " + this);
                 ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
                 catalogMetadata.getMetadata().beginQuery(connectorSession);
+            }
+            else {
+                log.info("AAAAAAAAAAAA catalog " + catalogMetadata.getCatalogName() + " already registered for query " + session.getQueryId());
             }
         }
 
