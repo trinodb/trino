@@ -312,6 +312,11 @@ public class HiveMetastoreClosure
         delegate.commitTransaction(identity, transactionId);
     }
 
+    public void abortTransaction(HiveIdentity identity, long transactionId)
+    {
+        delegate.abortTransaction(identity, transactionId);
+    }
+
     public void sendTransactionHeartbeat(HiveIdentity identity, long transactionId)
     {
         delegate.sendTransactionHeartbeat(identity, transactionId);

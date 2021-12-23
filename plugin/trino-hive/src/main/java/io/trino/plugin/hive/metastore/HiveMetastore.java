@@ -155,6 +155,11 @@ public interface HiveMetastore
         throw new UnsupportedOperationException();
     }
 
+    default void abortTransaction(HiveIdentity identity, long transactionId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     default void sendTransactionHeartbeat(HiveIdentity identity, long transactionId)
     {
         throw new UnsupportedOperationException();
