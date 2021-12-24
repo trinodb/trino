@@ -46,9 +46,9 @@
  ln | double | double | scalar | true | Natural logarithm |
  log10 | double | double | scalar | true | Logarithm to base 10 |
  log2 | double | double | scalar | true | Logarithm to base 2 |
- max | E | E | aggregate | true | Returns the maximum value of the argument |
+ max | t | t | aggregate | true | Returns the maximum value of the argument |
  max_by | V | V, K | aggregate | true | Returns the value of the first argument, associated with the maximum value of the second argument |
- min | E | E | aggregate | true | Returns the minimum value of the argument |
+ min | t | t | aggregate | true | Returns the minimum value of the argument |
  min_by | V | V, K | aggregate | true | Returns the value of the first argument, associated with the minimum value of the second argument |
  mod | bigint | bigint, bigint | scalar | true | Remainder of given quotient |
  mod | double | double, double | scalar | true | Remainder of given quotient |

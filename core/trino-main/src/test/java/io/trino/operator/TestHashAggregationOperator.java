@@ -634,7 +634,8 @@ public class TestHashAggregationOperator
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, hashChannels, types);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(10, 100, 0, 100, 0)
-                .addSequencePage(10, 100, 0, 200, 0)
+                // current accumulator allows 1024 values without using revocable memory, so add enough values to cause revocable memory usage
+                .addSequencePage(2_000, 100, 0, 200, 0)
                 .addSequencePage(10, 100, 0, 300, 0)
                 .build();
 

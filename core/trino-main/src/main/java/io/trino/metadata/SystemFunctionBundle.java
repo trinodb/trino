@@ -56,11 +56,13 @@ import io.trino.operator.aggregation.LegacyApproximateRealPercentileAggregations
 import io.trino.operator.aggregation.LongSumAggregation;
 import io.trino.operator.aggregation.MapAggregationFunction;
 import io.trino.operator.aggregation.MapUnionAggregation;
+import io.trino.operator.aggregation.MaxAggregationFunction;
 import io.trino.operator.aggregation.MaxDataSizeForStats;
 import io.trino.operator.aggregation.MaxNAggregationFunction;
 import io.trino.operator.aggregation.MergeHyperLogLogAggregation;
 import io.trino.operator.aggregation.MergeQuantileDigestFunction;
 import io.trino.operator.aggregation.MergeTDigestAggregation;
+import io.trino.operator.aggregation.MinAggregationFunction;
 import io.trino.operator.aggregation.MinNAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.BigintQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.DoubleQuantileDigestAggregationFunction;
@@ -263,8 +265,6 @@ import io.trino.type.setdigest.SetDigestOperators;
 
 import static io.trino.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
 import static io.trino.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
-import static io.trino.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
-import static io.trino.operator.aggregation.MinAggregationFunction.MIN_AGGREGATION;
 import static io.trino.operator.aggregation.RealAverageAggregation.REAL_AVERAGE_AGGREGATION;
 import static io.trino.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG;
 import static io.trino.operator.aggregation.arrayagg.ArrayAggregationFunction.ARRAY_AGG;
@@ -541,7 +541,9 @@ public final class SystemFunctionBundle
                 .aggregates(ArbitraryAggregationFunction.class)
                 .functions(GREATEST, LEAST)
                 .functions(MAX_BY, MIN_BY, new MaxByNAggregationFunction(blockTypeOperators), new MinByNAggregationFunction(blockTypeOperators))
-                .functions(MAX_AGGREGATION, MIN_AGGREGATION, new MaxNAggregationFunction(blockTypeOperators), new MinNAggregationFunction(blockTypeOperators))
+                .aggregates(MinAggregationFunction.class)
+                .aggregates(MaxAggregationFunction.class)
+                .functions(new MaxNAggregationFunction(blockTypeOperators), new MinNAggregationFunction(blockTypeOperators))
                 .aggregates(CountColumn.class)
                 .functions(JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_TO_ROW_CAST)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
