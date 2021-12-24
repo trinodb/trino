@@ -23,6 +23,7 @@ import io.trino.operator.annotations.FunctionsParserHelper;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.FunctionDependency;
 import io.trino.spi.function.InputFunction;
@@ -39,7 +40,9 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -65,11 +68,11 @@ public final class AggregationFromAnnotationsParser
         ImmutableList.Builder<ParametricAggregation> functions = ImmutableList.builder();
 
         // There must be a single state class and combine function
-        Class<? extends AccumulatorState> stateClass = getStateClass(aggregationDefinition);
-        Optional<Method> combineFunction = getCombineFunction(aggregationDefinition, stateClass);
+        AccumulatorStateDetails stateDetails = getStateDetails(aggregationDefinition);
+        Optional<Method> combineFunction = getCombineFunction(aggregationDefinition, stateDetails);
 
         // Each output function defines a new aggregation function
-        for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
+        for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateDetails)) {
             AggregationHeader header = parseHeader(aggregationDefinition, outputFunction);
             if (header.isDecomposable()) {
                 checkArgument(combineFunction.isPresent(), "Decomposable method %s does not have a combine method", header.getName());
@@ -81,7 +84,7 @@ public final class AggregationFromAnnotationsParser
             // Input functions can have either an exact signature, or generic/calculate signature
             List<AggregationImplementation> exactImplementations = new ArrayList<>();
             List<AggregationImplementation> nonExactImplementations = new ArrayList<>();
-            for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
+            for (Method inputFunction : getInputFunctions(aggregationDefinition, stateDetails)) {
                 Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, inputFunction);
                 AggregationImplementation implementation = parseImplementation(
                         aggregationDefinition,
@@ -99,9 +102,9 @@ public final class AggregationFromAnnotationsParser
             }
 
             // register a set functions for the canonical name, and each alias
-            functions.addAll(buildFunctions(header.getName(), header, stateClass, exactImplementations, nonExactImplementations));
+            functions.addAll(buildFunctions(header.getName(), header, stateDetails, exactImplementations, nonExactImplementations));
             for (String alias : getAliases(aggregationDefinition.getAnnotation(AggregationFunction.class), outputFunction)) {
-                functions.addAll(buildFunctions(alias, header, stateClass, exactImplementations, nonExactImplementations));
+                functions.addAll(buildFunctions(alias, header, stateDetails, exactImplementations, nonExactImplementations));
             }
         }
 
@@ -111,7 +114,7 @@ public final class AggregationFromAnnotationsParser
     private static List<ParametricAggregation> buildFunctions(
             String name,
             AggregationHeader header,
-            Class<? extends AccumulatorState> stateClass,
+            AccumulatorStateDetails stateDetails,
             List<AggregationImplementation> exactImplementations,
             List<AggregationImplementation> nonExactImplementations)
     {
@@ -122,7 +125,7 @@ public final class AggregationFromAnnotationsParser
             functions.add(new ParametricAggregation(
                     exactImplementation.getSignature().withName(name),
                     header,
-                    stateClass,
+                    stateDetails,
                     ParametricImplementationsGroup.of(exactImplementation).withAlias(name)));
         }
 
@@ -134,7 +137,7 @@ public final class AggregationFromAnnotationsParser
             functions.add(new ParametricAggregation(
                     implementations.getSignature().withName(name),
                     header,
-                    stateClass,
+                    stateDetails,
                     implementations.withAlias(name)));
         }
 
@@ -180,27 +183,27 @@ public final class AggregationFromAnnotationsParser
         return ImmutableList.copyOf(aggregationAnnotation.alias());
     }
 
-    private static Optional<Method> getCombineFunction(Class<?> clazz, Class<?> stateClass)
+    private static Optional<Method> getCombineFunction(Class<?> clazz, AccumulatorStateDetails stateDetails)
     {
         List<Method> combineFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, CombineFunction.class);
         for (Method combineFunction : combineFunctions) {
             // verify parameter types
             List<Class<?>> parameterTypes = getNonDependencyParameterTypes(combineFunction);
-            List<Class<?>> expectedParameterTypes = nCopies(2, stateClass);
+            List<Class<?>> expectedParameterTypes = nCopies(2, stateDetails.getStateClass());
             checkArgument(parameterTypes.equals(expectedParameterTypes), "Expected combine function non-dependency parameters to be %s: %s", expectedParameterTypes, combineFunction);
         }
-        checkArgument(combineFunctions.size() <= 1, "There must be only one @CombineFunction in class %s for the @AggregationState %s", clazz.toGenericString(), stateClass.toGenericString());
+        checkArgument(combineFunctions.size() <= 1, "There must be only one @CombineFunction in class %s for the @AggregationState %s", clazz.toGenericString(), stateDetails.getStateClass().toGenericString());
         return combineFunctions.stream().findFirst();
     }
 
-    private static List<Method> getOutputFunctions(Class<?> clazz, Class<?> stateClass)
+    private static List<Method> getOutputFunctions(Class<?> clazz, AccumulatorStateDetails stateDetails)
     {
         List<Method> outputFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, OutputFunction.class);
         for (Method outputFunction : outputFunctions) {
             // verify parameter types
             List<Class<?>> parameterTypes = getNonDependencyParameterTypes(outputFunction);
             List<Class<?>> expectedParameterTypes = ImmutableList.<Class<?>>builder()
-                    .add(stateClass)
+                    .add(stateDetails.getStateClass())
                     .add(BlockBuilder.class)
                     .build();
             checkArgument(parameterTypes.equals(expectedParameterTypes),
@@ -212,15 +215,15 @@ public final class AggregationFromAnnotationsParser
         return outputFunctions;
     }
 
-    private static List<Method> getInputFunctions(Class<?> clazz, Class<?> stateClass)
+    private static List<Method> getInputFunctions(Class<?> clazz, AccumulatorStateDetails stateDetails)
     {
         List<Method> inputFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class);
         for (Method inputFunction : inputFunctions) {
             // verify state parameter is first non-dependency parameter
             Class<?> actualStateType = getNonDependencyParameterTypes(inputFunction).get(0);
-            checkArgument(stateClass.equals(actualStateType),
+            checkArgument(stateDetails.getStateClass().equals(actualStateType),
                     "Expected input function non-dependency parameters to begin with state type %s: %s",
-                    stateClass.getSimpleName(),
+                    stateDetails.getStateClass().getSimpleName(),
                     inputFunction);
         }
 
@@ -255,20 +258,69 @@ public final class AggregationFromAnnotationsParser
                 .collect(MoreCollectors.toOptional());
     }
 
-    private static Class<? extends AccumulatorState> getStateClass(Class<?> clazz)
+    private static AccumulatorStateDetails getStateDetails(Class<?> clazz)
     {
-        ImmutableSet.Builder<Class<? extends AccumulatorState>> builder = ImmutableSet.builder();
+        ImmutableSet.Builder<AccumulatorStateDetails> builder = ImmutableSet.builder();
         for (Method inputFunction : FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, InputFunction.class)) {
             checkArgument(inputFunction.getParameterTypes().length > 0, "Input function has no parameters");
-            Class<?> stateClass = AggregationImplementation.Parser.findAggregationStateParamType(inputFunction);
+            int aggregationStateParamIndex = AggregationImplementation.Parser.findAggregationStateParamId(inputFunction);
+            Class<? extends AccumulatorState> stateClass = inputFunction.getParameterTypes()[aggregationStateParamIndex].asSubclass(AccumulatorState.class);
 
-            checkArgument(AccumulatorState.class.isAssignableFrom(stateClass), "stateClass is not a subclass of AccumulatorState");
-            builder.add(stateClass.asSubclass(AccumulatorState.class));
+            Optional<TypeSignature> stateType = Arrays.stream(inputFunction.getParameterAnnotations()[aggregationStateParamIndex])
+                    .filter(AggregationState.class::isInstance)
+                    .map(AggregationState.class::cast)
+                    .findFirst()
+                    .map(AggregationState::value)
+                    .filter(type -> !type.isEmpty())
+                    .map(TypeSignature::new);
+
+            builder.add(new AccumulatorStateDetails(stateClass, stateType));
         }
-        ImmutableSet<Class<? extends AccumulatorState>> stateClasses = builder.build();
+        Set<AccumulatorStateDetails> stateClasses = builder.build();
         checkArgument(!stateClasses.isEmpty(), "No input functions found");
         checkArgument(stateClasses.size() == 1, "There must be exactly one @AccumulatorState in class %s", clazz.toGenericString());
 
         return getOnlyElement(stateClasses);
+    }
+
+    public static class AccumulatorStateDetails
+    {
+        private final Class<? extends AccumulatorState> stateClass;
+        private final Optional<TypeSignature> type;
+
+        public AccumulatorStateDetails(Class<? extends AccumulatorState> stateClass, Optional<TypeSignature> type)
+        {
+            this.stateClass = requireNonNull(stateClass, "stateClass is null");
+            this.type = requireNonNull(type, "type is null");
+        }
+
+        public Class<? extends AccumulatorState> getStateClass()
+        {
+            return stateClass;
+        }
+
+        public Optional<TypeSignature> getStateType()
+        {
+            return type;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            AccumulatorStateDetails that = (AccumulatorStateDetails) o;
+            return Objects.equals(stateClass, that.stateClass) && Objects.equals(type, that.type);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(stateClass, type);
+        }
     }
 }

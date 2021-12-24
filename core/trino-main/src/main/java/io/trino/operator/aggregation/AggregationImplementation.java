@@ -501,11 +501,6 @@ public class AggregationImplementation
             return builder.build();
         }
 
-        public static Class<?> findAggregationStateParamType(Method inputFunction)
-        {
-            return inputFunction.getParameterTypes()[findAggregationStateParamId(inputFunction)];
-        }
-
         public static int findAggregationStateParamId(Method method)
         {
             return findAggregationStateParamId(method, 0);
