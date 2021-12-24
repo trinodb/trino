@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation;
+package io.trino.operator.aggregation.state;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,10 +24,6 @@ import io.trino.array.IntBigArray;
 import io.trino.array.LongBigArray;
 import io.trino.array.ReferenceCountMap;
 import io.trino.array.SliceBigArray;
-import io.trino.operator.aggregation.state.LongState;
-import io.trino.operator.aggregation.state.NullableLongState;
-import io.trino.operator.aggregation.state.StateCompiler;
-import io.trino.operator.aggregation.state.VarianceState;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
@@ -58,6 +54,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestStateCompiler
 {
@@ -79,12 +77,12 @@ public class TestStateCompiler
 
         Block block = builder.build();
 
-        assertEquals(block.isNull(0), false);
+        assertFalse(block.isNull(0));
         assertEquals(BIGINT.getLong(block, 0), state.getValue());
         serializer.deserialize(block, 0, deserializedState);
         assertEquals(deserializedState.getValue(), state.getValue());
 
-        assertEquals(block.isNull(1), true);
+        assertTrue(block.isNull(1));
     }
 
     @Test
@@ -239,7 +237,7 @@ public class TestStateCompiler
         assertEquals(deserializedState.getAnotherBlock().getSlice(1, 0, 9), singleState.getAnotherBlock().getSlice(1, 0, 9));
     }
 
-    private long getComplexStateRetainedSize(TestComplexState state)
+    private static long getComplexStateRetainedSize(TestComplexState state)
     {
         long retainedSize = ClassLayout.parseClass(state.getClass()).instanceSize();
         // reflection is necessary because TestComplexState implementation is generated
