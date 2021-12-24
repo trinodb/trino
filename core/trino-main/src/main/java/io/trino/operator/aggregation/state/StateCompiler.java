@@ -13,6 +13,7 @@
  */
 package io.trino.operator.aggregation.state;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
@@ -128,11 +129,6 @@ public final class StateCompiler
 
     public static Type getSerializedType(Class<?> clazz)
     {
-        return getSerializedType(clazz, ImmutableMap.of());
-    }
-
-    public static Type getSerializedType(Class<?> clazz, Map<String, Type> fieldTypes)
-    {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
         if (metadata != null && metadata.stateSerializerClass() != AccumulatorStateSerializer.class) {
             try {
@@ -144,8 +140,7 @@ public final class StateCompiler
             }
         }
 
-        List<StateField> fields = enumerateFields(clazz, fieldTypes);
-        return getSerializedType(fields);
+        return getSerializedType(enumerateFields(clazz, ImmutableMap.of()));
     }
 
     public static <T extends AccumulatorState> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
@@ -153,7 +148,8 @@ public final class StateCompiler
         return generateStateSerializer(clazz, ImmutableMap.of());
     }
 
-    public static <T extends AccumulatorState> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, Map<String, Type> fieldTypes)
+    @VisibleForTesting
+    static <T extends AccumulatorState> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, Map<String, Type> fieldTypes)
     {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
         if (metadata != null && metadata.stateSerializerClass() != AccumulatorStateSerializer.class) {
@@ -359,7 +355,8 @@ public final class StateCompiler
         return generateStateFactory(clazz, ImmutableMap.of());
     }
 
-    public static <T extends AccumulatorState> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, Map<String, Type> fieldTypes)
+    @VisibleForTesting
+    static <T extends AccumulatorState> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, Map<String, Type> fieldTypes)
     {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
         if (metadata != null && metadata.stateFactoryClass() != AccumulatorStateFactory.class) {
