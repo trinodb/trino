@@ -28,11 +28,17 @@ import io.trino.metadata.Signature;
 import io.trino.metadata.SignatureBinder;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.ParametricImplementationsGroup;
+import io.trino.operator.aggregation.AggregationFromAnnotationsParser.AccumulatorStateDetails;
 import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import io.trino.operator.aggregation.state.InOutStateSerializer;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateFactory;
+import io.trino.spi.function.InOut;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
@@ -43,6 +49,7 @@ import java.util.StringJoiner;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.operator.ParametricFunctionHelpers.bindDependencies;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
+import static io.trino.operator.aggregation.state.StateCompiler.generateInOutStateFactory;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateFactory;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateSerializer;
 import static io.trino.operator.aggregation.state.StateCompiler.getSerializedType;
@@ -55,18 +62,18 @@ public class ParametricAggregation
         extends SqlAggregationFunction
 {
     private final ParametricImplementationsGroup<AggregationImplementation> implementations;
-    private final Class<? extends AccumulatorState> stateClass;
+    private final AccumulatorStateDetails stateDetails;
 
     public ParametricAggregation(
             Signature signature,
             AggregationHeader details,
-            Class<? extends AccumulatorState> stateClass,
+            AccumulatorStateDetails stateDetails,
             ParametricImplementationsGroup<AggregationImplementation> implementations)
     {
         super(
                 createFunctionMetadata(signature, details, implementations.getFunctionNullability()),
-                createAggregationFunctionMetadata(details, stateClass));
-        this.stateClass = requireNonNull(stateClass, "stateClass is null");
+                createAggregationFunctionMetadata(details, stateDetails));
+        this.stateDetails = requireNonNull(stateDetails, "stateDetails is null");
         checkArgument(implementations.getFunctionNullability().isReturnNullable(), "currently aggregates are required to be nullable");
         this.implementations = requireNonNull(implementations, "implementations is null");
     }
@@ -99,14 +106,14 @@ public class ParametricAggregation
         return functionMetadata.build();
     }
 
-    private static AggregationFunctionMetadata createAggregationFunctionMetadata(AggregationHeader details, Class<? extends AccumulatorState> stateClass)
+    private static AggregationFunctionMetadata createAggregationFunctionMetadata(AggregationHeader details, AccumulatorStateDetails stateDetails)
     {
         AggregationFunctionMetadataBuilder builder = AggregationFunctionMetadata.builder();
         if (details.isOrderSensitive()) {
             builder.orderSensitive();
         }
         if (details.isDecomposable()) {
-            builder.intermediateType(getSerializedType(stateClass).getTypeSignature());
+            builder.intermediateType(getSerializedType(stateDetails));
         }
         return builder.build();
     }
@@ -143,7 +150,7 @@ public class ParametricAggregation
         AggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature);
 
         // Build state factory and serializer
-        AccumulatorStateDescriptor<?> accumulatorStateDescriptor = generateAccumulatorStateDescriptor(stateClass);
+        AccumulatorStateDescriptor<?> accumulatorStateDescriptor = generateAccumulatorStateDescriptor(getFunctionMetadata().getSignature(), boundSignature, stateDetails);
 
         // Bind provided dependencies to aggregation method handlers
         FunctionMetadata metadata = getFunctionMetadata();
@@ -175,6 +182,42 @@ public class ParametricAggregation
                 ImmutableList.of(accumulatorStateDescriptor));
     }
 
+    private static AccumulatorStateDescriptor<?> generateAccumulatorStateDescriptor(Signature signature, BoundSignature boundSignature, AccumulatorStateDetails stateDetails)
+    {
+        if (stateDetails.getStateClass().equals(InOut.class)) {
+            return createInOutAccumulatorStateDescriptor(signature, boundSignature, stateDetails);
+        }
+        return generateAccumulatorStateDescriptor(stateDetails.getStateClass());
+    }
+
+    private static AccumulatorStateDescriptor<InOut> createInOutAccumulatorStateDescriptor(Signature signature, BoundSignature boundSignature, AccumulatorStateDetails stateDetails)
+    {
+        Type type = extractInOutType(signature, boundSignature, stateDetails);
+        InOutStateSerializer inOutStateSerializer = new InOutStateSerializer(type);
+        AccumulatorStateFactory<InOut> inOutAccumulatorStateFactory = generateInOutStateFactory(type);
+        return new AccumulatorStateDescriptor<>(
+                InOut.class,
+                inOutStateSerializer,
+                inOutAccumulatorStateFactory);
+    }
+
+    private static Type extractInOutType(Signature signature, BoundSignature boundSignature, AccumulatorStateDetails stateDetails)
+    {
+        TypeSignature inOutType = stateDetails.getStateType().orElseThrow();
+        if (signature.getReturnType().equals(inOutType)) {
+            return boundSignature.getReturnType();
+        }
+        List<TypeSignature> declaredArgumentTypes = signature.getArgumentTypes();
+        List<Type> actualArgumentTypes = boundSignature.getArgumentTypes();
+        for (int i = 0; i < declaredArgumentTypes.size(); i++) {
+            TypeSignature argumentType = declaredArgumentTypes.get(i);
+            if (argumentType.equals(inOutType)) {
+                return actualArgumentTypes.get(i);
+            }
+        }
+        throw new IllegalArgumentException(format("Could not determine type %s from function signature %s", inOutType, signature));
+    }
+
     private static <T extends AccumulatorState> AccumulatorStateDescriptor<T> generateAccumulatorStateDescriptor(Class<T> stateClass)
     {
         return new AccumulatorStateDescriptor<>(
@@ -185,7 +228,7 @@ public class ParametricAggregation
 
     public Class<?> getStateClass()
     {
-        return stateClass;
+        return stateDetails.getStateClass();
     }
 
     @VisibleForTesting
