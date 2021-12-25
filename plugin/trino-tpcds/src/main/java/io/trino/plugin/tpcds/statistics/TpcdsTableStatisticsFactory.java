@@ -14,7 +14,6 @@
 
 package io.trino.plugin.tpcds.statistics;
 
-import io.airlift.slice.Slice;
 import io.trino.plugin.tpcds.TpcdsColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.statistics.ColumnStatistics;
@@ -24,6 +23,7 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -105,7 +105,7 @@ public class TpcdsTableStatisticsFactory
                 return parseDouble(Decimals.toString(((Number) value).longValue(), decimalType.getScale()));
             }
             if (isLongDecimal(decimalType)) {
-                return parseDouble(Decimals.toString((Slice) value, decimalType.getScale()));
+                return parseDouble(Decimals.toString((Int128) value, decimalType.getScale()));
             }
             throw new IllegalArgumentException("Unexpected decimal type: " + decimalType);
         }

@@ -17,12 +17,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SetSession;
@@ -44,14 +45,16 @@ import static java.util.Objects.requireNonNull;
 public class SetSessionTask
         implements DataDefinitionTask<SetSession>
 {
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final AccessControl accessControl;
+    private final SessionPropertyManager sessionPropertyManager;
 
     @Inject
-    public SetSessionTask(Metadata metadata, AccessControl accessControl)
+    public SetSessionTask(PlannerContext plannerContext, AccessControl accessControl, SessionPropertyManager sessionPropertyManager)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
     }
 
     @Override
@@ -78,14 +81,14 @@ public class SetSessionTask
         PropertyMetadata<?> propertyMetadata;
         if (parts.size() == 1) {
             accessControl.checkCanSetSystemSessionProperty(session.getIdentity(), parts.get(0));
-            propertyMetadata = metadata.getSessionPropertyManager().getSystemSessionPropertyMetadata(parts.get(0))
+            propertyMetadata = sessionPropertyManager.getSystemSessionPropertyMetadata(parts.get(0))
                     .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, statement, "Session property '%s' does not exist", statement.getName()));
         }
         else {
-            CatalogName catalogName = metadata.getCatalogHandle(stateMachine.getSession(), parts.get(0))
+            CatalogName catalogName = plannerContext.getMetadata().getCatalogHandle(stateMachine.getSession(), parts.get(0))
                     .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, statement, "Catalog '%s' does not exist", parts.get(0)));
             accessControl.checkCanSetCatalogSessionProperty(SecurityContext.of(session), parts.get(0), parts.get(1));
-            propertyMetadata = metadata.getSessionPropertyManager().getConnectorSessionPropertyMetadata(catalogName, parts.get(1))
+            propertyMetadata = sessionPropertyManager.getConnectorSessionPropertyMetadata(catalogName, parts.get(1))
                     .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, statement, "Session property '%s' does not exist", statement.getName()));
         }
 
@@ -93,7 +96,7 @@ public class SetSessionTask
         Object objectValue;
 
         try {
-            objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata, accessControl, parameterExtractor(statement, parameters));
+            objectValue = evaluatePropertyValue(statement.getValue(), type, session, plannerContext, accessControl, parameterExtractor(statement, parameters));
         }
         catch (TrinoException e) {
             throw new TrinoException(

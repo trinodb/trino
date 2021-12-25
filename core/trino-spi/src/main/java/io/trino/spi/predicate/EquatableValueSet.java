@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
@@ -33,6 +34,7 @@ import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Stream;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -54,6 +56,8 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 public class EquatableValueSet
         implements ValueSet
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(EquatableValueSet.class).instanceSize();
+
     private final Type type;
     private final boolean inclusive;
     private final Set<ValueEntry> entries;
@@ -338,6 +342,13 @@ public class EquatableValueSet
                 .toString();
     }
 
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        // type is not accounted for as the instances are cached (by TypeRegistry) and shared
+        return INSTANCE_SIZE + estimatedSizeOf(entries, ValueEntry::getRetainedSizeInBytes);
+    }
+
     private String formatValues(ConnectorSession session, int limit)
     {
         return Stream.concat(
@@ -418,6 +429,8 @@ public class EquatableValueSet
 
     public static class ValueEntry
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(ValueEntry.class).instanceSize();
+
         private final Type type;
         private final Block block;
         private final MethodHandle equalOperator;
@@ -493,6 +506,12 @@ public class EquatableValueSet
                 throw handleThrowable(throwable);
             }
             return Boolean.TRUE.equals(result);
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            // type is not accounted for as the instances are cached (by TypeRegistry) and shared
+            return INSTANCE_SIZE + block.getRetainedSizeInBytes();
         }
     }
 

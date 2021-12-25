@@ -14,13 +14,17 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.metadata.Metadata;
+import io.trino.FeaturesConfig;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.metadata.TypeRegistry;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 
@@ -58,9 +62,10 @@ import static org.testng.Assert.fail;
 public class TestTypeCoercion
 {
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-    private final Metadata metadata = functionResolution.getMetadata();
-    private final Type re2jType = metadata.getType(RE2J_REGEXP_SIGNATURE);
-    private final TypeCoercion typeCoercion = new TypeCoercion(metadata::getType);
+    private final TypeManager typeManager = functionResolution.getPlannerContext().getTypeManager();
+    private final Collection<Type> standardTypes = new TypeRegistry(new TypeOperators(), new FeaturesConfig()).getTypes();
+    private final Type re2jType = typeManager.getType(RE2J_REGEXP_SIGNATURE);
+    private final TypeCoercion typeCoercion = new TypeCoercion(typeManager::getType);
 
     @Test
     public void testIsTypeOnlyCoercion()
@@ -108,7 +113,7 @@ public class TestTypeCoercion
 
     private Type mapType(Type keyType, Type valueType)
     {
-        return metadata.getType(TypeSignature.mapType(keyType.getTypeSignature(), valueType.getTypeSignature()));
+        return typeManager.getType(TypeSignature.mapType(keyType.getTypeSignature(), valueType.getTypeSignature()));
     }
 
     @Test
@@ -312,7 +317,7 @@ public class TestTypeCoercion
     {
         ImmutableSet.Builder<Type> builder = ImmutableSet.builder();
         // add unparametrized types
-        builder.addAll(metadata.getTypes());
+        builder.addAll(standardTypes);
         // add corner cases for parametrized types
         builder.add(createDecimalType(1, 0));
         builder.add(createDecimalType(17, 0));

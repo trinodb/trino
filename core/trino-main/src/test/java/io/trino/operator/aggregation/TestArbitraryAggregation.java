@@ -14,13 +14,17 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.FeaturesConfig;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.metadata.TypeRegistry;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collection;
 
 import static io.trino.block.BlockAssertions.createArrayBigintBlock;
 import static io.trino.block.BlockAssertions.createBooleansBlock;
@@ -44,7 +48,8 @@ public class TestArbitraryAggregation
     @Test
     public void testAllRegistered()
     {
-        for (Type valueType : FUNCTION_RESOLUTION.getMetadata().getTypes()) {
+        Collection<Type> standardTypes = new TypeRegistry(new TypeOperators(), new FeaturesConfig()).getTypes();
+        for (Type valueType : standardTypes) {
             assertNotNull(FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("arbitrary"), fromTypes(valueType)));
         }
     }

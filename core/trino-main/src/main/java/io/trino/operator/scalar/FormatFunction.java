@@ -29,6 +29,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -58,7 +59,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.decodeUnscaledValue;
 import static io.trino.spi.type.Decimals.isLongDecimal;
 import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -225,7 +225,7 @@ public final class FormatFunction
         }
         if (isLongDecimal(type)) {
             int scale = ((DecimalType) type).getScale();
-            return (session, block) -> new BigDecimal(decodeUnscaledValue(type.getSlice(block, position)), scale);
+            return (session, block) -> new BigDecimal(((Int128) type.getObject(block, position)).toBigInteger(), scale);
         }
         if (type instanceof VarcharType) {
             return (session, block) -> type.getSlice(block, position).toStringUtf8();

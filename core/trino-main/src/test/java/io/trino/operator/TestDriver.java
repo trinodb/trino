@@ -486,5 +486,11 @@ public class TestDriver
         {
             return null;
         }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return 0;
+        }
     }
 }

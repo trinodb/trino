@@ -1747,7 +1747,7 @@ public class TestPostgreSqlTypeMapping
     {
         return dataType(
                 "hstore",
-                getQueryRunner().getMetadata().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())),
+                getQueryRunner().getTypeManager().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())),
                 TestPostgreSqlTypeMapping::hstoreLiteral);
     }
 
@@ -1763,7 +1763,7 @@ public class TestPostgreSqlTypeMapping
     {
         return dataType(
                 "hstore",
-                getQueryRunner().getMetadata().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())),
+                getQueryRunner().getTypeManager().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())),
                 value -> {
                     List<String> formatted = value.entrySet().stream()
                             .flatMap(entry -> Stream.of(entry.getKey(), entry.getValue()))

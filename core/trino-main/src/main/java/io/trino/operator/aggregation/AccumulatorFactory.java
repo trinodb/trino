@@ -13,14 +13,8 @@
  */
 package io.trino.operator.aggregation;
 
-import java.util.List;
-
 public interface AccumulatorFactory
 {
-    List<Integer> getInputChannels();
-
-    boolean hasRemoveInput();
-
     Accumulator createAccumulator();
 
     Accumulator createIntermediateAccumulator();
@@ -28,8 +22,4 @@ public interface AccumulatorFactory
     GroupedAccumulator createGroupedAccumulator();
 
     GroupedAccumulator createGroupedIntermediateAccumulator();
-
-    boolean hasOrderBy();
-
-    boolean hasDistinct();
 }

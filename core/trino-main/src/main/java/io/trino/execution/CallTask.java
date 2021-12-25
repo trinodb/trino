@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
 import io.trino.security.InjectedConnectorAccessControl;
@@ -30,6 +30,7 @@ import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ParameterRewriter;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
@@ -71,15 +72,17 @@ public class CallTask
         implements DataDefinitionTask<Call>
 {
     private final TransactionManager transactionManager;
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final AccessControl accessControl;
+    private final ProcedureRegistry procedureRegistry;
 
     @Inject
-    public CallTask(TransactionManager transactionManager, Metadata metadata, AccessControl accessControl)
+    public CallTask(TransactionManager transactionManager, PlannerContext plannerContext, AccessControl accessControl, ProcedureRegistry procedureRegistry)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.procedureRegistry = requireNonNull(procedureRegistry, "procedureRegistry is null");
     }
 
     @Override
@@ -101,9 +104,9 @@ public class CallTask
 
         Session session = stateMachine.getSession();
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
-        CatalogName catalogName = metadata.getCatalogHandle(stateMachine.getSession(), procedureName.getCatalogName())
+        CatalogName catalogName = plannerContext.getMetadata().getCatalogHandle(stateMachine.getSession(), procedureName.getCatalogName())
                 .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, call, "Catalog '%s' does not exist", procedureName.getCatalogName()));
-        Procedure procedure = metadata.getProcedureRegistry().resolve(catalogName, procedureName.asSchemaTableName());
+        Procedure procedure = procedureRegistry.resolve(catalogName, procedureName.asSchemaTableName());
 
         // map declared argument names to positions
         Map<String, Integer> positions = new HashMap<>();
@@ -160,7 +163,7 @@ public class CallTask
             Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameterLookup), callArgument.getValue());
 
             Type type = argument.getType();
-            Object value = evaluateConstantExpression(expression, type, metadata, session, accessControl, parameterLookup);
+            Object value = evaluateConstantExpression(expression, type, plannerContext, session, accessControl, parameterLookup);
 
             values[index] = toTypeObjectValue(session, type, value);
         }

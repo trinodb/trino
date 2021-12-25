@@ -24,6 +24,7 @@ import io.trino.operator.PartitionFunction;
 import io.trino.operator.SpillContext;
 import io.trino.operator.TestingOperatorContext;
 import io.trino.spi.Page;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpiller.PartitioningSpillResult;
 import org.testng.annotations.AfterClass;
@@ -42,7 +43,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -76,7 +76,7 @@ public class TestGenericPartitioningSpiller
         featuresConfig.setSpillerThreads(8);
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
         SingleStreamSpillerFactory singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
-                createTestMetadataManager(),
+                new TestingBlockEncodingSerde(),
                 new SpillerStats(),
                 featuresConfig,
                 new NodeSpillConfig());

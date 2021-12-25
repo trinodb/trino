@@ -13,16 +13,21 @@
  */
 package io.trino.metadata;
 
+import com.google.common.base.Joiner;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.FeaturesConfig;
+import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeNotFoundException;
+import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeParameter;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
@@ -33,11 +38,14 @@ import io.trino.type.Re2JRegexpType;
 import io.trino.type.VarcharParametricType;
 
 import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
@@ -45,6 +53,20 @@ import java.util.concurrent.ExecutionException;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.HASH_CODE;
+import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -79,10 +101,11 @@ import static io.trino.type.RowParametricType.ROW;
 import static io.trino.type.TDigestType.TDIGEST;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.type.setdigest.SetDigestType.SET_DIGEST;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-final class TypeRegistry
+public final class TypeRegistry
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
 
@@ -90,9 +113,15 @@ final class TypeRegistry
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
     private final Cache<TypeSignature, Type> parametricTypeCache;
+    private final TypeManager typeManager;
+    private final TypeOperators typeOperators;
 
-    public TypeRegistry(FeaturesConfig featuresConfig)
+    @Inject
+    public TypeRegistry(TypeOperators typeOperators, FeaturesConfig featuresConfig)
     {
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        requireNonNull(featuresConfig, "featuresConfig is null");
+
         // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that cannot be used by functions
         this.types.put(UNKNOWN.getTypeSignature(), UNKNOWN);
 
@@ -138,14 +167,18 @@ final class TypeRegistry
         parametricTypeCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .build();
+
+        typeManager = new InternalTypeManager(this, typeOperators);
+
+        verifyTypes();
     }
 
-    public Type getType(TypeManager typeManager, TypeSignature signature)
+    public Type getType(TypeSignature signature)
     {
         Type type = types.get(signature);
         if (type == null) {
             try {
-                return parametricTypeCache.get(signature, () -> instantiateParametricType(typeManager, signature));
+                return parametricTypeCache.get(signature, () -> instantiateParametricType(signature));
             }
             catch (ExecutionException | UncheckedExecutionException e) {
                 throwIfUnchecked(e.getCause());
@@ -155,18 +188,18 @@ final class TypeRegistry
         return type;
     }
 
-    public Type getType(TypeManager typeManager, TypeId id)
+    public Type getType(TypeId id)
     {
         // TODO: ID should be encoded in a more canonical form than SQL
-        return fromSqlType(typeManager, id.getId());
+        return fromSqlType(id.getId());
     }
 
-    public Type fromSqlType(TypeManager typeManager, String sqlType)
+    public Type fromSqlType(String sqlType)
     {
-        return getType(typeManager, toTypeSignature(SQL_PARSER.createType(sqlType)));
+        return getType(toTypeSignature(SQL_PARSER.createType(sqlType)));
     }
 
-    private Type instantiateParametricType(TypeManager typeManager, TypeSignature signature)
+    private Type instantiateParametricType(TypeSignature signature)
     {
         List<TypeParameter> parameters = new ArrayList<>();
 
@@ -224,5 +257,201 @@ final class TypeRegistry
         String name = parametricType.getName().toLowerCase(Locale.ENGLISH);
         checkArgument(!parametricTypes.containsKey(name), "Parametric type already registered: %s", name);
         parametricTypes.putIfAbsent(name, parametricType);
+    }
+
+    public TypeOperators getTypeOperators()
+    {
+        return typeOperators;
+    }
+
+    public void verifyTypes()
+    {
+        Set<Type> missingOperatorDeclaration = new HashSet<>();
+        Multimap<Type, OperatorType> missingOperators = HashMultimap.create();
+        for (Type type : ImmutableList.copyOf(types.values())) {
+            if (type.getTypeOperatorDeclaration(typeOperators) == null) {
+                missingOperatorDeclaration.add(type);
+                continue;
+            }
+            if (type.isComparable()) {
+                if (!hasEqualMethod(type)) {
+                    missingOperators.put(type, EQUAL);
+                }
+                if (!hasHashCodeMethod(type)) {
+                    missingOperators.put(type, HASH_CODE);
+                }
+                if (!hasXxHash64Method(type)) {
+                    missingOperators.put(type, XX_HASH_64);
+                }
+                if (!hasDistinctFromMethod(type)) {
+                    missingOperators.put(type, IS_DISTINCT_FROM);
+                }
+                if (!hasIndeterminateMethod(type)) {
+                    missingOperators.put(type, INDETERMINATE);
+                }
+            }
+            if (type.isOrderable()) {
+                if (!hasComparisonUnorderedLastMethod(type)) {
+                    missingOperators.put(type, COMPARISON_UNORDERED_LAST);
+                }
+                if (!hasComparisonUnorderedFirstMethod(type)) {
+                    missingOperators.put(type, COMPARISON_UNORDERED_FIRST);
+                }
+                if (!hasLessThanMethod(type)) {
+                    missingOperators.put(type, LESS_THAN);
+                }
+                if (!hasLessThanOrEqualMethod(type)) {
+                    missingOperators.put(type, LESS_THAN_OR_EQUAL);
+                }
+            }
+        }
+        // TODO: verify the parametric types too
+        if (!missingOperators.isEmpty()) {
+            List<String> messages = new ArrayList<>();
+            for (Type type : missingOperatorDeclaration) {
+                messages.add(format("%s types operators is null", type));
+            }
+            for (Type type : missingOperators.keySet()) {
+                messages.add(format("%s missing for %s", missingOperators.get(type), type));
+            }
+            throw new IllegalStateException(Joiner.on(", ").join(messages));
+        }
+    }
+
+    private boolean hasEqualMethod(Type type)
+    {
+        try {
+            typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasHashCodeMethod(Type type)
+    {
+        try {
+            typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasXxHash64Method(Type type)
+    {
+        try {
+            typeOperators.getXxHash64Operator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasDistinctFromMethod(Type type)
+    {
+        try {
+            typeOperators.getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasIndeterminateMethod(Type type)
+    {
+        try {
+            typeOperators.getIndeterminateOperator(type, simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasComparisonUnorderedLastMethod(Type type)
+    {
+        try {
+            typeOperators.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
+        }
+    }
+
+    private boolean hasComparisonUnorderedFirstMethod(Type type)
+    {
+        try {
+            typeOperators.getComparisonUnorderedFirstOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
+        }
+    }
+
+    private boolean hasLessThanMethod(Type type)
+    {
+        try {
+            typeOperators.getLessThanOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
+        }
+    }
+
+    private boolean hasLessThanOrEqualMethod(Type type)
+    {
+        try {
+            typeOperators.getLessThanOrEqualOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
+        }
+    }
+
+    private static final class InternalTypeManager
+            implements TypeManager
+    {
+        private final TypeRegistry typeRegistry;
+        private final TypeOperators typeOperators;
+
+        @Inject
+        public InternalTypeManager(TypeRegistry typeRegistry, TypeOperators typeOperators)
+        {
+            this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
+            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        }
+
+        @Override
+        public Type getType(TypeSignature signature)
+        {
+            return typeRegistry.getType(signature);
+        }
+
+        @Override
+        public Type fromSqlType(String type)
+        {
+            return typeRegistry.fromSqlType(type);
+        }
+
+        @Override
+        public Type getType(TypeId id)
+        {
+            return typeRegistry.getType(id);
+        }
+
+        @Override
+        public TypeOperators getTypeOperators()
+        {
+            return typeOperators;
+        }
     }
 }

@@ -260,7 +260,7 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public void dropDatabase(HiveIdentity identity, String databaseName)
+    public void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
     {
         throw new TrinoException(NOT_SUPPORTED, "dropDatabase");
     }

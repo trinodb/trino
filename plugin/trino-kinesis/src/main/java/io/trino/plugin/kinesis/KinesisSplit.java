@@ -18,10 +18,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -31,6 +33,8 @@ import static java.util.Objects.requireNonNull;
 public class KinesisSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(KinesisSplit.class).instanceSize();
+
     private final String streamName;
     private final String messageDataFormat;
     private final KinesisCompressionCodec compressionCodec;
@@ -107,6 +111,17 @@ public class KinesisSplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(streamName)
+                + estimatedSizeOf(messageDataFormat)
+                + estimatedSizeOf(shardId)
+                + estimatedSizeOf(start)
+                + estimatedSizeOf(end);
     }
 
     @Override

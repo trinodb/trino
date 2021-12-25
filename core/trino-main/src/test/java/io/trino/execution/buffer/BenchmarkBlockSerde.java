@@ -26,6 +26,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -206,7 +207,7 @@ public class BenchmarkBlockSerde
                     BIGINT.writeLong(blockBuilder, ((Number) value).longValue());
                 }
                 else if (Decimals.isLongDecimal(type)) {
-                    type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(((SqlDecimal) value).toBigDecimal().unscaledValue()));
+                    type.writeObject(blockBuilder, Int128.valueOf(((SqlDecimal) value).toBigDecimal().unscaledValue()));
                 }
                 else if (type instanceof VarcharType) {
                     Slice slice = truncateToLength(utf8Slice((String) value), type);

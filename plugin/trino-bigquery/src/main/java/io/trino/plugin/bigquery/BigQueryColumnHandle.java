@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Map;
@@ -28,12 +29,16 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryColumnHandle
         implements ColumnHandle, BigQueryType.Adaptor
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BigQueryColumnHandle.class).instanceSize();
+
     private final String name;
     private final BigQueryType bigQueryType;
     private final Field.Mode mode;
@@ -183,5 +188,15 @@ public class BigQueryColumnHandle
                 .add("subColumns", subColumns)
                 .add("description", description)
                 .toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(name)
+                + sizeOf(precision)
+                + sizeOf(scale)
+                + estimatedSizeOf(subColumns, BigQueryColumnHandle::getRetainedSizeInBytes)
+                + estimatedSizeOf(description);
     }
 }

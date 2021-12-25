@@ -17,11 +17,9 @@ import io.trino.Session;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.spi.TrinoException;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlFormatter;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
@@ -57,29 +55,26 @@ public class QueryExplainer
 {
     private final List<PlanOptimizer> planOptimizers;
     private final PlanFragmenter planFragmenter;
-    private final Metadata metadata;
-    private final TypeOperators typeOperators;
-    private final SqlParser sqlParser;
+    private final PlannerContext plannerContext;
     private final AnalyzerFactory analyzerFactory;
+    private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
 
     QueryExplainer(
             PlanOptimizersFactory planOptimizersFactory,
             PlanFragmenter planFragmenter,
-            Metadata metadata,
-            TypeOperators typeOperators,
-            SqlParser sqlParser,
+            PlannerContext plannerContext,
             AnalyzerFactory analyzerFactory,
+            StatementAnalyzerFactory statementAnalyzerFactory,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator)
     {
         this.planOptimizers = requireNonNull(planOptimizersFactory.get(), "planOptimizers is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
+        this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
     }
@@ -99,12 +94,12 @@ public class QueryExplainer
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, plan.getStatsAndCosts(), session, 0, false);
+                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), plannerContext.getMetadata(), plan.getStatsAndCosts(), session, 0, false);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
-                return PlanPrinter.textDistributedPlan(subPlan, metadata, session, false);
+                return PlanPrinter.textDistributedPlan(subPlan, plannerContext.getMetadata(), session, false);
             case IO:
-                return textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector), metadata, typeOperators, session);
+                return textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector), plannerContext, session);
             case VALIDATE:
                 // unsupported
                 break;
@@ -145,7 +140,7 @@ public class QueryExplainer
         switch (planType) {
             case IO:
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return textIoPlan(plan, metadata, typeOperators, session);
+                return textIoPlan(plan, plannerContext, session);
             case LOGICAL:
             case DISTRIBUTED:
             case VALIDATE:
@@ -167,9 +162,8 @@ public class QueryExplainer
                 session,
                 planOptimizers,
                 idAllocator,
-                metadata,
-                typeOperators,
-                new TypeAnalyzer(sqlParser, metadata),
+                plannerContext,
+                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
                 statsCalculator,
                 costCalculator,
                 warningCollector);

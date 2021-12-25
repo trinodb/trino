@@ -158,13 +158,27 @@ public class DynamicFilterService
             Set<DynamicFilterId> lazyDynamicFilters,
             Set<DynamicFilterId> replicatedDynamicFilters)
     {
-        Map<DynamicFilterId, SettableFuture<Void>> lazyDynamicFilterFutures = lazyDynamicFilters.stream()
-                .collect(toImmutableMap(filter -> filter, filter -> SettableFuture.create()));
         dynamicFilterContexts.putIfAbsent(queryId, new DynamicFilterContext(
                 session,
                 dynamicFilters,
-                lazyDynamicFilterFutures,
-                replicatedDynamicFilters));
+                lazyDynamicFilters,
+                replicatedDynamicFilters,
+                0));
+    }
+
+    public void registerQueryRetry(QueryId queryId, int attemptId)
+    {
+        DynamicFilterContext context = dynamicFilterContexts.get(queryId);
+        if (context == null) {
+            // dynamic filtering is not enabled
+            return;
+        }
+        checkState(
+                attemptId == context.getAttemptId() + 1,
+                "Query %s retry attempt %s was already registered",
+                queryId,
+                attemptId);
+        dynamicFilterContexts.put(queryId, context.createContextForQueryRetry(attemptId));
     }
 
     public DynamicFiltersStats getDynamicFilteringStats(QueryId queryId, Session session)
@@ -226,14 +240,19 @@ public class DynamicFilterService
      * In such case dynamic filters must be unblocked (and probe split generation resumed) for
      * source stage containing joins to allow build source tasks to flush data and complete.
      */
-    public void unblockStageDynamicFilters(QueryId queryId, PlanFragment plan)
+    public void unblockStageDynamicFilters(QueryId queryId, int attemptId, PlanFragment plan)
     {
         DynamicFilterContext context = dynamicFilterContexts.get(queryId);
-        if (context == null) {
-            // query has been removed or not registered (e.g dynamic filtering is disabled)
+        if (context == null || attemptId < context.getAttemptId()) {
+            // query has been removed or not registered (e.g. dynamic filtering is disabled)
+            // or a newer attempt has already been triggered
             return;
         }
-
+        checkState(
+                attemptId == context.getAttemptId(),
+                "Query %s retry attempt %s has not been registered with dynamic filter service",
+                queryId,
+                attemptId);
         getSourceStageInnerLazyDynamicFilters(plan).forEach(filter ->
                 requireNonNull(context.getLazyDynamicFilters().get(filter), "Future not found").set(null));
     }
@@ -328,36 +347,52 @@ public class DynamicFilterService
         };
     }
 
-    public void registerDynamicFilterConsumer(QueryId queryId, Set<DynamicFilterId> dynamicFilterIds, Consumer<Map<DynamicFilterId, Domain>> consumer)
+    public void registerDynamicFilterConsumer(QueryId queryId, int attemptId, Set<DynamicFilterId> dynamicFilterIds, Consumer<Map<DynamicFilterId, Domain>> consumer)
     {
         DynamicFilterContext context = dynamicFilterContexts.get(queryId);
-        if (context == null) {
-            // query has been removed or not registered (e.g dynamic filtering is disabled)
+        if (context == null || attemptId < context.getAttemptId()) {
+            // query has been removed or not registered (e.g. dynamic filtering is disabled)
+            // or a newer attempt has already been triggered
             return;
         }
+        checkState(
+                attemptId == context.getAttemptId(),
+                "Query %s retry attempt %s has not been registered with dynamic filter service",
+                queryId,
+                attemptId);
         context.addDynamicFilterConsumer(dynamicFilterIds, consumer);
     }
 
     public void addTaskDynamicFilters(TaskId taskId, Map<DynamicFilterId, Domain> newDynamicFilters)
     {
         DynamicFilterContext context = dynamicFilterContexts.get(taskId.getQueryId());
-        if (context == null) {
-            // query has been removed
+        int taskAttemptId = taskId.getAttemptId();
+        if (context == null || taskAttemptId < context.getAttemptId()) {
+            // query has been removed or dynamic filters are from a previous query attempt
             return;
         }
-
+        checkState(
+                taskAttemptId == context.getAttemptId(),
+                "Task %s retry attempt %s has not been registered with dynamic filter service",
+                taskId,
+                taskAttemptId);
         context.addTaskDynamicFilters(taskId, newDynamicFilters);
         executor.submit(() -> collectDynamicFilters(taskId.getStageId(), Optional.of(newDynamicFilters.keySet())));
     }
 
-    public void stageCannotScheduleMoreTasks(StageId stageId, int numberOfTasks)
+    public void stageCannotScheduleMoreTasks(StageId stageId, int attemptId, int numberOfTasks)
     {
         DynamicFilterContext context = dynamicFilterContexts.get(stageId.getQueryId());
-        if (context == null) {
-            // query has been removed
+        if (context == null || attemptId < context.getAttemptId()) {
+            // query has been removed or not registered (e.g. dynamic filtering is disabled)
+            // or a newer attempt has already been triggered
             return;
         }
-
+        checkState(
+                attemptId == context.getAttemptId(),
+                "Stage %s retry attempt %s has not been registered with dynamic filter service",
+                stageId,
+                attemptId);
         context.stageCannotScheduleMoreTasks(stageId, numberOfTasks);
         executor.submit(() -> collectDynamicFilters(stageId, Optional.empty()));
     }
@@ -672,22 +707,37 @@ public class DynamicFilterService
         // This should not be a ConcurrentHashMap because we want to prevent concurrent addition of new consumers during the
         // removal of existing consumers from this map in addDynamicFilters. This ensures that new consumers don't miss filter completion.
         private final Map<DynamicFilterId, List<Consumer<Map<DynamicFilterId, Domain>>>> dynamicFilterConsumers = new HashMap<>();
-        private final long queryStartTime = System.nanoTime();
+        private final int attemptId;
+        private final long queryAttemptStartTime = System.nanoTime();
 
         private DynamicFilterContext(
                 Session session,
                 Set<DynamicFilterId> dynamicFilters,
-                Map<DynamicFilterId, SettableFuture<Void>> lazyDynamicFilters,
-                Set<DynamicFilterId> replicatedDynamicFilters)
+                Set<DynamicFilterId> lazyDynamicFilters,
+                Set<DynamicFilterId> replicatedDynamicFilters,
+                int attemptId)
         {
             this.session = requireNonNull(session, "session is null");
             this.dynamicFilters = requireNonNull(dynamicFilters, "dynamicFilters is null");
-            this.lazyDynamicFilters = requireNonNull(lazyDynamicFilters, "lazyDynamicFilters is null");
+            requireNonNull(lazyDynamicFilters, "lazyDynamicFilters is null");
+            this.lazyDynamicFilters = lazyDynamicFilters.stream()
+                    .collect(toImmutableMap(identity(), filter -> SettableFuture.create()));
             this.replicatedDynamicFilters = requireNonNull(replicatedDynamicFilters, "replicatedDynamicFilters is null");
             dynamicFilters.forEach(filter -> {
                 taskDynamicFilters.put(filter, new ConcurrentHashMap<>());
                 dynamicFilterConsumers.put(filter, new ArrayList<>());
             });
+            this.attemptId = attemptId;
+        }
+
+        DynamicFilterContext createContextForQueryRetry(int attemptId)
+        {
+            return new DynamicFilterContext(
+                    session,
+                    dynamicFilters,
+                    lazyDynamicFilters.keySet(),
+                    replicatedDynamicFilters,
+                    attemptId);
         }
 
         void addDynamicFilterConsumer(Set<DynamicFilterId> dynamicFilterIds, Consumer<Map<DynamicFilterId, Domain>> consumer)
@@ -810,7 +860,12 @@ public class DynamicFilterService
                 return Optional.empty();
             }
 
-            return Optional.of(succinctNanos(filterCollectionTime - queryStartTime));
+            return Optional.of(succinctNanos(filterCollectionTime - queryAttemptStartTime));
+        }
+
+        private int getAttemptId()
+        {
+            return attemptId;
         }
     }
 

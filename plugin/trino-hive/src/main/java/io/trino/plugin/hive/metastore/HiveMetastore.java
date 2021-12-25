@@ -66,7 +66,7 @@ public interface HiveMetastore
 
     void createDatabase(HiveIdentity identity, Database database);
 
-    void dropDatabase(HiveIdentity identity, String databaseName);
+    void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData);
 
     void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName);
 

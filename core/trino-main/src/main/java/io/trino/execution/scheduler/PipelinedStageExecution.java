@@ -81,6 +81,26 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * This class is designed to facilitate the pipelined mode of execution.
+ * <p>
+ * In the pipeline mode the tasks are executed in all-or-nothing fashion with all
+ * the intermediate data being "piped" between stages in a streaming way.
+ * <p>
+ * This class has two main responsibilities:
+ * <p>
+ * 1. Linking pipelined stages together. If a new task is scheduled the implementation
+ * notifies upstream stages to add an additional output buffer for the task as well as
+ * it notifies the downstream stage to update a list of source tasks. It is also
+ * responsible of notifying both upstream and downstream stages when no more tasks will
+ * be added.
+ * <p>
+ * 2. Facilitates state transitioning for a pipelined stage execution according to the
+ * all-or-noting model. If any of the tasks fail the implementation is responsible for
+ * terminating all remaining tasks as well as propagating the original error. If all
+ * the tasks finish successfully the implementation is responsible for notifying the
+ * scheduler about a successful completion of a given stage.
+ */
 public class PipelinedStageExecution
 {
     private static final Logger log = Logger.get(PipelinedStageExecution.class);
@@ -174,15 +194,7 @@ public class PipelinedStageExecution
         stateMachine.addStateChangeListener(state -> {
             if (!state.canScheduleMoreTasks()) {
                 taskLifecycleListener.noMoreTasks(stage.getFragment().getId());
-
-                // update output buffers
-                for (PlanFragmentId sourceFragment : exchangeSources.keySet()) {
-                    OutputBufferManager outputBufferManager = outputBufferManagers.get(sourceFragment);
-                    outputBufferManager.noMoreBuffers();
-                    for (RemoteTask sourceTask : sourceTasks.get(stage.getFragment().getId())) {
-                        sourceTask.setOutputBuffers(outputBufferManager.getOutputBuffers());
-                    }
-                }
+                updateSourceTasksOutputBuffers(OutputBufferManager::noMoreBuffers);
             }
         });
     }
@@ -330,13 +342,7 @@ public class PipelinedStageExecution
 
         // update output buffers
         OutputBufferId outputBufferId = new OutputBufferId(task.getTaskId().getPartitionId());
-        for (PlanFragmentId sourceFragment : exchangeSources.keySet()) {
-            OutputBufferManager outputBufferManager = outputBufferManagers.get(sourceFragment);
-            outputBufferManager.addOutputBuffer(outputBufferId);
-            for (RemoteTask sourceTask : sourceTasks.get(stage.getFragment().getId())) {
-                sourceTask.setOutputBuffers(outputBufferManager.getOutputBuffers());
-            }
-        }
+        updateSourceTasksOutputBuffers(outputBufferManager -> outputBufferManager.addOutputBuffer(outputBufferId));
 
         return Optional.of(task);
     }
@@ -475,6 +481,17 @@ public class PipelinedStageExecution
         }
     }
 
+    private synchronized void updateSourceTasksOutputBuffers(Consumer<OutputBufferManager> updater)
+    {
+        for (PlanFragmentId sourceFragment : exchangeSources.keySet()) {
+            OutputBufferManager outputBufferManager = outputBufferManagers.get(sourceFragment);
+            updater.accept(outputBufferManager);
+            for (RemoteTask sourceTask : sourceTasks.get(sourceFragment)) {
+                sourceTask.setOutputBuffers(outputBufferManager.getOutputBuffers());
+            }
+        }
+    }
+
     public List<RemoteTask> getAllTasks()
     {
         return ImmutableList.copyOf(tasks.values());
@@ -502,6 +519,11 @@ public class PipelinedStageExecution
         return stage.getStageId();
     }
 
+    public int getAttemptId()
+    {
+        return attempt;
+    }
+
     public PlanFragment getFragment()
     {
         return stage.getFragment();
@@ -517,7 +539,7 @@ public class PipelinedStageExecution
         // Fetch the results from the buffer assigned to the task based on id
         URI exchangeLocation = sourceTask.getTaskStatus().getSelf();
         URI splitLocation = uriBuilderFrom(exchangeLocation).appendPath("results").appendPath(String.valueOf(destinationTask.getTaskId().getPartitionId())).build();
-        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(sourceTask.getTaskId(), splitLocation), Lifespan.taskWide());
+        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(sourceTask.getTaskId(), splitLocation.toString()), Lifespan.taskWide());
     }
 
     public enum State

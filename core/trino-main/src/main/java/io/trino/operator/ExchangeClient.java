@@ -244,7 +244,7 @@ public class ExchangeClient
 
     private synchronized void scheduleRequestIfNecessary()
     {
-        if (isFinished()) {
+        if ((buffer.isFinished() || buffer.isFailed()) && completedClients.size() == allClients.size()) {
             return;
         }
 
@@ -284,7 +284,7 @@ public class ExchangeClient
         }
 
         synchronized (this) {
-            if (closed.get() || buffer.isFinished()) {
+            if (closed.get() || buffer.isFinished() || buffer.isFailed()) {
                 return false;
             }
 

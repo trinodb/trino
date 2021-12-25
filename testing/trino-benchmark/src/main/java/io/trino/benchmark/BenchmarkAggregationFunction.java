@@ -13,25 +13,48 @@
  */
 package io.trino.benchmark;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.metadata.BoundSignature;
+import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.aggregation.AccumulatorFactory;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.AggregationMetadata;
+import io.trino.operator.aggregation.AggregatorFactory;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.AggregationNode.Step;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 
-import static java.util.Objects.requireNonNull;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.operator.aggregation.AccumulatorCompiler.generateAccumulatorFactory;
 
 public class BenchmarkAggregationFunction
 {
-    private final InternalAggregationFunction function;
+    private final Type intermediateType;
+    private final AccumulatorFactory accumulatorFactory;
+    private final Type finalType;
 
-    public BenchmarkAggregationFunction(InternalAggregationFunction function)
+    public BenchmarkAggregationFunction(ResolvedFunction resolvedFunction, AggregationMetadata aggregationMetadata)
     {
-        this.function = requireNonNull(function, "function is null");
+        BoundSignature signature = resolvedFunction.getSignature();
+        intermediateType = getOnlyElement(aggregationMetadata.getAccumulatorStateDescriptors()).getSerializer().getSerializedType();
+        finalType = signature.getReturnType();
+        accumulatorFactory = generateAccumulatorFactory(
+                signature,
+                aggregationMetadata,
+                resolvedFunction.getFunctionNullability(),
+                ImmutableList.of());
     }
 
-    public AccumulatorFactory bind(List<Integer> inputChannels)
+    public AggregatorFactory bind(List<Integer> inputChannels)
     {
-        return function.bind(inputChannels, Optional.empty());
+        return new AggregatorFactory(
+                accumulatorFactory,
+                Step.SINGLE,
+                intermediateType,
+                finalType,
+                inputChannels,
+                OptionalInt.empty(),
+                true);
     }
 }

@@ -92,6 +92,7 @@ public final class HiveQueryRunner
         private ImmutableMap.Builder<String, String> hiveProperties = ImmutableMap.builder();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
         private Optional<String> initialSchemasLocationBase = Optional.empty();
+        private Function<Session, Session> initialTablesSessionMutator = Function.identity();
         private Function<DistributedQueryRunner, HiveMetastore> metastore = queryRunner -> {
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
             return new FileHiveMetastore(
@@ -137,6 +138,12 @@ public final class HiveQueryRunner
         public SELF setInitialSchemasLocationBase(String initialSchemasLocationBase)
         {
             this.initialSchemasLocationBase = Optional.of(initialSchemasLocationBase);
+            return self();
+        }
+
+        public SELF setInitialTablesSessionMutator(Function<Session, Session> initialTablesSessionMutator)
+        {
+            this.initialTablesSessionMutator = requireNonNull(initialTablesSessionMutator, "initialTablesSessionMutator is null");
             return self();
         }
 
@@ -202,12 +209,14 @@ public final class HiveQueryRunner
             HiveIdentity identity = new HiveIdentity(SESSION);
             if (metastore.getDatabase(TPCH_SCHEMA).isEmpty()) {
                 metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_SCHEMA, initialSchemasLocationBase));
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), initialTables);
+                Session session = initialTablesSessionMutator.apply(createSession(Optional.empty()));
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables);
             }
 
             if (metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isEmpty()) {
                 metastore.createDatabase(identity, createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA, initialSchemasLocationBase));
-                copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), initialTables);
+                Session session = initialTablesSessionMutator.apply(createBucketedSession(Optional.empty()));
+                copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables);
             }
         }
     }

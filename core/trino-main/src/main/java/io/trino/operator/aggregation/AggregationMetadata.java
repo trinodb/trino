@@ -26,24 +26,21 @@ import static java.util.Objects.requireNonNull;
 
 public class AggregationMetadata
 {
-    private final List<AggregationParameterKind> inputParameterKinds;
-    private final List<Class<?>> lambdaInterfaces;
     private final MethodHandle inputFunction;
     private final Optional<MethodHandle> removeInputFunction;
-    private final MethodHandle combineFunction;
+    private final Optional<MethodHandle> combineFunction;
     private final MethodHandle outputFunction;
     private final List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors;
+    private final List<Class<?>> lambdaInterfaces;
 
     public AggregationMetadata(
-            List<AggregationParameterKind> inputParameterKinds,
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
-            MethodHandle combineFunction,
+            Optional<MethodHandle> combineFunction,
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors)
     {
         this(
-                inputParameterKinds,
                 inputFunction,
                 removeInputFunction,
                 combineFunction,
@@ -53,31 +50,19 @@ public class AggregationMetadata
     }
 
     public AggregationMetadata(
-            List<AggregationParameterKind> inputParameterKinds,
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
-            MethodHandle combineFunction,
+            Optional<MethodHandle> combineFunction,
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors,
             List<Class<?>> lambdaInterfaces)
     {
-        this.inputParameterKinds = ImmutableList.copyOf(requireNonNull(inputParameterKinds, "inputParameterKinds is null"));
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");
         this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction is null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
         this.lambdaInterfaces = ImmutableList.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
-    }
-
-    public List<AggregationParameterKind> getInputParameterKinds()
-    {
-        return inputParameterKinds;
-    }
-
-    public List<Class<?>> getLambdaInterfaces()
-    {
-        return lambdaInterfaces;
     }
 
     public MethodHandle getInputFunction()
@@ -90,7 +75,7 @@ public class AggregationMetadata
         return removeInputFunction;
     }
 
-    public MethodHandle getCombineFunction()
+    public Optional<MethodHandle> getCombineFunction()
     {
         return combineFunction;
     }
@@ -105,13 +90,9 @@ public class AggregationMetadata
         return accumulatorStateDescriptors;
     }
 
-    public enum AggregationParameterKind
+    public List<Class<?>> getLambdaInterfaces()
     {
-        INPUT_CHANNEL,
-        BLOCK_INPUT_CHANNEL,
-        NULLABLE_BLOCK_INPUT_CHANNEL,
-        BLOCK_INDEX,
-        STATE
+        return lambdaInterfaces;
     }
 
     public static class AccumulatorStateDescriptor<T extends AccumulatorState>

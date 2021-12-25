@@ -36,7 +36,7 @@ import io.trino.orc.stream.PresentOutputStream;
 import io.trino.orc.stream.StreamDataOutput;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -128,10 +128,10 @@ public class DecimalColumnWriter
         else {
             for (int position = 0; position < block.getPositionCount(); position++) {
                 if (!block.isNull(position)) {
-                    Slice value = type.getSlice(block, position);
+                    Int128 value = (Int128) type.getObject(block, position);
                     dataStream.writeUnscaledValue(value);
 
-                    longDecimalStatisticsBuilder.addValue(new BigDecimal(Decimals.decodeUnscaledValue(value), type.getScale()));
+                    longDecimalStatisticsBuilder.addValue(new BigDecimal(((Int128) value).toBigInteger(), type.getScale()));
                 }
             }
         }

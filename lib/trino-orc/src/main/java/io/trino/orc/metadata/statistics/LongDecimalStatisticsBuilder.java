@@ -13,10 +13,9 @@
  */
 package io.trino.orc.metadata.statistics;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 
 import java.math.BigDecimal;
@@ -42,8 +41,8 @@ public class LongDecimalStatisticsBuilder
         int scale = ((DecimalType) type).getScale();
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                Slice value = type.getSlice(block, position);
-                addValue(new BigDecimal(Decimals.decodeUnscaledValue(value), scale));
+                Int128 value = (Int128) type.getObject(block, position);
+                addValue(new BigDecimal(value.toBigInteger(), scale));
             }
         }
     }

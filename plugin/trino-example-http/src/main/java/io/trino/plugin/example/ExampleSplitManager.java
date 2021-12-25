@@ -61,7 +61,7 @@ public class ExampleSplitManager
 
         List<ConnectorSplit> splits = new ArrayList<>();
         for (URI uri : table.getSources()) {
-            splits.add(new ExampleSplit(uri));
+            splits.add(new ExampleSplit(uri.toString()));
         }
         Collections.shuffle(splits);
 

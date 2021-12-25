@@ -32,9 +32,6 @@ import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -72,11 +69,6 @@ public class ArrayAggregationFunction
     public AggregationMetadata specialize(BoundSignature boundSignature)
     {
         Type type = boundSignature.getArgumentTypes().get(0);
-        return generateAggregation(type);
-    }
-
-    private static AggregationMetadata generateAggregation(Type type)
-    {
         ArrayAggregationStateSerializer stateSerializer = new ArrayAggregationStateSerializer(type);
         ArrayAggregationStateFactory stateFactory = new ArrayAggregationStateFactory(type);
 
@@ -85,10 +77,9 @@ public class ArrayAggregationFunction
         MethodHandle outputFunction = OUTPUT_FUNCTION.bindTo(type);
 
         return new AggregationMetadata(
-                ImmutableList.of(STATE, NULLABLE_BLOCK_INPUT_CHANNEL, BLOCK_INDEX),
                 inputFunction,
                 Optional.empty(),
-                combineFunction,
+                Optional.of(combineFunction),
                 outputFunction,
                 ImmutableList.of(new AccumulatorStateDescriptor<>(
                         ArrayAggregationState.class,

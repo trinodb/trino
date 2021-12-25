@@ -219,18 +219,18 @@ public class TestTableRedirection
                 verifySingleTableScan(SCHEMA_ONE, TABLE_FOO));
 
         assertThatThrownBy(() -> query(format("SELECT c0 FROM %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING)))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Table redirections form a loop: %s -> %s -> %s",
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, REDIRECTION_LOOP_PING),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, REDIRECTION_LOOP_PONG),
-                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, REDIRECTION_LOOP_PING)));
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, REDIRECTION_LOOP_PING));
 
         assertThatThrownBy(() -> query(format("SELECT c4 FROM %s.%s", SCHEMA_THREE, REDIRECTION_CHAIN.get(0))))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Table redirected too many times (10): [%s]",
                         REDIRECTION_CHAIN.stream()
                                 .map(table -> new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_THREE, table).toString())
-                                .collect(Collectors.joining(", "))));
+                                .collect(Collectors.joining(", ")));
     }
 
     @Test
@@ -345,11 +345,11 @@ public class TestTableRedirection
         assertEquals(showCreateValidTarget, showCreateValidSource.replace(SCHEMA_ONE + "." + VALID_REDIRECTION_SRC, SCHEMA_TWO + "." + VALID_REDIRECTION_TARGET));
 
         assertThatThrownBy(() -> query((format("SHOW CREATE TABLE %s.%s", SCHEMA_ONE, BAD_REDIRECTION_SRC))))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Table '%s' redirected to '%s', but the target table '%s' does not exist",
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, BAD_REDIRECTION_SRC),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE),
-                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE)));
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE));
 
         assertThatThrownBy(() -> query((format("SHOW CREATE TABLE %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING))))
                 .hasMessageContaining("Table redirections form a loop");
@@ -362,11 +362,11 @@ public class TestTableRedirection
                 computeActual(format("DESCRIBE %s.%s", SCHEMA_TWO, VALID_REDIRECTION_TARGET)));
 
         assertThatThrownBy(() -> query((format("DESCRIBE %s.%s", SCHEMA_ONE, BAD_REDIRECTION_SRC))))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Table '%s' redirected to '%s', but the target table '%s' does not exist",
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, BAD_REDIRECTION_SRC),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE),
-                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE)));
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE));
 
         assertThatThrownBy(() -> query((format("DESCRIBE %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING))))
                 .hasMessageContaining("Table redirections form a loop");
@@ -382,11 +382,11 @@ public class TestTableRedirection
                         + row(C3, BIGINT.getDisplayName(), "", ""));
 
         assertThatThrownBy(() -> query((format("SHOW COLUMNS FROM %s.%s", SCHEMA_ONE, BAD_REDIRECTION_SRC))))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Table '%s' redirected to '%s', but the target table '%s' does not exist",
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, BAD_REDIRECTION_SRC),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE),
-                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE)));
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE));
 
         assertThatThrownBy(() -> query((format("SHOW COLUMNS FROM %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING))))
                 .hasMessageContaining("Table redirections form a loop");

@@ -17,7 +17,7 @@ import io.airlift.slice.Slice;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDecompressor;
 import io.trino.orc.checkpoint.DecimalStreamCheckpoint;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -59,7 +59,7 @@ public class TestShortDecimalStream
     @Override
     protected void writeValue(DecimalOutputStream outputStream, Long value)
     {
-        outputStream.writeUnscaledValue(Decimals.encodeUnscaledValue(value));
+        outputStream.writeUnscaledValue(Int128.valueOf(value));
     }
 
     @Override

@@ -17,13 +17,12 @@ import com.google.common.collect.ImmutableList;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.ExpressionUtils;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import io.trino.sql.planner.Symbol;
@@ -39,7 +38,6 @@ import java.util.OptionalInt;
 
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Range.range;
-import static io.trino.sql.planner.DomainTranslator.fromPredicate;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.rowNumber;
@@ -82,13 +80,11 @@ public class PushPredicateThroughProjectIntoRowNumber
                     .with(source().matching(rowNumber()
                             .capturedAs(ROW_NUMBER)))));
 
-    private final Metadata metadata;
-    private final TypeOperators typeOperators;
+    private final PlannerContext plannerContext;
 
-    public PushPredicateThroughProjectIntoRowNumber(Metadata metadata, TypeOperators typeOperators)
+    public PushPredicateThroughProjectIntoRowNumber(PlannerContext plannerContext)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
     }
 
     @Override
@@ -108,7 +104,11 @@ public class PushPredicateThroughProjectIntoRowNumber
             return Result.empty();
         }
 
-        ExtractionResult extractionResult = fromPredicate(metadata, typeOperators, context.getSession(), filter.getPredicate(), context.getSymbolAllocator().getTypes());
+        ExtractionResult extractionResult = DomainTranslator.getExtractionResult(
+                plannerContext,
+                context.getSession(),
+                filter.getPredicate(),
+                context.getSymbolAllocator().getTypes());
         TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
         OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
         if (upperBound.isEmpty()) {
@@ -139,9 +139,9 @@ public class PushPredicateThroughProjectIntoRowNumber
         // Remove the row number domain because it is absorbed into the node
         TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rowNumberSymbol));
         Expression newPredicate = ExpressionUtils.combineConjuncts(
-                metadata,
+                plannerContext.getMetadata(),
                 extractionResult.getRemainingExpression(),
-                new DomainTranslator(context.getSession(), metadata).toPredicate(newTupleDomain));
+                new DomainTranslator(plannerContext).toPredicate(context.getSession(), newTupleDomain));
         if (newPredicate.equals(TRUE_LITERAL)) {
             return Result.ofPlanNode(project);
         }

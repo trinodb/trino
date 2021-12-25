@@ -401,6 +401,104 @@ public class TestExchangeClient
     }
 
     @Test
+    public void testStreamingTaskFailure()
+    {
+        DataSize maxResponseSize = DataSize.of(10, Unit.MEGABYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
+
+        TaskId task1 = new TaskId(new StageId("query", 1), 0, 0);
+        TaskId task2 = new TaskId(new StageId("query", 1), 1, 0);
+
+        URI location1 = URI.create("http://localhost:8080/1");
+        URI location2 = URI.create("http://localhost:8080/2");
+
+        processor.addPage(location1, createPage(1));
+
+        StreamingExchangeClientBuffer buffer = new StreamingExchangeClientBuffer(scheduler, DataSize.of(1, Unit.MEGABYTE));
+
+        ExchangeClient exchangeClient = new ExchangeClient(
+                "localhost",
+                DataIntegrityVerification.ABORT,
+                buffer,
+                maxResponseSize,
+                1,
+                new Duration(1, SECONDS),
+                true,
+                new TestingHttpClient(processor, scheduler),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor,
+                (taskId, failure) -> {});
+
+        exchangeClient.addLocation(task1, location1);
+        exchangeClient.addLocation(task2, location2);
+
+        assertPageEquals(getNextPage(exchangeClient), createPage(1));
+
+        processor.setComplete(location1);
+
+        assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
+
+        RuntimeException randomException = new RuntimeException("randomfailure");
+        processor.setFailed(location2, randomException);
+
+        assertThatThrownBy(() -> getNextPage(exchangeClient)).hasMessageContaining("Encountered too many errors talking to a worker node");
+
+        assertFalse(exchangeClient.isFinished());
+    }
+
+    @Test
+    public void testDeduplicationTaskFailure()
+            throws Exception
+    {
+        DataSize maxResponseSize = DataSize.of(10, Unit.MEGABYTE);
+        MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
+
+        TaskId attempt0Task1 = new TaskId(new StageId("query", 1), 0, 0);
+        TaskId attempt1Task1 = new TaskId(new StageId("query", 1), 1, 0);
+        TaskId attempt1Task2 = new TaskId(new StageId("query", 1), 2, 0);
+
+        URI attempt0Task1Location = URI.create("http://localhost:8080/1/0");
+        URI attempt1Task1Location = URI.create("http://localhost:8080/1/1");
+        URI attempt1Task2Location = URI.create("http://localhost:8080/2/1");
+
+        processor.setFailed(attempt0Task1Location, new RuntimeException("randomfailure"));
+        processor.addPage(attempt1Task1Location, createPage(1));
+        processor.setComplete(attempt1Task1Location);
+        processor.setFailed(attempt1Task2Location, new RuntimeException("randomfailure"));
+
+        ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(scheduler, DataSize.of(1, Unit.MEGABYTE), RetryPolicy.QUERY);
+
+        ExchangeClient exchangeClient = new ExchangeClient(
+                "localhost",
+                DataIntegrityVerification.ABORT,
+                buffer,
+                maxResponseSize,
+                1,
+                new Duration(1, SECONDS),
+                true,
+                new TestingHttpClient(processor, scheduler),
+                scheduler,
+                new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                pageBufferClientCallbackExecutor,
+                (taskId, failure) -> {});
+
+        exchangeClient.addLocation(attempt0Task1, attempt0Task1Location);
+        assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
+
+        exchangeClient.addLocation(attempt1Task1, attempt1Task1Location);
+        exchangeClient.addLocation(attempt1Task2, attempt1Task2Location);
+        assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
+
+        exchangeClient.noMoreLocations();
+        exchangeClient.isBlocked().get(10, SECONDS);
+
+        assertThatThrownBy(() -> getNextPage(exchangeClient)).hasMessageContaining("Encountered too many errors talking to a worker node");
+
+        assertFalse(exchangeClient.isFinished());
+    }
+
+    @Test
     public void testDeduplication()
             throws Exception
     {
@@ -841,7 +939,7 @@ public class TestExchangeClient
 
     private static SerializedPage getNextPage(ExchangeClient exchangeClient)
     {
-        ListenableFuture<SerializedPage> futurePage = Futures.transform(exchangeClient.isBlocked(), ignored -> exchangeClient.pollPage(), directExecutor());
+        ListenableFuture<SerializedPage> futurePage = Futures.transform(exchangeClient.isBlocked(), ignored -> exchangeClient.isFinished() ? null : exchangeClient.pollPage(), directExecutor());
         return tryGetFutureValue(futurePage, 100, TimeUnit.SECONDS).orElse(null);
     }
 

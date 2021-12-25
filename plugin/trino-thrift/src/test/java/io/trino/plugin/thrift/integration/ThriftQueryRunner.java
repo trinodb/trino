@@ -31,6 +31,7 @@ import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SqlFunction;
 import io.trino.plugin.thrift.ThriftPlugin;
 import io.trino.plugin.thrift.server.ThriftIndexedTpchService;
@@ -38,9 +39,10 @@ import io.trino.plugin.thrift.server.ThriftTpchService;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
+import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
-import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
@@ -215,9 +217,21 @@ public final class ThriftQueryRunner
         }
 
         @Override
-        public AnalyzerFactory getAnalyzerFactory()
+        public TypeManager getTypeManager()
         {
-            return source.getAnalyzerFactory();
+            return source.getTypeManager();
+        }
+
+        @Override
+        public QueryExplainer getQueryExplainer()
+        {
+            return source.getQueryExplainer();
+        }
+
+        @Override
+        public SessionPropertyManager getSessionPropertyManager()
+        {
+            return source.getSessionPropertyManager();
         }
 
         @Override

@@ -14,12 +14,10 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
-import io.trino.metadata.Metadata;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
@@ -32,12 +30,11 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
 
 public final class StructuralTestUtil
 {
-    private static final Metadata METADATA = createTestMetadataManager();
     private static final BlockTypeOperators TYPE_OPERATORS_CACHE = new BlockTypeOperators();
 
     private StructuralTestUtil() {}
@@ -136,7 +133,7 @@ public final class StructuralTestUtil
             return arrayBlockOf(type, longDecimal);
         }
         else {
-            Slice sliceDecimal = Decimals.encodeUnscaledValue(decimal.unscaledValue());
+            Int128 sliceDecimal = Int128.valueOf(decimal.unscaledValue());
             return arrayBlockOf(type, sliceDecimal);
         }
     }
@@ -148,14 +145,14 @@ public final class StructuralTestUtil
             return mapBlockOf(type, type, longDecimal, longDecimal);
         }
         else {
-            Slice sliceDecimal = Decimals.encodeUnscaledValue(decimal.unscaledValue());
+            Int128 sliceDecimal = Int128.valueOf(decimal.unscaledValue());
             return mapBlockOf(type, type, sliceDecimal, sliceDecimal);
         }
     }
 
     public static MapType mapType(Type keyType, Type valueType)
     {
-        return (MapType) METADATA.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
                 TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
     }

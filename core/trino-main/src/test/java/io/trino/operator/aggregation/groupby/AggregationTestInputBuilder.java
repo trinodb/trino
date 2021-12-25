@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.operator.aggregation.groupby;
 
 import io.trino.operator.aggregation.TestingAggregationFunction;
@@ -23,7 +22,6 @@ public class AggregationTestInputBuilder
     private final TestingAggregationFunction function;
 
     private int offset = -1;
-    private boolean isRerversed;
     private Page[] pages;
 
     public AggregationTestInputBuilder(Block[] blocks, TestingAggregationFunction function)
@@ -46,15 +44,8 @@ public class AggregationTestInputBuilder
         return this;
     }
 
-    public AggregationTestInputBuilder setRerversed(boolean rerversed)
-    {
-        isRerversed = rerversed;
-
-        return this;
-    }
-
     public AggregationTestInput build()
     {
-        return new AggregationTestInput(function, pages, offset, isRerversed);
+        return new AggregationTestInput(function, pages, offset);
     }
 }

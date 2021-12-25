@@ -27,9 +27,9 @@ import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.LOADED;
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTablePath;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -58,18 +58,18 @@ public class TestHiveIgnoreAbsentPartitions
         String tablePath = getTablePath(tableNameInDatabase, 1);
         String partitionPath = format("%s/p_regionkey=9999", tablePath);
 
-        assertThat(query("SELECT count(*) FROM " + tableNameInDatabase)).containsOnly(row(15));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM " + tableNameInDatabase)).containsOnly(row(15));
 
         assertFalse(hdfsClient.exist(partitionPath), format("Expected partition %s to not exist", tableNameInDatabase));
-        query(format("CALL hive.system.create_empty_partition('default', '%s', array['p_regionkey'], array['9999'])", tableNameInDatabase));
+        onTrino().executeQuery(format("CALL hive.system.create_empty_partition('default', '%s', array['p_regionkey'], array['9999'])", tableNameInDatabase));
 
-        query("SET SESSION hive.ignore_absent_partitions = false");
+        onTrino().executeQuery("SET SESSION hive.ignore_absent_partitions = false");
         hdfsClient.delete(partitionPath);
         assertFalse(hdfsClient.exist(partitionPath), format("Expected partition %s to not exist", partitionPath));
-        assertQueryFailure(() -> query("SELECT count(*) FROM " + tableNameInDatabase)).hasMessageContaining("Partition location does not exist");
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT count(*) FROM " + tableNameInDatabase)).hasMessageContaining("Partition location does not exist");
 
-        query("SET SESSION hive.ignore_absent_partitions = true");
-        assertThat(query("SELECT count(*) FROM " + tableNameInDatabase)).containsOnly(row(15));
+        onTrino().executeQuery("SET SESSION hive.ignore_absent_partitions = true");
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM " + tableNameInDatabase)).containsOnly(row(15));
     }
 
     @Test
@@ -78,21 +78,21 @@ public class TestHiveIgnoreAbsentPartitions
     {
         String tableName = "unpartitioned_absent_table_data";
 
-        query("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
-        assertThat(query(format("CREATE TABLE %s AS SELECT * FROM (VALUES 1,2,3) t(dummy_col)", tableName))).containsOnly(row(3));
-        assertThat(query("SELECT count(*) FROM " + tableName)).containsOnly(row(3));
+        assertThat(onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM (VALUES 1,2,3) t(dummy_col)", tableName))).containsOnly(row(3));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM " + tableName)).containsOnly(row(3));
 
         String tablePath = getTablePath(tableName, 0);
         assertTrue(hdfsClient.exist(tablePath));
         hdfsClient.delete(tablePath);
 
-        query("SET SESSION hive.ignore_absent_partitions = false");
-        assertQueryFailure(() -> query("SELECT count(*) FROM " + tableName)).hasMessageContaining("Partition location does not exist");
+        onTrino().executeQuery("SET SESSION hive.ignore_absent_partitions = false");
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT count(*) FROM " + tableName)).hasMessageContaining("Partition location does not exist");
 
-        query("SET SESSION hive.ignore_absent_partitions = true");
-        assertQueryFailure(() -> query("SELECT count(*) FROM " + tableName)).hasMessageContaining("Partition location does not exist");
+        onTrino().executeQuery("SET SESSION hive.ignore_absent_partitions = true");
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT count(*) FROM " + tableName)).hasMessageContaining("Partition location does not exist");
 
-        query("DROP TABLE " + tableName);
+        onTrino().executeQuery("DROP TABLE " + tableName);
     }
 }

@@ -144,6 +144,9 @@ public class FeaturesConfig
     private boolean legacyCatalogRoles;
     private boolean disableSetPropertiesSecurityCheckForCreateDdl;
     private boolean incrementalHashArrayLoadFactorEnabled = true;
+    private boolean allowSetViewAuthorization;
+
+    private boolean hideInaccesibleColumns;
 
     public enum JoinReorderingStrategy
     {
@@ -1106,6 +1109,33 @@ public class FeaturesConfig
     public FeaturesConfig setIncrementalHashArrayLoadFactorEnabled(boolean incrementalHashArrayLoadFactorEnabled)
     {
         this.incrementalHashArrayLoadFactorEnabled = incrementalHashArrayLoadFactorEnabled;
+        return this;
+    }
+
+    public boolean isHideInaccesibleColumns()
+    {
+        return hideInaccesibleColumns;
+    }
+
+    @Config("hide-inaccessible-columns")
+    @ConfigDescription("When enabled non-accessible columns are silently filtered from results from SELECT * statements")
+    public FeaturesConfig setHideInaccesibleColumns(boolean hideInaccesibleColumns)
+    {
+        this.hideInaccesibleColumns = hideInaccesibleColumns;
+        return this;
+    }
+
+    public boolean isAllowSetViewAuthorization()
+    {
+        return allowSetViewAuthorization;
+    }
+
+    @Config("legacy.allow-set-view-authorization")
+    @ConfigDescription("For security reasons ALTER VIEW SET AUTHORIZATION is disabled for SECURITY DEFINER; " +
+            "setting this option to true will re-enable this functionality")
+    public FeaturesConfig setAllowSetViewAuthorization(boolean allowSetViewAuthorization)
+    {
+        this.allowSetViewAuthorization = allowSetViewAuthorization;
         return this;
     }
 }
