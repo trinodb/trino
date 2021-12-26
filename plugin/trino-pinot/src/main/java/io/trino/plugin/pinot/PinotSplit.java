@@ -16,19 +16,25 @@ package io.trino.plugin.pinot;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class PinotSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PinotSplit.class).instanceSize();
+
     private final SplitType splitType;
     private final Optional<String> suffix;
     private final List<String> segments;
@@ -133,6 +139,16 @@ public class PinotSplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + sizeOf(suffix, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(segments, SizeOf::estimatedSizeOf)
+                + sizeOf(segmentHost, SizeOf::estimatedSizeOf)
+                + sizeOf(timePredicate, SizeOf::estimatedSizeOf);
     }
 
     public enum SplitType

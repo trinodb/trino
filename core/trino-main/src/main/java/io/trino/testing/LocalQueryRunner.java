@@ -155,6 +155,7 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizers;
+import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -370,8 +371,9 @@ public class LocalQueryRunner
                 tablePropertyManager,
                 analyzePropertyManager,
                 tableProceduresPropertyManager);
-        this.statsCalculator = createNewStatsCalculator(plannerContext, new TypeAnalyzer(plannerContext, statementAnalyzerFactory, accessControl));
-        this.scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, new TypeAnalyzer(plannerContext, statementAnalyzerFactory, accessControl));
+        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(plannerContext, statementAnalyzerFactory);
+        this.statsCalculator = createNewStatsCalculator(plannerContext, typeAnalyzer);
+        this.scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, typeAnalyzer);
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
@@ -843,7 +845,7 @@ public class LocalQueryRunner
         tableExecuteContextManager.registerTableExecuteContextForQuery(taskContext.getQueryContext().getQueryId());
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 plannerContext,
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory, accessControl),
+                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
                 Optional.empty(),
                 pageSourceManager,
                 indexManager,
@@ -961,7 +963,7 @@ public class LocalQueryRunner
     {
         return planOptimizersProvider.getPlanOptimizers(
                 plannerContext,
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory, accessControl),
+                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
                 taskManagerConfig,
                 forceSingleNode,
                 splitManager,
@@ -1002,7 +1004,7 @@ public class LocalQueryRunner
                 new PlanSanityChecker(true),
                 idAllocator,
                 getPlannerContext(),
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory, accessControl),
+                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
                 statsCalculator,
                 costCalculator,
                 warningCollector);
@@ -1019,7 +1021,6 @@ public class LocalQueryRunner
                 planFragmenter,
                 plannerContext,
                 statementAnalyzerFactory,
-                accessControl,
                 statsCalculator,
                 costCalculator);
     }
@@ -1058,7 +1059,7 @@ public class LocalQueryRunner
 
     public interface PlanOptimizersProvider
     {
-        PlanOptimizers getPlanOptimizers(
+        PlanOptimizersFactory getPlanOptimizers(
                 PlannerContext plannerContext,
                 TypeAnalyzer typeAnalyzer,
                 TaskManagerConfig taskManagerConfig,

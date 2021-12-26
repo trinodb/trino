@@ -451,7 +451,7 @@ public class MemSqlClient
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
-            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType));
+            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
         if (REAL.equals(type)) {
             return WriteMapping.longMapping("float", realWriteFunction());

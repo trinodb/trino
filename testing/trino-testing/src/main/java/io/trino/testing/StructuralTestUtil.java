@@ -14,11 +14,10 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
@@ -134,7 +133,7 @@ public final class StructuralTestUtil
             return arrayBlockOf(type, longDecimal);
         }
         else {
-            Slice sliceDecimal = Decimals.encodeUnscaledValue(decimal.unscaledValue());
+            Int128 sliceDecimal = Int128.valueOf(decimal.unscaledValue());
             return arrayBlockOf(type, sliceDecimal);
         }
     }
@@ -146,7 +145,7 @@ public final class StructuralTestUtil
             return mapBlockOf(type, type, longDecimal, longDecimal);
         }
         else {
-            Slice sliceDecimal = Decimals.encodeUnscaledValue(decimal.unscaledValue());
+            Int128 sliceDecimal = Int128.valueOf(decimal.unscaledValue());
             return mapBlockOf(type, type, sliceDecimal, sliceDecimal);
         }
     }

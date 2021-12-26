@@ -28,12 +28,12 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_PARTITIONING;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.TestGroups.TRINO_JDBC;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.product.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -57,9 +57,9 @@ public class TestSyncPartitionMetadata
         String tableName = "test_sync_partition_metadata_add_partition";
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
 
-        query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD')");
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD')");
         assertPartitions(tableName, row("a", "1"), row("b", "2"), row("f", "9"));
-        assertQueryFailure(() -> query("SELECT payload, col_x, col_y FROM " + tableName + " ORDER BY 1, 2, 3 ASC"))
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT payload, col_x, col_y FROM " + tableName + " ORDER BY 1, 2, 3 ASC"))
                 .hasMessageContaining(format("Partition location does not exist: hdfs://hadoop-master:9000%s/%s/col_x=b/col_y=2", warehouseDirectory, tableName));
         cleanup(tableName);
     }
@@ -71,7 +71,7 @@ public class TestSyncPartitionMetadata
         String tableName = "test_sync_partition_metadata_drop_partition";
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
 
-        query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'DROP')");
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'DROP')");
         assertPartitions(tableName, row("a", "1"));
         assertData(tableName, row(1, "a", "1"));
 
@@ -85,7 +85,7 @@ public class TestSyncPartitionMetadata
         String tableName = "test_sync_partition_metadata_add_drop_partition";
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
 
-        query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'FULL')");
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'FULL')");
         assertPartitions(tableName, row("a", "1"), row("f", "9"));
         assertData(tableName, row(1, "a", "1"), row(42, "f", "9"));
 
@@ -99,7 +99,7 @@ public class TestSyncPartitionMetadata
         String tableName = "test_repair_invalid_mode";
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
 
-        assertQueryFailure(() -> query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'INVALID')"))
+        assertQueryFailure(() -> onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'INVALID')"))
                 .hasMessageMatching("Query failed (.*): Invalid partition metadata sync mode: INVALID");
 
         cleanup(tableName);
@@ -117,7 +117,7 @@ public class TestSyncPartitionMetadata
         hdfsClient.createDirectory(tableLocation + "/COL_X=UPPER/COL_Y=12");
         hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/COL_X=UPPER/COL_Y=12", dataSource);
 
-        query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'FULL', false)");
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'FULL', false)");
         assertPartitions(tableName, row("UPPER", "12"), row("a", "1"), row("f", "9"), row("g", "10"), row("h", "11"));
         assertData(tableName, row(1, "a", "1"), row(42, "UPPER", "12"), row(42, "f", "9"), row(42, "g", "10"), row(42, "h", "11"));
     }
@@ -132,7 +132,7 @@ public class TestSyncPartitionMetadata
         // this conflicts with a partition that already exits in the metastore
         hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation(tableName) + "/COL_X=a/cOl_y=1", dataSource);
 
-        assertThatThrownBy(() -> query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD', false)"))
+        assertThatThrownBy(() -> onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD', false)"))
                 .hasMessageContaining(format("One or more partitions already exist for table 'default.%s'", tableName));
         assertPartitions(tableName, row("a", "1"), row("b", "2"));
     }
@@ -144,10 +144,10 @@ public class TestSyncPartitionMetadata
 
     private void prepare(HdfsClient hdfsClient, HdfsDataSourceWriter hdfsDataSourceWriter, String tableName)
     {
-        query("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
 
-        query("CREATE TABLE " + tableName + " (payload bigint, col_x varchar, col_y varchar) WITH (format = 'ORC', partitioned_by = ARRAY[ 'col_x', 'col_y' ])");
-        query("INSERT INTO " + tableName + " VALUES (1, 'a', '1'), (2, 'b', '2')");
+        onTrino().executeQuery("CREATE TABLE " + tableName + " (payload bigint, col_x varchar, col_y varchar) WITH (format = 'ORC', partitioned_by = ARRAY[ 'col_x', 'col_y' ])");
+        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (1, 'a', '1'), (2, 'b', '2')");
 
         String tableLocation = tableLocation(tableName);
         // remove partition col_x=b/col_y=2
@@ -171,18 +171,18 @@ public class TestSyncPartitionMetadata
 
     private static void cleanup(String tableName)
     {
-        query("DROP TABLE " + tableName);
+        onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
     private static void assertPartitions(String tableName, QueryAssert.Row... rows)
     {
-        QueryResult partitionListResult = query("SELECT * FROM \"" + tableName + "$partitions\" ORDER BY 1, 2");
+        QueryResult partitionListResult = onTrino().executeQuery("SELECT * FROM \"" + tableName + "$partitions\" ORDER BY 1, 2");
         assertThat(partitionListResult).containsExactlyInOrder(rows);
     }
 
     private static void assertData(String tableName, QueryAssert.Row... rows)
     {
-        QueryResult dataResult = query("SELECT payload, col_x, col_y FROM " + tableName + " ORDER BY 1, 2, 3 ASC");
+        QueryResult dataResult = onTrino().executeQuery("SELECT payload, col_x, col_y FROM " + tableName + " ORDER BY 1, 2, 3 ASC");
         assertThat(dataResult).containsExactlyInOrder(rows);
     }
 }

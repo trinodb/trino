@@ -315,8 +315,7 @@ public final class DomainTranslator
                         new SessionPropertyManager(),
                         new TablePropertyManager(),
                         new AnalyzePropertyManager(),
-                        new TableProceduresPropertyManager()),
-                new AllowAllAccessControl());
+                        new TableProceduresPropertyManager()));
         return new Visitor(plannerContext, session, types, typeAnalyzer).process(predicate, false);
     }
 

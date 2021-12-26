@@ -50,7 +50,8 @@ public class HiveOutputTableHandle
             @JsonProperty("tableOwner") String tableOwner,
             @JsonProperty("additionalTableParameters") Map<String, String> additionalTableParameters,
             @JsonProperty("transaction") AcidTransaction transaction,
-            @JsonProperty("external") boolean external)
+            @JsonProperty("external") boolean external,
+            @JsonProperty("retriesEnabled") boolean retriesEnabled)
     {
         super(
                 schemaName,
@@ -61,7 +62,8 @@ public class HiveOutputTableHandle
                 bucketProperty,
                 tableStorageFormat,
                 partitionStorageFormat,
-                transaction);
+                transaction,
+                retriesEnabled);
 
         this.partitionedBy = ImmutableList.copyOf(requireNonNull(partitionedBy, "partitionedBy is null"));
         this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");

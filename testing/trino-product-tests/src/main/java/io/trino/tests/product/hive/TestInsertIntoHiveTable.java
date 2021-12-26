@@ -33,8 +33,8 @@ import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CR
 import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TestInsertIntoHiveTable
@@ -77,8 +77,8 @@ public class TestInsertIntoHiveTable
     public void testInsertIntoValuesToHiveTableAllHiveSimpleTypes()
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME).getNameInDatabase();
-        assertThat(query("SELECT * FROM " + tableNameInDatabase)).hasNoRows();
-        query("INSERT INTO " + tableNameInDatabase + " VALUES(" +
+        assertThat(onTrino().executeQuery("SELECT * FROM " + tableNameInDatabase)).hasNoRows();
+        onTrino().executeQuery("INSERT INTO " + tableNameInDatabase + " VALUES(" +
                 "TINYINT '127', " +
                 "SMALLINT '32767', " +
                 "2147483647, " +
@@ -96,7 +96,7 @@ public class TestInsertIntoHiveTable
                 "from_base64('a290IGJpbmFybnk=')" +
                 ")");
 
-        assertThat(query("SELECT * FROM " + tableNameInDatabase)).containsOnly(
+        assertThat(onTrino().executeQuery("SELECT * FROM " + tableNameInDatabase)).containsOnly(
                 row(
                         127,
                         32767,
@@ -119,9 +119,9 @@ public class TestInsertIntoHiveTable
     public void testInsertIntoSelectToHiveTableAllHiveSimpleTypes()
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME).getNameInDatabase();
-        assertThat(query("SELECT * FROM " + tableNameInDatabase)).hasNoRows();
-        assertThat(query("INSERT INTO " + tableNameInDatabase + " SELECT * from textfile_all_types")).containsExactlyInOrder(row(1));
-        assertThat(query("SELECT * FROM " + tableNameInDatabase)).containsOnly(
+        assertThat(onTrino().executeQuery("SELECT * FROM " + tableNameInDatabase)).hasNoRows();
+        assertThat(onTrino().executeQuery("INSERT INTO " + tableNameInDatabase + " SELECT * from textfile_all_types")).containsExactlyInOrder(row(1));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + tableNameInDatabase)).containsOnly(
                 row(
                         127,
                         32767,
@@ -144,7 +144,7 @@ public class TestInsertIntoHiveTable
     public void testInsertIntoPartitionedWithSerdeProperty()
     {
         String tableNameInDatabase = mutableTablesState().get(PARTITIONED_TABLE_WITH_SERDE).getNameInDatabase();
-        assertThat(query("INSERT INTO " + tableNameInDatabase + " SELECT 1, 'Trino', '2018-01-01'")).containsExactlyInOrder(row(1));
-        assertThat(query("SELECT * FROM " + tableNameInDatabase)).containsExactlyInOrder(row(1, "Trino", "2018-01-01"));
+        assertThat(onTrino().executeQuery("INSERT INTO " + tableNameInDatabase + " SELECT 1, 'Trino', '2018-01-01'")).containsExactlyInOrder(row(1));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + tableNameInDatabase)).containsExactlyInOrder(row(1, "Trino", "2018-01-01"));
     }
 }

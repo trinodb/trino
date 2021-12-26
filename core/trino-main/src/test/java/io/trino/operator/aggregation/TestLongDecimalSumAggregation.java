@@ -16,13 +16,13 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static io.trino.spi.type.Decimals.encodeScaledValue;
 
 public class TestLongDecimalSumAggregation
         extends AbstractTestDecimalSumAggregation
@@ -38,7 +38,7 @@ public class TestLongDecimalSumAggregation
     @Override
     protected void writeDecimalToBlock(BigDecimal decimal, BlockBuilder blockBuilder)
     {
-        longDecimalType.writeSlice(blockBuilder, encodeScaledValue(decimal));
+        longDecimalType.writeObject(blockBuilder, Decimals.valueOf(decimal));
     }
 
     @Override

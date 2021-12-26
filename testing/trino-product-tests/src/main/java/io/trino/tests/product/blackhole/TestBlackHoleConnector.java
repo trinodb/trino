@@ -20,8 +20,8 @@ import java.util.UUID;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.BLACKHOLE_CONNECTOR;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public class TestBlackHoleConnector
@@ -32,16 +32,16 @@ public class TestBlackHoleConnector
         String nullTable = "\"blackhole\".default.nation_" + UUID.randomUUID().toString().replace("-", "");
         String table = "tpch.tiny.nation";
 
-        assertThat(query(format("SELECT count(*) from %s", table))).containsExactlyInOrder(row(25));
-        QueryResult result = query(format("CREATE TABLE %s AS SELECT * FROM %s", nullTable, table));
+        assertThat(onTrino().executeQuery(format("SELECT count(*) from %s", table))).containsExactlyInOrder(row(25));
+        QueryResult result = onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", nullTable, table));
         try {
             assertThat(result).updatedRowsCountIsEqualTo(25);
-            assertThat(query(format("INSERT INTO %s SELECT * FROM %s", nullTable, table)))
+            assertThat(onTrino().executeQuery(format("INSERT INTO %s SELECT * FROM %s", nullTable, table)))
                     .updatedRowsCountIsEqualTo(25);
-            assertThat(query(format("SELECT * FROM %s", nullTable))).hasNoRows();
+            assertThat(onTrino().executeQuery(format("SELECT * FROM %s", nullTable))).hasNoRows();
         }
         finally {
-            query(format("DROP TABLE %s", nullTable));
+            onTrino().executeQuery(format("DROP TABLE %s", nullTable));
         }
     }
 }

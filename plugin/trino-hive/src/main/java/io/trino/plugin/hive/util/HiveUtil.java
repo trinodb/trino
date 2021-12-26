@@ -41,7 +41,7 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -90,7 +90,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -544,7 +543,7 @@ public final class HiveUtil
             }
             else {
                 if (value.isEmpty()) {
-                    return NullableValue.of(decimalType, Decimals.encodeUnscaledValue(BigInteger.ZERO));
+                    return NullableValue.of(decimalType, Int128.ZERO);
                 }
                 return NullableValue.of(decimalType, longDecimalPartitionKey(value, decimalType, partitionName));
             }
@@ -797,9 +796,9 @@ public final class HiveUtil
         return decimalPartitionKey(value, type, name).unscaledValue().longValue();
     }
 
-    public static Slice longDecimalPartitionKey(String value, DecimalType type, String name)
+    public static Int128 longDecimalPartitionKey(String value, DecimalType type, String name)
     {
-        return Decimals.encodeUnscaledValue(decimalPartitionKey(value, type, name).unscaledValue());
+        return Int128.valueOf(decimalPartitionKey(value, type, name).unscaledValue());
     }
 
     private static BigDecimal decimalPartitionKey(String value, DecimalType type, String name)

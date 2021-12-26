@@ -19,7 +19,6 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.PHOENIX;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -37,7 +36,7 @@ public class TestPhoenix
                     .containsOnly(row(25));
         }
         finally {
-            query("DROP TABLE nation");
+            onTrino().executeQuery("DROP TABLE nation");
         }
     }
 }

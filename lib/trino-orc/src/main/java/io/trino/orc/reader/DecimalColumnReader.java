@@ -13,8 +13,6 @@
  */
 package io.trino.orc.reader;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
@@ -31,8 +29,8 @@ import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128Math;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.UnscaledDecimal128Arithmetic;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -199,8 +197,7 @@ public class DecimalColumnReader
         for (int offset = 0; offset < data.length; offset += 2) {
             long sourceScale = scaleStream.next();
             if (sourceScale != type.getScale()) {
-                Slice decimal = Slices.wrappedLongArray(data[offset], data[offset + 1]);
-                UnscaledDecimal128Arithmetic.rescale(decimal, (int) (type.getScale() - sourceScale), Slices.wrappedLongArray(data, offset, 2));
+                Int128Math.rescale(data[offset], data[offset + 1], (int) (type.getScale() - sourceScale), data, offset);
             }
         }
         return new Int128ArrayBlock(nextBatchSize, Optional.empty(), data);
@@ -263,8 +260,7 @@ public class DecimalColumnReader
         for (int offset = 0; offset < nonNullCount * 2; offset += 2) {
             long sourceScale = scaleStream.next();
             if (sourceScale != type.getScale()) {
-                Slice decimal = Slices.wrappedLongArray(nonNullValueTemp[offset], nonNullValueTemp[offset + 1]);
-                UnscaledDecimal128Arithmetic.rescale(decimal, (int) (type.getScale() - sourceScale), Slices.wrappedLongArray(nonNullValueTemp, offset, 2));
+                Int128Math.rescale(nonNullValueTemp[offset], nonNullValueTemp[offset + 1], (int) (type.getScale() - sourceScale), nonNullValueTemp, offset);
             }
         }
 
