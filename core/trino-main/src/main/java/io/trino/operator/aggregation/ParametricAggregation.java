@@ -47,6 +47,7 @@ import java.util.Optional;
 import java.util.StringJoiner;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.ParametricFunctionHelpers.bindDependencies;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
 import static io.trino.operator.aggregation.state.StateCompiler.generateInOutStateFactory;
@@ -62,18 +63,18 @@ public class ParametricAggregation
         extends SqlAggregationFunction
 {
     private final ParametricImplementationsGroup<AggregationImplementation> implementations;
-    private final AccumulatorStateDetails stateDetails;
+    private final List<AccumulatorStateDetails> stateDetails;
 
     public ParametricAggregation(
             Signature signature,
             AggregationHeader details,
-            AccumulatorStateDetails stateDetails,
+            List<AccumulatorStateDetails> stateDetails,
             ParametricImplementationsGroup<AggregationImplementation> implementations)
     {
         super(
                 createFunctionMetadata(signature, details, implementations.getFunctionNullability()),
                 createAggregationFunctionMetadata(details, stateDetails));
-        this.stateDetails = requireNonNull(stateDetails, "stateDetails is null");
+        this.stateDetails = ImmutableList.copyOf(requireNonNull(stateDetails, "stateDetails is null"));
         checkArgument(implementations.getFunctionNullability().isReturnNullable(), "currently aggregates are required to be nullable");
         this.implementations = requireNonNull(implementations, "implementations is null");
     }
@@ -106,14 +107,16 @@ public class ParametricAggregation
         return functionMetadata.build();
     }
 
-    private static AggregationFunctionMetadata createAggregationFunctionMetadata(AggregationHeader details, AccumulatorStateDetails stateDetails)
+    private static AggregationFunctionMetadata createAggregationFunctionMetadata(AggregationHeader details, List<AccumulatorStateDetails> stateDetails)
     {
         AggregationFunctionMetadataBuilder builder = AggregationFunctionMetadata.builder();
         if (details.isOrderSensitive()) {
             builder.orderSensitive();
         }
         if (details.isDecomposable()) {
-            builder.intermediateType(getSerializedType(stateDetails));
+            for (AccumulatorStateDetails stateDetail : stateDetails) {
+                builder.intermediateType(getSerializedType(stateDetail));
+            }
         }
         return builder.build();
     }
@@ -150,7 +153,9 @@ public class ParametricAggregation
         AggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature);
 
         // Build state factory and serializer
-        AccumulatorStateDescriptor<?> accumulatorStateDescriptor = generateAccumulatorStateDescriptor(getFunctionMetadata().getSignature(), boundSignature, stateDetails);
+        List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors = stateDetails.stream()
+                .map(state -> generateAccumulatorStateDescriptor(getFunctionMetadata().getSignature(), boundSignature, state))
+                .collect(toImmutableList());
 
         // Bind provided dependencies to aggregation method handlers
         FunctionMetadata metadata = getFunctionMetadata();
@@ -179,7 +184,7 @@ public class ParametricAggregation
                 removeInputHandle,
                 combineHandle,
                 outputHandle,
-                ImmutableList.of(accumulatorStateDescriptor));
+                accumulatorStateDescriptors);
     }
 
     private static AccumulatorStateDescriptor<?> generateAccumulatorStateDescriptor(Signature signature, BoundSignature boundSignature, AccumulatorStateDetails stateDetails)
@@ -226,9 +231,10 @@ public class ParametricAggregation
                 generateStateFactory(stateClass));
     }
 
-    public Class<?> getStateClass()
+    @VisibleForTesting
+    public List<AccumulatorStateDetails> getStateDetails()
     {
-        return stateDetails.getStateClass();
+        return stateDetails;
     }
 
     @VisibleForTesting

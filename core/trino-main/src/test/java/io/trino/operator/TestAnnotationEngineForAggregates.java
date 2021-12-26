@@ -27,6 +27,7 @@ import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
+import io.trino.operator.aggregation.AggregationFromAnnotationsParser.AccumulatorStateDetails;
 import io.trino.operator.aggregation.AggregationImplementation;
 import io.trino.operator.aggregation.ParametricAggregation;
 import io.trino.operator.aggregation.state.LongState;
@@ -64,6 +65,7 @@ import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -174,7 +176,7 @@ public class TestAnnotationEngineForAggregates
     public void testInputParameterOrderEnforced()
     {
         assertThatThrownBy(() -> parseFunctionDefinitions(InputParametersWrongOrder.class))
-                .hasMessage("Expected input function non-dependency parameters to begin with state type NullableDoubleState: " +
+                .hasMessage("Expected input function non-dependency parameters to begin with state types [NullableDoubleState]: " +
                         "public static void io.trino.operator.TestAnnotationEngineForAggregates$InputParametersWrongOrder.input(double,io.trino.operator.aggregation.state.NullableDoubleState)");
     }
 
@@ -342,7 +344,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with two generic implementations");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertEquals(aggregation.getStateClass(), NullableLongState.class);
+        assertEquals(aggregation.getStateDetails(), ImmutableList.of(new AccumulatorStateDetails(NullableLongState.class, Optional.empty())));
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 0, 0, 2);
         AggregationImplementation implementationDouble = implementations.getGenericImplementations().stream()
@@ -1007,7 +1009,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with fixed parameter type injected");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertEquals(aggregation.getStateClass(), NullableDoubleState.class);
+        assertEquals(aggregation.getStateDetails(), ImmutableList.of(new AccumulatorStateDetails(NullableDoubleState.class, Optional.empty())));
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 1, 0, 0);
         AggregationImplementation implementationDouble = implementations.getExactImplementations().get(expectedSignature);
@@ -1071,7 +1073,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with fixed parameter type injected");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertEquals(aggregation.getStateClass(), NullableDoubleState.class);
+        assertEquals(aggregation.getStateDetails(), ImmutableList.of(new AccumulatorStateDetails(NullableDoubleState.class, Optional.empty())));
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 0, 0, 1);
         AggregationImplementation implementationDouble = getOnlyElement(implementations.getGenericImplementations());
