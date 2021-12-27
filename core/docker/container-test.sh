@@ -14,9 +14,11 @@ function test_trino_starts {
     trap cleanup EXIT
 
     local CONTAINER_NAME=$1
-    local PLATFORM=$2
+    local CONTAINER_CLI_NAME=$2
+    local PLATFORM=$3
     # We aren't passing --rm here to make sure container is available for inspection in case of failures
     CONTAINER_ID=$(docker run -d --platform "${PLATFORM}" "${CONTAINER_NAME}")
+    SERVER_IP=$(docker inspect --format '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$CONTAINER_ID")
 
     set +e
     I=0
@@ -29,7 +31,9 @@ function test_trino_starts {
         fi
         sleep ${QUERY_PERIOD}
     done
-    if ! RESULT=$(docker exec "${CONTAINER_ID}" trino --execute "SELECT 'success'" 2>/dev/null); then
+    # test both the cli in the server image and the cli image
+    if ! RESULT=$(docker exec "${CONTAINER_ID}" trino --execute "SELECT 'success'" 2>/dev/null) ||
+        ! RESULT=$(docker run --rm --platform "${PLATFORM}" "${CONTAINER_CLI_NAME}" --server "$SERVER_IP:8080" --execute "SELECT 'success'" 2>/dev/null); then
         echo "🚨 Failed to execute a query after Trino container started"
     fi
     set -e
@@ -46,16 +50,17 @@ function test_javahome {
     local PLATFORM=$2
     # Check if JAVA_HOME works
     docker run --rm --platform "${PLATFORM}" "${CONTAINER_NAME}" \
-        /bin/bash -c '$JAVA_HOME/bin/java -version' &>/dev/null
+        /bin/bash -c '$JAVA_HOME/bin/java -version' &> /dev/null
 
     [[ $? == "0" ]]
 }
 
 function test_container {
     local CONTAINER_NAME=$1
-    local PLATFORM=$2
-    echo "🐢 Validating ${CONTAINER_NAME} on platform ${PLATFORM}..."
+    local CONTAINER_CLI_NAME=$2
+    local PLATFORM=$3
+    echo "🐢 Validating ${CONTAINER_NAME} and ${CONTAINER_CLI_NAME} on platform ${PLATFORM}..."
     test_javahome "${CONTAINER_NAME}" "${PLATFORM}"
-    test_trino_starts "${CONTAINER_NAME}" "${PLATFORM}"
-    echo "🎉 Validated ${CONTAINER_NAME} on platform ${PLATFORM}"
+    test_trino_starts "${CONTAINER_NAME}" "${CONTAINER_CLI_NAME}" "${PLATFORM}"
+    echo "🎉 Validated ${CONTAINER_NAME} and ${CONTAINER_CLI_NAME} on platform ${PLATFORM}"
 }

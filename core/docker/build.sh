@@ -19,7 +19,7 @@ TRINO_VERSION=
 while getopts ":a:h:r:" o; do
     case "${o}" in
         a)
-            IFS=, read -ra ARCHITECTURES <<< "$OPTARG"
+            IFS=, read -ra ARCHITECTURES <<<"$OPTARG"
             ;;
         r)
             TRINO_VERSION=${OPTARG}
@@ -78,6 +78,13 @@ for arch in "${ARCHITECTURES[@]}"; do
         -f Dockerfile \
         -t "${TAG_PREFIX}-$arch" \
         --build-arg "TRINO_VERSION=${TRINO_VERSION}"
+    docker build \
+        "${WORK_DIR}" \
+        --pull \
+        --platform "linux/$arch" \
+        -f Dockerfile.cli \
+        -t "${TAG_PREFIX}-cli-$arch" \
+        --build-arg "TRINO_VERSION=${TRINO_VERSION}"
 done
 
 echo "🧹 Cleaning up the build context directory"
@@ -88,8 +95,9 @@ source container-test.sh
 
 for arch in "${ARCHITECTURES[@]}"; do
     # TODO: remove when https://github.com/multiarch/qemu-user-static/issues/128 is fixed
-    if [[ "$arch" != "ppc64le" ]]; then
-        test_container "${TAG_PREFIX}-$arch" "linux/$arch"
+    if [[ $arch != "ppc64le" ]]; then
+        test_container "${TAG_PREFIX}-$arch" "${TAG_PREFIX}-cli-$arch" "linux/$arch"
     fi
     docker image inspect -f '🚀 Built {{.RepoTags}} {{.Id}}' "${TAG_PREFIX}-$arch"
+    docker image inspect -f '🚀 Built {{.RepoTags}} {{.Id}}' "${TAG_PREFIX}-cli-$arch"
 done
