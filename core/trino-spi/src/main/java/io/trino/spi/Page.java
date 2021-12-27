@@ -69,7 +69,16 @@ public final class Page
     {
         requireNonNull(blocks, "blocks is null");
         this.positionCount = positionCount;
-        this.blocks = blocksCopyRequired ? blocks.clone() : blocks;
+        if (blocks.length == 0) {
+            this.blocks = EMPTY_BLOCKS;
+            this.sizeInBytes = 0;
+            this.logicalSizeInBytes = 0;
+            // Empty blocks are not considered "retained" by any particular page
+            this.retainedSizeInBytes = INSTANCE_SIZE;
+        }
+        else {
+            this.blocks = blocksCopyRequired ? blocks.clone() : blocks;
+        }
     }
 
     public int getChannelCount()
@@ -274,22 +283,36 @@ public final class Page
      */
     public Page getLoadedPage()
     {
-        Block[] loadedBlocks = null;
         for (int i = 0; i < blocks.length; i++) {
             Block loaded = blocks[i].getLoadedBlock();
             if (loaded != blocks[i]) {
-                if (loadedBlocks == null) {
-                    loadedBlocks = blocks.clone();
+                // Transition to new block creation mode after the first newly loaded block is encountered
+                Block[] loadedBlocks = blocks.clone();
+                loadedBlocks[i++] = loaded;
+                for (; i < blocks.length; i++) {
+                    loadedBlocks[i] = blocks[i].getLoadedBlock();
                 }
-                loadedBlocks[i] = loaded;
+                return wrapBlocksWithoutCopy(positionCount, loadedBlocks);
             }
         }
+        // No newly loaded blocks
+        return this;
+    }
 
-        if (loadedBlocks == null) {
-            return this;
+    public Page getLoadedPage(int column)
+    {
+        return wrapBlocksWithoutCopy(positionCount, new Block[]{this.blocks[column].getLoadedBlock()});
+    }
+
+    public Page getLoadedPage(int... columns)
+    {
+        requireNonNull(columns, "columns is null");
+
+        Block[] blocks = new Block[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            blocks[i] = this.blocks[columns[i]].getLoadedBlock();
         }
-
-        return wrapBlocksWithoutCopy(positionCount, loadedBlocks);
+        return wrapBlocksWithoutCopy(positionCount, blocks);
     }
 
     @Override

@@ -26,7 +26,6 @@ import org.testng.annotations.Test;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -77,6 +76,43 @@ public class TestDictionaryBlock
 
         DictionaryBlock copyRegionDictionaryBlock = (DictionaryBlock) dictionaryBlock.copyRegion(1, 3);
         assertTrue(copyRegionDictionaryBlock.isCompact());
+    }
+
+    @Test
+    public void testCopyRegionUnwrapping()
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
+
+        // 0 and 1 position copies unwrap the dictionary
+        assertInstanceOf(dictionaryBlock.copyRegion(0, 0), VariableWidthBlock.class);
+        assertInstanceOf(dictionaryBlock.copyRegion(0, 1), VariableWidthBlock.class);
+
+        // Compact dictionaries unwrap
+        DictionaryBlock compactSequentialDictionary = createDictionaryBlock(expectedValues, expectedValues.length);
+        assertTrue(compactSequentialDictionary.isCompact()); // force uniqueIds to be computed
+        assertInstanceOf(compactSequentialDictionary.copyRegion(0, 5), VariableWidthBlock.class);
+
+        // Nested dictionaries unwrap, even when not compact
+        DictionaryBlock outerDictionary = new DictionaryBlock(compactSequentialDictionary, new int[]{1, 3, 5, 7});
+        assertFalse(outerDictionary.isCompact()); // force uniqueIds to be computed
+        // inner dictionary is compact, and also unwraps
+        assertInstanceOf(outerDictionary.copyRegion(1, 2), VariableWidthBlock.class);
+
+        // Nested dictionaries unwrap down to a single dictionary layer when ids are repeated
+        Block innermostRawBlock = createSlicesBlock(expectedValues);
+        DictionaryBlock firstDictionary = new DictionaryBlock(innermostRawBlock, new int[]{0, 1, 1, 7, 7, 5, 3});
+        DictionaryBlock secondDictionary = new DictionaryBlock(firstDictionary, new int[]{3, 1, 1, 2});
+        DictionaryBlock thirdDictionary = new DictionaryBlock(secondDictionary, new int[]{0, 0, 0, 2});
+        // Result is still a dictionary, but only a single layer
+        assertInstanceOf(thirdDictionary.copyRegion(0, 2), DictionaryBlock.class);
+        assertInstanceOf(((DictionaryBlock) thirdDictionary.copyRegion(0, 2)).getDictionary(), VariableWidthBlock.class);
+        // Re-check after all dictionaries have their uniqueIds computed
+        assertFalse(firstDictionary.isCompact());
+        assertFalse(secondDictionary.isCompact());
+        assertFalse(thirdDictionary.isCompact());
+        assertInstanceOf(thirdDictionary.copyRegion(0, 2), DictionaryBlock.class);
+        assertInstanceOf(((DictionaryBlock) thirdDictionary.copyRegion(0, 2)).getDictionary(), VariableWidthBlock.class);
     }
 
     @Test
@@ -142,6 +178,50 @@ public class TestDictionaryBlock
     }
 
     @Test
+    public void testCopyPositionsUnwrapping()
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
+        assertTrue(dictionaryBlock.isCompact());
+
+        // 0 and 1 position copies unwrap the dictionary
+        assertInstanceOf(dictionaryBlock.copyPositions(new int[0], 0, 0), VariableWidthBlock.class);
+        assertInstanceOf(dictionaryBlock.copyPositions(new int[1], 0, 1), VariableWidthBlock.class);
+
+        // Dictionaries unwrap when each selected id appears only once
+        int[] positionsToCopy = new int[] {9, 7, 5, 3, 2, 1, 0};
+        assertInstanceOf(dictionaryBlock.copyPositions(positionsToCopy, 0, positionsToCopy.length), VariableWidthBlock.class);
+
+        // Compact dictionaries unwrap
+        DictionaryBlock compactSequentialDictionary = createDictionaryBlock(expectedValues, expectedValues.length);
+        assertTrue(compactSequentialDictionary.isCompact()); // force uniqueIds to be computed
+        assertInstanceOf(compactSequentialDictionary.copyPositions(positionsToCopy, 0, positionsToCopy.length), VariableWidthBlock.class);
+
+        // Nested dictionaries unwrap, even when not compact
+        DictionaryBlock outerDictionary = new DictionaryBlock(compactSequentialDictionary, new int[]{1, 3, 5, 7, 9});
+        assertFalse(outerDictionary.isCompact()); // force uniqueIds to be computed
+        positionsToCopy = new int[] {0, 3, 2};
+        // inner dictionary is compact, and also unwraps
+        assertInstanceOf(outerDictionary.copyPositions(positionsToCopy, 0, positionsToCopy.length), VariableWidthBlock.class);
+
+        // Nested dictionaries unwrap down to a single dictionary layer when ids are repeated
+        Block innermostRawBlock = createSlicesBlock(expectedValues);
+        DictionaryBlock firstDictionary = new DictionaryBlock(innermostRawBlock, new int[]{0, 1, 1, 7, 7, 5, 3});
+        DictionaryBlock secondDictionary = new DictionaryBlock(firstDictionary, new int[]{3, 1, 1, 2});
+        DictionaryBlock thirdDictionary = new DictionaryBlock(secondDictionary, new int[]{0, 0, 0, 2});
+        // Result is still a dictionary, but only a single layer
+        positionsToCopy = new int[] {2, 1, 0};
+        assertInstanceOf(thirdDictionary.copyPositions(positionsToCopy, 0, 2), DictionaryBlock.class);
+        assertInstanceOf(((DictionaryBlock) thirdDictionary.copyPositions(positionsToCopy, 0, 2)).getDictionary(), VariableWidthBlock.class);
+        // Re-check after all dictionaries have their uniqueIds computed
+        assertFalse(firstDictionary.isCompact());
+        assertFalse(secondDictionary.isCompact());
+        assertFalse(thirdDictionary.isCompact());
+        assertInstanceOf(thirdDictionary.copyPositions(positionsToCopy, 0, 2), DictionaryBlock.class);
+        assertInstanceOf(((DictionaryBlock) thirdDictionary.copyPositions(positionsToCopy, 0, 2)).getDictionary(), VariableWidthBlock.class);
+    }
+
+    @Test
     public void testCompact()
     {
         Slice[] expectedValues = createExpectedValues(5);
@@ -165,13 +245,21 @@ public class TestDictionaryBlock
     {
         Slice[] expectedValues = createExpectedValues(10);
         Block valuesBlock = createSlicesBlock(expectedValues);
-        DictionaryBlock nestedDictionary = new DictionaryBlock(valuesBlock, new int[] {0, 1, 2, 2, 4, 5});
+        DictionaryBlock deeplyNestedDictionary = new DictionaryBlock(valuesBlock, new int[] {0, 1, 2, 2, 4, 5});
+        DictionaryBlock nestedDictionary = new DictionaryBlock(deeplyNestedDictionary, new int[] {0, 1, 2, 3, 4, 5});
         DictionaryBlock dictionary = new DictionaryBlock(nestedDictionary, new int[] {2, 3, 2, 0});
+        DictionaryBlock dictionaryWithAllPositionsUsed = new DictionaryBlock(nestedDictionary, new int[] {0, 1, 2, 3, 4, 5});
 
         assertEquals(
                 dictionary.getSizeInBytes(),
                 valuesBlock.getPositionsSizeInBytes(new boolean[] {true, false, true, false, false, false}) + 4 * Integer.BYTES);
         assertFalse(dictionary.isCompact());
+
+        assertEquals(
+                dictionaryWithAllPositionsUsed.getSizeInBytes(),
+                valuesBlock.getPositionsSizeInBytes(new boolean[] {true, true, true, false, true, true}) + 6 * Integer.BYTES);
+        // dictionary is not compact (even though all positions were used) because it's unnested
+        assertFalse(dictionaryWithAllPositionsUsed.isCompact());
 
         DictionaryBlock compactBlock = dictionary.compact();
         assertBlock(compactBlock.getDictionary(), TestDictionaryBlock::createBlockBuilder, new Slice[] {expectedValues[2], expectedValues[0]});
@@ -235,19 +323,19 @@ public class TestDictionaryBlock
         for (int position : ImmutableList.of(-1, 6)) {
             assertThatThrownBy(() -> finalDictionaryBlock.getPositions(new int[] {position}, 0, 1))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage(format("Invalid position %d in block with %d positions", position, finalDictionaryBlock.getPositionCount()));
+                    .hasMessage("Invalid position %d in block with %d positions", position, finalDictionaryBlock.getPositionCount());
         }
 
         for (int offset : ImmutableList.of(-1, 6)) {
             assertThatThrownBy(() -> finalDictionaryBlock.getPositions(new int[] {0}, offset, 1))
                     .isInstanceOf(IndexOutOfBoundsException.class)
-                    .hasMessage(format("Invalid offset %d and length 1 in array with 1 elements", offset));
+                    .hasMessage("Invalid offset %d and length 1 in array with 1 elements", offset);
         }
 
         for (int length : ImmutableList.of(-1, 6)) {
             assertThatThrownBy(() -> finalDictionaryBlock.getPositions(new int[] {0}, 0, length))
                     .isInstanceOf(IndexOutOfBoundsException.class)
-                    .hasMessage(format("Invalid offset 0 and length %d in array with 1 elements", length));
+                    .hasMessage("Invalid offset 0 and length %d in array with 1 elements", length);
         }
     }
 

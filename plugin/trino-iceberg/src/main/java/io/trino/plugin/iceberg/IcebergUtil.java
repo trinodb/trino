@@ -13,19 +13,24 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.airlift.slice.Slices;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.BaseTable;
@@ -39,26 +44,44 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.Transaction;
+import org.apache.iceberg.io.LocationProvider;
+import org.apache.iceberg.types.Type.PrimitiveType;
+import org.apache.iceberg.types.TypeUtil;
+import org.apache.iceberg.types.Types.NestedField;
+import org.apache.iceberg.types.Types.StructType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.util.Collections;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Lists.reverse;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
+import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
+import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
+import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -71,20 +94,22 @@ import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
+import static org.apache.iceberg.LocationProviders.locationsFor;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
+import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
-final class IcebergUtil
+public final class IcebergUtil
 {
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
 
@@ -95,12 +120,11 @@ final class IcebergUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
-    public static Table loadIcebergTable(HiveTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
+    public static Table loadIcebergTable(HiveMetastore metastore, IcebergTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
     {
         TableOperations operations = tableOperationsProvider.createTableOperations(
-                new HdfsContext(session),
-                session.getQueryId(),
-                new HiveIdentity(session),
+                metastore,
+                session,
                 table.getSchemaName(),
                 table.getTableName(),
                 Optional.empty(),
@@ -109,15 +133,15 @@ final class IcebergUtil
     }
 
     public static Table getIcebergTableWithMetadata(
-            HiveTableOperationsProvider tableOperationsProvider,
+            HiveMetastore metastore,
+            IcebergTableOperationsProvider tableOperationsProvider,
             ConnectorSession session,
             SchemaTableName table,
             TableMetadata tableMetadata)
     {
-        HiveTableOperations operations = (HiveTableOperations) tableOperationsProvider.createTableOperations(
-                new HdfsContext(session),
-                session.getQueryId(),
-                new HiveIdentity(session),
+        IcebergTableOperations operations = tableOperationsProvider.createTableOperations(
+                metastore,
+                session,
                 table.getSchemaName(),
                 table.getTableName(),
                 Optional.empty(),
@@ -142,7 +166,15 @@ final class IcebergUtil
     public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)
     {
         return schema.columns().stream()
-                .map(column -> IcebergColumnHandle.create(column, typeManager))
+                .map(column -> {
+                    Type type = toTrinoType(column.type(), typeManager);
+                    return new IcebergColumnHandle(
+                            createColumnIdentity(column),
+                            type,
+                            ImmutableList.of(),
+                            type,
+                            Optional.ofNullable(column.doc()));
+                })
                 .collect(toImmutableList());
     }
 
@@ -159,12 +191,30 @@ final class IcebergUtil
         return columns.build();
     }
 
-    public static String getDataPath(String location)
+    public static Map<Integer, PrimitiveType> primitiveFieldTypes(Schema schema)
     {
-        if (!location.endsWith("/")) {
-            location += "/";
+        return primitiveFieldTypes(schema.columns())
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+    }
+
+    private static Stream<Entry<Integer, PrimitiveType>> primitiveFieldTypes(List<NestedField> nestedFields)
+    {
+        return nestedFields.stream()
+                .flatMap(IcebergUtil::primitiveFieldTypes);
+    }
+
+    private static Stream<Entry<Integer, PrimitiveType>> primitiveFieldTypes(NestedField nestedField)
+    {
+        org.apache.iceberg.types.Type fieldType = nestedField.type();
+        if (fieldType.isPrimitiveType()) {
+            return Stream.of(Map.entry(nestedField.fieldId(), fieldType.asPrimitiveType()));
         }
-        return location + "data";
+
+        if (fieldType.isNestedType()) {
+            return primitiveFieldTypes(fieldType.asNestedType().fields());
+        }
+
+        throw new IllegalStateException("Unsupported field type: " + nestedField);
     }
 
     public static FileFormat getFileFormat(Table table)
@@ -192,7 +242,7 @@ final class IcebergUtil
         return '"' + name.replace("\"", "\"\"") + '"';
     }
 
-    public static Object deserializePartitionValue(Type type, String valueString, String name, TimeZoneKey timeZoneKey)
+    public static Object deserializePartitionValue(Type type, String valueString, String name)
     {
         if (valueString == null) {
             return null;
@@ -230,7 +280,7 @@ final class IcebergUtil
                 return parseLong(valueString);
             }
             if (type.equals(TIMESTAMP_TZ_MICROS)) {
-                return timestampTzFromMicros(parseLong(valueString), timeZoneKey);
+                return timestampTzFromMicros(parseLong(valueString));
             }
             if (type instanceof VarcharType) {
                 Slice value = utf8Slice(valueString);
@@ -241,7 +291,10 @@ final class IcebergUtil
                 return value;
             }
             if (type.equals(VarbinaryType.VARBINARY)) {
-                return utf8Slice(valueString);
+                return Slices.wrappedBuffer(Base64.getDecoder().decode(valueString));
+            }
+            if (type.equals(UuidType.UUID)) {
+                return javaUuidToTrinoUuid(UUID.fromString(valueString));
             }
             if (isShortDecimal(type) || isLongDecimal(type)) {
                 DecimalType decimalType = (DecimalType) type;
@@ -265,12 +318,16 @@ final class IcebergUtil
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
     }
 
-    public static Map<Integer, String> getPartitionKeys(FileScanTask scanTask)
+    /**
+     * Returns a map from fieldId to serialized partition value containing entries for all identity partitions.
+     * {@code null} partition values are represented with {@link Optional#empty}.
+     */
+    public static Map<Integer, Optional<String>> getPartitionKeys(FileScanTask scanTask)
     {
         StructLike partition = scanTask.file().partition();
         PartitionSpec spec = scanTask.spec();
         Map<PartitionField, Integer> fieldToIndex = getIdentityPartitions(spec);
-        Map<Integer, String> partitionKeys = new HashMap<>();
+        ImmutableMap.Builder<Integer, Optional<String>> partitionKeys = ImmutableMap.builder();
 
         fieldToIndex.forEach((field, index) -> {
             int id = field.sourceId();
@@ -279,21 +336,65 @@ final class IcebergUtil
             Object value = partition.get(index, javaClass);
 
             if (value == null) {
-                partitionKeys.put(id, null);
+                partitionKeys.put(id, Optional.empty());
             }
             else {
                 String partitionValue;
                 if (type.typeId() == FIXED || type.typeId() == BINARY) {
                     // this is safe because Iceberg PartitionData directly wraps the byte array
-                    partitionValue = new String(((ByteBuffer) value).array(), UTF_8);
+                    partitionValue = Base64.getEncoder().encodeToString(((ByteBuffer) value).array());
                 }
                 else {
                     partitionValue = value.toString();
                 }
-                partitionKeys.put(id, partitionValue);
+                partitionKeys.put(id, Optional.of(partitionValue));
             }
         });
 
-        return Collections.unmodifiableMap(partitionKeys);
+        return partitionKeys.build();
+    }
+
+    public static LocationProvider getLocationProvider(SchemaTableName schemaTableName, String tableLocation, Map<String, String> storageProperties)
+    {
+        if (storageProperties.containsKey(WRITE_LOCATION_PROVIDER_IMPL)) {
+            throw new TrinoException(NOT_SUPPORTED, "Table " + schemaTableName + " specifies " + storageProperties.get(WRITE_LOCATION_PROVIDER_IMPL) +
+                    " as a location provider. Writing to Iceberg tables with custom location provider is not supported.");
+        }
+        return locationsFor(tableLocation, storageProperties);
+    }
+
+    public static Schema toIcebergSchema(List<ColumnMetadata> columns)
+    {
+        List<NestedField> icebergColumns = new ArrayList<>();
+        for (ColumnMetadata column : columns) {
+            if (!column.isHidden()) {
+                int index = icebergColumns.size();
+                org.apache.iceberg.types.Type type = toIcebergType(column.getType());
+                NestedField field = NestedField.of(index, column.isNullable(), column.getName(), type, column.getComment());
+                icebergColumns.add(field);
+            }
+        }
+        org.apache.iceberg.types.Type icebergSchema = StructType.of(icebergColumns);
+        AtomicInteger nextFieldId = new AtomicInteger(1);
+        icebergSchema = TypeUtil.assignFreshIds(icebergSchema, nextFieldId::getAndIncrement);
+        return new Schema(icebergSchema.asStructType().fields());
+    }
+
+    public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session)
+    {
+        SchemaTableName schemaTableName = tableMetadata.getTable();
+        Schema schema = toIcebergSchema(tableMetadata.getColumns());
+        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
+        String targetPath = getTableLocation(tableMetadata.getProperties())
+                .orElse(catalog.defaultTableLocation(session, schemaTableName));
+
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(2);
+        FileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
+        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
+        if (tableMetadata.getComment().isPresent()) {
+            propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
+        }
+
+        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, targetPath, propertiesBuilder.build());
     }
 }

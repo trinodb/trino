@@ -32,17 +32,27 @@ To enable periodical dumps, define the following properties:
     jmx.max-entries=86400
 
 ``dump-tables`` is a comma separated list of Managed Beans (MBean). It specifies
-which MBeans is sampled and stored in memory every ``dump-period``.
-History has limited size of ``max-entries`` of entries. Both ``dump-period``
-and ``max-entries`` have default values of ``10s`` and ``86400`` accordingly.
+which MBeans are sampled and stored in memory every ``dump-period``. You can
+configure the maximum number of history entries with ``max-entries`` and it
+defaults to ``86400``. The time between dumps can be configured using
+``dump-period`` and it defaults to ``10s``.
 
-Commas in MBean names should be escaped in the following manner:
+Commas in MBean names must be escaped using double backslashes (``\\``) in the
+following manner:
+
+.. code-block:: text
+
+    connector.name=jmx
+    jmx.dump-tables=trino.memory:name=general\\,type=memorypool,trino.memory:name=reserved\\,type=memorypool
+
+Double backslashes are required because a single backslash (``\``) is used to
+split the value across multiple lines in the following manner:
 
 .. code-block:: text
 
     connector.name=jmx
     jmx.dump-tables=trino.memory:name=general\\,type=memorypool,\
-       trino.memory:name=reserved\\,type=memorypool
+        trino.memory:name=reserved\\,type=memorypool
 
 Querying JMX
 ------------
@@ -111,3 +121,12 @@ timestamp column that stores the time at which the snapshot was taken::
      2016-01-28 10:19:00.000 |  21422
      2016-01-28 10:19:10.000 |  31412
     (3 rows)
+
+.. _jmx-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access JMX information
+on your Trino nodes.

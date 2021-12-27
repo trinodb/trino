@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
@@ -22,6 +23,7 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -39,6 +41,9 @@ public class IcebergTableHandle
     // Filter guaranteed to be enforced by Iceberg connector
     private final TupleDomain<IcebergColumnHandle> enforcedPredicate;
 
+    private final Set<IcebergColumnHandle> projectedColumns;
+    private final Optional<String> nameMappingJson;
+
     @JsonCreator
     public IcebergTableHandle(
             @JsonProperty("schemaName") String schemaName,
@@ -46,7 +51,9 @@ public class IcebergTableHandle
             @JsonProperty("tableType") TableType tableType,
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
             @JsonProperty("unenforcedPredicate") TupleDomain<IcebergColumnHandle> unenforcedPredicate,
-            @JsonProperty("enforcedPredicate") TupleDomain<IcebergColumnHandle> enforcedPredicate)
+            @JsonProperty("enforcedPredicate") TupleDomain<IcebergColumnHandle> enforcedPredicate,
+            @JsonProperty("projectedColumns") Set<IcebergColumnHandle> projectedColumns,
+            @JsonProperty("nameMappingJson") Optional<String> nameMappingJson)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -54,6 +61,8 @@ public class IcebergTableHandle
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
         this.unenforcedPredicate = requireNonNull(unenforcedPredicate, "unenforcedPredicate is null");
         this.enforcedPredicate = requireNonNull(enforcedPredicate, "enforcedPredicate is null");
+        this.projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
+        this.nameMappingJson = requireNonNull(nameMappingJson, "nameMappingJson is null");
     }
 
     @JsonProperty
@@ -92,6 +101,18 @@ public class IcebergTableHandle
         return enforcedPredicate;
     }
 
+    @JsonProperty
+    public Set<IcebergColumnHandle> getProjectedColumns()
+    {
+        return projectedColumns;
+    }
+
+    @JsonProperty
+    public Optional<String> getNameMappingJson()
+    {
+        return nameMappingJson;
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -100,6 +121,19 @@ public class IcebergTableHandle
     public SchemaTableName getSchemaTableNameWithType()
     {
         return new SchemaTableName(schemaName, tableName + "$" + tableType.name().toLowerCase(Locale.ROOT));
+    }
+
+    public IcebergTableHandle withProjectedColumns(Set<IcebergColumnHandle> projectedColumns)
+    {
+        return new IcebergTableHandle(
+                schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                unenforcedPredicate,
+                enforcedPredicate,
+                projectedColumns,
+                nameMappingJson);
     }
 
     @Override
@@ -118,18 +152,20 @@ public class IcebergTableHandle
                 tableType == that.tableType &&
                 Objects.equals(snapshotId, that.snapshotId) &&
                 Objects.equals(unenforcedPredicate, that.unenforcedPredicate) &&
-                Objects.equals(enforcedPredicate, that.enforcedPredicate);
+                Objects.equals(enforcedPredicate, that.enforcedPredicate) &&
+                Objects.equals(projectedColumns, that.projectedColumns) &&
+                Objects.equals(nameMappingJson, that.nameMappingJson);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, tableType, snapshotId, unenforcedPredicate, enforcedPredicate);
+        return Objects.hash(schemaName, tableName, tableType, snapshotId, unenforcedPredicate, enforcedPredicate, projectedColumns, nameMappingJson);
     }
 
     @Override
     public String toString()
     {
-        return getSchemaTableNameWithType() + "@" + snapshotId;
+        return getSchemaTableNameWithType() + snapshotId.map(v -> "@" + v).orElse("");
     }
 }

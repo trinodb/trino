@@ -402,7 +402,7 @@ public class MockThriftMetastoreClient
     }
 
     @Override
-    public boolean revokePrivileges(PrivilegeBag privilegeBag)
+    public boolean revokePrivileges(PrivilegeBag privilegeBag, boolean revokeGrantOption)
     {
         throw new UnsupportedOperationException();
     }
@@ -474,6 +474,13 @@ public class MockThriftMetastoreClient
 
     @Override
     public LockResponse checkLock(long lockId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void unlock(long lockId)
+            throws TException
     {
         throw new UnsupportedOperationException();
     }

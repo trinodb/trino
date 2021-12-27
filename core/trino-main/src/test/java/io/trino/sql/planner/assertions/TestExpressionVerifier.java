@@ -55,8 +55,8 @@ public class TestExpressionVerifier
                 .build();
 
         ExpressionVerifier verifier = new ExpressionVerifier(aliases);
-        assertTrue(verifier.process(expression("CAST('2' AS varchar)"), expression("CAST('2' AS varchar)")));
-        assertFalse(verifier.process(expression("CAST('2' AS varchar)"), expression("CAST('2' AS bigint)")));
+        assertTrue(verifier.process(expression("VARCHAR '2'"), expression("VARCHAR '2'")));
+        assertFalse(verifier.process(expression("VARCHAR '2'"), expression("CAST('2' AS bigint)")));
         assertTrue(verifier.process(expression("CAST(orderkey AS varchar)"), expression("CAST(X AS varchar)")));
     }
 

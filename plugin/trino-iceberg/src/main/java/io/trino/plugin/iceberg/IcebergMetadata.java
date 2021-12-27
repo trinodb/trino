@@ -18,25 +18,16 @@ import com.google.common.base.Suppliers;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.json.JsonCodec;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.plugin.hive.HiveSchemaProperties;
+import io.trino.plugin.hive.HiveApplyProjectionUtil;
+import io.trino.plugin.hive.HiveApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.hive.HiveWrittenPartitions;
-import io.trino.plugin.hive.TableAlreadyExistsException;
-import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -51,16 +42,19 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
-import io.trino.spi.connector.SchemaNotFoundException;
+import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
@@ -68,11 +62,8 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.AppendFiles;
-import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFiles;
-import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -80,182 +71,127 @@ import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
-import org.apache.iceberg.TableMetadata;
-import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
-import org.apache.iceberg.types.TypeUtil;
-import org.apache.iceberg.types.Types;
-import org.apache.iceberg.types.Types.NestedField;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
-import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
-import static io.trino.plugin.hive.HiveType.HIVE_STRING;
-import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
-import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
-import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
-import static io.trino.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
+import static io.trino.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
+import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariables;
+import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
+import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
-import static io.trino.plugin.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
-import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
-import static io.trino.plugin.iceberg.IcebergSchemaProperties.getSchemaLocation;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
-import static io.trino.plugin.iceberg.IcebergTableProperties.getFileFormat;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
-import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
-import static io.trino.plugin.iceberg.IcebergUtil.getDataPath;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
-import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
-import static io.trino.plugin.iceberg.IcebergUtil.isIcebergTable;
-import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
+import static io.trino.plugin.iceberg.IcebergUtil.newCreateTableTransaction;
+import static io.trino.plugin.iceberg.IcebergUtil.toIcebergSchema;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.TableType.DATA;
+import static io.trino.plugin.iceberg.TrinoHiveCatalog.DEPENDS_ON_TABLES;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
-import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
-import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
-import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
-import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
-import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
-import static org.apache.iceberg.TableMetadata.newTableMetadata;
-import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
-import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
-import static org.apache.iceberg.Transactions.createTableTransaction;
 
 public class IcebergMetadata
         implements ConnectorMetadata
 {
-    private static final Logger log = Logger.get(IcebergMetadata.class);
-    public static final String DEPENDS_ON_TABLES = "dependsOnTables";
-
-    private final CatalogName catalogName;
-    private final HiveMetastore metastore;
-    private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
-    private final HiveTableOperationsProvider tableOperationsProvider;
+    private final TrinoCatalog catalog;
 
-    private final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
-    private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
+    private final Map<String, Long> snapshotIds = new ConcurrentHashMap<>();
 
     private Transaction transaction;
 
     public IcebergMetadata(
-            CatalogName catalogName,
-            HiveMetastore metastore,
-            HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec,
-            HiveTableOperationsProvider tableOperationsProvider)
+            TrinoCatalog catalog)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        this.metastore = requireNonNull(metastore, "metastore is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
-        this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
+        this.catalog = requireNonNull(catalog, "catalog is null");
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return metastore.getAllDatabases();
+        return catalog.listNamespaces(session);
     }
 
     @Override
     public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        Optional<Database> db = metastore.getDatabase(schemaName.getSchemaName());
-        if (db.isPresent()) {
-            return HiveSchemaProperties.fromDatabase(db.get());
-        }
-
-        throw new SchemaNotFoundException(schemaName.getSchemaName());
+        return catalog.loadNamespaceMetadata(session, schemaName.getSchemaName());
     }
 
     @Override
     public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        Optional<Database> database = metastore.getDatabase(schemaName.getSchemaName());
-        if (database.isPresent()) {
-            return database.flatMap(db -> Optional.of(new TrinoPrincipal(db.getOwnerType(), db.getOwnerName())));
-        }
-
-        throw new SchemaNotFoundException(schemaName.getSchemaName());
+        return catalog.getNamespacePrincipal(session, schemaName.getSchemaName());
     }
 
     @Override
     public IcebergTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-        verify(name.getTableType() == DATA, "Wrong table type: " + name.getTableType());
+        verify(name.getTableType() == DATA, "Wrong table type: " + name.getTableNameWithType());
 
-        Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), name.getTableName());
-        if (hiveTable.isEmpty()) {
+        Table table;
+        try {
+            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
+        }
+        catch (TableNotFoundException e) {
             return null;
         }
-        if (isMaterializedView(hiveTable.get())) {
-            return null;
-        }
-        if (!isIcebergTable(hiveTable.get())) {
-            throw new UnknownTableTypeException(tableName);
-        }
-
-        org.apache.iceberg.Table table = getIcebergTable(session, hiveTable.get().getSchemaTableName());
         Optional<Long> snapshotId = getSnapshotId(table, name.getSnapshotId());
 
+        String nameMappingJson = table.properties().get(TableProperties.DEFAULT_NAME_MAPPING);
         return new IcebergTableHandle(
                 tableName.getSchemaName(),
                 name.getTableName(),
                 name.getTableType(),
                 snapshotId,
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                ImmutableSet.of(),
+                Optional.ofNullable(nameMappingJson));
     }
 
     @Override
@@ -268,17 +204,23 @@ public class IcebergMetadata
     private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-
-        Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), name.getTableName());
-        if (hiveTable.isEmpty() || !isIcebergTable(hiveTable.get())) {
+        if (name.getTableType() == DATA) {
             return Optional.empty();
         }
 
-        org.apache.iceberg.Table table = getIcebergTable(session, hiveTable.get().getSchemaTableName());
+        // load the base table for the system table
+        Table table;
+        try {
+            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
+        }
+        catch (TableNotFoundException e) {
+            return Optional.empty();
+        }
 
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
         switch (name.getTableType()) {
             case DATA:
+                // Handled above.
                 break;
             case HISTORY:
                 if (name.getSnapshotId().isPresent()) {
@@ -311,7 +253,7 @@ public class IcebergMetadata
             return new ConnectorTableProperties(TupleDomain.none(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of());
         }
 
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
         // Extract identity partition fields that are present in all partition specs, for creating the discrete predicates.
         Set<Integer> partitionSourceIds = identityPartitionColumnsInAllSpecs(icebergTable);
@@ -343,7 +285,7 @@ public class IcebergMetadata
 
             Iterable<TupleDomain<ColumnHandle>> discreteTupleDomain = Iterables.transform(files, fileScan -> {
                 // Extract partition values in the data file
-                Map<Integer, String> partitionColumnValueStrings = getPartitionKeys(fileScan);
+                Map<Integer, Optional<String>> partitionColumnValueStrings = getPartitionKeys(fileScan);
                 Map<ColumnHandle, NullableValue> partitionValues = partitionSourceIds.stream()
                         .filter(partitionColumnValueStrings::containsKey)
                         .collect(toImmutableMap(
@@ -352,9 +294,8 @@ public class IcebergMetadata
                                     IcebergColumnHandle column = columns.get(columnId);
                                     Object prestoValue = deserializePartitionValue(
                                             column.getType(),
-                                            partitionColumnValueStrings.get(columnId),
-                                            column.getName(),
-                                            session.getTimeZoneKey());
+                                            partitionColumnValueStrings.get(columnId).orElse(null),
+                                            column.getName());
 
                                     return NullableValue.of(column.getType(), prestoValue);
                                 }));
@@ -391,34 +332,14 @@ public class IcebergMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        ImmutableList.Builder<SchemaTableName> tablesListBuilder = ImmutableList.builder();
-        schemaName.map(Collections::singletonList)
-                .orElseGet(metastore::getAllDatabases)
-                .stream()
-                .flatMap(schema -> Stream.concat(
-                        // Get tables with parameter table_type set to  "ICEBERG" or "iceberg". This is required because
-                        // Trino uses lowercase value whereas Spark and Flink use uppercase.
-                        // TODO: use one metastore call to pass both the filters: https://github.com/trinodb/trino/issues/7710
-                        metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toLowerCase(Locale.ENGLISH)).stream()
-                                .map(table -> new SchemaTableName(schema, table)),
-                        metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(Locale.ENGLISH)).stream()
-                                .map(table -> new SchemaTableName(schema, table)))
-                        .distinct())  // distinct() to avoid duplicates for case-insensitive HMS backends
-                .forEach(tablesListBuilder::add);
-
-        schemaName.map(Collections::singletonList)
-                .orElseGet(metastore::getAllDatabases).stream()
-                .flatMap(schema -> metastore.getAllViews(schema).stream()
-                        .map(table -> new SchemaTableName(schema, table)))
-                .forEach(tablesListBuilder::add);
-        return tablesListBuilder.build();
+        return catalog.listTables(session, schemaName);
     }
 
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
         return getColumns(icebergTable.schema(), typeManager).stream()
                 .collect(toImmutableMap(IcebergColumnHandle::getName, identity()));
     }
@@ -459,47 +380,25 @@ public class IcebergMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
-        Optional<String> location = getSchemaLocation(properties).map(uri -> {
-            try {
-                hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(uri));
-            }
-            catch (IOException | IllegalArgumentException e) {
-                throw new TrinoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + uri, e);
-            }
-            return uri;
-        });
-
-        Database database = Database.builder()
-                .setDatabaseName(schemaName)
-                .setLocation(location)
-                .setOwnerType(owner.getType())
-                .setOwnerName(owner.getName())
-                .build();
-
-        metastore.createDatabase(new HiveIdentity(session), database);
+        catalog.createNamespace(session, schemaName, properties, owner);
     }
 
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
-        // basic sanity check to provide a better error message
-        if (!listTables(session, Optional.of(schemaName)).isEmpty() ||
-                !listViews(session, Optional.of(schemaName)).isEmpty()) {
-            throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
-        }
-        metastore.dropDatabase(new HiveIdentity(session), schemaName);
+        catalog.dropNamespace(session, schemaName);
     }
 
     @Override
     public void renameSchema(ConnectorSession session, String source, String target)
     {
-        metastore.renameDatabase(new HiveIdentity(session), source, target);
+        catalog.renameNamespace(session, source, target);
     }
 
     @Override
     public void setSchemaAuthorization(ConnectorSession session, String source, TrinoPrincipal principal)
     {
-        metastore.setDatabaseOwner(new HiveIdentity(session), source, HivePrincipal.from(principal));
+        catalog.setNamespacePrincipal(session, source, principal);
     }
 
     @Override
@@ -512,70 +411,31 @@ public class IcebergMetadata
     @Override
     public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
     {
-        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        metastore.commentTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), comment);
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        if (comment.isEmpty()) {
-            icebergTable.updateProperties().remove(TABLE_COMMENT).commit();
-        }
-        else {
-            icebergTable.updateProperties().set(TABLE_COMMENT, comment.get()).commit();
-        }
+        catalog.updateTableComment(session, ((IcebergTableHandle) tableHandle).getSchemaTableName(), comment);
+    }
+
+    @Override
+    public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        Schema schema = toIcebergSchema(tableMetadata.getColumns());
+        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
+        return getWriteLayout(schema, partitionSpec);
     }
 
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        SchemaTableName schemaTableName = tableMetadata.getTable();
-        String schemaName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
-
-        Schema schema = toIcebergSchema(tableMetadata.getColumns());
-
-        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
-
-        Database database = metastore.getDatabase(schemaName)
-                .orElseThrow(() -> new SchemaNotFoundException(schemaName));
-
-        HdfsContext hdfsContext = new HdfsContext(session);
-        HiveIdentity identity = new HiveIdentity(session);
-        String targetPath = getTableLocation(tableMetadata.getProperties());
-        if (targetPath == null) {
-            targetPath = getTableDefaultLocation(database, hdfsContext, hdfsEnvironment, schemaName, tableName).toString();
-        }
-
-        TableOperations operations = tableOperationsProvider.createTableOperations(
-                hdfsContext,
-                session.getQueryId(),
-                identity,
-                schemaName,
-                tableName,
-                Optional.of(session.getUser()),
-                Optional.of(targetPath));
-
-        if (operations.current() != null) {
-            throw new TableAlreadyExistsException(schemaTableName);
-        }
-
-        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(2);
-        FileFormat fileFormat = getFileFormat(tableMetadata.getProperties());
-        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
-        if (tableMetadata.getComment().isPresent()) {
-            propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
-        }
-
-        TableMetadata metadata = newTableMetadata(schema, partitionSpec, targetPath, propertiesBuilder.build());
-
-        transaction = createTableTransaction(tableName, operations, metadata);
-
+        verify(transaction == null, "transaction already set");
+        transaction = newCreateTableTransaction(catalog, tableMetadata, session);
         return new IcebergWritableTableHandle(
-                schemaName,
-                tableName,
-                SchemaParser.toJson(metadata.schema()),
-                PartitionSpecParser.toJson(metadata.spec()),
-                getColumns(metadata.schema(), typeManager),
-                targetPath,
-                fileFormat);
+                tableMetadata.getTable().getSchemaName(),
+                tableMetadata.getTable().getTableName(),
+                SchemaParser.toJson(transaction.table().schema()),
+                PartitionSpecParser.toJson(transaction.table().spec()),
+                getColumns(transaction.table().schema(), typeManager),
+                transaction.table().location(),
+                getFileFormat(transaction.table()),
+                transaction.table().properties());
     }
 
     @Override
@@ -585,11 +445,46 @@ public class IcebergMetadata
     }
 
     @Override
+    public Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        return getWriteLayout(icebergTable.schema(), icebergTable.spec());
+    }
+
+    private Optional<ConnectorNewTableLayout> getWriteLayout(Schema tableSchema, PartitionSpec partitionSpec)
+    {
+        if (partitionSpec.isUnpartitioned()) {
+            return Optional.empty();
+        }
+
+        Map<Integer, IcebergColumnHandle> columnById = getColumns(tableSchema, typeManager).stream()
+                .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
+
+        List<IcebergColumnHandle> partitioningColumns = partitionSpec.fields().stream()
+                .sorted(Comparator.comparing(PartitionField::sourceId))
+                .map(field -> requireNonNull(columnById.get(field.sourceId()), () -> "Cannot find source column for partitioning field " + field))
+                .distinct()
+                .collect(toImmutableList());
+        List<String> partitioningColumnNames = partitioningColumns.stream()
+                .map(IcebergColumnHandle::getName)
+                .collect(toImmutableList());
+
+        if (partitionSpec.fields().stream().allMatch(field -> field.transform().isIdentity())) {
+            // Do not set partitioningHandle, to let engine determine whether to repartition data or not, on stat-based basis.
+            return Optional.of(new ConnectorNewTableLayout(partitioningColumnNames));
+        }
+        IcebergPartitioningHandle partitioningHandle = new IcebergPartitioningHandle(toPartitionFields(partitionSpec), partitioningColumns);
+        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitioningColumnNames));
+    }
+
+    @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
+        verify(transaction == null, "transaction already set");
         transaction = icebergTable.newTransaction();
 
         return new IcebergWritableTableHandle(
@@ -598,15 +493,16 @@ public class IcebergMetadata
                 SchemaParser.toJson(icebergTable.schema()),
                 PartitionSpecParser.toJson(icebergTable.spec()),
                 getColumns(icebergTable.schema(), typeManager),
-                getDataPath(icebergTable.location()),
-                getFileFormat(icebergTable));
+                icebergTable.location(),
+                getFileFormat(icebergTable),
+                icebergTable.properties());
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
-        org.apache.iceberg.Table icebergTable = transaction.table();
+        Table icebergTable = transaction.table();
 
         List<CommitTaskData> commitTasks = fragments.stream()
                 .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
@@ -619,10 +515,9 @@ public class IcebergMetadata
 
         AppendFiles appendFiles = transaction.newFastAppend();
         for (CommitTaskData task : commitTasks) {
-            HdfsContext context = new HdfsContext(session);
-
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
-                    .withInputFile(new HdfsInputFile(new Path(task.getPath()), hdfsEnvironment, context))
+                    .withPath(task.getPath())
+                    .withFileSizeInBytes(task.getFileSizeInBytes())
                     .withFormat(table.getFileFormat())
                     .withMetrics(task.getMetrics().metrics());
 
@@ -637,6 +532,7 @@ public class IcebergMetadata
 
         appendFiles.commit();
         transaction.commitTransaction();
+        transaction = null;
 
         return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
                 .map(CommitTaskData::getPath)
@@ -646,7 +542,7 @@ public class IcebergMetadata
     @Override
     public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return primitiveIcebergColumnHandle(0, "$row_id", BIGINT, Optional.empty());
+        return new IcebergColumnHandle(primitiveColumnIdentity(0, "$row_id"), BIGINT, ImmutableList.of(), BIGINT, Optional.empty());
     }
 
     @Override
@@ -659,50 +555,44 @@ public class IcebergMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        metastore.dropTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), true);
+        catalog.dropTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName(), true);
     }
 
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTable)
     {
-        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        metastore.renameTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), newTable.getSchemaName(), newTable.getTableName());
+        catalog.renameTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName(), newTable);
     }
 
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
-        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        icebergTable.updateSchema().addColumn(column.getName(), toIcebergType(column.getType())).commit();
+        Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        icebergTable.updateSchema().addColumn(column.getName(), toIcebergType(column.getType()), column.getComment()).commit();
     }
 
     @Override
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
-        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         IcebergColumnHandle handle = (IcebergColumnHandle) column;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+        Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
         icebergTable.updateSchema().deleteColumn(handle.getName()).commit();
     }
 
     @Override
     public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
-        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         IcebergColumnHandle columnHandle = (IcebergColumnHandle) source;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+        Table icebergTable = catalog.loadTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
         icebergTable.updateSchema().renameColumn(columnHandle.getName(), target).commit();
     }
 
+    /**
+     * @throws TableNotFoundException when table cannot be found
+     */
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
     {
-        if (metastore.getTable(new HiveIdentity(session), table.getSchemaName(), table.getTableName()).isEmpty()) {
-            throw new TableNotFoundException(table);
-        }
-
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, table);
+        Table icebergTable = catalog.loadTable(session, table);
 
         List<ColumnMetadata> columns = getColumnMetadatas(icebergTable);
 
@@ -715,7 +605,7 @@ public class IcebergMetadata
         return new ConnectorTableMetadata(table, columns, properties.build(), getTableComment(icebergTable));
     }
 
-    private List<ColumnMetadata> getColumnMetadatas(org.apache.iceberg.Table table)
+    private List<ColumnMetadata> getColumnMetadatas(Table table)
     {
         return table.schema().columns().stream()
                 .map(column -> {
@@ -729,25 +619,6 @@ public class IcebergMetadata
                 .collect(toImmutableList());
     }
 
-    private static Schema toIcebergSchema(List<ColumnMetadata> columns)
-    {
-        List<NestedField> icebergColumns = new ArrayList<>();
-        for (ColumnMetadata column : columns) {
-            if (!column.isHidden()) {
-                int index = icebergColumns.size();
-                Type type = toIcebergType(column.getType());
-                NestedField field = column.isNullable()
-                        ? NestedField.optional(index, column.getName(), type, column.getComment())
-                        : NestedField.required(index, column.getName(), type, column.getComment());
-                icebergColumns.add(field);
-            }
-        }
-        Type icebergSchema = Types.StructType.of(icebergColumns);
-        AtomicInteger nextFieldId = new AtomicInteger(1);
-        icebergSchema = TypeUtil.assignFreshIds(icebergSchema, nextFieldId::getAndIncrement);
-        return new Schema(icebergSchema.asStructType().fields());
-    }
-
     @Override
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
@@ -757,7 +628,49 @@ public class IcebergMetadata
     @Override
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
+        throw new TrinoException(NOT_SUPPORTED, "This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
+    }
+
+    @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
+    {
+        catalog.createView(session, viewName, definition, replace);
+    }
+
+    @Override
+    public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
+    {
+        catalog.renameView(session, source, target);
+    }
+
+    @Override
+    public void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal)
+    {
+        catalog.setViewPrincipal(session, viewName, principal);
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        catalog.dropView(session, viewName);
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return catalog.listViews(session, schemaName);
+    }
+
+    @Override
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return catalog.getViews(session, schemaName);
+    }
+
+    @Override
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return catalog.getView(session, viewName);
     }
 
     @Override
@@ -765,7 +678,7 @@ public class IcebergMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
 
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
 
         icebergTable.newDelete()
                 .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()))
@@ -781,11 +694,6 @@ public class IcebergMetadata
         return false;
     }
 
-    public HiveMetastore getMetastore()
-    {
-        return metastore;
-    }
-
     public void rollback()
     {
         // TODO: cleanup open transaction
@@ -795,21 +703,24 @@ public class IcebergMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
         Set<Integer> partitionSourceIds = identityPartitionColumnsInAllSpecs(icebergTable);
         BiPredicate<IcebergColumnHandle, Domain> isIdentityPartition = (column, domain) -> partitionSourceIds.contains(column.getId());
 
-        // TODO: Avoid enforcing the constraint when partition filters have large IN expressions, since iceberg cannot
-        // support it. Such large expressions cannot be simplified since simplification changes the filtered set.
         TupleDomain<IcebergColumnHandle> newEnforcedConstraint = constraint.getSummary()
                 .transformKeys(IcebergColumnHandle.class::cast)
                 .filter(isIdentityPartition)
                 .intersect(table.getEnforcedPredicate());
 
-        TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = constraint.getSummary()
+        TupleDomain<IcebergColumnHandle> remainingConstraint = constraint.getSummary()
                 .transformKeys(IcebergColumnHandle.class::cast)
-                .filter(isIdentityPartition.negate())
+                .filter(isIdentityPartition.negate());
+
+        TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = remainingConstraint
+                // TODO: Remove after completing https://github.com/trinodb/trino/issues/8759
+                // Only applies to the unenforced constraint because structural types cannot be partition keys
+                .filter((columnHandle, predicate) -> !isStructuralType(columnHandle.getType()))
                 .intersect(table.getUnenforcedPredicate());
 
         if (newEnforcedConstraint.equals(table.getEnforcedPredicate())
@@ -823,12 +734,14 @@ public class IcebergMetadata
                         table.getTableType(),
                         table.getSnapshotId(),
                         newUnenforcedConstraint,
-                        newEnforcedConstraint),
-                newUnenforcedConstraint.transformKeys(ColumnHandle.class::cast),
+                        newEnforcedConstraint,
+                        table.getProjectedColumns(),
+                        table.getNameMappingJson()),
+                remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 false));
     }
 
-    private static Set<Integer> identityPartitionColumnsInAllSpecs(org.apache.iceberg.Table table)
+    private static Set<Integer> identityPartitionColumnsInAllSpecs(Table table)
     {
         // Extract identity partition column source ids common to ALL specs
         return table.spec().fields().stream()
@@ -839,123 +752,161 @@ public class IcebergMetadata
     }
 
     @Override
+    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            List<ConnectorExpression> projections,
+            Map<String, ColumnHandle> assignments)
+    {
+        if (!isProjectionPushdownEnabled(session)) {
+            return Optional.empty();
+        }
+
+        // Create projected column representations for supported sub expressions. Simple column references and chain of
+        // dereferences on a variable are supported right now.
+        Set<ConnectorExpression> projectedExpressions = projections.stream()
+                .flatMap(expression -> extractSupportedProjectedColumns(expression).stream())
+                .collect(toImmutableSet());
+
+        Map<ConnectorExpression, ProjectedColumnRepresentation> columnProjections = projectedExpressions.stream()
+                .collect(toImmutableMap(Function.identity(), HiveApplyProjectionUtil::createProjectedColumnRepresentation));
+
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) handle;
+
+        // all references are simple variables
+        if (columnProjections.values().stream().allMatch(ProjectedColumnRepresentation::isVariable)) {
+            Set<IcebergColumnHandle> projectedColumns = assignments.values().stream()
+                    .map(IcebergColumnHandle.class::cast)
+                    .collect(toImmutableSet());
+            if (icebergTableHandle.getProjectedColumns().equals(projectedColumns)) {
+                return Optional.empty();
+            }
+            List<Assignment> assignmentsList = assignments.entrySet().stream()
+                    .map(assignment -> new Assignment(
+                            assignment.getKey(),
+                            assignment.getValue(),
+                            ((IcebergColumnHandle) assignment.getValue()).getType()))
+                    .collect(toImmutableList());
+
+            return Optional.of(new ProjectionApplicationResult<>(
+                    icebergTableHandle.withProjectedColumns(projectedColumns),
+                    projections,
+                    assignmentsList,
+                    false));
+        }
+
+        Map<String, Assignment> newAssignments = new HashMap<>();
+        ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
+        ImmutableSet.Builder<IcebergColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
+
+        for (Map.Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
+            ConnectorExpression expression = entry.getKey();
+            ProjectedColumnRepresentation projectedColumn = entry.getValue();
+
+            IcebergColumnHandle baseColumnHandle = (IcebergColumnHandle) assignments.get(projectedColumn.getVariable().getName());
+            IcebergColumnHandle projectedColumnHandle = createProjectedColumnHandle(baseColumnHandle, projectedColumn.getDereferenceIndices(), expression.getType());
+            String projectedColumnName = projectedColumnHandle.getQualifiedName();
+
+            Variable projectedColumnVariable = new Variable(projectedColumnName, expression.getType());
+            Assignment newAssignment = new Assignment(projectedColumnName, projectedColumnHandle, expression.getType());
+            newAssignments.putIfAbsent(projectedColumnName, newAssignment);
+
+            newVariablesBuilder.put(expression, projectedColumnVariable);
+            projectedColumnsBuilder.add(projectedColumnHandle);
+        }
+
+        // Modify projections to refer to new variables
+        Map<ConnectorExpression, Variable> newVariables = newVariablesBuilder.build();
+        List<ConnectorExpression> newProjections = projections.stream()
+                .map(expression -> replaceWithNewVariables(expression, newVariables))
+                .collect(toImmutableList());
+
+        List<Assignment> outputAssignments = newAssignments.values().stream().collect(toImmutableList());
+        return Optional.of(new ProjectionApplicationResult<>(
+                icebergTableHandle.withProjectedColumns(projectedColumnsBuilder.build()),
+                newProjections,
+                outputAssignments,
+                false));
+    }
+
+    private static IcebergColumnHandle createProjectedColumnHandle(IcebergColumnHandle column, List<Integer> indices, io.trino.spi.type.Type projectedColumnType)
+    {
+        ImmutableList.Builder<Integer> fullPath = ImmutableList.builder();
+        fullPath.addAll(column.getPath());
+
+        ColumnIdentity projectedColumnIdentity = column.getColumnIdentity();
+        for (int index : indices) {
+            // Position based lookup, not FieldId based
+            projectedColumnIdentity = projectedColumnIdentity.getChildren().get(index);
+            fullPath.add(projectedColumnIdentity.getId());
+        }
+
+        return new IcebergColumnHandle(
+                column.getBaseColumnIdentity(),
+                column.getBaseType(),
+                fullPath.build(),
+                projectedColumnType,
+                Optional.empty());
+    }
+
+    @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
+        if (!isStatisticsEnabled(session)) {
+            return TableStatistics.empty();
+        }
+
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
         return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable);
     }
 
-    private Optional<Long> getSnapshotId(org.apache.iceberg.Table table, Optional<Long> snapshotId)
+    @Override
+    public void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal)
     {
-        return snapshotIds.computeIfAbsent(table.toString(), ignored -> snapshotId
-                .map(id -> IcebergUtil.resolveSnapshotId(table, id))
-                .or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId)));
+        catalog.setTablePrincipal(session, tableName, principal);
     }
 
-    org.apache.iceberg.Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
+    private Optional<Long> getSnapshotId(Table table, Optional<Long> snapshotId)
     {
-        TableMetadata metadata = tableMetadataCache.computeIfAbsent(
-                schemaTableName,
-                ignore -> ((BaseTable) loadIcebergTable(tableOperationsProvider, session, schemaTableName)).operations().current());
+        // table.name() is an encoded version of SchemaTableName
+        return snapshotId
+                .map(id ->
+                        snapshotIds.computeIfAbsent(
+                                table.name() + "@" + id,
+                                ignored -> IcebergUtil.resolveSnapshotId(table, id)))
+                .or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId));
+    }
 
-        return getIcebergTableWithMetadata(tableOperationsProvider, session, schemaTableName, metadata);
+    Table getIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        return catalog.loadTable(session, schemaTableName);
     }
 
     @Override
     public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
     {
-        HiveIdentity identity = new HiveIdentity(session);
-        Optional<Table> existing = metastore.getTable(identity, viewName.getSchemaName(), viewName.getTableName());
-
-        // It's a create command where the materialized view already exists and 'if not exists' clause is not specified
-        if (!replace && existing.isPresent()) {
-            if (ignoreExisting) {
-                return;
-            }
-            throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
-        }
-
-        // Generate a storage table name and create a storage table. The properties in the definition are table properties for the
-        // storage table as indicated in the materialized view definition.
-        String storageTableName = "st_" + UUID.randomUUID().toString().replace("-", "");
-        Map<String, Object> storageTableProperties = new HashMap<>(definition.getProperties());
-        storageTableProperties.putIfAbsent(FILE_FORMAT_PROPERTY, DEFAULT_FILE_FORMAT_DEFAULT);
-
-        SchemaTableName storageTable = new SchemaTableName(viewName.getSchemaName(), storageTableName);
-        List<ColumnMetadata> columns = definition.getColumns().stream()
-                .map(column -> new ColumnMetadata(column.getName(), typeManager.getType(column.getType())))
-                .collect(toImmutableList());
-
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, storageTableProperties, Optional.empty());
-        Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
-        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
-
-        // Create a view indicating the storage table
-        Map<String, String> viewProperties = ImmutableMap.<String, String>builder()
-                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                .put(STORAGE_TABLE, storageTableName)
-                .put(PRESTO_VIEW_FLAG, "true")
-                .put(TABLE_COMMENT, "Presto Materialized View")
-                .build();
-
-        Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty());
-
-        String schemaName = viewName.getSchemaName();
-        String tableName = viewName.getTableName();
-        Table.Builder tableBuilder = Table.builder()
-                .setDatabaseName(schemaName)
-                .setTableName(tableName)
-                .setOwner(session.getUser())
-                .setTableType(VIRTUAL_VIEW.name())
-                .setDataColumns(ImmutableList.of(dummyColumn))
-                .setPartitionColumns(ImmutableList.of())
-                .setParameters(viewProperties)
-                .withStorage(storage -> storage.setStorageFormat(VIEW_STORAGE_FORMAT))
-                .withStorage(storage -> storage.setLocation(""))
-                .setViewOriginalText(Optional.of(
-                        encodeMaterializedViewData(fromConnectorMaterializedViewDefinition(definition))))
-                .setViewExpandedText(Optional.of("/* Presto Materialized View */"));
-        Table table = tableBuilder.build();
-        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser());
-        if (existing.isPresent() && replace) {
-            // drop the current storage table
-            String oldStorageTable = existing.get().getParameters().get(STORAGE_TABLE);
-            if (oldStorageTable != null) {
-                metastore.dropTable(identity, viewName.getSchemaName(), oldStorageTable, true);
-            }
-            // Replace the existing view definition
-            metastore.replaceTable(identity, viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges);
-            return;
-        }
-        // create the view definition
-        metastore.createTable(identity, table, principalPrivileges);
+        catalog.createMaterializedView(session, viewName, definition, replace, ignoreExisting);
     }
 
     @Override
     public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        final HiveIdentity identity = new HiveIdentity(session);
-        Table view = metastore.getTable(identity, viewName.getSchemaName(), viewName.getTableName())
-                .orElseThrow(() -> new MaterializedViewNotFoundException(viewName));
+        catalog.dropMaterializedView(session, viewName);
+    }
 
-        String storageTableName = view.getParameters().get(STORAGE_TABLE);
-        if (storageTableName != null) {
-            try {
-                metastore.dropTable(identity, viewName.getSchemaName(), storageTableName, true);
-            }
-            catch (TrinoException e) {
-                log.warn(e, "Failed to drop storage table '%s' for materialized view '%s'", storageTableName, viewName);
-            }
-        }
-        metastore.dropTable(identity, viewName.getSchemaName(), viewName.getTableName(), true);
+    @Override
+    public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
+    {
+        return false;
     }
 
     @Override
     public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        verify(transaction == null, "transaction already set");
         transaction = icebergTable.newTransaction();
 
         return new IcebergWritableTableHandle(
@@ -964,8 +915,9 @@ public class IcebergMetadata
                 SchemaParser.toJson(icebergTable.schema()),
                 PartitionSpecParser.toJson(icebergTable.spec()),
                 getColumns(icebergTable.schema(), typeManager),
-                getDataPath(icebergTable.location()),
-                getFileFormat(icebergTable));
+                icebergTable.location(),
+                getFileFormat(icebergTable),
+                icebergTable.properties());
     }
 
     @Override
@@ -982,7 +934,7 @@ public class IcebergMetadata
 
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
 
-        org.apache.iceberg.Table icebergTable = transaction.table();
+        Table icebergTable = transaction.table();
         List<CommitTaskData> commitTasks = fragments.stream()
                 .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
                 .collect(toImmutableList());
@@ -994,9 +946,9 @@ public class IcebergMetadata
 
         AppendFiles appendFiles = transaction.newFastAppend();
         for (CommitTaskData task : commitTasks) {
-            HdfsContext context = new HdfsContext(session);
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
-                    .withInputFile(new HdfsInputFile(new Path(task.getPath()), hdfsEnvironment, context))
+                    .withPath(task.getPath())
+                    .withFileSizeInBytes(task.getFileSizeInBytes())
                     .withFormat(table.getFileFormat())
                     .withMetrics(task.getMetrics().metrics());
 
@@ -1020,56 +972,38 @@ public class IcebergMetadata
         appendFiles.commit();
 
         transaction.commitTransaction();
+        transaction = null;
         return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
                 .map(CommitTaskData::getPath)
                 .collect(toImmutableList())));
     }
 
-    private boolean isMaterializedView(Table table)
+    @Override
+    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return table.getTableType().equals(VIRTUAL_VIEW.name())
-                && "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG))
-                && table.getParameters().containsKey(STORAGE_TABLE);
+        return catalog.listMaterializedViews(session, schemaName);
     }
 
     @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        Optional<Table> tableOptional = metastore.getTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName());
-        if (tableOptional.isEmpty()) {
-            return Optional.empty();
+        return catalog.getMaterializedView(session, viewName);
+    }
+
+    @Override
+    public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
+    {
+        // TODO (https://github.com/trinodb/trino/issues/9594) support rename across schemas
+        if (!source.getSchemaName().equals(target.getSchemaName())) {
+            throw new TrinoException(NOT_SUPPORTED, "Materialized View rename across schemas is not supported");
         }
-
-        if (!isMaterializedView(tableOptional.get())) {
-            return Optional.empty();
-        }
-
-        Table materializedView = tableOptional.get();
-        String storageTable = materializedView.getParameters().get(STORAGE_TABLE);
-        checkState(storageTable != null, "Storage table missing in definition of materialized view " + viewName);
-
-        IcebergMaterializedViewDefinition definition = decodeMaterializedViewData(materializedView.getViewOriginalText()
-                .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)));
-
-        SchemaTableName storageTableName = new SchemaTableName(viewName.getSchemaName(), storageTable);
-        ConnectorTableMetadata tableMetadata = getTableMetadata(session, storageTableName);
-        return Optional.of(new ConnectorMaterializedViewDefinition(
-                definition.getOriginalSql(),
-                Optional.of(new CatalogSchemaTableName(catalogName.toString(), storageTableName)),
-                definition.getCatalog(),
-                definition.getSchema(),
-                definition.getColumns().stream()
-                        .map(column -> new ConnectorMaterializedViewDefinition.Column(column.getName(), column.getType()))
-                        .collect(toImmutableList()),
-                definition.getComment(),
-                materializedView.getOwner(),
-                ImmutableMap.copyOf(tableMetadata.getProperties())));
+        catalog.renameMaterializedView(session, source, target);
     }
 
     public Optional<TableToken> getTableToken(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
         return Optional.ofNullable(icebergTable.currentSnapshot())
                 .map(snapshot -> new TableToken(snapshot.snapshotId()));
     }
@@ -1105,7 +1039,12 @@ public class IcebergMetadata
             String schema = strings.get(0);
             String name = strings.get(1);
             SchemaTableName schemaTableName = new SchemaTableName(schema, name);
-            if (!isTableCurrent(session, getTableHandle(session, schemaTableName), entry.getValue())) {
+            IcebergTableHandle tableHandle = getTableHandle(session, schemaTableName);
+
+            if (tableHandle == null) {
+                throw new MaterializedViewNotFoundException(materializedViewName);
+            }
+            if (!isTableCurrent(session, tableHandle, entry.getValue())) {
                 return new MaterializedViewFreshness(false);
             }
         }
@@ -1124,7 +1063,7 @@ public class IcebergMetadata
                 .map(CatalogSchemaTableName::getSchemaTableName)
                 .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + name));
 
-        org.apache.iceberg.Table icebergTable = getIcebergTable(session, storageTableName);
+        Table icebergTable = catalog.loadTable(session, storageTableName);
         String dependsOnTables = icebergTable.currentSnapshot().summary().getOrDefault(DEPENDS_ON_TABLES, "");
         if (!dependsOnTables.isEmpty()) {
             Map<String, String> tableToSnapshotIdMap = Splitter.on(',').withKeyValueSeparator('=').split(dependsOnTables);

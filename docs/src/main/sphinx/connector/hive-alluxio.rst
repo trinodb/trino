@@ -19,7 +19,7 @@ Alluxio client-side configuration
 To configure Alluxio client-side properties on Trino, append the Alluxio
 configuration directory (``${ALLUXIO_HOME}/conf``) to the Trino JVM classpath,
 so that the Alluxio properties file ``alluxio-site.properties`` can be loaded as
-a resource. Update the Trino :ref:`trino_jvm_config` file ``etc/jvm.config``
+a resource. Update the Trino :ref:`jvm_config` file ``etc/jvm.config``
 to include the following:
 
 .. code-block:: text
@@ -79,7 +79,7 @@ the following:
 
 .. code-block:: text
 
-    connector.name=hive-hadoop2
+    connector.name=hive
     hive.metastore=alluxio
     hive.metastore.alluxio.master.address=HOSTNAME:PORT
 

@@ -15,7 +15,6 @@ package io.trino.memory;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
@@ -49,6 +48,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -176,7 +176,7 @@ public class TestMemoryPools
     public void testMemoryFutureCancellation()
     {
         setUpCountStarFromOrdersWithJoin();
-        ListenableFuture<?> future = userPool.reserve(fakeQueryId, "test", TEN_MEGABYTES.toBytes());
+        ListenableFuture<Void> future = userPool.reserve(fakeQueryId, "test", TEN_MEGABYTES.toBytes());
         assertTrue(!future.isDone());
         assertThatThrownBy(() -> future.cancel(true))
                 .isInstanceOf(UnsupportedOperationException.class)
@@ -314,7 +314,7 @@ public class TestMemoryPools
             assertFalse(isOperatorBlocked(drivers, reason));
             boolean progress = false;
             for (Driver driver : drivers) {
-                ListenableFuture<?> blocked = driver.process();
+                ListenableFuture<Void> blocked = driver.process();
                 progress = progress | blocked.isDone();
             }
             // query should not block
@@ -365,9 +365,9 @@ public class TestMemoryPools
         }
 
         @Override
-        public ListenableFuture<?> startMemoryRevoke()
+        public ListenableFuture<Void> startMemoryRevoke()
         {
-            return Futures.immediateFuture(null);
+            return immediateVoidFuture();
         }
 
         @Override

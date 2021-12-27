@@ -32,12 +32,20 @@ import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
+import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.OriginalType;
+import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.PrimitiveIterator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -47,6 +55,8 @@ import static io.trino.parquet.ValuesType.DEFINITION_LEVEL;
 import static io.trino.parquet.ValuesType.REPETITION_LEVEL;
 import static io.trino.parquet.ValuesType.VALUES;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.Boolean.FALSE;
+import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 
 public abstract class PrimitiveColumnReader
@@ -68,10 +78,19 @@ public abstract class PrimitiveColumnReader
     private DataPage page;
     private int remainingValueCountInPage;
     private int readOffset;
+    @Nullable
+    private PrimitiveIterator.OfLong indexIterator;
+    private long currentRow;
+    private long targetRow;
 
     protected abstract void readValue(BlockBuilder blockBuilder, Type type);
 
-    protected abstract void skipValue();
+    private void skipSingleValue()
+    {
+        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+            valuesReader.skip();
+        }
+    }
 
     protected boolean isValueNull()
     {
@@ -95,6 +114,10 @@ public abstract class PrimitiveColumnReader
                 if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
                     return new Int64TimestampMillisColumnReader(descriptor);
                 }
+                if (descriptor.getPrimitiveType().getLogicalTypeAnnotation() instanceof TimestampLogicalTypeAnnotation &&
+                        ((TimestampLogicalTypeAnnotation) descriptor.getPrimitiveType().getLogicalTypeAnnotation()).getUnit() == LogicalTypeAnnotation.TimeUnit.NANOS) {
+                    return new Int64TimestampNanosColumnReader(descriptor);
+                }
                 return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
             case INT96:
                 return new TimestampColumnReader(descriptor, timeZone);
@@ -105,10 +128,35 @@ public abstract class PrimitiveColumnReader
             case BINARY:
                 return createDecimalColumnReader(descriptor).orElse(new BinaryColumnReader(descriptor));
             case FIXED_LEN_BYTE_ARRAY:
-                return createDecimalColumnReader(descriptor)
-                        .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, " type FIXED_LEN_BYTE_ARRAY supported as DECIMAL; got " + descriptor.getPrimitiveType().getOriginalType()));
+                Optional<PrimitiveColumnReader> decimalColumnReader = createDecimalColumnReader(descriptor);
+                if (decimalColumnReader.isPresent()) {
+                    return decimalColumnReader.get();
+                }
+                if (isLogicalUuid(descriptor.getPrimitiveType())) {
+                    return new UuidColumnReader(descriptor);
+                }
+                if (descriptor.getPrimitiveType().getLogicalTypeAnnotation() == null) {
+                    // Iceberg 0.11.1 writes UUID as FIXED_LEN_BYTE_ARRAY without logical type annotation (see https://github.com/apache/iceberg/pull/2913)
+                    // To support such files, we bet on the type to be UUID, which gets verified later, when reading the column data.
+                    return new UuidColumnReader(descriptor);
+                }
+                break;
         }
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column: " + descriptor);
+    }
+
+    private static boolean isLogicalUuid(PrimitiveType type)
+    {
+        return Optional.ofNullable(type.getLogicalTypeAnnotation())
+                .flatMap(logicalTypeAnnotation -> logicalTypeAnnotation.accept(new LogicalTypeAnnotation.LogicalTypeAnnotationVisitor<Boolean>()
+                {
+                    @Override
+                    public Optional<Boolean> visit(LogicalTypeAnnotation.UUIDLogicalTypeAnnotation uuidLogicalType)
+                    {
+                        return Optional.of(TRUE);
+                    }
+                }))
+                .orElse(FALSE);
     }
 
     private static Optional<PrimitiveColumnReader> createDecimalColumnReader(RichColumnDescriptor descriptor)
@@ -121,6 +169,8 @@ public abstract class PrimitiveColumnReader
     {
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor");
         pageReader = null;
+        this.targetRow = 0;
+        this.indexIterator = null;
     }
 
     public PageReader getPageReader()
@@ -128,7 +178,7 @@ public abstract class PrimitiveColumnReader
         return pageReader;
     }
 
-    public void setPageReader(PageReader pageReader)
+    public void setPageReader(PageReader pageReader, RowRanges rowRanges)
     {
         this.pageReader = requireNonNull(pageReader, "pageReader");
         DictionaryPage dictionaryPage = pageReader.readDictionaryPage();
@@ -146,6 +196,12 @@ public abstract class PrimitiveColumnReader
         }
         checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
         totalValueCount = pageReader.getTotalValueCount();
+        if (rowRanges != null) {
+            indexIterator = rowRanges.iterator();
+            // If rowRanges is empty for a row-group, then no page needs to be read, and we should not reach here
+            checkArgument(indexIterator.hasNext(), "rowRanges is empty");
+            targetRow = indexIterator.next();
+        }
     }
 
     public void prepareNextRead(int batchSize)
@@ -166,10 +222,13 @@ public abstract class PrimitiveColumnReader
                 readNextPage();
             }
             int valuesToRead = Math.min(remainingValueCountInPage, nextBatchSize - valueCount);
+            if (valuesToRead == 0) {
+                // When we break here, we could end up with valueCount < nextBatchSize, but that is OK.
+                break;
+            }
             readValues(blockBuilder, valuesToRead, field.getType(), definitionLevels, repetitionLevels);
             valueCount += valuesToRead;
         }
-        checkArgument(valueCount == nextBatchSize, "valueCount %s not equals to batchSize %s", valueCount, nextBatchSize);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -179,41 +238,92 @@ public abstract class PrimitiveColumnReader
     private void readValues(BlockBuilder blockBuilder, int valuesToRead, Type type, IntList definitionLevels, IntList repetitionLevels)
     {
         processValues(valuesToRead, () -> {
-            readValue(blockBuilder, type);
+            if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
+                readValue(blockBuilder, type);
+            }
+            else if (isValueNull()) {
+                blockBuilder.appendNull();
+            }
             definitionLevels.add(definitionLevel);
             repetitionLevels.add(repetitionLevel);
         });
     }
 
-    private void skipValues(int valuesToRead)
+    private void skipValues(long valuesToRead)
     {
-        processValues(valuesToRead, this::skipValue);
+        processValues(valuesToRead, this::skipSingleValue);
     }
 
-    private void processValues(int valuesToRead, Runnable valueReader)
+    /**
+     * When filtering using column indexes we might skip reading some pages for different columns. Because the rows are
+     * not aligned between the pages of the different columns it might be required to skip some values. The values (and the
+     * related rl and dl) are skipped based on the iterator of the required row indexes and the first row index of each
+     * page.
+     * For example:
+     *
+     * <pre>
+     * rows   col1   col2   col3
+     *      ┌──────┬──────┬──────┐
+     *   0  │  p0  │      │      │
+     *      ╞══════╡  p0  │  p0  │
+     *  20  │ p1(X)│------│------│
+     *      ╞══════╪══════╡      │
+     *  40  │ p2(X)│      │------│
+     *      ╞══════╡ p1(X)╞══════╡
+     *  60  │ p3(X)│      │------│
+     *      ╞══════╪══════╡      │
+     *  80  │  p4  │      │  p1  │
+     *      ╞══════╡  p2  │      │
+     * 100  │  p5  │      │      │
+     *      └──────┴──────┴──────┘
+     * </pre>
+     *
+     * The pages 1, 2, 3 in col1 are skipped so we have to skip the rows [20, 79]. Because page 1 in col2 contains values
+     * only for the rows [40, 79] we skip this entire page as well. To synchronize the row reading we have to skip the
+     * values (and the related rl and dl) for the rows [20, 39] in the end of the page 0 for col2. Similarly, we have to
+     * skip values while reading page0 and page1 for col3.
+     */
+    private void processValues(long valuesToRead, Runnable valueReader)
     {
         if (definitionLevel == EMPTY_LEVEL_VALUE && repetitionLevel == EMPTY_LEVEL_VALUE) {
             definitionLevel = definitionReader.readLevel();
             repetitionLevel = repetitionReader.readLevel();
         }
         int valueCount = 0;
-        for (int i = 0; i < valuesToRead; i++) {
+        int skipCount = 0;
+        for (int i = 0; i < valuesToRead; ) {
+            boolean consumed;
             do {
-                valueReader.run();
-                valueCount++;
-                if (valueCount == remainingValueCountInPage) {
-                    updateValueCounts(valueCount);
+                if (incrementRowAndTestIfTargetReached(repetitionLevel)) {
+                    valueReader.run();
+                    valueCount++;
+                    consumed = true;
+                }
+                else {
+                    skipSingleValue();
+                    skipCount++;
+                    consumed = false;
+                }
+
+                if (valueCount + skipCount == remainingValueCountInPage) {
+                    updateValueCounts(valueCount, skipCount);
                     if (!readNextPage()) {
                         return;
                     }
                     valueCount = 0;
+                    skipCount = 0;
                 }
+
                 repetitionLevel = repetitionReader.readLevel();
                 definitionLevel = definitionReader.readLevel();
             }
             while (repetitionLevel != 0);
+
+            if (consumed) {
+                i++;
+            }
         }
-        updateValueCounts(valueCount);
+        updateValueCounts(valueCount, skipCount);
     }
 
     private void seek()
@@ -222,10 +332,13 @@ public abstract class PrimitiveColumnReader
         if (readOffset == 0) {
             return;
         }
+        int readOffset = this.readOffset;
         int valuePosition = 0;
         while (valuePosition < readOffset) {
             if (page == null) {
-                readNextPage();
+                if (!readNextPage()) {
+                    break;
+                }
             }
             int offset = Math.min(remainingValueCountInPage, readOffset - valuePosition);
             skipValues(offset);
@@ -252,13 +365,14 @@ public abstract class PrimitiveColumnReader
         return true;
     }
 
-    private void updateValueCounts(int valuesRead)
+    private void updateValueCounts(int valuesRead, int skipCount)
     {
-        if (valuesRead == remainingValueCountInPage) {
+        int totalCount = valuesRead + skipCount;
+        if (totalCount == remainingValueCountInPage) {
             page = null;
             valuesReader = null;
         }
-        remainingValueCountInPage -= valuesRead;
+        remainingValueCountInPage -= totalCount;
         currentValueCount += valuesRead;
     }
 
@@ -272,7 +386,7 @@ public abstract class PrimitiveColumnReader
             ByteBufferInputStream in = toInputStream(page.getSlice());
             rlReader.initFromPage(page.getValueCount(), in);
             dlReader.initFromPage(page.getValueCount(), in);
-            return initDataReader(page.getValueEncoding(), page.getValueCount(), in);
+            return initDataReader(page.getValueEncoding(), page.getValueCount(), in, page.getFirstRowIndex());
         }
         catch (IOException e) {
             throw new ParquetDecodingException("Error reading parquet page " + page + " in column " + columnDescriptor, e);
@@ -283,7 +397,7 @@ public abstract class PrimitiveColumnReader
     {
         repetitionReader = buildLevelRLEReader(columnDescriptor.getMaxRepetitionLevel(), page.getRepetitionLevels());
         definitionReader = buildLevelRLEReader(columnDescriptor.getMaxDefinitionLevel(), page.getDefinitionLevels());
-        return initDataReader(page.getDataEncoding(), page.getValueCount(), toInputStream(page.getSlice()));
+        return initDataReader(page.getDataEncoding(), page.getValueCount(), toInputStream(page.getSlice()), page.getFirstRowIndex());
     }
 
     private LevelReader buildLevelRLEReader(int maxLevel, Slice slice)
@@ -294,7 +408,7 @@ public abstract class PrimitiveColumnReader
         return new LevelRLEReader(new RunLengthBitPackingHybridDecoder(BytesUtils.getWidthFromMaxInt(maxLevel), slice.getInput()));
     }
 
-    private ValuesReader initDataReader(ParquetEncoding dataEncoding, int valueCount, ByteBufferInputStream in)
+    private ValuesReader initDataReader(ParquetEncoding dataEncoding, int valueCount, ByteBufferInputStream in, OptionalLong firstRowIndex)
     {
         ValuesReader valuesReader;
         if (dataEncoding.usesDictionary()) {
@@ -309,10 +423,33 @@ public abstract class PrimitiveColumnReader
 
         try {
             valuesReader.initFromPage(valueCount, in);
+            if (firstRowIndex.isPresent()) {
+                currentRow = firstRowIndex.getAsLong();
+            }
             return valuesReader;
         }
         catch (IOException e) {
             throw new ParquetDecodingException("Error reading parquet page in column " + columnDescriptor, e);
         }
+    }
+
+    // Increment currentRow and return true if at or after targetRow
+    private boolean incrementRowAndTestIfTargetReached(int repetitionLevel)
+    {
+        if (indexIterator == null) {
+            return true;
+        }
+
+        if (repetitionLevel == 0) {
+            if (currentRow > targetRow) {
+                targetRow = indexIterator.hasNext() ? indexIterator.next() : Long.MAX_VALUE;
+            }
+            boolean isAtTargetRow = currentRow == targetRow;
+            currentRow++;
+            return isAtTargetRow;
+        }
+
+        // currentRow was incremented at repetitionLevel 0
+        return currentRow - 1 == targetRow;
     }
 }

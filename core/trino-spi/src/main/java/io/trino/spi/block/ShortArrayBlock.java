@@ -87,7 +87,13 @@ public class ShortArrayBlock
     @Override
     public long getPositionsSizeInBytes(boolean[] positions)
     {
-        return (Short.BYTES + Byte.BYTES) * (long) countUsedPositions(positions);
+        return getPositionsSizeInBytes(positions, countUsedPositions(positions));
+    }
+
+    @Override
+    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
+    {
+        return (long) (Short.BYTES + Byte.BYTES) * selectedPositionsCount;
     }
 
     @Override

@@ -13,10 +13,10 @@
  */
 package io.trino.operator.aggregation;
 
-import com.google.common.primitives.Ints;
+import com.google.common.collect.ImmutableList;
 import io.trino.block.BlockAssertions;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.window.PagesWindowIndex;
 import io.trino.spi.Page;
@@ -26,17 +26,13 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.lang.reflect.Constructor;
 import java.util.List;
-import java.util.Optional;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.operator.aggregation.AccumulatorCompiler.generateWindowAccumulatorClass;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.trino.operator.aggregation.AggregationTestUtils.createArgs;
-import static io.trino.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static io.trino.operator.aggregation.AggregationTestUtils.makeValidityAssertion;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -45,29 +41,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestAggregationFunction
 {
-    protected Metadata metadata;
-
-    @BeforeClass
-    public final void initTestAggregationFunction()
-    {
-        metadata = createTestMetadataManager();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroyTestAggregationFunction()
-    {
-        metadata = null;
-    }
+    protected final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
     protected abstract Block[] getSequenceBlocks(int start, int length);
-
-    protected final InternalAggregationFunction getFunction()
-    {
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(
-                QualifiedName.of(getFunctionName()),
-                fromTypes(getFunctionParameterTypes()));
-        return metadata.getAggregateFunctionImplementation(resolvedFunction);
-    }
 
     protected abstract String getFunctionName();
 
@@ -102,7 +78,7 @@ public abstract class AbstractTestAggregationFunction
     public void testAllPositionsNull()
     {
         // if there are no parameters skip this test
-        List<Type> parameterTypes = getFunction().getParameterTypes();
+        List<Type> parameterTypes = getFunctionParameterTypes();
         if (parameterTypes.isEmpty()) {
             return;
         }
@@ -118,7 +94,7 @@ public abstract class AbstractTestAggregationFunction
     public void testMixedNullAndNonNullPositions()
     {
         // if there are no parameters skip this test
-        List<Type> parameterTypes = getFunction().getParameterTypes();
+        List<Type> parameterTypes = getFunctionParameterTypes();
         if (parameterTypes.isEmpty()) {
             return;
         }
@@ -154,42 +130,60 @@ public abstract class AbstractTestAggregationFunction
         }
         Page inputPage = new Page(totalPositions, getSequenceBlocks(0, totalPositions));
 
-        InternalAggregationFunction function = getFunction();
-        List<Integer> channels = Ints.asList(createArgs(function));
-        AccumulatorFactory accumulatorFactory = function.bind(channels, Optional.empty());
-        PagesIndex pagesIndex = new PagesIndex.TestingFactory(false).newPagesIndex(function.getParameterTypes(), totalPositions);
+        PagesIndex pagesIndex = new PagesIndex.TestingFactory(false).newPagesIndex(getFunctionParameterTypes(), totalPositions);
         pagesIndex.addPage(inputPage);
         WindowIndex windowIndex = new PagesWindowIndex(pagesIndex, 0, totalPositions - 1);
 
-        Accumulator aggregation = accumulatorFactory.createAccumulator();
+        ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of(getFunctionName()), fromTypes(getFunctionParameterTypes()));
+        AggregationMetadata aggregationMetadata = functionResolution.getMetadata().getAggregateFunctionImplementation(resolvedFunction);
+        WindowAccumulator aggregation = createWindowAccumulator(resolvedFunction, aggregationMetadata);
         int oldStart = 0;
         int oldWidth = 0;
         for (int start = 0; start < totalPositions; ++start) {
             int width = windowWidths[start];
             // Note that add/removeInput's interval is inclusive on both ends
-            if (accumulatorFactory.hasRemoveInput()) {
+            if (aggregationMetadata.getRemoveInputFunction().isPresent()) {
                 for (int oldi = oldStart; oldi < oldStart + oldWidth; ++oldi) {
                     if (oldi < start || oldi >= start + width) {
-                        aggregation.removeInput(windowIndex, channels, oldi, oldi);
+                        aggregation.removeInput(windowIndex, oldi, oldi);
                     }
                 }
                 for (int newi = start; newi < start + width; ++newi) {
                     if (newi < oldStart || newi >= oldStart + oldWidth) {
-                        aggregation.addInput(windowIndex, channels, newi, newi);
+                        aggregation.addInput(windowIndex, newi, newi);
                     }
                 }
             }
             else {
-                aggregation = accumulatorFactory.createAccumulator();
-                aggregation.addInput(windowIndex, channels, start, start + width - 1);
+                aggregation = createWindowAccumulator(resolvedFunction, aggregationMetadata);
+                aggregation.addInput(windowIndex, start, start + width - 1);
             }
             oldStart = start;
             oldWidth = width;
-            Block block = getFinalBlock(aggregation);
+
+            Type outputType = resolvedFunction.getSignature().getReturnType();
+            BlockBuilder blockBuilder = outputType.createBlockBuilder(null, 1000);
+            aggregation.evaluateFinal(blockBuilder);
+            Block block = blockBuilder.build();
+
             assertThat(makeValidityAssertion(expectedValues[start]).apply(
-                    BlockAssertions.getOnlyValue(aggregation.getFinalType(), block),
+                    BlockAssertions.getOnlyValue(outputType, block),
                     expectedValues[start]))
                     .isTrue();
+        }
+    }
+
+    private static WindowAccumulator createWindowAccumulator(ResolvedFunction resolvedFunction, AggregationMetadata aggregationMetadata)
+    {
+        try {
+            Constructor<? extends WindowAccumulator> constructor = generateWindowAccumulatorClass(
+                    resolvedFunction.getSignature(),
+                    aggregationMetadata,
+                    resolvedFunction.getFunctionNullability());
+            return constructor.newInstance(ImmutableList.of());
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -213,7 +207,12 @@ public abstract class AbstractTestAggregationFunction
 
     protected void testAggregation(Object expectedValue, Block... blocks)
     {
-        assertAggregation(getFunction(), expectedValue, blocks);
+        assertAggregation(
+                functionResolution,
+                QualifiedName.of(getFunctionName()),
+                fromTypes(getFunctionParameterTypes()),
+                expectedValue,
+                blocks);
     }
 
     protected void assertInvalidAggregation(Runnable runnable)

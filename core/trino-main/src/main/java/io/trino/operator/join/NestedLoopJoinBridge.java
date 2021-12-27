@@ -23,7 +23,7 @@ public interface NestedLoopJoinBridge
 {
     ListenableFuture<NestedLoopJoinPages> getPagesFuture();
 
-    ListenableFuture<?> setPages(NestedLoopJoinPages nestedLoopJoinPages);
+    ListenableFuture<Void> setPages(NestedLoopJoinPages nestedLoopJoinPages);
 
     @Override
     void destroy();
@@ -35,7 +35,7 @@ public interface NestedLoopJoinBridge
     }
 
     @Override
-    default ListenableFuture<?> whenBuildFinishes()
+    default ListenableFuture<Void> whenBuildFinishes()
     {
         return transform(getPagesFuture(), ignored -> null, directExecutor());
     }

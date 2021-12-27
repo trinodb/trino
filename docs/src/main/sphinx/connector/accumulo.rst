@@ -24,6 +24,15 @@ JAR file to Accumulo's ``lib/ext`` directory on each TabletServer node.
 
     # TabletServer should pick up new JAR files in ext directory, but may require restart
 
+Requirements
+------------
+
+To connect to Accumulo, you need:
+
+* Accumulo versions 1.x starting with 1.7.4. Versions 2.x are not supported.
+* Network access from the Trino coordinator and workers to the Accumulo
+  Zookeeper server. Port 2181 is the default port.
+
 Connector configuration
 -----------------------
 
@@ -53,15 +62,6 @@ Property Name                                    Default Value          Required
 ``accumulo.cardinality.cache.size``              ``100000``             No         Sets the size of the index cardinality cache
 ``accumulo.cardinality.cache.expire.duration``   ``5m``                 No         Sets the expiration duration of the cardinality cache.
 ================================================ ====================== ========== =====================================================================================
-
-Unsupported features
---------------------
-
-The following features are not supported:
-
-* Adding columns via ``ALTER TABLE``: While you cannot add columns via SQL, you can using a tool.
-  See the below section on `Adding Columns <#adding-columns>`__ for more details.
-* ``DELETE``: Deletion of rows is not yet implemented for the connector.
 
 Usage
 -----
@@ -689,3 +689,18 @@ the output of the ``DESCRIBE`` statement.
       index_columns = 'b,c',
       external = true
     );
+
+.. _accumulo-sql-support:
+
+SQL support
+-----------
+
+The connector provides read and write access to data and metadata in
+the Accumulo database. In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`

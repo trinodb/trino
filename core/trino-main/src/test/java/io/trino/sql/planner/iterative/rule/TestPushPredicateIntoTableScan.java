@@ -22,6 +22,7 @@ import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.plugin.tpch.TpchTableLayoutHandle;
@@ -37,15 +38,11 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
-import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.FunctionCallBuilder;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
@@ -62,6 +59,7 @@ import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -70,8 +68,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.LogicalBinaryExpression.Operator.AND;
-import static io.trino.sql.tree.LogicalBinaryExpression.Operator.OR;
+import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPushPredicateIntoTableScan
@@ -92,23 +89,24 @@ public class TestPushPredicateIntoTableScan
     private PushPredicateIntoTableScan pushPredicateIntoTableScan;
     private TableHandle nationTableHandle;
     private TableHandle ordersTableHandle;
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
     @BeforeClass
     public void setUpBeforeClass()
     {
-        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getMetadata(), new TypeOperators(), new TypeAnalyzer(new SqlParser(), tester().getMetadata()));
+        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), createTestingTypeAnalyzer(tester().getPlannerContext()));
 
         CatalogName catalogName = tester().getCurrentConnectorId();
         tester().getQueryRunner().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
 
-        TpchTableHandle nation = new TpchTableHandle("nation", 1.0);
+        TpchTableHandle nation = new TpchTableHandle("sf1", "nation", 1.0);
         nationTableHandle = new TableHandle(
                 catalogName,
                 nation,
                 TpchTransactionHandle.INSTANCE,
                 Optional.of(new TpchTableLayoutHandle(nation, TupleDomain.all())));
 
-        TpchTableHandle orders = new TpchTableHandle("orders", 1.0);
+        TpchTableHandle orders = new TpchTableHandle("sf1", "orders", 1.0);
         ordersTableHandle = new TableHandle(
                 catalogName,
                 orders,
@@ -213,14 +211,13 @@ public class TestPushPredicateIntoTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalBinaryExpression(
+                        new LogicalExpression(
                                 AND,
-                                new LogicalBinaryExpression(
-                                        AND,
+                                ImmutableList.of(
                                         new ComparisonExpression(
                                                 EQUAL,
-                                                new FunctionCallBuilder(tester().getMetadata())
-                                                        .setName(QualifiedName.of("rand"))
+                                                functionResolution
+                                                        .functionCallBuilder(QualifiedName.of("rand"))
                                                         .build(),
                                                 new GenericLiteral("BIGINT", "42")),
                                         new ComparisonExpression(
@@ -229,17 +226,16 @@ public class TestPushPredicateIntoTableScan
                                                         MODULUS,
                                                         new SymbolReference("nationkey"),
                                                         new GenericLiteral("BIGINT", "17")),
-                                                new GenericLiteral("BIGINT", "44"))),
-                                new LogicalBinaryExpression(
-                                        OR,
-                                        new ComparisonExpression(
-                                                EQUAL,
-                                                new SymbolReference("nationkey"),
                                                 new GenericLiteral("BIGINT", "44")),
-                                        new ComparisonExpression(
-                                                EQUAL,
-                                                new SymbolReference("nationkey"),
-                                                new GenericLiteral("BIGINT", "45")))),
+                                        LogicalExpression.or(
+                                                new ComparisonExpression(
+                                                        EQUAL,
+                                                        new SymbolReference("nationkey"),
+                                                        new GenericLiteral("BIGINT", "44")),
+                                                new ComparisonExpression(
+                                                        EQUAL,
+                                                        new SymbolReference("nationkey"),
+                                                        new GenericLiteral("BIGINT", "45"))))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -248,12 +244,11 @@ public class TestPushPredicateIntoTableScan
                                         columnHandle, NullableValue.of(BIGINT, (long) 44))))))
                 .matches(
                         filter(
-                                new LogicalBinaryExpression(
-                                        AND,
+                                LogicalExpression.and(
                                         new ComparisonExpression(
                                                 EQUAL,
-                                                new FunctionCallBuilder(tester().getMetadata())
-                                                        .setName(QualifiedName.of("rand"))
+                                                functionResolution
+                                                        .functionCallBuilder(QualifiedName.of("rand"))
                                                         .build(),
                                                 new GenericLiteral("BIGINT", "42")),
                                         new ComparisonExpression(
@@ -277,8 +272,8 @@ public class TestPushPredicateIntoTableScan
                 .on(p -> p.filter(
                         new ComparisonExpression(
                                 EQUAL,
-                                new FunctionCallBuilder(tester().getMetadata())
-                                        .setName(QualifiedName.of("rand"))
+                                functionResolution
+                                        .functionCallBuilder(QualifiedName.of("rand"))
                                         .build(),
                                 new LongLiteral("42")),
                         p.tableScan(
@@ -324,16 +319,15 @@ public class TestPushPredicateIntoTableScan
         Type orderStatusType = createVarcharType(1);
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
-                        new LogicalBinaryExpression(
-                                AND,
+                        LogicalExpression.and(
                                 new ComparisonExpression(
                                         EQUAL,
                                         new SymbolReference("orderstatus"),
                                         new StringLiteral("O")),
                                 new ComparisonExpression(
                                         EQUAL,
-                                        new FunctionCallBuilder(tester().getMetadata())
-                                                .setName(QualifiedName.of("rand"))
+                                        functionResolution
+                                                .functionCallBuilder(QualifiedName.of("rand"))
                                                 .build(),
                                         new LongLiteral("0"))),
                         p.tableScan(
@@ -344,8 +338,8 @@ public class TestPushPredicateIntoTableScan
                         filter(
                                 new ComparisonExpression(
                                         EQUAL,
-                                        new FunctionCallBuilder(tester().getMetadata())
-                                                .setName(QualifiedName.of("rand"))
+                                        functionResolution
+                                                .functionCallBuilder(QualifiedName.of("rand"))
                                                 .build(),
                                         new LongLiteral("0")),
                                 constrainedTableScanWithTableLayout(

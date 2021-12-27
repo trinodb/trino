@@ -22,6 +22,7 @@ import io.trino.execution.Lifespan;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.index.PageRecordSet;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
@@ -56,7 +57,6 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.toValues;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
@@ -80,8 +80,8 @@ import static org.testng.Assert.assertTrue;
 public class TestScanFilterAndProjectOperator
         extends AbstractTestFunctions
 {
-    private final Metadata metadata = createTestMetadataManager();
-    private final ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+    private final ExpressionCompiler expressionCompiler = functionResolution.getExpressionCompiler();
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     private ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
 
@@ -140,7 +140,7 @@ public class TestScanFilterAndProjectOperator
                 .build();
 
         RowExpression filter = call(
-                metadata.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
+                functionResolution.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
                 field(0, BIGINT),
                 constant(10L, BIGINT));
         List<RowExpression> projections = ImmutableList.of(field(0, BIGINT));
@@ -275,7 +275,7 @@ public class TestScanFilterAndProjectOperator
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
         ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
         for (int i = 0; i < totalColumns; i++) {
-            projections.add(call(metadata.resolveFunction(QualifiedName.of("generic_long_page_col" + i), fromTypes(BIGINT)), field(0, BIGINT)));
+            projections.add(call(metadata.resolveFunction(session, QualifiedName.of("generic_long_page_col" + i), fromTypes(BIGINT)), field(0, BIGINT)));
         }
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections.build(), "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections.build(), MAX_BATCH_SIZE);
@@ -340,7 +340,7 @@ public class TestScanFilterAndProjectOperator
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
         List<RowExpression> projections = ImmutableList.of(call(
-                metadata.resolveFunction(QualifiedName.of("generic_long_record_cursor"), fromTypes(BIGINT)),
+                metadata.resolveFunction(session, QualifiedName.of("generic_long_record_cursor"), fromTypes(BIGINT)),
                 field(0, BIGINT)));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);

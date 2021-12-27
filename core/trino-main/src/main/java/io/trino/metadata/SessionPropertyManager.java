@@ -14,11 +14,13 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.SystemSessionPropertiesProvider;
 import io.trino.connector.CatalogName;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
@@ -32,6 +34,7 @@ import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ParameterRewriter;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
@@ -45,12 +48,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
@@ -68,10 +73,18 @@ public final class SessionPropertyManager
         this(new SystemSessionProperties());
     }
 
-    @Inject
-    public SessionPropertyManager(SystemSessionProperties systemSessionProperties)
+    public SessionPropertyManager(SystemSessionPropertiesProvider systemSessionPropertiesProvider)
     {
-        this(systemSessionProperties.getSessionProperties());
+        this(ImmutableSet.of(systemSessionPropertiesProvider));
+    }
+
+    @Inject
+    public SessionPropertyManager(Set<SystemSessionPropertiesProvider> systemSessionProperties)
+    {
+        this(systemSessionProperties
+                .stream()
+                .flatMap(provider -> provider.getSessionProperties().stream())
+                .collect(toImmutableList()));
     }
 
     public SessionPropertyManager(List<PropertyMetadata<?>> systemSessionProperties)
@@ -197,9 +210,9 @@ public final class SessionPropertyManager
         decodePropertyValue(propertyName, propertyValue, propertyMetadata.getJavaType(), propertyMetadata);
     }
 
-    public void validateCatalogSessionProperty(CatalogName catalog, String catalogName, String propertyName, String propertyValue)
+    public void validateCatalogSessionProperty(CatalogName catalog, String propertyName, String propertyValue)
     {
-        String fullPropertyName = catalogName + "." + propertyName;
+        String fullPropertyName = catalog.getCatalogName() + "." + propertyName;
         PropertyMetadata<?> propertyMetadata = getConnectorSessionPropertyMetadata(catalog, propertyName)
                 .orElseThrow(() -> new TrinoException(INVALID_SESSION_PROPERTY, "Unknown session property " + fullPropertyName));
 
@@ -229,10 +242,10 @@ public final class SessionPropertyManager
         }
     }
 
-    public static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, Metadata metadata, AccessControl accessControl, Map<NodeRef<Parameter>, Expression> parameters)
+    public static Object evaluatePropertyValue(Expression expression, Type expectedType, Session session, PlannerContext plannerContext, AccessControl accessControl, Map<NodeRef<Parameter>, Expression> parameters)
     {
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
-        Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, accessControl, parameters);
+        Object value = evaluateConstantExpression(rewritten, expectedType, plannerContext, session, accessControl, parameters);
 
         // convert to object value type of SQL type
         BlockBuilder blockBuilder = expectedType.createBlockBuilder(null, 1);

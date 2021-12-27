@@ -30,6 +30,7 @@ import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
@@ -57,13 +58,16 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 
+import java.sql.Types;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Functions.identity;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -75,7 +79,9 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isJoinPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isTopNPushdownEnabled;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -204,8 +210,14 @@ public class DefaultJdbcMetadata
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        if (handle.getColumns().isPresent() && containSameElements(newColumns, handle.getColumns().get())) {
-            return Optional.empty();
+        if (handle.getColumns().isPresent()) {
+            Set<JdbcColumnHandle> newColumnSet = ImmutableSet.copyOf(newColumns);
+            Set<JdbcColumnHandle> tableColumnSet = ImmutableSet.copyOf(handle.getColumns().get());
+            if (newColumnSet.equals(tableColumnSet)) {
+                return Optional.empty();
+            }
+
+            verify(tableColumnSet.containsAll(newColumnSet), "applyProjection called with columns %s and some are not available in existing query: %s", newColumnSet, tableColumnSet);
         }
 
         return Optional.of(new ProjectionApplicationResult<>(
@@ -244,7 +256,7 @@ public class DefaultJdbcMetadata
         // Global aggregation is represented by [[]]
         verify(!groupingSets.isEmpty(), "No grouping sets provided");
 
-        if (!jdbcClient.supportsAggregationPushdown(session, handle, groupingSets)) {
+        if (!jdbcClient.supportsAggregationPushdown(session, handle, aggregates, assignments, groupingSets)) {
             // JDBC client implementation prevents pushdown for the given table
             return Optional.empty();
         }
@@ -259,6 +271,24 @@ public class DefaultJdbcMetadata
         ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
         ImmutableList.Builder<Assignment> resultAssignments = ImmutableList.builder();
         ImmutableMap.Builder<String, String> expressions = ImmutableMap.builder();
+
+        List<List<JdbcColumnHandle>> groupingSetsAsJdbcColumnHandles = groupingSets.stream()
+                .map(groupingSet -> groupingSet.stream()
+                        .map(JdbcColumnHandle.class::cast)
+                        .collect(toImmutableList()))
+                .collect(toImmutableList());
+        Optional<List<JdbcColumnHandle>> tableColumns = handle.getColumns();
+        groupingSetsAsJdbcColumnHandles.stream()
+                .flatMap(List::stream)
+                .distinct()
+                .peek(handle.getColumns().<Consumer<JdbcColumnHandle>>map(
+                        columns -> groupKey -> verify(columns.contains(groupKey),
+                                "applyAggregation called with a grouping column %s which was not included in the table columns: %s",
+                                groupKey,
+                                tableColumns))
+                        .orElse(groupKey -> {}))
+                .forEach(newColumns::add);
+
         for (AggregateFunction aggregate : aggregates) {
             Optional<JdbcExpression> expression = jdbcClient.implementAggregation(session, aggregate, assignments);
             if (expression.isEmpty()) {
@@ -280,25 +310,16 @@ public class DefaultJdbcMetadata
             expressions.put(columnName, expression.get().getExpression());
         }
 
-        List<List<JdbcColumnHandle>> groupingSetsAsJdbcColumnHandles = groupingSets.stream()
-                .map(groupingSet -> groupingSet.stream()
-                        .map(JdbcColumnHandle.class::cast)
-                        .collect(toImmutableList()))
-                .collect(toImmutableList());
-
         List<JdbcColumnHandle> newColumnsList = newColumns.build();
 
+        // TODO(https://github.com/trinodb/trino/issues/9021) We are reading all grouping columns from remote database as at this point we are not able to tell if they are needed up in the query.
+        // As a reason of that we need to also have matching column handles in JdbcTableHandle constructed below, as columns read via JDBC must match column handles list.
+        // For more context see assertion in JdbcRecordSetProvider.getRecordSet
         PreparedQuery preparedQuery = jdbcClient.prepareQuery(
                 session,
                 handle,
                 Optional.of(groupingSetsAsJdbcColumnHandles),
-                ImmutableList.<JdbcColumnHandle>builder()
-                        .addAll(groupingSetsAsJdbcColumnHandles.stream()
-                                .flatMap(List::stream)
-                                .distinct()
-                                .iterator())
-                        .addAll(newColumnsList)
-                        .build(),
+                newColumnsList,
                 expressions.build());
         handle = new JdbcTableHandle(
                 new JdbcQueryRelationHandle(preparedQuery),
@@ -496,7 +517,7 @@ public class DefaultJdbcMetadata
                 handle.getOtherReferencedTables(),
                 handle.getNextSyntheticColumnId());
 
-        return Optional.of(new TopNApplicationResult<>(sortedTableHandle, jdbcClient.isTopNLimitGuaranteed(session), false));
+        return Optional.of(new TopNApplicationResult<>(sortedTableHandle, jdbcClient.isTopNGuaranteed(session), false));
     }
 
     @Override
@@ -661,6 +682,46 @@ public class DefaultJdbcMetadata
     }
 
     @Override
+    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        // The column is used for row-level delete, which is not supported, but it's required during analysis anyway.
+        return new JdbcColumnHandle(
+                "$update_row_id",
+                new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+                BIGINT);
+    }
+
+    @Override
+    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported delete");
+    }
+
+    @Override
+    public boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
+    {
+        return true;
+    }
+
+    @Override
+    public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        return Optional.of(handle);
+    }
+
+    @Override
+    public OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        return jdbcClient.delete(session, (JdbcTableHandle) handle);
+    }
+
+    @Override
+    public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        jdbcClient.truncateTable(session, (JdbcTableHandle) tableHandle);
+    }
+
+    @Override
     public void setColumnComment(ConnectorSession session, ConnectorTableHandle table, ColumnHandle column, Optional<String> comment)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
@@ -704,6 +765,14 @@ public class DefaultJdbcMetadata
     }
 
     @Override
+    public void setTableProperties(ConnectorSession session, ConnectorTableHandle table, Map<String, Object> properties)
+    {
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
+        jdbcClient.setTableProperties(session, tableHandle, properties);
+    }
+
+    @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
@@ -720,10 +789,5 @@ public class DefaultJdbcMetadata
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         jdbcClient.dropSchema(session, schemaName);
-    }
-
-    private static boolean containSameElements(Iterable<? extends ColumnHandle> first, Iterable<? extends ColumnHandle> second)
-    {
-        return ImmutableSet.copyOf(first).equals(ImmutableSet.copyOf(second));
     }
 }

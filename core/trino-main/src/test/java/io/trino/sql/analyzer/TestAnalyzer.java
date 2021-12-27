@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogName;
@@ -29,15 +30,25 @@ import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
+import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.Catalog;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.MaterializedViewDefinition;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TablePropertyManager;
+import io.trino.metadata.ViewColumn;
+import io.trino.metadata.ViewDefinition;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
+import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
@@ -45,19 +56,21 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.Identity;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.rewrite.ShowQueriesRewrite;
+import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.Statement;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
@@ -75,7 +88,6 @@ import java.util.function.Consumer;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
-import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
@@ -109,6 +121,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_RECURSIVE_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_PATTERN;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
+import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_MEASURE;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_REFERENCE;
 import static io.trino.spi.StandardErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
@@ -117,7 +130,9 @@ import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_GROUP_BY;
 import static io.trino.spi.StandardErrorCode.MISSING_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.MISSING_OVER;
+import static io.trino.spi.StandardErrorCode.MISSING_ROW_PATTERN;
 import static io.trino.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
+import static io.trino.spi.StandardErrorCode.MISSING_VARIABLE_DEFINITIONS;
 import static io.trino.spi.StandardErrorCode.NESTED_AGGREGATION;
 import static io.trino.spi.StandardErrorCode.NESTED_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.NESTED_ROW_PATTERN_RECOGNITION;
@@ -135,7 +150,6 @@ import static io.trino.spi.StandardErrorCode.TOO_MANY_GROUPING_SETS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_STALE;
-import static io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -150,8 +164,10 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
@@ -159,6 +175,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -193,7 +210,9 @@ public class TestAnalyzer
 
     private TransactionManager transactionManager;
     private AccessControl accessControl;
-    private Metadata metadata;
+    private PlannerContext plannerContext;
+    private TablePropertyManager tablePropertyManager;
+    private AnalyzePropertyManager analyzePropertyManager;
 
     @Test
     public void testTooManyArguments()
@@ -441,6 +460,18 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testGroupByAggregation()
+    {
+        assertFails("SELECT x, sum(y) FROM (VALUES (1, 2)) t(x, y) GROUP BY x, sum(y)")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessageMatching(".* GROUP BY clause cannot contain aggregations, window functions or grouping operations: .*");
+
+        assertFails("SELECT x, sum(y) FROM (VALUES (1, 2)) t(x, y) GROUP BY 1, 2")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessageMatching(".* GROUP BY clause cannot contain aggregations, window functions or grouping operations: .*");
+    }
+
+    @Test
     public void testGroupByWithSubquerySelectExpression()
     {
         analyze("SELECT (SELECT t1.a) FROM t1 GROUP BY a");
@@ -573,6 +604,7 @@ public class TestAnalyzer
     @Test
     public void testWindowsNotAllowed()
     {
+        // window function
         assertFails("SELECT * FROM t1 WHERE foo() over () > 1")
                 .hasErrorCode(EXPRESSION_NOT_SCALAR);
         assertFails("SELECT * FROM t1 GROUP BY rank() over ()")
@@ -580,6 +612,39 @@ public class TestAnalyzer
         assertFails("SELECT * FROM t1 JOIN t2 ON sum(t1.a) over () = t2.a")
                 .hasErrorCode(EXPRESSION_NOT_SCALAR);
         assertFails("SELECT 1 FROM (VALUES 1) HAVING count(*) OVER () > 1")
+                .hasErrorCode(NESTED_WINDOW);
+
+        // row pattern measure over window
+        assertFails("SELECT * FROM t1 WHERE classy OVER ( " +
+                "                                               MEASURES CLASSIFIER() AS classy " +
+                "                                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                               PATTERN (A+) " +
+                "                                               DEFINE A AS true " +
+                "                                       ) > 'X'")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR);
+
+        assertFails("SELECT * FROM t1 GROUP BY classy OVER (" +
+                "                                               MEASURES CLASSIFIER() AS classy " +
+                "                                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                               PATTERN (A+) " +
+                "                                               DEFINE A AS true " +
+                "                                       )")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR);
+
+        assertFails("SELECT * FROM t1 JOIN t2 ON classy OVER (" +
+                "                                               MEASURES CLASSIFIER() AS classy " +
+                "                                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                               PATTERN (A+) " +
+                "                                               DEFINE A AS true " +
+                "                                       ) = t2.a")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR);
+
+        assertFails("SELECT 1 FROM (VALUES 1) HAVING classy OVER (" +
+                "                                               MEASURES CLASSIFIER() AS classy " +
+                "                                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                               PATTERN (A+) " +
+                "                                               DEFINE A AS true " +
+                "                                       ) > 'X'")
                 .hasErrorCode(NESTED_WINDOW);
     }
 
@@ -981,6 +1046,38 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testWindowClauseWithPatternRecognition()
+    {
+        analyze("SELECT classy OVER w FROM t1 " +
+                "                   WINDOW w AS (" +
+                "                                MEASURES CLASSIFIER() AS classy " +
+                "                                ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                PATTERN (A+) " +
+                "                                DEFINE A AS true " +
+                "                               ) ");
+
+        analyze("SELECT classy OVER w2 FROM t1 " +
+                "                   WINDOW w0 AS (PARTITION BY b), " +
+                "                          w1 AS (w0 ORDER BY c), " +
+                "                          w2 AS (w1 " +
+                "                                 MEASURES CLASSIFIER() AS classy " +
+                "                                 ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                 PATTERN (A+) " +
+                "                                 DEFINE A AS true " +
+                "                                )");
+
+        assertFails("SELECT classy OVER w1 FROM t1 " +
+                "                   WINDOW w AS (" +
+                "                                MEASURES CLASSIFIER() AS classy " +
+                "                                ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                PATTERN (A+) " +
+                "                                DEFINE A AS true " +
+                "                               ) ")
+                .hasErrorCode(INVALID_WINDOW_REFERENCE)
+                .hasMessage("line 1:20: Cannot resolve WINDOW name w1");
+    }
+
+    @Test
     public void testWindowDefinition()
     {
         analyze("SELECT * FROM t1 " +
@@ -1049,18 +1146,52 @@ public class TestAnalyzer
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:51: Window frame ROWS start value type must be exact numeric type with scale 0 (actual varchar(1))");
 
-        // nested window
+        // nested window function
         assertFails("SELECT * FROM (VALUES 1) t(a) WINDOW w AS (PARTITION BY count(a) OVER ())")
                 .hasErrorCode(NESTED_WINDOW)
-                .hasMessage("line 1:57: Cannot nest window functions inside window specification");
+                .hasMessage("line 1:57: Cannot nest window functions or row pattern measures inside window specification");
 
         assertFails("SELECT * FROM (VALUES 1) t(a) WINDOW w AS (ORDER BY count(a) OVER ())")
                 .hasErrorCode(NESTED_WINDOW)
-                .hasMessage("line 1:53: Cannot nest window functions inside window specification");
+                .hasMessage("line 1:53: Cannot nest window functions or row pattern measures inside window specification");
 
         assertFails("SELECT * FROM (VALUES 1) t(a) WINDOW w AS (ROWS count(a) OVER () PRECEDING)")
                 .hasErrorCode(NESTED_WINDOW)
-                .hasMessage("line 1:49: Cannot nest window functions inside window specification");
+                .hasMessage("line 1:49: Cannot nest window functions or row pattern measures inside window specification");
+
+        // nested row pattern measure over window
+        assertFails("SELECT * FROM (VALUES 1) t(a) " +
+                "                       WINDOW w AS (PARTITION BY classy OVER ( " +
+                "                                                               MEASURES CLASSIFIER() AS classy " +
+                "                                                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                                               PATTERN (A+) " +
+                "                                                               DEFINE A AS true " +
+                "                                                              ) " +
+                "                                   )")
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:80: Cannot nest window functions or row pattern measures inside window specification");
+
+        assertFails("SELECT * FROM (VALUES 1) t(a) " +
+                "                       WINDOW w AS (ORDER BY classy OVER ( " +
+                "                                                          MEASURES CLASSIFIER() AS classy " +
+                "                                                          ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                                          PATTERN (A+) " +
+                "                                                          DEFINE A AS true " +
+                "                                                         ) " +
+                "                                   )")
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:76: Cannot nest window functions or row pattern measures inside window specification");
+
+        assertFails("SELECT * FROM (VALUES 1) t(a) " +
+                "                       WINDOW w AS (ROWS r OVER ( " +
+                "                                                 MEASURES A.a AS r " +
+                "                                                 ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                                 PATTERN (A+) " +
+                "                                                 DEFINE A AS true " +
+                "                                                ) PRECEDING " +
+                "                                   )")
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:72: Cannot nest window functions or row pattern measures inside window specification");
     }
 
     @Test
@@ -1149,6 +1280,48 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testPatternRecognitionWithGroupBy()
+    {
+        analyze("SELECT m OVER( " +
+                "                     MEASURES CLASSIFIER() AS m " +
+                "                     ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                     PATTERN (A+) " +
+                "                     DEFINE A AS true " +
+                "                    ) " +
+                "           FROM (VALUES (1,2)) t(a,b) GROUP BY b");
+
+        assertFails("SELECT m OVER( " +
+                "                         MEASURES CLASSIFIER() AS m " +
+                "                         ROWS BETWEEN CURRENT ROW AND a FOLLOWING " +
+                "                         PATTERN (A+) " +
+                "                         DEFINE A AS true " +
+                "                        ) " +
+                "           FROM (VALUES (1,2)) t(a,b) GROUP BY b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessageMatching("line 1:122: Window frame end must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT m OVER( " +
+                "                         MEASURES A.a AS m " +
+                "                         ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                         PATTERN (A+) " +
+                "                         DEFINE A AS true " +
+                "                        ) " +
+                "           FROM (VALUES (1,2)) t(a,b) GROUP BY b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessageMatching("line 1:50: Row pattern measure must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT m OVER( " +
+                "                         MEASURES CLASSIFIER() AS m " +
+                "                         ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                         PATTERN (A+) " +
+                "                         DEFINE A AS A.a > 0 " +
+                "                        ) " +
+                "           FROM (VALUES (1,2)) t(a,b) GROUP BY b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessageMatching("line 1:204: Row pattern variable definition must be an aggregate expression or appear in GROUP BY clause");
+    }
+
+    @Test
     public void testNestedWindowFunctions()
     {
         assertFails("SELECT avg(sum(a) OVER ()) FROM t1")
@@ -1158,6 +1331,46 @@ public class TestAnalyzer
         assertFails("SELECT avg(a) OVER (PARTITION BY sum(b) OVER ()) FROM t1")
                 .hasErrorCode(NESTED_WINDOW);
         assertFails("SELECT avg(a) OVER (ORDER BY sum(b) OVER ()) FROM t1")
+                .hasErrorCode(NESTED_WINDOW);
+    }
+
+    @Test
+    public void testNestedMeasures()
+    {
+        assertFails("SELECT max(classy OVER (" +
+                "                                   MEASURES CLASSIFIER() AS classy " +
+                "                                   ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                   PATTERN (A+) " +
+                "                                   DEFINE A AS true " +
+                "                                  ) " +
+                "                     ) FROM t1")
+                .hasErrorCode(NESTED_WINDOW);
+
+        assertFails("SELECT max(classy OVER (" +
+                "                                   MEASURES CLASSIFIER() AS classy " +
+                "                                   ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                   PATTERN (A+) " +
+                "                                   DEFINE A AS true " +
+                "                                  ) " +
+                "                     ) OVER () FROM t1")
+                .hasErrorCode(NESTED_WINDOW);
+
+        assertFails("SELECT avg(a) OVER (PARTITION BY classy OVER (" +
+                "                                                         MEASURES CLASSIFIER() AS classy " +
+                "                                                         ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                                         PATTERN (A+) " +
+                "                                                         DEFINE A AS true " +
+                "                                                        ) " +
+                "                              ) FROM t1")
+                .hasErrorCode(NESTED_WINDOW);
+
+        assertFails("SELECT avg(a) OVER (ORDER BY classy OVER (" +
+                "                                                         MEASURES CLASSIFIER() AS classy " +
+                "                                                         ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                                         PATTERN (A+) " +
+                "                                                         DEFINE A AS true " +
+                "                                                        ) " +
+                "                              ) FROM t1")
                 .hasErrorCode(NESTED_WINDOW);
     }
 
@@ -1333,6 +1546,422 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testWindowFrameWithPatternRecognition()
+    {
+        // in-line window specification
+        analyze("SELECT rank() OVER (" +
+                "                           PARTITION BY x " +
+                "                           ORDER BY y " +
+                "                           MEASURES A.z AS last_z " +
+                "                           ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                           AFTER MATCH SKIP TO NEXT ROW " +
+                "                           SEEK " +
+                "                           PATTERN (A B C) " +
+                "                           SUBSET U = (A, B) " +
+                "                           DEFINE " +
+                "                               B AS false, " +
+                "                               C AS true " +
+                "                         ) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)");
+
+        // window clause
+        analyze("SELECT rank() OVER w FROM (VALUES (1, 2, 3)) t(x, y, z) " +
+                "                       WINDOW w AS (" +
+                "                           PARTITION BY x " +
+                "                           ORDER BY y " +
+                "                           MEASURES A.z AS last_z " +
+                "                           ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                           AFTER MATCH SKIP TO NEXT ROW " +
+                "                           SEEK " +
+                "                           PATTERN (A B C) " +
+                "                           SUBSET U = (A, B) " +
+                "                           DEFINE " +
+                "                               B AS false, " +
+                "                               C AS true " +
+                "                      ) ");
+    }
+
+    @Test
+    public void testInvalidWindowFrameWithPatternRecognition()
+    {
+        assertFails("SELECT rank() OVER (" +
+                "                           PARTITION BY x " +
+                "                           ORDER BY y " +
+                "                           MEASURES A.z AS last_z " +
+                "                           ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                           AFTER MATCH SKIP TO NEXT ROW " +
+                "                           SEEK " +
+                "                           PATTERN (A B C) " +
+                "                           SUBSET U = (A, B) " +
+                "                         ) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(MISSING_VARIABLE_DEFINITIONS)
+                .hasMessage("line 1:128: Pattern recognition requires DEFINE clause");
+
+        assertFails("SELECT rank() OVER (" +
+                "                           PARTITION BY x " +
+                "                           ORDER BY y " +
+                "                           MEASURES A.z AS last_z " +
+                "                           RANGE BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                           AFTER MATCH SKIP TO NEXT ROW " +
+                "                           SEEK " +
+                "                           PATTERN (A B C) " +
+                "                           SUBSET U = (A, B) " +
+                "                           DEFINE " +
+                "                               B AS false, " +
+                "                               C AS true " +
+                "                         ) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:128: Pattern recognition requires ROWS frame type");
+
+        assertFails("SELECT rank() OVER (" +
+                "                           PARTITION BY x " +
+                "                           ORDER BY y " +
+                "                           MEASURES A.z AS last_z " +
+                "                           ROWS BETWEEN 5 PRECEDING AND 5 FOLLOWING " +
+                "                           AFTER MATCH SKIP TO NEXT ROW " +
+                "                           SEEK " +
+                "                           PATTERN (A B C) " +
+                "                           SUBSET U = (A, B) " +
+                "                           DEFINE " +
+                "                               B AS false, " +
+                "                               C AS true " +
+                "                         ) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:128: Pattern recognition requires frame specified as BETWEEN CURRENT ROW AND ...");
+
+        assertFails("SELECT rank() OVER ( " +
+                "                               MEASURES A.z AS last_z " +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(MISSING_ROW_PATTERN)
+                .hasMessage("line 1:53: Row pattern measures require PATTERN clause");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               AFTER MATCH SKIP TO NEXT ROW) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(MISSING_ROW_PATTERN)
+                .hasMessage("line 1:136: AFTER MATCH SKIP clause requires PATTERN clause");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               SEEK) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(MISSING_ROW_PATTERN)
+                .hasMessage("line 1:124: SEEK modifier requires PATTERN clause");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               SUBSET U = (A, B)) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(MISSING_ROW_PATTERN)
+                .hasMessage("line 1:131: Union variable definitions require PATTERN clause");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               DEFINE B AS false) " +
+                "           FROM (VALUES (1, 2, 3)) t(x, y, z)")
+                .hasErrorCode(MISSING_ROW_PATTERN)
+                .hasMessage("line 1:131: Primary pattern variable definitions require PATTERN clause");
+    }
+
+    @Test
+    public void testSubsetClauseInWindow()
+    {
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A B) " +
+                "                               SUBSET A = (C) " +
+                "                               DEFINE B AS false) " +
+                "           FROM (VALUES 1) t(x)")
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:176: union pattern variable name: A is a duplicate of primary pattern variable name");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A B) " +
+                "                               SUBSET " +
+                "                                   U = (A), " +
+                "                                   U = (B) " +
+                "                               DEFINE B AS false) " +
+                "           FROM (VALUES 1) t(x)")
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:255: union pattern variable name: U is declared twice");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A B) " +
+                "                               SUBSET U = (A, C) " +
+                "                               DEFINE B AS false) " +
+                "           FROM (VALUES 1) t(x)")
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:184: subset element: C is not a primary pattern variable");
+    }
+
+    @Test
+    public void testDefineClauseInWindow()
+    {
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A B) " +
+                "                               DEFINE C AS false) " +
+                "           FROM (VALUES 1) t(x)")
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:176: defined variable: C is not a primary pattern variable");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A B) " +
+                "                               DEFINE " +
+                "                                       A AS true, " +
+                "                                       A AS false) " +
+                "           FROM (VALUES 1) t(x)")
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:265: pattern variable with name: A is defined twice");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A B) " +
+                "                               DEFINE A AS FINAL LAST(A.x) > 0) " +
+                "           FROM (VALUES 1) t(x)")
+                .hasErrorCode(INVALID_PROCESSING_MODE)
+                .hasMessage("line 1:181: FINAL semantics is not supported in DEFINE clause");
+    }
+
+    @Test
+    public void testRangeQuantifiersInWindow()
+    {
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A{,0}) " +
+                "                               DEFINE A AS false) " +
+                "           FROM (VALUES 1) t(x)")
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("line 1:134: Pattern quantifier upper bound must be greater than or equal to 1");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A{,3000000000}) " +
+                "                               DEFINE A AS false) " +
+                "           FROM (VALUES 1) t(x)")
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage("line 1:134: Pattern quantifier upper bound must not exceed 2147483647");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A{100,1}) " +
+                "                               DEFINE A AS false) " +
+                "           FROM (VALUES 1) t(x)")
+                .hasErrorCode(INVALID_RANGE)
+                .hasMessage("line 1:134: Pattern quantifier lower bound must not exceed upper bound");
+    }
+
+    @Test
+    public void testAfterMatchSkipInWindow()
+    {
+        analyze("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               AFTER MATCH SKIP TO FIRST B " +
+                "                               PATTERN (A B) " +
+                "                               DEFINE A AS false) " +
+                "           FROM (VALUES 1) t(x)");
+
+        analyze("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               AFTER MATCH SKIP TO FIRST U " +
+                "                               PATTERN (A B) " +
+                "                               SUBSET U = (B) " +
+                "                               DEFINE A AS false) " +
+                "           FROM (VALUES 1) t(x)");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               AFTER MATCH SKIP TO FIRST C " +
+                "                               PATTERN (A B) " +
+                "                               DEFINE A AS false) " +
+                "           FROM (VALUES 1) t(x)")
+                .hasErrorCode(INVALID_LABEL)
+                .hasMessage("line 1:150: C is not a primary or union pattern variable");
+    }
+
+    @Test
+    public void testPatternSearchModeInWindow()
+    {
+        analyze("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               INITIAL " +
+                "                               PATTERN (A B) " +
+                "                               DEFINE A AS false) " +
+                "           FROM (VALUES 1) t(x)");
+
+        analyze("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               SEEK " +
+                "                               PATTERN (A B) " +
+                "                               DEFINE A AS false) " +
+                "           FROM (VALUES 1) t(x)");
+    }
+
+    @Test
+    public void testAnchorPatternInWindow()
+    {
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (^ A B) " +
+                "                               DEFINE B AS false) " +
+                "           FROM (VALUES 1) t(x)")
+                .hasErrorCode(INVALID_ROW_PATTERN)
+                .hasMessage("line 1:133: Anchor pattern syntax is not allowed in window");
+
+        assertFails("SELECT rank() OVER (" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A B $) " +
+                "                               DEFINE B AS false) " +
+                "           FROM (VALUES 1) t(x)")
+                .hasErrorCode(INVALID_ROW_PATTERN)
+                .hasMessage("line 1:137: Anchor pattern syntax is not allowed in window");
+    }
+
+    @Test
+    public void testMatchNumberFunctionInWindow()
+    {
+        assertFails("SELECT rank() OVER ( " +
+                "                               MEASURES 1 + MATCH_NUMBER() AS m" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A B) " +
+                "                               DEFINE B AS false" +
+                "                              ) " +
+                "           FROM (VALUES 1) t(x)")
+                .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
+                .hasMessage("line 1:66: MATCH_NUMBER function is not supported in window");
+
+        assertFails("SELECT rank() OVER ( " +
+                "                               MEASURES B.x AS m" +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A B) " +
+                "                               DEFINE B AS MATCH_NUMBER() > 2" +
+                "                              ) " +
+                "           FROM (VALUES 1) t(x)")
+                .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
+                .hasMessage("line 1:230: MATCH_NUMBER function is not supported in window");
+    }
+
+    @Test
+    public void testLabelNamesInWindow()
+    {
+        // SQL identifier semantics
+        analyze("SELECT rank() OVER ( " +
+                "                               MEASURES " +
+                "                                       \"B\".x AS m1, " +
+                "                                       B.x AS m2 " +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A B) " +
+                "                               DEFINE B AS b.x > 0" +
+                "                              ) " +
+                "           FROM (VALUES 1) t(x)");
+
+        assertFails("SELECT rank() OVER ( " +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A B) " +
+                "                               DEFINE B AS \"b\".x > 0" +
+                "                              ) " +
+                "           FROM (VALUES 1) t(x)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:182: Column 'b.x' cannot be resolved");
+    }
+
+    @Test
+    public void testMeasureOverWindow()
+    {
+        // in-line window specification
+        assertFails("SELECT last_z OVER () FROM (VALUES 1) t(z) ")
+                .hasErrorCode(INVALID_WINDOW_MEASURE)
+                .hasMessage("line 1:8: Measure last_z is not defined in the corresponding window");
+
+        assertFails("SELECT last_z OVER ( " +
+                "                               MEASURES CLASSIFIER() AS classy " +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A B) " +
+                "                               DEFINE B AS true " +
+                "                              ) " +
+                "           FROM (VALUES 1) t(z)")
+                .hasErrorCode(INVALID_WINDOW_MEASURE)
+                .hasMessage("line 1:8: Measure last_z is not defined in the corresponding window");
+
+        assertFails("SELECT last_z OVER ( " +
+                "                               MEASURES " +
+                "                                        LAST(A.z) AS last_z, " +
+                "                                        LAST(B.z) AS last_z " +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A B) " +
+                "                               DEFINE B AS true " +
+                "                              ) " +
+                "           FROM (VALUES 1) t(z)")
+                .hasErrorCode(AMBIGUOUS_NAME)
+                .hasMessage("line 1:8: Measure last_z is defined more than once");
+
+        // SQL identifier semantics
+        assertFails("SELECT \"last_z\" OVER ( " +
+                "                               MEASURES " +
+                "                                        LAST(A.z) AS \"LAST_Z\", " +
+                "                                        LAST(A.z) AS \"Last_Z\", " +
+                "                                        LAST(B.z) AS last_z " +
+                "                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                               PATTERN (A B) " +
+                "                               DEFINE B AS true " +
+                "                              ) " +
+                "           FROM (VALUES 1) t(z)")
+                .hasErrorCode(INVALID_WINDOW_MEASURE)
+                .hasMessage("line 1:8: Measure last_z is not defined in the corresponding window");
+
+        // named window reference
+        assertFails("SELECT last_z OVER w FROM (VALUES 1) t(z) WINDOW w AS ()")
+                .hasErrorCode(INVALID_WINDOW_MEASURE)
+                .hasMessage("line 1:8: Measure last_z is not defined in the corresponding window");
+
+        assertFails("SELECT last_z OVER w " +
+                "               FROM (VALUES 1) t(z) " +
+                "               WINDOW w AS ( " +
+                "                            MEASURES CLASSIFIER() AS classy " +
+                "                            ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                            PATTERN (A B) " +
+                "                            DEFINE B AS true " +
+                "                           )")
+                .hasErrorCode(INVALID_WINDOW_MEASURE)
+                .hasMessage("line 1:8: Measure last_z is not defined in the corresponding window");
+
+        assertFails("SELECT last_z OVER w " +
+                "               FROM (VALUES 1) t(z) " +
+                "               WINDOW w AS ( " +
+                "                            MEASURES " +
+                "                                     LAST(A.z) AS last_z, " +
+                "                                     LAST(B.z) AS last_z " +
+                "                            ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                            PATTERN (A B) " +
+                "                            DEFINE B AS true " +
+                "                           )")
+                .hasErrorCode(AMBIGUOUS_NAME)
+                .hasMessage("line 1:8: Measure last_z is defined more than once");
+
+        assertFails("SELECT \"last_z\" OVER w " +
+                "               FROM (VALUES 1) t(z) " +
+                "               WINDOW w AS ( " +
+                "                            MEASURES " +
+                "                                     LAST(A.z) AS \"LAST_Z\", " +
+                "                                     LAST(A.z) AS \"Last_Z\", " +
+                "                                     LAST(B.z) AS last_z " +
+                "                            ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                            PATTERN (A B) " +
+                "                            DEFINE B AS true " +
+                "                           )")
+                .hasErrorCode(INVALID_WINDOW_MEASURE)
+                .hasMessage("line 1:8: Measure last_z is not defined in the corresponding window");
+    }
+
+    @Test
     public void testDistinctInWindowFunctionParameter()
     {
         assertFails("SELECT a, count(DISTINCT b) OVER () FROM t1")
@@ -1476,9 +2105,9 @@ public class TestAnalyzer
 
         // coercion is allowed between compatible types
         analyze("INSERT INTO t8 (tinyint_column, integer_column, decimal_column, real_column) VALUES (1e0, 1e0, 1e0, 1e0)");
-        analyze("INSERT INTO t8 (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (CAST('aa     ' AS varchar), CAST('aa     ' AS varchar), CAST('aa     ' AS varchar))");
+        analyze("INSERT INTO t8 (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (VARCHAR 'aa     ', VARCHAR 'aa     ', VARCHAR 'aa     ')");
         analyze("INSERT INTO t8 (tinyint_array_column) SELECT (bigint_array_column) FROM t8");
-        analyze("INSERT INTO t8 (row_column) VALUES (ROW(ROW(1e0, CAST('aa     ' AS varchar))))");
+        analyze("INSERT INTO t8 (row_column) VALUES (ROW(ROW(1e0, VARCHAR 'aa     ')))");
         analyze("INSERT INTO t8 (date_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')");
 
         // coercion is not allowed between incompatible types
@@ -2106,6 +2735,12 @@ public class TestAnalyzer
                 .hasErrorCode(TYPE_MISMATCH);
         assertFails("SELECT 'a' LIKE 'b' ESCAPE 1 FROM t1")
                 .hasErrorCode(TYPE_MISMATCH);
+        assertFails("SELECT 'abc' LIKE CHAR 'abc' FROM t1")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:19: Pattern for LIKE expression must evaluate to a varchar (actual: char(3))");
+        assertFails("SELECT 'abc' LIKE 'abc' ESCAPE CHAR '#' FROM t1")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:32: Escape for LIKE expression must evaluate to a varchar (actual: char(1))");
 
         // extract
         assertFails("SELECT EXTRACt(DAY FROM 'a') FROM t1")
@@ -2833,8 +3468,8 @@ public class TestAnalyzer
                 .hasErrorCode(SYNTAX_ERROR);
 
         Session session = testSessionBuilder()
-                .setCatalog(null)
-                .setSchema(null)
+                .setCatalog(Optional.empty())
+                .setSchema(Optional.empty())
                 .build();
         assertFails(session, "SHOW TABLES")
                 .hasErrorCode(MISSING_CATALOG_NAME);
@@ -2845,7 +3480,7 @@ public class TestAnalyzer
 
         session = testSessionBuilder()
                 .setCatalog(SECOND_CATALOG)
-                .setSchema(null)
+                .setSchema(Optional.empty())
                 .build();
         assertFails(session, "SHOW TABLES")
                 .hasErrorCode(MISSING_SCHEMA_NAME);
@@ -3564,9 +4199,9 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testPatternRecognitionNesting()
+    public void testNestedMatchRecognize()
     {
-        // in DEFINE clause
+        // in DEFINE clause of another MATCH_RECOGNIZE
         assertFails("SELECT * " +
                 "          FROM (VALUES 1) " +
                 "                 MATCH_RECOGNIZE ( " +
@@ -3584,7 +4219,7 @@ public class TestAnalyzer
                 .hasErrorCode(NESTED_ROW_PATTERN_RECOGNITION)
                 .hasMessage("line 1:239: nested row pattern recognition in row pattern recognition");
 
-        // in MEASURES clause
+        // in MEASURES clause of another MATCH_RECOGNIZE
         assertFails("SELECT * " +
                 "          FROM (VALUES 1) " +
                 "                 MATCH_RECOGNIZE ( " +
@@ -3602,6 +4237,40 @@ public class TestAnalyzer
                 .hasErrorCode(NESTED_ROW_PATTERN_RECOGNITION)
                 .hasMessage("line 1:153: nested row pattern recognition in row pattern recognition");
 
+        // in DEFINE clause of window frame with pattern recognition
+        assertFails("SELECT m OVER( " +
+                "                     MEASURES CLASSIFIER() AS m" +
+                "                     ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                     PATTERN (A+) " +
+                "                     DEFINE A AS EXISTS " +
+                "                                (SELECT c FROM (VALUES 2) t(a)" +
+                "                                                 MATCH_RECOGNIZE ( " +
+                "                                                   MEASURES CLASSIFIER() AS c " +
+                "                                                   PATTERN (X*) " +
+                "                                                   DEFINE X AS true " +
+                "                                                 ) t2 " +
+                "                                 ) " +
+                "                    ) FROM t1")
+                .hasErrorCode(NESTED_ROW_PATTERN_RECOGNITION)
+                .hasMessage("line 1:246: nested row pattern recognition in row pattern recognition");
+
+        // in MEASURES clause of window frame with pattern recognition
+        assertFails("SELECT m OVER( " +
+                "                     MEASURES EXISTS " +
+                "                                (SELECT c FROM (VALUES 2) t(a)" +
+                "                                                 MATCH_RECOGNIZE ( " +
+                "                                                   MEASURES CLASSIFIER() AS c " +
+                "                                                   PATTERN (X*) " +
+                "                                                   DEFINE X AS true " +
+                "                                                 ) t2 " +
+                "                                 ) AS m" +
+                "                     ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                     PATTERN (A+) " +
+                "                     DEFINE A AS true " +
+                "                    ) FROM t1")
+                .hasErrorCode(NESTED_ROW_PATTERN_RECOGNITION)
+                .hasMessage("line 1:100: nested row pattern recognition in row pattern recognition");
+
         // in RECURSIVE query
         assertFails("WITH RECURSIVE t(n) AS (" +
                 "          SELECT 1 " +
@@ -3616,6 +4285,89 @@ public class TestAnalyzer
                 "          SELECT * from t")
                 .hasErrorCode(NESTED_ROW_PATTERN_RECOGNITION)
                 .hasMessage("line 1:91: nested row pattern recognition in recursive query");
+    }
+
+    @Test
+    public void testNestedPatternRecognitionInWindow()
+    {
+        // in DEFINE clause of MATCH_RECOGNIZE
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES CLASSIFIER() AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS classy OVER ( " +
+                "                                            MEASURES CLASSIFIER() AS classy " +
+                "                                            ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                            PATTERN (X+) " +
+                "                                            DEFINE X AS true " +
+                "                                           ) > 'Z'" +
+                "                 ) ")
+                .hasErrorCode(NESTED_ROW_PATTERN_RECOGNITION)
+                .hasMessage("line 1:410: nested row pattern recognition in row pattern recognition");
+
+        // in MEASURES clause of MATCH_RECOGNIZE
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES classy OVER ( " +
+                "                                         MEASURES CLASSIFIER() AS classy " +
+                "                                         ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                         PATTERN (X+) " +
+                "                                         DEFINE X AS true " +
+                "                                        ) > 'Z' AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS true " +
+                "                 ) ")
+                .hasErrorCode(NESTED_ROW_PATTERN_RECOGNITION)
+                .hasMessage("line 1:318: nested row pattern recognition in row pattern recognition");
+
+        // in DEFINE clause of window frame with pattern recognition
+        assertFails("SELECT m OVER( " +
+                "                         MEASURES CLASSIFIER() AS m" +
+                "                         ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                         PATTERN (A+) " +
+                "                         DEFINE A AS classy OVER ( " +
+                "                                                  MEASURES CLASSIFIER() AS classy " +
+                "                                                  ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                                  PATTERN (X+) " +
+                "                                                  DEFINE X AS true " +
+                "                                                 ) > 'Z'" +
+                "                        ) FROM t1")
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:208: Cannot nest window functions or row pattern measures inside window specification");
+
+        // in MEASURES clause of window frame with pattern recognition
+        assertFails("SELECT m OVER( " +
+                "                         MEASURES classy OVER ( " +
+                "                                               MEASURES CLASSIFIER() AS classy " +
+                "                                               ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                                               PATTERN (X+) " +
+                "                                               DEFINE X AS true " +
+                "                                              ) > 'Z' AS m" +
+                "                         ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                         PATTERN (A+) " +
+                "                         DEFINE A AS true" +
+                "                        ) FROM t1")
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:50: Cannot nest window functions or row pattern measures inside window specification");
+
+        // in RECURSIVE query
+        assertFails("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1 " +
+                "          UNION ALL" +
+                "          SELECT n + m OVER w FROM t " +
+                "               WHERE n < 6 " +
+                "               WINDOW w AS ( " +
+                "                            MEASURES X.n AS m " +
+                "                            ROWS BETWEEN CURRENT ROW AND 5 FOLLOWING " +
+                "                            PATTERN (X*) " +
+                "                            DEFINE X AS true " +
+                "                           ) " +
+                "          ) " +
+                "          SELECT * from t")
+                .hasErrorCode(NESTED_ROW_PATTERN_RECOGNITION)
+                .hasMessage("line 1:308: nested row pattern recognition in recursive query");
     }
 
     @Test
@@ -3702,6 +4454,112 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testInPredicateWithSubquery()
+    {
+        // value can use plain column references
+        analyze(("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS 5 + x in (SELECT 1)" +
+                "                 ) "));
+
+        // value must not use pattern variables
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS A.x in (SELECT 1)" +
+                "                 ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:176: IN-PREDICATE with labeled column reference is not yet supported");
+
+        // value must not use navigations
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS LAST(x) in (SELECT 1)" +
+                "                 ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:176: IN-PREDICATE with last function is not yet supported");
+
+        // value must not use CLASSIFIER()
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS CLASSIFIER() in (SELECT 1)" +
+                "                 ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:176: IN-PREDICATE with classifier function is not yet supported");
+
+        // value must not use MATCH_NUMBER()
+        assertFails("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS MATCH_NUMBER() in (SELECT 1)" +
+                "                 ) ")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:176: IN-PREDICATE with match_number function is not yet supported");
+    }
+
+    @Test
+    public void testInPredicateWithoutSubquery()
+    {
+        // value and value list can use plain column references
+        analyze(("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS 5 + x in (1, 2, x)" +
+                "                 ) "));
+
+        // value and value list can use pattern variables
+        analyze("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS A.x in (1, 2, B.x)" +
+                "                 ) ");
+
+        // value and value list can use navigations
+        analyze("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS LAST(x) in (1, 2, FIRST(x))" +
+                "                 ) ");
+
+        // value and value list can use CLASSIFIER()
+        analyze("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS CLASSIFIER(A) in ('A', 'B', CLASSIFIER(B))" +
+                "                 ) ");
+
+        // valu and value liste can use MATCH_NUMBER()
+        analyze("SELECT * " +
+                "          FROM (VALUES 1) t(x) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES 1 AS c " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS MATCH_NUMBER() in (1, 2, MATCH_NUMBER())" +
+                "                 ) ");
+    }
+
+    @Test
     public void testPatternRecognitionConcatenation()
     {
         analyze("SELECT * " +
@@ -3733,6 +4591,50 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testLambdaInPatternRecognition()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (ARRAY[1]), (ARRAY[2])) Ticker(Value) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS %s " +
+                "                ) AS M";
+
+        assertFails(format(query, "transform(A.Value, x -> x + 100)", "true"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:161: Lambda expression in pattern recognition context is not yet supported");
+        assertFails(format(query, "true", "transform(A.Value, x -> x + 100) = ARRAY[50]"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:242: Lambda expression in pattern recognition context is not yet supported");
+    }
+
+    @Test
+    public void testTryInPatternRecognition()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (ARRAY[1]), (ARRAY[2])) Ticker(Value) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   DEFINE B AS %s " +
+                "                ) AS M";
+
+        assertFails(format(query, "TRY(1)", "true"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:142: TRY expression in pattern recognition context is not yet supported");
+        assertFails(format(query, "sum(TRY(1))", "true"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:146: TRY expression in pattern recognition context is not yet supported");
+        assertFails(format(query, "true", "TRY(1) = 1"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:223: TRY expression in pattern recognition context is not yet supported");
+        assertFails(format(query, "true", "sum(TRY(1)) = 2"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:227: TRY expression in pattern recognition context is not yet supported");
+    }
+
+    @Test
     public void testRowPatternRecognitionFunctions()
     {
         String query = "SELECT M.Measure " +
@@ -3748,8 +4650,8 @@ public class TestAnalyzer
         // test illegal clauses in MEASURES
         String define = "true";
         assertFails(format(query, "LAST(Tradeday) OVER ()", define))
-                .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
-                .hasMessage("line 1:195: Cannot use OVER with last pattern recognition function");
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:195: Cannot nest window functions or row pattern measures inside pattern recognition expressions");
 
         assertFails(format(query, "LAST(Tradeday) FILTER (WHERE true)", define))
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
@@ -3766,8 +4668,8 @@ public class TestAnalyzer
         // test illegal clauses in DEFINE
         String measure = "true";
         assertFails(format(query, measure, "CLASSIFIER(Tradeday) OVER () > 0"))
-                .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
-                .hasMessage("line 1:313: Cannot use OVER with classifier pattern recognition function");
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:313: Cannot nest window functions or row pattern measures inside pattern recognition expressions");
 
         assertFails(format(query, measure, "CLASSIFIER(Tradeday) FILTER (WHERE true) > 0"))
                 .hasErrorCode(INVALID_PATTERN_RECOGNITION_FUNCTION)
@@ -3841,11 +4743,6 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_PROCESSING_MODE)
                 .hasMessage("line 1:195: FINAL semantics is not supported with match_number pattern recognition function");
 
-        // aggregation function in pattern recognition context
-        assertFails(format(query, "FINAL avg(Tradeday)", define))
-                .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:195: Aggregations in pattern recognition context are not yet supported");
-
         // scalar function in pattern recognition context
         assertFails(format(query, "FINAL lower(Tradeday)", define))
                 .hasErrorCode(INVALID_PROCESSING_MODE)
@@ -3909,6 +4806,10 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_NAVIGATION_NESTING)
                 .hasMessage("line 1:200: Immediate nesting is required for pattern navigation functions");
 
+        assertFails(format(query, "PREV(avg(Price) + 5)"))
+                .hasErrorCode(NESTED_AGGREGATION)
+                .hasMessage("line 1:200: Cannot nest avg aggregate function inside prev function");
+
         // navigation function must column reference or CLASSIFIER()
         assertFails(format(query, "PREV(LAST('no_column'))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
@@ -3925,31 +4826,31 @@ public class TestAnalyzer
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + Price))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:205: Column references inside pattern navigation function last must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:205: Column references inside argument of function last must all either be prefixed with the same label or be not prefixed");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + B.Price))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:205: Column references inside pattern navigation function last must all either be prefixed with the same label or be not prefixed");
+                .hasMessage("line 1:205: Column references inside argument of function last must all either be prefixed with the same label or be not prefixed");
 
         assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER())))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: CLASSIFIER() calls inside pattern navigation function last must all either have the same label as the argument or have no arguments");
+                .hasMessage("line 1:200: CLASSIFIER() calls inside argument of function last must all either have the same label as the argument or have no arguments");
 
         assertFails(format(query, "PREV(LAST(concat(CLASSIFIER(A), CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: CLASSIFIER() calls inside pattern navigation function last must all either have the same label as the argument or have no arguments");
+                .hasMessage("line 1:200: CLASSIFIER() calls inside argument of function last must all either have the same label as the argument or have no arguments");
 
         assertFails(format(query, "PREV(LAST(Tradeday + length(CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Column references inside pattern navigation function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:200: Column references inside argument of function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER(B))))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Column references inside pattern navigation function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:200: Column references inside argument of function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
 
         assertFails(format(query, "PREV(LAST(A.Tradeday + length(CLASSIFIER())))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
-                .hasMessage("line 1:200: Column references inside pattern navigation function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+                .hasMessage("line 1:200: Column references inside argument of function last must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
     }
 
     @Test
@@ -4007,6 +4908,214 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testPatternAggregations()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 1), (2, 2, 2)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS %s " +
+                "                 ) AS M";
+
+        // test illegal clauses in MEASURES
+        String define = "true";
+        assertFails(format(query, "max(Price) OVER ()", define))
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:158: Cannot nest window functions or row pattern measures inside pattern recognition expressions");
+
+        assertFails(format(query, "max(Price) FILTER (WHERE true)", define))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:158: Cannot use FILTER with max aggregate function in pattern recognition context");
+
+        assertFails(format(query, "max(Price ORDER BY Tradeday)", define))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:158: Cannot use ORDER BY with max aggregate function in pattern recognition context");
+
+        assertFails(format(query, "LISTAGG(Price) WITHIN GROUP (ORDER BY Tradeday)", define))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:158: Cannot use ORDER BY with listagg aggregate function in pattern recognition context");
+
+        assertFails(format(query, "max(DISTINCT Price)", define))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:158: Cannot use DISTINCT with max aggregate function in pattern recognition context");
+
+        // test illegal clauses in DEFINE
+        String measure = "true";
+        assertFails(format(query, measure, "max(Price) OVER () > 0"))
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:276: Cannot nest window functions or row pattern measures inside pattern recognition expressions");
+
+        assertFails(format(query, measure, "max(Price) FILTER (WHERE true) > 0"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:276: Cannot use FILTER with max aggregate function in pattern recognition context");
+
+        assertFails(format(query, measure, "max(Price ORDER BY Tradeday) > 0"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:276: Cannot use ORDER BY with max aggregate function in pattern recognition context");
+
+        assertFails(format(query, measure, "LISTAGG(Price) WITHIN GROUP (ORDER BY Tradeday) IS NOT NULL"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:276: Cannot use ORDER BY with listagg aggregate function in pattern recognition context");
+
+        assertFails(format(query, measure, "max(DISTINCT Price) > 0"))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:276: Cannot use DISTINCT with max aggregate function in pattern recognition context");
+    }
+
+    @Test
+    public void testInvalidNestingInPatternAggregations()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 1), (2, 2, 2)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS true " +
+                "                 ) AS M";
+
+        assertFails(format(query, "max(1 + min(Price))"))
+                .hasErrorCode(NESTED_AGGREGATION)
+                .hasMessage("line 1:166: Cannot nest min aggregate function inside max function");
+        assertFails(format(query, "max(1 + LAST(Price))"))
+                .hasErrorCode(INVALID_NAVIGATION_NESTING)
+                .hasMessage("line 1:166: Cannot nest last pattern navigation function inside max function");
+    }
+
+    @Test
+    public void testLabelsInPatternAggregations()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 1), (2, 2, 2)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS true " +
+                "                ) AS M";
+
+        // at most one label inside argument
+        analyze(format(query, "count()"));
+        analyze(format(query, "count(Symbol)"));
+        analyze(format(query, "count(A.Symbol)"));
+        analyze(format(query, "count(U.Symbol)"));
+        analyze(format(query, "count(CLASSIFIER())"));
+        analyze(format(query, "count(CLASSIFIER(A))"));
+        analyze(format(query, "count(CLASSIFIER(U))"));
+
+        // consistent labels inside argument
+        analyze(format(query, "count(Price < 5 OR CLASSIFIER() > 'X')"));
+        analyze(format(query, "count(B.Price < 5 OR CLASSIFIER(B) > 'X')"));
+        analyze(format(query, "count(U.Price < 5 OR CLASSIFIER(U) > 'X')"));
+
+        // inconsistent labels inside argument
+        assertFails(format(query, "count(B.Price < 5 OR Price > 5)"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:164: Column references inside argument of function count must all either be prefixed with the same label or be not prefixed");
+        assertFails(format(query, "count(B.Price < 5 OR A.Price > 5)"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:164: Column references inside argument of function count must all either be prefixed with the same label or be not prefixed");
+        assertFails(format(query, "count(CLASSIFIER(A) < 'X' OR CLASSIFIER(B) > 'Y')"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:158: CLASSIFIER() calls inside argument of function count must all either have the same label as the argument or have no arguments");
+        assertFails(format(query, "count(Price < 5 OR CLASSIFIER(B) > 'Y')"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:158: Column references inside argument of function count must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+        assertFails(format(query, "count(A.Price < 5 OR CLASSIFIER(B) > 'Y')"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:158: Column references inside argument of function count must all be prefixed with the same label that all CLASSIFIER() calls have as the argument");
+
+        // multiple aggregation arguments
+        analyze(format(query, "max_by(Price, Symbol)"));
+        analyze(format(query, "max_by(A.Price, A.Symbol)"));
+        analyze(format(query, "max_by(U.Price, U.Symbol)"));
+
+        analyze(format(query, "max_by(Price, 1)"));
+        analyze(format(query, "max_by(A.Price, 1)"));
+        analyze(format(query, "max_by(U.Price, 1)"));
+        analyze(format(query, "max_by(1, 1)"));
+        analyze(format(query, "max_by(1, Price)"));
+        analyze(format(query, "max_by(1, A.Price)"));
+        analyze(format(query, "max_by(1, U.Price)"));
+
+        assertFails(format(query, "max_by(U.Price, A.Price)"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:158: All aggregate function arguments must apply to rows matched with the same label");
+
+        // inconsistent labels in second argument
+        assertFails(format(query, "max_by(A.Symbol, A.Price + B.price)"))
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:175: Column references inside argument of function max_by must all either be prefixed with the same label or be not prefixed");
+    }
+
+    @Test
+    public void testRunningAndFinalPatternAggregations()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 1), (2, 2, 2)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE B AS %s " +
+                "                ) AS M";
+
+        // in MEASURES clause
+        analyze(format(query, "RUNNING avg(A.Price)", "true"));
+        analyze(format(query, "FINAL avg(A.Price)", "true"));
+
+        // in DEFINE clause
+        analyze(format(query, "true", "RUNNING avg(A.Price) > 5"));
+        assertFails(format(query, "true", "FINAL avg(A.Price) > 5"))
+                .hasErrorCode(INVALID_PROCESSING_MODE)
+                .hasMessage("line 1:276: FINAL semantics is not supported in DEFINE clause");
+
+        // count star aggregation
+        analyze(format(query, "RUNNING count(*)", "count(*) >= 0"));
+        analyze(format(query, "FINAL count(*)", "count(*) >= 0"));
+        analyze(format(query, "RUNNING count()", "count() >= 0"));
+        analyze(format(query, "FINAL count()", "count() >= 0"));
+        analyze(format(query, "RUNNING count(A.*)", "count(B.*) >= 0"));
+        analyze(format(query, "FINAL count(U.*)", "count(U.*) >= 0"));
+    }
+
+    @Test
+    public void testRowPatternCountFunction()
+    {
+        String query = "SELECT M.Measure " +
+                "          FROM (VALUES (1, 1, 1), (2, 2, 2)) Ticker(Symbol, Tradeday, Price) " +
+                "                 MATCH_RECOGNIZE ( " +
+                "                   MEASURES %s AS Measure " +
+                "                   PATTERN (A B+) " +
+                "                   SUBSET U = (A, B) " +
+                "                   DEFINE A AS true " +
+                "                ) AS M";
+
+        analyze(format(query, "count(*)"));
+        analyze(format(query, "count()"));
+        analyze(format(query, "count(B.*)"));
+        analyze(format(query, "count(U.*)"));
+
+        assertFails("SELECT count(A.*) FROM (VALUES 1) t(a)")
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:14: label.* syntax is only supported as the only argument of row pattern count function");
+
+        assertFails(format(query, "lower(A.*)"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:164: label.* syntax is only supported as the only argument of row pattern count function");
+
+        assertFails(format(query, "min(A.*)"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:162: label.* syntax is only supported as the only argument of row pattern count function");
+
+        assertFails(format(query, "count(X.*)"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("line 1:164: X is not a primary pattern variable or subset name");
+    }
+
+    @Test
     public void testAnalyzeFreshMaterializedView()
     {
         analyze("SELECT * FROM fresh_materialized_view");
@@ -4023,7 +5132,7 @@ public class TestAnalyzer
                 .hasMessage("line 1:15: column [b] of type bigint projected from storage table at position 1 has a different name from column [c] of type bigint stored in materialized view definition");
         assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_type")
                 .hasErrorCode(INVALID_VIEW)
-                .hasMessage("line 1:15: column [b] of type bigint projected from storage table at position 1 has a different type from column [b] of type tinyint stored in view definition");
+                .hasMessage("line 1:15: cannot cast column [b] of type bigint projected from storage table at position 1 into column [b] of type row(tinyint) stored in view definition");
     }
 
     @Test
@@ -4056,18 +5165,24 @@ public class TestAnalyzer
         AccessControlManager accessControlManager = new AccessControlManager(
                 transactionManager,
                 emptyEventListenerManager(),
-                new AccessControlConfig());
+                new AccessControlConfig(),
+                DefaultSystemAccessControl.NAME);
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         this.accessControl = accessControlManager;
 
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
         metadata.addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        plannerContext = plannerContextBuilder().withMetadata(metadata).build();
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CATALOG_NAME);
         TestingMetadata testingConnectorMetadata = (TestingMetadata) tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getMetadata(null);
         catalogManager.registerCatalog(tpchTestCatalog);
-        metadata.getTablePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getTableProperties());
-        metadata.getAnalyzePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getAnalyzeProperties());
+
+        tablePropertyManager = new TablePropertyManager();
+        tablePropertyManager.addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getTableProperties());
+
+        analyzePropertyManager = new AnalyzePropertyManager();
+        analyzePropertyManager.addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getAnalyzeProperties());
 
         catalogManager.registerCatalog(createTestingCatalog(SECOND_CATALOG, SECOND_CATALOG_NAME));
         catalogManager.registerCatalog(createTestingCatalog(THIRD_CATALOG, THIRD_CATALOG_NAME));
@@ -4132,70 +5247,65 @@ public class TestAnalyzer
                 false));
 
         // materialized view referencing table in same schema
-        ConnectorMaterializedViewDefinition materializedViewData1 = new ConnectorMaterializedViewDefinition(
-                "select a from t1",
-                Optional.empty(),
-                Optional.of(TPCH_CATALOG),
-                Optional.of("s1"),
-                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("a", BIGINT.getTypeId())),
-                Optional.of("comment"),
-                "user",
-                ImmutableMap.of());
-        inSetupTransaction(session -> metadata.createMaterializedView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1"), materializedViewData1, false, true));
-
-        // valid view referencing table in same schema
-        ConnectorViewDefinition viewData1 = new ConnectorViewDefinition(
+        MaterializedViewDefinition materializedViewData1 = new MaterializedViewDefinition(
                 "select a from t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("user"),
-                false);
+                Identity.ofUser("user"),
+                Optional.empty(),
+                ImmutableMap.of());
+        inSetupTransaction(session -> metadata.createMaterializedView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1"), materializedViewData1, false, true));
+
+        // valid view referencing table in same schema
+        ViewDefinition viewData1 = new ViewDefinition(
+                "select a from t1",
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                Optional.of("comment"),
+                Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
 
         // stale view (different column type)
-        ConnectorViewDefinition viewData2 = new ConnectorViewDefinition(
+        ViewDefinition viewData2 = new ViewDefinition(
                 "select a from t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", VARCHAR.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("user"),
-                false);
+                Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
 
         // view referencing table in different schema from itself and session
-        ConnectorViewDefinition viewData3 = new ConnectorViewDefinition(
+        ViewDefinition viewData3 = new ViewDefinition(
                 "select a from t4",
                 Optional.of(SECOND_CATALOG),
                 Optional.of("s2"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("owner"),
-                false);
+                Optional.of(Identity.ofUser("owner")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(THIRD_CATALOG, "s3", "v3"), viewData3, false));
 
         // valid view with uppercase column name
-        ConnectorViewDefinition viewData4 = new ConnectorViewDefinition(
+        ViewDefinition viewData4 = new ViewDefinition(
                 "select A from t1",
                 Optional.of("tpch"),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("user"),
-                false);
+                Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
 
         // recursive view referencing to itself
-        ConnectorViewDefinition viewData5 = new ConnectorViewDefinition(
+        ViewDefinition viewData5 = new ViewDefinition(
                 "select * from v5",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("user"),
-                false);
+                Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
 
         // type analysis for INSERT
@@ -4218,10 +5328,10 @@ public class TestAnalyzer
 
         // for identifier chain resolving tests
         catalogManager.registerCatalog(createTestingCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS_NAME));
-        Type singleFieldRowType = metadata.fromSqlType("row(f1 bigint)");
-        Type rowType = metadata.fromSqlType("row(f1 bigint, f2 bigint)");
-        Type nestedRowType = metadata.fromSqlType("row(f1 row(f11 bigint, f12 bigint), f2 boolean)");
-        Type doubleNestedRowType = metadata.fromSqlType("row(f1 row(f11 row(f111 bigint, f112 bigint), f12 boolean), f2 boolean)");
+        Type singleFieldRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint)");
+        Type rowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint, f2 bigint)");
+        Type nestedRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 row(f11 bigint, f12 bigint), f2 boolean)");
+        Type doubleNestedRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 row(f11 row(f111 bigint, f112 bigint), f12 boolean), f2 boolean)");
 
         SchemaTableName b = new SchemaTableName("a", "b");
         inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
@@ -4265,25 +5375,24 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 tableViewAndMaterializedView,
-                new ConnectorMaterializedViewDefinition(
+                new MaterializedViewDefinition(
                         "SELECT a FROM t1",
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t1")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                         Optional.empty(),
-                        "some user",
+                        Identity.ofUser("some user"),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t1")),
                         ImmutableMap.of()),
                 false,
                 false));
-        ConnectorViewDefinition viewDefinition = new ConnectorViewDefinition(
+        ViewDefinition viewDefinition = new ViewDefinition(
                 "SELECT a FROM t2",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.empty(),
-                Optional.empty(),
-                true);
+                Optional.empty());
         inSetupTransaction(session -> metadata.createView(
                 session,
                 tableViewAndMaterializedView,
@@ -4315,15 +5424,15 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedView,
-                new ConnectorMaterializedViewDefinition(
+                new MaterializedViewDefinition(
                         "SELECT a, b FROM t1",
-                        // t3 has a, b column and hidden column x
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("b", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("b", BIGINT.getTypeId())),
                         Optional.empty(),
-                        "some user",
+                        Identity.ofUser("some user"),
+                        // t3 has a, b column and hidden column x
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")),
                         ImmutableMap.of()),
                 false,
                 false));
@@ -4333,14 +5442,14 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedViewMismatchedColumnCount,
-                new ConnectorMaterializedViewDefinition(
+                new MaterializedViewDefinition(
                         "SELECT a FROM t1",
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                         Optional.empty(),
-                        "some user",
+                        Identity.ofUser("some user"),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
                 false,
                 false));
@@ -4350,14 +5459,14 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedMismatchedColumnName,
-                new ConnectorMaterializedViewDefinition(
+                new MaterializedViewDefinition(
                         "SELECT a, b as c FROM t1",
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("c", BIGINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("c", BIGINT.getTypeId())),
                         Optional.empty(),
-                        "some user",
+                        Identity.ofUser("some user"),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
                 false,
                 false));
@@ -4367,14 +5476,14 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
                 freshMaterializedMismatchedColumnType,
-                new ConnectorMaterializedViewDefinition(
-                        "SELECT a, CAST(b as tinyint) b FROM t1",
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
+                new MaterializedViewDefinition(
+                        "SELECT a, null b FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
-                        ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("b", TINYINT.getTypeId())),
+                        ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId()), new ViewColumn("b", RowType.anonymousRow(TINYINT).getTypeId())),
                         Optional.empty(),
-                        "some user",
+                        Identity.ofUser("some user"),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
                 false,
                 false));
@@ -4389,19 +5498,24 @@ public class TestAnalyzer
                 .execute(SETUP_SESSION, consumer);
     }
 
-    private static Analyzer createAnalyzer(Session session, Metadata metadata, AccessControl accessControl)
+    private Analyzer createAnalyzer(Session session, AccessControl accessControl)
     {
-        return new Analyzer(
-                session,
-                metadata,
+        StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(
+                plannerContext.getMetadata(),
                 SQL_PARSER,
-                user -> ImmutableSet.of(),
                 accessControl,
-                Optional.empty(),
+                new SessionPropertyManager(),
+                new SchemaPropertyManager(),
+                new ColumnPropertyManager(),
+                tablePropertyManager,
+                new MaterializedViewPropertyManager())));
+        StatementAnalyzerFactory statementAnalyzerFactory = createTestingStatementAnalyzerFactory(plannerContext, accessControl, tablePropertyManager, analyzePropertyManager);
+        AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, statementRewrite);
+        return analyzerFactory.createAnalyzer(
+                session,
                 emptyList(),
                 emptyMap(),
-                WarningCollector.NOOP,
-                noopStatsCalculator());
+                WarningCollector.NOOP);
     }
 
     private Analysis analyze(@Language("SQL") String query)
@@ -4420,7 +5534,7 @@ public class TestAnalyzer
                 .singleStatement()
                 .readUncommitted()
                 .execute(clientSession, session -> {
-                    Analyzer analyzer = createAnalyzer(session, metadata, accessControl);
+                    Analyzer analyzer = createAnalyzer(session, accessControl);
                     Statement statement = SQL_PARSER.createStatement(query, new ParsingOptions(
                             new FeaturesConfig().isParseDecimalLiteralsAsDouble() ? AS_DOUBLE : AS_DECIMAL));
                     return analyzer.analyze(statement);
@@ -4450,9 +5564,11 @@ public class TestAnalyzer
         return new Catalog(
                 catalogName,
                 catalog,
+                "test",
                 connector,
+                SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
-                new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
+                new InformationSchemaConnector(catalogName, nodeManager, plannerContext.getMetadata(), accessControl),
                 systemId,
                 new SystemConnector(
                         nodeManager,
@@ -4467,7 +5583,7 @@ public class TestAnalyzer
             private final ConnectorMetadata metadata = new TestingMetadata();
 
             @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
             {
                 return new ConnectorTransactionHandle() {};
             }

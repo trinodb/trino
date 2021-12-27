@@ -14,8 +14,8 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 import io.trino.spi.Page;
 import io.trino.testing.assertions.Assert;
@@ -61,7 +61,7 @@ public class TestOperatorAssertion
         private final Duration unblockAfter;
         private final OperatorContext operatorContext;
 
-        private ListenableFuture<?> isBlocked = NOT_BLOCKED;
+        private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
 
         public BlockedOperator(Duration unblockAfter)
         {
@@ -76,7 +76,7 @@ public class TestOperatorAssertion
         }
 
         @Override
-        public ListenableFuture<?> isBlocked()
+        public ListenableFuture<Void> isBlocked()
         {
             return isBlocked;
         }
@@ -97,9 +97,7 @@ public class TestOperatorAssertion
         public void finish()
         {
             if (this.isBlocked == NOT_BLOCKED) {
-                SettableFuture<?> isBlocked = SettableFuture.create();
-                this.isBlocked = isBlocked;
-                executor.schedule(() -> isBlocked.set(null), unblockAfter.toMillis(), MILLISECONDS);
+                this.isBlocked = Futures.scheduleAsync(Futures::immediateVoidFuture, unblockAfter.toMillis(), MILLISECONDS, executor);
             }
         }
 

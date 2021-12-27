@@ -36,13 +36,13 @@ public class BigQueryPageSourceProvider
 {
     private static final Logger log = Logger.get(BigQueryPageSourceProvider.class);
 
-    private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
+    private final BigQueryReadClientFactory bigQueryReadClientFactory;
     private final int maxReadRowsRetries;
 
     @Inject
-    public BigQueryPageSourceProvider(BigQueryStorageClientFactory bigQueryStorageClientFactory, BigQueryConfig config)
+    public BigQueryPageSourceProvider(BigQueryReadClientFactory bigQueryReadClientFactory, BigQueryConfig config)
     {
-        this.bigQueryStorageClientFactory = requireNonNull(bigQueryStorageClientFactory, "bigQueryStorageClientFactory is null");
+        this.bigQueryReadClientFactory = requireNonNull(bigQueryReadClientFactory, "bigQueryReadClientFactory is null");
         this.maxReadRowsRetries = requireNonNull(config, "config is null").getMaxReadRowsRetries();
     }
 
@@ -71,6 +71,6 @@ public class BigQueryPageSourceProvider
                 .map(BigQueryColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        return new BigQueryResultPageSource(bigQueryStorageClientFactory, maxReadRowsRetries, bigQuerySplit, bigQueryColumnHandles);
+        return new BigQueryResultPageSource(bigQueryReadClientFactory.create(session), maxReadRowsRetries, bigQuerySplit, bigQueryColumnHandles);
     }
 }

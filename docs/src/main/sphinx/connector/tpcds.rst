@@ -57,3 +57,12 @@ corresponds to a gigabyte of data. For example, for scale factor ``300``,
 a total of ``300`` gigabytes are generated. The ``tiny`` schema is an
 alias for scale factor ``0.01``, which is a very small data set useful for
 testing.
+
+.. _tpcds-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata in the TPC-DS dataset.

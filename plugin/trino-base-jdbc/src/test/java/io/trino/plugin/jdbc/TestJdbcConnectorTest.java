@@ -26,6 +26,8 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 // Single-threaded because H2 DDL operations can sometimes take a global lock, leading to apparent deadlocks
 // like in https://github.com/trinodb/trino/issues/7209.
@@ -52,9 +54,11 @@ public class TestJdbcConnectorTest
         switch (connectorBehavior) {
             case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
 
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -105,7 +109,6 @@ public class TestJdbcConnectorTest
         switch (typeBaseName) {
             case "boolean":
             case "decimal":
-            case "char":
             case "varbinary":
             case "time":
             case "timestamp":
@@ -117,18 +120,13 @@ public class TestJdbcConnectorTest
     }
 
     @Override
-    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        String typeBaseName = dataMappingTestSetup.getTrinoTypeName().replaceAll("\\([^()]*\\)", "");
-        switch (typeBaseName) {
-            case "char":
-                return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-
-        return Optional.of(dataMappingTestSetup);
+        return format("NULL not allowed for column \"%s\"(?s).*", columnName.toUpperCase(ENGLISH));
     }
 
-    private JdbcSqlExecutor onRemoteDatabase()
+    @Override
+    protected JdbcSqlExecutor onRemoteDatabase()
     {
         return new JdbcSqlExecutor(properties.get("connection-url"), new Properties());
     }

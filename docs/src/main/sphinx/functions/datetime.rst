@@ -93,17 +93,13 @@ Date and time functions
 
 .. function:: from_iso8601_timestamp_nanos(string) -> timestamp(9) with time zone
 
-    Parses the ISO 8601 formatted date ``string``, optionally with time and time
-    zone, into a ``timestamp(9) with time zone``. The time defaults to
-    ``00:00:00.000000000``, and the time zone defaults to the session time zone::
+    Parses the ISO 8601 formatted date and time ``string``. The time zone
+    defaults to the session time zone::
 
-        SELECT from_iso8601_timestamp('2020-05-11');
-        -- 2020-05-11 00:00:00.000000000 America/Vancouver
-
-        SELECT from_iso8601_timestamp('2020-05-11T11:15:05');
+        SELECT from_iso8601_timestamp_nanos('2020-05-11T11:15:05');
         -- 2020-05-11 11:15:05.000000000 America/Vancouver
 
-        SELECT from_iso8601_timestamp('2020-05-11T11:15:05.123456789+01:00');
+        SELECT from_iso8601_timestamp_nanos('2020-05-11T11:15:05.123456789+01:00');
         -- 2020-05-11 11:15:05.123456789 +01:00
 
 .. function:: from_iso8601_date(string) -> date

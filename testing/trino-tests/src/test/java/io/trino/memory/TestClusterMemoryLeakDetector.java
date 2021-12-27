@@ -38,7 +38,6 @@ import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 
-@Test
 public class TestClusterMemoryLeakDetector
 {
     @Test
@@ -94,6 +93,7 @@ public class TestClusterMemoryLeakDetector
                         22,
                         DataSize.valueOf("20GB"),
                         23,
+                        11,
                         DataSize.valueOf("23GB"),
                         DataSize.valueOf("24GB"),
                         DataSize.valueOf("25GB"),

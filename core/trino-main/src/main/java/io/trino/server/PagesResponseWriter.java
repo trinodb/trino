@@ -16,9 +16,9 @@ package io.trino.server;
 import com.google.common.reflect.TypeToken;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.SliceOutput;
+import io.trino.FeaturesConfig;
+import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.execution.buffer.SerializedPage;
-import io.trino.sql.analyzer.FeaturesConfig;
-import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 
 import javax.inject.Inject;
 import javax.ws.rs.Produces;

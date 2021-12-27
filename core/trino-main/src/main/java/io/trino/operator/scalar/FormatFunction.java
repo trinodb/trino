@@ -16,12 +16,12 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
@@ -96,8 +96,7 @@ public final class FormatFunction
                         .argumentTypes(VARCHAR.getTypeSignature(), new TypeSignature("T"))
                         .returnType(VARCHAR.getTypeSignature())
                         .build(),
-                false,
-                ImmutableList.of(new FunctionArgumentDefinition(false), new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, ImmutableList.of(false, false)),
                 true,
                 true,
                 "formats the input arguments using a format string",
@@ -105,10 +104,10 @@ public final class FormatFunction
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies(BoundSignature boundSignature)
     {
         FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
-        functionBinding.getTypeVariable("T").getTypeParameters()
+        boundSignature.getArgumentTypes().get(1).getTypeParameters()
                 .forEach(type -> addDependencies(builder, type));
         return builder.build();
     }
@@ -142,9 +141,9 @@ public final class FormatFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type rowType = functionBinding.getTypeVariable("T");
+        Type rowType = boundSignature.getArgumentType(1);
 
         List<BiFunction<ConnectorSession, Block, Object>> converters = mapWithIndex(
                 rowType.getTypeParameters().stream(),
@@ -152,7 +151,7 @@ public final class FormatFunction
                 .collect(toImmutableList());
 
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 METHOD_HANDLE.bindTo(converters));

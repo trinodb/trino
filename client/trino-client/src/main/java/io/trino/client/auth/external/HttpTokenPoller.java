@@ -15,7 +15,7 @@ package io.trino.client.auth.external;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.airlift.json.JsonCodec;
+import io.trino.client.JsonCodec;
 import io.trino.client.JsonResponse;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeException;
@@ -34,7 +34,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.client.JsonCodec.jsonCodec;
 import static io.trino.client.JsonResponse.execute;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_OK;

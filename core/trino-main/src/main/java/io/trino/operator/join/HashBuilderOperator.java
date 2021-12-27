@@ -16,10 +16,13 @@ package io.trino.operator.join;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.log.Logger;
 import io.trino.execution.Lifespan;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverContext;
+import io.trino.operator.HashArraySizeSupplier;
 import io.trino.operator.HashCollisionsCounter;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
@@ -47,9 +50,11 @@ import java.util.Queue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getDone;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -57,6 +62,8 @@ import static java.util.Objects.requireNonNull;
 public class HashBuilderOperator
         implements Operator
 {
+    private static final Logger log = Logger.get(HashBuilderOperator.class);
+
     public static class HashBuilderOperatorFactory
             implements OperatorFactory
     {
@@ -74,6 +81,7 @@ public class HashBuilderOperator
         private final int expectedPositions;
         private final boolean spillEnabled;
         private final SingleStreamSpillerFactory singleStreamSpillerFactory;
+        private final HashArraySizeSupplier hashArraySizeSupplier;
 
         private final Map<Lifespan, Integer> partitionIndexManager = new HashMap<>();
 
@@ -92,7 +100,8 @@ public class HashBuilderOperator
                 int expectedPositions,
                 PagesIndex.Factory pagesIndexFactory,
                 boolean spillEnabled,
-                SingleStreamSpillerFactory singleStreamSpillerFactory)
+                SingleStreamSpillerFactory singleStreamSpillerFactory,
+                HashArraySizeSupplier hashArraySizeSupplier)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -110,6 +119,7 @@ public class HashBuilderOperator
             this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
             this.spillEnabled = spillEnabled;
             this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
+            this.hashArraySizeSupplier = requireNonNull(hashArraySizeSupplier, "hashArraySizeSupplier is null");
 
             this.expectedPositions = expectedPositions;
         }
@@ -136,7 +146,8 @@ public class HashBuilderOperator
                     expectedPositions,
                     pagesIndexFactory,
                     spillEnabled,
-                    singleStreamSpillerFactory);
+                    singleStreamSpillerFactory,
+                    hashArraySizeSupplier);
         }
 
         @Override
@@ -202,7 +213,7 @@ public class HashBuilderOperator
     private final LocalMemoryContext localUserMemoryContext;
     private final LocalMemoryContext localRevocableMemoryContext;
     private final PartitionedLookupSourceFactory lookupSourceFactory;
-    private final ListenableFuture<?> lookupSourceFactoryDestroyed;
+    private final ListenableFuture<Void> lookupSourceFactoryDestroyed;
     private final int partitionIndex;
 
     private final List<Integer> outputChannels;
@@ -213,6 +224,7 @@ public class HashBuilderOperator
     private final List<JoinFilterFunctionFactory> searchFunctionFactories;
 
     private final PagesIndex index;
+    private final HashArraySizeSupplier hashArraySizeSupplier;
 
     private final boolean spillEnabled;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
@@ -220,10 +232,10 @@ public class HashBuilderOperator
     private final HashCollisionsCounter hashCollisionsCounter;
 
     private State state = State.CONSUMING_INPUT;
-    private Optional<ListenableFuture<?>> lookupSourceNotNeeded = Optional.empty();
+    private Optional<ListenableFuture<Void>> lookupSourceNotNeeded = Optional.empty();
     private final SpilledLookupSourceHandle spilledLookupSourceHandle = new SpilledLookupSourceHandle();
     private Optional<SingleStreamSpiller> spiller = Optional.empty();
-    private ListenableFuture<?> spillInProgress = NOT_BLOCKED;
+    private ListenableFuture<Void> spillInProgress = NOT_BLOCKED;
     private Optional<ListenableFuture<List<Page>>> unspillInProgress = Optional.empty();
     @Nullable
     private LookupSourceSupplier lookupSourceSupplier;
@@ -244,7 +256,8 @@ public class HashBuilderOperator
             int expectedPositions,
             PagesIndex.Factory pagesIndexFactory,
             boolean spillEnabled,
-            SingleStreamSpillerFactory singleStreamSpillerFactory)
+            SingleStreamSpillerFactory singleStreamSpillerFactory,
+            HashArraySizeSupplier hashArraySizeSupplier)
     {
         requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
 
@@ -269,6 +282,7 @@ public class HashBuilderOperator
 
         this.spillEnabled = spillEnabled;
         this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
+        this.hashArraySizeSupplier = requireNonNull(hashArraySizeSupplier, "hashArraySizeSupplier is null");
     }
 
     @Override
@@ -284,7 +298,7 @@ public class HashBuilderOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         switch (state) {
             case CONSUMING_INPUT:
@@ -300,7 +314,8 @@ public class HashBuilderOperator
                 return spilledLookupSourceHandle.getUnspillingOrDisposeRequested();
 
             case INPUT_UNSPILLING:
-                return unspillInProgress.orElseThrow(() -> new IllegalStateException("Unspilling in progress, but unspilling future not set"));
+                return unspillInProgress.map(HashBuilderOperator::asVoid)
+                        .orElseThrow(() -> new IllegalStateException("Unspilling in progress, but unspilling future not set"));
 
             case INPUT_UNSPILLED_AND_BUILT:
                 return spilledLookupSourceHandle.getDisposeRequested();
@@ -309,6 +324,11 @@ public class HashBuilderOperator
                 return NOT_BLOCKED;
         }
         throw new IllegalStateException("Unhandled state: " + state);
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 
     @Override
@@ -363,7 +383,7 @@ public class HashBuilderOperator
     }
 
     @Override
-    public ListenableFuture<?> startMemoryRevoke()
+    public ListenableFuture<Void> startMemoryRevoke()
     {
         checkState(spillEnabled, "Spill not enabled, no revokable memory should be reserved");
 
@@ -373,7 +393,7 @@ public class HashBuilderOperator
             long indexSizeAfterCompaction = index.getEstimatedSize().toBytes();
             if (indexSizeAfterCompaction < indexSizeBeforeCompaction * INDEX_COMPACTION_ON_REVOCATION_TARGET) {
                 finishMemoryRevoke = Optional.of(() -> {});
-                return immediateFuture(null);
+                return immediateVoidFuture();
             }
 
             finishMemoryRevoke = Optional.of(() -> {
@@ -401,13 +421,13 @@ public class HashBuilderOperator
         if (operatorContext.getReservedRevocableBytes() == 0) {
             // Probably stale revoking request
             finishMemoryRevoke = Optional.of(() -> {});
-            return immediateFuture(null);
+            return immediateVoidFuture();
         }
 
         throw new IllegalStateException(format("State %s cannot have revocable memory, but has %s revocable bytes", state, operatorContext.getReservedRevocableBytes()));
     }
 
-    private ListenableFuture<?> spillIndex()
+    private ListenableFuture<Void> spillIndex()
     {
         checkState(spiller.isEmpty(), "Spiller already created");
         spiller = Optional.of(singleStreamSpillerFactory.create(
@@ -548,23 +568,33 @@ public class HashBuilderOperator
     {
         checkState(state == State.INPUT_UNSPILLING);
         if (!unspillInProgress.get().isDone()) {
-            // Pages have not be unspilled yet.
+            // Pages have not been unspilled yet.
             return;
         }
 
         // Use Queue so that Pages already consumed by Index are not retained by us.
         Queue<Page> pages = new ArrayDeque<>(getDone(unspillInProgress.get()));
-        long memoryRetainedByRemainingPages = pages.stream()
+        unspillInProgress = Optional.empty();
+        long sizeOfUnspilledPages = pages.stream()
+                .mapToLong(Page::getSizeInBytes)
+                .sum();
+        long retainedSizeOfUnspilledPages = pages.stream()
                 .mapToLong(Page::getRetainedSizeInBytes)
                 .sum();
-        localUserMemoryContext.setBytes(memoryRetainedByRemainingPages + index.getEstimatedSize().toBytes());
+        log.debug(
+                "Unspilling for operator %s, unspilled partition %d, sizeOfUnspilledPages %s, retainedSizeOfUnspilledPages %s",
+                operatorContext,
+                partitionIndex,
+                succinctBytes(sizeOfUnspilledPages),
+                succinctBytes(retainedSizeOfUnspilledPages));
+        localUserMemoryContext.setBytes(retainedSizeOfUnspilledPages + index.getEstimatedSize().toBytes());
 
         while (!pages.isEmpty()) {
             Page next = pages.remove();
             index.addPage(next);
             // There is no attempt to compact index, since unspilled pages are unlikely to have blocks with retained size > logical size.
-            memoryRetainedByRemainingPages -= next.getRetainedSizeInBytes();
-            localUserMemoryContext.setBytes(memoryRetainedByRemainingPages + index.getEstimatedSize().toBytes());
+            retainedSizeOfUnspilledPages -= next.getRetainedSizeInBytes();
+            localUserMemoryContext.setBytes(retainedSizeOfUnspilledPages + index.getEstimatedSize().toBytes());
         }
 
         LookupSourceSupplier partition = buildLookupSource();
@@ -588,11 +618,12 @@ public class HashBuilderOperator
         localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
 
         close();
+        spilledLookupSourceHandle.setDisposeCompleted();
     }
 
     private LookupSourceSupplier buildLookupSource()
     {
-        LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels));
+        LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels), hashArraySizeSupplier);
         hashCollisionsCounter.recordHashCollision(partition.getHashCollisions(), partition.getExpectedHashCollisions());
         checkState(lookupSourceSupplier == null, "lookupSourceSupplier is already set");
         this.lookupSourceSupplier = partition;
@@ -625,6 +656,7 @@ public class HashBuilderOperator
         // close() can be called in any state, due for example to query failure, and must clean resource up unconditionally
 
         lookupSourceSupplier = null;
+        unspillInProgress = Optional.empty();
         state = State.CLOSED;
         finishMemoryRevoke = finishMemoryRevoke.map(ifPresent -> () -> {});
 

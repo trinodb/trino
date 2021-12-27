@@ -14,6 +14,7 @@
 package io.trino.sql.planner;
 
 import io.trino.Session;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import org.testng.annotations.Test;
@@ -68,6 +69,18 @@ public class TestUnwrapCastInComparison
 
         // -2^64 constant
         testUnwrap("bigint", "a = DOUBLE '-18446744073709551616'", "a IS NULL AND NULL");
+
+        // shorter varchar and char
+        testNoUnwrap("varchar(1)", "= CAST('abc' AS char(3))", "char(3)");
+        // varchar and char, same length
+        testUnwrap("varchar(3)", "a = CAST('abc' AS char(3))", "a = 'abc'");
+        testNoUnwrap("varchar(3)", "= CAST('ab' AS char(3))", "char(3)");
+        // longer varchar and char
+        testUnwrap("varchar(10)", "a = CAST('abc' AS char(3))", "CAST(a AS char(10)) = CAST('abc' AS char(10))"); // actually unwrapping didn't happen
+        // unbounded varchar and char
+        testUnwrap("varchar", "a = CAST('abc' AS char(3))", "CAST(a AS char(65536)) = CAST('abc' AS char(65536))"); // actually unwrapping didn't happen
+        // unbounded varchar and char of maximum length (could be unwrapped, but currently it is not)
+        testNoUnwrap("varchar", format("= CAST('abc' AS char(%s))", CharType.MAX_LENGTH), "char(65536)");
     }
 
     @Test
@@ -539,6 +552,11 @@ public class TestUnwrapCastInComparison
 
         // no implicit cast between DOUBLE->INTEGER
         testUnwrap("double", "CAST(a AS INTEGER) = INTEGER '1'", "CAST(a AS INTEGER) = 1");
+    }
+
+    private void testNoUnwrap(String inputType, String inputPredicate, String expectedCastType)
+    {
+        testNoUnwrap(getQueryRunner().getDefaultSession(), inputType, inputPredicate, expectedCastType);
     }
 
     private void testNoUnwrap(Session session, String inputType, String inputPredicate, String expectedCastType)

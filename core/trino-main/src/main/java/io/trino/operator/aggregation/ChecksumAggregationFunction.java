@@ -15,10 +15,10 @@ package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.AggregationFunctionMetadata;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -27,23 +27,17 @@ import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionXxHash64;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.comparableTypeParameter;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
@@ -71,73 +65,48 @@ public class ChecksumAggregationFunction
                                 VARBINARY.getTypeSignature(),
                                 ImmutableList.of(new TypeSignature("T")),
                                 false),
-                        true,
-                        ImmutableList.of(new FunctionArgumentDefinition(true)),
+                        new FunctionNullability(true, ImmutableList.of(true)),
                         false,
                         true,
                         "Checksum of the given values",
                         AGGREGATE),
-                true,
-                false);
+                new AggregationFunctionMetadata(
+                        false,
+                        BIGINT.getTypeSignature()));
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
     @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
-        return ImmutableList.of(StateCompiler.getSerializedType(NullableLongState.class).getTypeSignature());
-    }
-
-    @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
-    {
-        Type valueType = functionBinding.getTypeVariable("T");
-        BlockPositionXxHash64 xxHash64Operator = blockTypeOperators.getXxHash64Operator(valueType);
-        return generateAggregation(valueType, xxHash64Operator);
-    }
-
-    private static InternalAggregationFunction generateAggregation(Type type, BlockPositionXxHash64 xxHash64Operator)
-    {
-        DynamicClassLoader classLoader = new DynamicClassLoader(ChecksumAggregationFunction.class.getClassLoader());
-
-        AccumulatorStateSerializer<NullableLongState> stateSerializer = StateCompiler.generateStateSerializer(NullableLongState.class, classLoader);
-        AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, type.getTypeSignature(), ImmutableList.of(type.getTypeSignature())),
-                createInputParameterMetadata(type),
+        BlockPositionXxHash64 xxHash64Operator = blockTypeOperators.getXxHash64Operator(boundSignature.getArgumentTypes().get(0));
+        AccumulatorStateSerializer<NullableLongState> stateSerializer = StateCompiler.generateStateSerializer(NullableLongState.class);
+        return new AggregationMetadata(
                 INPUT_FUNCTION.bindTo(xxHash64Operator),
                 Optional.empty(),
-                COMBINE_FUNCTION,
+                Optional.of(COMBINE_FUNCTION),
                 OUTPUT_FUNCTION,
-                ImmutableList.of(new AccumulatorStateDescriptor(
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
                         NullableLongState.class,
                         stateSerializer,
-                        StateCompiler.generateStateFactory(NullableLongState.class, classLoader))),
-                VARBINARY);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, ImmutableList.of(type), ImmutableList.of(stateSerializer.getSerializedType()), VARBINARY, factory);
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(Type type)
-    {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, type), new ParameterMetadata(BLOCK_INDEX));
+                        StateCompiler.generateStateFactory(NullableLongState.class))));
     }
 
     public static void input(BlockPositionXxHash64 xxHash64Operator, NullableLongState state, Block block, int position)
     {
         state.setNull(false);
         if (block.isNull(position)) {
-            state.setLong(state.getLong() + PRIME64);
+            state.setValue(state.getValue() + PRIME64);
         }
         else {
-            state.setLong(state.getLong() + xxHash64Operator.xxHash64(block, position) * PRIME64);
+            state.setValue(state.getValue() + xxHash64Operator.xxHash64(block, position) * PRIME64);
         }
     }
 
     public static void combine(NullableLongState state, NullableLongState otherState)
     {
         state.setNull(state.isNull() && otherState.isNull());
-        state.setLong(state.getLong() + otherState.getLong());
+        state.setValue(state.getValue() + otherState.getValue());
     }
 
     public static void output(NullableLongState state, BlockBuilder out)
@@ -146,7 +115,7 @@ public class ChecksumAggregationFunction
             out.appendNull();
         }
         else {
-            VARBINARY.writeSlice(out, wrappedLongArray(state.getLong()));
+            VARBINARY.writeSlice(out, wrappedLongArray(state.getValue()));
         }
     }
 }

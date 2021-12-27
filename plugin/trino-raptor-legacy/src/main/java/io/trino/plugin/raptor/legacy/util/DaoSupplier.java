@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.raptor.legacy.util;
 
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 
 import static io.trino.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
 import static java.util.Objects.requireNonNull;
@@ -24,7 +24,7 @@ public class DaoSupplier<T>
     private final Class<? extends T> type;
     private final T dao;
 
-    public <X extends T> DaoSupplier(IDBI dbi, Class<X> type)
+    public <X extends T> DaoSupplier(Jdbi dbi, Class<X> type)
     {
         requireNonNull(dbi, "dbi is null");
         requireNonNull(type, "type is null");

@@ -16,7 +16,7 @@ package io.trino.server.remotetask;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListenableFutureTask;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.event.client.ServiceUnavailableException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -37,6 +37,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.spi.HostAddress.fromUri;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.trino.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
@@ -68,17 +69,15 @@ class RequestErrorTracker
         this.jobDescription = requireNonNull(jobDescription, "jobDescription is null");
     }
 
-    public ListenableFuture<?> acquireRequestPermit()
+    public ListenableFuture<Void> acquireRequestPermit()
     {
         long delayNanos = backoff.getBackoffDelayNanos();
 
         if (delayNanos == 0) {
-            return Futures.immediateFuture(null);
+            return immediateVoidFuture();
         }
 
-        ListenableFutureTask<Object> futureTask = ListenableFutureTask.create(() -> null);
-        scheduledExecutor.schedule(futureTask, delayNanos, NANOSECONDS);
-        return futureTask;
+        return Futures.scheduleAsync(Futures::immediateVoidFuture, delayNanos, NANOSECONDS, scheduledExecutor);
     }
 
     public void startRequest()
@@ -112,10 +111,10 @@ class RequestErrorTracker
         // log failure message
         if (isExpectedError(reason)) {
             // don't print a stack for a known errors
-            log.warn("Error " + jobDescription + " %s: %s: %s", taskId, reason.getMessage(), taskUri);
+            log.warn("Error %s %s: %s: %s", jobDescription, taskId, reason.getMessage(), taskUri);
         }
         else {
-            log.warn(reason, "Error " + jobDescription + " %s: %s", taskId, taskUri);
+            log.warn(reason, "Error %s %s: %s", jobDescription, taskId, taskUri);
         }
 
         // remember the first 10 errors
@@ -140,6 +139,8 @@ class RequestErrorTracker
         }
     }
 
+    @FormatMethod
+    @SuppressWarnings("FormatStringAnnotation") // we manipulate the format string and there's no way to make Error Prone accept the result
     static void logError(Throwable t, String format, Object... args)
     {
         if (isExpectedError(t)) {

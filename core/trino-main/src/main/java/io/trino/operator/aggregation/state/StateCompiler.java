@@ -15,7 +15,6 @@ package io.trino.operator.aggregation.state;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.ClassDefinition;
@@ -36,9 +35,9 @@ import io.trino.array.IntBigArray;
 import io.trino.array.LongBigArray;
 import io.trino.array.ObjectBigArray;
 import io.trino.array.SliceBigArray;
-import io.trino.operator.aggregation.GroupedAccumulator;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateMetadata;
 import io.trino.spi.function.AccumulatorStateSerializer;
@@ -78,9 +77,11 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantClass;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNumber;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
 import static io.airlift.bytecode.expression.BytecodeExpressions.defaultValue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
 import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
+import static io.airlift.bytecode.expression.BytecodeExpressions.isNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -92,6 +93,7 @@ import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class StateCompiler
@@ -132,7 +134,7 @@ public final class StateCompiler
     public static Type getSerializedType(Class<?> clazz, Map<String, Type> fieldTypes)
     {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
-        if (metadata != null && metadata.stateSerializerClass() != void.class) {
+        if (metadata != null && metadata.stateSerializerClass() != AccumulatorStateSerializer.class) {
             try {
                 AccumulatorStateSerializer<?> stateSerializer = (AccumulatorStateSerializer<?>) metadata.stateSerializerClass().getConstructor().newInstance();
                 return stateSerializer.getSerializedType();
@@ -146,21 +148,17 @@ public final class StateCompiler
         return getSerializedType(fields);
     }
 
-    public static <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
+    public static <T extends AccumulatorState> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
     {
-        return generateStateSerializer(clazz, new DynamicClassLoader(clazz.getClassLoader()));
+        return generateStateSerializer(clazz, ImmutableMap.of());
     }
 
-    public static <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, DynamicClassLoader classLoader)
-    {
-        return generateStateSerializer(clazz, ImmutableMap.of(), classLoader);
-    }
-
-    public static <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
+    public static <T extends AccumulatorState> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz, Map<String, Type> fieldTypes)
     {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
-        if (metadata != null && metadata.stateSerializerClass() != void.class) {
+        if (metadata != null && metadata.stateSerializerClass() != AccumulatorStateSerializer.class) {
             try {
+                //noinspection unchecked
                 return (AccumulatorStateSerializer<T>) metadata.stateSerializerClass().getConstructor().newInstance();
             }
             catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
@@ -184,8 +182,9 @@ public final class StateCompiler
         generateSerialize(definition, callSiteBinder, clazz, fields);
         generateDeserialize(definition, callSiteBinder, clazz, fields);
 
-        Class<?> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), classLoader);
+        Class<?> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), new DynamicClassLoader(clazz.getClassLoader()));
         try {
+            //noinspection unchecked
             return (AccumulatorStateSerializer<T>) serializerClass.getConstructor().newInstance();
         }
         catch (ReflectiveOperationException e) {
@@ -233,11 +232,11 @@ public final class StateCompiler
         return null;
     }
 
-    private static <T> void generateDeserialize(ClassDefinition definition, CallSiteBinder binder, Class<T> clazz, List<StateField> fields)
+    private static <T extends AccumulatorState> void generateDeserialize(ClassDefinition definition, CallSiteBinder binder, Class<T> clazz, List<StateField> fields)
     {
         Parameter block = arg("block", Block.class);
         Parameter index = arg("index", int.class);
-        Parameter state = arg("state", Object.class);
+        Parameter state = arg("state", AccumulatorState.class);
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "deserialize", type(void.class), block, index, state);
         BytecodeBlock deserializerBody = method.getBody();
         Scope scope = method.getScope();
@@ -285,7 +284,7 @@ public final class StateCompiler
 
     private static <T> void generateSerialize(ClassDefinition definition, CallSiteBinder binder, Class<T> clazz, List<StateField> fields)
     {
-        Parameter state = arg("state", Object.class);
+        Parameter state = arg("state", AccumulatorState.class);
         Parameter out = arg("out", BlockBuilder.class);
         MethodDefinition method = definition.declareMethod(a(PUBLIC), "serialize", type(void.class), state, out);
         Scope scope = method.getScope();
@@ -353,21 +352,17 @@ public final class StateCompiler
         }
     }
 
-    public static <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz)
+    public static <T extends AccumulatorState> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz)
     {
-        return generateStateFactory(clazz, new DynamicClassLoader(clazz.getClassLoader()));
+        return generateStateFactory(clazz, ImmutableMap.of());
     }
 
-    public static <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, DynamicClassLoader classLoader)
-    {
-        return generateStateFactory(clazz, ImmutableMap.of(), classLoader);
-    }
-
-    public static <T> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, Map<String, Type> fieldTypes, DynamicClassLoader classLoader)
+    public static <T extends AccumulatorState> AccumulatorStateFactory<T> generateStateFactory(Class<T> clazz, Map<String, Type> fieldTypes)
     {
         AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
-        if (metadata != null && metadata.stateFactoryClass() != void.class) {
+        if (metadata != null && metadata.stateFactoryClass() != AccumulatorStateFactory.class) {
             try {
+                //noinspection unchecked
                 return (AccumulatorStateFactory<T>) metadata.stateFactoryClass().getConstructor().newInstance();
             }
             catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
@@ -375,6 +370,8 @@ public final class StateCompiler
             }
         }
 
+        // grouped aggregation state fields use engine classes, so generated class must be able to see both plugin and system classes
+        DynamicClassLoader classLoader = new DynamicClassLoader(clazz.getClassLoader(), StateCompiler.class.getClassLoader());
         Class<? extends T> singleStateClass = generateSingleStateClass(clazz, fieldTypes, classLoader);
         Class<? extends T> groupedStateClass = generateGroupedStateClass(clazz, fieldTypes, classLoader);
 
@@ -388,7 +385,7 @@ public final class StateCompiler
         definition.declareDefaultConstructor(a(PUBLIC));
 
         // Generate single state creation method
-        definition.declareMethod(a(PUBLIC), "createSingleState", type(Object.class))
+        definition.declareMethod(a(PUBLIC), "createSingleState", type(AccumulatorState.class))
                 .getBody()
                 .newObject(singleStateClass)
                 .dup()
@@ -396,26 +393,16 @@ public final class StateCompiler
                 .retObject();
 
         // Generate grouped state creation method
-        definition.declareMethod(a(PUBLIC), "createGroupedState", type(Object.class))
+        definition.declareMethod(a(PUBLIC), "createGroupedState", type(AccumulatorState.class))
                 .getBody()
                 .newObject(groupedStateClass)
                 .dup()
                 .invokeConstructor(groupedStateClass)
                 .retObject();
 
-        // Generate getters for state class
-        definition.declareMethod(a(PUBLIC), "getSingleStateClass", type(Class.class, singleStateClass))
-                .getBody()
-                .push(singleStateClass)
-                .retObject();
-
-        definition.declareMethod(a(PUBLIC), "getGroupedStateClass", type(Class.class, groupedStateClass))
-                .getBody()
-                .push(groupedStateClass)
-                .retObject();
-
         Class<?> factoryClass = defineClass(definition, AccumulatorStateFactory.class, classLoader);
         try {
+            //noinspection unchecked
             return (AccumulatorStateFactory<T>) factoryClass.getConstructor().newInstance();
         }
         catch (ReflectiveOperationException e) {
@@ -448,14 +435,71 @@ public final class StateCompiler
 
         // Generate fields
         List<StateField> fields = enumerateFields(clazz, fieldTypes);
+        List<FieldDefinition> fieldDefinitions = new ArrayList<>();
         for (StateField field : fields) {
-            generateField(definition, constructor, field);
+            fieldDefinitions.add(generateField(definition, constructor, field));
         }
 
         constructor.getBody()
                 .ret();
 
+        generateCopy(definition, fields, fieldDefinitions);
+
         return defineClass(definition, clazz, classLoader);
+    }
+
+    private static void generateCopy(ClassDefinition definition, List<StateField> fields, List<FieldDefinition> fieldDefinitions)
+    {
+        MethodDefinition copy = definition.declareMethod(a(PUBLIC), "copy", type(AccumulatorState.class));
+        Variable thisVariable = copy.getThis();
+        BytecodeBlock body = copy.getBody();
+
+        List<BytecodeExpression> fieldCopyExpressions = new ArrayList<>();
+        for (int i = 0; i < fields.size(); i++) {
+            Optional<BytecodeExpression> fieldCopy = copyField(thisVariable, fieldDefinitions.get(i), fields.get(i).getType());
+            if (fieldCopy.isEmpty()) {
+                body
+                        .append(newInstance(UnsupportedOperationException.class, constantString(format("copy not supported for %s (cannot copy field of type %s)", definition.getName(), fields.get(i).getType()))))
+                        .throwObject();
+
+                return;
+            }
+
+            fieldCopyExpressions.add(fieldCopy.get());
+        }
+
+        Variable instanceCopy = copy.getScope().declareVariable(definition.getType(), "instanceCopy");
+        body.append(instanceCopy.set(newInstance(definition.getType())));
+
+        for (int i = 0; i < fieldDefinitions.size(); i++) {
+            FieldDefinition fieldDefinition = fieldDefinitions.get(i);
+            Class<?> type = fields.get(i).getType();
+
+            if (type == long.class || type == double.class || type == boolean.class || type == byte.class || type == int.class) {
+                body.append(instanceCopy.setField(fieldDefinition, fieldCopyExpressions.get(i)));
+            }
+            else {
+                body.append(new IfStatement("if field value is null")
+                        .condition(isNull(thisVariable.getField(fieldDefinition)))
+                        .ifTrue(instanceCopy.setField(fieldDefinition, thisVariable.getField(fieldDefinition)))
+                        .ifFalse(instanceCopy.setField(fieldDefinition, fieldCopyExpressions.get(i))));
+            }
+        }
+        copy.getBody()
+                .append(instanceCopy.ret());
+    }
+
+    private static Optional<BytecodeExpression> copyField(Variable thisVariable, FieldDefinition fieldDefinition, Class<?> type)
+    {
+        if (type == long.class || type == double.class || type == boolean.class || type == byte.class || type == int.class) {
+            return Optional.of(thisVariable.getField(fieldDefinition));
+        }
+
+        if (type == Block.class) {
+            return Optional.of(thisVariable.getField(fieldDefinition).invoke("copyRegion", Block.class, constantInt(0), thisVariable.getField(fieldDefinition).invoke("getPositionCount", int.class)));
+        }
+
+        return Optional.empty();
     }
 
     private static FieldDefinition generateInstanceSize(ClassDefinition definition)
@@ -479,8 +523,7 @@ public final class StateCompiler
                 a(PUBLIC, FINAL),
                 makeClassName("Grouped" + clazz.getSimpleName()),
                 type(AbstractGroupedAccumulatorState.class),
-                type(clazz),
-                type(GroupedAccumulator.class));
+                type(clazz));
 
         FieldDefinition instanceSize = generateInstanceSize(definition);
 
@@ -524,7 +567,7 @@ public final class StateCompiler
         return defineClass(definition, clazz, classLoader);
     }
 
-    private static void generateField(ClassDefinition definition, MethodDefinition constructor, StateField stateField)
+    private static FieldDefinition generateField(ClassDefinition definition, MethodDefinition constructor, StateField stateField)
     {
         FieldDefinition field = definition.declareField(a(PRIVATE), UPPER_CAMEL.to(LOWER_CAMEL, stateField.getName()) + "Value", stateField.getType());
 
@@ -542,6 +585,8 @@ public final class StateCompiler
 
         constructor.getBody()
                 .append(constructor.getThis().setField(field, stateField.initialValueExpression()));
+
+        return field;
     }
 
     private static FieldDefinition generateGroupedField(ClassDefinition definition, MethodDefinition constructor, MethodDefinition ensureCapacity, StateField stateField)
@@ -590,9 +635,9 @@ public final class StateCompiler
     private static List<StateField> enumerateFields(Class<?> clazz, Map<String, Type> fieldTypes)
     {
         ImmutableList.Builder<StateField> builder = ImmutableList.builder();
-        Set<Class<?>> primitiveClasses = ImmutableSet.of(byte.class, boolean.class, long.class, double.class, int.class);
         for (Method method : clazz.getMethods()) {
-            if (method.getName().equals("getEstimatedSize")) {
+            // ignore default methods
+            if (method.isDefault() || method.getName().equals("getEstimatedSize")) {
                 continue;
             }
             if (method.getName().startsWith("get")) {
@@ -609,18 +654,13 @@ public final class StateCompiler
         }
 
         // We need this ordering because the serializer and deserializer are on different machines, and so the ordering of fields must be stable
+        // NOTE min_max_by depends on this exact ordering, so any changes here will break it
+        // TODO remove this when transition from state classes to multiple intermediates is complete
         Ordering<StateField> ordering = new Ordering<>()
         {
             @Override
             public int compare(StateField left, StateField right)
             {
-                if (primitiveClasses.contains(left.getType()) && !primitiveClasses.contains(right.getType())) {
-                    return -1;
-                }
-                if (primitiveClasses.contains(right.getType()) && !primitiveClasses.contains(left.getType())) {
-                    return 1;
-                }
-                // If they're the category, just sort by name
                 return left.getName().compareTo(right.getName());
             }
         };
@@ -668,7 +708,13 @@ public final class StateCompiler
         }
 
         for (Method method : clazz.getMethods()) {
-            if (Modifier.isStatic(method.getModifiers())) {
+            // ignore static and default methods
+            if (Modifier.isStatic(method.getModifiers()) || method.isDefault()) {
+                continue;
+            }
+
+            if (method.getName().equals("copy")) {
+                checkArgument(method.getParameterTypes().length == 0, "copy may not have parameters");
                 continue;
             }
 
@@ -724,7 +770,7 @@ public final class StateCompiler
             this.type = requireNonNull(type, "type is null");
             this.getterName = requireNonNull(getterName, "getterName is null");
             this.initialValue = initialValue;
-            checkArgument(sqlType != null, "sqlType is null");
+            requireNonNull(sqlType, "sqlType is null");
             if (sqlType.isPresent()) {
                 checkArgument(
                         type.isAssignableFrom(sqlType.get().getJavaType()) ||

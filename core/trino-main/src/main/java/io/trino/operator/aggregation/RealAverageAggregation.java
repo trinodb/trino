@@ -14,10 +14,10 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.AggregationFunctionMetadata;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -25,22 +25,17 @@ import io.trino.operator.aggregation.state.DoubleState;
 import io.trino.operator.aggregation.state.LongState;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateSerializer;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Float.floatToIntBits;
@@ -68,92 +63,69 @@ public class RealAverageAggregation
                                 REAL.getTypeSignature(),
                                 ImmutableList.of(REAL.getTypeSignature()),
                                 false),
-                        true,
-                        ImmutableList.of(new FunctionArgumentDefinition(false)),
+                        new FunctionNullability(true, ImmutableList.of(false)),
                         false,
                         true,
                         "Returns the average value of the argument",
                         AGGREGATE),
-                true,
-                false);
+                new AggregationFunctionMetadata(
+                        false,
+                        BIGINT.getTypeSignature(),
+                        DOUBLE.getTypeSignature()));
     }
 
     @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
-        return ImmutableList.of(
-                StateCompiler.getSerializedType(LongState.class).getTypeSignature(),
-                StateCompiler.getSerializedType(DoubleState.class).getTypeSignature());
-    }
+        Class<LongState> longStateInterface = LongState.class;
+        Class<DoubleState> doubleStateInterface = DoubleState.class;
+        AccumulatorStateSerializer<LongState> longStateSerializer = StateCompiler.generateStateSerializer(longStateInterface);
+        AccumulatorStateSerializer<DoubleState> doubleStateSerializer = StateCompiler.generateStateSerializer(doubleStateInterface);
 
-    @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
-    {
-        DynamicClassLoader classLoader = new DynamicClassLoader(AverageAggregations.class.getClassLoader());
-        Class<? extends AccumulatorState> longStateInterface = LongState.class;
-        Class<? extends AccumulatorState> doubleStateInterface = DoubleState.class;
-        AccumulatorStateSerializer<?> longStateSerializer = StateCompiler.generateStateSerializer(longStateInterface, classLoader);
-        AccumulatorStateSerializer<?> doubleStateSerializer = StateCompiler.generateStateSerializer(doubleStateInterface, classLoader);
+        MethodHandle inputFunction = normalizeInputMethod(INPUT_FUNCTION, boundSignature, STATE, STATE, INPUT_CHANNEL);
+        MethodHandle removeFunction = normalizeInputMethod(REMOVE_INPUT_FUNCTION, boundSignature, STATE, STATE, INPUT_CHANNEL);
 
-        AggregationMetadata aggregationMetadata = new AggregationMetadata(
-                generateAggregationName(NAME, REAL.getTypeSignature(), ImmutableList.of(REAL.getTypeSignature())),
-                ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(STATE), new ParameterMetadata(INPUT_CHANNEL, REAL)),
-                INPUT_FUNCTION,
-                Optional.of(REMOVE_INPUT_FUNCTION),
-                COMBINE_FUNCTION,
+        return new AggregationMetadata(
+                inputFunction,
+                Optional.of(removeFunction),
+                Optional.of(COMBINE_FUNCTION),
                 OUTPUT_FUNCTION,
                 ImmutableList.of(
-                        new AccumulatorStateDescriptor(
+                        new AccumulatorStateDescriptor<>(
                                 longStateInterface,
                                 longStateSerializer,
-                                StateCompiler.generateStateFactory(longStateInterface, classLoader)),
-                        new AccumulatorStateDescriptor(
+                                StateCompiler.generateStateFactory(longStateInterface)),
+                        new AccumulatorStateDescriptor<>(
                                 doubleStateInterface,
                                 doubleStateSerializer,
-                                StateCompiler.generateStateFactory(doubleStateInterface, classLoader))),
-                REAL);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(aggregationMetadata, classLoader);
-        return new InternalAggregationFunction(
-                NAME,
-                ImmutableList.of(REAL),
-                ImmutableList.of(
-                        longStateSerializer.getSerializedType(),
-                        doubleStateSerializer.getSerializedType()),
-                REAL,
-                factory);
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(Type value)
-    {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INDEX));
+                                StateCompiler.generateStateFactory(doubleStateInterface))));
     }
 
     public static void input(LongState count, DoubleState sum, long value)
     {
-        count.setLong(count.getLong() + 1);
-        sum.setDouble(sum.getDouble() + intBitsToFloat((int) value));
+        count.setValue(count.getValue() + 1);
+        sum.setValue(sum.getValue() + intBitsToFloat((int) value));
     }
 
     public static void removeInput(LongState count, DoubleState sum, long value)
     {
-        count.setLong(count.getLong() - 1);
-        sum.setDouble(sum.getDouble() - intBitsToFloat((int) value));
+        count.setValue(count.getValue() - 1);
+        sum.setValue(sum.getValue() - intBitsToFloat((int) value));
     }
 
     public static void combine(LongState count, DoubleState sum, LongState otherCount, DoubleState otherSum)
     {
-        count.setLong(count.getLong() + otherCount.getLong());
-        sum.setDouble(sum.getDouble() + otherSum.getDouble());
+        count.setValue(count.getValue() + otherCount.getValue());
+        sum.setValue(sum.getValue() + otherSum.getValue());
     }
 
     public static void output(LongState count, DoubleState sum, BlockBuilder out)
     {
-        if (count.getLong() == 0) {
+        if (count.getValue() == 0) {
             out.appendNull();
         }
         else {
-            REAL.writeLong(out, floatToIntBits((float) (sum.getDouble() / count.getLong())));
+            REAL.writeLong(out, floatToIntBits((float) (sum.getValue() / count.getValue())));
         }
     }
 }

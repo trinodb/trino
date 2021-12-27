@@ -15,8 +15,8 @@ package io.trino.cost;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Ordering;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
-import io.trino.sql.analyzer.FeaturesConfig;
 
 import javax.inject.Inject;
 

@@ -14,9 +14,9 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
@@ -64,11 +64,7 @@ public final class MapZipWithFunction
                                 mapType(new TypeSignature("K"), new TypeSignature("V2")),
                                 functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2"), new TypeSignature("V3"))),
                         false),
-                false,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, ImmutableList.of(false, false, false)),
                 false,
                 false,
                 "Merge two maps into a single map by applying the lambda function to the pair of values with the same key",
@@ -76,14 +72,14 @@ public final class MapZipWithFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        Type keyType = functionBinding.getTypeVariable("K");
-        Type inputValueType1 = functionBinding.getTypeVariable("V1");
-        Type inputValueType2 = functionBinding.getTypeVariable("V2");
-        Type outputMapType = functionBinding.getBoundSignature().getReturnType();
+        MapType outputMapType = (MapType) boundSignature.getReturnType();
+        Type keyType = outputMapType.getKeyType();
+        Type inputValueType1 = ((MapType) boundSignature.getArgumentType(0)).getValueType();
+        Type inputValueType2 = ((MapType) boundSignature.getArgumentType(1)).getValueType();
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL, FUNCTION),
                 ImmutableList.of(MapZipWithLambda.class),

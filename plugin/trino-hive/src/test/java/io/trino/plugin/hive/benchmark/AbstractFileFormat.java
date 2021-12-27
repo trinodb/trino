@@ -31,6 +31,7 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.HiveTypeName;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.TableToPartitionMapping;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -55,9 +56,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.join;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -123,7 +124,7 @@ public abstract class AbstractFileFormat
             List<Type> schemaColumnTypes)
     {
         HivePageSourceProvider factory = new HivePageSourceProvider(
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 hdfsEnvironment,
                 new HiveConfig(),
                 getHivePageSourceFactory(hdfsEnvironment).map(ImmutableSet::of).orElse(ImmutableSet.of()),
@@ -152,7 +153,9 @@ public abstract class AbstractFileFormat
                 Optional.empty(),
                 Optional.empty(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                0,
+                SplitWeight.standard());
 
         return factory.createPageSource(
                 TestingConnectorTransactionHandle.INSTANCE,
@@ -190,7 +193,7 @@ public abstract class AbstractFileFormat
                 createSchema(format, columnNames, columnTypes),
                 readColumns,
                 TupleDomain.all(),
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 false);
 
         checkState(recordCursorWithProjections.isPresent(), "readerPageSourceWithProjections is not present");

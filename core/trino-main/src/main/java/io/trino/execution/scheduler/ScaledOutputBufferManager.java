@@ -18,55 +18,44 @@ import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 
 import javax.annotation.concurrent.GuardedBy;
 
-import java.util.List;
-import java.util.function.Consumer;
-
 import static io.trino.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
-import static java.util.Objects.requireNonNull;
 
 public class ScaledOutputBufferManager
         implements OutputBufferManager
 {
-    private final Consumer<OutputBuffers> outputBufferTarget;
-
     @GuardedBy("this")
     private OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(ARBITRARY);
 
-    public ScaledOutputBufferManager(Consumer<OutputBuffers> outputBufferTarget)
-    {
-        this.outputBufferTarget = requireNonNull(outputBufferTarget, "outputBufferTarget is null");
-        outputBufferTarget.accept(outputBuffers);
-    }
-
     @SuppressWarnings("ObjectEquality")
     @Override
-    public void addOutputBuffers(List<OutputBufferId> newBuffers, boolean noMoreBuffers)
+    public synchronized void addOutputBuffer(OutputBufferId newBuffer)
     {
-        OutputBuffers newOutputBuffers;
-        synchronized (this) {
-            if (outputBuffers.isNoMoreBufferIds()) {
-                // a stage can move to a final state (e.g., failed) while scheduling,
-                // so ignore the new buffers
-                return;
-            }
-
-            OutputBuffers originalOutputBuffers = outputBuffers;
-
-            for (OutputBufferId newBuffer : newBuffers) {
-                outputBuffers = outputBuffers.withBuffer(newBuffer, newBuffer.getId());
-            }
-
-            if (noMoreBuffers) {
-                outputBuffers = outputBuffers.withNoMoreBufferIds();
-            }
-
-            // don't update if nothing changed
-            if (outputBuffers == originalOutputBuffers) {
-                return;
-            }
-            newOutputBuffers = this.outputBuffers;
+        if (outputBuffers.isNoMoreBufferIds()) {
+            // a stage can move to a final state (e.g., failed) while scheduling, so ignore
+            // the new buffers
+            return;
         }
-        outputBufferTarget.accept(newOutputBuffers);
+
+        OutputBuffers newOutputBuffers = outputBuffers.withBuffer(newBuffer, newBuffer.getId());
+
+        // don't update if nothing changed
+        if (newOutputBuffers != outputBuffers) {
+            this.outputBuffers = newOutputBuffers;
+        }
+    }
+
+    @Override
+    public synchronized void noMoreBuffers()
+    {
+        if (!outputBuffers.isNoMoreBufferIds()) {
+            outputBuffers = outputBuffers.withNoMoreBufferIds();
+        }
+    }
+
+    @Override
+    public synchronized OutputBuffers getOutputBuffers()
+    {
+        return outputBuffers;
     }
 }

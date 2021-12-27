@@ -13,8 +13,11 @@
  */
 package io.trino.operator;
 
+import io.airlift.units.DataSize;
+import io.trino.execution.buffer.OutputBuffer;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.LookupSourceFactory;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -30,9 +33,10 @@ public interface OperatorFactories
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
-            List<Type> probeTypes,
             boolean outputSingleMatch,
             boolean waitForBuild,
+            boolean hasFilter,
+            List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
             Optional<List<Integer>> probeOutputChannels,
@@ -44,8 +48,9 @@ public interface OperatorFactories
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
-            List<Type> probeTypes,
             boolean outputSingleMatch,
+            boolean hasFilter,
+            List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
             Optional<List<Integer>> probeOutputChannels,
@@ -57,8 +62,9 @@ public interface OperatorFactories
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
-            List<Type> probeTypes,
             boolean waitForBuild,
+            boolean hasFilter,
+            List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
             Optional<List<Integer>> probeOutputChannels,
@@ -70,6 +76,7 @@ public interface OperatorFactories
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
+            boolean hasFilter,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
@@ -77,4 +84,14 @@ public interface OperatorFactories
             OptionalInt totalOperatorsCount,
             PartitioningSpillerFactory partitioningSpillerFactory,
             BlockTypeOperators blockTypeOperators);
+
+    OutputFactory partitionedOutput(
+            TaskContext taskContext,
+            PartitionFunction partitionFunction,
+            List<Integer> partitionChannels,
+            List<Optional<NullableValue>> partitionConstants,
+            boolean replicateNullsAndAny,
+            OptionalInt nullChannel,
+            OutputBuffer outputBuffer,
+            DataSize maxPagePartitioningBufferSize);
 }

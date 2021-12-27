@@ -106,7 +106,7 @@ public class TestDriver
         assertSame(driver.getDriverContext(), driverContext);
 
         assertFalse(driver.isFinished());
-        ListenableFuture<?> blocked = driver.processFor(new Duration(1, TimeUnit.SECONDS));
+        ListenableFuture<Void> blocked = driver.processFor(new Duration(1, TimeUnit.SECONDS));
         assertTrue(blocked.isDone());
         assertTrue(driver.isFinished());
 
@@ -386,7 +386,7 @@ public class TestDriver
         }
 
         @Override
-        public ListenableFuture<?> isBlocked()
+        public ListenableFuture<Void> isBlocked()
         {
             waitForUnlock();
             return NOT_BLOCKED;
@@ -435,7 +435,7 @@ public class TestDriver
         }
 
         @Override
-        public ListenableFuture<?> isBlocked()
+        public ListenableFuture<Void> isBlocked()
         {
             // this operator is always blocked and when queried by the driver
             // it triggers memory revocation so that the driver gets unblocked
@@ -460,7 +460,7 @@ public class TestDriver
         }
 
         @Override
-        public ListenableFuture<?> isBlocked()
+        public ListenableFuture<Void> isBlocked()
         {
             return NOT_BLOCKED;
         }

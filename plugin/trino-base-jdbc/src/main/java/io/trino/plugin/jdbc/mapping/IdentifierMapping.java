@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.jdbc.mapping;
 
-import io.trino.plugin.jdbc.JdbcIdentity;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.sql.Connection;
 
@@ -25,9 +25,9 @@ public interface IdentifierMapping
 
     String fromRemoteColumnName(String remoteColumnName);
 
-    String toRemoteSchemaName(JdbcIdentity identity, Connection connection, String schemaName);
+    String toRemoteSchemaName(ConnectorIdentity identity, Connection connection, String schemaName);
 
-    String toRemoteTableName(JdbcIdentity identity, Connection connection, String remoteSchema, String tableName);
+    String toRemoteTableName(ConnectorIdentity identity, Connection connection, String remoteSchema, String tableName);
 
     String toRemoteColumnName(Connection connection, String columnName);
 }

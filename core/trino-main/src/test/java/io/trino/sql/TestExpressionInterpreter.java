@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
@@ -28,7 +27,6 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolResolver;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter;
@@ -53,11 +51,12 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -73,6 +72,8 @@ import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.ExpressionTestUtils.resolveFunctionCalls;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -85,6 +86,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestExpressionInterpreter
 {
+    private static final int TEST_CHAR_TYPE_LENGTH = 17;
     private static final int TEST_VARCHAR_TYPE_LENGTH = 17;
     private static final TypeProvider SYMBOL_TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("bound_integer"), INTEGER)
@@ -105,6 +107,7 @@ public class TestExpressionInterpreter
             .put(new Symbol("unbound_long"), BIGINT)
             .put(new Symbol("unbound_long2"), BIGINT)
             .put(new Symbol("unbound_long3"), BIGINT)
+            .put(new Symbol("unbound_char"), createCharType(TEST_CHAR_TYPE_LENGTH))
             .put(new Symbol("unbound_string"), VARCHAR)
             .put(new Symbol("unbound_double"), DOUBLE)
             .put(new Symbol("unbound_boolean"), BOOLEAN)
@@ -148,7 +151,6 @@ public class TestExpressionInterpreter
     };
 
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final Metadata METADATA = createTestMetadataManager();
 
     @Test
     public void testAnd()
@@ -609,7 +611,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("CAST(false AS varchar)", "'false'");
 
         // string
-        assertOptimizedEquals("CAST('xyz' AS varchar)", "'xyz'");
+        assertOptimizedEquals("VARCHAR 'xyz'", "'xyz'");
 
         // NULL
         assertOptimizedEquals("CAST(NULL AS varchar)", "NULL");
@@ -617,6 +619,219 @@ public class TestExpressionInterpreter
         // decimal
         assertOptimizedEquals("CAST(1.1 AS varchar)", "'1.1'");
         // TODO enabled when DECIMAL is default for literal: assertOptimizedEquals("CAST(12345678901234567890.123 AS varchar)", "'12345678901234567890.123'");
+    }
+
+    @Test
+    public void testCastBigintToBoundedVarchar()
+    {
+        assertEvaluatedEquals("CAST(12300000000 AS varchar(11))", "'12300000000'");
+        assertEvaluatedEquals("CAST(12300000000 AS varchar(50))", "'12300000000'");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(12300000000 AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 12300000000 cannot be represented as varchar(3)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(-12300000000 AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -12300000000 cannot be represented as varchar(3)");
+    }
+
+    @Test
+    public void testCastIntegerToBoundedVarchar()
+    {
+        assertEvaluatedEquals("CAST(1234 AS varchar(4))", "'1234'");
+        assertEvaluatedEquals("CAST(1234 AS varchar(50))", "'1234'");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(1234 AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 1234 cannot be represented as varchar(3)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(-1234 AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -1234 cannot be represented as varchar(3)");
+    }
+
+    @Test
+    public void testCastSmallintToBoundedVarchar()
+    {
+        assertEvaluatedEquals("CAST(SMALLINT '1234' AS varchar(4))", "'1234'");
+        assertEvaluatedEquals("CAST(SMALLINT '1234' AS varchar(50))", "'1234'");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(SMALLINT '1234' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 1234 cannot be represented as varchar(3)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(SMALLINT '-1234' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -1234 cannot be represented as varchar(3)");
+    }
+
+    @Test
+    public void testCastTinyintToBoundedVarchar()
+    {
+        assertEvaluatedEquals("CAST(TINYINT '123' AS varchar(3))", "'123'");
+        assertEvaluatedEquals("CAST(TINYINT '123' AS varchar(50))", "'123'");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(TINYINT '123' AS varchar(2))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 123 cannot be represented as varchar(2)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(TINYINT '-123' AS varchar(2))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -123 cannot be represented as varchar(2)");
+    }
+
+    @Test
+    public void testCastDecimalToBoundedVarchar()
+    {
+        // short decimal
+        assertEvaluatedEquals("CAST(DECIMAL '12.4' AS varchar(4))", "'12.4'");
+        assertEvaluatedEquals("CAST(DECIMAL '12.4' AS varchar(50))", "'12.4'");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '12.4' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 12.4 cannot be represented as varchar(3)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-12.4' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -12.4 cannot be represented as varchar(3)");
+
+        // the trailing 0 does not fit in the type
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '12.40' AS varchar(4))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 12.40 cannot be represented as varchar(4)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-12.40' AS varchar(5))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -12.40 cannot be represented as varchar(5)");
+
+        // long decimal
+        assertEvaluatedEquals("CAST(DECIMAL '100000000000000000.1' AS varchar(20))", "'100000000000000000.1'");
+        assertEvaluatedEquals("CAST(DECIMAL '100000000000000000.1' AS varchar(50))", "'100000000000000000.1'");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '100000000000000000.1' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 100000000000000000.1 cannot be represented as varchar(3)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-100000000000000000.1' AS varchar(3))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -100000000000000000.1 cannot be represented as varchar(3)");
+
+        // the trailing 0 does not fit in the type
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '100000000000000000.10' AS varchar(20))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 100000000000000000.10 cannot be represented as varchar(20)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DECIMAL '-100000000000000000.10' AS varchar(21))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -100000000000000000.10 cannot be represented as varchar(21)");
+    }
+
+    @Test
+    public void testCastDoubleToBoundedVarchar()
+    {
+        // NaN
+        assertEvaluatedEquals("CAST(0e0 / 0e0 AS varchar(3))", "'NaN'");
+        assertEvaluatedEquals("CAST(0e0 / 0e0 AS varchar(50))", "'NaN'");
+
+        // Infinity
+        assertEvaluatedEquals("CAST(DOUBLE 'Infinity' AS varchar(8))", "'Infinity'");
+        assertEvaluatedEquals("CAST(DOUBLE 'Infinity' AS varchar(50))", "'Infinity'");
+
+        // incorrect behavior: the string representation is not compliant with the SQL standard
+        assertEvaluatedEquals("CAST(0e0 AS varchar(3))", "'0.0'");
+        assertEvaluatedEquals("CAST(DOUBLE '0' AS varchar(3))", "'0.0'");
+        assertEvaluatedEquals("CAST(DOUBLE '-0' AS varchar(4))", "'-0.0'");
+        assertEvaluatedEquals("CAST(DOUBLE '0' AS varchar(50))", "'0.0'");
+
+        assertEvaluatedEquals("CAST(12e0 AS varchar(4))", "'12.0'");
+        assertEvaluatedEquals("CAST(12e2 AS varchar(6))", "'1200.0'");
+        assertEvaluatedEquals("CAST(12e-2 AS varchar(4))", "'0.12'");
+
+        assertEvaluatedEquals("CAST(12e0 AS varchar(50))", "'12.0'");
+        assertEvaluatedEquals("CAST(12e2 AS varchar(50))", "'1200.0'");
+        assertEvaluatedEquals("CAST(12e-2 AS varchar(50))", "'0.12'");
+
+        assertEvaluatedEquals("CAST(-12e0 AS varchar(5))", "'-12.0'");
+        assertEvaluatedEquals("CAST(-12e2 AS varchar(7))", "'-1200.0'");
+        assertEvaluatedEquals("CAST(-12e-2 AS varchar(5))", "'-0.12'");
+
+        assertEvaluatedEquals("CAST(-12e0 AS varchar(50))", "'-12.0'");
+        assertEvaluatedEquals("CAST(-12e2 AS varchar(50))", "'-1200.0'");
+        assertEvaluatedEquals("CAST(-12e-2 AS varchar(50))", "'-0.12'");
+
+        // the string representation is compliant with the SQL standard
+        assertEvaluatedEquals("CAST(12345678.9e0 AS varchar(12))", "'1.23456789E7'");
+        assertEvaluatedEquals("CAST(0.00001e0 AS varchar(6))", "'1.0E-5'");
+
+        // the result value does not fit in the type (also, it is not compliant with the SQL standard)
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(12e0 AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 12.0 cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(-12e2 AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -1200.0 cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(0e0 AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 0.0 cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(0e0 / 0e0 AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value NaN cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DOUBLE 'Infinity' AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value Infinity cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(1200000e0 AS varchar(5))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 1200000.0 cannot be represented as varchar(5)");
+    }
+
+    @Test
+    public void testCastRealToBoundedVarchar()
+    {
+        // NaN
+        assertEvaluatedEquals("CAST(REAL '0e0' / REAL '0e0' AS varchar(3))", "'NaN'");
+        assertEvaluatedEquals("CAST(REAL '0e0' / REAL '0e0' AS varchar(50))", "'NaN'");
+
+        // Infinity
+        assertEvaluatedEquals("CAST(REAL 'Infinity' AS varchar(8))", "'Infinity'");
+        assertEvaluatedEquals("CAST(REAL 'Infinity' AS varchar(50))", "'Infinity'");
+
+        // incorrect behavior: the string representation is not compliant with the SQL standard
+        assertEvaluatedEquals("CAST(REAL '0' AS varchar(3))", "'0.0'");
+        assertEvaluatedEquals("CAST(REAL '-0' AS varchar(4))", "'-0.0'");
+        assertEvaluatedEquals("CAST(REAL '0' AS varchar(50))", "'0.0'");
+
+        assertEvaluatedEquals("CAST(REAL '12' AS varchar(4))", "'12.0'");
+        assertEvaluatedEquals("CAST(REAL '12e2' AS varchar(6))", "'1200.0'");
+        assertEvaluatedEquals("CAST(REAL '12e-2' AS varchar(4))", "'0.12'");
+
+        assertEvaluatedEquals("CAST(REAL '12' AS varchar(50))", "'12.0'");
+        assertEvaluatedEquals("CAST(REAL '12e2' AS varchar(50))", "'1200.0'");
+        assertEvaluatedEquals("CAST(REAL '12e-2' AS varchar(50))", "'0.12'");
+
+        assertEvaluatedEquals("CAST(REAL '-12' AS varchar(5))", "'-12.0'");
+        assertEvaluatedEquals("CAST(REAL '-12e2' AS varchar(7))", "'-1200.0'");
+        assertEvaluatedEquals("CAST(REAL '-12e-2' AS varchar(5))", "'-0.12'");
+
+        assertEvaluatedEquals("CAST(REAL '-12' AS varchar(50))", "'-12.0'");
+        assertEvaluatedEquals("CAST(REAL '-12e2' AS varchar(50))", "'-1200.0'");
+        assertEvaluatedEquals("CAST(REAL '-12e-2' AS varchar(50))", "'-0.12'");
+
+        // the string representation is compliant with the SQL standard
+        assertEvaluatedEquals("CAST(REAL '12345678.9e0' AS varchar(12))", "'1.2345679E7'");
+        assertEvaluatedEquals("CAST(REAL '0.00001e0' AS varchar(6))", "'1.0E-5'");
+
+        // the result value does not fit in the type (also, it is not compliant with the SQL standard)
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL '12' AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 12.0 cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL '-12e2' AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -1200.0 cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL '0' AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 0.0 cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL '0e0' / REAL '0e0' AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value NaN cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL 'Infinity' AS varchar(1))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value Infinity cannot be represented as varchar(1)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(REAL '1200000' AS varchar(5))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 1200000.0 cannot be represented as varchar(5)");
     }
 
     @Test
@@ -1377,15 +1592,36 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testLikeChar()
+    {
+        assertOptimizedEquals("CAST('abc' AS char(3)) LIKE 'abc'", "true");
+        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE 'abc'", "false");
+        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE 'abc '", "true");
+
+        assertOptimizedEquals("CAST('abc' AS char(3)) LIKE '%abc'", "true");
+        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%abc'", "false");
+        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%abc '", "true");
+
+        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%c'", "false");
+        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%c '", "true");
+
+        assertOptimizedEquals("CAST('abc' AS char(3)) LIKE '%a%b%c'", "true");
+        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c'", "false");
+        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c '", "true");
+        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c_'", "true");
+        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c%'", "true");
+    }
+
+    @Test
     public void testLikeOptimization()
     {
-        assertOptimizedEquals("unbound_string LIKE 'abc'", "unbound_string = CAST('abc' AS varchar)");
+        assertOptimizedEquals("unbound_string LIKE 'abc'", "unbound_string = VARCHAR 'abc'");
 
         assertOptimizedEquals("unbound_string LIKE '' ESCAPE '#'", "unbound_string LIKE '' ESCAPE '#'");
-        assertOptimizedEquals("unbound_string LIKE 'abc' ESCAPE '#'", "unbound_string = CAST('abc' AS varchar)");
-        assertOptimizedEquals("unbound_string LIKE 'a#_b' ESCAPE '#'", "unbound_string = CAST('a_b' AS varchar)");
-        assertOptimizedEquals("unbound_string LIKE 'a#%b' ESCAPE '#'", "unbound_string = CAST('a%b' AS varchar)");
-        assertOptimizedEquals("unbound_string LIKE 'a#_##b' ESCAPE '#'", "unbound_string = CAST('a_#b' AS varchar)");
+        assertOptimizedEquals("unbound_string LIKE 'abc' ESCAPE '#'", "unbound_string = VARCHAR 'abc'");
+        assertOptimizedEquals("unbound_string LIKE 'a#_b' ESCAPE '#'", "unbound_string = VARCHAR 'a_b'");
+        assertOptimizedEquals("unbound_string LIKE 'a#%b' ESCAPE '#'", "unbound_string = VARCHAR 'a%b'");
+        assertOptimizedEquals("unbound_string LIKE 'a#_##b' ESCAPE '#'", "unbound_string = VARCHAR 'a_#b'");
         assertOptimizedEquals("unbound_string LIKE 'a#__b' ESCAPE '#'", "unbound_string LIKE 'a#__b' ESCAPE '#'");
         assertOptimizedEquals("unbound_string LIKE 'a##%b' ESCAPE '#'", "unbound_string LIKE 'a##%b' ESCAPE '#'");
 
@@ -1395,6 +1631,61 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("unbound_string LIKE bound_pattern", "unbound_string LIKE bound_pattern");
 
         assertOptimizedEquals("unbound_string LIKE unbound_pattern ESCAPE unbound_string", "unbound_string LIKE unbound_pattern ESCAPE unbound_string");
+    }
+
+    @Test
+    public void testLikeCharOptimization()
+    {
+        // constant literal pattern of length shorter than value length
+        assertOptimizedEquals("unbound_char LIKE 'abc'", "false");
+        assertOptimizedEquals("unbound_char LIKE 'abc' ESCAPE '#'", "false");
+        assertOptimizedEquals("unbound_char LIKE 'ab#_' ESCAPE '#'", "false");
+        assertOptimizedEquals("unbound_char LIKE 'ab#%' ESCAPE '#'", "false");
+        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abc'", "false");
+        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abc' ESCAPE '#'", "false");
+
+        // constant non-literal pattern of length shorter than value length
+        assertOptimizedEquals("unbound_char LIKE 'ab_'", "unbound_char LIKE 'ab_'");
+        assertOptimizedEquals("unbound_char LIKE 'ab%'", "unbound_char LIKE 'ab%'");
+        assertOptimizedEquals("unbound_char LIKE 'ab%' ESCAPE '#'", "unbound_char LIKE 'ab%' ESCAPE '#'");
+
+        // constant literal pattern of length equal to value length
+        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcd'", "CAST(unbound_char AS char(4)) = CAST('abcd' AS char(4))");
+        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcd' ESCAPE '#'", "CAST(unbound_char AS char(4)) = CAST('abcd' AS char(4))");
+        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'jaźń'", "CAST(unbound_char AS char(4)) = CAST('jaźń' AS char(4))");
+        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'ab#_' ESCAPE '#'", "false");
+        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'ab#%' ESCAPE '#'", "false");
+
+        // constant non-literal pattern of length equal to value length
+        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'ab#%' ESCAPE '\\'", "CAST(unbound_char AS char(4)) LIKE 'ab#%' ESCAPE '\\'");
+
+        // constant pattern of length longer than value length
+        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcde'", "false");
+        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcde' ESCAPE '#'", "false");
+        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE '#%a#%b#%c#%d#%' ESCAPE '#'", "false");
+
+        // constant non-literal pattern of length longer than value length
+        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%'", "CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%'");
+        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%' ESCAPE '#'", "CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%' ESCAPE '#'");
+
+        // without explicit CAST on value, constant pattern of equal length
+        assertOptimizedEquals(
+                "unbound_char LIKE CAST(CAST('abc' AS char( " + TEST_CHAR_TYPE_LENGTH + ")) AS varchar(" + TEST_CHAR_TYPE_LENGTH + "))",
+                "unbound_char = CAST('abc' AS char(17))");
+        assertOptimizedEquals(
+                "unbound_char LIKE CAST(CAST('abc' AS char( " + TEST_CHAR_TYPE_LENGTH + ")) AS varchar)",
+                "unbound_char = CAST('abc' AS char(17))");
+
+        assertOptimizedEquals(
+                "unbound_char LIKE CAST(CAST('' AS char(" + TEST_CHAR_TYPE_LENGTH + ")) AS varchar(" + TEST_CHAR_TYPE_LENGTH + ")) ESCAPE '#'",
+                "unbound_char LIKE CAST('                 ' AS varchar(17)) ESCAPE '#'");
+        assertOptimizedEquals(
+                "unbound_char LIKE CAST(CAST('' AS char(" + TEST_CHAR_TYPE_LENGTH + ")) AS varchar) ESCAPE '#'",
+                "unbound_char LIKE CAST('                 ' AS varchar(17)) ESCAPE '#'");
+
+        assertOptimizedEquals("unbound_char LIKE bound_pattern", "unbound_char LIKE VARCHAR '%el%'");
+        assertOptimizedEquals("unbound_char LIKE unbound_pattern", "unbound_char LIKE unbound_pattern");
+        assertOptimizedEquals("unbound_char LIKE unbound_pattern ESCAPE unbound_string", "unbound_char LIKE unbound_pattern ESCAPE unbound_string");
     }
 
     @Test
@@ -1632,8 +1923,8 @@ public class TestExpressionInterpreter
 
     static Object optimize(Expression parsedExpression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, METADATA, SYMBOL_TYPES, parsedExpression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(parsedExpression, METADATA, TEST_SESSION, expressionTypes);
+        Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, PLANNER_CONTEXT, SYMBOL_TYPES, parsedExpression);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(parsedExpression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
         return interpreter.optimize(INPUTS);
     }
 
@@ -1645,12 +1936,12 @@ public class TestExpressionInterpreter
                 .execute(TEST_SESSION, transactionSession -> {
                     Expression parsedExpression = SQL_PARSER.createExpression(expression, createParsingOptions(transactionSession));
                     parsedExpression = rewriteIdentifiersToSymbolReferences(parsedExpression);
-                    parsedExpression = resolveFunctionCalls(METADATA, transactionSession, SYMBOL_TYPES, parsedExpression);
+                    parsedExpression = resolveFunctionCalls(PLANNER_CONTEXT, transactionSession, SYMBOL_TYPES, parsedExpression);
                     parsedExpression = CanonicalizeExpressionRewriter.rewrite(
                             parsedExpression,
                             transactionSession,
-                            METADATA,
-                            new TypeAnalyzer(SQL_PARSER, METADATA),
+                            PLANNER_CONTEXT.getMetadata(),
+                            createTestingTypeAnalyzer(PLANNER_CONTEXT),
                             SYMBOL_TYPES);
                     return parsedExpression;
                 });
@@ -1665,7 +1956,7 @@ public class TestExpressionInterpreter
     {
         assertRoundTrip(expression);
 
-        Expression parsedExpression = ExpressionTestUtils.createExpression(expression, METADATA, SYMBOL_TYPES);
+        Expression parsedExpression = ExpressionTestUtils.createExpression(expression, PLANNER_CONTEXT, SYMBOL_TYPES);
 
         return evaluate(parsedExpression);
     }
@@ -1680,8 +1971,8 @@ public class TestExpressionInterpreter
 
     private static Object evaluate(Expression expression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, METADATA, SYMBOL_TYPES, expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes);
+        Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, PLANNER_CONTEXT, SYMBOL_TYPES, expression);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
 
         return interpreter.evaluate(INPUTS);
     }

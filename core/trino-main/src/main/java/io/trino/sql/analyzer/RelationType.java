@@ -26,7 +26,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -80,7 +79,6 @@ public class RelationType
      */
     public Field getFieldByIndex(int fieldIndex)
     {
-        checkElementIndex(fieldIndex, allFields.size(), "fieldIndex");
         return allFields.get(fieldIndex);
     }
 

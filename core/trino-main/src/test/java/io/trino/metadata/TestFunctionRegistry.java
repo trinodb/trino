@@ -35,6 +35,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.metadata.Signature.mangleOperatorName;
@@ -59,14 +60,15 @@ public class TestFunctionRegistry
     @Test
     public void testIdentityCast()
     {
-        BoundSignature exactOperator = createTestMetadataManager().getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG).getSignature();
+        BoundSignature exactOperator = new TestingFunctionResolution().getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG).getSignature();
         assertEquals(exactOperator, new BoundSignature(mangleOperatorName(OperatorType.CAST), HYPER_LOG_LOG, ImmutableList.of(HYPER_LOG_LOG)));
     }
 
     @Test
     public void testExactMatchBeforeCoercion()
     {
-        Metadata metadata = createTestMetadataManager();
+        TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+        Metadata metadata = functionResolution.getMetadata();
         boolean foundOperator = false;
         for (FunctionMetadata function : listOperators(metadata)) {
             OperatorType operatorType = unmangleOperator(function.getSignature().getName());
@@ -80,16 +82,16 @@ public class TestFunctionRegistry
                 continue;
             }
             List<Type> argumentTypes = function.getSignature().getArgumentTypes().stream()
-                    .map(metadata::getType)
+                    .map(functionResolution.getPlannerContext().getTypeManager()::getType)
                     .collect(toImmutableList());
-            BoundSignature exactOperator = metadata.resolveOperator(operatorType, argumentTypes).getSignature();
+            BoundSignature exactOperator = functionResolution.resolveOperator(operatorType, argumentTypes).getSignature();
             assertEquals(exactOperator.toSignature(), function.getSignature());
             foundOperator = true;
         }
         assertTrue(foundOperator);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QFunction already registered: custom_add(bigint,bigint):bigint\\E")
+    @Test
     public void testDuplicateFunctions()
     {
         List<SqlFunction> functions = new FunctionListBuilder()
@@ -101,17 +103,21 @@ public class TestFunctionRegistry
 
         Metadata metadata = createTestMetadataManager();
         metadata.addFunctions(functions);
-        metadata.addFunctions(functions);
+        assertThatThrownBy(() -> metadata.addFunctions(functions))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("\\QFunction already registered: custom_add(bigint,bigint):bigint\\E");
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "'sum' is both an aggregation and a scalar function")
+    @Test
     public void testConflictingScalarAggregation()
     {
         List<SqlFunction> functions = new FunctionListBuilder()
                 .scalars(ScalarSum.class)
                 .getFunctions();
 
-        createTestMetadataManager().addFunctions(functions);
+        assertThatThrownBy(() -> createTestMetadataManager().addFunctions(functions))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("'sum' is both an aggregation and a scalar function");
     }
 
     @Test
@@ -332,7 +338,7 @@ public class TestFunctionRegistry
         {
             Metadata metadata = createTestMetadataManager();
             metadata.addFunctions(createFunctionsFromSignatures());
-            return metadata.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes)).getSignature();
+            return metadata.resolveFunction(TEST_SESSION, QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes)).getSignature();
         }
 
         private List<SqlFunction> createFunctionsFromSignatures()
@@ -342,8 +348,7 @@ public class TestFunctionRegistry
                 Signature signature = functionSignature.name(TEST_FUNCTION_NAME).build();
                 FunctionMetadata functionMetadata = new FunctionMetadata(
                         signature,
-                        false,
-                        nCopies(signature.getArgumentTypes().size(), new FunctionArgumentDefinition(false)),
+                        new FunctionNullability(false, nCopies(signature.getArgumentTypes().size(), false)),
                         false,
                         false,
                         "testing function that does nothing",
@@ -351,12 +356,12 @@ public class TestFunctionRegistry
                 functions.add(new SqlScalarFunction(functionMetadata)
                 {
                     @Override
-                    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+                    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
                     {
                         return new ChoicesScalarFunctionImplementation(
-                                functionBinding,
+                                boundSignature,
                                 FAIL_ON_NULL,
-                                nCopies(functionBinding.getArity(), NEVER_NULL),
+                                nCopies(boundSignature.getArity(), NEVER_NULL),
                                 MethodHandles.identity(Void.class));
                     }
                 });

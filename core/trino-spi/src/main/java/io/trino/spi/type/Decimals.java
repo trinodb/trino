@@ -260,7 +260,7 @@ public final class Decimals
     public static void checkOverflow(BigInteger value)
     {
         if (overflows(value)) {
-            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Value is out of range: %s", value.toString()));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Value is out of range: %s", value));
         }
     }
 

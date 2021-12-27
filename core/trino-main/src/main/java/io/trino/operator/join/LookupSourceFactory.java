@@ -43,7 +43,10 @@ public interface LookupSourceFactory
                 i -> {
                     throw new UnsupportedOperationException();
                 },
-                i -> {}));
+                i -> {},
+                i -> {
+                    throw new UnsupportedOperationException();
+                }));
     }
 
     /**
@@ -58,7 +61,7 @@ public interface LookupSourceFactory
     @Override
     void destroy();
 
-    default ListenableFuture<?> isDestroyed()
+    default ListenableFuture<Void> isDestroyed()
     {
         throw new UnsupportedOperationException();
     }

@@ -80,6 +80,7 @@ public class TestDynamicCallbackOAuth2Service
     {
         DynamicCallbackOAuth2Service service = new DynamicCallbackOAuth2Service(
                 new OAuth2Config()
+                        .setIssuer(hydraUrl)
                         .setAuthUrl(hydraUrl + "/oauth2/auth")
                         .setTokenUrl(hydraUrl + "/oauth2/token")
                         .setJwksUrl(hydraUrl + "/.well-known/jwks.json")
@@ -90,8 +91,9 @@ public class TestDynamicCallbackOAuth2Service
 
         OAuth2AccessToken token = service.getAccessTokenClientCredentialsGrant();
 
-        Claims claims = Jwts.parser()
+        Claims claims = Jwts.parserBuilder()
                 .setSigningKeyResolver(signingKeyResolver)
+                .build()
                 .parseClaimsJws(token.getAccessToken())
                 .getBody();
         assertThat(claims.get("scp", List.class)).containsExactlyInAnyOrder("openid", "offline");

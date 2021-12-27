@@ -48,7 +48,7 @@ public class SpillSpaceTracker
      *
      * @throws ExceededSpillLimitException
      */
-    public synchronized ListenableFuture<?> reserve(long bytes)
+    public synchronized ListenableFuture<Void> reserve(long bytes)
     {
         checkArgument(bytes >= 0, "bytes is negative");
 

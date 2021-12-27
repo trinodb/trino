@@ -35,6 +35,8 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
+import static io.trino.connector.MockConnectorEntities.TPCH_WITH_HIDDEN_COLUMN_DATA;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
@@ -87,7 +89,7 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
                 Optional.empty(),
-                VIEW_OWNER,
+                Optional.of(VIEW_OWNER),
                 ImmutableMap.of());
 
         ConnectorMaterializedViewDefinition freshMaterializedView = new ConnectorMaterializedViewDefinition(
@@ -101,15 +103,42 @@ public class TestColumnMask
                         new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
                         new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
                 Optional.empty(),
-                VIEW_OWNER,
+                Optional.of(VIEW_OWNER),
+                ImmutableMap.of());
+
+        ConnectorMaterializedViewDefinition materializedViewWithCasts = new ConnectorMaterializedViewDefinition(
+                "SELECT nationkey, cast(name as varchar(1)) as name, regionkey, comment FROM local.tiny.nation",
+                Optional.of(new CatalogSchemaTableName("local", "tiny", "nation")),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(
+                        new ConnectorMaterializedViewDefinition.Column("nationkey", BigintType.BIGINT.getTypeId()),
+                        new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(2).getTypeId()),
+                        new ConnectorMaterializedViewDefinition.Column("regionkey", BigintType.BIGINT.getTypeId()),
+                        new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId())),
+                Optional.empty(),
+                Optional.of(VIEW_OWNER),
                 ImmutableMap.of());
 
         MockConnectorFactory mock = MockConnectorFactory.builder()
+                .withGetColumns(schemaTableName -> {
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_hidden_column"))) {
+                        return TPCH_NATION_WITH_HIDDEN_COLUMN;
+                    }
+                    throw new UnsupportedOperationException();
+                })
+                .withData(schemaTableName -> {
+                    if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_hidden_column"))) {
+                        return TPCH_WITH_HIDDEN_COLUMN_DATA;
+                    }
+                    throw new UnsupportedOperationException();
+                })
                 .withGetViews((s, prefix) -> ImmutableMap.of(
                         new SchemaTableName("default", "nation_view"), view))
                 .withGetMaterializedViews((s, prefix) -> ImmutableMap.of(
                         new SchemaTableName("default", "nation_materialized_view"), materializedView,
-                        new SchemaTableName("default", "nation_fresh_materialized_view"), freshMaterializedView))
+                        new SchemaTableName("default", "nation_fresh_materialized_view"), freshMaterializedView,
+                        new SchemaTableName("default", "materialized_view_with_casts"), materializedViewWithCasts))
                 .build();
 
         runner.createCatalog(MOCK_CATALOG, mock, ImmutableMap.of());
@@ -252,6 +281,11 @@ public class TestColumnMask
                 "name",
                 USER,
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "reverse(name)"));
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "default", "materialized_view_with_casts"),
+                "name",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "reverse(name)"));
 
         assertThat(assertions.query(
                 Session.builder(SESSION)
@@ -266,6 +300,13 @@ public class TestColumnMask
                         .build(),
                 "SELECT name FROM mock.default.nation_materialized_view WHERE nationkey = 1"))
                 .matches("VALUES CAST('ANITNEGRA' AS VARCHAR(25))");
+
+        assertThat(assertions.query(
+                Session.builder(SESSION)
+                        .setIdentity(Identity.forUser(USER).build())
+                        .build(),
+                "SELECT name FROM mock.default.materialized_view_with_casts WHERE nationkey = 1"))
+                .matches("VALUES CAST('RA' AS VARCHAR(2))");
     }
 
     @Test
@@ -522,16 +563,16 @@ public class TestColumnMask
 
         assertThat(assertions.query("SHOW STATS FOR (SELECT * FROM orders)"))
                 .containsAll("VALUES " +
-                        "(CAST('orderkey' AS varchar), CAST(NULL AS double), 1e0, 0e1, NULL, '7', '7')," +
-                        "(CAST('clerk' AS varchar), 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
+                        "(VARCHAR 'orderkey', CAST(NULL AS double), 1e0, 0e1, NULL, '7', '7')," +
+                        "(VARCHAR 'clerk', 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
                         "(NULL, NULL, NULL, NULL, 15e3, NULL, NULL)");
         assertThat(assertions.query("SHOW STATS FOR (SELECT orderkey FROM orders)"))
                 .matches("VALUES " +
-                        "(CAST('orderkey' AS varchar), CAST(NULL AS double), 1e0, 0e1, NULL, CAST('7' AS varchar), CAST('7' AS varchar))," +
+                        "(VARCHAR 'orderkey', CAST(NULL AS double), 1e0, 0e1, NULL, VARCHAR '7', VARCHAR '7')," +
                         "(NULL, NULL, NULL, NULL, 15e3, NULL, NULL)");
         assertThat(assertions.query("SHOW STATS FOR (SELECT clerk FROM orders)"))
                 .matches("VALUES " +
-                        "(CAST('clerk' AS varchar), 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
+                        "(VARCHAR 'clerk', 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
                         "(NULL, NULL, NULL, NULL, 15e3, NULL, NULL)");
     }
 
@@ -653,5 +694,31 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "(SELECT orderstatus FROM local.tiny.orders)"));
         assertThat(assertions.query("SELECT orderkey FROM orders WHERE orderkey = 1")).matches("VALUES BIGINT '1'");
+    }
+
+    @Test
+    public void testColumnMaskWithHiddenColumns()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(MOCK_CATALOG, "tiny", "nation_with_hidden_column"),
+                "name",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "'POLAND'"));
+
+        assertions.query("SELECT * FROM mock.tiny.nation_with_hidden_column WHERE nationkey = 1")
+                .assertThat()
+                .skippingTypesCheck()
+                .matches("VALUES (BIGINT '1', 'POLAND', BIGINT '1', 'al foxes promise slyly according to the regular accounts. bold requests alon')");
+        assertions.query("SELECT DISTINCT name FROM mock.tiny.nation_with_hidden_column WHERE nationkey = 1")
+                .assertThat()
+                .skippingTypesCheck()
+                .matches("VALUES 'POLAND'");
+        assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation_with_hidden_column SELECT * FROM mock.tiny.nation_with_hidden_column"))
+                .hasMessage("Insert into table with column masks is not supported");
+        assertThatThrownBy(() -> assertions.query("DELETE FROM mock.tiny.nation_with_hidden_column"))
+                .hasMessage("line 1:1: Delete from table with column mask");
+        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation_with_hidden_column SET name = 'X'"))
+                .hasMessage("line 1:1: Updating a table with column masks is not supported");
     }
 }

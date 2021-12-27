@@ -16,6 +16,8 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.metadata.Catalog.SecurityManagement;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -42,6 +44,7 @@ public class CatalogMetadata
     private final CatalogName systemTablesId;
     private final ConnectorMetadata systemTables;
     private final ConnectorTransactionHandle systemTablesTransactionHandle;
+    private final SecurityManagement securityManagement;
     private final Set<ConnectorCapabilities> connectorCapabilities;
 
     public CatalogMetadata(
@@ -54,6 +57,7 @@ public class CatalogMetadata
             CatalogName systemTablesId,
             ConnectorMetadata systemTables,
             ConnectorTransactionHandle systemTablesTransactionHandle,
+            SecurityManagement securityManagement,
             Set<ConnectorCapabilities> connectorCapabilities)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
@@ -65,6 +69,7 @@ public class CatalogMetadata
         this.systemTablesId = requireNonNull(systemTablesId, "systemTablesId is null");
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
         this.systemTablesTransactionHandle = requireNonNull(systemTablesTransactionHandle, "systemTablesTransactionHandle is null");
+        this.securityManagement = requireNonNull(securityManagement, "securityManagement is null");
         this.connectorCapabilities = immutableEnumSet(requireNonNull(connectorCapabilities, "connectorCapabilities is null"));
     }
 
@@ -106,6 +111,14 @@ public class CatalogMetadata
         throw new IllegalArgumentException("Unknown connector id: " + catalogName);
     }
 
+    public CatalogName getConnectorIdForSchema(CatalogSchemaName schema)
+    {
+        if (schema.getSchemaName().equals(INFORMATION_SCHEMA_NAME)) {
+            return informationSchemaId;
+        }
+        return catalogName;
+    }
+
     public CatalogName getConnectorId(Session session, QualifiedObjectName table)
     {
         if (table.getSchemaName().equals(INFORMATION_SCHEMA_NAME)) {
@@ -122,6 +135,11 @@ public class CatalogMetadata
     public List<CatalogName> listConnectorIds()
     {
         return ImmutableList.of(informationSchemaId, systemTablesId, catalogName);
+    }
+
+    public SecurityManagement getSecurityManagement()
+    {
+        return securityManagement;
     }
 
     public Set<ConnectorCapabilities> getConnectorCapabilities()

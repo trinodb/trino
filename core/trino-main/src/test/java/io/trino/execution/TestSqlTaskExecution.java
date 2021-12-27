@@ -47,11 +47,12 @@ import io.trino.operator.SourceOperator;
 import io.trino.operator.SourceOperatorFactory;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.operator.TaskContext;
-import io.trino.operator.TaskOutputOperator.TaskOutputOperatorFactory;
 import io.trino.operator.ValuesOperator.ValuesOperatorFactory;
+import io.trino.operator.output.TaskOutputOperator.TaskOutputOperatorFactory;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.memory.MemoryPoolId;
@@ -98,7 +99,6 @@ import static io.trino.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -115,7 +115,7 @@ public class TestSqlTaskExecution
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
     private static final CatalogName CONNECTOR_ID = new CatalogName("test");
     private static final Duration ASSERT_WAIT_TIMEOUT = new Duration(1, HOURS);
-    public static final TaskId TASK_ID = new TaskId("query", 0, 0);
+    public static final TaskId TASK_ID = new TaskId(new StageId("query", 0), 0, 0);
 
     @DataProvider
     public static Object[][] executionStrategies()
@@ -156,7 +156,7 @@ public class TestSqlTaskExecution
                     TABLE_SCAN_NODE_ID,
                     outputBuffer,
                     Function.identity(),
-                    new PagesSerdeFactory(createTestMetadataManager().getBlockEncodingSerde(), false));
+                    new PagesSerdeFactory(new TestingBlockEncodingSerde(), false));
             LocalExecutionPlan localExecutionPlan = new LocalExecutionPlan(
                     ImmutableList.of(new DriverFactory(
                             0,
@@ -172,7 +172,6 @@ public class TestSqlTaskExecution
                     taskStateMachine,
                     taskContext,
                     outputBuffer,
-                    ImmutableList.of(),
                     localExecutionPlan,
                     taskExecutor,
                     taskNotificationExecutor,
@@ -378,7 +377,7 @@ public class TestSqlTaskExecution
                     joinCNodeId,
                     outputBuffer,
                     Function.identity(),
-                    new PagesSerdeFactory(createTestMetadataManager().getBlockEncodingSerde(), false));
+                    new PagesSerdeFactory(new TestingBlockEncodingSerde(), false));
             TestingCrossJoinOperatorFactory joinOperatorFactoryA = new TestingCrossJoinOperatorFactory(2, joinANodeId, buildStatesA);
             TestingCrossJoinOperatorFactory joinOperatorFactoryB = new TestingCrossJoinOperatorFactory(102, joinBNodeId, buildStatesB);
             TestingCrossJoinOperatorFactory joinOperatorFactoryC = new TestingCrossJoinOperatorFactory(3, joinCNodeId, buildStatesC);
@@ -423,7 +422,6 @@ public class TestSqlTaskExecution
                     taskStateMachine,
                     taskContext,
                     outputBuffer,
-                    ImmutableList.of(),
                     localExecutionPlan,
                     taskExecutor,
                     taskNotificationExecutor,
@@ -605,7 +603,7 @@ public class TestSqlTaskExecution
                 driverYieldExecutor,
                 DataSize.of(1, MEGABYTE),
                 new SpillSpaceTracker(DataSize.of(1, GIGABYTE)));
-        return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, () -> {}, false, false, OptionalInt.empty());
+        return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, () -> {}, false, false);
     }
 
     private PartitionedOutputBuffer newTestingOutputBuffer(ScheduledExecutorService taskNotificationExecutor)
@@ -697,7 +695,7 @@ public class TestSqlTaskExecution
 
     public static class Pauser
     {
-        private volatile SettableFuture<?> future = SettableFuture.create();
+        private volatile SettableFuture<Void> future = SettableFuture.create();
 
         public Pauser()
         {
@@ -799,7 +797,7 @@ public class TestSqlTaskExecution
             private final OperatorContext operatorContext;
             private final PlanNodeId planNodeId;
 
-            private final SettableFuture<?> blocked = SettableFuture.create();
+            private final SettableFuture<Void> blocked = SettableFuture.create();
 
             private TestingSplit split;
 
@@ -868,7 +866,7 @@ public class TestSqlTaskExecution
             }
 
             @Override
-            public ListenableFuture<?> isBlocked()
+            public ListenableFuture<Void> isBlocked()
             {
                 return blocked;
             }
@@ -1001,7 +999,7 @@ public class TestSqlTaskExecution
             }
 
             @Override
-            public ListenableFuture<?> isBlocked()
+            public ListenableFuture<Void> isBlocked()
             {
                 if (!finishing) {
                     return NOT_BLOCKED;
@@ -1109,6 +1107,7 @@ public class TestSqlTaskExecution
             private final Lifespan lifespan;
 
             private final ListenableFuture<Integer> multiplierFuture;
+            private final ListenableFuture<Void> blockedFutureView;
             private final Queue<Page> pages = new ArrayDeque<>();
             private boolean finishing;
 
@@ -1124,6 +1123,7 @@ public class TestSqlTaskExecution
                             .mapToInt(Page::getPositionCount)
                             .sum();
                 }, directExecutor());
+                blockedFutureView = asVoid(multiplierFuture);
             }
 
             @Override
@@ -1142,9 +1142,9 @@ public class TestSqlTaskExecution
             }
 
             @Override
-            public ListenableFuture<?> isBlocked()
+            public ListenableFuture<Void> isBlocked()
             {
-                return multiplierFuture;
+                return blockedFutureView;
             }
 
             @Override
@@ -1178,6 +1178,11 @@ public class TestSqlTaskExecution
                 return result;
             }
         }
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 
     private static class BuildStates
@@ -1222,7 +1227,7 @@ public class TestSqlTaskExecution
         private static class BuildState
         {
             private final SettableFuture<List<Page>> pagesFuture = SettableFuture.create();
-            private final SettableFuture<?> lookupDoneFuture = SettableFuture.create();
+            private final SettableFuture<Void> lookupDoneFuture = SettableFuture.create();
 
             private final List<Page> pages = new ArrayList<>();
             private int pendingBuildCount;
@@ -1296,7 +1301,7 @@ public class TestSqlTaskExecution
                 }
             }
 
-            public ListenableFuture<?> getLookupDoneFuture()
+            public ListenableFuture<Void> getLookupDoneFuture()
             {
                 return lookupDoneFuture;
             }

@@ -61,8 +61,8 @@ public final class GlueToTrinoConverter
                 .setLocation(Optional.ofNullable(glueDb.getLocationUri()))
                 .setComment(Optional.ofNullable(glueDb.getDescription()))
                 .setParameters(firstNonNull(glueDb.getParameters(), ImmutableMap.of()))
-                .setOwnerName(PUBLIC_OWNER)
-                .setOwnerType(PrincipalType.ROLE)
+                .setOwnerName(Optional.of(PUBLIC_OWNER))
+                .setOwnerType(Optional.of(PrincipalType.ROLE))
                 .build();
     }
 
@@ -75,7 +75,7 @@ public final class GlueToTrinoConverter
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(dbName)
                 .setTableName(glueTable.getName())
-                .setOwner(nullToEmpty(glueTable.getOwner()))
+                .setOwner(Optional.ofNullable(glueTable.getOwner()))
                 // Athena treats missing table type as EXTERNAL_TABLE.
                 .setTableType(firstNonNull(glueTable.getTableType(), EXTERNAL_TABLE.name()))
                 .setDataColumns(convertColumns(sd.getColumns(), sd.getSerdeInfo().getSerializationLibrary()))

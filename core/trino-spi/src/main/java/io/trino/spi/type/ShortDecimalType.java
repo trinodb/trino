@@ -25,7 +25,7 @@ import io.trino.spi.function.ScalarOperator;
 import java.math.BigInteger;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
@@ -127,7 +127,7 @@ final class ShortDecimalType
     @ScalarOperator(HASH_CODE)
     private static long hashCodeOperator(long value)
     {
-        return value;
+        return AbstractLongType.hash(value);
     }
 
     @ScalarOperator(XX_HASH_64)
@@ -136,7 +136,7 @@ final class ShortDecimalType
         return XxHash64.hash(value);
     }
 
-    @ScalarOperator(COMPARISON)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(long left, long right)
     {
         return Long.compare(left, right);

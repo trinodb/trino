@@ -68,6 +68,7 @@ public class HiveTableProperties
     public static final String CSV_QUOTE = "csv_quote";
     public static final String CSV_ESCAPE = "csv_escape";
     public static final String TRANSACTIONAL = "transactional";
+    public static final String AUTO_PURGE = "auto_purge";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -153,7 +154,8 @@ public class HiveTableProperties
                 stringProperty(CSV_SEPARATOR, "CSV separator character", null, false),
                 stringProperty(CSV_QUOTE, "CSV quote character", null, false),
                 stringProperty(CSV_ESCAPE, "CSV escape character", null, false),
-                booleanProperty(TRANSACTIONAL, "Table is transactional", null, false));
+                booleanProperty(TRANSACTIONAL, "Table is transactional", null, false),
+                booleanProperty(AUTO_PURGE, "Skip trash when table or partition is deleted", null, false));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -276,5 +278,10 @@ public class HiveTableProperties
     public static Optional<Boolean> isTransactional(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((Boolean) tableProperties.get(TRANSACTIONAL));
+    }
+
+    public static Optional<Boolean> isAutoPurge(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Boolean) tableProperties.get(AUTO_PURGE));
     }
 }

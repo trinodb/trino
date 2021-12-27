@@ -17,9 +17,9 @@ import com.google.common.collect.ListMultimap;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.BoundSignature;
-import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.TypeManager;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.SimplePlanVisitor;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -51,13 +51,12 @@ public final class TypeValidator
     @Override
     public void validate(PlanNode plan,
             Session session,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {
-        plan.accept(new Visitor(session, metadata, typeAnalyzer, types), null);
+        plan.accept(new Visitor(session, plannerContext.getTypeManager(), typeAnalyzer, types), null);
     }
 
     private static class Visitor
@@ -68,10 +67,10 @@ public final class TypeValidator
         private final TypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
 
-        public Visitor(Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types)
+        public Visitor(Session session, TypeManager typeManager, TypeAnalyzer typeAnalyzer, TypeProvider types)
         {
             this.session = requireNonNull(session, "session is null");
-            this.typeCoercion = new TypeCoercion(metadata::getType);
+            this.typeCoercion = new TypeCoercion(typeManager::getType);
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.types = requireNonNull(types, "types is null");
         }

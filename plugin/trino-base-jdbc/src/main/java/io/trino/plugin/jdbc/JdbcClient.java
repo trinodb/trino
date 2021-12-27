@@ -31,10 +31,12 @@ import io.trino.spi.type.Type;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -63,7 +65,7 @@ public interface JdbcClient
 
     WriteMapping toWriteMapping(ConnectorSession session, Type type);
 
-    default boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
+    default boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
         return true;
     }
@@ -78,7 +80,7 @@ public interface JdbcClient
     Connection getConnection(ConnectorSession session, JdbcSplit split)
             throws SQLException;
 
-    default void abortReadConnection(Connection connection)
+    default void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
         // most drivers do not need this
@@ -106,7 +108,10 @@ public interface JdbcClient
 
     boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder);
 
-    boolean isTopNLimitGuaranteed(ConnectorSession session);
+    /**
+     * Reports whether result cardinality and ordering is guaranteed when {@link #supportsTopN(ConnectorSession, JdbcTableHandle, List)} returns true.
+     */
+    boolean isTopNGuaranteed(ConnectorSession session);
 
     boolean supportsLimit();
 
@@ -124,6 +129,11 @@ public interface JdbcClient
     void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName);
 
     void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName);
+
+    default void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> properties)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting table properties");
+    }
 
     void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
@@ -168,4 +178,8 @@ public interface JdbcClient
     {
         return Optional.empty();
     }
+
+    OptionalLong delete(ConnectorSession session, JdbcTableHandle handle);
+
+    void truncateTable(ConnectorSession session, JdbcTableHandle handle);
 }

@@ -32,8 +32,10 @@ import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.predicate.TupleDomain.columnWiseUnion;
@@ -41,10 +43,13 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestTupleDomain
 {
@@ -209,53 +214,92 @@ public class TestTupleDomain
     @Test
     public void testOverlaps()
     {
-        assertTrue(overlaps(
-                ImmutableMap.of(),
-                ImmutableMap.of()));
+        TupleDomain<ColumnHandle> emptyTupleDomain = TupleDomain.withColumnDomains(
+                Map.of(A, Domain.create(ValueSet.copyOf(BIGINT, List.of()), false)));
+        assertThat(emptyTupleDomain.overlaps(emptyTupleDomain)).isEqualTo(false);
 
-        assertTrue(overlaps(
-                ImmutableMap.of(),
-                ImmutableMap.of(A, Domain.singleValue(BIGINT, 0L))));
+        verifyOverlaps(ImmutableMap.of(), ImmutableMap.of(), true);
 
-        assertFalse(overlaps(
+        verifyOverlaps(
                 ImmutableMap.of(),
-                ImmutableMap.of(A, Domain.none(BIGINT))));
+                ImmutableMap.of(A, Domain.singleValue(BIGINT, 0L)),
+                true);
 
-        assertFalse(overlaps(
+        verifyOverlaps(
+                ImmutableMap.of(),
                 ImmutableMap.of(A, Domain.none(BIGINT)),
-                ImmutableMap.of(A, Domain.none(BIGINT))));
+                false);
 
-        assertTrue(overlaps(
+        verifyOverlaps(
+                ImmutableMap.of(A, Domain.none(BIGINT)),
+                ImmutableMap.of(A, Domain.none(BIGINT)),
+                false);
+
+        verifyOverlaps(
                 ImmutableMap.of(A, Domain.all(BIGINT)),
-                ImmutableMap.of(A, Domain.all(BIGINT))));
+                ImmutableMap.of(A, Domain.all(BIGINT)),
+                true);
 
-        assertTrue(overlaps(
+        verifyOverlaps(
                 ImmutableMap.of(A, Domain.singleValue(BIGINT, 1L)),
-                ImmutableMap.of(B, Domain.singleValue(VARCHAR, utf8Slice("value")))));
-
-        assertTrue(overlaps(
                 ImmutableMap.of(A, Domain.singleValue(BIGINT, 1L)),
-                ImmutableMap.of(A, Domain.all(BIGINT))));
+                true);
 
-        assertFalse(overlaps(
+        verifyOverlaps(
                 ImmutableMap.of(A, Domain.singleValue(BIGINT, 1L)),
-                ImmutableMap.of(A, Domain.singleValue(BIGINT, 2L))));
+                ImmutableMap.of(B, Domain.singleValue(VARCHAR, utf8Slice("value"))),
+                true);
 
-        assertFalse(overlaps(
+        verifyOverlaps(
+                ImmutableMap.of(A, Domain.singleValue(BIGINT, 1L)),
+                ImmutableMap.of(A, Domain.all(BIGINT)),
+                true);
+
+        verifyOverlaps(
+                ImmutableMap.of(A, Domain.singleValue(BIGINT, 1L)),
+                ImmutableMap.of(A, Domain.singleValue(BIGINT, 2L)),
+                false);
+
+        verifyOverlaps(
                 ImmutableMap.of(
                         A, Domain.singleValue(BIGINT, 1L),
                         B, Domain.singleValue(BIGINT, 1L)),
                 ImmutableMap.of(
                         A, Domain.singleValue(BIGINT, 1L),
-                        B, Domain.singleValue(BIGINT, 2L))));
+                        B, Domain.singleValue(BIGINT, 2L)),
+                false);
 
-        assertTrue(overlaps(
+        verifyOverlaps(
+                ImmutableMap.of(
+                        A, Domain.singleValue(BIGINT, 1L),
+                        B, Domain.singleValue(BIGINT, 1L)),
+                ImmutableMap.of(
+                        B, Domain.singleValue(BIGINT, 1L)),
+                true);
+
+        verifyOverlaps(
+                ImmutableMap.of(
+                        A, Domain.singleValue(BIGINT, 1L),
+                        B, Domain.singleValue(BIGINT, 1L)),
+                ImmutableMap.of(
+                        B, Domain.singleValue(BIGINT, 2L)),
+                false);
+
+        verifyOverlaps(
+                ImmutableMap.of(
+                        A, Domain.singleValue(BIGINT, 1L)),
+                ImmutableMap.of(
+                        B, Domain.singleValue(BIGINT, 2L)),
+                true);
+
+        verifyOverlaps(
                 ImmutableMap.of(
                         A, Domain.singleValue(BIGINT, 1L),
                         B, Domain.all(BIGINT)),
                 ImmutableMap.of(
                         A, Domain.singleValue(BIGINT, 1L),
-                        B, Domain.singleValue(BIGINT, 2L))));
+                        B, Domain.singleValue(BIGINT, 2L)),
+                true);
     }
 
     @Test
@@ -618,43 +662,6 @@ public class TestTupleDomain
     }
 
     @Test
-    public void testTransform()
-    {
-        Map<Integer, Domain> domains = ImmutableMap.<Integer, Domain>builder()
-                .put(1, Domain.singleValue(BIGINT, 1L))
-                .put(2, Domain.singleValue(BIGINT, 2L))
-                .put(3, Domain.singleValue(BIGINT, 3L))
-                .build();
-
-        TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
-        TupleDomain<String> transformed = domain.transform(Object::toString);
-
-        Map<String, Domain> expected = ImmutableMap.<String, Domain>builder()
-                .put("1", Domain.singleValue(BIGINT, 1L))
-                .put("2", Domain.singleValue(BIGINT, 2L))
-                .put("3", Domain.singleValue(BIGINT, 3L))
-                .build();
-
-        assertEquals(transformed.getDomains().get(), expected);
-    }
-
-    @Test
-    public void testTransformFailsWithNonUniqueMapping()
-    {
-        Map<Integer, Domain> domains = ImmutableMap.<Integer, Domain>builder()
-                .put(1, Domain.singleValue(BIGINT, 1L))
-                .put(2, Domain.singleValue(BIGINT, 2L))
-                .put(3, Domain.singleValue(BIGINT, 3L))
-                .build();
-
-        TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
-
-        assertThatThrownBy(() -> domain.transform(input -> "x"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Every argument must have a unique mapping. 2 maps to [ SortedRangeSet[type=bigint, ranges=1, {[2]}] ] and [ SortedRangeSet[type=bigint, ranges=1, {[1]}] ]");
-    }
-
-    @Test
     public void testTransformKeys()
     {
         Map<Integer, Domain> domains = ImmutableMap.<Integer, Domain>builder()
@@ -716,18 +723,108 @@ public class TestTupleDomain
                 .hasMessageMatching("mapping function \\S+ returned null for 2");
     }
 
-    private boolean overlaps(Map<ColumnHandle, Domain> domains1, Map<ColumnHandle, Domain> domains2)
+    @Test
+    public void testAsPredicate()
+    {
+        NullableValue doubleNull = NullableValue.asNull(DOUBLE);
+        NullableValue doubleZero = NullableValue.of(DOUBLE, 0.0);
+        NullableValue doubleOne = NullableValue.of(DOUBLE, 1.0);
+
+        ValueSet doublePositiveValues = ValueSet.ofRanges(Range.greaterThan(DOUBLE, 0.0));
+
+        TupleDomain<ColumnHandle> aJustZero = TupleDomain.withColumnDomains(Map.of(A, Domain.singleValue(DOUBLE, 0.0)));
+        TupleDomain<ColumnHandle> aJustNull = TupleDomain.withColumnDomains(Map.of(A, Domain.onlyNull(DOUBLE)));
+        TupleDomain<ColumnHandle> aZeroAndNull = TupleDomain.withColumnDomains(Map.of(A, Domain.create(ValueSet.of(DOUBLE, 0.0), true)));
+        TupleDomain<ColumnHandle> aPositive = TupleDomain.withColumnDomains(Map.of(A, Domain.create(doublePositiveValues, false)));
+        TupleDomain<ColumnHandle> bPositive = TupleDomain.withColumnDomains(Map.of(B, Domain.create(doublePositiveValues, false)));
+        TupleDomain<ColumnHandle> abPositive = TupleDomain.withColumnDomains(Map.of(
+                A, Domain.create(doublePositiveValues, false),
+                B, Domain.create(doublePositiveValues, false)));
+
+        // all
+        testAsPredicate(TupleDomain.all(), Map.of(), true);
+        testAsPredicate(TupleDomain.all(), Map.of(A, doubleZero), true);
+        testAsPredicate(TupleDomain.all(), Map.of(A, doubleNull), true);
+
+        // none
+        testAsPredicate(TupleDomain.none(), Map.of(), false);
+        testAsPredicate(TupleDomain.none(), Map.of(A, doubleZero), false);
+        testAsPredicate(TupleDomain.none(), Map.of(A, doubleNull), false);
+
+        // empty bindings
+        testAsPredicate(aJustZero, Map.of(), true);
+        testAsPredicate(aJustNull, Map.of(), true);
+        testAsPredicate(aPositive, Map.of(), true);
+        testAsPredicate(bPositive, Map.of(), true);
+        testAsPredicate(abPositive, Map.of(), true);
+
+        // constraint on same column
+        testAsPredicate(aJustZero, Map.of(A, doubleZero), true);
+        testAsPredicate(aJustZero, Map.of(A, doubleNull), false);
+
+        testAsPredicate(aJustNull, Map.of(A, doubleZero), false);
+        testAsPredicate(aJustNull, Map.of(A, doubleNull), true);
+
+        testAsPredicate(aZeroAndNull, Map.of(A, doubleZero), true);
+        testAsPredicate(aZeroAndNull, Map.of(A, doubleNull), true);
+
+        testAsPredicate(aPositive, Map.of(A, doubleZero), false);
+        testAsPredicate(aPositive, Map.of(A, doubleNull), false);
+
+        // constraint on different column
+        testAsPredicate(bPositive, Map.of(A, doubleZero), true);
+        testAsPredicate(bPositive, Map.of(A, doubleNull), true);
+
+        // constraint and binding keys intersecting
+        testAsPredicate(abPositive,
+                Map.of(
+                        B, doubleZero,
+                        C, doubleOne),
+                false);
+        testAsPredicate(abPositive,
+                Map.of(
+                        B, doubleOne,
+                        C, doubleOne),
+                true);
+        testAsPredicate(abPositive,
+                Map.of(
+                        B, doubleOne,
+                        C, doubleZero),
+                true);
+    }
+
+    private void testAsPredicate(TupleDomain<ColumnHandle> tupleDomain, Map<ColumnHandle, NullableValue> bindings, boolean expected)
+    {
+        Predicate<Map<ColumnHandle, NullableValue>> predicate = tupleDomain.asPredicate();
+        boolean result = predicate.test(bindings);
+        if (result != expected) {
+            fail(format("asPredicate(%s).test(%s) returned %s instead of %s", tupleDomain, bindings, result, expected));
+        }
+    }
+
+    private void verifyOverlaps(Map<ColumnHandle, Domain> domains1, Map<ColumnHandle, Domain> domains2, boolean expected)
     {
         TupleDomain<ColumnHandle> tupleDomain1 = TupleDomain.withColumnDomains(domains1);
         TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(domains2);
-        return tupleDomain1.overlaps(tupleDomain2);
+        assertThat(tupleDomain1.overlaps(tupleDomain2)).isEqualTo(expected);
+        assertThat(tupleDomain2.overlaps(tupleDomain1)).isEqualTo(expected);
+        assertThat(tupleDomain1.intersect(tupleDomain2).isNone()).isEqualTo(!expected);
     }
 
     private boolean contains(Map<ColumnHandle, Domain> superSet, Map<ColumnHandle, Domain> subSet)
     {
         TupleDomain<ColumnHandle> superSetTupleDomain = TupleDomain.withColumnDomains(superSet);
         TupleDomain<ColumnHandle> subSetTupleDomain = TupleDomain.withColumnDomains(subSet);
-        return superSetTupleDomain.contains(subSetTupleDomain);
+        boolean contains = superSetTupleDomain.contains(subSetTupleDomain);
+        // Results from computing contains using union and using the method directly should match
+        assertThat(contains).isEqualTo(containsFromUnion(superSetTupleDomain, subSetTupleDomain));
+        return contains;
+    }
+
+    private static boolean containsFromUnion(TupleDomain<ColumnHandle> superSetTupleDomain, TupleDomain<ColumnHandle> subSetTupleDomain)
+    {
+        return subSetTupleDomain.isNone()
+                || columnWiseUnion(superSetTupleDomain, subSetTupleDomain).equals(superSetTupleDomain);
     }
 
     private boolean equals(Map<ColumnHandle, Domain> domains1, Map<ColumnHandle, Domain> domains2)

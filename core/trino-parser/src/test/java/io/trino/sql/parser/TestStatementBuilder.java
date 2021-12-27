@@ -176,6 +176,8 @@ public class TestStatementBuilder
         printStatement("delete from foo");
         printStatement("delete from foo where a = b");
 
+        printStatement("truncate table foo");
+
         printStatement("values ('a', 1, 2.2), ('b', 2, 3.3)");
 
         printStatement("table foo");
@@ -204,6 +206,9 @@ public class TestStatementBuilder
         printStatement("alter table a.b.c rename to d.e.f");
 
         printStatement("alter table a.b.c rename column x to y");
+
+        printStatement("alter table foo set properties a='1'");
+        printStatement("alter table a.b.c set properties a=true, b=123, c='x'");
 
         printStatement("alter table a.b.c add column x bigint");
 
@@ -281,6 +286,12 @@ public class TestStatementBuilder
         printStatement("grant select on foo to alice with grant option");
         printStatement("grant all privileges on foo to alice");
         printStatement("grant delete, select on foo to role public");
+        printStatement("deny select on foo to alice");
+        printStatement("deny all privileges on foo to alice");
+        printStatement("deny delete, select on foo to role public");
+        printStatement("deny select on schema foo to alice");
+        printStatement("deny all privileges on schema foo to alice");
+        printStatement("deny delete, select on schema foo to role public");
         printStatement("revoke grant option for select on foo from alice");
         printStatement("revoke all privileges on foo from alice");
         printStatement("revoke insert, delete on foo from role public");

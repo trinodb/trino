@@ -32,6 +32,12 @@ public final class SqlPath
     private List<SqlPathElement> parsedPath;
     private final Optional<String> rawPath;
 
+    public SqlPath(String path)
+    {
+        requireNonNull(path, "path is null");
+        this.rawPath = Optional.of(path);
+    }
+
     @JsonCreator
     public SqlPath(@JsonProperty("rawPath") Optional<String> path)
     {

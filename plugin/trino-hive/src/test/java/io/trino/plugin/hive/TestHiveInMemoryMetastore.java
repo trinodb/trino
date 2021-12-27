@@ -18,9 +18,12 @@ import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.InMemoryThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import org.testng.SkipException;
+import org.testng.annotations.Test;
 
 import java.io.File;
 
+// staging directory is shared mutable state
+@Test(singleThreaded = true)
 public class TestHiveInMemoryMetastore
         extends AbstractTestHiveLocal
 {
@@ -31,6 +34,14 @@ public class TestHiveInMemoryMetastore
         ThriftMetastoreConfig metastoreConfig = new ThriftMetastoreConfig();
         InMemoryThriftMetastore hiveMetastore = new InMemoryThriftMetastore(baseDir, metastoreConfig);
         return new BridgingHiveMetastore(hiveMetastore);
+    }
+
+    @Test
+    public void forceTestNgToRespectSingleThreaded()
+    {
+        // TODO: Remove after updating TestNG to 7.4.0+ (https://github.com/trinodb/trino/issues/8571)
+        // TestNG doesn't enforce @Test(singleThreaded = true) when tests are defined in base class. According to
+        // https://github.com/cbeust/testng/issues/2361#issuecomment-688393166 a workaround it to add a dummy test to the leaf test class.
     }
 
     @Override

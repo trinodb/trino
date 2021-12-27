@@ -37,6 +37,7 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineExecutionStrategy;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.operator.TaskContext;
+import io.trino.spi.SplitWeight;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -67,6 +68,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.SystemSessionProperties.getInitialSplitsPerNode;
 import static io.trino.SystemSessionProperties.getMaxDriversPerTask;
 import static io.trino.SystemSessionProperties.getSplitConcurrencyAdjustmentInterval;
@@ -145,7 +147,6 @@ public class SqlTaskExecution
             TaskStateMachine taskStateMachine,
             TaskContext taskContext,
             OutputBuffer outputBuffer,
-            List<TaskSource> sources,
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
             Executor notificationExecutor,
@@ -163,7 +164,6 @@ public class SqlTaskExecution
             // The scheduleDriversForTaskLifeCycle method calls enqueueDriverSplitRunner, which registers a callback with access to this object.
             // The call back is accessed from another thread, so this code cannot be placed in the constructor.
             task.scheduleDriversForTaskLifeCycle();
-            task.addSources(sources);
             return task;
         }
     }
@@ -370,7 +370,7 @@ public class SqlTaskExecution
         DriverSplitRunnerFactory partitionedDriverFactory = driverRunnerFactoriesWithSplitLifeCycle.get(planNodeId);
         PendingSplitsForPlanNode pendingSplitsForPlanNode = pendingSplitsByPlanNode.get(planNodeId);
 
-        partitionedDriverFactory.splitsAdded(scheduledSplits.size());
+        partitionedDriverFactory.splitsAdded(scheduledSplits.size(), SplitWeight.rawValueSum(scheduledSplits, scheduledSplit -> scheduledSplit.getSplit().getSplitWeight()));
         for (ScheduledSplit scheduledSplit : scheduledSplits) {
             Lifespan lifespan = scheduledSplit.getSplit().getLifespan();
             checkLifespan(partitionedDriverFactory.getPipelineExecutionStrategy(), lifespan);
@@ -545,12 +545,12 @@ public class SqlTaskExecution
     private synchronized void enqueueDriverSplitRunner(boolean forceRunSplit, List<DriverSplitRunner> runners)
     {
         // schedule driver to be executed
-        List<ListenableFuture<?>> finishedFutures = taskExecutor.enqueueSplits(taskHandle, forceRunSplit, runners);
+        List<ListenableFuture<Void>> finishedFutures = taskExecutor.enqueueSplits(taskHandle, forceRunSplit, runners);
         checkState(finishedFutures.size() == runners.size(), "Expected %s futures but got %s", runners.size(), finishedFutures.size());
 
         // when driver completes, update state and fire events
         for (int i = 0; i < finishedFutures.size(); i++) {
-            ListenableFuture<?> finishedFuture = finishedFutures.get(i);
+            ListenableFuture<Void> finishedFuture = finishedFutures.get(i);
             DriverSplitRunner splitRunner = runners.get(i);
 
             // record new driver
@@ -932,7 +932,8 @@ public class SqlTaskExecution
             status.incrementPendingCreation(pipelineContext.getPipelineId(), lifespan);
             // create driver context immediately so the driver existence is recorded in the stats
             // the number of drivers is used to balance work across nodes
-            DriverContext driverContext = pipelineContext.addDriverContext(lifespan);
+            long splitWeight = partitionedSplit == null ? 0 : partitionedSplit.getSplit().getSplitWeight().getRawValue();
+            DriverContext driverContext = pipelineContext.addDriverContext(lifespan, splitWeight);
             return new DriverSplitRunner(this, driverContext, partitionedSplit, lifespan);
         }
 
@@ -1002,9 +1003,9 @@ public class SqlTaskExecution
             return driverFactory.getDriverInstances();
         }
 
-        public void splitsAdded(int count)
+        public void splitsAdded(int count, long weightSum)
         {
-            pipelineContext.splitsAdded(count);
+            pipelineContext.splitsAdded(count, weightSum);
         }
     }
 
@@ -1056,13 +1057,13 @@ public class SqlTaskExecution
         }
 
         @Override
-        public ListenableFuture<?> processFor(Duration duration)
+        public ListenableFuture<Void> processFor(Duration duration)
         {
             Driver driver;
             synchronized (this) {
                 // if close() was called before we get here, there's not point in even creating the driver
                 if (closed) {
-                    return Futures.immediateFuture(null);
+                    return immediateVoidFuture();
                 }
 
                 if (this.driver == null) {

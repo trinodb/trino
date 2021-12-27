@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
@@ -34,6 +35,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 public class DynamicFilterConfig
 {
     private boolean enableDynamicFiltering = true;
+    private boolean enableCoordinatorDynamicFiltersDistribution = true;
     private boolean enableLargeDynamicFilters;
     private int serviceThreadCount = 2;
 
@@ -61,6 +63,19 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setEnableDynamicFiltering(boolean enableDynamicFiltering)
     {
         this.enableDynamicFiltering = enableDynamicFiltering;
+        return this;
+    }
+
+    public boolean isEnableCoordinatorDynamicFiltersDistribution()
+    {
+        return enableCoordinatorDynamicFiltersDistribution;
+    }
+
+    @Config("enable-coordinator-dynamic-filters-distribution")
+    @ConfigDescription("Enable distribution of dynamic filters from coordinator to all workers")
+    public DynamicFilterConfig setEnableCoordinatorDynamicFiltersDistribution(boolean enableCoordinatorDynamicFiltersDistribution)
+    {
+        this.enableCoordinatorDynamicFiltersDistribution = enableCoordinatorDynamicFiltersDistribution;
         return this;
     }
 

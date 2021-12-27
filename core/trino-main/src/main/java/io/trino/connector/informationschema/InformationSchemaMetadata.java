@@ -282,7 +282,7 @@ public class InformationSchemaMetadata
         }
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
-        return Optional.of(metadata.listRoles(session, catalogName)
+        return Optional.of(metadata.listRoles(session, Optional.of(catalogName))
                 .stream()
                 .filter(role -> predicate.get().test(roleAsFixedValues(role)))
                 .collect(toImmutableSet()));
@@ -357,7 +357,9 @@ public class InformationSchemaMetadata
                             .filter(this::isLowerCase)
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
                     .filter(objectName -> {
-                        if (!isColumnsEnumeratingTable(informationSchemaTable) || metadata.getView(session, objectName).isPresent()) {
+                        if (!isColumnsEnumeratingTable(informationSchemaTable) ||
+                                metadata.isMaterializedView(session, objectName) ||
+                                metadata.isView(session, objectName)) {
                             return true;
                         }
 

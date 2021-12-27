@@ -16,7 +16,7 @@ package io.trino.metadata;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 
 public class AnalyzePropertyManager
-        extends AbstractPropertyManager
+        extends AbstractCatalogPropertyManager
 {
     public AnalyzePropertyManager()
     {

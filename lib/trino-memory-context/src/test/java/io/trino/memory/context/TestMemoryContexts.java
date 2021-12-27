@@ -13,12 +13,12 @@
  */
 package io.trino.memory.context;
 
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -29,7 +29,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestMemoryContexts
 {
-    private static final ListenableFuture<?> NOT_BLOCKED = Futures.immediateFuture(null);
+    private static final ListenableFuture<Void> NOT_BLOCKED = immediateVoidFuture();
     private static final long GUARANTEED_MEMORY = DataSize.of(1, MEGABYTE).toBytes();
 
     @Test
@@ -169,7 +169,7 @@ public class TestMemoryContexts
     {
         private long reservation;
         private final long maxMemory;
-        private SettableFuture<?> future;
+        private SettableFuture<Void> future;
 
         public TestMemoryReservationHandler(long maxMemory)
         {
@@ -182,7 +182,7 @@ public class TestMemoryContexts
         }
 
         @Override
-        public ListenableFuture<?> reserveMemory(String allocationTag, long delta)
+        public ListenableFuture<Void> reserveMemory(String allocationTag, long delta)
         {
             reservation += delta;
             if (delta >= 0) {

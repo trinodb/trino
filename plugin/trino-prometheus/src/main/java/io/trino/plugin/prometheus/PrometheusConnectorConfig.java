@@ -35,6 +35,7 @@ public class PrometheusConnectorConfig
     private Duration queryChunkSizeDuration = new Duration(1, TimeUnit.DAYS);
     private Duration maxQueryRangeDuration = new Duration(21, TimeUnit.DAYS);
     private Duration cacheDuration = new Duration(30, TimeUnit.SECONDS);
+    private Duration readTimeout = new Duration(10, TimeUnit.SECONDS);
     private File bearerTokenFile;
 
     @NotNull
@@ -103,6 +104,20 @@ public class PrometheusConnectorConfig
     public PrometheusConnectorConfig setBearerTokenFile(File bearerTokenFile)
     {
         this.bearerTokenFile = bearerTokenFile;
+        return this;
+    }
+
+    @MinDuration("1s")
+    public Duration getReadTimeout()
+    {
+        return readTimeout;
+    }
+
+    @Config("prometheus.read-timeout")
+    @ConfigDescription("How much time a query to Prometheus has before timing out")
+    public PrometheusConnectorConfig setReadTimeout(Duration readTimeout)
+    {
+        this.readTimeout = readTimeout;
         return this;
     }
 

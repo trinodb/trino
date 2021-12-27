@@ -27,9 +27,9 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.TryCatch;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.ErrorCodeSupplier;
@@ -97,10 +97,7 @@ public final class MapTransformValuesFunction
                                 mapType(new TypeSignature("K"), new TypeSignature("V1")),
                                 functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2"))),
                         false),
-                false,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, ImmutableList.of(false, false)),
                 false,
                 false,
                 "Apply lambda to each entry of the map and transform the value",
@@ -108,19 +105,21 @@ public final class MapTransformValuesFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        Type keyType = functionBinding.getTypeVariable("K");
-        Type valueType = functionBinding.getTypeVariable("V1");
-        Type transformedValueType = functionBinding.getTypeVariable("V2");
-        Type resultMapType = functionBinding.getBoundSignature().getReturnType();
+        MapType inputMapType = (MapType) boundSignature.getArgumentType(0);
+        Type inputValueType = inputMapType.getValueType();
+        MapType outputMapType = (MapType) boundSignature.getReturnType();
+        Type keyType = outputMapType.getKeyType();
+        Type outputValueType = outputMapType.getValueType();
+
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),
                 ImmutableList.of(BinaryFunctionInterface.class),
-                generateTransform(keyType, valueType, transformedValueType, resultMapType),
-                Optional.of(STATE_FACTORY.bindTo(resultMapType)));
+                generateTransform(keyType, inputValueType, outputValueType, outputMapType),
+                Optional.of(STATE_FACTORY.bindTo(outputMapType)));
     }
 
     @UsedByGeneratedCode

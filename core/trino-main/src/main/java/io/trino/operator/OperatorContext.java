@@ -14,10 +14,14 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
+import io.airlift.stats.TDigest;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.memory.QueryContextVisitor;
@@ -25,8 +29,10 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.OperationTimer.OperationTiming;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
@@ -44,7 +50,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static io.trino.operator.Operator.NOT_BLOCKED;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -56,7 +61,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 /**
  * Contains information about {@link Operator} execution.
  * <p>
- * Not thread-safe. Only {@link #getOperatorStats()}, {@link #getNestedOperatorStats()}
+ * Not thread-safe. Only {@link #getNestedOperatorStats()}
  * and revocable-memory-related operations are thread-safe.
  */
 public class OperatorContext
@@ -82,18 +87,20 @@ public class OperatorContext
     private final CounterStat outputPositions = new CounterStat();
 
     private final AtomicLong dynamicFilterSplitsProcessed = new AtomicLong();
+    private final AtomicReference<Metrics> metrics = new AtomicReference<>(Metrics.EMPTY);  // this is not incremental, but gets overwritten by the latest value.
+    private final AtomicReference<Metrics> connectorMetrics = new AtomicReference<>(Metrics.EMPTY); // this is not incremental, but gets overwritten by the latest value.
 
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
-    private final AtomicReference<SettableFuture<?>> memoryFuture;
-    private final AtomicReference<SettableFuture<?>> revocableMemoryFuture;
+    private final AtomicReference<SettableFuture<Void>> memoryFuture;
+    private final AtomicReference<SettableFuture<Void>> revocableMemoryFuture;
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
 
     private final OperationTiming finishTiming = new OperationTiming();
 
     private final OperatorSpillContext spillContext;
-    private final AtomicReference<Supplier<OperatorInfo>> infoSupplier = new AtomicReference<>();
+    private final AtomicReference<Supplier<? extends OperatorInfo>> infoSupplier = new AtomicReference<>();
     private final AtomicReference<Supplier<List<OperatorStats>>> nestedOperatorStatsSupplier = new AtomicReference<>();
 
     private final AtomicLong peakUserMemoryReservation = new AtomicLong();
@@ -218,12 +225,27 @@ public class OperatorContext
         dynamicFilterSplitsProcessed.getAndAdd(dynamicFilterSplits);
     }
 
+    /**
+     * Overwrites the metrics with the latest one.
+     *
+     * @param metrics Latest operator's metrics.
+     */
+    public void setLatestMetrics(Metrics metrics)
+    {
+        this.metrics.set(metrics);
+    }
+
+    public void setLatestConnectorMetrics(Metrics metrics)
+    {
+        this.connectorMetrics.set(metrics);
+    }
+
     public void recordPhysicalWrittenData(long sizeInBytes)
     {
         physicalWrittenDataSize.getAndAdd(sizeInBytes);
     }
 
-    public void recordBlocked(ListenableFuture<?> blocked)
+    public void recordBlocked(ListenableFuture<Void> blocked)
     {
         requireNonNull(blocked, "blocked is null");
 
@@ -243,12 +265,12 @@ public class OperatorContext
         operationTimer.recordOperationComplete(finishTiming);
     }
 
-    public ListenableFuture<?> isWaitingForMemory()
+    public ListenableFuture<Void> isWaitingForMemory()
     {
         return memoryFuture.get();
     }
 
-    public ListenableFuture<?> isWaitingForRevocableMemory()
+    public ListenableFuture<Void> isWaitingForRevocableMemory()
     {
         return revocableMemoryFuture.get();
     }
@@ -331,12 +353,12 @@ public class OperatorContext
         return operatorMemoryContext.getRevocableMemory();
     }
 
-    private static void updateMemoryFuture(ListenableFuture<?> memoryPoolFuture, AtomicReference<SettableFuture<?>> targetFutureReference)
+    private static void updateMemoryFuture(ListenableFuture<Void> memoryPoolFuture, AtomicReference<SettableFuture<Void>> targetFutureReference)
     {
         if (!memoryPoolFuture.isDone()) {
-            SettableFuture<?> currentMemoryFuture = targetFutureReference.get();
+            SettableFuture<Void> currentMemoryFuture = targetFutureReference.get();
             while (currentMemoryFuture.isDone()) {
-                SettableFuture<?> settableFuture = SettableFuture.create();
+                SettableFuture<Void> settableFuture = SettableFuture.create();
                 // We can't replace one that's not done, because the task may be blocked on that future
                 if (targetFutureReference.compareAndSet(currentMemoryFuture, settableFuture)) {
                     currentMemoryFuture = settableFuture;
@@ -346,7 +368,7 @@ public class OperatorContext
                 }
             }
 
-            SettableFuture<?> finalMemoryFuture = currentMemoryFuture;
+            SettableFuture<Void> finalMemoryFuture = currentMemoryFuture;
             // Create a new future, so that this operator can un-block before the pool does, if it's moved to a new pool
             memoryPoolFuture.addListener(() -> finalMemoryFuture.set(null), directExecutor());
         }
@@ -357,6 +379,17 @@ public class OperatorContext
         // reset memory revocation listener so that OperatorContext doesn't hold any references to Driver instance
         synchronized (this) {
             memoryRevocationRequestListener = null;
+        }
+        // memoize the result of and then clear any reference to the original suppliers (which might otherwise retain operators or other large objects)
+        Supplier<? extends OperatorInfo> infoSupplier = this.infoSupplier.get();
+        if (infoSupplier != null) {
+            OperatorInfo info = infoSupplier.get();
+            this.infoSupplier.set(info == null ? null : Suppliers.ofInstance(info));
+        }
+        Supplier<List<OperatorStats>> nestedOperatorStatsSupplier = this.nestedOperatorStatsSupplier.get();
+        if (nestedOperatorStatsSupplier != null) {
+            List<OperatorStats> nestedStats = nestedOperatorStatsSupplier.get();
+            this.nestedOperatorStatsSupplier.set(nestedStats == null ? null : Suppliers.ofInstance(ImmutableList.copyOf(nestedStats)));
         }
 
         operatorMemoryContext.close();
@@ -441,7 +474,7 @@ public class OperatorContext
         }
     }
 
-    public void setInfoSupplier(Supplier<OperatorInfo> infoSupplier)
+    public void setInfoSupplier(Supplier<? extends OperatorInfo> infoSupplier)
     {
         requireNonNull(infoSupplier, "infoSupplier is null");
         this.infoSupplier.set(infoSupplier);
@@ -484,9 +517,29 @@ public class OperatorContext
         return format("%s-%s", operatorType, planNodeId);
     }
 
-    public OperatorStats getOperatorStats()
+    public List<OperatorStats> getNestedOperatorStats()
     {
-        Supplier<OperatorInfo> infoSupplier = this.infoSupplier.get();
+        Supplier<List<OperatorStats>> nestedOperatorStatsSupplier = this.nestedOperatorStatsSupplier.get();
+        return Optional.ofNullable(nestedOperatorStatsSupplier)
+                .map(Supplier::get)
+                .orElseGet(() -> ImmutableList.of(getOperatorStats()));
+    }
+
+    public static Metrics getOperatorMetrics(Metrics operatorMetrics, long inputPositions)
+    {
+        TDigest digest = new TDigest();
+        digest.add(inputPositions);
+        return operatorMetrics.mergeWith(new Metrics(ImmutableMap.of("Input distribution", new TDigestHistogram(digest))));
+    }
+
+    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
+    {
+        return visitor.visitOperatorContext(this, context);
+    }
+
+    private OperatorStats getOperatorStats()
+    {
+        Supplier<? extends OperatorInfo> infoSupplier = this.infoSupplier.get();
         OperatorInfo info = Optional.ofNullable(infoSupplier).map(Supplier::get).orElse(null);
 
         long inputPositionsCount = inputPositions.getTotalCount();
@@ -503,24 +556,26 @@ public class OperatorContext
                 addInputTiming.getCalls(),
                 new Duration(addInputTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                succinctBytes(physicalInputDataSize.getTotalCount()),
+                DataSize.ofBytes(physicalInputDataSize.getTotalCount()),
                 physicalInputPositions.getTotalCount(),
-                succinctBytes(internalNetworkInputDataSize.getTotalCount()),
+                DataSize.ofBytes(internalNetworkInputDataSize.getTotalCount()),
                 internalNetworkPositions.getTotalCount(),
-                succinctBytes(physicalInputDataSize.getTotalCount() + internalNetworkInputDataSize.getTotalCount()),
-                succinctBytes(inputDataSize.getTotalCount()),
+                DataSize.ofBytes(physicalInputDataSize.getTotalCount() + internalNetworkInputDataSize.getTotalCount()),
+                DataSize.ofBytes(inputDataSize.getTotalCount()),
                 inputPositionsCount,
                 (double) inputPositionsCount * inputPositionsCount,
 
                 getOutputTiming.getCalls(),
                 new Duration(getOutputTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(getOutputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                succinctBytes(outputDataSize.getTotalCount()),
+                DataSize.ofBytes(outputDataSize.getTotalCount()),
                 outputPositions.getTotalCount(),
 
                 dynamicFilterSplitsProcessed.get(),
+                getOperatorMetrics(metrics.get(), inputPositionsCount),
+                connectorMetrics.get(),
 
-                succinctBytes(physicalWrittenDataSize.get()),
+                DataSize.ofBytes(physicalWrittenDataSize.get()),
 
                 new Duration(blockedWallNanos.get(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
@@ -528,32 +583,19 @@ public class OperatorContext
                 new Duration(finishTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(finishTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
 
-                succinctBytes(operatorMemoryContext.getUserMemory()),
-                succinctBytes(getReservedRevocableBytes()),
-                succinctBytes(operatorMemoryContext.getSystemMemory()),
+                DataSize.ofBytes(operatorMemoryContext.getUserMemory()),
+                DataSize.ofBytes(getReservedRevocableBytes()),
+                DataSize.ofBytes(operatorMemoryContext.getSystemMemory()),
 
-                succinctBytes(peakUserMemoryReservation.get()),
-                succinctBytes(peakSystemMemoryReservation.get()),
-                succinctBytes(peakRevocableMemoryReservation.get()),
-                succinctBytes(peakTotalMemoryReservation.get()),
+                DataSize.ofBytes(peakUserMemoryReservation.get()),
+                DataSize.ofBytes(peakSystemMemoryReservation.get()),
+                DataSize.ofBytes(peakRevocableMemoryReservation.get()),
+                DataSize.ofBytes(peakTotalMemoryReservation.get()),
 
-                succinctBytes(spillContext.getSpilledBytes()),
+                DataSize.ofBytes(spillContext.getSpilledBytes()),
 
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
-    }
-
-    public List<OperatorStats> getNestedOperatorStats()
-    {
-        Supplier<List<OperatorStats>> nestedOperatorStatsSupplier = this.nestedOperatorStatsSupplier.get();
-        return Optional.ofNullable(nestedOperatorStatsSupplier)
-                .map(Supplier::get)
-                .orElseGet(() -> ImmutableList.of(getOperatorStats()));
-    }
-
-    public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
-    {
-        return visitor.visitOperatorContext(this, context);
     }
 
     private static long nanosBetween(long start, long end)
@@ -643,11 +685,11 @@ public class OperatorContext
             implements LocalMemoryContext
     {
         private final LocalMemoryContext delegate;
-        private final AtomicReference<SettableFuture<?>> memoryFuture;
+        private final AtomicReference<SettableFuture<Void>> memoryFuture;
         private final Runnable allocationListener;
         private final boolean closeable;
 
-        InternalLocalMemoryContext(LocalMemoryContext delegate, AtomicReference<SettableFuture<?>> memoryFuture, Runnable allocationListener, boolean closeable)
+        InternalLocalMemoryContext(LocalMemoryContext delegate, AtomicReference<SettableFuture<Void>> memoryFuture, Runnable allocationListener, boolean closeable)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
             this.memoryFuture = requireNonNull(memoryFuture, "memoryFuture is null");
@@ -662,13 +704,13 @@ public class OperatorContext
         }
 
         @Override
-        public ListenableFuture<?> setBytes(long bytes)
+        public ListenableFuture<Void> setBytes(long bytes)
         {
             if (bytes == delegate.getBytes()) {
                 return NOT_BLOCKED;
             }
 
-            ListenableFuture<?> blocked = delegate.setBytes(bytes);
+            ListenableFuture<Void> blocked = delegate.setBytes(bytes);
             updateMemoryFuture(blocked, memoryFuture);
             allocationListener.run();
             return blocked;
@@ -700,11 +742,11 @@ public class OperatorContext
             implements AggregatedMemoryContext
     {
         private final AggregatedMemoryContext delegate;
-        private final AtomicReference<SettableFuture<?>> memoryFuture;
+        private final AtomicReference<SettableFuture<Void>> memoryFuture;
         private final Runnable allocationListener;
         private final boolean closeable;
 
-        InternalAggregatedMemoryContext(AggregatedMemoryContext delegate, AtomicReference<SettableFuture<?>> memoryFuture, Runnable allocationListener, boolean closeable)
+        InternalAggregatedMemoryContext(AggregatedMemoryContext delegate, AtomicReference<SettableFuture<Void>> memoryFuture, Runnable allocationListener, boolean closeable)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
             this.memoryFuture = requireNonNull(memoryFuture, "memoryFuture is null");

@@ -103,6 +103,18 @@ public class ConnectorViewDefinition
         return runAsInvoker;
     }
 
+    public ConnectorViewDefinition withoutOwner()
+    {
+        return new ConnectorViewDefinition(
+                originalSql,
+                catalog,
+                schema,
+                columns,
+                comment,
+                Optional.empty(),
+                runAsInvoker);
+    }
+
     @Override
     public String toString()
     {

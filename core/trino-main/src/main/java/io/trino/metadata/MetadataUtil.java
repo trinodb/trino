@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.trino.Session;
+import io.trino.connector.CatalogName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnMetadata;
@@ -35,9 +36,12 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.SystemSessionProperties.isLegacyCatalogRoles;
+import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
-import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -100,16 +104,10 @@ public final class MetadataUtil
         return null;
     }
 
-    public static String getSessionCatalog(Metadata metadata, Session session, Node node)
+    public static CatalogName getRequiredCatalogHandle(Metadata metadata, Session session, Node node, String catalogName)
     {
-        String catalog = session.getCatalog().orElseThrow(() ->
-                semanticException(MISSING_CATALOG_NAME, node, "Session catalog must be set"));
-
-        if (metadata.getCatalogHandle(session, catalog).isEmpty()) {
-            throw new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalog);
-        }
-
-        return catalog;
+        return metadata.getCatalogHandle(session, catalogName)
+                .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, node, "Catalog '%s' does not exist", catalogName));
     }
 
     public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
@@ -203,6 +201,39 @@ public final class MetadataUtil
         }
         QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), table);
         return metadata.getTableHandle(session, name).isPresent();
+    }
+
+    public static void checkRoleExists(Session session, Node node, Metadata metadata, TrinoPrincipal principal, Optional<String> catalog)
+    {
+        if (principal.getType() == ROLE) {
+            checkRoleExists(session, node, metadata, principal.getName(), catalog);
+        }
+    }
+
+    public static void checkRoleExists(Session session, Node node, Metadata metadata, String role, Optional<String> catalog)
+    {
+        if (!metadata.roleExists(session, role, catalog)) {
+            throw semanticException(ROLE_NOT_FOUND, node, "Role '%s' does not exist%s", role, catalog.map(c -> format(" in catalog '%s'", c)).orElse(""));
+        }
+    }
+
+    public static Optional<String> processRoleCommandCatalog(Metadata metadata, Session session, Node node, Optional<String> catalog)
+    {
+        boolean legacyCatalogRoles = isLegacyCatalogRoles(session);
+        // old role commands use only supported catalog roles and used session catalog as the default
+        if (catalog.isEmpty() && legacyCatalogRoles) {
+            catalog = session.getCatalog();
+            if (catalog.isEmpty()) {
+                throw semanticException(MISSING_CATALOG_NAME, node, "Session catalog must be set");
+            }
+        }
+        catalog.ifPresent(catalogName -> getRequiredCatalogHandle(metadata, session, node, catalogName));
+
+        if (catalog.isPresent() && !metadata.isCatalogManagedSecurity(session, catalog.get())) {
+            throw semanticException(NOT_SUPPORTED, node, "Catalog '%s' does not support role management", catalog.get());
+        }
+
+        return catalog;
     }
 
     public static class TableMetadataBuilder

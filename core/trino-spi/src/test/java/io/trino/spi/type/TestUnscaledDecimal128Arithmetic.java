@@ -33,6 +33,7 @@ import static io.trino.spi.type.UnscaledDecimal128Arithmetic.addWithOverflow;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.divide;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.isNegative;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.isZero;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.multiply;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.multiply256Destructive;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.overflows;
@@ -42,6 +43,7 @@ import static io.trino.spi.type.UnscaledDecimal128Arithmetic.shiftLeftDestructiv
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.shiftLeftMultiPrecision;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.shiftRight;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.shiftRightMultiPrecision;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.toUnscaledString;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
@@ -103,13 +105,27 @@ public class TestUnscaledDecimal128Arithmetic
         assertRescale(unscaledDecimal(10), 0, unscaledDecimal(10L));
         assertRescale(unscaledDecimal(-10), 0, unscaledDecimal(-10L));
         assertRescale(unscaledDecimal(10), -20, unscaledDecimal(0L));
+        assertRescale(unscaledDecimal(14), -1, unscaledDecimal(1));
+        assertRescale(unscaledDecimal(14), -2, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(14), -3, unscaledDecimal(0));
         assertRescale(unscaledDecimal(15), -1, unscaledDecimal(2));
+        assertRescale(unscaledDecimal(15), -2, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(15), -3, unscaledDecimal(0));
         assertRescale(unscaledDecimal(1050), -3, unscaledDecimal(1));
         assertRescale(unscaledDecimal(15), 1, unscaledDecimal(150));
         assertRescale(unscaledDecimal(-14), -1, unscaledDecimal(-1));
+        assertRescale(unscaledDecimal(-14), -2, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(-14), -20, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(-15), -1, unscaledDecimal(-2));
+        assertRescale(unscaledDecimal(-15), -2, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(-15), -20, unscaledDecimal(0));
         assertRescale(unscaledDecimal(-14), 1, unscaledDecimal(-140));
         assertRescale(unscaledDecimal(0), 1, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(0), -1, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(0), -20, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(4), -1, unscaledDecimal(0));
         assertRescale(unscaledDecimal(5), -1, unscaledDecimal(1));
+        assertRescale(unscaledDecimal(5), -2, unscaledDecimal(0));
         assertRescale(unscaledDecimal(10), 10, unscaledDecimal(100000000000L));
         assertRescale(unscaledDecimal("150000000000000000000"), -20, unscaledDecimal(2));
         assertRescale(unscaledDecimal("-140000000000000000000"), -20, unscaledDecimal(-1));
@@ -135,13 +151,35 @@ public class TestUnscaledDecimal128Arithmetic
     @Test
     public void testAdd()
     {
-        assertEquals(add(unscaledDecimal(0), unscaledDecimal(0)), unscaledDecimal(0));
-        assertEquals(add(unscaledDecimal(1), unscaledDecimal(0)), unscaledDecimal(1));
-        assertEquals(add(unscaledDecimal(1), unscaledDecimal(1)), unscaledDecimal(2));
+        assertAdd(unscaledDecimal(0), unscaledDecimal(0), unscaledDecimal(0));
+        assertAdd(unscaledDecimal(1), unscaledDecimal(0), unscaledDecimal(1));
+        assertAdd(unscaledDecimal(1), unscaledDecimal(1), unscaledDecimal(2));
+        assertAdd(unscaledDecimal(-1), unscaledDecimal(0), unscaledDecimal(-1));
+        assertAdd(unscaledDecimal(-1), unscaledDecimal(-1), unscaledDecimal(-2));
+        assertAdd(unscaledDecimal(-1), unscaledDecimal(1), unscaledDecimal(0));
+        assertAdd(unscaledDecimal(1), unscaledDecimal(-1), unscaledDecimal(0));
+        assertAdd(unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal(0), unscaledDecimal("10000000000000000000000000000000000000"));
+        assertAdd(unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal("20000000000000000000000000000000000000"));
+        assertAdd(unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal(0), unscaledDecimal("-10000000000000000000000000000000000000"));
+        assertAdd(unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal("-20000000000000000000000000000000000000"));
+        assertAdd(unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal(0));
+        assertAdd(unscaledDecimal("10000000000000000000000000000000000000"), unscaledDecimal("-10000000000000000000000000000000000000"), unscaledDecimal(0));
 
-        assertEquals(add(unscaledDecimal(1L << 32), unscaledDecimal(0)), unscaledDecimal(1L << 32));
-        assertEquals(add(unscaledDecimal(1L << 31), unscaledDecimal(1L << 31)), unscaledDecimal(1L << 32));
-        assertEquals(add(unscaledDecimal(1L << 32), unscaledDecimal(1L << 33)), unscaledDecimal((1L << 32) + (1L << 33)));
+        assertAdd(unscaledDecimal(1L << 32), unscaledDecimal(0), unscaledDecimal(1L << 32));
+        assertAdd(unscaledDecimal(1L << 31), unscaledDecimal(1L << 31), unscaledDecimal(1L << 32));
+        assertAdd(unscaledDecimal(1L << 32), unscaledDecimal(1L << 33), unscaledDecimal((1L << 32) + (1L << 33)));
+    }
+
+    @Test
+    public void testThrowIfOverflows()
+    {
+        Slice decimal = add(unscaledDecimal(MAX_DECIMAL_UNSCALED_VALUE), unscaledDecimal(1));
+        assertThatThrownBy(() -> throwIfOverflows(decimal))
+                .isInstanceOf(ArithmeticException.class)
+                .hasMessage("Decimal overflow");
+        assertThatThrownBy(() -> throwIfOverflows(decimal.getLong(0), decimal.getLong(SIZE_OF_LONG)))
+                .isInstanceOf(ArithmeticException.class)
+                .hasMessage("Decimal overflow");
     }
 
     @Test
@@ -159,11 +197,15 @@ public class TestUnscaledDecimal128Arithmetic
     {
         assertMultiply(0, 0, 0);
         assertMultiply(1, 0, 0);
+        assertMultiply(0, 1, 0);
+        assertMultiply(-1, 0, 0);
+        assertMultiply(0, -1, 0);
         assertMultiply(1, 1, 1);
         assertMultiply(1, -1, -1);
         assertMultiply(-1, -1, 1);
         assertMultiply(MAX_DECIMAL_UNSCALED_VALUE, 0, 0);
         assertMultiply(MAX_DECIMAL_UNSCALED_VALUE, 1, MAX_DECIMAL_UNSCALED_VALUE);
+        assertMultiply(MIN_DECIMAL_UNSCALED_VALUE, 0, 0);
         assertMultiply(MIN_DECIMAL_UNSCALED_VALUE, 1, MIN_DECIMAL_UNSCALED_VALUE);
         assertMultiply(MAX_DECIMAL_UNSCALED_VALUE, -1, MIN_DECIMAL_UNSCALED_VALUE);
         assertMultiply(MIN_DECIMAL_UNSCALED_VALUE, -1, MAX_DECIMAL_UNSCALED_VALUE);
@@ -201,6 +243,16 @@ public class TestUnscaledDecimal128Arithmetic
     {
         assertMultiplyOverflows(unscaledDecimal("99999999999999"), unscaledDecimal("-10000000000000000000000000"));
         assertMultiplyOverflows(MAX_DECIMAL, unscaledDecimal("10"));
+
+        assertMultiplyOverflows(unscaledDecimal("18446744073709551616"), unscaledDecimal("18446744073709551616")); // 2^64 * 2^64
+        assertMultiplyOverflows(unscaledDecimal("18446744073709551615"), unscaledDecimal("18446744073709551615")); // (2^64 - 1) * (2^64 - 1)
+        assertMultiplyOverflows(unscaledDecimal("85070591730234615865843651857942052864"), unscaledDecimal("2")); // 2^126 * 2
+        assertMultiplyOverflows(unscaledDecimal("2"), unscaledDecimal("85070591730234615865843651857942052864")); // 2 * 2^126
+
+        assertMultiplyOverflows(unscaledDecimal("-18446744073709551616"), unscaledDecimal("18446744073709551616")); // -(2^64) * 2^64
+        assertMultiplyOverflows(unscaledDecimal("-18446744073709551615"), unscaledDecimal("18446744073709551615")); // 1(2^64 - 1) * (2^64 - 1)
+        assertMultiplyOverflows(unscaledDecimal("85070591730234615865843651857942052864"), unscaledDecimal("-2")); // 2^126 * -2
+        assertMultiplyOverflows(unscaledDecimal("-2"), unscaledDecimal("85070591730234615865843651857942052864")); // -2 * 2^126
     }
 
     @Test
@@ -210,7 +262,17 @@ public class TestUnscaledDecimal128Arithmetic
         assertShiftRight(unscaledDecimal(0), 33, true, unscaledDecimal(0));
 
         assertShiftRight(unscaledDecimal(1), 1, true, unscaledDecimal(1));
+        assertShiftRight(unscaledDecimal(1), 1, false, unscaledDecimal(0));
+        assertShiftRight(unscaledDecimal(1), 2, true, unscaledDecimal(0));
+        assertShiftRight(unscaledDecimal(1), 2, false, unscaledDecimal(0));
         assertShiftRight(unscaledDecimal(-4), 1, true, unscaledDecimal(-2));
+        assertShiftRight(unscaledDecimal(-4), 1, false, unscaledDecimal(-2));
+        assertShiftRight(unscaledDecimal(-4), 2, true, unscaledDecimal(-1));
+        assertShiftRight(unscaledDecimal(-4), 2, false, unscaledDecimal(-1));
+        assertShiftRight(unscaledDecimal(-4), 3, true, unscaledDecimal(-1));
+        assertShiftRight(unscaledDecimal(-4), 3, false, unscaledDecimal(0));
+        assertShiftRight(unscaledDecimal(-4), 4, true, unscaledDecimal(0));
+        assertShiftRight(unscaledDecimal(-4), 4, false, unscaledDecimal(0));
 
         assertShiftRight(unscaledDecimal(1L << 32), 32, true, unscaledDecimal(1));
         assertShiftRight(unscaledDecimal(1L << 31), 32, true, unscaledDecimal(1));
@@ -347,16 +409,9 @@ public class TestUnscaledDecimal128Arithmetic
     public void testCompare()
     {
         assertCompare(unscaledDecimal(0), unscaledDecimal(0), 0);
-        assertCompare(negate(unscaledDecimal(0)), unscaledDecimal(0), 0);
-        assertCompare(unscaledDecimal(0), negate(unscaledDecimal(0)), 0);
 
         assertCompare(unscaledDecimal(0), unscaledDecimal(10), -1);
         assertCompare(unscaledDecimal(10), unscaledDecimal(0), 1);
-        assertCompare(negate(unscaledDecimal(0)), unscaledDecimal(10), -1);
-        assertCompare(unscaledDecimal(10), negate(unscaledDecimal(0)), 1);
-
-        assertCompare(negate(unscaledDecimal(0)), MAX_DECIMAL, -1);
-        assertCompare(MAX_DECIMAL, negate(unscaledDecimal(0)), 1);
 
         assertCompare(unscaledDecimal(-10), unscaledDecimal(-11), 1);
         assertCompare(unscaledDecimal(-11), unscaledDecimal(-11), 0);
@@ -376,7 +431,6 @@ public class TestUnscaledDecimal128Arithmetic
 
         assertEquals(negate(unscaledDecimal(1)), unscaledDecimal(-1));
         assertEquals(negate(unscaledDecimal(-1)), unscaledDecimal(1));
-        assertEquals(negate(negate(unscaledDecimal(0))), unscaledDecimal(0));
     }
 
     @Test
@@ -391,7 +445,6 @@ public class TestUnscaledDecimal128Arithmetic
     public void testToString()
     {
         assertEquals(toUnscaledString(unscaledDecimal(0)), "0");
-        assertEquals(toUnscaledString(negate(unscaledDecimal(0))), "0");
         assertEquals(toUnscaledString(unscaledDecimal(1)), "1");
         assertEquals(toUnscaledString(unscaledDecimal(-1)), "-1");
         assertEquals(toUnscaledString(unscaledDecimal(MAX_DECIMAL)), MAX_DECIMAL_UNSCALED_VALUE.toString());
@@ -404,38 +457,38 @@ public class TestUnscaledDecimal128Arithmetic
     public void testShiftLeftMultiPrecision()
     {
         assertEquals(shiftLeftMultiPrecision(
-                new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
-                        0b11111111000000011010101010101011, 0b00000000000000000000000000000000}, 4, 0),
+                        new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
+                                0b11111111000000011010101010101011, 0b00000000000000000000000000000000}, 4, 0),
                 new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
                         0b11111111000000011010101010101011, 0b00000000000000000000000000000000});
         assertEquals(shiftLeftMultiPrecision(
-                new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
-                        0b11111111000000011010101010101011, 0b00000000000000000000000000000000}, 5, 1),
+                        new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
+                                0b11111111000000011010101010101011, 0b00000000000000000000000000000000}, 5, 1),
                 new int[] {0b01000010100010110100001010001010, 0b10101101001011010110101010101011, 0b10100101111100011111000101010100,
                         0b11111110000000110101010101010110, 0b00000000000000000000000000000001});
         assertEquals(shiftLeftMultiPrecision(
-                new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
-                        0b11111111000000011010101010101011, 0b00000000000000000000000000000000}, 5, 31),
+                        new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
+                                0b11111111000000011010101010101011, 0b00000000000000000000000000000000}, 5, 31),
                 new int[] {0b10000000000000000000000000000000, 0b11010000101000101101000010100010, 0b00101011010010110101101010101010,
                         0b10101001011111000111110001010101, 0b1111111100000001101010101010101});
         assertEquals(shiftLeftMultiPrecision(
-                new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
-                        0b11111111000000011010101010101011, 0b00000000000000000000000000000000}, 5, 32),
+                        new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
+                                0b11111111000000011010101010101011, 0b00000000000000000000000000000000}, 5, 32),
                 new int[] {0b00000000000000000000000000000000, 0b10100001010001011010000101000101, 0b01010110100101101011010101010101,
                         0b01010010111110001111100010101010, 0b11111111000000011010101010101011});
         assertEquals(shiftLeftMultiPrecision(
-                new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
-                        0b11111111000000011010101010101011, 0b00000000000000000000000000000000, 0b00000000000000000000000000000000}, 6, 33),
+                        new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
+                                0b11111111000000011010101010101011, 0b00000000000000000000000000000000, 0b00000000000000000000000000000000}, 6, 33),
                 new int[] {0b00000000000000000000000000000000, 0b01000010100010110100001010001010, 0b10101101001011010110101010101011,
                         0b10100101111100011111000101010100, 0b11111110000000110101010101010110, 0b00000000000000000000000000000001});
         assertEquals(shiftLeftMultiPrecision(
-                new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
-                        0b11111111000000011010101010101011, 0b00000000000000000000000000000000, 0b00000000000000000000000000000000}, 6, 37),
+                        new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
+                                0b11111111000000011010101010101011, 0b00000000000000000000000000000000, 0b00000000000000000000000000000000}, 6, 37),
                 new int[] {0b00000000000000000000000000000000, 0b00101000101101000010100010100000, 0b11010010110101101010101010110100,
                         0b01011111000111110001010101001010, 0b11100000001101010101010101101010, 0b00000000000000000000000000011111});
         assertEquals(shiftLeftMultiPrecision(
-                new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
-                        0b11111111000000011010101010101011, 0b00000000000000000000000000000000, 0b00000000000000000000000000000000}, 6, 64),
+                        new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
+                                0b11111111000000011010101010101011, 0b00000000000000000000000000000000, 0b00000000000000000000000000000000}, 6, 64),
                 new int[] {0b00000000000000000000000000000000, 0b00000000000000000000000000000000, 0b10100001010001011010000101000101,
                         0b01010110100101101011010101010101, 0b01010010111110001111100010101010, 0b11111111000000011010101010101011});
     }
@@ -444,34 +497,46 @@ public class TestUnscaledDecimal128Arithmetic
     public void testShiftRightMultiPrecision()
     {
         assertEquals(shiftRightMultiPrecision(
-                new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
-                        0b11111111000000011010101010101011, 0b00000000000000000000000000000000}, 4, 0),
-                new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
+                        new int[] {
+                                0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
+                                0b11111111000000011010101010101011, 0b00000000000000000000000000000000}, 4, 0),
+                new int[] {
+                        0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
                         0b11111111000000011010101010101011, 0b00000000000000000000000000000000});
         assertEquals(shiftRightMultiPrecision(
-                new int[] {0b00000000000000000000000000000000, 0b10100001010001011010000101000101, 0b01010110100101101011010101010101,
-                        0b01010010111110001111100010101010, 0b11111111000000011010101010101011}, 5, 1),
-                new int[] {0b10000000000000000000000000000000, 0b11010000101000101101000010100010, 0b00101011010010110101101010101010,
+                        new int[] {
+                                0b00000000000000000000000000000000, 0b10100001010001011010000101000101, 0b01010110100101101011010101010101,
+                                0b01010010111110001111100010101010, 0b11111111000000011010101010101011}, 5, 1),
+                new int[] {
+                        0b10000000000000000000000000000000, 0b11010000101000101101000010100010, 0b00101011010010110101101010101010,
                         0b10101001011111000111110001010101, 0b1111111100000001101010101010101});
         assertEquals(shiftRightMultiPrecision(
-                new int[] {0b00000000000000000000000000000000, 0b10100001010001011010000101000101, 0b01010110100101101011010101010101,
-                        0b01010010111110001111100010101010, 0b11111111000000011010101010101011}, 5, 32),
-                new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
+                        new int[] {
+                                0b00000000000000000000000000000000, 0b10100001010001011010000101000101, 0b01010110100101101011010101010101,
+                                0b01010010111110001111100010101010, 0b11111111000000011010101010101011}, 5, 32),
+                new int[] {
+                        0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
                         0b11111111000000011010101010101011, 0b00000000000000000000000000000000});
         assertEquals(shiftRightMultiPrecision(
-                new int[] {0b00000000000000000000000000000000, 0b00000000000000000000000000000000, 0b10100001010001011010000101000101,
-                        0b01010110100101101011010101010101, 0b01010010111110001111100010101010, 0b11111111000000011010101010101011}, 6, 33),
-                new int[] {0b10000000000000000000000000000000, 0b11010000101000101101000010100010, 0b00101011010010110101101010101010,
+                        new int[] {
+                                0b00000000000000000000000000000000, 0b00000000000000000000000000000000, 0b10100001010001011010000101000101,
+                                0b01010110100101101011010101010101, 0b01010010111110001111100010101010, 0b11111111000000011010101010101011}, 6, 33),
+                new int[] {
+                        0b10000000000000000000000000000000, 0b11010000101000101101000010100010, 0b00101011010010110101101010101010,
                         0b10101001011111000111110001010101, 0b01111111100000001101010101010101, 0b00000000000000000000000000000000});
         assertEquals(shiftRightMultiPrecision(
-                new int[] {0b00000000000000000000000000000000, 0b00000000000000000000000000000000, 0b10100001010001011010000101000101,
-                        0b01010110100101101011010101010101, 0b01010010111110001111100010101010, 0b11111111000000011010101010101011}, 6, 37),
-                new int[] {0b00101000000000000000000000000000, 0b10101101000010100010110100001010, 0b01010010101101001011010110101010,
+                        new int[] {
+                                0b00000000000000000000000000000000, 0b00000000000000000000000000000000, 0b10100001010001011010000101000101,
+                                0b01010110100101101011010101010101, 0b01010010111110001111100010101010, 0b11111111000000011010101010101011}, 6, 37),
+                new int[] {
+                        0b00101000000000000000000000000000, 0b10101101000010100010110100001010, 0b01010010101101001011010110101010,
                         0b01011010100101111100011111000101, 0b00000111111110000000110101010101, 0b00000000000000000000000000000000});
         assertEquals(shiftRightMultiPrecision(
-                new int[] {0b00000000000000000000000000000000, 0b00000000000000000000000000000000, 0b10100001010001011010000101000101,
-                        0b01010110100101101011010101010101, 0b01010010111110001111100010101010, 0b11111111000000011010101010101011}, 6, 64),
-                new int[] {0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
+                        new int[] {
+                                0b00000000000000000000000000000000, 0b00000000000000000000000000000000, 0b10100001010001011010000101000101,
+                                0b01010110100101101011010101010101, 0b01010010111110001111100010101010, 0b11111111000000011010101010101011}, 6, 64),
+                new int[] {
+                        0b10100001010001011010000101000101, 0b01010110100101101011010101010101, 0b01010010111110001111100010101010,
                         0b11111111000000011010101010101011, 0b00000000000000000000000000000000, 0b00000000000000000000000000000000});
     }
 
@@ -510,16 +575,41 @@ public class TestUnscaledDecimal128Arithmetic
         assertEquals(shiftLeft(wrappedLongArray(0x1L, 0L), 64 + 63), wrappedLongArray(0x0000000000000000L, 0x8000000000000000L));
     }
 
+    private void assertAdd(Slice left, Slice right, Slice result)
+    {
+        assertEquals(add(left, right), result);
+
+        // test with array based version of the method
+        long[] resultArray = new long[2];
+        add(
+                left.getLong(0),
+                left.getLong(SIZE_OF_LONG),
+                right.getLong(0),
+                right.getLong(SIZE_OF_LONG),
+                resultArray,
+                0);
+        assertEquals(unscaledDecimalToBigInteger(resultArray[0], resultArray[1]), unscaledDecimalToBigInteger(result));
+    }
+
     private void assertAddReturnOverflow(BigInteger left, BigInteger right)
     {
         Slice result = unscaledDecimal();
-        long overflow = addWithOverflow(unscaledDecimal(left), unscaledDecimal(right), result);
+        Slice leftSlice = unscaledDecimal(left);
+        Slice rightSlice = unscaledDecimal(right);
+        long overflow = addWithOverflow(leftSlice, rightSlice, result);
 
         BigInteger actual = unscaledDecimalToBigInteger(result);
         BigInteger expected = left.add(right).remainder(TWO.pow(UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH * 8 - 1));
         BigInteger expectedOverflow = left.add(right).divide(TWO.pow(UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH * 8 - 1));
 
         assertEquals(actual, expected);
+        assertEquals(overflow, expectedOverflow.longValueExact());
+
+        // test with array based version of the method
+        long[] resultArray = new long[2];
+        overflow = addWithOverflow(leftSlice.getLong(0), leftSlice.getLong(SIZE_OF_LONG), rightSlice.getLong(0), rightSlice.getLong(SIZE_OF_LONG), resultArray, 0);
+
+        assertEquals(unscaledDecimalToBigInteger(resultArray[0], resultArray[1]), expected);
         assertEquals(overflow, expectedOverflow.longValueExact());
     }
 
@@ -609,9 +699,15 @@ public class TestUnscaledDecimal128Arithmetic
     private static void assertDivideAllSigns(Slice dividend, int dividendRescaleFactor, Slice divisor, int divisorRescaleFactor)
     {
         assertDivide(dividend, dividendRescaleFactor, divisor, divisorRescaleFactor);
-        assertDivide(dividend, dividendRescaleFactor, negate(divisor), divisorRescaleFactor);
-        assertDivide(negate(dividend), dividendRescaleFactor, divisor, divisorRescaleFactor);
-        assertDivide(negate(dividend), dividendRescaleFactor, negate(divisor), divisorRescaleFactor);
+        if (!isZero(divisor)) {
+            assertDivide(dividend, dividendRescaleFactor, negate(divisor), divisorRescaleFactor);
+        }
+        if (!isZero(dividend)) {
+            assertDivide(negate(dividend), dividendRescaleFactor, divisor, divisorRescaleFactor);
+        }
+        if (!isZero(dividend) && !isZero(divisor)) {
+            assertDivide(negate(dividend), dividendRescaleFactor, negate(divisor), divisorRescaleFactor);
+        }
     }
 
     private static void assertDivide(Slice dividend, int dividendRescaleFactor, Slice divisor, int divisorRescaleFactor)

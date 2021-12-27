@@ -24,7 +24,6 @@ import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 
-import java.net.URI;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -44,6 +43,7 @@ public class ExchangeOperator
         private final PlanNodeId sourceId;
         private final ExchangeClientSupplier exchangeClientSupplier;
         private final PagesSerdeFactory serdeFactory;
+        private final RetryPolicy retryPolicy;
         private ExchangeClient exchangeClient;
         private boolean closed;
 
@@ -51,12 +51,14 @@ public class ExchangeOperator
                 int operatorId,
                 PlanNodeId sourceId,
                 ExchangeClientSupplier exchangeClientSupplier,
-                PagesSerdeFactory serdeFactory)
+                PagesSerdeFactory serdeFactory,
+                RetryPolicy retryPolicy)
         {
             this.operatorId = operatorId;
             this.sourceId = sourceId;
             this.exchangeClientSupplier = exchangeClientSupplier;
             this.serdeFactory = serdeFactory;
+            this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
         }
 
         @Override
@@ -69,9 +71,10 @@ public class ExchangeOperator
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
+            TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, ExchangeOperator.class.getSimpleName());
             if (exchangeClient == null) {
-                exchangeClient = exchangeClientSupplier.get(driverContext.getPipelineContext().localSystemMemoryContext());
+                exchangeClient = exchangeClientSupplier.get(driverContext.getPipelineContext().localSystemMemoryContext(), taskContext::sourceTaskFailed, retryPolicy);
             }
 
             return new ExchangeOperator(
@@ -92,7 +95,7 @@ public class ExchangeOperator
     private final PlanNodeId sourceId;
     private final ExchangeClient exchangeClient;
     private final PagesSerde serde;
-    private ListenableFuture<?> isBlocked = NOT_BLOCKED;
+    private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
 
     public ExchangeOperator(
             OperatorContext operatorContext,
@@ -120,8 +123,8 @@ public class ExchangeOperator
         requireNonNull(split, "split is null");
         checkArgument(split.getCatalogName().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
 
-        URI location = ((RemoteSplit) split.getConnectorSplit()).getLocation();
-        exchangeClient.addLocation(location);
+        RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
+        exchangeClient.addLocation(remoteSplit.getTaskId(), remoteSplit.getLocation());
 
         return Optional::empty;
     }
@@ -151,7 +154,7 @@ public class ExchangeOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         // Avoid registering a new callback in the ExchangeClient when one is already pending
         if (isBlocked.isDone()) {

@@ -13,19 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
-import io.trino.plugin.hive.HdfsConfig;
-import io.trino.plugin.hive.HdfsConfiguration;
-import io.trino.plugin.hive.HdfsConfigurationInitializer;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveHdfsConfiguration;
-import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.MetastoreConfig;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
@@ -34,14 +21,13 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
 public class TestIcebergSystemTables
@@ -51,29 +37,7 @@ public class TestIcebergSystemTables
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        Session session = testSessionBuilder()
-                .setCatalog("iceberg")
-                .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
-
-        File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
-
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
-
-        HiveMetastore metastore = new FileHiveMetastore(
-                new NodeVersion("test_version"),
-                hdfsEnvironment,
-                new MetastoreConfig(),
-                new FileHiveMetastoreConfig()
-                        .setCatalogDirectory(baseDir.toURI().toString())
-                        .setMetastoreUser("test"));
-
-        queryRunner.installPlugin(new TestingIcebergPlugin(metastore, false));
-        queryRunner.createCatalog("iceberg", "iceberg");
-
-        return queryRunner;
+        return createIcebergQueryRunner();
     }
 
     @BeforeClass
@@ -90,22 +54,30 @@ public class TestIcebergSystemTables
         assertQuery("SELECT count(*) FROM test_schema.test_table_multilevel_partitions", "VALUES 3");
     }
 
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table");
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions");
+        assertUpdate("DROP SCHEMA IF EXISTS test_schema");
+    }
+
     @Test
     public void testPartitionTable()
     {
         assertQuery("SELECT count(*) FROM test_schema.test_table", "VALUES 6");
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$partitions\"",
-                "VALUES ('_date', 'date', '', '')," +
-                        "('row_count', 'bigint', '', '')," +
+                "VALUES ('partition', 'row(_date date)', '', '')," +
+                        "('record_count', 'bigint', '', '')," +
                         "('file_count', 'bigint', '', '')," +
                         "('total_size', 'bigint', '', '')," +
-                        "('_bigint', 'row(min bigint, max bigint, null_count bigint)', '', '')");
+                        "('data', 'row(_bigint row(min bigint, max bigint, null_count bigint))', '', '')");
 
         MaterializedResult result = computeActual("SELECT * from test_schema.\"test_table$partitions\"");
         assertEquals(result.getRowCount(), 3);
 
         Map<LocalDate, MaterializedRow> rowsByPartition = result.getMaterializedRows().stream()
-                .collect(toImmutableMap(row -> (LocalDate) row.getField(0), Function.identity()));
+                .collect(toImmutableMap(row -> ((LocalDate) ((MaterializedRow) row.getField(0)).getField(0)), Function.identity()));
 
         // Test if row counts are computed correctly
         assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(1), 1L);
@@ -113,9 +85,9 @@ public class TestIcebergSystemTables
         assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(1), 2L);
 
         // Test if min/max values and null value count are computed correctly.
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(4), new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L));
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(4), new MaterializedRow(DEFAULT_PRECISION, 1L, 3L, 0L));
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(4), new MaterializedRow(DEFAULT_PRECISION, 4L, 5L, 0L));
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(4), new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L)));
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(4), new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 1L, 3L, 0L)));
+        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(4), new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 4L, 5L, 0L)));
     }
 
     @Test
@@ -167,25 +139,20 @@ public class TestIcebergSystemTables
     public void testFilesTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$files\"",
-                "VALUES ('file_path', 'varchar', '', '')," +
+                "VALUES ('content', 'integer', '', '')," +
+                        "('file_path', 'varchar', '', '')," +
                         "('file_format', 'varchar', '', '')," +
                         "('record_count', 'bigint', '', '')," +
                         "('file_size_in_bytes', 'bigint', '', '')," +
                         "('column_sizes', 'map(integer, bigint)', '', '')," +
                         "('value_counts', 'map(integer, bigint)', '', '')," +
                         "('null_value_counts', 'map(integer, bigint)', '', '')," +
+                        "('nan_value_counts', 'map(integer, bigint)', '', '')," +
                         "('lower_bounds', 'map(integer, varchar)', '', '')," +
                         "('upper_bounds', 'map(integer, varchar)', '', '')," +
                         "('key_metadata', 'varbinary', '', '')," +
-                        "('split_offsets', 'array(bigint)', '', '')");
+                        "('split_offsets', 'array(bigint)', '', '')," +
+                        "('equality_ids', 'array(integer)', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table");
-        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions");
-        assertUpdate("DROP SCHEMA IF EXISTS test_schema");
     }
 }

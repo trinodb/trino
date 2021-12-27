@@ -15,10 +15,10 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import io.trino.operator.PartitionedOutputOperator.PartitionedOutputInfo;
 import io.trino.operator.TableWriterOperator.TableWriterInfo;
 import io.trino.operator.exchange.LocalExchangeBufferInfo;
 import io.trino.operator.join.JoinOperatorInfo;
+import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputInfo;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,

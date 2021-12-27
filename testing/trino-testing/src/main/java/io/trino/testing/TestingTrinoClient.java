@@ -21,6 +21,7 @@ import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.Row;
 import io.trino.client.RowField;
+import io.trino.client.StatementStats;
 import io.trino.client.Warning;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.type.ArrayType;
@@ -66,13 +67,13 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static io.trino.type.JsonType.JSON;
-import static io.trino.type.UuidType.UUID;
 import static io.trino.util.MoreLists.mappedCopy;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.stream.Collectors.toList;
@@ -126,6 +127,7 @@ public class TestingTrinoClient
         private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
         private final AtomicReference<List<Warning>> warnings = new AtomicReference<>(ImmutableList.of());
+        private final AtomicReference<Optional<StatementStats>> statementStats = new AtomicReference<>(Optional.empty());
 
         @Override
         public void setUpdateType(String type)
@@ -143,6 +145,12 @@ public class TestingTrinoClient
         public void setWarnings(List<Warning> warnings)
         {
             this.warnings.set(warnings);
+        }
+
+        @Override
+        public void setStatementStats(StatementStats statementStats)
+        {
+            this.statementStats.set(Optional.of(statementStats));
         }
 
         @Override
@@ -169,7 +177,8 @@ public class TestingTrinoClient
                     resetSessionProperties,
                     updateType.get(),
                     updateCount.get(),
-                    warnings.get());
+                    warnings.get(),
+                    statementStats.get());
         }
     }
 

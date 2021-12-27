@@ -152,17 +152,17 @@ final class JoinMatcher
         Map<DynamicFilterId, Symbol> idToBuildSymbolMap = joinNode.getDynamicFilters();
         Set<Expression> actual = new HashSet<>();
         for (DynamicFilters.Descriptor descriptor : descriptors) {
-            Symbol probe = Symbol.from(descriptor.getInput());
+            Expression probe = descriptor.getInput();
             Symbol build = idToBuildSymbolMap.get(descriptor.getId());
             if (build == null) {
                 return false;
             }
             Expression expression;
             if (descriptor.isNullAllowed()) {
-                expression = new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, probe.toSymbolReference(), build.toSymbolReference()));
+                expression = new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, probe, build.toSymbolReference()));
             }
             else {
-                expression = new ComparisonExpression(descriptor.getOperator(), probe.toSymbolReference(), build.toSymbolReference());
+                expression = new ComparisonExpression(descriptor.getOperator(), probe, build.toSymbolReference());
             }
             actual.add(expression);
         }

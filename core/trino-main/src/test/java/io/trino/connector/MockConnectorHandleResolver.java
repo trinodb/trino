@@ -13,10 +13,12 @@
  */
 package io.trino.connector;
 
+import io.trino.connector.MockConnector.MockConnectorSplit;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
@@ -39,6 +41,12 @@ public class MockConnectorHandleResolver
     public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return MockConnectorColumnHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorSplit> getSplitClass()
+    {
+        return MockConnectorSplit.class;
     }
 
     @Override

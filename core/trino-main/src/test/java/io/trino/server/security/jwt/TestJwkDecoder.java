@@ -19,7 +19,6 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.trino.server.security.jwt.JwkDecoder.JwkEcPublicKey;
 import io.trino.server.security.jwt.JwkDecoder.JwkRsaPublicKey;
@@ -192,13 +191,13 @@ public class TestJwkDecoder
 
         PrivateKey privateKey = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/jwk-rsa-private.pem").getPath()), Optional.empty());
         String jwt = Jwts.builder()
-                .signWith(SignatureAlgorithm.RS256, privateKey)
+                .signWith(privateKey)
                 .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
                 .setSubject("test-user")
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                 .compact();
 
-        Jws<Claims> claimsJws = Jwts.parser()
+        Jws<Claims> claimsJws = Jwts.parserBuilder()
                 .setSigningKeyResolver(new SigningKeyResolver()
                 {
                     @Override
@@ -220,6 +219,7 @@ public class TestJwkDecoder
                         return publicKey;
                     }
                 })
+                .build()
                 .parseClaimsJws(jwt);
 
         assertEquals(claimsJws.getBody().getSubject(), "test-user");
@@ -302,13 +302,12 @@ public class TestJwkDecoder
     public void testJwtEc()
             throws Exception
     {
-        assertJwtEc("jwk-ec-p256", SignatureAlgorithm.ES256, EcCurve.P_256);
-        assertJwtEc("jwk-ec-p384", SignatureAlgorithm.ES384, EcCurve.P_384);
-        assertJwtEc("jwk-ec-p512", SignatureAlgorithm.ES512, EcCurve.P_521);
-        assertJwtEc("jwk-ec-secp256k1", SignatureAlgorithm.ES256, EcCurve.SECP256K1);
+        assertJwtEc("jwk-ec-p256", EcCurve.P_256);
+        assertJwtEc("jwk-ec-p384", EcCurve.P_384);
+        assertJwtEc("jwk-ec-p512", EcCurve.P_521);
     }
 
-    private static void assertJwtEc(String keyName, SignatureAlgorithm signatureAlgorithm, ECParameterSpec expectedSpec)
+    private static void assertJwtEc(String keyName, ECParameterSpec expectedSpec)
             throws Exception
     {
         String jwkKeys = Resources.toString(Resources.getResource("jwk/jwk-public.json"), UTF_8);
@@ -328,13 +327,13 @@ public class TestJwkDecoder
 
         PrivateKey privateKey = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/" + keyName + "-private.pem").getPath()), Optional.empty());
         String jwt = Jwts.builder()
-                .signWith(signatureAlgorithm, privateKey)
+                .signWith(privateKey)
                 .setHeaderParam(JwsHeader.KEY_ID, keyName)
                 .setSubject("test-user")
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                 .compact();
 
-        Jws<Claims> claimsJws = Jwts.parser()
+        Jws<Claims> claimsJws = Jwts.parserBuilder()
                 .setSigningKeyResolver(new SigningKeyResolver()
                 {
                     @Override
@@ -356,6 +355,7 @@ public class TestJwkDecoder
                         return publicKey;
                     }
                 })
+                .build()
                 .parseClaimsJws(jwt);
 
         assertEquals(claimsJws.getBody().getSubject(), "test-user");

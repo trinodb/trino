@@ -25,17 +25,24 @@ import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.ArrayType;
 
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -43,12 +50,14 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public final class HiveSessionProperties
         implements SessionPropertiesProvider
 {
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
     private static final String VALIDATE_BUCKETING = "validate_bucketing";
+    private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
     private static final String PARALLEL_PARTITIONED_BUCKETED_WRITES = "parallel_partitioned_bucketed_writes";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
@@ -75,9 +84,11 @@ public final class HiveSessionProperties
     private static final String CREATE_EMPTY_BUCKET_FILES = "create_empty_bucket_files";
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
     private static final String PARQUET_IGNORE_STATISTICS = "parquet_ignore_statistics";
+    private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
+    private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
     private static final String RCFILE_OPTIMIZED_WRITER_VALIDATE = "rcfile_optimized_writer_validate";
@@ -91,14 +102,20 @@ public final class HiveSessionProperties
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_ENABLED = "temporary_staging_directory_enabled";
     private static final String TEMPORARY_STAGING_DIRECTORY_PATH = "temporary_staging_directory_path";
+    private static final String DELEGATE_TRANSACTIONAL_MANAGED_TABLE_LOCATION_TO_METASTORE = "delegate_transactional_managed_table_location_to_metastore";
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
+    private static final String QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS = "query_partition_filter_required_schemas";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String TIMESTAMP_PRECISION = "timestamp_precision";
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "experimental_parquet_optimized_writer_enabled";
-    private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
+    private static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
     private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
     private static final String LEGACY_HIVE_VIEW_TRANSLATION = "legacy_hive_view_translation";
+    private static final String ICEBERG_CATALOG_NAME = "iceberg_catalog_name";
+    public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
+    public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
+    public static final String NON_TRANSACTIONAL_OPTIMIZE_ENABLED = "non_transactional_optimize_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -140,6 +157,11 @@ public final class HiveSessionProperties
                         VALIDATE_BUCKETING,
                         "Verify that data is bucketed correctly when reading",
                         hiveConfig.isValidateBucketing(),
+                        false),
+                dataSizeProperty(
+                        TARGET_MAX_FILE_SIZE,
+                        "Target maximum size of written files; the actual size may be larger",
+                        hiveConfig.getTargetMaxFileSize(),
                         false),
                 booleanProperty(
                         PARALLEL_PARTITIONED_BUCKETED_WRITES,
@@ -255,7 +277,7 @@ public final class HiveSessionProperties
                         false),
                 booleanProperty(
                         ORC_USE_COLUMN_NAME,
-                        "Orc: Access ORC columns using names from the file",
+                        "ORC: Access ORC columns using names from the file",
                         orcReaderConfig.isUseColumnNames(),
                         false),
                 enumProperty(
@@ -290,6 +312,11 @@ public final class HiveSessionProperties
                         "Ignore statistics from Parquet to allow querying files with corrupted or incorrect statistics",
                         parquetReaderConfig.isIgnoreStatistics(),
                         false),
+                booleanProperty(
+                        PARQUET_USE_COLUMN_INDEX,
+                        "Use Parquet column index",
+                        parquetReaderConfig.isUseColumnIndex(),
+                        false),
                 dataSizeProperty(
                         PARQUET_MAX_READ_BLOCK_SIZE,
                         "Parquet: Maximum size of a block to read",
@@ -304,6 +331,11 @@ public final class HiveSessionProperties
                         PARQUET_WRITER_PAGE_SIZE,
                         "Parquet: Writer page size",
                         parquetWriterConfig.getPageSize(),
+                        false),
+                integerProperty(
+                        PARQUET_WRITER_BATCH_SIZE,
+                        "Parquet: Maximum number of rows passed to the writer in each batch",
+                        parquetWriterConfig.getBatchSize(),
                         false),
                 dataSizeProperty(
                         MAX_SPLIT_SIZE,
@@ -371,6 +403,11 @@ public final class HiveSessionProperties
                         hiveConfig.getTemporaryStagingDirectoryPath(),
                         false),
                 booleanProperty(
+                        DELEGATE_TRANSACTIONAL_MANAGED_TABLE_LOCATION_TO_METASTORE,
+                        "When transactional managed table is created via Trino the location will not be set in request sent to HMS and location will be determined by metastore; if this property is set to true CREATE TABLE AS queries are not supported.",
+                        hiveConfig.isDelegateTransactionalManagedTableLocationToMetastore(),
+                        true),
+                booleanProperty(
                         IGNORE_ABSENT_PARTITIONS,
                         "Ignore partitions when the file system location does not exist rather than failing the query.",
                         hiveConfig.isIgnoreAbsentPartitions(),
@@ -380,6 +417,23 @@ public final class HiveSessionProperties
                         "Require filter on partition column",
                         hiveConfig.isQueryPartitionFilterRequired(),
                         false),
+                new PropertyMetadata<>(
+                        QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS,
+                        "List of schemas for which filter on partition column is enforced.",
+                        new ArrayType(VARCHAR),
+                        Set.class,
+                        hiveConfig.getQueryPartitionFilterRequiredSchemas(),
+                        false,
+                        object -> ((Collection<?>) object).stream()
+                                .map(String.class::cast)
+                                .peek(property -> {
+                                    if (isNullOrEmpty(property)) {
+                                        throw new TrinoException(INVALID_SESSION_PROPERTY, format("Invalid null or empty value in %s property", QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS));
+                                    }
+                                })
+                                .map(schema -> schema.toLowerCase(ENGLISH))
+                                .collect(toImmutableSet()),
+                        value -> value),
                 booleanProperty(
                         PROJECTION_PUSHDOWN_ENABLED,
                         "Projection push down enabled for hive",
@@ -397,9 +451,9 @@ public final class HiveSessionProperties
                         parquetWriterConfig.isParquetOptimizedWriterEnabled(),
                         false),
                 durationProperty(
-                        DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT,
-                        "Duration to wait for completion of dynamic filters during split generation for probe side table",
-                        hiveConfig.getDynamicFilteringProbeBlockingTimeout(),
+                        DYNAMIC_FILTERING_WAIT_TIMEOUT,
+                        "Duration to wait for completion of dynamic filters during split generation",
+                        hiveConfig.getDynamicFilteringWaitTimeout(),
                         false),
                 booleanProperty(
                         OPTIMIZE_SYMLINK_LISTING,
@@ -410,6 +464,33 @@ public final class HiveSessionProperties
                         LEGACY_HIVE_VIEW_TRANSLATION,
                         "Use legacy Hive view translation mechanism",
                         hiveConfig.isLegacyHiveViewTranslation(),
+                        false),
+                stringProperty(
+                        ICEBERG_CATALOG_NAME,
+                        "Catalog to redirect to when an Iceberg table is referenced",
+                        hiveConfig.getIcebergCatalogName().orElse(null),
+                        // Session-level redirections configuration does not work well with views, as view body is analyzed in context
+                        // of a session with properties stripped off. Thus, this property is more of a test-only, or at most POC usefulness.
+                        true),
+                booleanProperty(
+                        SIZE_BASED_SPLIT_WEIGHTS_ENABLED,
+                        "Enable estimating split weights based on size in bytes",
+                        hiveConfig.isSizeBasedSplitWeightsEnabled(),
+                        false),
+                doubleProperty(
+                        MINIMUM_ASSIGNED_SPLIT_WEIGHT,
+                        "Minimum assigned split weight when size based split weighting is enabled",
+                        hiveConfig.getMinimumAssignedSplitWeight(),
+                        value -> {
+                            if (!Double.isFinite(value) || value <= 0 || value > 1) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be > 0 and <= 1.0: %s", MINIMUM_ASSIGNED_SPLIT_WEIGHT, value));
+                            }
+                        },
+                        false),
+                booleanProperty(
+                        NON_TRANSACTIONAL_OPTIMIZE_ENABLED,
+                        "Enable OPTIMIZE table procedure",
+                        false,
                         false));
     }
 
@@ -427,6 +508,11 @@ public final class HiveSessionProperties
     public static boolean isValidateBucketing(ConnectorSession session)
     {
         return session.getProperty(VALIDATE_BUCKETING, Boolean.class);
+    }
+
+    public static DataSize getTargetMaxFileSize(ConnectorSession session)
+    {
+        return session.getProperty(TARGET_MAX_FILE_SIZE, DataSize.class);
     }
 
     public static boolean isParallelPartitionedBucketedWrites(ConnectorSession session)
@@ -566,6 +652,11 @@ public final class HiveSessionProperties
         return session.getProperty(PARQUET_IGNORE_STATISTICS, Boolean.class);
     }
 
+    public static boolean isParquetUseColumnIndex(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_USE_COLUMN_INDEX, Boolean.class);
+    }
+
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_MAX_READ_BLOCK_SIZE, DataSize.class);
@@ -579,6 +670,11 @@ public final class HiveSessionProperties
     public static DataSize getParquetWriterPageSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
+    }
+
+    public static int getParquetBatchSize(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_BATCH_SIZE, Integer.class);
     }
 
     public static DataSize getMaxSplitSize(ConnectorSession session)
@@ -650,6 +746,11 @@ public final class HiveSessionProperties
         return session.getProperty(TEMPORARY_STAGING_DIRECTORY_PATH, String.class);
     }
 
+    public static boolean isDelegateTransactionalManagedTableLocationToMetastore(ConnectorSession session)
+    {
+        return session.getProperty(DELEGATE_TRANSACTIONAL_MANAGED_TABLE_LOCATION_TO_METASTORE, Boolean.class);
+    }
+
     public static boolean isIgnoreAbsentPartitions(ConnectorSession session)
     {
         return session.getProperty(IGNORE_ABSENT_PARTITIONS, Boolean.class);
@@ -658,6 +759,14 @@ public final class HiveSessionProperties
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
     {
         return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
+    }
+
+    @SuppressWarnings("unchecked cast")
+    public static Set<String> getQueryPartitionFilterRequiredSchemas(ConnectorSession session)
+    {
+        Set<String> schemas = (Set<String>) session.getProperty(QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS, Set.class);
+        requireNonNull(schemas, "queryPartitionFilterRequiredSchemas is null");
+        return schemas;
     }
 
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)
@@ -675,9 +784,9 @@ public final class HiveSessionProperties
         return session.getProperty(PARQUET_OPTIMIZED_WRITER_ENABLED, Boolean.class);
     }
 
-    public static Duration getDynamicFilteringProbeBlockingTimeout(ConnectorSession session)
+    public static Duration getDynamicFilteringWaitTimeout(ConnectorSession session)
     {
-        return session.getProperty(DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT, Duration.class);
+        return session.getProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, Duration.class);
     }
 
     public static boolean isOptimizeSymlinkListing(ConnectorSession session)
@@ -688,5 +797,25 @@ public final class HiveSessionProperties
     public static boolean isLegacyHiveViewTranslation(ConnectorSession session)
     {
         return session.getProperty(LEGACY_HIVE_VIEW_TRANSLATION, Boolean.class);
+    }
+
+    public static Optional<String> getIcebergCatalogName(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(ICEBERG_CATALOG_NAME, String.class));
+    }
+
+    public static boolean isSizeBasedSplitWeightsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SIZE_BASED_SPLIT_WEIGHTS_ENABLED, Boolean.class);
+    }
+
+    public static double getMinimumAssignedSplitWeight(ConnectorSession session)
+    {
+        return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
+    }
+
+    public static boolean isNonTransactionalOptimizeEnabled(ConnectorSession session)
+    {
+        return session.getProperty(NON_TRANSACTIONAL_OPTIMIZE_ENABLED, Boolean.class);
     }
 }

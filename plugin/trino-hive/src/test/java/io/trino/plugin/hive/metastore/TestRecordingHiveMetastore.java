@@ -21,9 +21,9 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.TypeDeserializer;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveBucketProperty;
-import io.trino.plugin.hive.HiveModule;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.RecordingMetastoreConfig;
@@ -66,8 +66,8 @@ public class TestRecordingHiveMetastore
     private static final Database DATABASE = new Database(
             "database",
             Optional.of("location"),
-            "owner",
-            USER,
+            Optional.of("owner"),
+            Optional.of(USER),
             Optional.of("comment"),
             ImmutableMap.of("param", "value"));
     private static final Column TABLE_COLUMN = new Column(
@@ -76,14 +76,14 @@ public class TestRecordingHiveMetastore
             Optional.of("comment"));
     private static final Storage TABLE_STORAGE = new Storage(
             StorageFormat.create("serde", "input", "output"),
-            "location",
+            Optional.of("location"),
             Optional.of(new HiveBucketProperty(ImmutableList.of("column"), BUCKETING_V1, 10, ImmutableList.of(new SortingColumn("column", Order.ASCENDING)))),
             true,
             ImmutableMap.of("param", "value2"));
     private static final Table TABLE = new Table(
             "database",
             "table",
-            "owner",
+            Optional.of("owner"),
             "table_type",
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
@@ -132,7 +132,7 @@ public class TestRecordingHiveMetastore
         JsonCodec<RecordingHiveMetastore.Recording> jsonCodec = createJsonCodec();
         RecordingHiveMetastore recordingHiveMetastore = new RecordingHiveMetastore(new TestingHiveMetastore(), recordingConfig, jsonCodec);
         validateMetadata(recordingHiveMetastore);
-        recordingHiveMetastore.dropDatabase(HIVE_CONTEXT, "other_database");
+        recordingHiveMetastore.dropDatabase(HIVE_CONTEXT, "other_database", true);
         recordingHiveMetastore.writeRecording();
 
         RecordingMetastoreConfig replayingConfig = recordingConfig
@@ -146,7 +146,7 @@ public class TestRecordingHiveMetastore
     private JsonCodec<RecordingHiveMetastore.Recording> createJsonCodec()
     {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        HiveModule.TypeDeserializer typeDeserializer = new HiveModule.TypeDeserializer(new TestingTypeManager());
+        TypeDeserializer typeDeserializer = new TypeDeserializer(new TestingTypeManager());
         objectMapperProvider.setJsonDeserializers(
                 ImmutableMap.of(
                         Block.class, new TestingBlockJsonSerde.Deserializer(new HiveBlockEncodingSerde()),
@@ -171,7 +171,7 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getPartitionNamesByFilter(HIVE_CONTEXT, "database", "table", PARTITION_COLUMN_NAMES, TupleDomain.all()), Optional.of(ImmutableList.of("value")));
         assertEquals(hiveMetastore.getPartitionNamesByFilter(HIVE_CONTEXT, "database", "table", PARTITION_COLUMN_NAMES, TUPLE_DOMAIN), Optional.of(ImmutableList.of("value")));
         assertEquals(hiveMetastore.getPartitionsByNames(HIVE_CONTEXT, TABLE, ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
-        assertEquals(hiveMetastore.listTablePrivileges("database", "table", "owner", Optional.of(new HivePrincipal(USER, "user"))), ImmutableSet.of(PRIVILEGE_INFO));
+        assertEquals(hiveMetastore.listTablePrivileges("database", "table", Optional.of("owner"), Optional.of(new HivePrincipal(USER, "user"))), ImmutableSet.of(PRIVILEGE_INFO));
         assertEquals(hiveMetastore.listRoles(), ImmutableSet.of("role"));
         assertEquals(hiveMetastore.listRoleGrants(new HivePrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
         assertEquals(hiveMetastore.listGrantedPrincipals("role"), ImmutableSet.of(ROLE_GRANT));
@@ -264,7 +264,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public void dropDatabase(HiveIdentity identity, String databaseName)
+        public void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
         {
             // noop for test purpose
         }
@@ -301,7 +301,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
+        public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
         {
             if (databaseName.equals("database") && tableName.equals("table") && principal.get().getType() == USER && principal.get().getName().equals("user")) {
                 return ImmutableSet.of(PRIVILEGE_INFO);

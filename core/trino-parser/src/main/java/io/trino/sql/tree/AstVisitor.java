@@ -122,6 +122,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitExplainAnalyze(ExplainAnalyze node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitShowTables(ShowTables node, C context)
     {
         return visitStatement(node, context);
@@ -297,6 +302,11 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitWindowOperation(WindowOperation node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitLambdaExpression(LambdaExpression node, C context)
     {
         return visitExpression(node, context);
@@ -422,7 +432,7 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
-    protected R visitLogicalBinaryExpression(LogicalBinaryExpression node, C context)
+    protected R visitLogicalExpression(LogicalExpression node, C context)
     {
         return visitExpression(node, context);
     }
@@ -617,7 +627,17 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitRenameMaterializedView(RenameMaterializedView node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitSetViewAuthorization(SetViewAuthorization node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitSetProperties(SetProperties node, C context)
     {
         return visitStatement(node, context);
     }
@@ -643,6 +663,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitSetTableAuthorization(SetTableAuthorization node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitTableExecute(TableExecute node, C context)
     {
         return visitStatement(node, context);
     }
@@ -692,6 +717,11 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitTruncateTable(TruncateTable node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitStartTransaction(StartTransaction node, C context)
     {
         return visitStatement(node, context);
@@ -723,6 +753,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitGrant(Grant node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDeny(Deny node, C context)
     {
         return visitStatement(node, context);
     }
@@ -760,6 +795,11 @@ public abstract class AstVisitor<R, C>
     protected R visitPathElement(PathElement node, C context)
     {
         return visitNode(node, context);
+    }
+
+    protected R visitSetTimeZone(SetTimeZone node, C context)
+    {
+        return visitStatement(node, context);
     }
 
     protected R visitTransactionMode(TransactionMode node, C context)
@@ -1035,5 +1075,10 @@ public abstract class AstVisitor<R, C>
     protected R visitRangeQuantifier(RangeQuantifier node, C context)
     {
         return visitPatternQuantifier(node, context);
+    }
+
+    protected R visitQueryPeriod(QueryPeriod node, C context)
+    {
+        return visitNode(node, context);
     }
 }

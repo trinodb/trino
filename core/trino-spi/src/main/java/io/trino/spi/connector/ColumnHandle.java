@@ -13,6 +13,21 @@
  */
 package io.trino.spi.connector;
 
+/**
+ * Represents a handle to a column within a {@link ConnectorTableHandle} returned from the connector to the engine.
+ * It will be used by the engine whenever given column will be accessed.
+ * <p>
+ * ColumnHandle should follow:
+ * <ul>
+ *     <li>a table cannot have two equal column handles</li>
+ *     <li>column handle is unique within a table scope. Two different tables can have two equal column handles</li>
+ * </ul>
+ */
 public interface ColumnHandle
 {
+    @Override
+    int hashCode();
+
+    @Override
+    boolean equals(Object other);
 }

@@ -1,11 +1,12 @@
 name: cleanup
 
 on:
-  # Triggered on every PR merge or close
-  pull_request:
+  # Triggered on every PR merge or close (but with the code and workflow as present in the base of the merge instead of the merge commmit)
+  pull_request_target:
     types:
       - closed
 
+# NOTE: Do not check out/execute code from the PR since a read-write token is present due to pull_request_target
 jobs:
   cancel:
     runs-on: ubuntu-latest

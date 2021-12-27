@@ -55,12 +55,6 @@ public final class JoinHash
     }
 
     @Override
-    public final int getChannelCount()
-    {
-        return pagesHash.getChannelCount();
-    }
-
-    @Override
     public long getJoinPositionCount()
     {
         return pagesHash.getPositionCount();
@@ -104,7 +98,7 @@ public final class JoinHash
     }
 
     @Override
-    public final long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
+    public long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
         if (positionLinks == null) {
             return -1;

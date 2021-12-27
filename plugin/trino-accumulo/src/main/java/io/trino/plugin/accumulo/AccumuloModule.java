@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.accumulo;
 
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -30,9 +28,6 @@ import io.trino.plugin.accumulo.io.AccumuloRecordSetProvider;
 import io.trino.plugin.accumulo.metadata.AccumuloTable;
 import io.trino.plugin.accumulo.metadata.ZooKeeperMetadataManager;
 import io.trino.spi.TrinoException;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
-import io.trino.spi.type.TypeManager;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
@@ -47,7 +42,6 @@ import javax.inject.Inject;
 import javax.inject.Provider;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -61,13 +55,6 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloModule
         implements Module
 {
-    private final TypeManager typeManager;
-
-    public AccumuloModule(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
-
     @Override
     public void configure(Binder binder)
     {
@@ -77,8 +64,6 @@ public class AccumuloModule
         appender.setThreshold(Level.INFO);
         appender.activateOptions();
         org.apache.log4j.Logger.getRootLogger().addAppender(appender);
-
-        binder.bind(TypeManager.class).toInstance(typeManager);
 
         binder.bind(AccumuloConnector.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloMetadata.class).in(Scopes.SINGLETON);
@@ -98,27 +83,7 @@ public class AccumuloModule
 
         configBinder(binder).bindConfig(AccumuloConfig.class);
 
-        jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindMapJsonCodec(String.class, JsonCodec.listJsonCodec(AccumuloTable.class));
-    }
-
-    public static final class TypeDeserializer
-            extends FromStringDeserializer<Type>
-    {
-        private final TypeManager typeManager;
-
-        @Inject
-        public TypeDeserializer(TypeManager typeManager)
-        {
-            super(Type.class);
-            this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        }
-
-        @Override
-        protected Type _deserialize(String value, DeserializationContext context)
-        {
-            return typeManager.getType(TypeId.of(value));
-        }
     }
 
     private static class ConnectorProvider

@@ -16,6 +16,8 @@ package io.trino.parquet;
 import io.airlift.slice.Slice;
 import org.apache.parquet.column.statistics.Statistics;
 
+import java.util.OptionalLong;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -40,10 +42,11 @@ public class DataPageV2
             ParquetEncoding dataEncoding,
             Slice slice,
             int uncompressedSize,
+            OptionalLong firstRowIndex,
             Statistics<?> statistics,
             boolean isCompressed)
     {
-        super(uncompressedSize, valueCount);
+        super(uncompressedSize, valueCount, firstRowIndex);
         this.rowCount = rowCount;
         this.nullCount = nullCount;
         this.repetitionLevels = requireNonNull(repetitionLevels, "repetitionLevels slice is null");

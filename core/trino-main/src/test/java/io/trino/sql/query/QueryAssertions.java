@@ -100,12 +100,6 @@ public class QueryAssertions
         return query(runner.getDefaultSession(), query);
     }
 
-    @Deprecated
-    public AssertProvider<QueryAssert> query(@Language("SQL") String query, Session session)
-    {
-        return query(session, query);
-    }
-
     public AssertProvider<QueryAssert> query(Session session, @Language("SQL") String query)
     {
         return newQueryAssert(query, runner, session);
@@ -261,15 +255,25 @@ public class QueryAssertions
         static AssertProvider<QueryAssert> newQueryAssert(String query, QueryRunner runner, Session session)
         {
             MaterializedResult result = runner.execute(session, query);
-            return () -> new QueryAssert(runner, session, query, result);
+            return () -> new QueryAssert(runner, session, query, result, false, false, false);
         }
 
-        public QueryAssert(QueryRunner runner, Session session, String query, MaterializedResult actual)
+        private QueryAssert(
+                QueryRunner runner,
+                Session session,
+                String query,
+                MaterializedResult actual,
+                boolean ordered,
+                boolean skipTypesCheck,
+                boolean skipResultsCorrectnessCheckForPushdown)
         {
             super(actual, Object.class);
             this.runner = requireNonNull(runner, "runner is null");
             this.session = requireNonNull(session, "session is null");
             this.query = requireNonNull(query, "query is null");
+            this.ordered = ordered;
+            this.skipTypesCheck = skipTypesCheck;
+            this.skipResultsCorrectnessCheckForPushdown = skipResultsCorrectnessCheckForPushdown;
         }
 
         public QueryAssert projected(int... columns)
@@ -288,7 +292,10 @@ public class QueryAssertions
                                     .collect(toImmutableList()),
                             IntStream.of(columns)
                                     .mapToObj(actual.getTypes()::get)
-                                    .collect(toImmutableList())));
+                                    .collect(toImmutableList())),
+                    ordered,
+                    skipTypesCheck,
+                    skipResultsCorrectnessCheckForPushdown);
         }
 
         public QueryAssert matches(BiFunction<Session, QueryRunner, MaterializedResult> evaluator)
@@ -325,11 +332,11 @@ public class QueryAssertions
         {
             return satisfies(actual -> {
                 if (!skipTypesCheck) {
-                    assertTypes(actual, expected.getTypes());
+                    assertTypes(query, actual, expected.getTypes());
                 }
 
                 ListAssert<MaterializedRow> assertion = assertThat(actual.getMaterializedRows())
-                        .as("Rows")
+                        .as("Rows for query [%s]", query)
                         .withRepresentation(ROWS_REPRESENTATION);
 
                 if (ordered) {
@@ -339,6 +346,21 @@ public class QueryAssertions
                     assertion.containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
                 }
             });
+        }
+
+        public final QueryAssert matches(PlanMatchPattern expectedPlan)
+        {
+            transaction(runner.getTransactionManager(), runner.getAccessControl())
+                    .execute(session, session -> {
+                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
+                        assertPlan(
+                                session,
+                                runner.getMetadata(),
+                                noopStatsCalculator(),
+                                plan,
+                                expectedPlan);
+                    });
+            return this;
         }
 
         public QueryAssert containsAll(@Language("SQL") String query)
@@ -351,11 +373,11 @@ public class QueryAssertions
         {
             return satisfies(actual -> {
                 if (!skipTypesCheck) {
-                    assertTypes(actual, expected.getTypes());
+                    assertTypes(query, actual, expected.getTypes());
                 }
 
                 assertThat(actual.getMaterializedRows())
-                        .as("Rows")
+                        .as("Rows for query [%s]", query)
                         .withRepresentation(ROWS_REPRESENTATION)
                         .containsAll(expected.getMaterializedRows());
             });
@@ -364,7 +386,7 @@ public class QueryAssertions
         public QueryAssert hasOutputTypes(List<Type> expectedTypes)
         {
             return satisfies(actual -> {
-                assertTypes(actual, expectedTypes);
+                assertTypes(query, actual, expectedTypes);
             });
         }
 
@@ -372,22 +394,22 @@ public class QueryAssertions
         {
             return satisfies(actual -> {
                 assertThat(actual.getTypes())
-                        .as("Output types")
+                        .as("Output types for query [%s]", query)
                         .element(index).isEqualTo(expectedType);
             });
         }
 
-        private static void assertTypes(MaterializedResult actual, List<Type> expectedTypes)
+        private static void assertTypes(String query, MaterializedResult actual, List<Type> expectedTypes)
         {
             assertThat(actual.getTypes())
-                    .as("Output types")
+                    .as("Output types for query [%s]", query)
                     .isEqualTo(expectedTypes);
         }
 
         public QueryAssert returnsEmptyResult()
         {
             return satisfies(actual -> {
-                assertThat(actual.getRowCount()).as("row count").isEqualTo(0);
+                assertThat(actual.getMaterializedRows()).as("Rows for query [%s]", query).isEmpty();
             });
         }
 
@@ -489,7 +511,7 @@ public class QueryAssertions
                             timestamp.getEpochMicros(),
                             timestamp.getPicosOfMicros());
                 }
-                else if (object instanceof SqlTimestampWithTimeZone) {
+                if (object instanceof SqlTimestampWithTimeZone) {
                     SqlTimestampWithTimeZone timestamp = (SqlTimestampWithTimeZone) object;
                     return String.format(
                             "%s [p = %s, epochMillis = %s, fraction = %s, tz = %s]",
@@ -499,11 +521,11 @@ public class QueryAssertions
                             timestamp.getPicosOfMilli(),
                             timestamp.getTimeZoneKey());
                 }
-                else if (object instanceof SqlTime) {
+                if (object instanceof SqlTime) {
                     SqlTime time = (SqlTime) object;
                     return String.format("%s [picos = %s]", time, time.getPicos());
                 }
-                else if (object instanceof SqlTimeWithTimeZone) {
+                if (object instanceof SqlTimeWithTimeZone) {
                     SqlTimeWithTimeZone time = (SqlTimeWithTimeZone) object;
                     return String.format(
                             "%s [picos = %s, offset = %s]",

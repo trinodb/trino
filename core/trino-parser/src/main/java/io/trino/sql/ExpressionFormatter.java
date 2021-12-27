@@ -65,7 +65,7 @@ import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NotExpression;
@@ -74,6 +74,7 @@ import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Rollup;
 import io.trino.sql.tree.Row;
@@ -81,6 +82,7 @@ import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SimpleGroupBy;
+import io.trino.sql.tree.SkipTo;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
@@ -93,6 +95,7 @@ import io.trino.sql.tree.TypeParameter;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.Window;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.sql.tree.WindowOperation;
 import io.trino.sql.tree.WindowReference;
 import io.trino.sql.tree.WindowSpecification;
 
@@ -103,9 +106,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.PrimitiveIterator;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.sql.RowPatternFormatter.formatPattern;
 import static io.trino.sql.SqlFormatter.formatName;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static java.lang.String.format;
@@ -363,7 +369,7 @@ public final class ExpressionFormatter
         protected String visitDereferenceExpression(DereferenceExpression node, Void context)
         {
             String baseString = process(node.getBase(), context);
-            return baseString + "." + process(node.getField());
+            return baseString + "." + node.getField().map(this::process).orElse("*");
         }
 
         @Override
@@ -376,6 +382,10 @@ public final class ExpressionFormatter
         @Override
         protected String visitFunctionCall(FunctionCall node, Void context)
         {
+            if (QualifiedName.of("LISTAGG").equals(node.getName())) {
+                return visitListagg(node);
+            }
+
             StringBuilder builder = new StringBuilder();
 
             if (node.getProcessingMode().isPresent()) {
@@ -423,6 +433,12 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitWindowOperation(WindowOperation node, Void context)
+        {
+            return process(node.getName(), context) + " OVER " + formatWindow(node.getWindow());
+        }
+
+        @Override
         protected String visitLambdaExpression(LambdaExpression node, Void context)
         {
             StringBuilder builder = new StringBuilder();
@@ -450,9 +466,13 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
+        protected String visitLogicalExpression(LogicalExpression node, Void context)
         {
-            return formatBinaryExpression(node.getOperator().toString(), node.getLeft(), node.getRight());
+            return "(" +
+                    node.getTerms().stream()
+                            .map(term -> process(term, context))
+                            .collect(Collectors.joining(" " + node.getOperator().toString() + " ")) +
+                    ")";
         }
 
         @Override
@@ -763,7 +783,7 @@ public final class ExpressionFormatter
             // LabelDereference, like SymbolReference, is an IR-type expression. It is never a result of the parser.
             // After being formatted this way for serialization, it will be parsed as functionCall
             // and swapped back for LabelDereference.
-            return "LABEL_DEREFERENCE(" + formatIdentifier(node.getLabel()) + ", " + process(node.getReference()) + ")";
+            return "LABEL_DEREFERENCE(" + formatIdentifier(node.getLabel()) + ", " + node.getReference().map(this::process).orElse("*") + ")";
         }
 
         private String formatBinaryExpression(String operator, Expression left, Expression right)
@@ -776,6 +796,62 @@ public final class ExpressionFormatter
             return Joiner.on(", ").join(expressions.stream()
                     .map((e) -> process(e, null))
                     .iterator());
+        }
+
+        /**
+         * Returns the formatted `LISTAGG` function call corresponding to the specified node.
+         * <p>
+         * During the parsing of the syntax tree, the `LISTAGG` expression is synthetically converted
+         * to a function call. This method formats the specified {@link FunctionCall} node to correspond
+         * to the standardised syntax of the `LISTAGG` expression.
+         *
+         * @param node the `LISTAGG` function call
+         */
+        private String visitListagg(FunctionCall node)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            List<Expression> arguments = node.getArguments();
+            Expression expression = arguments.get(0);
+            Expression separator = arguments.get(1);
+            BooleanLiteral overflowError = (BooleanLiteral) arguments.get(2);
+            Expression overflowFiller = arguments.get(3);
+            BooleanLiteral showOverflowEntryCount = (BooleanLiteral) arguments.get(4);
+
+            String innerArguments = joinExpressions(ImmutableList.of(expression, separator));
+            if (node.isDistinct()) {
+                innerArguments = "DISTINCT " + innerArguments;
+            }
+
+            builder.append("LISTAGG")
+                    .append('(').append(innerArguments);
+
+            builder.append(" ON OVERFLOW ");
+            if (overflowError.getValue()) {
+                builder.append(" ERROR");
+            }
+            else {
+                builder.append(" TRUNCATE")
+                        .append(' ')
+                        .append(process(overflowFiller, null));
+                if (showOverflowEntryCount.getValue()) {
+                    builder.append(" WITH COUNT");
+                }
+                else {
+                    builder.append(" WITHOUT COUNT");
+                }
+            }
+
+            builder.append(')');
+
+            if (node.getOrderBy().isPresent()) {
+                builder.append(" WITHIN GROUP ")
+                        .append('(')
+                        .append(formatOrderBy(node.getOrderBy().get()))
+                        .append(')');
+            }
+
+            return builder.toString();
         }
     }
 
@@ -859,6 +935,14 @@ public final class ExpressionFormatter
     {
         StringBuilder builder = new StringBuilder();
 
+        if (!windowFrame.getMeasures().isEmpty()) {
+            builder.append("MEASURES ")
+                    .append(windowFrame.getMeasures().stream()
+                            .map(measure -> formatExpression(measure.getExpression()) + " AS " + formatExpression(measure.getName()))
+                            .collect(joining(", ")))
+                    .append(" ");
+        }
+
         builder.append(windowFrame.getType().toString())
                 .append(' ');
 
@@ -870,6 +954,30 @@ public final class ExpressionFormatter
         }
         else {
             builder.append(formatFrameBound(windowFrame.getStart()));
+        }
+
+        windowFrame.getAfterMatchSkipTo().ifPresent(skipTo ->
+                builder.append(" ")
+                        .append(formatSkipTo(skipTo)));
+        windowFrame.getPatternSearchMode().ifPresent(searchMode ->
+                builder.append(" ")
+                        .append(searchMode.getMode().name()));
+        windowFrame.getPattern().ifPresent(pattern ->
+                builder.append(" PATTERN(")
+                        .append(formatPattern(pattern))
+                        .append(")"));
+        if (!windowFrame.getSubsets().isEmpty()) {
+            builder.append(" SUBSET ");
+            builder.append(windowFrame.getSubsets().stream()
+                    .map(subset -> formatExpression(subset.getName()) + " = " + subset.getIdentifiers().stream()
+                            .map(ExpressionFormatter::formatExpression).collect(joining(", ", "(", ")")))
+                    .collect(joining(", ")));
+        }
+        if (!windowFrame.getVariableDefinitions().isEmpty()) {
+            builder.append(" DEFINE ");
+            builder.append(windowFrame.getVariableDefinitions().stream()
+                    .map(variable -> formatExpression(variable.getName()) + " AS " + formatExpression(variable.getExpression()))
+                    .collect(joining(", ")));
         }
 
         return builder.toString();
@@ -890,6 +998,24 @@ public final class ExpressionFormatter
                 return "UNBOUNDED FOLLOWING";
         }
         throw new IllegalArgumentException("unhandled type: " + frameBound.getType());
+    }
+
+    public static String formatSkipTo(SkipTo skipTo)
+    {
+        switch (skipTo.getPosition()) {
+            case PAST_LAST:
+                return "AFTER MATCH SKIP PAST LAST ROW";
+            case NEXT:
+                return "AFTER MATCH SKIP TO NEXT ROW";
+            case LAST:
+                checkState(skipTo.getIdentifier().isPresent(), "missing identifier in AFTER MATCH SKIP TO LAST");
+                return "AFTER MATCH SKIP TO LAST " + formatExpression(skipTo.getIdentifier().get());
+            case FIRST:
+                checkState(skipTo.getIdentifier().isPresent(), "missing identifier in AFTER MATCH SKIP TO FIRST");
+                return "AFTER MATCH SKIP TO FIRST " + formatExpression(skipTo.getIdentifier().get());
+            default:
+                throw new IllegalStateException("unexpected skipTo: " + skipTo);
+        }
     }
 
     static String formatGroupBy(List<GroupingElement> groupingElements)

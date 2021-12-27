@@ -14,13 +14,14 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.stats.QuantileDigest;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.AggregationFunctionMetadata;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
+import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
 import io.trino.operator.aggregation.state.QuantileDigestState;
 import io.trino.operator.aggregation.state.QuantileDigestStateFactory;
 import io.trino.operator.aggregation.state.QuantileDigestStateSerializer;
@@ -35,14 +36,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.comparableTypeParameter;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
 import static io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
 import static io.trino.operator.aggregation.FloatingPointBitsConverterUtil.floatToSortableInt;
 import static io.trino.operator.scalar.QuantileDigestFunctions.DEFAULT_ACCURACY;
@@ -51,6 +50,7 @@ import static io.trino.operator.scalar.QuantileDigestFunctions.verifyAccuracy;
 import static io.trino.operator.scalar.QuantileDigestFunctions.verifyWeight;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.StandardTypes.QDIGEST;
 import static io.trino.spi.type.TypeSignature.parametricType;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Float.intBitsToFloat;
@@ -83,53 +83,40 @@ public final class QuantileDigestAggregationFunction
                                 parametricType("qdigest", new TypeSignature("V")),
                                 ImmutableList.copyOf(typeSignatures),
                                 false),
-                        true,
-                        nCopies(typeSignatures.length, new FunctionArgumentDefinition(false)),
+                        new FunctionNullability(true, nCopies(typeSignatures.length, false)),
                         false,
                         true,
                         "Returns a qdigest from the set of reals, bigints or doubles",
                         AGGREGATE),
-                true,
-                true);
+                new AggregationFunctionMetadata(
+                        true,
+                        parametricType(QDIGEST, new TypeSignature("V"))));
     }
 
     @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
-        Type valueType = functionBinding.getTypeVariable("V");
-        return ImmutableList.of(new QuantileDigestType(valueType).getTypeSignature());
-    }
+        QuantileDigestType outputType = (QuantileDigestType) boundSignature.getReturnType();
+        Type valueType = outputType.getValueType();
+        int arity = boundSignature.getArity();
 
-    @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
-    {
-        Type valueType = functionBinding.getTypeVariable("V");
-        QuantileDigestType outputType = (QuantileDigestType) functionBinding.getBoundSignature().getReturnType();
-        return generateAggregation(valueType, outputType, functionBinding.getArity());
-    }
-
-    private static InternalAggregationFunction generateAggregation(Type valueType, QuantileDigestType outputType, int arity)
-    {
-        DynamicClassLoader classLoader = new DynamicClassLoader(QuantileDigestAggregationFunction.class.getClassLoader());
-        List<Type> inputTypes = getInputTypes(valueType, arity);
         QuantileDigestStateSerializer stateSerializer = new QuantileDigestStateSerializer(valueType);
-        Type intermediateType = stateSerializer.getSerializedType();
 
-        AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
-                createInputParameterMetadata(inputTypes),
-                getMethodHandle(valueType, arity),
+        MethodHandle inputFunction = getMethodHandle(valueType, arity);
+        inputFunction = normalizeInputMethod(inputFunction, boundSignature, ImmutableList.<AggregationParameterKind>builder()
+                .add(STATE)
+                .addAll(getInputTypes(valueType, arity).stream().map(ignored -> INPUT_CHANNEL).collect(Collectors.toList()))
+                .build());
+
+        return new AggregationMetadata(
+                inputFunction,
                 Optional.empty(),
-                COMBINE_FUNCTION,
+                Optional.of(COMBINE_FUNCTION),
                 OUTPUT_FUNCTION.bindTo(stateSerializer),
-                ImmutableList.of(new AccumulatorStateDescriptor(
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
                         QuantileDigestState.class,
                         stateSerializer,
-                        new QuantileDigestStateFactory())),
-                outputType);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
+                        new QuantileDigestStateFactory())));
     }
 
     private static List<Type> getInputTypes(Type valueType, int arity)
@@ -179,14 +166,6 @@ public final class QuantileDigestAggregationFunction
             default:
                 throw new IllegalArgumentException(format("Unsupported number of arguments: %s", arity));
         }
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(List<Type> valueTypes)
-    {
-        return ImmutableList.<ParameterMetadata>builder()
-                .add(new ParameterMetadata(STATE))
-                .addAll(valueTypes.stream().map(valueType -> new ParameterMetadata(INPUT_CHANNEL, valueType)).collect(Collectors.toList()))
-                .build();
     }
 
     public static void inputDouble(QuantileDigestState state, double value, long weight, double accuracy)

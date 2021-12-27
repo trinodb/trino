@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.spi.type.Type;
 import io.trino.testing.BaseConnectorTest;
+import io.trino.testing.Bytes;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
@@ -56,6 +57,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -99,12 +101,23 @@ public class TestCassandraConnectorTest
             case SUPPORTS_ARRAY:
                 return false;
 
+            case SUPPORTS_ADD_COLUMN:
+            case SUPPORTS_DROP_COLUMN:
+            case SUPPORTS_RENAME_COLUMN:
+                return false;
+
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
+            case SUPPORTS_DELETE:
+                return true;
 
             default:
                 return super.hasBehavior(connectorBehavior);
@@ -157,29 +170,6 @@ public class TestCassandraConnectorTest
     protected String dataMappingTableName(String trinoTypeName)
     {
         return "tmp_trino_" + System.nanoTime();
-    }
-
-    @Test
-    @Override
-    public void testAddColumn()
-    {
-        assertThatThrownBy(super::testAddColumn).hasMessage("This connector does not support adding columns");
-        throw new SkipException("This connector does not support adding columns");
-    }
-
-    @Override
-    public void testRenameColumn()
-    {
-        assertThatThrownBy(super::testRenameColumn).hasMessage("This connector does not support renaming columns");
-        throw new SkipException("This connector does not support renaming columns");
-    }
-
-    @Test
-    @Override
-    public void testDropColumn()
-    {
-        assertThatThrownBy(super::testDropColumn).hasMessage("This connector does not support dropping columns");
-        throw new SkipException("This connector does not support dropping columns");
     }
 
     @Test
@@ -240,16 +230,26 @@ public class TestCassandraConnectorTest
                         ")");
     }
 
+    @Override
+    public void testCharVarcharComparison()
+    {
+        assertThatThrownBy(super::testCharVarcharComparison)
+                .hasMessage("unsupported type: char(3)");
+    }
+
     @Test
     public void testPartitionKeyPredicate()
     {
         String sql = "SELECT *" +
                 " FROM " + TABLE_ALL_TYPES_PARTITION_KEY +
                 " WHERE key = 'key 7'" +
-                " AND typeuuid = '00000000-0000-0000-0000-000000000007'" +
+                " AND typeuuid = UUID '00000000-0000-0000-0000-000000000007'" +
+                " AND typetinyint = 7" +
+                " AND typesmallint = 7" +
                 " AND typeinteger = 7" +
                 " AND typelong = 1007" +
                 " AND typebytes = from_hex('" + toRawHexString(ByteBuffer.wrap(Ints.toByteArray(7))) + "')" +
+                " AND typedate = DATE '1970-01-01'" +
                 " AND typetimestamp = TIMESTAMP '1970-01-01 03:04:05Z'" +
                 " AND typeansi = 'ansi 7'" +
                 " AND typeboolean = false" +
@@ -259,7 +259,7 @@ public class TestCassandraConnectorTest
                 " AND typeinet = '127.0.0.1'" +
                 " AND typevarchar = 'varchar 7'" +
                 " AND typevarint = '10000000'" +
-                " AND typetimeuuid = 'd2177dd0-eaa2-11de-a572-001b779c76e7'" +
+                " AND typetimeuuid = UUID 'd2177dd0-eaa2-11de-a572-001b779c76e7'" +
                 " AND typelist = '[\"list-value-17\",\"list-value-27\"]'" +
                 " AND typemap = '{7:8,9:10}'" +
                 " AND typeset = '[false,true]'" +
@@ -421,6 +421,19 @@ public class TestCassandraConnectorTest
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_997','clust_two_998','clust_two_999') AND clust_two > 'clust_two_998'";
         assertEquals(execute(sql).getRowCount(), 1);
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_LARGE + " WHERE clust_one='clust_one' AND clust_two IN ('clust_two_1','clust_two_2','clust_two_3') AND clust_two = 'clust_two_2'";
+        assertEquals(execute(sql).getRowCount(), 1);
+    }
+
+    @Test
+    public void testNotEqualPredicateOnClusteringColumn()
+    {
+        String sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one != 'clust_one'";
+        assertEquals(execute(sql).getRowCount(), 0);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two != 2";
+        assertEquals(execute(sql).getRowCount(), 3);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two >= 2 AND clust_two != 3";
+        assertEquals(execute(sql).getRowCount(), 2);
+        sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two > 2 AND clust_two != 3";
         assertEquals(execute(sql).getRowCount(), 1);
     }
 
@@ -594,33 +607,7 @@ public class TestCassandraConnectorTest
     @Test
     public void testUnsupportedColumnType()
     {
-        session.execute("CREATE KEYSPACE keyspace_6 WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
-        assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("keyspace_6")
-                .build(), new Duration(1, MINUTES));
-
-        session.execute("CREATE TABLE keyspace_6.table_6 (column_1 bigint, column_2 bigint, unsupported_3 tuple<bigint>, unsupported_4 set<frozen<tuple<bigint>>>, PRIMARY KEY (column_1))");
-        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_6"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("table_6")
-                .build(), new Duration(1, MINUTES));
-
-        assertContains(execute("SHOW COLUMNS FROM cassandra.keyspace_6.table_6"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
-                .row("column_1", "bigint", "", "")
-                .row("column_2", "bigint", "", "")
-                .build());
-        session.execute("DROP TABLE keyspace_6.table_6");
-
-        session.execute("CREATE TABLE keyspace_6.table_6 (unsupported_primary_key tuple<bigint>, column_2 bigint, PRIMARY KEY (unsupported_primary_key))");
-        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_6"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row("table_6")
-                .build(), new Duration(1, MINUTES));
-
-        assertQueryFailsEventually(
-                "SHOW COLUMNS FROM cassandra.keyspace_6.table_6",
-                "Unsupported partition key type: tuple",
-                new Duration(1, MINUTES));
-
-        session.execute("DROP KEYSPACE keyspace_6");
+        // TODO currently all standard types are supported to some extent. We should add a test with custom type if possible.
     }
 
     @Test
@@ -711,7 +698,7 @@ public class TestCassandraConnectorTest
         assertEquals(execute(sql).getRowCount(), 0);
 
         // TODO Following types are not supported now. We need to change null into the value after fixing it
-        // blob, frozen<set<type>>, inet, list<type>, map<type,type>, set<type>, timeuuid, decimal, uuid, varint
+        // blob, frozen<set<type>>, inet, list<type>, map<type,type>, set<type>, decimal, varint
         // timestamp can be inserted but the expected and actual values are not same
         execute("INSERT INTO " + TABLE_ALL_TYPES_INSERT + " (" +
                 "key," +
@@ -734,7 +721,7 @@ public class TestCassandraConnectorTest
                 "typeset" +
                 ") VALUES (" +
                 "'key1', " +
-                "null, " +
+                "UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59', " +
                 "1, " +
                 "1000, " +
                 "null, " +
@@ -747,7 +734,7 @@ public class TestCassandraConnectorTest
                 "null, " +
                 "'varchar1', " +
                 "null, " +
-                "null, " +
+                "UUID '50554d6e-29bb-11e5-b345-feff819cdc9f', " +
                 "null, " +
                 "null, " +
                 "null " +
@@ -758,7 +745,7 @@ public class TestCassandraConnectorTest
         assertEquals(rowCount, 1);
         assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION,
                 "key1",
-                null,
+                java.util.UUID.fromString("12151fd2-7586-11e9-8f9e-2a86e4085a59"),
                 1,
                 1000L,
                 null,
@@ -771,7 +758,7 @@ public class TestCassandraConnectorTest
                 null,
                 "varchar1",
                 null,
-                null,
+                java.util.UUID.fromString("50554d6e-29bb-11e5-b345-feff819cdc9f"),
                 null,
                 null,
                 null));
@@ -847,9 +834,57 @@ public class TestCassandraConnectorTest
         assertEquals(execute("SELECT * FROM " + keyspaceAndTable + whereMultiplePartitionKey).getRowCount(), 0);
     }
 
+    @Override
+    public void testDeleteWithComplexPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithComplexPredicate)
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+    }
+
+    @Override
+    public void testDeleteWithSemiJoin()
+    {
+        assertThatThrownBy(super::testDeleteWithSemiJoin)
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+    }
+
+    @Override
+    public void testDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testDeleteWithSubquery)
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+    }
+
+    @Override
+    public void testExplainAnalyzeWithDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+    }
+
+    @Override
+    public void testDeleteWithVarcharPredicate()
+    {
+        assertThatThrownBy(super::testDeleteWithVarcharPredicate)
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+    }
+
+    @Override
+    public void testDeleteAllDataFromTable()
+    {
+        assertThatThrownBy(super::testDeleteAllDataFromTable)
+                .hasStackTraceContaining("Deleting without partition key is not supported");
+    }
+
+    @Override
+    public void testRowLevelDelete()
+    {
+        assertThatThrownBy(super::testRowLevelDelete)
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
+    }
+
     private void assertSelect(String tableName, boolean createdByTrino)
     {
-        Type uuidType = createdByTrino ? createUnboundedVarcharType() : createVarcharType(36);
         Type inetType = createdByTrino ? createUnboundedVarcharType() : createVarcharType(45);
 
         String sql = "SELECT " +
@@ -879,7 +914,7 @@ public class TestCassandraConnectorTest
         assertEquals(rowCount, 9);
         assertEquals(result.getTypes(), ImmutableList.of(
                 createUnboundedVarcharType(),
-                uuidType,
+                UUID,
                 INTEGER,
                 BIGINT,
                 VARBINARY,
@@ -892,7 +927,7 @@ public class TestCassandraConnectorTest
                 inetType,
                 createUnboundedVarcharType(),
                 createUnboundedVarcharType(),
-                uuidType,
+                UUID,
                 createUnboundedVarcharType(),
                 createUnboundedVarcharType(),
                 createUnboundedVarcharType()));
@@ -904,10 +939,10 @@ public class TestCassandraConnectorTest
         for (int rowNumber = 1; rowNumber <= rowCount; rowNumber++) {
             assertEquals(sortedRows.get(rowNumber - 1), new MaterializedRow(DEFAULT_PRECISION,
                     "key " + rowNumber,
-                    format("00000000-0000-0000-0000-%012d", rowNumber),
+                    java.util.UUID.fromString(format("00000000-0000-0000-0000-%012d", rowNumber)),
                     rowNumber,
                     rowNumber + 1000L,
-                    ByteBuffer.wrap(Ints.toByteArray(rowNumber)),
+                    Bytes.fromBytes(Ints.toByteArray(rowNumber)),
                     TIMESTAMP_VALUE,
                     "ansi " + rowNumber,
                     rowNumber % 2 == 0,
@@ -917,7 +952,7 @@ public class TestCassandraConnectorTest
                     "127.0.0.1",
                     "varchar " + rowNumber,
                     BigInteger.TEN.pow(rowNumber).toString(),
-                    format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
+                    java.util.UUID.fromString(format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber)),
                     format("[\"list-value-1%1$d\",\"list-value-2%1$d\"]", rowNumber),
                     format("{%d:%d,%d:%d}", rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L),
                     "[false,true]"));

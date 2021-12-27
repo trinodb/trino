@@ -26,7 +26,7 @@ public final class NestedLoopJoinPagesSupplier
         implements NestedLoopJoinBridge
 {
     private final SettableFuture<NestedLoopJoinPages> pagesFuture = SettableFuture.create();
-    private final SettableFuture<?> pagesNoLongerNeeded = SettableFuture.create();
+    private final SettableFuture<Void> pagesNoLongerNeeded = SettableFuture.create();
 
     @Override
     public ListenableFuture<NestedLoopJoinPages> getPagesFuture()
@@ -35,7 +35,7 @@ public final class NestedLoopJoinPagesSupplier
     }
 
     @Override
-    public ListenableFuture<?> setPages(NestedLoopJoinPages nestedLoopJoinPages)
+    public ListenableFuture<Void> setPages(NestedLoopJoinPages nestedLoopJoinPages)
     {
         requireNonNull(nestedLoopJoinPages, "nestedLoopJoinPages is null");
         boolean wasSet = pagesFuture.set(nestedLoopJoinPages);

@@ -62,7 +62,7 @@ public class PageBufferOperator
 
     private final OperatorContext operatorContext;
     private final PageBuffer pageBuffer;
-    private ListenableFuture<?> blocked = NOT_BLOCKED;
+    private ListenableFuture<Void> blocked = NOT_BLOCKED;
     private boolean finished;
 
     public PageBufferOperator(OperatorContext operatorContext, PageBuffer pageBuffer)
@@ -91,7 +91,7 @@ public class PageBufferOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         updateBlockedIfNecessary();
         return blocked;
@@ -116,7 +116,7 @@ public class PageBufferOperator
     {
         requireNonNull(page, "page is null");
         checkState(blocked == NOT_BLOCKED, "output is already blocked");
-        ListenableFuture<?> future = pageBuffer.add(page);
+        ListenableFuture<Void> future = pageBuffer.add(page);
         if (!future.isDone()) {
             this.blocked = future;
         }

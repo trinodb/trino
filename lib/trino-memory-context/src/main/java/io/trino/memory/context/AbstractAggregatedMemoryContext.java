@@ -13,7 +13,6 @@
  */
 package io.trino.memory.context;
 
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.Nullable;
@@ -21,13 +20,14 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.lang.String.format;
 
 @ThreadSafe
 abstract class AbstractAggregatedMemoryContext
         implements AggregatedMemoryContext
 {
-    static final ListenableFuture<?> NOT_BLOCKED = Futures.immediateFuture(null);
+    static final ListenableFuture<Void> NOT_BLOCKED = immediateVoidFuture();
 
     // When an aggregated memory context is closed, it force-frees the memory allocated by its
     // children local memory contexts. Since the memory pool API enforces a tag to be used for
@@ -87,7 +87,7 @@ abstract class AbstractAggregatedMemoryContext
         usedBytes = addExact(usedBytes, bytes);
     }
 
-    abstract ListenableFuture<?> updateBytes(String allocationTag, long bytes);
+    abstract ListenableFuture<Void> updateBytes(String allocationTag, long bytes);
 
     abstract boolean tryUpdateBytes(String allocationTag, long delta);
 

@@ -62,6 +62,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxSt
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxStripeSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMinStripeSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterValidateMode;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterBatchSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcWriterValidate;
@@ -136,7 +137,7 @@ public class IcebergFileWriterFactory
                 .collect(toImmutableList());
 
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), outputPath, jobConf);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), outputPath, jobConf);
 
             Callable<Void> rollbackAction = () -> {
                 fileSystem.delete(outputPath, false);
@@ -145,11 +146,12 @@ public class IcebergFileWriterFactory
 
             ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                     .setMaxPageSize(getParquetWriterPageSize(session))
-                    .setMaxPageSize(getParquetWriterBlockSize(session))
+                    .setMaxBlockSize(getParquetWriterBlockSize(session))
+                    .setBatchSize(getParquetWriterBatchSize(session))
                     .build();
 
             return new IcebergParquetFileWriter(
-                    hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.create(outputPath)),
+                    hdfsEnvironment.doAs(session.getIdentity(), () -> fileSystem.create(outputPath)),
                     rollbackAction,
                     fileColumnTypes,
                     convert(icebergSchema, "table"),
@@ -157,6 +159,7 @@ public class IcebergFileWriterFactory
                     parquetWriterOptions,
                     IntStream.range(0, fileColumnNames.size()).toArray(),
                     getCompressionCodec(session).getParquetCompressionCodec(),
+                    nodeVersion.toString(),
                     outputPath,
                     hdfsEnvironment,
                     hdfsContext);
@@ -173,10 +176,10 @@ public class IcebergFileWriterFactory
             ConnectorSession session)
     {
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), outputPath, jobConf);
-            OrcDataSink orcDataSink = hdfsEnvironment.doAs(session.getUser(), () -> new OutputStreamOrcDataSink(fileSystem.create(outputPath)));
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), outputPath, jobConf);
+            OrcDataSink orcDataSink = hdfsEnvironment.doAs(session.getIdentity(), () -> new OutputStreamOrcDataSink(fileSystem.create(outputPath)));
             Callable<Void> rollbackAction = () -> {
-                hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.delete(outputPath, false));
+                hdfsEnvironment.doAs(session.getIdentity(), () -> fileSystem.delete(outputPath, false));
                 return null;
             };
 
@@ -195,9 +198,9 @@ public class IcebergFileWriterFactory
                     try {
                         return new HdfsOrcDataSource(
                                 new OrcDataSourceId(outputPath.toString()),
-                                hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.getFileStatus(outputPath).getLen()),
+                                hdfsEnvironment.doAs(session.getIdentity(), () -> fileSystem.getFileStatus(outputPath).getLen()),
                                 new OrcReaderOptions(),
-                                hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.open(outputPath)),
+                                hdfsEnvironment.doAs(session.getIdentity(), () -> fileSystem.open(outputPath)),
                                 readStats);
                     }
                     catch (IOException e) {

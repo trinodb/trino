@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.airlift.log.Logging;
 import io.trino.plugin.blackhole.BlackHolePlugin;
-import io.trino.plugin.hive.HiveHadoop2Plugin;
+import io.trino.plugin.hive.HivePlugin;
 import io.trino.plugin.tpch.TpchMetadata;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.BasicQueryInfo;
@@ -114,8 +114,8 @@ public class TestTrinoDatabaseMetaData
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
 
-        server.installPlugin(new HiveHadoop2Plugin());
-        server.createCatalog("hive", "hive-hadoop2", ImmutableMap.<String, String>builder()
+        server.installPlugin(new HivePlugin());
+        server.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toAbsolutePath().toString())
                 .put("hive.security", "sql-standard")
@@ -134,7 +134,7 @@ public class TestTrinoDatabaseMetaData
         try (Connection connection = createConnection()) {
             connection.setCatalog("hive");
             try (Statement statement = connection.createStatement()) {
-                statement.execute("SET ROLE admin");
+                statement.execute("SET ROLE admin IN hive");
                 statement.execute("CREATE SCHEMA default");
                 statement.execute("CREATE TABLE default.test_table (a varchar)");
                 statement.execute("CREATE VIEW default.test_view AS SELECT * FROM hive.default.test_table");
@@ -1225,6 +1225,17 @@ public class TestTrinoDatabaseMetaData
                         .withListTablesCount(2)
                         .withGetColumnsCount(3000));
 
+        // Equality predicate on catalog name and schema name
+        assertMetadataCalls(
+                connection,
+                readMetaData(
+                        databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "test\\_schema1", null, null),
+                        list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
+                new MetadataCallsCount()
+                        .withListSchemasCount(0)
+                        .withListTablesCount(1)
+                        .withGetColumnsCount(1000));
+
         // Equality predicate on catalog name, schema name and table name
         assertMetadataCalls(
                 connection,
@@ -1287,8 +1298,8 @@ public class TestTrinoDatabaseMetaData
                                         .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table" + tableIndex, "column_" + columnIndex, "varchar")))
                         .collect(toImmutableList()),
                 new MetadataCallsCount()
-                        .withListSchemasCount(3)
-                        .withListTablesCount(1001)
+                        .withListSchemasCount(2)
+                        .withListTablesCount(1)
                         .withGetColumnsCount(1000));
 
         // LIKE predicate on table name, but no predicate on catalog name and schema name

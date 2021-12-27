@@ -29,7 +29,8 @@ public class TestPostgreSqlConfig
     {
         assertRecordedDefaults(recordDefaults(PostgreSqlConfig.class)
                 .setArrayMapping(PostgreSqlConfig.ArrayMapping.DISABLED)
-                .setIncludeSystemTables(false));
+                .setIncludeSystemTables(false)
+                .setEnableStringPushdownWithCollate(false));
     }
 
     @Test
@@ -38,11 +39,13 @@ public class TestPostgreSqlConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("postgresql.array-mapping", "AS_ARRAY")
                 .put("postgresql.include-system-tables", "true")
+                .put("postgresql.experimental.enable-string-pushdown-with-collate", "true")
                 .build();
 
         PostgreSqlConfig expected = new PostgreSqlConfig()
                 .setArrayMapping(PostgreSqlConfig.ArrayMapping.AS_ARRAY)
-                .setIncludeSystemTables(true);
+                .setIncludeSystemTables(true)
+                .setEnableStringPushdownWithCollate(true);
 
         assertFullMapping(properties, expected);
     }

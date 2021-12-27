@@ -25,6 +25,16 @@ public class DoubleDecoder
     @Override
     public void decode(Supplier<Object> getter, BlockBuilder output)
     {
-        DOUBLE.writeDouble(output, ((Number) getter.get()).doubleValue());
+        Object value = getter.get();
+        if (value == null) {
+            output.appendNull();
+        }
+        else if (value instanceof String) {
+            // Pinot returns NEGATIVE_INFINITY, POSITIVE_INFINITY as a String
+            DOUBLE.writeDouble(output, Double.valueOf((String) value));
+        }
+        else {
+            DOUBLE.writeDouble(output, ((Number) value).doubleValue());
+        }
     }
 }

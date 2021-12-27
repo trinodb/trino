@@ -24,8 +24,6 @@ import io.trino.Session;
 import io.trino.client.ProtocolHeaders;
 import io.trino.client.QueryResults;
 import io.trino.execution.QueryManager;
-import io.trino.memory.context.SimpleLocalMemoryContext;
-import io.trino.operator.ExchangeClient;
 import io.trino.operator.ExchangeClientSupplier;
 import io.trino.server.ForStatementResource;
 import io.trino.server.ServerConfig;
@@ -48,7 +46,6 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
-import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URLEncoder;
@@ -62,7 +59,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -163,7 +159,7 @@ public class ExecutingStatementResource
         Query query = queries.get(queryId);
         if (query != null) {
             if (!query.isSlugValid(slug, token)) {
-                throw badRequest(NOT_FOUND, "Query not found");
+                throw queryNotFound();
             }
             return query;
         }
@@ -175,25 +171,22 @@ public class ExecutingStatementResource
             session = queryManager.getQuerySession(queryId);
             querySlug = queryManager.getQuerySlug(queryId);
             if (!querySlug.isValid(EXECUTING_QUERY, slug, token)) {
-                throw badRequest(NOT_FOUND, "Query not found");
+                throw queryNotFound();
             }
         }
         catch (NoSuchElementException e) {
-            throw badRequest(NOT_FOUND, "Query not found");
+            throw queryNotFound();
         }
 
-        query = queries.computeIfAbsent(queryId, id -> {
-            ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), ExecutingStatementResource.class.getSimpleName()));
-            return Query.create(
-                    session,
-                    querySlug,
-                    queryManager,
-                    queryInfoUrlFactory.getQueryInfoUrl(queryId),
-                    exchangeClient,
-                    responseExecutor,
-                    timeoutExecutor,
-                    blockEncodingSerde);
-        });
+        query = queries.computeIfAbsent(queryId, id -> Query.create(
+                session,
+                querySlug,
+                queryManager,
+                queryInfoUrlFactory.getQueryInfoUrl(queryId),
+                exchangeClientSupplier,
+                responseExecutor,
+                timeoutExecutor,
+                blockEncodingSerde));
         return query;
     }
 
@@ -280,7 +273,7 @@ public class ExecutingStatementResource
         Query query = queries.get(queryId);
         if (query != null) {
             if (!query.isSlugValid(slug, token)) {
-                throw badRequest(NOT_FOUND, "Query not found");
+                throw queryNotFound();
             }
             query.cancel();
             return Response.noContent().build();
@@ -289,13 +282,13 @@ public class ExecutingStatementResource
         // cancel the query execution directly instead of creating the statement client
         try {
             if (!queryManager.getQuerySlug(queryId).isValid(EXECUTING_QUERY, slug, token)) {
-                throw badRequest(NOT_FOUND, "Query not found");
+                throw queryNotFound();
             }
             queryManager.cancelQuery(queryId);
             return Response.noContent().build();
         }
         catch (NoSuchElementException e) {
-            throw badRequest(NOT_FOUND, "Query not found");
+            throw queryNotFound();
         }
     }
 
@@ -312,12 +305,12 @@ public class ExecutingStatementResource
         query.partialCancel(stage);
     }
 
-    private static WebApplicationException badRequest(Status status, String message)
+    private static WebApplicationException queryNotFound()
     {
         throw new WebApplicationException(
-                Response.status(status)
+                Response.status(NOT_FOUND)
                         .type(TEXT_PLAIN_TYPE)
-                        .entity(message)
+                        .entity("Query not found")
                         .build());
     }
 

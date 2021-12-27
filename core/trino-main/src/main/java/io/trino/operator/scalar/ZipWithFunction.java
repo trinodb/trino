@@ -14,9 +14,9 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
@@ -64,11 +64,7 @@ public final class ZipWithFunction
                                 arrayType(new TypeSignature("U")),
                                 functionType(new TypeSignature("T"), new TypeSignature("U"), new TypeSignature("R"))),
                         false),
-                false,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, ImmutableList.of(false, false, false)),
                 false,
                 false,
                 "Merge two arrays, element-wise, into a single array using the lambda function",
@@ -76,14 +72,14 @@ public final class ZipWithFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        Type leftElementType = functionBinding.getTypeVariable("T");
-        Type rightElementType = functionBinding.getTypeVariable("U");
-        Type outputElementType = functionBinding.getTypeVariable("R");
+        Type leftElementType = ((ArrayType) boundSignature.getArgumentType(0)).getElementType();
+        Type rightElementType = ((ArrayType) boundSignature.getArgumentType(1)).getElementType();
+        Type outputElementType = ((ArrayType) boundSignature.getReturnType()).getElementType();
         ArrayType outputArrayType = new ArrayType(outputElementType);
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL, FUNCTION),
                 ImmutableList.of(BinaryFunctionInterface.class),

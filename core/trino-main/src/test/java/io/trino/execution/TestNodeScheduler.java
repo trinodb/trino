@@ -42,6 +42,7 @@ import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingSession;
@@ -204,7 +205,7 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         int task = 0;
         for (InternalNode node : assignments.keySet()) {
-            TaskId taskId = new TaskId("test", 1, task);
+            TaskId taskId = new TaskId(new StageId("test", 1), task, 0);
             task++;
             MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, ImmutableList.copyOf(assignments.get(node)), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
             remoteTask.startSplits(25);
@@ -321,11 +322,11 @@ public class TestNodeScheduler
 
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         // Max out number of splits on node
-        TaskId taskId1 = new TaskId("test", 1, 1);
+        TaskId taskId1 = new TaskId(new StageId("test", 1), 1, 0);
         RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(taskId1, newNode, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(newNode, taskId1));
         nodeTaskMap.addTask(newNode, remoteTask1);
 
-        TaskId taskId2 = new TaskId("test", 1, 2);
+        TaskId taskId2 = new TaskId(new StageId("test", 1), 2, 0);
         RemoteTask remoteTask2 = remoteTaskFactory.createTableScanTask(taskId2, newNode, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(newNode, taskId2));
         nodeTaskMap.addTask(newNode, remoteTask2);
 
@@ -341,7 +342,7 @@ public class TestNodeScheduler
         remoteTask1.abort();
         remoteTask2.abort();
 
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(newNode), 0);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(newNode), PartitionedSplitsInfo.forZeroSplits());
     }
 
     @Test
@@ -380,13 +381,13 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         for (InternalNode node : nodeManager.getActiveConnectorNodes(CONNECTOR_ID)) {
             // Max out number of splits on node
-            TaskId taskId = new TaskId("test", 1, 1);
+            TaskId taskId = new TaskId(new StageId("test", 1), 1, 0);
             RemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
             nodeTaskMap.addTask(node, remoteTask);
             tasks.add(remoteTask);
         }
 
-        TaskId taskId = new TaskId("test", 1, 2);
+        TaskId taskId = new TaskId(new StageId("test", 1), 2, 0);
         RemoteTask newRemoteTask = remoteTaskFactory.createTableScanTask(taskId, newNode, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(newNode, taskId));
         // Max out pending splits on new node
         taskMap.put(newNode, newRemoteTask);
@@ -407,7 +408,7 @@ public class TestNodeScheduler
         for (RemoteTask task : tasks) {
             task.abort();
         }
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(newNode), 0);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(newNode), PartitionedSplitsInfo.forZeroSplits());
     }
 
     @Test
@@ -417,20 +418,20 @@ public class TestNodeScheduler
         setUpNodes();
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         InternalNode chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
-        TaskId taskId = new TaskId("test", 1, 1);
+        TaskId taskId = new TaskId(new StageId("test", 1), 1, 0);
         RemoteTask remoteTask = remoteTaskFactory.createTableScanTask(
                 taskId,
                 chosenNode,
                 ImmutableList.of(new Split(CONNECTOR_ID, new TestSplitRemote(), Lifespan.taskWide())),
                 nodeTaskMap.createPartitionedSplitCountTracker(chosenNode, taskId));
         nodeTaskMap.addTask(chosenNode, remoteTask);
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 1);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode).getCount(), 1);
         remoteTask.abort();
         MILLISECONDS.sleep(100); // Sleep until cache expires
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 0);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), PartitionedSplitsInfo.forZeroSplits());
 
         remoteTask.abort();
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 0);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), PartitionedSplitsInfo.forZeroSplits());
     }
 
     @Test
@@ -440,7 +441,7 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         InternalNode chosenNode = Iterables.get(nodeManager.getActiveConnectorNodes(CONNECTOR_ID), 0);
 
-        TaskId taskId1 = new TaskId("test", 1, 1);
+        TaskId taskId1 = new TaskId(new StageId("test", 1), 1, 0);
         RemoteTask remoteTask1 = remoteTaskFactory.createTableScanTask(taskId1,
                 chosenNode,
                 ImmutableList.of(
@@ -448,7 +449,7 @@ public class TestNodeScheduler
                         new Split(CONNECTOR_ID, new TestSplitRemote(), Lifespan.taskWide())),
                 nodeTaskMap.createPartitionedSplitCountTracker(chosenNode, taskId1));
 
-        TaskId taskId2 = new TaskId("test", 1, 2);
+        TaskId taskId2 = new TaskId(new StageId("test", 1), 2, 0);
         RemoteTask remoteTask2 = remoteTaskFactory.createTableScanTask(
                 taskId2,
                 chosenNode,
@@ -457,12 +458,12 @@ public class TestNodeScheduler
 
         nodeTaskMap.addTask(chosenNode, remoteTask1);
         nodeTaskMap.addTask(chosenNode, remoteTask2);
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 3);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode).getCount(), 3);
 
         remoteTask1.abort();
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 1);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode).getCount(), 1);
         remoteTask2.abort();
-        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), 0);
+        assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(chosenNode), PartitionedSplitsInfo.forZeroSplits());
     }
 
     @Test
@@ -734,8 +735,8 @@ public class TestNodeScheduler
 
         ImmutableSetMultimap.Builder<InetAddress, InternalNode> nodesByHost = ImmutableSetMultimap.builder();
         try {
-            nodesByHost.put(InetAddress.getByName(node1.getInternalUri().getHost()), node1);
-            nodesByHost.put(InetAddress.getByName(node2.getInternalUri().getHost()), node2);
+            nodesByHost.put(node1.getInternalAddress(), node1);
+            nodesByHost.put(node2.getInternalAddress(), node2);
         }
         catch (UnknownHostException e) {
             System.out.println("Could not convert the address");
@@ -776,7 +777,7 @@ public class TestNodeScheduler
         MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
         int task = 0;
         for (InternalNode node : assignments1.keySet()) {
-            TaskId taskId = new TaskId("test", 1, task);
+            TaskId taskId = new TaskId(new StageId("test", 1), task, 0);
             task++;
             MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, ImmutableList.copyOf(assignments1.get(node)), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
             remoteTask.startSplits(20);
@@ -817,7 +818,7 @@ public class TestNodeScheduler
         int counter = 1;
         for (InternalNode node : nodeManager.getActiveConnectorNodes(CONNECTOR_ID)) {
             // Max out number of unacknowledged splits on each task
-            TaskId taskId = new TaskId("test", 1, counter);
+            TaskId taskId = new TaskId(new StageId("test", 1), counter, 0);
             counter++;
             MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
             nodeTaskMap.addTask(node, remoteTask);
@@ -869,6 +870,7 @@ public class TestNodeScheduler
             implements ConnectorSplit
     {
         private final HostAddress address;
+        private final SplitWeight splitWeight;
 
         private TestSplitLocal()
         {
@@ -877,7 +879,13 @@ public class TestNodeScheduler
 
         private TestSplitLocal(HostAddress address)
         {
+            this(address, SplitWeight.standard());
+        }
+
+        private TestSplitLocal(HostAddress address, SplitWeight splitWeight)
+        {
             this.address = requireNonNull(address, "address is null");
+            this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
         }
 
         @Override
@@ -896,6 +904,12 @@ public class TestNodeScheduler
         public Object getInfo()
         {
             return this;
+        }
+
+        @Override
+        public SplitWeight getSplitWeight()
+        {
+            return splitWeight;
         }
 
         @Override
@@ -933,6 +947,7 @@ public class TestNodeScheduler
             implements ConnectorSplit
     {
         private final List<HostAddress> hosts;
+        private final SplitWeight splitWeight;
 
         TestSplitRemote()
         {
@@ -945,7 +960,13 @@ public class TestNodeScheduler
 
         TestSplitRemote(HostAddress host)
         {
+            this(host, SplitWeight.standard());
+        }
+
+        TestSplitRemote(HostAddress host, SplitWeight splitWeight)
+        {
             this.hosts = ImmutableList.of(requireNonNull(host, "host is null"));
+            this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
         }
 
         @Override
@@ -964,6 +985,12 @@ public class TestNodeScheduler
         public Object getInfo()
         {
             return this;
+        }
+
+        @Override
+        public SplitWeight getSplitWeight()
+        {
+            return splitWeight;
         }
     }
 

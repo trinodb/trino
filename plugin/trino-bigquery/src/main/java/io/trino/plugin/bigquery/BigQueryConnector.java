@@ -48,7 +48,7 @@ public class BigQueryConnector
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         log.debug("beginTransaction(isolationLevel=%s, readOnly=%s)", isolationLevel, readOnly);
         checkConnectorSupports(READ_COMMITTED, isolationLevel);

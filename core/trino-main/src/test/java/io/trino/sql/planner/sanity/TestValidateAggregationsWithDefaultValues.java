@@ -18,15 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
-import io.trino.spi.type.TypeOperators;
-import io.trino.sql.parser.SqlParser;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -38,7 +35,9 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
@@ -46,12 +45,12 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestValidateAggregationsWithDefaultValues
         extends BasePlanTest
 {
-    private Metadata metadata;
-    private TypeOperators typeOperators = new TypeOperators();
+    private PlannerContext plannerContext;
     private PlanBuilder builder;
     private Symbol symbol;
     private TableScanNode tableScanNode;
@@ -59,12 +58,12 @@ public class TestValidateAggregationsWithDefaultValues
     @BeforeClass
     public void setup()
     {
-        metadata = getQueryRunner().getMetadata();
-        builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
+        plannerContext = getQueryRunner().getPlannerContext();
+        builder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext.getMetadata(), TEST_SESSION);
         CatalogName catalogName = getCurrentConnectorId();
         TableHandle nationTableHandle = new TableHandle(
                 catalogName,
-                new TpchTableHandle("nation", 1.0),
+                new TpchTableHandle("sf1", "nation", 1.0),
                 TestingTransactionHandle.create(),
                 Optional.empty());
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
@@ -72,7 +71,7 @@ public class TestValidateAggregationsWithDefaultValues
         tableScanNode = builder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, nationkeyColumnHandle));
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Final aggregation with default value not separated from partial aggregation by remote hash exchange")
+    @Test
     public void testGloballyDistributedFinalAggregationInTheSameStageAsPartialAggregation()
     {
         PlanNode root = builder.aggregation(
@@ -82,10 +81,12 @@ public class TestValidateAggregationsWithDefaultValues
                                 .step(PARTIAL)
                                 .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
                                 .source(tableScanNode))));
-        validatePlan(root, false);
+        assertThatThrownBy(() -> validatePlan(root, false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Final aggregation with default value not separated from partial aggregation by remote hash exchange");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Final aggregation with default value not separated from partial aggregation by local hash exchange")
+    @Test
     public void testSingleNodeFinalAggregationInTheSameStageAsPartialAggregation()
     {
         PlanNode root = builder.aggregation(
@@ -95,7 +96,9 @@ public class TestValidateAggregationsWithDefaultValues
                                 .step(PARTIAL)
                                 .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
                                 .source(tableScanNode))));
-        validatePlan(root, true);
+        assertThatThrownBy(() -> validatePlan(root, true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Final aggregation with default value not separated from partial aggregation by local hash exchange");
     }
 
     @Test
@@ -171,7 +174,7 @@ public class TestValidateAggregationsWithDefaultValues
         validatePlan(root, true);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Final aggregation with default value not separated from partial aggregation by local hash exchange")
+    @Test
     public void testWithPartialAggregationBelowJoinWithoutSeparatingExchange()
     {
         Symbol symbol = new Symbol("symbol");
@@ -185,20 +188,21 @@ public class TestValidateAggregationsWithDefaultValues
                                         .groupingSets(groupingSets(ImmutableList.of(symbol), 2, ImmutableSet.of(0)))
                                         .source(tableScanNode)),
                                 builder.values())));
-        validatePlan(root, true);
+        assertThatThrownBy(() -> validatePlan(root, true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Final aggregation with default value not separated from partial aggregation by local hash exchange");
     }
 
     private void validatePlan(PlanNode root, boolean forceSingleNode)
     {
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
+            session.getCatalog().ifPresent(catalog -> plannerContext.getMetadata().getCatalogHandle(session, catalog));
             new ValidateAggregationsWithDefaultValues(forceSingleNode).validate(
                     root,
                     session,
-                    metadata,
-                    typeOperators,
-                    new TypeAnalyzer(new SqlParser(), metadata),
+                    plannerContext,
+                    createTestingTypeAnalyzer(plannerContext),
                     TypeProvider.empty(),
                     WarningCollector.NOOP);
             return null;

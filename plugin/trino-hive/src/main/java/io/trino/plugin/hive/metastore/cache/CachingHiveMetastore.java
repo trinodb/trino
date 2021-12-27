@@ -35,6 +35,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePartitionName;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.HiveTableName;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionFilter;
@@ -70,6 +71,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.cache.CacheLoader.asyncReloading;
@@ -85,6 +87,8 @@ import static io.trino.plugin.hive.metastore.HivePartitionName.hivePartitionName
 import static io.trino.plugin.hive.metastore.HiveTableName.hiveTableName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.PartitionFilter.partitionFilter;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig.isCacheEnabled;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -118,7 +122,7 @@ public class CachingHiveMetastore
     private final LoadingCache<String, Set<RoleGrant>> grantedPrincipalsCache;
     private final LoadingCache<String, Optional<String>> configValuesCache;
 
-    public static HiveMetastore cachingHiveMetastore(HiveMetastore delegate, Executor executor, CachingHiveMetastoreConfig config)
+    public static CachingHiveMetastore cachingHiveMetastore(HiveMetastore delegate, Executor executor, CachingHiveMetastoreConfig config)
     {
         return cachingHiveMetastore(
                 delegate,
@@ -128,13 +132,11 @@ public class CachingHiveMetastore
                 config.getMetastoreCacheMaximumSize());
     }
 
-    public static HiveMetastore cachingHiveMetastore(HiveMetastore delegate, Executor executor, Duration cacheTtl, Optional<Duration> refreshInterval, long maximumSize)
+    public static CachingHiveMetastore cachingHiveMetastore(HiveMetastore delegate, Executor executor, Duration cacheTtl, Optional<Duration> refreshInterval, long maximumSize)
     {
-        if (cacheTtl.toMillis() == 0 || maximumSize == 0) {
-            // caching is disabled
-            return delegate;
-        }
-
+        checkState(
+                isCacheEnabled(cacheTtl, maximumSize),
+                format("Invalid cache parameters (cacheTtl: %s, maxSize: %s)", cacheTtl, maximumSize));
         return new CachingHiveMetastore(
                 delegate,
                 executor,
@@ -412,6 +414,23 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    {
+        try {
+            delegate.updatePartitionStatistics(updateIdentity(identity), table, updates);
+        }
+        finally {
+            HiveIdentity hiveIdentity = updateIdentity(identity);
+            updates.forEach((partitionName, update) -> {
+                HivePartitionName hivePartitionName = hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partitionName);
+                partitionStatisticsCache.invalidate(new WithIdentity<>(hiveIdentity, hivePartitionName));
+                // basic stats are stored as partition properties
+                partitionCache.invalidate(new WithIdentity<>(hiveIdentity, hivePartitionName));
+            });
+        }
+    }
+
+    @Override
     public List<String> getAllTables(String databaseName)
     {
         return get(tableNamesCache, databaseName);
@@ -458,11 +477,11 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void dropDatabase(HiveIdentity identity, String databaseName)
+    public void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
     {
         identity = updateIdentity(identity);
         try {
-            delegate.dropDatabase(identity, databaseName);
+            delegate.dropDatabase(identity, databaseName, deleteData);
         }
         finally {
             invalidateDatabase(databaseName);
@@ -675,10 +694,6 @@ public class CachingHiveMetastore
     @Override
     public Optional<List<String>> getPartitionNamesByFilter(HiveIdentity identity, String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter)
     {
-        if (partitionKeysFilter.isNone()) {
-            return Optional.of(ImmutableList.of());
-        }
-
         return get(partitionFilterCache, new WithIdentity<>(updateIdentity(identity), partitionFilter(databaseName, tableName, columnNames, partitionKeysFilter)));
     }
 
@@ -874,10 +889,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
         try {
-            delegate.grantTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
+            delegate.grantTablePrivileges(databaseName, tableName, tableOwner, grantee, grantor, privileges, grantOption);
         }
         finally {
             invalidateTablePrivilegeCacheEntries(databaseName, tableName, tableOwner, grantee);
@@ -885,10 +900,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
         try {
-            delegate.revokeTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
+            delegate.revokeTablePrivileges(databaseName, tableName, tableOwner, grantee, grantor, privileges, grantOption);
         }
         finally {
             invalidateTablePrivilegeCacheEntries(databaseName, tableName, tableOwner, grantee);
@@ -898,12 +913,12 @@ public class CachingHiveMetastore
     private void invalidateTablePrivilegeCacheEntries(String databaseName, String tableName, String tableOwner, HivePrincipal grantee)
     {
         // some callers of xxxxTablePrivileges use Optional.of(grantee), some Optional.empty() (to get all privileges), so have to invalidate them both
-        tablePrivilegesCache.invalidate(new UserTableKey(Optional.of(grantee), databaseName, tableName, tableOwner));
-        tablePrivilegesCache.invalidate(new UserTableKey(Optional.empty(), databaseName, tableName, tableOwner));
+        tablePrivilegesCache.invalidate(new UserTableKey(Optional.of(grantee), databaseName, tableName, Optional.of(tableOwner)));
+        tablePrivilegesCache.invalidate(new UserTableKey(Optional.empty(), databaseName, tableName, Optional.of(tableOwner)));
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
     {
         return get(tablePrivilegesCache, new UserTableKey(principal, databaseName, tableName, tableOwner));
     }
@@ -955,7 +970,7 @@ public class CachingHiveMetastore
         return delegate.isImpersonationEnabled();
     }
 
-    private Set<HivePrivilegeInfo> loadTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
+    private Set<HivePrivilegeInfo> loadTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
     {
         return delegate.listTablePrivileges(databaseName, tableName, tableOwner, principal);
     }

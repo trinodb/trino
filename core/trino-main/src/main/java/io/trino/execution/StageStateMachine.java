@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.stats.Distribution;
 import io.airlift.units.Duration;
-import io.trino.Session;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.operator.BlockedReason;
@@ -41,7 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -53,15 +52,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.execution.StageState.ABORTED;
-import static io.trino.execution.StageState.CANCELED;
 import static io.trino.execution.StageState.FAILED;
 import static io.trino.execution.StageState.FINISHED;
-import static io.trino.execution.StageState.FLUSHING;
+import static io.trino.execution.StageState.PENDING;
 import static io.trino.execution.StageState.PLANNED;
 import static io.trino.execution.StageState.RUNNING;
-import static io.trino.execution.StageState.SCHEDULED;
 import static io.trino.execution.StageState.SCHEDULING;
-import static io.trino.execution.StageState.SCHEDULING_SPLITS;
 import static io.trino.execution.StageState.TERMINAL_STAGE_STATES;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -77,7 +73,6 @@ public class StageStateMachine
 
     private final StageId stageId;
     private final PlanFragment fragment;
-    private final Session session;
     private final Map<PlanNodeId, TableInfo> tables;
     private final SplitSchedulerStats scheduledStats;
 
@@ -96,14 +91,12 @@ public class StageStateMachine
 
     public StageStateMachine(
             StageId stageId,
-            Session session,
             PlanFragment fragment,
             Map<PlanNodeId, TableInfo> tables,
-            ExecutorService executor,
+            Executor executor,
             SplitSchedulerStats schedulerStats)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
-        this.session = requireNonNull(session, "session is null");
         this.fragment = requireNonNull(fragment, "fragment is null");
         this.tables = ImmutableMap.copyOf(requireNonNull(tables, "tables is null"));
         this.scheduledStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -117,11 +110,6 @@ public class StageStateMachine
     public StageId getStageId()
     {
         return stageId;
-    }
-
-    public Session getSession()
-    {
-        return session;
     }
 
     public StageState getState()
@@ -144,40 +132,25 @@ public class StageStateMachine
         stageState.addStateChangeListener(stateChangeListener);
     }
 
-    public synchronized boolean transitionToScheduling()
+    public boolean transitionToScheduling()
     {
         return stageState.compareAndSet(PLANNED, SCHEDULING);
     }
 
-    public synchronized boolean transitionToSchedulingSplits()
-    {
-        return stageState.setIf(SCHEDULING_SPLITS, currentState -> currentState == PLANNED || currentState == SCHEDULING);
-    }
-
-    public synchronized boolean transitionToScheduled()
-    {
-        schedulingComplete.compareAndSet(null, DateTime.now());
-        return stageState.setIf(SCHEDULED, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == SCHEDULING_SPLITS);
-    }
-
     public boolean transitionToRunning()
     {
-        return stageState.setIf(RUNNING, currentState -> currentState != RUNNING && currentState != FLUSHING && !currentState.isDone());
+        schedulingComplete.compareAndSet(null, DateTime.now());
+        return stageState.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
     }
 
-    public boolean transitionToFlushing()
+    public boolean transitionToPending()
     {
-        return stageState.setIf(FLUSHING, currentState -> currentState != FLUSHING && !currentState.isDone());
+        return stageState.setIf(PENDING, currentState -> currentState != PENDING && !currentState.isDone());
     }
 
     public boolean transitionToFinished()
     {
         return stageState.setIf(FINISHED, currentState -> !currentState.isDone());
-    }
-
-    public boolean transitionToCanceled()
-    {
-        return stageState.setIf(CANCELED, currentState -> !currentState.isDone());
     }
 
     public boolean transitionToAborted()
@@ -259,7 +232,7 @@ public class StageStateMachine
         // information, the stage could finish, and the task states would
         // never be visible.
         StageState state = stageState.get();
-        boolean isScheduled = state == RUNNING || state == FLUSHING || state.isDone();
+        boolean isScheduled = state == RUNNING || state == StageState.PENDING || state.isDone();
 
         List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
 
@@ -269,6 +242,7 @@ public class StageStateMachine
         int completedDrivers = 0;
 
         long cumulativeUserMemory = 0;
+        long cumulativeSystemMemory = 0;
         long userMemoryReservation = 0;
         long totalMemoryReservation = 0;
 
@@ -298,6 +272,7 @@ public class StageStateMachine
             completedDrivers += taskStats.getCompletedDrivers();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
+            cumulativeSystemMemory += taskStats.getCumulativeSystemMemory();
 
             long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
             long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
@@ -349,6 +324,7 @@ public class StageStateMachine
                 rawInputPositions,
 
                 cumulativeUserMemory,
+                cumulativeSystemMemory,
                 succinctBytes(userMemoryReservation),
                 succinctBytes(totalMemoryReservation),
 
@@ -379,6 +355,7 @@ public class StageStateMachine
         int totalTasks = taskInfos.size();
         int runningTasks = 0;
         int completedTasks = 0;
+        int failedTasks = 0;
 
         int totalDrivers = 0;
         int queuedDrivers = 0;
@@ -387,6 +364,7 @@ public class StageStateMachine
         int completedDrivers = 0;
 
         long cumulativeUserMemory = 0;
+        long cumulativeSystemMemory = 0;
         long userMemoryReservation = 0;
         long revocableMemoryReservation = 0;
         long totalMemoryReservation = 0;
@@ -435,6 +413,10 @@ public class StageStateMachine
                 runningTasks++;
             }
 
+            if (taskState == TaskState.FAILED) {
+                failedTasks++;
+            }
+
             TaskStats taskStats = taskInfo.getStats();
 
             totalDrivers += taskStats.getTotalDrivers();
@@ -444,6 +426,7 @@ public class StageStateMachine
             completedDrivers += taskStats.getCompletedDrivers();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
+            cumulativeSystemMemory += taskStats.getCumulativeSystemMemory();
 
             long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
             long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
@@ -502,6 +485,7 @@ public class StageStateMachine
                 totalTasks,
                 runningTasks,
                 completedTasks,
+                failedTasks,
 
                 totalDrivers,
                 queuedDrivers,
@@ -510,6 +494,7 @@ public class StageStateMachine
                 completedDrivers,
 
                 cumulativeUserMemory,
+                cumulativeSystemMemory,
                 succinctBytes(userMemoryReservation),
                 succinctBytes(revocableMemoryReservation),
                 succinctBytes(totalMemoryReservation),
@@ -553,9 +538,11 @@ public class StageStateMachine
         if (state == FAILED) {
             failureInfo = failureCause.get();
         }
-        return new StageInfo(stageId,
+        return new StageInfo(
+                stageId,
                 state,
                 fragment,
+                fragment.getPartitioning().isCoordinatorOnly(),
                 fragment.getTypes(),
                 stageStats,
                 taskInfos,

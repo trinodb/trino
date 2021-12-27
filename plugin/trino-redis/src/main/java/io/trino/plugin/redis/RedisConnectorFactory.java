@@ -18,13 +18,13 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
 import java.util.Optional;
@@ -32,9 +32,6 @@ import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
-/**
- * Creates Redis Connectors based off catalogName and specific configuration.
- */
 public class RedisConnectorFactory
         implements ConnectorFactory
 {
@@ -65,9 +62,9 @@ public class RedisConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
+                new TypeDeserializerModule(context.getTypeManager()),
                 new RedisConnectorModule(),
                 binder -> {
-                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
 
                     if (tableDescriptionSupplier.isPresent()) {
@@ -80,7 +77,7 @@ public class RedisConnectorFactory
                     }
                 });
 
-        Injector injector = app.strictConfig()
+        Injector injector = app
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(config)
                 .initialize();

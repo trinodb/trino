@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -28,17 +29,22 @@ import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.AssertTrue;
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TimeZone;
 
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -52,6 +58,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.time-zone",
         "hive.assume-canonical-partition-keys",
         "hive.partition-use-column-names",
+        "hive.allow-corrupt-writes-for-testing",
 })
 public class HiveConfig
 {
@@ -65,7 +72,7 @@ public class HiveConfig
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
     private int maxInitialSplits = 200;
-    private int splitLoaderConcurrency = 4;
+    private int splitLoaderConcurrency = 64;
     private Integer maxSplitsPerSecond;
     private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 100;
@@ -78,8 +85,6 @@ public class HiveConfig
     private int maxConcurrentMetastoreDrops = 20;
     private int maxConcurrentMetastoreUpdates = 20;
 
-    private boolean allowCorruptWritesForTesting;
-
     private long perTransactionMetastoreCacheMaximumSize = 1000;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.ORC;
@@ -88,6 +93,10 @@ public class HiveConfig
     private boolean immutablePartitions;
     private Optional<InsertExistingPartitionsBehavior> insertExistingPartitionsBehavior = Optional.empty();
     private boolean createEmptyBucketFiles;
+    // This is meant to protect users who are misusing schema locations (by
+    // putting schemas in locations with extraneous files), so default to false
+    // to avoid deleting those files if Trino is unable to check.
+    private boolean deleteSchemaLocationsFallback;
     private int maxPartitionsPerWriter = 100;
     private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
@@ -125,6 +134,7 @@ public class HiveConfig
 
     private boolean isTemporaryStagingDirectoryEnabled = true;
     private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
+    private boolean delegateTransactionalManagedTableLocationToMetastore;
 
     private Duration fileStatusCacheExpireAfterWrite = new Duration(1, MINUTES);
     private long fileStatusCacheMaxSize = 1000 * 1000;
@@ -136,16 +146,23 @@ public class HiveConfig
 
     private boolean allowRegisterPartition;
     private boolean queryPartitionFilterRequired;
+    private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
 
     private boolean projectionPushdownEnabled = true;
 
-    private Duration dynamicFilteringProbeBlockingTimeout = new Duration(0, MINUTES);
+    private Duration dynamicFilteringWaitTimeout = new Duration(0, MINUTES);
 
     private HiveTimestampPrecision timestampPrecision = HiveTimestampPrecision.DEFAULT_PRECISION;
 
     private boolean optimizeSymlinkListing = true;
 
     private boolean legacyHiveViewTranslation;
+    private Optional<String> icebergCatalogName = Optional.empty();
+
+    private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
+
+    private boolean sizeBasedSplitWeightsEnabled = true;
+    private double minimumAssignedSplitWeight = 0.05;
 
     public int getMaxInitialSplits()
     {
@@ -213,6 +230,19 @@ public class HiveConfig
     public HiveConfig setDomainCompactionThreshold(int domainCompactionThreshold)
     {
         this.domainCompactionThreshold = domainCompactionThreshold;
+        return this;
+    }
+
+    public DataSize getTargetMaxFileSize()
+    {
+        return targetMaxFileSize;
+    }
+
+    @Config("hive.target-max-file-size")
+    @ConfigDescription("Target maximum size of written files; the actual size may be larger")
+    public HiveConfig setTargetMaxFileSize(DataSize targetMaxFileSize)
+    {
+        this.targetMaxFileSize = targetMaxFileSize;
         return this;
     }
 
@@ -373,21 +403,6 @@ public class HiveConfig
         return this;
     }
 
-    @Deprecated
-    public boolean getAllowCorruptWritesForTesting()
-    {
-        return allowCorruptWritesForTesting;
-    }
-
-    @Deprecated
-    @Config("hive.allow-corrupt-writes-for-testing")
-    @ConfigDescription("Allow Hive connector to write data even when data will likely be corrupt")
-    public HiveConfig setAllowCorruptWritesForTesting(boolean allowCorruptWritesForTesting)
-    {
-        this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
-        return this;
-    }
-
     @Min(1)
     public long getPerTransactionMetastoreCacheMaximumSize()
     {
@@ -508,6 +523,19 @@ public class HiveConfig
     public HiveConfig setCreateEmptyBucketFiles(boolean createEmptyBucketFiles)
     {
         this.createEmptyBucketFiles = createEmptyBucketFiles;
+        return this;
+    }
+
+    public boolean isDeleteSchemaLocationsFallback()
+    {
+        return this.deleteSchemaLocationsFallback;
+    }
+
+    @Config("hive.delete-schema-locations-fallback")
+    @ConfigDescription("Whether schema locations should be deleted when Trino can't determine whether they contain external files.")
+    public HiveConfig setDeleteSchemaLocationsFallback(boolean deleteSchemaLocationsFallback)
+    {
+        this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         return this;
     }
 
@@ -938,6 +966,19 @@ public class HiveConfig
         return temporaryStagingDirectoryPath;
     }
 
+    @Config("hive.delegate-transactional-managed-table-location-to-metastore")
+    @ConfigDescription("When transactional, managed table is created via Trino the location will not be set in request sent to HMS and location will be determined by metastore; if this value is set to true, CREATE TABLE AS queries are not supported.")
+    public HiveConfig setDelegateTransactionalManagedTableLocationToMetastore(boolean delegateTransactionalManagedTableLocationToMetastore)
+    {
+        this.delegateTransactionalManagedTableLocationToMetastore = delegateTransactionalManagedTableLocationToMetastore;
+        return this;
+    }
+
+    public boolean isDelegateTransactionalManagedTableLocationToMetastore()
+    {
+        return delegateTransactionalManagedTableLocationToMetastore;
+    }
+
     @Config("hive.transaction-heartbeat-interval")
     @ConfigDescription("Interval after which heartbeat is sent for open Hive transaction")
     public HiveConfig setHiveTransactionHeartbeatInterval(Duration interval)
@@ -990,6 +1031,19 @@ public class HiveConfig
         return this;
     }
 
+    public Set<String> getQueryPartitionFilterRequiredSchemas()
+    {
+        return queryPartitionFilterRequiredSchemas;
+    }
+
+    @Config("hive.query-partition-filter-required-schemas")
+    @ConfigDescription("List of schemas for which filter on partition column is enforced")
+    public HiveConfig setQueryPartitionFilterRequiredSchemas(String queryPartitionFilterRequiredSchemas)
+    {
+        this.queryPartitionFilterRequiredSchemas = ImmutableSet.copyOf(SPLITTER.splitToList(queryPartitionFilterRequiredSchemas.toLowerCase(ENGLISH)));
+        return this;
+    }
+
     public boolean isProjectionPushdownEnabled()
     {
         return projectionPushdownEnabled;
@@ -1004,16 +1058,17 @@ public class HiveConfig
     }
 
     @NotNull
-    public Duration getDynamicFilteringProbeBlockingTimeout()
+    public Duration getDynamicFilteringWaitTimeout()
     {
-        return dynamicFilteringProbeBlockingTimeout;
+        return dynamicFilteringWaitTimeout;
     }
 
-    @Config("hive.dynamic-filtering-probe-blocking-timeout")
-    @ConfigDescription("Duration to wait for completion of dynamic filters during split generation for probe side table")
-    public HiveConfig setDynamicFilteringProbeBlockingTimeout(Duration dynamicFilteringProbeBlockingTimeout)
+    @Config("hive.dynamic-filtering.wait-timeout")
+    @LegacyConfig("hive.dynamic-filtering-probe-blocking-timeout")
+    @ConfigDescription("Duration to wait for completion of dynamic filters during split generation")
+    public HiveConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
     {
-        this.dynamicFilteringProbeBlockingTimeout = dynamicFilteringProbeBlockingTimeout;
+        this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
         return this;
     }
 
@@ -1054,5 +1109,45 @@ public class HiveConfig
     public boolean isLegacyHiveViewTranslation()
     {
         return this.legacyHiveViewTranslation;
+    }
+
+    public Optional<String> getIcebergCatalogName()
+    {
+        return icebergCatalogName;
+    }
+
+    @Config("hive.iceberg-catalog-name")
+    @ConfigDescription("The catalog to redirect iceberg tables to")
+    public HiveConfig setIcebergCatalogName(String icebergCatalogName)
+    {
+        this.icebergCatalogName = Optional.ofNullable(icebergCatalogName);
+        return this;
+    }
+
+    @Config("hive.size-based-split-weights-enabled")
+    public HiveConfig setSizeBasedSplitWeightsEnabled(boolean sizeBasedSplitWeightsEnabled)
+    {
+        this.sizeBasedSplitWeightsEnabled = sizeBasedSplitWeightsEnabled;
+        return this;
+    }
+
+    public boolean isSizeBasedSplitWeightsEnabled()
+    {
+        return sizeBasedSplitWeightsEnabled;
+    }
+
+    @Config("hive.minimum-assigned-split-weight")
+    @ConfigDescription("Minimum weight that a split can be assigned when size based split weights are enabled")
+    public HiveConfig setMinimumAssignedSplitWeight(double minimumAssignedSplitWeight)
+    {
+        this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
+        return this;
+    }
+
+    @DecimalMax("1")
+    @DecimalMin(value = "0", inclusive = false)
+    public double getMinimumAssignedSplitWeight()
+    {
+        return minimumAssignedSplitWeight;
     }
 }

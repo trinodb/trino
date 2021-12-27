@@ -1206,6 +1206,14 @@ export class QueryDetail extends React.Component {
                             </tr>
                             <tr>
                                 <td className="info-title">
+                                    Time zone
+                                </td>
+                                <td className="info-text">
+                                    {query.session.timeZone}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
                                     Client Address
                                 </td>
                                 <td className="info-text">
@@ -1432,6 +1440,14 @@ export class QueryDetail extends React.Component {
                                         </td>
                                         <td className="info-text">
                                             {formatDataSizeBytes(query.queryStats.cumulativeUserMemory / 1000.0) + " seconds"}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Cumulative System Memory
+                                        </td>
+                                        <td className="info-text">
+                                            {formatDataSizeBytes(query.queryStats.cumulativeSystemMemory / 1000.0) + " seconds"}
                                         </td>
                                     </tr>
                                     <tr>

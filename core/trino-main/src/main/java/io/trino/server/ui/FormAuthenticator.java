@@ -13,11 +13,13 @@
  */
 package io.trino.server.ui;
 
+import java.util.Optional;
+
 public interface FormAuthenticator
 {
     boolean isLoginEnabled(boolean secure);
 
     boolean isPasswordAllowed(boolean secure);
 
-    boolean isValidCredential(String username, String password, boolean secure);
+    Optional<String> isValidCredential(String username, String password, boolean secure);
 }

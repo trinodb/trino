@@ -1,0 +1,49 @@
+General configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following table describes general catalog configuration properties for the
+connector:
+
+.. list-table::
+  :widths: 30, 40, 30
+  :header-rows: 1
+
+  * - Property name
+    - Description
+    - Default value
+  * - ``case-insensitive-name-matching``
+    - Support case insensitive schema and table names.
+    - ``false``
+  * - ``case-insensitive-name-matching.cache-ttl``
+    -
+    - ``1m``
+  * - ``case-insensitive-name-matching.config-file``
+    - Path to a name mapping configuration file in JSON format that allows
+      Trino to disambiguate between schemas and tables with similar names in
+      different cases.
+    - ``null``
+  * - ``case-insensitive-name-matching.refresh-period``
+    - Frequency with which Trino checks the name matching configuration file
+      for changes.
+    - ``0`` (refresh disabled)
+  * - ``metadata.cache-ttl``
+    - Duration for which metadata, including table and column statistics, is
+      cached.
+    - ``0`` (caching disabled)
+  * - ``metadata.cache-missing``
+    - Cache the fact that metadata, including table and column statistics, is
+      not available
+    - ``false``
+  * - ``metadata.cache-maximum-size``
+    - Maximum number of objects stored in the metadata cache
+    - ``10000``
+  * - ``write.batch-size``
+    - Maximum number of statements in a batched execution.
+      Do not change this setting from the default. Non-default values may
+      negatively impact performance.
+    - ``1000``
+  * - ``join-pushdown.enabled``
+    - Enable :ref:`join pushdown <join-pushdown>`. Equivalent :doc:`catalog
+      session property </sql/set-session>` is ``join_pushdown_enabled``.  Enabling
+      this may negatively impact performance for some queries.
+    - ``false``

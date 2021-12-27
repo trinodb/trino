@@ -13,22 +13,23 @@
  */
 package io.trino.sql.planner.planprinter;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.spi.Mergeable;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.util.Mergeable;
 
 import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.util.MoreMaps.mergeMaps;
 import static java.lang.Double.max;
 import static java.lang.Math.sqrt;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.stream.Collectors.toMap;
 
 public class PlanNodeStats
         implements Mergeable<PlanNodeStats>
@@ -43,7 +44,7 @@ public class PlanNodeStats
     private final DataSize planNodeOutputDataSize;
     private final DataSize planNodeSpilledDataSize;
 
-    protected final Map<String, OperatorInputStats> operatorInputStats;
+    protected final Map<String, BasicOperatorStats> operatorStats;
 
     PlanNodeStats(
             PlanNodeId planNodeId,
@@ -54,7 +55,7 @@ public class PlanNodeStats
             long planNodeOutputPositions,
             DataSize planNodeOutputDataSize,
             DataSize planNodeSpilledDataSize,
-            Map<String, OperatorInputStats> operatorInputStats)
+            Map<String, BasicOperatorStats> operatorStats)
     {
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
 
@@ -65,8 +66,7 @@ public class PlanNodeStats
         this.planNodeOutputPositions = planNodeOutputPositions;
         this.planNodeOutputDataSize = planNodeOutputDataSize;
         this.planNodeSpilledDataSize = requireNonNull(planNodeSpilledDataSize, "planNodeSpilledDataSize is null");
-
-        this.operatorInputStats = requireNonNull(operatorInputStats, "operatorInputStats is null");
+        this.operatorStats = ImmutableMap.copyOf(requireNonNull(operatorStats, "operatorStats is null"));
     }
 
     private static double computedStdDev(double sumSquared, double sum, long n)
@@ -94,7 +94,7 @@ public class PlanNodeStats
 
     public Set<String> getOperatorTypes()
     {
-        return operatorInputStats.keySet();
+        return operatorStats.keySet();
     }
 
     public long getPlanNodeInputPositions()
@@ -124,16 +124,16 @@ public class PlanNodeStats
 
     public Map<String, Double> getOperatorInputPositionsAverages()
     {
-        return operatorInputStats.entrySet().stream()
-                .collect(toMap(
+        return operatorStats.entrySet().stream()
+                .collect(toImmutableMap(
                         Map.Entry::getKey,
-                        entry -> (double) entry.getValue().getInputPositions() / operatorInputStats.get(entry.getKey()).getTotalDrivers()));
+                        entry -> (double) entry.getValue().getInputPositions() / operatorStats.get(entry.getKey()).getTotalDrivers()));
     }
 
     public Map<String, Double> getOperatorInputPositionsStdDevs()
     {
-        return operatorInputStats.entrySet().stream()
-                .collect(toMap(
+        return operatorStats.entrySet().stream()
+                .collect(toImmutableMap(
                         Map.Entry::getKey,
                         entry -> computedStdDev(
                                 entry.getValue().getSumSquaredInputPositions(),
@@ -141,18 +141,22 @@ public class PlanNodeStats
                                 entry.getValue().getTotalDrivers())));
     }
 
+    public Map<String, BasicOperatorStats> getOperatorStats()
+    {
+        return operatorStats;
+    }
+
     @Override
     public PlanNodeStats mergeWith(PlanNodeStats other)
     {
         checkArgument(planNodeId.equals(other.getPlanNodeId()), "planNodeIds do not match. %s != %s", planNodeId, other.getPlanNodeId());
-        checkMergeable(other);
 
         long planNodeInputPositions = this.planNodeInputPositions + other.planNodeInputPositions;
         DataSize planNodeInputDataSize = succinctBytes(this.planNodeInputDataSize.toBytes() + other.planNodeInputDataSize.toBytes());
         long planNodeOutputPositions = this.planNodeOutputPositions + other.planNodeOutputPositions;
         DataSize planNodeOutputDataSize = succinctBytes(this.planNodeOutputDataSize.toBytes() + other.planNodeOutputDataSize.toBytes());
 
-        Map<String, OperatorInputStats> operatorInputStats = mergeMaps(this.operatorInputStats, other.operatorInputStats, OperatorInputStats::merge);
+        Map<String, BasicOperatorStats> operatorStats = mergeMaps(this.operatorStats, other.operatorStats, BasicOperatorStats::merge);
 
         return new PlanNodeStats(
                 planNodeId,
@@ -161,11 +165,6 @@ public class PlanNodeStats
                 planNodeInputPositions, planNodeInputDataSize,
                 planNodeOutputPositions, planNodeOutputDataSize,
                 succinctBytes(this.planNodeSpilledDataSize.toBytes() + other.planNodeSpilledDataSize.toBytes()),
-                operatorInputStats);
-    }
-
-    protected void checkMergeable(PlanNodeStats other)
-    {
-        checkArgument(this.getClass() == other.getClass(), "Cannot merge stats %s and %s, make sure all worker nodes have consistent configuration", this, other);
+                operatorStats);
     }
 }

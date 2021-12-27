@@ -1,0 +1,2 @@
+# marks paths to be ignored for the GitHub repository's language statistics and hidden by default in diffs
+/dist/ linguist-generated=true

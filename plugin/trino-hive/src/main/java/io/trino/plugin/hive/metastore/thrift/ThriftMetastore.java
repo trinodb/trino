@@ -20,6 +20,7 @@ import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
@@ -47,7 +48,7 @@ public interface ThriftMetastore
 {
     void createDatabase(HiveIdentity identity, Database database);
 
-    void dropDatabase(HiveIdentity identity, String databaseName);
+    void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData);
 
     void alterDatabase(HiveIdentity identity, String databaseName, Database database);
 
@@ -107,14 +108,15 @@ public interface ThriftMetastore
 
     Set<RoleGrant> listRoleGrants(HivePrincipal principal);
 
-    void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges);
+    void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption);
 
-    void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges);
+    void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption);
 
     /**
+     * @param tableOwner
      * @param principal when empty, all table privileges are returned
      */
-    Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal);
+    Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal);
 
     boolean isImpersonationEnabled();
 
@@ -168,6 +170,16 @@ public interface ThriftMetastore
     }
 
     default void acquireTableWriteLock(HiveIdentity identity, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation, boolean isDynamicPartitionWrite)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default long acquireTableExclusiveLock(HiveIdentity identity, String queryId, String dbName, String tableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void releaseTableLock(HiveIdentity identity, long lockId)
     {
         throw new UnsupportedOperationException();
     }

@@ -24,7 +24,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 /**
  * An asynchronous queue that limits the rate at which batches will be
@@ -53,7 +53,7 @@ public class ThrottledAsyncQueue<T>
     {
         checkArgument(maxSize >= 0, "maxSize must be at least 0");
 
-        ListenableFuture<?> throttleFuture = immediateFuture(null);
+        ListenableFuture<Void> throttleFuture = immediateVoidFuture();
         if (size() > 0) {
             // the queue is not empty, try to return a batch immediately if we are not throttled
             int size = maxBatchSize(maxSize);

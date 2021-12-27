@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.metadata.FunctionListBuilder;
 import io.trino.metadata.SqlScalarFunction;
@@ -27,7 +28,7 @@ import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.FeaturesConfig;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
@@ -88,7 +89,7 @@ public abstract class AbstractTestFunctions
         functionAssertions = null;
     }
 
-    protected void assertFunction(String projection, Type expectedType, Object expected)
+    protected void assertFunction(@Language("SQL") String projection, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(projection, expectedType, expected);
     }
@@ -98,7 +99,7 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertFunction(format("\"%s\"(%s)", mangleOperatorName(operator), value), expectedType, expected);
     }
 
-    protected void assertDecimalFunction(String statement, SqlDecimal expectedResult)
+    protected void assertDecimalFunction(@Language("SQL") String statement, SqlDecimal expectedResult)
     {
         assertFunction(
                 statement,
@@ -106,26 +107,24 @@ public abstract class AbstractTestFunctions
                 expectedResult);
     }
 
-    // this is not safe as it catches all RuntimeExceptions
-    @Deprecated
-    protected void assertInvalidFunction(String projection)
-    {
-        functionAssertions.assertInvalidFunction(projection);
-    }
-
-    protected void assertInvalidFunction(String projection, ErrorCodeSupplier errorCode, String message)
+    protected void assertInvalidFunction(@Language("SQL") String projection, ErrorCodeSupplier errorCode, String message)
     {
         functionAssertions.assertInvalidFunction(projection, errorCode, message);
     }
 
-    protected void assertInvalidFunction(String projection, String message)
+    protected void assertInvalidFunction(@Language("SQL") String projection, String message)
     {
         functionAssertions.assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, message);
     }
 
-    protected void assertInvalidFunction(String projection, ErrorCodeSupplier expectedErrorCode)
+    protected void assertInvalidFunction(@Language("SQL") String projection, ErrorCodeSupplier expectedErrorCode)
     {
         functionAssertions.assertInvalidFunction(projection, expectedErrorCode);
+    }
+
+    protected void assertFunctionThrowsIncorrectly(@Language("SQL") String projection, Class<? extends Throwable> throwableClass, @Language("RegExp") String message)
+    {
+        functionAssertions.assertFunctionThrowsIncorrectly(projection, throwableClass, message);
     }
 
     protected void assertNumericOverflow(String projection, String message)
@@ -138,7 +137,7 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertInvalidCast(projection);
     }
 
-    protected void assertInvalidCast(String projection, String message)
+    protected void assertInvalidCast(@Language("SQL") String projection, String message)
     {
         functionAssertions.assertInvalidCast(projection, message);
     }

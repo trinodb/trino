@@ -23,6 +23,7 @@ import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.WindowOperation;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,9 +43,22 @@ public final class ExpressionTreeUtils
         return extractExpressions(nodes, FunctionCall.class, function -> isAggregation(function, metadata));
     }
 
+    static List<Expression> extractWindowExpressions(Iterable<? extends Node> nodes)
+    {
+        return ImmutableList.<Expression>builder()
+                .addAll(extractWindowFunctions(nodes))
+                .addAll(extractWindowMeasures(nodes))
+                .build();
+    }
+
     static List<FunctionCall> extractWindowFunctions(Iterable<? extends Node> nodes)
     {
         return extractExpressions(nodes, FunctionCall.class, ExpressionTreeUtils::isWindowFunction);
+    }
+
+    static List<WindowOperation> extractWindowMeasures(Iterable<? extends Node> nodes)
+    {
+        return extractExpressions(nodes, WindowOperation.class);
     }
 
     public static <T extends Expression> List<T> extractExpressions(

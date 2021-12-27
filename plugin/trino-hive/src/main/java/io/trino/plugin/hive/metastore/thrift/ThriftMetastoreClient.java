@@ -141,7 +141,7 @@ public interface ThriftMetastoreClient
     boolean grantPrivileges(PrivilegeBag privilegeBag)
             throws TException;
 
-    boolean revokePrivileges(PrivilegeBag privilegeBag)
+    boolean revokePrivileges(PrivilegeBag privilegeBag, boolean revokeGrantOption)
             throws TException;
 
     void grantRole(String role, String granteeName, PrincipalType granteeType, String grantorName, PrincipalType grantorType, boolean grantOption)
@@ -178,6 +178,9 @@ public interface ThriftMetastoreClient
             throws TException;
 
     LockResponse checkLock(long lockId)
+            throws TException;
+
+    void unlock(long lockId)
             throws TException;
 
     String getValidWriteIds(List<String> tableList, long currentTransactionId)

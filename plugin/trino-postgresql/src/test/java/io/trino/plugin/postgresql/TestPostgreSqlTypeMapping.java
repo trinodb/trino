@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.FilterNode;
@@ -80,6 +81,7 @@ import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQ
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -88,6 +90,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -106,7 +109,6 @@ import static io.trino.testing.datatype.DataType.timeDataType;
 import static io.trino.testing.datatype.DataType.timestampDataType;
 import static io.trino.testing.datatype.DataType.varcharDataType;
 import static io.trino.type.JsonType.JSON;
-import static io.trino.type.UuidType.UUID;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -124,7 +126,7 @@ public class TestPostgreSqlTypeMapping
     private static final LocalDate EPOCH_DAY = LocalDate.ofEpochDay(0);
     private static final JsonCodec<List<Map<String, String>>> HSTORE_CODEC = listJsonCodec(mapJsonCodec(String.class, String.class));
 
-    private TestingPostgreSqlServer postgreSqlServer;
+    protected TestingPostgreSqlServer postgreSqlServer;
 
     private final LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
     private final LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
@@ -254,6 +256,10 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
                 .execute(getQueryRunner(), postgresCreateAndInsert("test_decimal"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("numeric", "1.1", createDecimalType(Decimals.MAX_PRECISION, 5), "CAST(1.1 AS DECIMAL(38, 5))")
+                .execute(getQueryRunner(), sessionWithDecimalMappingAllowOverflow(UNNECESSARY, 5), postgresCreateAndInsert("test_unspecified_decimal"));
     }
 
     @Test
@@ -965,6 +971,10 @@ public class TestPostgreSqlTypeMapping
         checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
 
         DataTypeTest testCases = DataTypeTest.create(true)
+                .addRoundTrip(dateDataType(), LocalDate.of(1, 1, 1))
+                .addRoundTrip(dateDataType(), LocalDate.of(1582, 10, 4)) // before julian->gregorian switch
+                .addRoundTrip(dateDataType(), LocalDate.of(1582, 10, 5)) // begin julian->gregorian switch
+                .addRoundTrip(dateDataType(), LocalDate.of(1582, 10, 14)) // end julian->gregorian switch
                 .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3)) // before epoch
                 .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
                 .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
@@ -983,6 +993,16 @@ public class TestPostgreSqlTypeMapping
             testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"));
             testCases.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
         }
+    }
+
+    @Test
+    public void testDateMinMax()
+    {
+        // Merge into 'testDate()' when converting the method to SqlDataTypeTest. Currently, we can't test these values with DataTypeTest.
+        SqlDataTypeTest.create()
+                .addRoundTrip("DATE", "'4713-01-01 BC'", DATE, "DATE '-4712-01-01'")
+                .addRoundTrip("DATE", "'5874897-12-31'", DATE, "DATE '5874897-12-31'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_date_min_max"));
     }
 
     @Test
@@ -1727,7 +1747,7 @@ public class TestPostgreSqlTypeMapping
     {
         return dataType(
                 "hstore",
-                getQueryRunner().getMetadata().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())),
+                getQueryRunner().getTypeManager().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())),
                 TestPostgreSqlTypeMapping::hstoreLiteral);
     }
 
@@ -1743,7 +1763,7 @@ public class TestPostgreSqlTypeMapping
     {
         return dataType(
                 "hstore",
-                getQueryRunner().getMetadata().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())),
+                getQueryRunner().getTypeManager().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())),
                 value -> {
                     List<String> formatted = value.entrySet().stream()
                             .flatMap(entry -> Stream.of(entry.getKey(), entry.getValue()))

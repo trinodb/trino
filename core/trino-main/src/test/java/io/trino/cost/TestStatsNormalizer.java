@@ -15,7 +15,7 @@ package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.metadata.Metadata;
+import com.google.common.primitives.Primitives;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -23,10 +23,9 @@ import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.cost.StatsUtil.toStatsRepresentation;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -40,8 +39,6 @@ import static java.util.function.Function.identity;
 
 public class TestStatsNormalizer
 {
-    private final Metadata metadata = createTestMetadataManager();
-
     private final StatsNormalizer normalizer = new StatsNormalizer();
 
     @Test
@@ -97,18 +94,18 @@ public class TestStatsNormalizer
     @Test
     public void testCapDistinctValuesByToDomainRangeLength()
     {
-        testCapDistinctValuesByToDomainRangeLength(INTEGER, 15, 1, 5, 5);
-        testCapDistinctValuesByToDomainRangeLength(INTEGER, 2_0000_000_000., 1, 1_000_000_000, 1_000_000_000);
-        testCapDistinctValuesByToDomainRangeLength(INTEGER, 3, 1, 5, 3);
-        testCapDistinctValuesByToDomainRangeLength(INTEGER, NaN, 1, 5, NaN);
+        testCapDistinctValuesByToDomainRangeLength(INTEGER, 15, 1L, 5L, 5);
+        testCapDistinctValuesByToDomainRangeLength(INTEGER, 2_0000_000_000., 1L, 1_000_000_000L, 1_000_000_000);
+        testCapDistinctValuesByToDomainRangeLength(INTEGER, 3, 1L, 5L, 3);
+        testCapDistinctValuesByToDomainRangeLength(INTEGER, NaN, 1L, 5L, NaN);
 
-        testCapDistinctValuesByToDomainRangeLength(BIGINT, 15, 1, 5, 5);
-        testCapDistinctValuesByToDomainRangeLength(SMALLINT, 15, 1, 5, 5);
-        testCapDistinctValuesByToDomainRangeLength(TINYINT, 15, 1, 5, 5);
+        testCapDistinctValuesByToDomainRangeLength(BIGINT, 15, 1L, 5L, 5);
+        testCapDistinctValuesByToDomainRangeLength(SMALLINT, 15, 1L, 5L, 5);
+        testCapDistinctValuesByToDomainRangeLength(TINYINT, 15, 1L, 5L, 5);
 
-        testCapDistinctValuesByToDomainRangeLength(createDecimalType(10, 2), 11, 1, 1, 1);
-        testCapDistinctValuesByToDomainRangeLength(createDecimalType(10, 2), 13, 101, 103, 3);
-        testCapDistinctValuesByToDomainRangeLength(createDecimalType(10, 2), 10, 100, 200, 10);
+        testCapDistinctValuesByToDomainRangeLength(createDecimalType(10, 2), 11, 1L, 1L, 1);
+        testCapDistinctValuesByToDomainRangeLength(createDecimalType(10, 2), 13, 101L, 103L, 3);
+        testCapDistinctValuesByToDomainRangeLength(createDecimalType(10, 2), 10, 100L, 200L, 10);
 
         testCapDistinctValuesByToDomainRangeLength(DOUBLE, 42, 10.1, 10.2, 42);
         testCapDistinctValuesByToDomainRangeLength(DOUBLE, 42, 10.1, 10.1, 1);
@@ -126,6 +123,9 @@ public class TestStatsNormalizer
 
     private void testCapDistinctValuesByToDomainRangeLength(Type type, double ndv, Object low, Object high, double expectedNormalizedNdv)
     {
+        checkArgument(Primitives.wrap(type.getJavaType()).isInstance(low), "Incorrect class of low value for %s: %s", type, low.getClass());
+        checkArgument(Primitives.wrap(type.getJavaType()).isInstance(high), "Incorrect class of low value for %s: %s", type, high.getClass());
+
         Symbol symbol = new Symbol("x");
         SymbolStatsEstimate symbolStats = SymbolStatsEstimate.builder()
                 .setNullsFraction(0)
@@ -156,6 +156,6 @@ public class TestStatsNormalizer
 
     private double asStatsValue(Object value, Type type)
     {
-        return toStatsRepresentation(metadata, TEST_SESSION, type, value).orElse(NaN);
+        return toStatsRepresentation(type, value).orElse(NaN);
     }
 }

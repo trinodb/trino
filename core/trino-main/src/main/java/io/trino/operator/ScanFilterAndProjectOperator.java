@@ -14,6 +14,8 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -32,11 +34,13 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
@@ -52,6 +56,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
@@ -74,8 +79,10 @@ public class ScanFilterAndProjectOperator
     private long processedPositions;
     private long processedBytes;
     private long physicalBytes;
+    private long physicalPositions;
     private long readTimeNanos;
     private long dynamicFilterSplitsProcessed;
+    private Metrics metrics = Metrics.EMPTY;
 
     private ScanFilterAndProjectOperator(
             Session session,
@@ -130,7 +137,7 @@ public class ScanFilterAndProjectOperator
     @Override
     public long getPhysicalInputPositions()
     {
-        return processedPositions;
+        return physicalPositions;
     }
 
     @Override
@@ -158,6 +165,12 @@ public class ScanFilterAndProjectOperator
     }
 
     @Override
+    public Metrics getConnectorMetrics()
+    {
+        return metrics;
+    }
+
+    @Override
     public WorkProcessor<Page> getOutputPages()
     {
         return pages;
@@ -169,6 +182,7 @@ public class ScanFilterAndProjectOperator
         if (pageSource != null) {
             try {
                 pageSource.close();
+                metrics = pageSource.getMetrics();
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -274,11 +288,12 @@ public class ScanFilterAndProjectOperator
 
         WorkProcessor<Page> processPageSource()
         {
+            ConnectorSession connectorSession = session.toConnectorSession();
             return WorkProcessor
                     .create(new ConnectorPageSourceToPages(pageSourceMemoryContext))
                     .yielding(yieldSignal::isSet)
                     .flatMap(page -> pageProcessor.createWorkProcessor(
-                            session.toConnectorSession(),
+                            connectorSession,
                             yieldSignal,
                             outputMemoryContext,
                             page,
@@ -291,7 +306,7 @@ public class ScanFilterAndProjectOperator
     private class RecordCursorToPages
             implements WorkProcessor.Process<Page>
     {
-        final Session session;
+        final ConnectorSession session;
         final DriverYieldSignal yieldSignal;
         final CursorProcessor cursorProcessor;
         final PageBuilder pageBuilder;
@@ -308,7 +323,7 @@ public class ScanFilterAndProjectOperator
                 LocalMemoryContext pageSourceMemoryContext,
                 LocalMemoryContext outputMemoryContext)
         {
-            this.session = session;
+            this.session = session.toConnectorSession();
             this.yieldSignal = yieldSignal;
             this.cursorProcessor = cursorProcessor;
             this.pageBuilder = new PageBuilder(types);
@@ -320,13 +335,14 @@ public class ScanFilterAndProjectOperator
         public ProcessState<Page> process()
         {
             if (!finished) {
-                CursorProcessorOutput output = cursorProcessor.process(session.toConnectorSession(), yieldSignal, cursor, pageBuilder);
+                CursorProcessorOutput output = cursorProcessor.process(session, yieldSignal, cursor, pageBuilder);
                 pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
 
                 processedPositions += output.getProcessedRows();
                 // TODO: derive better values for cursors
                 processedBytes = cursor.getCompletedBytes();
                 physicalBytes = cursor.getCompletedBytes();
+                physicalPositions = processedPositions;
                 readTimeNanos = cursor.getReadTimeNanos();
                 if (output.isNoMoreRows()) {
                     finished = true;
@@ -346,7 +362,7 @@ public class ScanFilterAndProjectOperator
             }
             else {
                 outputMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
-                return ProcessState.yield();
+                return ProcessState.yielded();
             }
         }
     }
@@ -370,7 +386,7 @@ public class ScanFilterAndProjectOperator
 
             CompletableFuture<?> isBlocked = pageSource.isBlocked();
             if (!isBlocked.isDone()) {
-                return ProcessState.blocked(toListenableFuture(isBlocked));
+                return ProcessState.blocked(asVoid(toListenableFuture(isBlocked)));
             }
 
             Page page = pageSource.getNextPage();
@@ -381,7 +397,7 @@ public class ScanFilterAndProjectOperator
                     return ProcessState.finished();
                 }
                 else {
-                    return ProcessState.yield();
+                    return ProcessState.yielded();
                 }
             }
 
@@ -390,10 +406,17 @@ public class ScanFilterAndProjectOperator
             // update operator stats
             processedPositions += page.getPositionCount();
             physicalBytes = pageSource.getCompletedBytes();
+            physicalPositions = pageSource.getCompletedPositions().orElse(processedPositions);
             readTimeNanos = pageSource.getReadTimeNanos();
+            metrics = pageSource.getMetrics();
 
             return ProcessState.ofResult(page);
         }
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 
     public static class ScanFilterAndProjectOperatorFactory

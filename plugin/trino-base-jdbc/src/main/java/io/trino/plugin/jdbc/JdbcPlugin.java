@@ -44,7 +44,7 @@ public class JdbcPlugin
                 name,
                 combine(
                         new CredentialProviderModule(),
-                        new ExtraCredentialsBasedJdbcIdentityCacheMappingModule(),
+                        new ExtraCredentialsBasedIdentityCacheMappingModule(),
                         module)));
     }
 }

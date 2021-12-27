@@ -40,9 +40,8 @@ class BroadcastExchanger
     @Override
     public void accept(Page page)
     {
-        memoryManager.updateMemoryUsage(page.getRetainedSizeInBytes());
-
         PageReference pageReference = new PageReference(page, buffers.size(), onPageReleased);
+        memoryManager.updateMemoryUsage(pageReference.getRetainedSizeInBytes());
 
         for (Consumer<PageReference> buffer : buffers) {
             buffer.accept(pageReference);
@@ -50,7 +49,7 @@ class BroadcastExchanger
     }
 
     @Override
-    public ListenableFuture<?> waitForWriting()
+    public ListenableFuture<Void> waitForWriting()
     {
         return memoryManager.getNotFullFuture();
     }

@@ -49,7 +49,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
@@ -307,13 +306,7 @@ public final class Session
         requireNonNull(transactionManager, "transactionManager is null");
         requireNonNull(accessControl, "accessControl is null");
 
-        for (Entry<String, String> property : systemProperties.entrySet()) {
-            // verify permissions
-            accessControl.checkCanSetSystemSessionProperty(identity, property.getKey());
-
-            // validate session property value
-            sessionPropertyManager.validateSystemSessionProperty(property.getKey(), property.getValue());
-        }
+        validateSystemProperties(accessControl, this.systemProperties);
 
         // Now that there is a transaction, the catalog name can be resolved to a connector, and the catalog properties can be validated
         ImmutableMap.Builder<CatalogName, Map<String, String>> connectorProperties = ImmutableMap.builder();
@@ -327,36 +320,30 @@ public final class Session
                     .orElseThrow(() -> new TrinoException(NOT_FOUND, "Session property catalog does not exist: " + catalogName))
                     .getCatalogName();
 
-            for (Entry<String, String> property : catalogProperties.entrySet()) {
-                // verify permissions
-                accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(transactionId, identity, queryId), catalogName, property.getKey());
-
-                // validate session property value
-                sessionPropertyManager.validateCatalogSessionProperty(catalog, catalogName, property.getKey(), property.getValue());
-            }
+            validateCatalogProperties(Optional.of(transactionId), accessControl, catalog, catalogProperties);
             connectorProperties.put(catalog, catalogProperties);
         }
 
-        ImmutableMap.Builder<String, SelectedRole> roles = ImmutableMap.builder();
-        for (Entry<String, SelectedRole> entry : identity.getRoles().entrySet()) {
+        ImmutableMap.Builder<String, SelectedRole> connectorRoles = ImmutableMap.builder();
+        for (Entry<String, SelectedRole> entry : identity.getCatalogRoles().entrySet()) {
             String catalogName = entry.getKey();
             SelectedRole role = entry.getValue();
             CatalogName catalog = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
                     .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog for role does not exist: " + catalogName))
                     .getCatalogName();
             if (role.getType() == SelectedRole.Type.ROLE) {
-                accessControl.checkCanSetRole(new SecurityContext(transactionId, identity, queryId), role.getRole().get(), catalogName);
+                accessControl.checkCanSetCatalogRole(new SecurityContext(transactionId, identity, queryId), role.getRole().orElseThrow(), catalogName);
             }
-            roles.put(catalog.getCatalogName(), role);
+            connectorRoles.put(catalog.getCatalogName(), role);
 
             String informationSchemaCatalogName = createInformationSchemaCatalogName(catalog).getCatalogName();
-            if (transactionManager.getCatalogNames(transactionId).containsKey(informationSchemaCatalogName)) {
-                roles.put(informationSchemaCatalogName, role);
+            if (transactionManager.getCatalogs(transactionId).containsKey(informationSchemaCatalogName)) {
+                connectorRoles.put(informationSchemaCatalogName, role);
             }
 
             String systemTablesCatalogName = createSystemTablesCatalogName(catalog).getCatalogName();
-            if (transactionManager.getCatalogNames(transactionId).containsKey(systemTablesCatalogName)) {
-                roles.put(systemTablesCatalogName, role);
+            if (transactionManager.getCatalogs(transactionId).containsKey(systemTablesCatalogName)) {
+                connectorRoles.put(systemTablesCatalogName, role);
             }
         }
 
@@ -365,7 +352,7 @@ public final class Session
                 Optional.of(transactionId),
                 clientTransactionSupport,
                 Identity.from(identity)
-                        .withRoles(roles.build())
+                        .withConnectorRoles(connectorRoles.build())
                         .build(),
                 source,
                 catalog,
@@ -389,19 +376,16 @@ public final class Session
                 protocolHeaders);
     }
 
-    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults)
+    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
     {
         requireNonNull(systemPropertyDefaults, "systemPropertyDefaults is null");
         requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
 
-        // to remove this check properties must be authenticated and validated as in beginTransactionId
-        checkState(
-                this.transactionId.isEmpty() && this.connectorProperties.isEmpty(),
-                "Session properties cannot be overridden once a transaction is active");
-
         Map<String, String> systemProperties = new HashMap<>();
         systemProperties.putAll(systemPropertyDefaults);
         systemProperties.putAll(this.systemProperties);
+
+        validateSystemProperties(accessControl, systemProperties);
 
         Map<String, Map<String, String>> connectorProperties = catalogPropertyDefaults.entrySet().stream()
                 .map(entry -> Maps.immutableEntry(entry.getKey(), new HashMap<>(entry.getValue())))
@@ -412,6 +396,9 @@ public final class Session
                 connectorProperties.computeIfAbsent(catalog, id -> new HashMap<>())
                         .put(entry.getKey(), entry.getValue());
             }
+        }
+        for (Entry<String, Map<String, String>> catalogEntry : connectorProperties.entrySet()) {
+            validateCatalogProperties(this.transactionId, accessControl, new CatalogName(catalogEntry.getKey()), catalogEntry.getValue());
         }
 
         return new Session(
@@ -473,6 +460,7 @@ public final class Session
                 identity.getUser(),
                 identity.getGroups(),
                 identity.getPrincipal().map(Principal::toString),
+                identity.getEnabledRoles(),
                 source,
                 catalog,
                 schema,
@@ -490,7 +478,7 @@ public final class Session
                 systemProperties,
                 connectorProperties,
                 unprocessedCatalogProperties,
-                identity.getRoles(),
+                identity.getCatalogRoles(),
                 preparedStatements,
                 protocolHeaders.getProtocolName());
     }
@@ -521,6 +509,30 @@ public final class Session
                 .toString();
     }
 
+    private void validateCatalogProperties(Optional<TransactionId> transactionId, AccessControl accessControl, CatalogName catalog, Map<String, String> catalogProperties)
+    {
+        for (Entry<String, String> property : catalogProperties.entrySet()) {
+            // verify permissions
+            if (transactionId.isPresent()) {
+                accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(transactionId.get(), identity, queryId), catalog.getCatalogName(), property.getKey());
+            }
+
+            // validate catalog session property value
+            sessionPropertyManager.validateCatalogSessionProperty(catalog, property.getKey(), property.getValue());
+        }
+    }
+
+    private void validateSystemProperties(AccessControl accessControl, Map<String, String> systemProperties)
+    {
+        for (Entry<String, String> property : systemProperties.entrySet()) {
+            // verify permissions
+            accessControl.checkCanSetSystemSessionProperty(identity, property.getKey());
+
+            // validate session property value
+            sessionPropertyManager.validateSystemSessionProperty(property.getKey(), property.getValue());
+        }
+    }
+
     public static SessionBuilder builder(SessionPropertyManager sessionPropertyManager)
     {
         return new SessionBuilder(sessionPropertyManager);
@@ -546,10 +558,10 @@ public final class Session
         private String source;
         private String catalog;
         private String schema;
-        private SqlPath path = new SqlPath(Optional.empty());
+        private SqlPath path;
         private Optional<String> traceToken = Optional.empty();
-        private TimeZoneKey timeZoneKey = TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID());
-        private Locale locale = Locale.getDefault();
+        private TimeZoneKey timeZoneKey;
+        private Locale locale;
         private String remoteUserAddress;
         private String userAgent;
         private String clientInfo;
@@ -621,6 +633,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setCatalog(Optional<String> catalog)
+        {
+            this.catalog = catalog.orElse(null);
+            return this;
+        }
+
         public SessionBuilder setLocale(Locale locale)
         {
             this.locale = locale;
@@ -633,9 +651,21 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setRemoteUserAddress(Optional<String> remoteUserAddress)
+        {
+            this.remoteUserAddress = remoteUserAddress.orElse(null);
+            return this;
+        }
+
         public SessionBuilder setSchema(String schema)
         {
             this.schema = schema;
+            return this;
+        }
+
+        public SessionBuilder setSchema(Optional<String> schema)
+        {
+            this.schema = schema.orElse(null);
             return this;
         }
 
@@ -645,9 +675,21 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setPath(Optional<SqlPath> path)
+        {
+            this.path = path.orElse(null);
+            return this;
+        }
+
         public SessionBuilder setSource(String source)
         {
             this.source = source;
+            return this;
+        }
+
+        public SessionBuilder setSource(Optional<String> source)
+        {
+            this.source = source.orElse(null);
             return this;
         }
 
@@ -669,6 +711,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setTimeZoneKey(Optional<TimeZoneKey> timeZoneKey)
+        {
+            this.timeZoneKey = timeZoneKey.orElse(null);
+            return this;
+        }
+
         public SessionBuilder setIdentity(Identity identity)
         {
             this.identity = identity;
@@ -681,9 +729,21 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setUserAgent(Optional<String> userAgent)
+        {
+            this.userAgent = userAgent.orElse(null);
+            return this;
+        }
+
         public SessionBuilder setClientInfo(String clientInfo)
         {
             this.clientInfo = clientInfo;
+            return this;
+        }
+
+        public SessionBuilder setClientInfo(Optional<String> clientInfo)
+        {
+            this.clientInfo = clientInfo.orElse(null);
             return this;
         }
 
@@ -759,10 +819,10 @@ public final class Session
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),
-                    path,
+                    path != null ? path : new SqlPath(Optional.empty()),
                     traceToken,
-                    timeZoneKey,
-                    locale,
+                    timeZoneKey != null ? timeZoneKey : TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID()),
+                    locale != null ? locale : Locale.getDefault(),
                     Optional.ofNullable(remoteUserAddress),
                     Optional.ofNullable(userAgent),
                     Optional.ofNullable(clientInfo),

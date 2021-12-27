@@ -13,7 +13,9 @@
  */
 package io.trino.operator;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.trino.Session;
@@ -41,6 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 
@@ -143,7 +146,7 @@ public class TableScanOperator
     private final List<ColumnHandle> columns;
     private final DynamicFilter dynamicFilter;
     private final LocalMemoryContext systemMemoryContext;
-    private final SettableFuture<?> blocked = SettableFuture.create();
+    private final SettableFuture<Void> blocked = SettableFuture.create();
 
     @Nullable
     private Split split;
@@ -153,6 +156,7 @@ public class TableScanOperator
     private boolean finished;
 
     private long completedBytes;
+    private long completedPositions;
     private long readTimeNanos;
 
     public TableScanOperator(
@@ -198,7 +202,7 @@ public class TableScanOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(split.getCatalogName(), splitInfo));
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogName(), splitInfo)));
         }
 
         blocked.set(null);
@@ -244,6 +248,7 @@ public class TableScanOperator
                 throw new UncheckedIOException(e);
             }
             systemMemoryContext.setBytes(source.getSystemMemoryUsage());
+            operatorContext.setLatestConnectorMetrics(source.getMetrics());
         }
     }
 
@@ -261,16 +266,21 @@ public class TableScanOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         if (!blocked.isDone()) {
             return blocked;
         }
         if (source != null) {
             CompletableFuture<?> pageSourceBlocked = source.isBlocked();
-            return pageSourceBlocked.isDone() ? NOT_BLOCKED : toListenableFuture(pageSourceBlocked);
+            return pageSourceBlocked.isDone() ? NOT_BLOCKED : asVoid(toListenableFuture(pageSourceBlocked));
         }
         return NOT_BLOCKED;
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 
     @Override
@@ -306,15 +316,21 @@ public class TableScanOperator
             // update operator stats
             long endCompletedBytes = source.getCompletedBytes();
             long endReadTimeNanos = source.getReadTimeNanos();
-            operatorContext.recordPhysicalInputWithTiming(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
-            operatorContext.recordProcessedInput(page.getSizeInBytes(), page.getPositionCount());
+            long positionCount = page.getPositionCount();
+            long endCompletedPositions = source.getCompletedPositions().orElse(completedPositions + positionCount);
+            operatorContext.recordPhysicalInputWithTiming(
+                    endCompletedBytes - completedBytes,
+                    endCompletedPositions - completedPositions,
+                    endReadTimeNanos - readTimeNanos);
+            operatorContext.recordProcessedInput(page.getSizeInBytes(), positionCount);
             completedBytes = endCompletedBytes;
+            completedPositions = endCompletedPositions;
             readTimeNanos = endReadTimeNanos;
         }
 
         // updating system memory usage should happen after page is loaded.
         systemMemoryContext.setBytes(source.getSystemMemoryUsage());
-
+        operatorContext.setLatestConnectorMetrics(source.getMetrics());
         return page;
     }
 }

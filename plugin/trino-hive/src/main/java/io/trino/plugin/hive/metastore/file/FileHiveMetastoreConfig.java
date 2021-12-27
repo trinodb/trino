@@ -15,11 +15,13 @@ package io.trino.plugin.hive.metastore.file;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 
 import javax.validation.constraints.NotNull;
 
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.NOT_SUPPORTED;
 
+@DefunctConfig("hive.metastore.assume-canonical-partition-keys")
 public class FileHiveMetastoreConfig
 {
     public static final String VERSION_COMPATIBILITY_CONFIG = "hive.metastore.version-compatibility";
@@ -33,7 +35,6 @@ public class FileHiveMetastoreConfig
     private String catalogDirectory;
     private VersionCompatibility versionCompatibility = NOT_SUPPORTED;
     private String metastoreUser = "presto";
-    private boolean assumeCanonicalPartitionKeys;
 
     @NotNull
     public String getCatalogDirectory()
@@ -73,18 +74,6 @@ public class FileHiveMetastoreConfig
     public FileHiveMetastoreConfig setMetastoreUser(String metastoreUser)
     {
         this.metastoreUser = metastoreUser;
-        return this;
-    }
-
-    public boolean isAssumeCanonicalPartitionKeys()
-    {
-        return assumeCanonicalPartitionKeys;
-    }
-
-    @Config("hive.metastore.assume-canonical-partition-keys")
-    public FileHiveMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
-    {
-        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         return this;
     }
 }

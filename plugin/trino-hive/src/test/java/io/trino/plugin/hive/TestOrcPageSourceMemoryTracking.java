@@ -102,15 +102,16 @@ import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildColumnMappings;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
-import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.relational.Expressions.field;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -527,7 +528,7 @@ public class TestOrcPageSourceMemoryTracking
 
                 ObjectInspector inspector = testColumn.getObjectInspector();
                 HiveType hiveType = HiveType.valueOf(inspector.getTypeName());
-                Type type = hiveType.getType(TYPE_MANAGER);
+                Type type = hiveType.getType(TESTING_TYPE_MANAGER);
 
                 columnsBuilder.add(createBaseColumn(testColumn.getName(), columnIndex, hiveType, type, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
                 typesBuilder.add(type);
@@ -551,6 +552,18 @@ public class TestOrcPageSourceMemoryTracking
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
         {
             OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, stats, UTC);
+
+            List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
+                    partitionName,
+                    partitionKeys,
+                    columns,
+                    ImmutableList.of(),
+                    TableToPartitionMapping.empty(),
+                    fileSplit.getPath(),
+                    OptionalInt.empty(),
+                    fileSplit.getLength(),
+                    Instant.now().toEpochMilli());
+
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(orcPageSourceFactory),
                     ImmutableSet.of(),
@@ -561,21 +574,17 @@ public class TestOrcPageSourceMemoryTracking
                     fileSplit.getStart(),
                     fileSplit.getLength(),
                     fileSplit.getLength(),
-                    Instant.now().toEpochMilli(),
                     schema,
                     TupleDomain.all(),
                     columns,
-                    partitionName,
-                    partitionKeys,
-                    TYPE_MANAGER,
-                    TableToPartitionMapping.empty(),
+                    TESTING_TYPE_MANAGER,
                     Optional.empty(),
                     Optional.empty(),
                     false,
                     Optional.empty(),
                     false,
-                    NO_ACID_TRANSACTION)
-                    .orElseThrow();
+                    NO_ACID_TRANSACTION,
+                    columnMappings).orElseThrow();
         }
 
         public SourceOperator newTableScanOperator(DriverContext driverContext)

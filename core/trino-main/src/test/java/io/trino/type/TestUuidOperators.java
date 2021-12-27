@@ -23,11 +23,11 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.SqlVarbinaryTestingUtil.sqlVarbinaryFromHex;
 import static io.trino.type.UuidOperators.castFromVarcharToUuid;
-import static io.trino.type.UuidType.UUID;
 import static org.testng.Assert.assertEquals;
 
 public class TestUuidOperators
@@ -133,7 +133,7 @@ public class TestUuidOperators
     private int uuidCompare(String uuidLeft, String uuidRight)
     {
         return (int) functionAssertions.getBlockTypeOperators()
-                .getComparisonOperator(UUID)
+                .getComparisonUnorderedLastOperator(UUID)
                 .compare(uuidBlock(uuidLeft), 0, uuidBlock(uuidRight), 0);
     }
 

@@ -4,7 +4,7 @@ Write partitioning properties
 
 ``use-preferred-write-partitioning``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
 Enable preferred write partitioning. When set to ``true`` and more than the
@@ -18,7 +18,7 @@ session property.
 
 ``preferred-write-partitioning-min-number-of-partitions``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-* **Type:** ``integer``
+* **Type:** :ref:`prop-type-integer`
 * **Default value:** ``50``
 
 Use the connector's preferred write partitioning when the optimizer's estimate

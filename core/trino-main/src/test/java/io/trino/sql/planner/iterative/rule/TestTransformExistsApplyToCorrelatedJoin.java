@@ -37,11 +37,11 @@ public class TestTransformExistsApplyToCorrelatedJoin
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getMetadata()))
+        tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getPlannerContext()))
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
 
-        tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getMetadata()))
+        tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getPlannerContext()))
                 .on(p ->
                         p.correlatedJoin(
                                 ImmutableList.of(p.symbol("a")),
@@ -53,7 +53,7 @@ public class TestTransformExistsApplyToCorrelatedJoin
     @Test
     public void testRewrite()
     {
-        tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getMetadata()))
+        tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getPlannerContext()))
                 .on(p ->
                         p.apply(
                                 Assignments.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),
@@ -72,7 +72,7 @@ public class TestTransformExistsApplyToCorrelatedJoin
     @Test
     public void testRewritesToLimit()
     {
-        tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getMetadata()))
+        tester().assertThat(new TransformExistsApplyToCorrelatedJoin(tester().getPlannerContext()))
                 .on(p ->
                         p.apply(
                                 Assignments.of(p.symbol("b", BOOLEAN), expression("EXISTS(SELECT TRUE)")),

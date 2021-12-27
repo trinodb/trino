@@ -18,11 +18,11 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
 import java.util.function.Supplier;
@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 public class TestingKinesisConnectorFactory
         extends KinesisConnectorFactory
 {
-    KinesisClientProvider kinesisClientProvider;
+    private KinesisClientProvider kinesisClientProvider;
 
     public TestingKinesisConnectorFactory(KinesisClientProvider kinesisClientProvider)
     {
@@ -50,16 +50,16 @@ public class TestingKinesisConnectorFactory
         try {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
+                    new TypeDeserializerModule(context.getTypeManager()),
                     new KinesisModule(),
                     binder -> {
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(KinesisHandleResolver.class).toInstance(new KinesisHandleResolver());
                         binder.bind(KinesisClientProvider.class).toInstance(kinesisClientProvider);
                         binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KinesisStreamDescription>>>() {}).to(KinesisTableDescriptionSupplier.class).in(Scopes.SINGLETON);
                     });
 
-            Injector injector = app.strictConfig()
+            Injector injector = app
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

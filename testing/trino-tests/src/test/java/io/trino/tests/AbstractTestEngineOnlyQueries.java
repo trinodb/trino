@@ -57,6 +57,8 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static io.trino.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -66,8 +68,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.trino.sql.tree.ExplainType.Type.IO;
 import static io.trino.sql.tree.ExplainType.Type.LOGICAL;
@@ -359,6 +359,47 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery(
                 "VALUES 1, 1, 1 INTERSECT ALL (VALUES 1, 1 INTERSECT ALL VALUES 1)",
                 "VALUES 1");
+    }
+
+    @Test
+    public void testCharVarcharComparison()
+    {
+        // with implicit coercions
+        assertQuery("SELECT * FROM (VALUES" +
+                "   CAST(NULL AS char(3)), " +
+                "   CAST('   ' AS char(3))) t(x) " +
+                "WHERE x = CAST('  ' AS varchar(2))");
+
+        // with explicit casts
+        assertQuery(
+                "SELECT * FROM (VALUES" +
+                        "   CAST(NULL AS char(3)), " +
+                        "   CAST('   ' AS char(3))) t(x) " +
+                        "WHERE CAST(x AS varchar(2)) = CAST('  ' AS varchar(2))",
+                // H2 returns '' on CAST char(3) to varchar(2)
+                "SELECT '   '");
+    }
+
+    @Test
+    public void testVarcharCharComparison()
+    {
+        // with implicit coercions
+        assertQuery("SELECT * FROM (VALUES" +
+                "   CAST(NULL AS varchar(3)), " +
+                "   CAST('' AS varchar(3))," +
+                "   CAST(' ' AS varchar(3)), " +
+                "   CAST('  ' AS varchar(3)), " +
+                "   CAST('   ' AS varchar(3))) t(x) " +
+                "WHERE x = CAST('  ' AS char(2))");
+
+        // with explicit casts
+        assertQuery("SELECT * FROM (VALUES" +
+                "   CAST(NULL AS varchar(3)), " +
+                "   CAST('' AS varchar(3))," +
+                "   CAST(' ' AS varchar(3)), " +
+                "   CAST('  ' AS varchar(3)), " +
+                "   CAST('   ' AS varchar(3))) t(x) " +
+                "WHERE CAST(x AS char(2)) = CAST('  ' AS char(2))");
     }
 
     @Test
@@ -701,11 +742,11 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT * FROM (" +
                         "  SELECT t2.x || t2.z cc FROM (" +
                         "    SELECT *" +
-                        "    FROM (VALUES (CAST('a' AS VARCHAR), CAST('c' AS VARCHAR))) t(x, z)" +
+                        "    FROM (VALUES (VARCHAR 'a', VARCHAR 'c')) t(x, z)" +
                         "  ) t2" +
                         "  JOIN (" +
                         "    SELECT *" +
-                        "    FROM (VALUES (CAST('a' AS VARCHAR), CAST('c' AS VARCHAR))) u(x, z)" +
+                        "    FROM (VALUES (VARCHAR 'a', VARCHAR 'c')) u(x, z)" +
                         "    WHERE z='c'" +
                         "  ) u2" +
                         "  ON t2.z = u2.z" +
@@ -1294,7 +1335,7 @@ public abstract class AbstractTestEngineOnlyQueries
                                 "FROM" +
                                 "  (" +
                                 " VALUES " +
-                                "     (CHAR 'Pi', CAST('PI' AS VARCHAR), TIMESTAMP '2012-03-14 1:59:26.535', TIMESTAMP '2012-03-14 1:59:26.535897', DECIMAL '3.14')" +
+                                "     (CHAR 'Pi', VARCHAR 'PI', TIMESTAMP '2012-03-14 1:59:26.535', TIMESTAMP '2012-03-14 1:59:26.535897', DECIMAL '3.14')" +
                                 ")  AS t (t_char, t_varchar, t_timestamp, t_timestamp_2, t_decimal)" +
                                 "WHERE t_char = ? AND t_varchar = ? AND t_timestamp = ? AND t_timestamp_2 = ? AND t_decimal = ?")
                 .build();
@@ -1427,6 +1468,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertDescribeOutputEmpty("COMMIT");
         assertDescribeOutputEmpty("ROLLBACK");
         assertDescribeOutputEmpty("GRANT INSERT ON foo TO bar");
+        assertDescribeOutputEmpty("DENY INSERT ON foo TO bar");
         assertDescribeOutputEmpty("REVOKE INSERT ON foo FROM bar");
         assertDescribeOutputEmpty("CREATE SCHEMA foo");
         assertDescribeOutputEmpty("CREATE SCHEMA foo AUTHORIZATION bar");
@@ -1438,6 +1480,8 @@ public abstract class AbstractTestEngineOnlyQueries
         assertDescribeOutputEmpty("ALTER TABLE foo ADD COLUMN y bigint");
         assertDescribeOutputEmpty("ALTER TABLE foo SET AUTHORIZATION bar");
         assertDescribeOutputEmpty("ALTER TABLE foo RENAME TO bar");
+        assertDescribeOutputEmpty("ALTER TABLE foo SET PROPERTIES x = 'y'");
+        assertDescribeOutputEmpty("TRUNCATE TABLE foo");
         assertDescribeOutputEmpty("DROP TABLE foo");
         assertDescribeOutputEmpty("CREATE VIEW foo AS SELECT * FROM nation");
         assertDescribeOutputEmpty("DROP VIEW foo");
@@ -3192,6 +3236,8 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT CAST(row(true, array[0, 2]) AS row(aa boolean, bb array(boolean))).bb[1]", "SELECT false");
         assertQuery("SELECT CAST(row(0.1, array[0, 2], row(1, 0.5)) AS row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))).cc.ee", "SELECT '0.5'");
         assertQuery("SELECT CAST(array[row(0.1, array[0, 2], row(1, 0.5))] AS array<row(aa bigint, bb array(boolean), cc row(dd varchar, ee varchar))>)[1].cc.ee", "SELECT '0.5'");
+        assertQuery("SELECT CAST(ROW(1, 2, 3) AS ROW(a BIGINT, A DOUBLE, c BIGINT)).c", "SELECT 3");
+        assertQueryFails("SELECT CAST(ROW(1, 2) AS ROW(a BIGINT, A DOUBLE)).a", "line 1:51: Ambiguous row field reference: a");
     }
 
     @Test
@@ -3377,6 +3423,9 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         assertQuery("SELECT MIN_BY(orderkey, totalprice) FROM orders", "SELECT orderkey FROM orders ORDER BY totalprice ASC LIMIT 1");
         assertQuery("SELECT MIN_BY(a, ROW(b, c)) FROM (VALUES (1, 2, 3), (2, 2, 1)) AS t(a, b, c)", "SELECT 2");
+        assertQuery(
+                "SELECT custkey, min_by(totalprice, orderkey) FROM orders WHERE orderkey < 2 GROUP BY 1",
+                "SELECT 370, 172799.49");
     }
 
     @Test
@@ -5143,6 +5192,71 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testAggregationInPatternMatching()
+    {
+        assertQuery(
+                "SELECT even_count, even_sum, odd_count, odd_sum " +
+                        "          FROM orders " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   MEASURES " +
+                        "                           count(EVEN.totalprice) AS even_count, " +
+                        "                           sum(EVEN.totalprice) AS even_sum, " +
+                        "                           count(ODD.totalprice) AS odd_count, " +
+                        "                           sum(ODD.totalprice) AS odd_sum " +
+                        "                   ONE ROW PER MATCH " +
+                        "                   PATTERN ((EVEN | ODD)*) " +
+                        "                   DEFINE EVEN AS orderkey % 2 = 0 " +
+                        "                )",
+                "SELECT " +
+                        "       count(totalprice) FILTER (WHERE orderkey % 2 = 0), " +
+                        "       sum(totalprice) FILTER (WHERE orderkey % 2 = 0), " +
+                        "       count(totalprice) FILTER (WHERE orderkey % 2 != 0), " +
+                        "       sum(totalprice) FILTER (WHERE orderkey % 2 != 0) " +
+                        "FROM orders");
+
+        assertQuery(
+                "SELECT count_a, sum_a, count_b, sum_b " +
+                        "          FROM lineitem " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   ORDER BY orderkey, partkey, linenumber, suppkey " +
+                        "                   MEASURES " +
+                        "                           count(A.extendedprice) AS count_a, " +
+                        "                           sum(A.extendedprice) AS sum_a, " +
+                        "                           count(B.extendedprice) AS count_b, " +
+                        "                           sum(B.extendedprice) AS sum_b " +
+                        "                   ONE ROW PER MATCH " +
+                        "                   PATTERN ((A | B)*) " +
+                        "                   DEFINE A AS sum(A.extendedprice) - A.extendedprice <= sum(B.extendedprice) " +
+                        "                )",
+                "VALUES (30102, 1.076107263589997E9, 30073, 1.076082496880001E9)");
+
+        // multiple partitions
+        assertQuery(
+                "SELECT linenumber, count_a, sum_a, count_b, sum_b " +
+                        "          FROM lineitem " +
+                        "                 MATCH_RECOGNIZE ( " +
+                        "                   PARTITION BY linenumber " +
+                        "                   ORDER BY orderkey, partkey, suppkey " +
+                        "                   MEASURES " +
+                        "                           count(A.extendedprice) AS count_a, " +
+                        "                           sum(A.extendedprice) AS sum_a, " +
+                        "                           count(B.extendedprice) AS count_b, " +
+                        "                           sum(B.extendedprice) AS sum_b " +
+                        "                   ONE ROW PER MATCH " +
+                        "                   PATTERN ((A | B)*) " +
+                        "                   DEFINE A AS sum(A.extendedprice) - A.extendedprice <= sum(B.extendedprice) " +
+                        "                )",
+                "VALUES " +
+                        "       (1, 7527, 2.700130296299994E8,  7473, 2.699966325600006E8), " +
+                        "       (2, 6405, 2.3050976446000075E8, 6495, 2.305150154200002E8), " +
+                        "       (3, 5338, 1.9243010705000016E8, 5379, 1.924638281E8), " +
+                        "       (4, 4280, 1.5419989523000014E8, 4346, 1.542295559599997E8), " +
+                        "       (5, 3203, 1.137980570099999E8,  3235, 1.1375865371999986E8), " +
+                        "       (6, 2139, 7.687316147999987E7,  2182, 7.692793139999984E7), " +
+                        "       (7, 1094, 3.821874121000001E7,  1079, 3.8255387239999995E7) ");
+    }
+
+    @Test
     public void testShowSession()
     {
         Session session = new Session(
@@ -5173,7 +5287,7 @@ public abstract class AbstractTestEngineOnlyQueries
                         .put("connector_string", "bar string")
                         .put("connector_long", "11")
                         .build()),
-                getQueryRunner().getMetadata().getSessionPropertyManager(),
+                getQueryRunner().getSessionPropertyManager(),
                 getSession().getPreparedStatements(),
                 getSession().getProtocolHeaders());
         MaterializedResult result = computeActual(session, "SHOW SESSION");
@@ -5867,6 +5981,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertExplainDdl("CREATE TABLE foo (pk bigint)", "CREATE TABLE foo");
         assertExplainDdl("CREATE VIEW foo AS SELECT * FROM orders", "CREATE VIEW foo");
         assertExplainDdl("DROP TABLE orders");
+        assertExplainDdl("TRUNCATE TABLE orders");
         assertExplainDdl("DROP VIEW view");
         assertExplainDdl("ALTER TABLE orders RENAME TO new_name");
         assertExplainDdl("ALTER TABLE orders RENAME COLUMN orderkey TO new_column_name");
@@ -6079,6 +6194,61 @@ public abstract class AbstractTestEngineOnlyQueries
                 "    CAST(JSON '{\"key\": {\"name\": \"trino\"}}' AS map(varchar, map(varchar, varchar)))['key'] mapped " +
                 ") b ON contains(b.names, a.name)"))
                 .matches("SELECT CAST(map(ARRAY['name'], ARRAY['trino']) AS map(varchar, varchar))");
+    }
+
+    /**
+     * See https://github.com/trinodb/trino/issues/9171
+     * <p>
+     * Only occurs in distributed planning mode
+     */
+    @Test
+    public void testPartialLimitWithPresortedConstantInputs()
+    {
+        assertThat(query("SELECT a " +
+                "FROM (" +
+                "    SELECT 0, 1" +
+                "    FROM (" +
+                "        SELECT 1" +
+                "        FROM (VALUES (1, 1, 1)) t(k, g, h)" +
+                "            CROSS JOIN (VALUES 1)" +
+                "        GROUP BY k" +
+                "    )" +
+                "    UNION ALL" +
+                "    SELECT 0, 1" +
+                ") u(a, b) " +
+                "ORDER BY b " +
+                "LIMIT 10"))
+                .matches("VALUES (0), (0)");
+
+        assertThat(query("SELECT * " +
+                "FROM (" +
+                "    VALUES (0, 1)" +
+                "    UNION ALL" +
+                "    SELECT k, 1" +
+                "    FROM (" +
+                "        SELECT k" +
+                "        FROM (VALUES 1) t(k)" +
+                "        GROUP BY k" +
+                "     )" +
+                ") u(a, b) " +
+                "ORDER BY b " +
+                "LIMIT 10"))
+                .matches("VALUES (1, 1), (0, 1)");
+
+        assertThat(query("SELECT orderkey, custkey " +
+                "FROM orders " +
+                "WHERE orderkey = 1 AND custkey = 370 " +
+                "ORDER BY orderkey " +
+                "LIMIT 1"))
+                .matches("VALUES (BIGINT '1', BIGINT '370')");
+
+        assertThat(query("SELECT " +
+                "         'name' as name, " +
+                "         'age' as age " +
+                "         FROM customer " +
+                "         ORDER BY age, name " +
+                "         LIMIT 1"))
+                .matches("VALUES ('name', 'age')");
     }
 
     private static ZonedDateTime zonedDateTime(String value)

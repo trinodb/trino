@@ -16,13 +16,13 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ParameterRewriter;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
@@ -42,9 +42,9 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-abstract class AbstractPropertyManager
+abstract class AbstractPropertyManager<K>
 {
-    private final ConcurrentMap<CatalogName, Map<String, PropertyMetadata<?>>> connectorProperties = new ConcurrentHashMap<>();
+    protected final ConcurrentMap<K, Map<String, PropertyMetadata<?>>> connectorProperties = new ConcurrentHashMap<>();
     private final String propertyType;
     private final ErrorCodeSupplier propertyError;
 
@@ -55,33 +55,34 @@ abstract class AbstractPropertyManager
         this.propertyError = requireNonNull(propertyError, "propertyError is null");
     }
 
-    public final void addProperties(CatalogName catalogName, List<PropertyMetadata<?>> properties)
+    protected final void doAddProperties(K propertiesKey, List<PropertyMetadata<?>> properties)
     {
-        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(propertiesKey, "propertiesKey is null");
         requireNonNull(properties, "properties is null");
 
         Map<String, PropertyMetadata<?>> propertiesByName = Maps.uniqueIndex(properties, PropertyMetadata::getName);
 
-        checkState(connectorProperties.putIfAbsent(catalogName, propertiesByName) == null, "Properties for connector '%s' are already registered", catalogName);
+        checkState(connectorProperties.putIfAbsent(propertiesKey, propertiesByName) == null, "Properties for key %s are already registered", propertiesKey);
     }
 
-    public final void removeProperties(CatalogName catalogName)
+    protected final void doRemoveProperties(K propertiesKey)
     {
-        connectorProperties.remove(catalogName);
+        connectorProperties.remove(propertiesKey);
     }
 
-    public final Map<String, Object> getProperties(
-            CatalogName catalogName,
-            String catalog, // only use this for error messages
+    protected final Map<String, Object> doGetProperties(
+            K propertiesKey,
+            String catalogNameForDiagnostics,
             Map<String, Expression> sqlPropertyValues,
             Session session,
-            Metadata metadata,
+            PlannerContext plannerContext,
             AccessControl accessControl,
-            Map<NodeRef<Parameter>, Expression> parameters)
+            Map<NodeRef<Parameter>, Expression> parameters,
+            boolean setDefaultProperties)
     {
-        Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(catalogName);
+        Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(propertiesKey);
         if (supportedProperties == null) {
-            throw new TrinoException(NOT_FOUND, "Catalog not found: " + catalog);
+            throw new TrinoException(NOT_FOUND, formatPropertiesKeyForMessage(catalogNameForDiagnostics, propertiesKey) + " not found");
         }
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
@@ -93,15 +94,15 @@ abstract class AbstractPropertyManager
             if (property == null) {
                 throw new TrinoException(
                         propertyError,
-                        format("Catalog '%s' does not support %s property '%s'",
-                                catalog,
+                        format("%s does not support %s property '%s'",
+                                formatPropertiesKeyForMessage(catalogNameForDiagnostics, propertiesKey),
                                 propertyType,
                                 propertyName));
             }
 
             Object sqlObjectValue;
             try {
-                sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), property.getSqlType(), session, metadata, accessControl, parameters);
+                sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), property.getSqlType(), session, plannerContext, accessControl, parameters);
             }
             catch (TrinoException e) {
                 throw new TrinoException(
@@ -134,6 +135,9 @@ abstract class AbstractPropertyManager
         }
         Map<String, Object> userSpecifiedProperties = properties.build();
 
+        if (!setDefaultProperties) {
+            return properties.build();
+        }
         // Fill in the remaining properties with non-null defaults
         for (PropertyMetadata<?> propertyMetadata : supportedProperties.values()) {
             if (!userSpecifiedProperties.containsKey(propertyMetadata.getName())) {
@@ -146,7 +150,7 @@ abstract class AbstractPropertyManager
         return properties.build();
     }
 
-    public Map<CatalogName, Map<String, PropertyMetadata<?>>> getAllProperties()
+    protected final Map<K, Map<String, PropertyMetadata<?>>> doGetAllProperties()
     {
         return ImmutableMap.copyOf(connectorProperties);
     }
@@ -155,12 +159,12 @@ abstract class AbstractPropertyManager
             Expression expression,
             Type expectedType,
             Session session,
-            Metadata metadata,
+            PlannerContext plannerContext,
             AccessControl accessControl,
             Map<NodeRef<Parameter>, Expression> parameters)
     {
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
-        Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, accessControl, parameters);
+        Object value = evaluateConstantExpression(rewritten, expectedType, plannerContext, session, accessControl, parameters);
 
         // convert to object value type of SQL type
         BlockBuilder blockBuilder = expectedType.createBlockBuilder(null, 1);
@@ -172,4 +176,6 @@ abstract class AbstractPropertyManager
         }
         return objectValue;
     }
+
+    protected abstract String formatPropertiesKeyForMessage(String catalogName, K propertiesKey);
 }

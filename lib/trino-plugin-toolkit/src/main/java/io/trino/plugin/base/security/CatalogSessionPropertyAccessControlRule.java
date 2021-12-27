@@ -29,6 +29,7 @@ public class CatalogSessionPropertyAccessControlRule
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty());
 
     private final Optional<Pattern> catalogRegex;
@@ -38,20 +39,21 @@ public class CatalogSessionPropertyAccessControlRule
     public CatalogSessionPropertyAccessControlRule(
             @JsonProperty("allow") boolean allow,
             @JsonProperty("user") Optional<Pattern> userRegex,
+            @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
             @JsonProperty("property") Optional<Pattern> propertyRegex,
             @JsonProperty("catalog") Optional<Pattern> catalogRegex)
     {
-        this.sessionPropertyAccessControlRule = new SessionPropertyAccessControlRule(allow, userRegex, groupRegex, propertyRegex);
+        this.sessionPropertyAccessControlRule = new SessionPropertyAccessControlRule(allow, userRegex, roleRegex, groupRegex, propertyRegex);
         this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
     }
 
-    public Optional<Boolean> match(String user, Set<String> groups, String catalog, String property)
+    public Optional<Boolean> match(String user, Set<String> roles, Set<String> groups, String catalog, String property)
     {
         if (!catalogRegex.map(regex -> regex.matcher(catalog).matches()).orElse(true)) {
             return Optional.empty();
         }
-        return sessionPropertyAccessControlRule.match(user, groups, property);
+        return sessionPropertyAccessControlRule.match(user, roles, groups, property);
     }
 
     Optional<AnyCatalogPermissionsRule> toAnyCatalogPermissionsRule()
@@ -61,6 +63,7 @@ public class CatalogSessionPropertyAccessControlRule
         }
         return Optional.of(new AnyCatalogPermissionsRule(
                 sessionPropertyAccessControlRule.getUserRegex(),
+                sessionPropertyAccessControlRule.getRoleRegex(),
                 sessionPropertyAccessControlRule.getGroupRegex(),
                 catalogRegex));
     }

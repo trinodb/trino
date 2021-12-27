@@ -13,10 +13,12 @@
  */
 package io.trino.operator.window;
 
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexComparator;
 import io.trino.operator.WindowOperator.FrameBoundKey;
+import io.trino.spi.function.WindowFunction;
 
 import java.util.List;
 import java.util.Map;
@@ -30,10 +32,12 @@ public class RegularWindowPartitioner
             int partitionStart,
             int partitionEnd,
             int[] outputChannels,
-            List<FramedWindowFunction> windowFunctions,
+            List<WindowFunction> windowFunctions,
+            List<FrameInfo> frames,
             PagesHashStrategy peerGroupHashStrategy,
-            Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators)
+            Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators,
+            AggregatedMemoryContext memoryContext)
     {
-        return new RegularWindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, peerGroupHashStrategy, frameBoundComparators);
+        return new RegularWindowPartition(pagesIndex, partitionStart, partitionEnd, outputChannels, windowFunctions, frames, peerGroupHashStrategy, frameBoundComparators);
     }
 }

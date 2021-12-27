@@ -42,6 +42,7 @@ import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalRequest;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalResponse;
 import org.apache.hadoop.hive.metastore.api.GetTableRequest;
 import org.apache.hadoop.hive.metastore.api.GetValidWriteIdsRequest;
+import org.apache.hadoop.hive.metastore.api.GrantRevokePrivilegeRequest;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeRoleRequest;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeRoleResponse;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeType;
@@ -62,6 +63,7 @@ import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.TableStatsRequest;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
 import org.apache.hadoop.hive.metastore.api.TxnToWriteId;
+import org.apache.hadoop.hive.metastore.api.UnlockRequest;
 import org.apache.hadoop.hive.metastore.txn.TxnUtils;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -77,6 +79,8 @@ import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.metastore.api.GrantRevokeType.GRANT;
+import static org.apache.hadoop.hive.metastore.api.GrantRevokeType.REVOKE;
 import static org.apache.hadoop.hive.metastore.txn.TxnUtils.createValidTxnWriteIdList;
 
 public class ThriftHiveMetastoreClient
@@ -349,14 +353,16 @@ public class ThriftHiveMetastoreClient
     public boolean grantPrivileges(PrivilegeBag privilegeBag)
             throws TException
     {
-        return client.grant_privileges(privilegeBag);
+        return client.grant_revoke_privileges(new GrantRevokePrivilegeRequest(GRANT, privilegeBag)).isSuccess();
     }
 
     @Override
-    public boolean revokePrivileges(PrivilegeBag privilegeBag)
+    public boolean revokePrivileges(PrivilegeBag privilegeBag, boolean revokeGrantOption)
             throws TException
     {
-        return client.revoke_privileges(privilegeBag);
+        GrantRevokePrivilegeRequest grantRevokePrivilegeRequest = new GrantRevokePrivilegeRequest(REVOKE, privilegeBag);
+        grantRevokePrivilegeRequest.setRevokeGrantOption(revokeGrantOption);
+        return client.grant_revoke_privileges(grantRevokePrivilegeRequest).isSuccess();
     }
 
     @Override
@@ -423,7 +429,7 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         GrantRevokeRoleRequest request = new GrantRevokeRoleRequest();
-        request.setRequestType(GrantRevokeType.REVOKE);
+        request.setRequestType(REVOKE);
         request.setRoleName(role);
         request.setPrincipalName(granteeName);
         request.setPrincipalType(granteeType);
@@ -501,6 +507,13 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.check_lock(new CheckLockRequest(lockId));
+    }
+
+    @Override
+    public void unlock(long lockId)
+            throws TException
+    {
+        client.unlock(new UnlockRequest(lockId));
     }
 
     @Override

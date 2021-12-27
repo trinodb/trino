@@ -4,7 +4,9 @@ Thrift connector
 
 The Thrift connector makes it possible to integrate with external storage systems
 without a custom Trino connector implementation by using
-`Apache Thrift <https://thrift.apache.org/>`_ on these servers. It is therefore generic and can provide access any backend, as long as it exposes the expected API by using Thrift.
+`Apache Thrift <https://thrift.apache.org/>`_ on these servers. It is therefore
+generic and can provide access to any backend, as long as it exposes the expected
+API by using Thrift.
 
 In order to use the Thrift connector with an external system, you need to implement
 the ``TrinoThriftService`` interface, found below. Next, you configure the Thrift connector
@@ -13,6 +15,14 @@ As part of the interface implementation, the Thrift servers provide metadata,
 splits and data. The connector randomly chooses a server to talk to from the available
 instances for metadata calls, or for data calls unless the splits include a list of addresses.
 All requests are assumed to be idempotent and can be retried freely among any server.
+
+Requirements
+------------
+
+To connect to your custom servers with the Thrift protocol, you need:
+
+* Network access from the Trino coordinator and workers to the Thrift servers.
+* A :ref:`trino-thrift-service` for your system.
 
 Configuration
 -------------
@@ -84,10 +94,21 @@ Number of refresh threads for metadata cache.
 
 This property is optional; the default is ``1``.
 
-Thrift IDL file
----------------
+.. _trino-thrift-service:
+
+TrinoThriftService implementation
+---------------------------------
 
 The following IDL describes the ``TrinoThriftService`` that must be implemented:
 
 .. literalinclude:: /include/TrinoThriftService.thrift
     :language: thrift
+
+.. _thrift-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata in your Thrift service.

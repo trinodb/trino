@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.ExpressionInterpreter;
@@ -40,7 +40,7 @@ import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.Literal;
-import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -49,6 +49,8 @@ import io.trino.sql.tree.SymbolReference;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -60,7 +62,7 @@ import static io.trino.cost.ComparisonStatsCalculator.estimateExpressionToLitera
 import static io.trino.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
 import static io.trino.cost.PlanNodeStatsEstimateMath.capStats;
 import static io.trino.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
-import static io.trino.cost.StatsUtil.toStatsRepresentation;
+import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ExpressionUtils.and;
@@ -79,18 +81,16 @@ public class FilterStatsCalculator
 {
     static final double UNKNOWN_FILTER_COEFFICIENT = 0.9;
 
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final ScalarStatsCalculator scalarStatsCalculator;
     private final StatsNormalizer normalizer;
-    private final LiteralEncoder literalEncoder;
 
     @Inject
-    public FilterStatsCalculator(Metadata metadata, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer)
+    public FilterStatsCalculator(PlannerContext plannerContext, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
         this.normalizer = requireNonNull(normalizer, "normalizer is null");
-        this.literalEncoder = new LiteralEncoder(metadata);
     }
 
     public PlanNodeStatsEstimate filterStats(
@@ -109,20 +109,20 @@ public class FilterStatsCalculator
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, predicate, types);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(predicate, metadata, session, expressionTypes);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(predicate, plannerContext, session, expressionTypes);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
         if (value == null) {
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
             value = false;
         }
-        return literalEncoder.toExpression(value, BOOLEAN);
+        return new LiteralEncoder(plannerContext).toExpression(session, value, BOOLEAN);
     }
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata,
+                plannerContext,
                 new AllowAllAccessControl(),
                 session,
                 types,
@@ -170,69 +170,76 @@ public class FilterStatsCalculator
         }
 
         @Override
-        protected PlanNodeStatsEstimate visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
+        protected PlanNodeStatsEstimate visitLogicalExpression(LogicalExpression node, Void context)
         {
             switch (node.getOperator()) {
                 case AND:
-                    return estimateLogicalAnd(node.getLeft(), node.getRight());
+                    return estimateLogicalAnd(node.getTerms());
                 case OR:
-                    return estimateLogicalOr(node.getLeft(), node.getRight());
+                    return estimateLogicalOr(node.getTerms());
             }
             throw new IllegalArgumentException("Unexpected binary operator: " + node.getOperator());
         }
 
-        private PlanNodeStatsEstimate estimateLogicalAnd(Expression left, Expression right)
+        private PlanNodeStatsEstimate estimateLogicalAnd(List<Expression> terms)
         {
             // first try to estimate in the fair way
-            PlanNodeStatsEstimate leftEstimate = process(left);
-            if (!leftEstimate.isOutputRowCountUnknown()) {
-                PlanNodeStatsEstimate logicalAndEstimate = new FilterExpressionStatsCalculatingVisitor(leftEstimate, session, types).process(right);
-                if (!logicalAndEstimate.isOutputRowCountUnknown()) {
-                    return logicalAndEstimate;
+            PlanNodeStatsEstimate estimate = process(terms.get(0));
+            if (!estimate.isOutputRowCountUnknown()) {
+                for (int i = 1; i < terms.size(); i++) {
+                    estimate = new FilterExpressionStatsCalculatingVisitor(estimate, session, types).process(terms.get(i));
+
+                    if (estimate.isOutputRowCountUnknown()) {
+                        break;
+                    }
+                }
+
+                if (!estimate.isOutputRowCountUnknown()) {
+                    return estimate;
                 }
             }
 
             // If some of the filters cannot be estimated, take the smallest estimate.
             // Apply 0.9 filter factor as "unknown filter" factor.
-            PlanNodeStatsEstimate rightEstimate = process(right);
-            PlanNodeStatsEstimate smallestKnownEstimate;
-            if (leftEstimate.isOutputRowCountUnknown()) {
-                smallestKnownEstimate = rightEstimate;
-            }
-            else if (rightEstimate.isOutputRowCountUnknown()) {
-                smallestKnownEstimate = leftEstimate;
-            }
-            else {
-                smallestKnownEstimate = leftEstimate.getOutputRowCount() <= rightEstimate.getOutputRowCount() ? leftEstimate : rightEstimate;
-            }
-            if (smallestKnownEstimate.isOutputRowCountUnknown()) {
+            Optional<PlanNodeStatsEstimate> smallest = terms.stream()
+                    .map(this::process)
+                    .filter(termEstimate -> !termEstimate.isOutputRowCountUnknown())
+                    .sorted(Comparator.comparingDouble(PlanNodeStatsEstimate::getOutputRowCount))
+                    .findFirst();
+
+            if (smallest.isEmpty()) {
                 return PlanNodeStatsEstimate.unknown();
             }
-            return smallestKnownEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT);
+
+            return smallest.get().mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT);
         }
 
-        private PlanNodeStatsEstimate estimateLogicalOr(Expression left, Expression right)
+        private PlanNodeStatsEstimate estimateLogicalOr(List<Expression> terms)
         {
-            PlanNodeStatsEstimate leftEstimate = process(left);
-            if (leftEstimate.isOutputRowCountUnknown()) {
+            PlanNodeStatsEstimate previous = process(terms.get(0));
+            if (previous.isOutputRowCountUnknown()) {
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            PlanNodeStatsEstimate rightEstimate = process(right);
-            if (rightEstimate.isOutputRowCountUnknown()) {
-                return PlanNodeStatsEstimate.unknown();
+            for (int i = 1; i < terms.size(); i++) {
+                PlanNodeStatsEstimate current = process(terms.get(i));
+                if (current.isOutputRowCountUnknown()) {
+                    return PlanNodeStatsEstimate.unknown();
+                }
+
+                PlanNodeStatsEstimate andEstimate = new FilterExpressionStatsCalculatingVisitor(previous, session, types).process(terms.get(i));
+                if (andEstimate.isOutputRowCountUnknown()) {
+                    return PlanNodeStatsEstimate.unknown();
+                }
+
+                previous = capStats(
+                        subtractSubsetStats(
+                                addStatsAndSumDistinctValues(previous, current),
+                                andEstimate),
+                        input);
             }
 
-            PlanNodeStatsEstimate andEstimate = new FilterExpressionStatsCalculatingVisitor(leftEstimate, session, types).process(right);
-            if (andEstimate.isOutputRowCountUnknown()) {
-                return PlanNodeStatsEstimate.unknown();
-            }
-
-            return capStats(
-                    subtractSubsetStats(
-                            addStatsAndSumDistinctValues(leftEstimate, rightEstimate),
-                            andEstimate),
-                    input);
+            return previous;
         }
 
         @Override
@@ -410,7 +417,7 @@ public class FilterStatsCalculator
             }
 
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    metadata,
+                    plannerContext,
                     new AllowAllAccessControl(),
                     session,
                     types,
@@ -433,8 +440,8 @@ public class FilterStatsCalculator
 
         private OptionalDouble doubleValueFromLiteral(Type type, Literal literal)
         {
-            Object literalValue = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), getExpressionTypes(session, literal, types), literal);
-            return toStatsRepresentation(metadata, session, type, literalValue);
+            Object literalValue = LiteralInterpreter.evaluate(plannerContext, session, getExpressionTypes(session, literal, types), literal);
+            return toStatsRepresentation(type, literalValue);
         }
     }
 }

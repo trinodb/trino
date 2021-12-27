@@ -17,11 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.Signature;
 import io.trino.metadata.TypeVariableConstraint;
+import io.trino.spi.function.Description;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowFunctionSignature;
 import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -61,7 +63,10 @@ public final class WindowAnnotationsParser
                 argumentTypes,
                 false);
 
+        Optional<String> description = Optional.ofNullable(clazz.getAnnotation(Description.class)).map(Description::value);
+
         boolean deprecated = clazz.getAnnotationsByType(Deprecated.class).length > 0;
-        return new SqlWindowFunction(new ReflectionWindowFunctionSupplier<>(signature, clazz), deprecated);
+
+        return new SqlWindowFunction(signature, description, deprecated, new ReflectionWindowFunctionSupplier(window.argumentTypes().length, clazz));
     }
 }

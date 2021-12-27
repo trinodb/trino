@@ -15,6 +15,8 @@ package io.trino.plugin.hive.optimizer;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
+import io.trino.FeaturesConfig.JoinDistributionType;
+import io.trino.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.Session;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
@@ -31,8 +33,6 @@ import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.spi.security.PrincipalType;
-import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -43,6 +43,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -92,8 +93,8 @@ public class TestHivePlans
                         .setMetastoreUser("test"));
         Database database = Database.builder()
                 .setDatabaseName(SCHEMA_NAME)
-                .setOwnerName("public")
-                .setOwnerType(PrincipalType.ROLE)
+                .setOwnerName(Optional.of("public"))
+                .setOwnerType(Optional.of(PrincipalType.ROLE))
                 .build();
 
         metastore.createDatabase(new HiveIdentity(HIVE_SESSION.toConnectorSession()), database);
@@ -165,7 +166,7 @@ public class TestHivePlans
                                                 project(
                                                         filter("\"like\"(L_STR_PART, \"$like_pattern\"('t%'))",
                                                                 tableScan("table_str_partitioned", Map.of("L_INT_COL", "int_col", "L_STR_PART", "str_part"))))),
-                                        exchange(LOCAL, REPARTITION,
+                                        exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         project(
                                                                 filter("R_STR_COL IN ('three', CAST('two' AS varchar(5))) AND \"like\"(R_STR_COL, \"$like_pattern\"('t%'))",
@@ -188,7 +189,7 @@ public class TestHivePlans
                                                 project(
                                                         filter("true", // dynamic filter
                                                                 tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))),
-                                        exchange(LOCAL, REPARTITION,
+                                        exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         project(
                                                                 filter("R_INT_COL IN (2, 3, 4)",
@@ -212,7 +213,7 @@ public class TestHivePlans
                                                 project(
                                                         filter("L_STR_COL != 'three' AND L_INT_PART IN (2, 3, 4)", // TODO the L_INT_PART filter is redundant
                                                                 tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))),
-                                        exchange(LOCAL, REPARTITION,
+                                        exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         project(
                                                                 filter("R_INT_COL IN (2, 3, 4)",
@@ -236,7 +237,7 @@ public class TestHivePlans
                                                 project(
                                                         filter("substring(L_STR_COL, BIGINT '2') != CAST('hree' AS varchar(5))",
                                                                 tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))),
-                                        exchange(LOCAL, REPARTITION,
+                                        exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         project(
                                                                 filter("R_INT_COL IN (2, 3, 4)",
@@ -260,7 +261,7 @@ public class TestHivePlans
                                                 project(
                                                         filter("L_INT_PART % 2 = 0",
                                                                 tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col"))))),
-                                        exchange(LOCAL, REPARTITION,
+                                        exchange(LOCAL,
                                                 exchange(REMOTE, REPARTITION,
                                                         project(
                                                                 filter("R_INT_COL IN (2, 4) AND R_INT_COL % 2 = 0",

@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.client.NodeVersion;
 import io.trino.metadata.InternalNode;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.raptor.legacy.NodeSupplier;
 import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
-import io.trino.plugin.raptor.legacy.RaptorConnectorId;
 import io.trino.plugin.raptor.legacy.RaptorMetadata;
 import io.trino.plugin.raptor.legacy.RaptorSplitManager;
 import io.trino.plugin.raptor.legacy.RaptorTableHandle;
@@ -35,11 +35,9 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.BigintType;
-import io.trino.spi.type.TypeOperators;
 import io.trino.testing.TestingNodeManager;
-import io.trino.type.InternalTypeManager;
-import org.skife.jdbi.v2.DBI;
-import org.skife.jdbi.v2.Handle;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -51,7 +49,6 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -59,8 +56,8 @@ import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.DatabaseShardManager.shardIndexTable;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.shardInfo;
@@ -94,8 +91,7 @@ public class TestRaptorSplitManager
     public void setup()
             throws Exception
     {
-        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
-        dbi.registerMapper(new TableColumn.Mapper(new InternalTypeManager(createTestMetadataManager(), new TypeOperators())));
+        Jdbi dbi = createTestingJdbi();
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
         temporary = createTempDir();
@@ -107,7 +103,7 @@ public class TestRaptorSplitManager
         String nodeName = UUID.randomUUID().toString();
         nodeManager.addNode(new InternalNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false));
 
-        RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
+        CatalogName connectorId = new CatalogName("raptor");
         metadata = new RaptorMetadata(dbi, shardManager);
 
         metadata.createTable(SESSION, TEST_TABLE, false);
@@ -166,7 +162,7 @@ public class TestRaptorSplitManager
             throws URISyntaxException
     {
         TestingNodeManager nodeManager = new TestingNodeManager();
-        RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
+        CatalogName connectorId = new CatalogName("raptor");
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
         InternalNode node = new InternalNode(UUID.randomUUID().toString(), new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false);
         nodeManager.addNode(node);
@@ -184,7 +180,7 @@ public class TestRaptorSplitManager
     {
         deleteShardNodes();
 
-        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), ImmutableSet::of, shardManager, true);
+        RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new CatalogName("fbraptor"), ImmutableSet::of, shardManager, true);
         ConnectorSplitSource splitSource = getSplits(raptorSplitManagerWithBackup, tableHandle);
         getSplits(splitSource, 1000);
     }

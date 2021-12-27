@@ -14,13 +14,14 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -51,8 +52,7 @@ public class ArrayFlattenFunction
                         arrayType(new TypeSignature("E")),
                         ImmutableList.of(arrayType(arrayType(new TypeSignature("E")))),
                         false),
-                false,
-                ImmutableList.of(new FunctionArgumentDefinition(false)),
+                new FunctionNullability(false, ImmutableList.of(false)),
                 false,
                 true,
                 "Flattens the given array",
@@ -60,13 +60,14 @@ public class ArrayFlattenFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
+        ArrayType arrayType = (ArrayType) boundSignature.getReturnType();
         MethodHandle methodHandle = METHOD_HANDLE
-                .bindTo(functionBinding.getTypeVariable("E"))
-                .bindTo(functionBinding.getBoundSignature().getReturnType());
+                .bindTo(arrayType.getElementType())
+                .bindTo(arrayType);
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);

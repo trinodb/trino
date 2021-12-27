@@ -34,19 +34,18 @@ public final class IntervalDayToSecondSumAggregation
     public static void sum(NullableLongState state, @SqlType(INTERVAL_DAY_TO_SECOND) long value)
     {
         state.setNull(false);
-        state.setLong(BigintOperators.add(state.getLong(), value));
+        state.setValue(BigintOperators.add(state.getValue(), value));
     }
 
     @CombineFunction
     public static void combine(NullableLongState state, NullableLongState otherState)
     {
         if (state.isNull()) {
-            state.setNull(false);
-            state.setLong(otherState.getLong());
+            state.set(otherState);
             return;
         }
 
-        state.setLong(BigintOperators.add(state.getLong(), otherState.getLong()));
+        state.setValue(BigintOperators.add(state.getValue(), otherState.getValue()));
     }
 
     @OutputFunction(INTERVAL_DAY_TO_SECOND)

@@ -19,7 +19,7 @@ public interface SqlFunction
 {
     FunctionMetadata getFunctionMetadata();
 
-    default FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    default FunctionDependencyDeclaration getFunctionDependencies(BoundSignature boundSignature)
     {
         return getFunctionDependencies();
     }

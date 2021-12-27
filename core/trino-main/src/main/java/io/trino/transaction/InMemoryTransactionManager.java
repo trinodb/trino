@@ -17,14 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.concurrent.BoundedExecutor;
-import io.airlift.concurrent.ExecutorServiceAdapter;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.NotInTransactionException;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.Catalog;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.CatalogMetadata;
 import io.trino.spi.TrinoException;
@@ -58,9 +57,9 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.trino.spi.StandardErrorCode.AUTOCOMMIT_WRITE_CONFLICT;
 import static io.trino.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONFLICT;
@@ -180,9 +179,9 @@ public class InMemoryTransactionManager
     }
 
     @Override
-    public Map<String, CatalogName> getCatalogNames(TransactionId transactionId)
+    public Map<String, Catalog> getCatalogs(TransactionId transactionId)
     {
-        return getTransactionMetadata(transactionId).getCatalogNames();
+        return getTransactionMetadata(transactionId).getCatalogs();
     }
 
     @Override
@@ -274,13 +273,13 @@ public class InMemoryTransactionManager
     }
 
     @Override
-    public ListenableFuture<?> asyncCommit(TransactionId transactionId)
+    public ListenableFuture<Void> asyncCommit(TransactionId transactionId)
     {
         return nonCancellationPropagating(Futures.transformAsync(removeTransactionMetadataAsFuture(transactionId), TransactionMetadata::asyncCommit, directExecutor()));
     }
 
     @Override
-    public ListenableFuture<?> asyncAbort(TransactionId transactionId)
+    public ListenableFuture<Void> asyncAbort(TransactionId transactionId)
     {
         return nonCancellationPropagating(Futures.transformAsync(removeTransactionMetadataAsFuture(transactionId), TransactionMetadata::asyncAbort, directExecutor()));
     }
@@ -290,6 +289,11 @@ public class InMemoryTransactionManager
     {
         // Mark transaction as failed, but don't remove it.
         tryGetTransactionMetadata(transactionId).ifPresent(TransactionMetadata::asyncAbort);
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 
     @ThreadSafe
@@ -305,7 +309,7 @@ public class InMemoryTransactionManager
         private final Map<CatalogName, ConnectorTransactionMetadata> connectorIdToMetadata = new ConcurrentHashMap<>();
         @GuardedBy("this")
         private final AtomicReference<CatalogName> writtenConnectorId = new AtomicReference<>();
-        private final ListeningExecutorService finishingExecutor;
+        private final Executor finishingExecutor;
         private final AtomicReference<Boolean> completedSuccessfully = new AtomicReference<>();
         private final AtomicReference<Long> idleStartTime = new AtomicReference<>();
 
@@ -329,7 +333,7 @@ public class InMemoryTransactionManager
             this.readOnly = readOnly;
             this.autoCommitContext = autoCommitContext;
             this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
-            this.finishingExecutor = listeningDecorator(ExecutorServiceAdapter.from(requireNonNull(finishingExecutor, "finishingExecutor is null")));
+            this.finishingExecutor = requireNonNull(finishingExecutor, "finishingExecutor is null");
         }
 
         public void setActive()
@@ -362,19 +366,19 @@ public class InMemoryTransactionManager
             }
         }
 
-        private synchronized Map<String, CatalogName> getCatalogNames()
+        private synchronized Map<String, Catalog> getCatalogs()
         {
             // todo if repeatable read, this must be recorded
-            Map<String, CatalogName> catalogNames = new HashMap<>();
+            Map<String, Catalog> catalogs = new HashMap<>();
             catalogByName.values().stream()
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .forEach(catalog -> catalogNames.put(catalog.getCatalogName(), catalog.getConnectorCatalogName()));
+                    .forEach(catalog -> catalogs.put(catalog.getCatalogName(), catalog));
 
             catalogManager.getCatalogs().stream()
-                    .forEach(catalog -> catalogNames.putIfAbsent(catalog.getCatalogName(), catalog.getConnectorCatalogName()));
+                    .forEach(catalog -> catalogs.putIfAbsent(catalog.getCatalogName(), catalog));
 
-            return ImmutableMap.copyOf(catalogNames);
+            return ImmutableMap.copyOf(catalogs);
         }
 
         private synchronized Optional<CatalogName> getConnectorId(String catalogName)
@@ -421,6 +425,7 @@ public class InMemoryTransactionManager
                         systemTables.getCatalogName(),
                         systemTables.getConnectorMetadata(),
                         systemTables.getTransactionHandle(),
+                        metadata.getSecurityManagement(),
                         connector.getCapabilities());
 
                 this.catalogMetadata.put(catalog.getConnectorCatalogName(), catalogMetadata);
@@ -433,7 +438,7 @@ public class InMemoryTransactionManager
         public synchronized ConnectorTransactionMetadata createConnectorTransactionMetadata(CatalogName catalogName, Catalog catalog)
         {
             Connector connector = catalog.getConnector(catalogName);
-            ConnectorTransactionMetadata transactionMetadata = new ConnectorTransactionMetadata(catalogName, connector, beginTransaction(connector));
+            ConnectorTransactionMetadata transactionMetadata = new ConnectorTransactionMetadata(catalogName, connector, beginTransaction(connector), catalog.getSecurityManagement());
             checkState(connectorIdToMetadata.put(catalogName, transactionMetadata) == null);
             return transactionMetadata;
         }
@@ -443,9 +448,7 @@ public class InMemoryTransactionManager
             if (connector instanceof InternalConnector) {
                 return ((InternalConnector) connector).beginTransaction(transactionId, isolationLevel, readOnly);
             }
-            else {
-                return connector.beginTransaction(isolationLevel, readOnly);
-            }
+            return connector.beginTransaction(isolationLevel, readOnly, autoCommitContext);
         }
 
         public synchronized void checkConnectorWrite(CatalogName catalogName)
@@ -460,16 +463,16 @@ public class InMemoryTransactionManager
                 throw new TrinoException(MULTI_CATALOG_WRITE_CONFLICT, "Multi-catalog writes not supported in a single transaction. Already wrote to catalog " + writtenConnectorId.get());
             }
             if (transactionMetadata.isSingleStatementWritesOnly() && !autoCommitContext) {
-                throw new TrinoException(AUTOCOMMIT_WRITE_CONFLICT, "Catalog " + catalogName + " only supports writes using autocommit");
+                throw new TrinoException(AUTOCOMMIT_WRITE_CONFLICT, "Catalog only supports writes using autocommit: " + catalogName);
             }
         }
 
-        public synchronized ListenableFuture<?> asyncCommit()
+        public synchronized ListenableFuture<Void> asyncCommit()
         {
             if (!completedSuccessfully.compareAndSet(null, true)) {
                 if (completedSuccessfully.get()) {
                     // Already done
-                    return immediateFuture(null);
+                    return immediateVoidFuture();
                 }
                 // Transaction already aborted
                 return immediateFailedFuture(new TrinoException(TRANSACTION_ALREADY_ABORTED, "Current transaction has already been aborted"));
@@ -477,9 +480,9 @@ public class InMemoryTransactionManager
 
             CatalogName writeCatalogName = this.writtenConnectorId.get();
             if (writeCatalogName == null) {
-                ListenableFuture<?> future = Futures.allAsList(connectorIdToMetadata.values().stream()
-                        .map(transactionMetadata -> finishingExecutor.submit(transactionMetadata::commit))
-                        .collect(toList()));
+                ListenableFuture<Void> future = asVoid(Futures.allAsList(connectorIdToMetadata.values().stream()
+                        .map(transactionMetadata -> Futures.submit(transactionMetadata::commit, finishingExecutor))
+                        .collect(toList())));
                 addExceptionCallback(future, throwable -> {
                     abortInternal();
                     log.error(throwable, "Read-only connector should not throw exception on commit");
@@ -487,24 +490,25 @@ public class InMemoryTransactionManager
                 return nonCancellationPropagating(future);
             }
 
-            Supplier<ListenableFuture<?>> commitReadOnlyConnectors = () -> {
-                ListenableFuture<? extends List<?>> future = Futures.allAsList(connectorIdToMetadata.entrySet().stream()
+            Supplier<ListenableFuture<Void>> commitReadOnlyConnectors = () -> {
+                List<ListenableFuture<Void>> futures = connectorIdToMetadata.entrySet().stream()
                         .filter(entry -> !entry.getKey().equals(writeCatalogName))
                         .map(Entry::getValue)
-                        .map(transactionMetadata -> finishingExecutor.submit(transactionMetadata::commit))
-                        .collect(toList()));
+                        .map(transactionMetadata -> Futures.submit(transactionMetadata::commit, finishingExecutor))
+                        .collect(toList());
+                ListenableFuture<Void> future = asVoid(Futures.allAsList(futures));
                 addExceptionCallback(future, throwable -> log.error(throwable, "Read-only connector should not throw exception on commit"));
                 return future;
             };
 
             ConnectorTransactionMetadata writeConnector = connectorIdToMetadata.get(writeCatalogName);
-            ListenableFuture<?> commitFuture = finishingExecutor.submit(writeConnector::commit);
-            ListenableFuture<?> readOnlyCommitFuture = Futures.transformAsync(commitFuture, ignored -> commitReadOnlyConnectors.get(), directExecutor());
+            ListenableFuture<Void> commitFuture = Futures.submit(writeConnector::commit, finishingExecutor);
+            ListenableFuture<Void> readOnlyCommitFuture = Futures.transformAsync(commitFuture, ignored -> commitReadOnlyConnectors.get(), directExecutor());
             addExceptionCallback(readOnlyCommitFuture, this::abortInternal);
             return nonCancellationPropagating(readOnlyCommitFuture);
         }
 
-        public synchronized ListenableFuture<?> asyncAbort()
+        public synchronized ListenableFuture<Void> asyncAbort()
         {
             if (!completedSuccessfully.compareAndSet(null, false)) {
                 if (completedSuccessfully.get()) {
@@ -512,17 +516,19 @@ public class InMemoryTransactionManager
                     return immediateFailedFuture(new IllegalStateException("Current transaction already committed"));
                 }
                 // Already done
-                return immediateFuture(null);
+                return immediateVoidFuture();
             }
             return abortInternal();
         }
 
-        private synchronized ListenableFuture<?> abortInternal()
+        private synchronized ListenableFuture<Void> abortInternal()
         {
             // the callbacks in statement performed on another thread so are safe
-            return nonCancellationPropagating(Futures.allAsList(connectorIdToMetadata.values().stream()
-                    .map(connection -> finishingExecutor.submit(() -> safeAbort(connection)))
-                    .collect(toList())));
+            List<ListenableFuture<Void>> futures = connectorIdToMetadata.values().stream()
+                    .map(connection -> Futures.submit(() -> safeAbort(connection), finishingExecutor))
+                    .collect(toList());
+            ListenableFuture<Void> future = asVoid(Futures.allAsList(futures));
+            return nonCancellationPropagating(future);
         }
 
         private static void safeAbort(ConnectorTransactionMetadata connection)
@@ -555,14 +561,20 @@ public class InMemoryTransactionManager
             private final CatalogName catalogName;
             private final Connector connector;
             private final ConnectorTransactionHandle transactionHandle;
+            private final SecurityManagement securityManagement;
             private final ConnectorMetadata connectorMetadata;
             private final AtomicBoolean finished = new AtomicBoolean();
 
-            public ConnectorTransactionMetadata(CatalogName catalogName, Connector connector, ConnectorTransactionHandle transactionHandle)
+            public ConnectorTransactionMetadata(
+                    CatalogName catalogName,
+                    Connector connector,
+                    ConnectorTransactionHandle transactionHandle,
+                    SecurityManagement securityManagement)
             {
                 this.catalogName = requireNonNull(catalogName, "catalogName is null");
                 this.connector = requireNonNull(connector, "connector is null");
                 this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
+                this.securityManagement = requireNonNull(securityManagement, "securityManagement is null");
                 this.connectorMetadata = connector.getMetadata(transactionHandle);
             }
 
@@ -574,6 +586,11 @@ public class InMemoryTransactionManager
             public boolean isSingleStatementWritesOnly()
             {
                 return connector.isSingleStatementWritesOnly();
+            }
+
+            public SecurityManagement getSecurityManagement()
+            {
+                return securityManagement;
             }
 
             public synchronized ConnectorMetadata getConnectorMetadata()

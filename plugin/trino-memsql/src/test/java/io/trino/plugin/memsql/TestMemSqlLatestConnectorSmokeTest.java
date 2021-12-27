@@ -28,13 +28,14 @@ public class TestMemSqlLatestConnectorSmokeTest
             throws Exception
     {
         TestingMemSqlServer memSqlServer = closeAfterClass(new TestingMemSqlServer(TestingMemSqlServer.LATEST_TESTED_TAG));
-        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_RENAME_SCHEMA:
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 

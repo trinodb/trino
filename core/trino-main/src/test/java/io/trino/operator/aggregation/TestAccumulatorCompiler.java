@@ -15,7 +15,12 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.trino.metadata.BoundSignature;
+import io.trino.metadata.FunctionNullability;
 import io.trino.operator.aggregation.state.StateCompiler;
+import io.trino.server.PluginManager;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
@@ -23,13 +28,17 @@ import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.TimestampType;
+import io.trino.sql.gen.IsolatedClass;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_PICOS;
 import static io.trino.util.Reflection.methodHandle;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,48 +47,80 @@ public class TestAccumulatorCompiler
     @Test
     public void testAccumulatorCompilerForTypeSpecificObjectParameter()
     {
-        DynamicClassLoader classLoader = new DynamicClassLoader(TestAccumulatorCompiler.class.getClassLoader());
+        TimestampType parameterType = TimestampType.TIMESTAMP_NANOS;
+        assertThat(parameterType.getJavaType()).isEqualTo(LongTimestamp.class);
+        assertGenerateAccumulator(LongTimestampAggregation.class, LongTimestampAggregationState.class);
+    }
 
+    @Test
+    public void testAccumulatorCompilerForTypeSpecificObjectParameterSeparateClassLoader()
+            throws Exception
+    {
         TimestampType parameterType = TimestampType.TIMESTAMP_NANOS;
         assertThat(parameterType.getJavaType()).isEqualTo(LongTimestamp.class);
 
-        Class<? extends AccumulatorState> stateInterface = LongTimestampAggregation.State.class;
-        AccumulatorStateSerializer<?> stateSerializer = StateCompiler.generateStateSerializer(stateInterface, classLoader);
-        AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateInterface, classLoader);
+        ClassLoader pluginClassLoader = PluginManager.createClassLoader(ImmutableList.of());
+        DynamicClassLoader classLoader = new DynamicClassLoader(pluginClassLoader);
+        Class<? extends AccumulatorState> stateInterface = IsolatedClass.isolateClass(
+                classLoader,
+                AccumulatorState.class,
+                LongTimestampAggregationState.class,
+                LongTimestampAggregation.class);
+        assertThat(stateInterface.getCanonicalName()).isEqualTo(LongTimestampAggregationState.class.getCanonicalName());
+        assertThat(stateInterface).isNotSameAs(LongTimestampAggregationState.class);
+        Class<?> aggregation = classLoader.loadClass(LongTimestampAggregation.class.getCanonicalName());
+        assertThat(aggregation.getCanonicalName()).isEqualTo(LongTimestampAggregation.class.getCanonicalName());
+        assertThat(aggregation).isNotSameAs(LongTimestampAggregation.class);
 
-        MethodHandle inputFunction = methodHandle(LongTimestampAggregation.class, "input", LongTimestampAggregation.State.class, LongTimestamp.class);
-        MethodHandle combineFunction = methodHandle(LongTimestampAggregation.class, "combine", LongTimestampAggregation.State.class, LongTimestampAggregation.State.class);
-        MethodHandle outputFunction = methodHandle(LongTimestampAggregation.class, "output", LongTimestampAggregation.State.class, BlockBuilder.class);
-        AggregationMetadata metadata = new AggregationMetadata(
-                "longTimestampAggregation",
-                ImmutableList.of(
-                        new AggregationMetadata.ParameterMetadata(STATE),
-                        new AggregationMetadata.ParameterMetadata(INPUT_CHANNEL, parameterType)),
-                inputFunction,
-                Optional.empty(),
-                combineFunction,
-                outputFunction,
-                ImmutableList.of(new AggregationMetadata.AccumulatorStateDescriptor(
-                        stateInterface,
-                        stateSerializer,
-                        stateFactory)),
-                RealType.REAL);
-
-        // test if we can compile aggregation
-        assertThat(AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader)).isNotNull();
-
-        // TODO test if aggregation actually works...
+        assertGenerateAccumulator(aggregation, stateInterface);
     }
 
-    public static class LongTimestampAggregation
+    private static <S extends AccumulatorState, A> void assertGenerateAccumulator(Class<A> aggregation, Class<S> stateInterface)
     {
-        public interface State
-                extends AccumulatorState {}
+        AccumulatorStateSerializer<S> stateSerializer = StateCompiler.generateStateSerializer(stateInterface);
+        AccumulatorStateFactory<S> stateFactory = StateCompiler.generateStateFactory(stateInterface);
 
-        public static void input(State state, LongTimestamp value) {}
+        BoundSignature signature = new BoundSignature("longTimestampAggregation", RealType.REAL, ImmutableList.of(TIMESTAMP_PICOS));
+        MethodHandle inputFunction = methodHandle(aggregation, "input", stateInterface, LongTimestamp.class);
+        inputFunction = normalizeInputMethod(inputFunction, signature, STATE, INPUT_CHANNEL);
+        MethodHandle combineFunction = methodHandle(aggregation, "combine", stateInterface, stateInterface);
+        MethodHandle outputFunction = methodHandle(aggregation, "output", stateInterface, BlockBuilder.class);
+        AggregationMetadata metadata = new AggregationMetadata(
+                inputFunction,
+                Optional.empty(),
+                Optional.of(combineFunction),
+                outputFunction,
+                ImmutableList.of(new AggregationMetadata.AccumulatorStateDescriptor<>(
+                        stateInterface,
+                        stateSerializer,
+                        stateFactory)));
+        FunctionNullability functionNullability = new FunctionNullability(false, ImmutableList.of(false));
 
-        public static void combine(State stateA, State stateB) {}
+        // test if we can compile aggregation
+        AccumulatorFactory accumulatorFactory = AccumulatorCompiler.generateAccumulatorFactory(signature, metadata, functionNullability, ImmutableList.of());
+        assertThat(accumulatorFactory).isNotNull();
+        assertThat(AccumulatorCompiler.generateWindowAccumulatorClass(signature, metadata, functionNullability)).isNotNull();
 
-        public static void output(State state, BlockBuilder blockBuilder) {}
+        TestingAggregationFunction aggregationFunction = new TestingAggregationFunction(
+                ImmutableList.of(TIMESTAMP_PICOS),
+                ImmutableList.of(BIGINT),
+                BIGINT,
+                accumulatorFactory);
+        assertThat(AggregationTestUtils.aggregation(aggregationFunction, createPage(1234))).isEqualTo(1234L);
+    }
+
+    private static Page createPage(int count)
+    {
+        Block timestampSequenceBlock = createTimestampSequenceBlock(count);
+        return new Page(timestampSequenceBlock.getPositionCount(), timestampSequenceBlock);
+    }
+
+    private static Block createTimestampSequenceBlock(int count)
+    {
+        BlockBuilder builder = TIMESTAMP_PICOS.createFixedSizeBlockBuilder(count);
+        for (int i = 0; i < count; i++) {
+            TIMESTAMP_PICOS.writeObject(builder, new LongTimestamp(i, i));
+        }
+        return builder.build();
     }
 }

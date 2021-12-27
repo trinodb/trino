@@ -25,7 +25,6 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -45,12 +44,15 @@ public class TaskStats
     private final int totalDrivers;
     private final int queuedDrivers;
     private final int queuedPartitionedDrivers;
+    private final long queuedPartitionedSplitsWeight;
     private final int runningDrivers;
     private final int runningPartitionedDrivers;
+    private final long runningPartitionedSplitsWeight;
     private final int blockedDrivers;
     private final int completedDrivers;
 
     private final double cumulativeUserMemory;
+    private final double cumulativeSystemMemory;
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
     private final DataSize systemMemoryReservation;
@@ -96,10 +98,13 @@ public class TaskStats
                 0,
                 0,
                 0,
+                0L,
                 0,
                 0,
+                0L,
                 0,
                 0,
+                0.0,
                 0.0,
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
@@ -139,12 +144,15 @@ public class TaskStats
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
+            @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
+            @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight,
             @JsonProperty("blockedDrivers") int blockedDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("cumulativeSystemMemory") double cumulativeSystemMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
@@ -192,11 +200,15 @@ public class TaskStats
         this.queuedDrivers = queuedDrivers;
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers is negative");
         this.queuedPartitionedDrivers = queuedPartitionedDrivers;
+        checkArgument(queuedPartitionedSplitsWeight >= 0, "queuedPartitionedSplitsWeight must be positive");
+        this.queuedPartitionedSplitsWeight = queuedPartitionedSplitsWeight;
 
         checkArgument(runningDrivers >= 0, "runningDrivers is negative");
         this.runningDrivers = runningDrivers;
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers is negative");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
+        checkArgument(runningPartitionedSplitsWeight >= 0, "runningPartitionedSplitsWeight must be positive");
+        this.runningPartitionedSplitsWeight = runningPartitionedSplitsWeight;
 
         checkArgument(blockedDrivers >= 0, "blockedDrivers is negative");
         this.blockedDrivers = blockedDrivers;
@@ -205,6 +217,7 @@ public class TaskStats
         this.completedDrivers = completedDrivers;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
+        this.cumulativeSystemMemory = cumulativeSystemMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
@@ -325,6 +338,12 @@ public class TaskStats
     public double getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
+    }
+
+    @JsonProperty
+    public double getCumulativeSystemMemory()
+    {
+        return cumulativeSystemMemory;
     }
 
     @JsonProperty
@@ -460,9 +479,21 @@ public class TaskStats
     }
 
     @JsonProperty
+    public long getQueuedPartitionedSplitsWeight()
+    {
+        return queuedPartitionedSplitsWeight;
+    }
+
+    @JsonProperty
     public int getRunningPartitionedDrivers()
     {
         return runningPartitionedDrivers;
+    }
+
+    @JsonProperty
+    public long getRunningPartitionedSplitsWeight()
+    {
+        return runningPartitionedSplitsWeight;
     }
 
     @JsonProperty
@@ -490,11 +521,14 @@ public class TaskStats
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,
+                queuedPartitionedSplitsWeight,
                 runningDrivers,
                 runningPartitionedDrivers,
+                runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory,
+                cumulativeSystemMemory,
                 userMemoryReservation,
                 revocableMemoryReservation,
                 systemMemoryReservation,
@@ -533,11 +567,14 @@ public class TaskStats
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,
+                queuedPartitionedSplitsWeight,
                 runningDrivers,
                 runningPartitionedDrivers,
+                runningPartitionedSplitsWeight,
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory,
+                cumulativeSystemMemory,
                 userMemoryReservation,
                 revocableMemoryReservation,
                 systemMemoryReservation,
@@ -560,8 +597,16 @@ public class TaskStats
                 physicalWrittenDataSize,
                 fullGcCount,
                 fullGcTime,
-                pipelines.stream()
-                        .map(PipelineStats::summarize)
-                        .collect(Collectors.toList()));
+                summarizePipelineStats(pipelines));
+    }
+
+    private static List<PipelineStats> summarizePipelineStats(List<PipelineStats> pipelines)
+    {
+        // Use an exact size ImmutableList builder to avoid a redundant copy in the TaskStats constructor
+        ImmutableList.Builder<PipelineStats> results = ImmutableList.builderWithExpectedSize(pipelines.size());
+        for (PipelineStats pipeline : pipelines) {
+            results.add(pipeline.summarize());
+        }
+        return results.build();
     }
 }

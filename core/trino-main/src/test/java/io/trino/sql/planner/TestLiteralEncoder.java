@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.LiteralFunction;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.Signature;
 import io.trino.operator.scalar.Re2JCastToRegexpFunction;
@@ -49,8 +49,8 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreCase;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.FunctionId.toFunctionId;
+import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.scalar.JoniRegexpCasts.castVarcharToJoniRegexp;
 import static io.trino.operator.scalar.JsonFunctions.castVarcharToJsonPath;
 import static io.trino.operator.scalar.StringFunctions.castVarcharToCodePoints;
@@ -66,6 +66,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.SqlFormatter.formatSql;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.CodePointsType.CODE_POINTS;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
@@ -81,18 +82,23 @@ import static org.testng.Assert.assertTrue;
 
 public class TestLiteralEncoder
 {
-    private final Metadata metadata = createTestMetadataManager();
-    private final LiteralEncoder encoder = new LiteralEncoder(metadata);
+    private final LiteralEncoder encoder = new LiteralEncoder(PLANNER_CONTEXT);
 
     private final ResolvedFunction literalFunction = new ResolvedFunction(
             new BoundSignature(LITERAL_FUNCTION_NAME, VARBINARY, ImmutableList.of(VARBINARY)),
-            new LiteralFunction(metadata::getBlockEncodingSerde).getFunctionMetadata().getFunctionId(),
+            new LiteralFunction(PLANNER_CONTEXT.getBlockEncodingSerde()).getFunctionMetadata().getFunctionId(),
+            SCALAR,
+            true,
+            new FunctionNullability(false, ImmutableList.of(false)),
             ImmutableMap.of(),
             ImmutableSet.of());
 
     private final ResolvedFunction base64Function = new ResolvedFunction(
             new BoundSignature("from_base64", VARBINARY, ImmutableList.of(VARCHAR)),
             toFunctionId(new Signature("from_base64", VARBINARY.getTypeSignature(), ImmutableList.of(new TypeSignature("varchar", typeVariable("x"))))),
+            SCALAR,
+            true,
+            new FunctionNullability(false, ImmutableList.of(false)),
             ImmutableMap.of(),
             ImmutableSet.of());
 
@@ -127,7 +133,7 @@ public class TestLiteralEncoder
     {
         assertEncode(utf8Slice("hello"), createVarcharType(5), "'hello'");
         assertEncode(utf8Slice("hello"), createVarcharType(13), "CAST('hello' AS varchar(13))");
-        assertEncode(utf8Slice("hello"), VARCHAR, "CAST('hello' AS varchar)");
+        assertEncode(utf8Slice("hello"), VARCHAR, "VARCHAR 'hello'");
     }
 
     @Test
@@ -233,7 +239,7 @@ public class TestLiteralEncoder
     {
         assertRoundTrip(castVarcharToJoniRegexp(utf8Slice("[a-z]")), LIKE_PATTERN, (left, right) -> left.pattern().equals(right.pattern()));
         assertRoundTrip(castVarcharToJoniRegexp(utf8Slice("[a-z]")), JONI_REGEXP, (left, right) -> left.pattern().equals(right.pattern()));
-        assertRoundTrip(castVarcharToRe2JRegexp(utf8Slice("[a-z]")), metadata.getType(RE2J_REGEXP_SIGNATURE), (left, right) -> left.pattern().equals(right.pattern()));
+        assertRoundTrip(castVarcharToRe2JRegexp(utf8Slice("[a-z]")), PLANNER_CONTEXT.getTypeManager().getType(RE2J_REGEXP_SIGNATURE), (left, right) -> left.pattern().equals(right.pattern()));
     }
 
     @Test
@@ -250,7 +256,7 @@ public class TestLiteralEncoder
 
     private void assertEncode(Object value, Type type, String expected)
     {
-        Expression expression = encoder.toExpression(value, type);
+        Expression expression = encoder.toExpression(TEST_SESSION, value, type);
         assertEquals(getExpressionType(expression), type);
         assertEquals(getExpressionValue(expression), value);
         assertEquals(formatSql(expression), expected);
@@ -262,7 +268,7 @@ public class TestLiteralEncoder
     @Deprecated
     private void assertEncodeCaseInsensitively(Object value, Type type, String expected)
     {
-        Expression expression = encoder.toExpression(value, type);
+        Expression expression = encoder.toExpression(TEST_SESSION, value, type);
         assertEquals(getExpressionType(expression), type);
         assertEquals(getExpressionValue(expression), value);
         assertEqualsIgnoreCase(formatSql(expression), expected);
@@ -270,7 +276,7 @@ public class TestLiteralEncoder
 
     private <T> void assertRoundTrip(T value, Type type, BiPredicate<T, T> predicate)
     {
-        Expression expression = encoder.toExpression(value, type);
+        Expression expression = encoder.toExpression(TEST_SESSION, value, type);
         assertEquals(getExpressionType(expression), type);
         @SuppressWarnings("unchecked")
         T decodedValue = (T) getExpressionValue(expression);
@@ -279,7 +285,7 @@ public class TestLiteralEncoder
 
     private Object getExpressionValue(Expression expression)
     {
-        return new ExpressionInterpreter(expression, metadata, TEST_SESSION, getExpressionTypes(expression)).evaluate();
+        return new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, getExpressionTypes(expression)).evaluate();
     }
 
     private Type getExpressionType(Expression expression)
@@ -296,7 +302,7 @@ public class TestLiteralEncoder
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
                     ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                            metadata,
+                            PLANNER_CONTEXT,
                             new AllowAllAccessControl(),
                             transactionSession,
                             TypeProvider.empty(),

@@ -37,6 +37,7 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeManager;
+import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
@@ -55,16 +56,15 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.cartesianProduct;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static io.trino.plugin.hive.HiveMetadata.SPARK_TABLE_PROVIDER_KEY;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
+import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
 import static java.lang.String.format;
 import static java.util.Map.Entry;
 import static java.util.function.Function.identity;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.TABLE_BUCKETING_VERSION;
-import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory.TIMESTAMP;
 
 public final class HiveBucketing
 {
@@ -191,6 +191,10 @@ public final class HiveBucketing
             return Optional.empty();
         }
 
+        if (!isSupportedBucketing(table)) {
+            return Optional.empty();
+        }
+
         HiveTimestampPrecision timestampPrecision = getTimestampPrecision(session);
         Map<String, HiveColumnHandle> map = getRegularColumnHandles(table, typeManager, timestampPrecision).stream()
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
@@ -222,9 +226,6 @@ public final class HiveBucketing
         List<Column> dataColumns = hiveTable.getDataColumns().stream()
                 .map(HiveColumnHandle::toMetastoreColumn)
                 .collect(toImmutableList());
-        if (bucketedOnTimestamp(hiveBucketProperty, dataColumns, hiveTable.getTableName())) {
-            return Optional.empty();
-        }
 
         Optional<Map<ColumnHandle, List<NullableValue>>> bindings = TupleDomain.extractDiscreteValues(effectivePredicate);
         if (bindings.isEmpty()) {
@@ -319,36 +320,57 @@ public final class HiveBucketing
         }
     }
 
-    public static boolean bucketedOnTimestamp(HiveBucketProperty bucketProperty, Table table)
+    public static boolean isSupportedBucketing(Table table)
     {
-        return bucketedOnTimestamp(bucketProperty, table.getDataColumns(), table.getTableName());
+        return isSupportedBucketing(table.getStorage().getBucketProperty().orElseThrow(), table.getDataColumns(), table.getTableName());
     }
 
-    public static boolean bucketedOnTimestamp(HiveBucketProperty bucketProperty, List<Column> dataColumns, String tableName)
+    public static boolean isSupportedBucketing(HiveBucketProperty bucketProperty, List<Column> dataColumns, String tableName)
     {
         return bucketProperty.getBucketedBy().stream()
                 .map(columnName -> dataColumns.stream().filter(column -> column.getName().equals(columnName)).findFirst()
                         .orElseThrow(() -> new IllegalArgumentException(format("Cannot find column '%s' in %s", columnName, tableName))))
                 .map(Column::getType)
                 .map(HiveType::getTypeInfo)
-                .anyMatch(HiveBucketing::bucketedOnTimestamp);
+                .allMatch(HiveBucketing::isTypeSupportedForBucketing);
     }
 
-    private static boolean bucketedOnTimestamp(TypeInfo type)
+    private static boolean isTypeSupportedForBucketing(TypeInfo type)
     {
         switch (type.getCategory()) {
             case PRIMITIVE:
-                return ((PrimitiveTypeInfo) type).getPrimitiveCategory() == TIMESTAMP;
+                PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
+                PrimitiveObjectInspector.PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
+                switch (primitiveCategory) {
+                    case BOOLEAN:
+                    case BYTE:
+                    case SHORT:
+                    case INT:
+                    case LONG:
+                    case FLOAT:
+                    case DOUBLE:
+                    case STRING:
+                    case VARCHAR:
+                    case DATE:
+                        return true;
+                    case BINARY:
+                    case TIMESTAMP:
+                    case DECIMAL:
+                    case CHAR:
+                        return false;
+                    default:
+                        throw new UnsupportedOperationException("Unknown type " + type);
+                }
             case LIST:
-                return bucketedOnTimestamp(((ListTypeInfo) type).getListElementTypeInfo());
+                return isTypeSupportedForBucketing(((ListTypeInfo) type).getListElementTypeInfo());
             case MAP:
                 MapTypeInfo mapTypeInfo = (MapTypeInfo) type;
-                return bucketedOnTimestamp(mapTypeInfo.getMapKeyTypeInfo()) ||
-                        bucketedOnTimestamp(mapTypeInfo.getMapValueTypeInfo());
-            default:
-                // TODO: support more types, e.g. ROW
-                throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
+                return isTypeSupportedForBucketing(mapTypeInfo.getMapKeyTypeInfo()) && isTypeSupportedForBucketing(mapTypeInfo.getMapValueTypeInfo());
+            case STRUCT:
+            case UNION:
+                return false;
         }
+        throw new UnsupportedOperationException("Unknown type " + type);
     }
 
     public static class HiveBucketFilter

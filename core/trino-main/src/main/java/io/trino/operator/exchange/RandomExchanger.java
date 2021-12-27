@@ -41,13 +41,14 @@ class RandomExchanger
     @Override
     public void accept(Page page)
     {
-        memoryManager.updateMemoryUsage(page.getRetainedSizeInBytes());
+        PageReference pageReference = new PageReference(page, 1, onPageReleased);
+        memoryManager.updateMemoryUsage(pageReference.getRetainedSizeInBytes());
         int randomIndex = ThreadLocalRandom.current().nextInt(buffers.size());
-        buffers.get(randomIndex).accept(new PageReference(page, 1, onPageReleased));
+        buffers.get(randomIndex).accept(pageReference);
     }
 
     @Override
-    public ListenableFuture<?> waitForWriting()
+    public ListenableFuture<Void> waitForWriting()
     {
         return memoryManager.getNotFullFuture();
     }

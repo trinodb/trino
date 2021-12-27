@@ -19,6 +19,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.CorrelatedJoinNode.Type;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +29,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.matching.Pattern.typeOf;
 import static io.trino.matching.Property.optionalProperty;
 import static io.trino.matching.Property.property;
+import static io.trino.sql.planner.plan.Patterns.Values.rowCount;
 
 public final class Patterns
 {
@@ -61,6 +63,11 @@ public final class Patterns
     public static Pattern<UpdateNode> update()
     {
         return typeOf(UpdateNode.class);
+    }
+
+    public static Pattern<TableExecuteNode> tableExecute()
+    {
+        return typeOf(TableExecuteNode.class);
     }
 
     public static Pattern<ExchangeNode> exchange()
@@ -176,6 +183,11 @@ public final class Patterns
     public static Pattern<ValuesNode> values()
     {
         return typeOf(ValuesNode.class);
+    }
+
+    public static Pattern<ValuesNode> emptyValues()
+    {
+        return values().with(rowCount().equalTo(0));
     }
 
     public static Pattern<UnnestNode> unnest()
@@ -400,6 +412,14 @@ public final class Patterns
         public static Property<ExceptNode, Lookup, Boolean> distinct()
         {
             return property("distinct", ExceptNode::isDistinct);
+        }
+    }
+
+    public static final class PatternRecognition
+    {
+        public static Property<PatternRecognitionNode, Lookup, RowsPerMatch> rowsPerMatch()
+        {
+            return property("rowsPerMatch", PatternRecognitionNode::getRowsPerMatch);
         }
     }
 }

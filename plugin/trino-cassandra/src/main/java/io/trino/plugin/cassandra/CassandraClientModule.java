@@ -24,6 +24,8 @@ import com.datastax.driver.core.policies.LoadBalancingPolicy;
 import com.datastax.driver.core.policies.RoundRobinPolicy;
 import com.datastax.driver.core.policies.TokenAwarePolicy;
 import com.datastax.driver.core.policies.WhiteListPolicy;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -31,7 +33,11 @@ import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
 import io.airlift.security.pem.PemReader;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeManager;
 
+import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -59,6 +65,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.trino.plugin.cassandra.CassandraErrorCode.CASSANDRA_SSL_INITIALIZATION_FAILURE;
 import static java.lang.Math.toIntExact;
@@ -68,9 +75,18 @@ import static java.util.Objects.requireNonNull;
 public class CassandraClientModule
         implements Module
 {
+    private final TypeManager typeManager;
+
+    public CassandraClientModule(TypeManager typeManager)
+    {
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+    }
+
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(TypeManager.class).toInstance(typeManager);
+
         binder.bind(CassandraConnector.class).in(Scopes.SINGLETON);
         binder.bind(CassandraMetadata.class).in(Scopes.SINGLETON);
         binder.bind(CassandraSplitManager.class).in(Scopes.SINGLETON);
@@ -83,6 +99,26 @@ public class CassandraClientModule
         configBinder(binder).bindConfig(CassandraClientConfig.class);
 
         jsonCodecBinder(binder).bindListJsonCodec(ExtraColumnMetadata.class);
+        jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+    }
+
+    public static final class TypeDeserializer
+            extends FromStringDeserializer<Type>
+    {
+        private final TypeManager typeManager;
+
+        @Inject
+        public TypeDeserializer(TypeManager typeManager)
+        {
+            super(Type.class);
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        }
+
+        @Override
+        protected Type _deserialize(String value, DeserializationContext context)
+        {
+            return typeManager.getType(TypeId.of(value));
+        }
     }
 
     @Singleton
@@ -154,10 +190,10 @@ public class CassandraClientModule
         options.setConsistencyLevel(config.getConsistencyLevel());
         clusterBuilder.withQueryOptions(options);
 
-        if (config.getSpeculativeExecutionLimit() > 1) {
+        if (config.getSpeculativeExecutionLimit().isPresent()) {
             clusterBuilder.withSpeculativeExecutionPolicy(new ConstantSpeculativeExecutionPolicy(
                     config.getSpeculativeExecutionDelay().toMillis(), // delay before a new execution is launched
-                    config.getSpeculativeExecutionLimit())); // maximum number of executions
+                    config.getSpeculativeExecutionLimit().get())); // maximum number of executions
         }
 
         return new CassandraSession(

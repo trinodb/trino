@@ -27,20 +27,15 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static io.trino.spi.HostAddress.fromParts;
-import static java.util.stream.Collectors.toList;
-
 public class MongoSplitManager
         implements ConnectorSplitManager
 {
     private final List<HostAddress> addresses;
 
     @Inject
-    public MongoSplitManager(MongoClientConfig config)
+    public MongoSplitManager(MongoSession session)
     {
-        this.addresses = config.getSeeds().stream()
-                .map(s -> fromParts(s.getHost(), s.getPort()))
-                .collect(toList());
+        this.addresses = session.getAddresses();
     }
 
     @Override

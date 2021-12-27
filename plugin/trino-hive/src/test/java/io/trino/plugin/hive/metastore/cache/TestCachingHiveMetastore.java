@@ -101,7 +101,7 @@ public class TestCachingHiveMetastore
         mockClient = new MockThriftMetastoreClient();
         ThriftHiveMetastore thriftHiveMetastore = createThriftHiveMetastore();
         executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s")));
-        metastore = (CachingHiveMetastore) cachingHiveMetastore(
+        metastore = cachingHiveMetastore(
                 new BridgingHiveMetastore(thriftHiveMetastore),
                 executor,
                 new Duration(5, TimeUnit.MINUTES),
@@ -259,18 +259,18 @@ public class TestCachingHiveMetastore
         HiveColumnHandle keyColumn = createBaseColumn(partitionColumnNames.get(1), 1, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
         List<HiveColumnHandle> partitionColumns = ImmutableList.of(dateKeyColumn, keyColumn);
 
-        TupleDomain withNoFilter = computePartitionKeyFilter(
+        TupleDomain<String> withNoFilter = computePartitionKeyFilter(
                 partitionColumns,
                 TupleDomain.all());
 
-        TupleDomain withSingleValueFilter = computePartitionKeyFilter(
+        TupleDomain<String> withSingleValueFilter = computePartitionKeyFilter(
                 partitionColumns,
                 withColumnDomains(ImmutableMap.<HiveColumnHandle, Domain>builder()
                         .put(dateKeyColumn, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, utf8Slice("2020-10-01"))), false))
                         .put(keyColumn, Domain.create(ValueSet.of(VARCHAR, utf8Slice("val")), false))
                         .build()));
 
-        TupleDomain withNoSingleValueFilter = computePartitionKeyFilter(
+        TupleDomain<String> withNoSingleValueFilter = computePartitionKeyFilter(
                 partitionColumns,
                 withColumnDomains(ImmutableMap.<HiveColumnHandle, Domain>builder()
                         .put(dateKeyColumn, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, utf8Slice("2020-10-01"))), false))

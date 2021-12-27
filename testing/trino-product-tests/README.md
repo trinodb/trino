@@ -10,8 +10,13 @@ setup is as follows: a single Docker container runs Hadoop in pseudo-distributed
 mode and Trino runs either in Docker container(s) (both pseudo-distributed
 and distributed setups are possible) or manually from IntelliJ (for
 debugging Trino). The tests run in a separate JVM and they can be started
-using the launcher found in `trino-product-tests-launcher/bin/run-launcher`. The product
+using the launcher found in `testing/trino-product-tests-launcher/bin/run-launcher`. The product
 tests are run using the [Tempto](https://github.com/trinodb/tempto) harness.
+
+**There is a helper script at `testing/bin/ptl` which calls
+`testing/trino-product-tests-launcher/bin/run-launcher` and helps you avoid
+typing the full path to the launcher everytime. Rest of this document uses
+`testing/bin/ptl` to start the launcher but you can use the full path too.**
 
 Developers should consider writing product tests in addition to any unit tests
 when making changes to user visible features. The product tests should also
@@ -52,7 +57,7 @@ groups run the following command:
 
 ```
 ./mvnw install -DskipTests
-trino-product-tests-launcher/bin/run-launcher test run --environment <environment> \
+testing/bin/ptl test run --environment <environment> \
 [--config <environment config>] \
 -- <tempto arguments>
 ```
@@ -97,7 +102,7 @@ You can obtain list of available environments using command:
  
 ```
 ./mvnw install -DskipTests
-trino-product-tests-launcher/bin/run-launcher env list
+testing/bin/ptl env list
 ```
 
 #### Environment config
@@ -111,7 +116,7 @@ Most of the Hadoop-based environments can be run in multiple configurations that
 You can obtain list of available environment configurations using command:
 
 ```
-trino-product-tests-launcher/bin/run-launcher env list
+testing/bin/ptl env list
 ```
 
 All of `test run`, `env up` and `suite run` commands accept `--config <environment config>` setting.
@@ -125,13 +130,13 @@ and each type can be run individually with the following commands:
 
 ```
 # Run single Java based test
-trino-product-tests-launcher/bin/run-launcher test run \
+testing/bin/ptl test run \
             --environment <environment> \
             [--config <environment config>] \
             -- -t io.trino.tests.functions.operators.Comparison.testLessThanOrEqualOperatorExists
 
 # Run single convention based test
-trino-product-tests-launcher/bin/run-launcher test run \
+testing/bin/ptl test run \
             --environment <environment> \
             [--config <environment config>] \
             -- -t sql_tests.testcases.system.selectInformationSchemaTables
@@ -148,7 +153,7 @@ particular group, use the `-g` argument as shown:
 
 ```
 # Run all tests in the string_functions and create_table groups
-trino-product-tests-launcher/bin/run-launcher test run \
+testing/bin/ptl test run \
             --environment <environment> \
             [--config <environment config>] \
             -- -g string_functions,create_tables
@@ -175,7 +180,7 @@ groups.
 Below is a list of commands that explain how to run these profile specific tests
 and also the entire test suite:
 
-Note: SQL Server product-tests use `microsoft/mssql-server-linux` docker container.
+Note: SQL Server product-tests use `mcr.microsoft.com/mssql/server` docker container.
 By running SQL Server product tests you accept the license [ACCEPT_EULA](https://go.microsoft.com/fwlink/?LinkId=746388)
 
 ### Running test suites
@@ -185,16 +190,16 @@ Tests are further organized into suites which contain execution of multiple test
 You can obtain list of available test suites using command:
 
 ```
-trino-product-tests-launcher/bin/run-launcher suite list
+testing/bin/ptl suite list
 ```
 
-Command `trino-product-tests-launcher/bin/run-launcher suite describe --suite <suite name>` shows list of tests that will be executed and environments 
+Command `testing/bin/ptl suite describe --suite <suite name>` shows list of tests that will be executed and environments 
 that will be used when `suite run` is invoked.
 
 You can execute single suite using command:
 
 ```
-trino-product-tests-launcher/bin/run-launcher suite run --suite <suite name> \
+testing/bin/ptl suite run --suite <suite name> \
     [--config <environment config>]
 ```
 
@@ -206,6 +211,38 @@ To interrupt a product test run, send a single `Ctrl-C` signal. The scripts
 running the tests will gracefully shutdown all containers. Any follow up
 `Ctrl-C` signals will interrupt the shutdown procedure and possibly leave
 containers in an inconsistent state.
+
+## Debugging Product Tests
+
+The `run-launcher` script also accepts an argument `--debug` which can be used
+to instruct the various components (Trino co-ordinator, workers, JVM that runs
+the tests etc.) within the product test environment to expose JVM debug ports.
+
+For example to debug the `TestHiveViews.testFromUtcTimestampCornerCases` on the
+`multinode` environment you can run:
+
+```
+testing/bin/ptl test run \
+    --environment multinode \
+    --debug \
+    -- -t TestHiveViews.testFromUtcTimestampCornerCases
+```
+
+The port numbers being used are logged in the `run-launcher` output as
+`Listening for transport dt_socket at address: <port_number>`.
+
+Once you have the port numbers you can create a *Run/Debug Configuration* in
+IntelliJ of type **Remote JVM Debug** with the following configuration:
+
+- **Debugger mode:** `Attach to remote JVM`
+- **Host:** `localhost`
+- **Port:** the debug `<port_number>` for the component you're trying to debug
+- **Command line arguments for remote JVM:** Leave this as it is
+- **Use module classpath:** `trino-product-tests`
+
+You can now start the debug configuration that you just created and IntelliJ
+will attach to the remote JVM and you can use the debugger from within
+IntelliJ.
 
 ## Known issues
 

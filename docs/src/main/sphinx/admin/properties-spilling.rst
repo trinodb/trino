@@ -7,7 +7,7 @@ These properties control :doc:`spill`.
 ``spill-enabled``
 ^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``false``
 
 Try spilling memory to disk to avoid exceeding memory limits for the query.
@@ -22,7 +22,7 @@ This config property can be overridden by the ``spill_enabled`` session property
 ``spill-order-by``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
 Try spilling memory to disk to avoid exceeding memory limits for the query when running sorting operators.
@@ -33,10 +33,10 @@ This config property can be overridden by the ``spill_order_by`` session propert
 ``spill-window-operator``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
-Try spilling memory to disk to avoid exceeding memory limits for the query when running window operators;
+Try spilling memory to disk to avoid exceeding memory limits for the query when running window operators.
 This property must be used in conjunction with the ``spill-enabled`` property.
 
 This config property can be overridden by the ``spill_window_operator`` session property.
@@ -44,7 +44,7 @@ This config property can be overridden by the ``spill_window_operator`` session 
 ``spiller-spill-path``
 ^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``string``
+* **Type:** :ref:`prop-type-string`
 * **No default value.** Must be set when spilling is enabled
 
 Directory where spilled content is written. It can be a comma separated
@@ -58,7 +58,7 @@ cause JVM to pause for lengthy periods, causing queries to fail.
 ``spiller-max-used-space-threshold``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``double``
+* **Type:** :ref:`prop-type-double`
 * **Default value:** ``0.9``
 
 If disk space usage ratio of a given spill path is above this threshold,
@@ -67,7 +67,7 @@ this spill path is not eligible for spilling.
 ``spiller-threads``
 ^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``integer``
+* **Type:** :ref:`prop-type-integer`
 * **Default value:** ``4``
 
 Number of spiller threads. Increase this value if the default is not able
@@ -76,31 +76,31 @@ to saturate the underlying spilling device (for example, when using RAID).
 ``max-spill-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``data size``
-* **Default value:** ``100 GB``
+* **Type:** :ref:`prop-type-data-size`
+* **Default value:** ``100GB``
 
 Max spill space to be used by all queries on a single node.
 
 ``query-max-spill-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``data size``
-* **Default value:** ``100 GB``
+* **Type:** :ref:`prop-type-data-size`
+* **Default value:** ``100GB``
 
 Max spill space to be used by a single query on a single node.
 
 ``aggregation-operator-unspill-memory-limit``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``data size``
-* **Default value:** ``4 MB``
+* **Type:** :ref:`prop-type-data-size`
+* **Default value:** ``4MB``
 
 Limit for memory used for unspilling a single aggregation operator instance.
 
 ``spill-compression-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``false``
 
 Enables data compression for pages spilled to disk.
@@ -108,7 +108,7 @@ Enables data compression for pages spilled to disk.
 ``spill-encryption-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``boolean``
+* **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``false``
 
 Enables using a randomly generated secret key (per spill file) to encrypt and decrypt

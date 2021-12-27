@@ -21,12 +21,14 @@ import io.trino.connector.informationschema.InformationSchemaConnector;
 import io.trino.connector.system.SystemConnector;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.metadata.Catalog;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
+import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.security.ReadOnlySystemAccessControl;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.QueryId;
@@ -84,11 +86,13 @@ public class TestAccessControlManager
     private static final String USER_NAME = "user_name";
     private static final QueryId queryId = new QueryId("query_id");
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Trino server is still initializing")
+    @Test
     public void testInitializing()
     {
         AccessControlManager accessControlManager = createAccessControlManager(createTestTransactionManager());
-        accessControlManager.checkCanSetUser(Optional.empty(), "foo");
+        assertThatThrownBy(() -> accessControlManager.checkCanSetUser(Optional.empty(), "foo"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Trino server is still initializing");
     }
 
     @Test
@@ -167,7 +171,7 @@ public class TestAccessControlManager
                 });
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from columns \\[column\\] in table or view schema.table")
+    @Test
     public void testDenyCatalogAccessControl()
     {
         CatalogManager catalogManager = new CatalogManager();
@@ -181,10 +185,12 @@ public class TestAccessControlManager
         CatalogName catalogName = registerBogusConnector(catalogManager, transactionManager, accessControlManager, "catalog");
         accessControlManager.addCatalogAccessControl(catalogName, new DenyConnectorAccessControl());
 
-        transaction(transactionManager, accessControlManager)
+        assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(context(transactionId), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
-                });
+                }))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("Access Denied: Cannot select from columns \\[column\\] in table or view schema.table");
     }
 
     @Test
@@ -251,7 +257,7 @@ public class TestAccessControlManager
         return new SecurityContext(transactionId, identity, queryId);
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from table secured_catalog.schema.table")
+    @Test
     public void testDenySystemAccessControl()
     {
         CatalogManager catalogManager = new CatalogManager();
@@ -265,10 +271,12 @@ public class TestAccessControlManager
         registerBogusConnector(catalogManager, transactionManager, accessControlManager, "connector");
         accessControlManager.addCatalogAccessControl(new CatalogName("connector"), new DenyConnectorAccessControl());
 
-        transaction(transactionManager, accessControlManager)
+        assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     accessControlManager.checkCanSelectFromColumns(context(transactionId), new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of("column"));
-                });
+                }))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("Access Denied: Cannot select from table secured_catalog.schema.table");
     }
 
     @Test
@@ -367,7 +375,8 @@ public class TestAccessControlManager
     private static CatalogName registerBogusConnector(CatalogManager catalogManager, TransactionManager transactionManager, AccessControl accessControl, String catalogName)
     {
         CatalogName catalog = new CatalogName(catalogName);
-        Connector connector = new TpchConnectorFactory().create(catalogName, ImmutableMap.of(), new TestingConnectorContext());
+        TpchConnectorFactory factory = new TpchConnectorFactory();
+        Connector connector = factory.create(catalogName, ImmutableMap.of(), new TestingConnectorContext());
 
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         Metadata metadata = createTestMetadataManager(catalogManager);
@@ -375,7 +384,9 @@ public class TestAccessControlManager
         catalogManager.registerCatalog(new Catalog(
                 catalogName,
                 catalog,
+                factory.getName(),
                 connector,
+                SecurityManagement.CONNECTOR,
                 createInformationSchemaCatalogName(catalog),
                 new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
                 systemId,
@@ -440,12 +451,12 @@ public class TestAccessControlManager
 
     private AccessControlManager createAccessControlManager(TransactionManager testTransactionManager)
     {
-        return new AccessControlManager(testTransactionManager, emptyEventListenerManager(), new AccessControlConfig());
+        return new AccessControlManager(testTransactionManager, emptyEventListenerManager(), new AccessControlConfig(), DefaultSystemAccessControl.NAME);
     }
 
     private AccessControlManager createAccessControlManager(EventListenerManager eventListenerManager, AccessControlConfig config)
     {
-        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, config);
+        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, config, DefaultSystemAccessControl.NAME);
     }
 
     private SystemAccessControlFactory eventListeningSystemAccessControlFactory(String name, EventListener... eventListeners)

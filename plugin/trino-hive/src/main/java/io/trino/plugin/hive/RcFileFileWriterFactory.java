@@ -132,8 +132,8 @@ public class RcFileFileWriterFactory
                 .toArray();
 
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
-            OutputStream outputStream = fileSystem.create(path);
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), path, configuration);
+            OutputStream outputStream = fileSystem.create(path, false);
 
             Optional<Supplier<RcFileDataSource>> validationInputFactory = Optional.empty();
             if (isRcfileOptimizedWriterValidate(session)) {

@@ -17,11 +17,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.ParameterKind;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.sql.analyzer.TypeSignatureProvider;
@@ -80,17 +82,21 @@ public class SignatureBinder
     // 4 is chosen arbitrarily here. This limit is set to avoid having infinite loops in iterative solving.
     private static final int SOLVE_ITERATION_LIMIT = 4;
 
+    private final Session session;
     private final Metadata metadata;
+    private final TypeManager typeManager;
     private final TypeCoercion typeCoercion;
     private final Signature declaredSignature;
     private final boolean allowCoercion;
     private final Map<String, TypeVariableConstraint> typeVariableConstraints;
 
-    SignatureBinder(Metadata metadata, Signature declaredSignature, boolean allowCoercion)
+    SignatureBinder(Session session, Metadata metadata, TypeManager typeManager, Signature declaredSignature, boolean allowCoercion)
     {
         checkNoLiteralVariableUsageAcrossTypes(declaredSignature);
+        this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeCoercion = new TypeCoercion(metadata::getType);
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.typeCoercion = new TypeCoercion(typeManager::getType);
         this.declaredSignature = requireNonNull(declaredSignature, "declaredSignature is null");
         this.allowCoercion = allowCoercion;
 
@@ -435,7 +441,7 @@ public class SignatureBinder
             if (typeVariableConstraint == null) {
                 return true;
             }
-            Type actualType = metadata.getType(actualTypeSignatureProvider.getTypeSignature());
+            Type actualType = typeManager.getType(actualTypeSignatureProvider.getTypeSignature());
             for (TypeSignature castToSignature : typeVariableConstraint.getCastableTo()) {
                 appendTypeRelationshipConstraintSolver(resultBuilder, castToSignature, actualTypeSignatureProvider, EXPLICIT_COERCION_TO);
             }
@@ -454,7 +460,7 @@ public class SignatureBinder
             return true;
         }
 
-        Type actualType = metadata.getType(actualTypeSignatureProvider.getTypeSignature());
+        Type actualType = typeManager.getType(actualTypeSignatureProvider.getTypeSignature());
         if (isTypeWithLiteralParameters(formalTypeSignature)) {
             resultBuilder.add(new TypeWithLiteralParametersSolver(formalTypeSignature, actualType));
             return true;
@@ -655,11 +661,11 @@ public class SignatureBinder
             case EXACT:
                 return actualType.getTypeSignature().equals(constraintTypeSignature);
             case IMPLICIT_COERCION:
-                return typeCoercion.canCoerce(actualType, metadata.getType(constraintTypeSignature));
+                return typeCoercion.canCoerce(actualType, typeManager.getType(constraintTypeSignature));
             case EXPLICIT_COERCION_TO:
-                return canCast(actualType, metadata.getType(constraintTypeSignature));
+                return canCast(actualType, typeManager.getType(constraintTypeSignature));
             case EXPLICIT_COERCION_FROM:
-                return canCast(metadata.getType(constraintTypeSignature), actualType);
+                return canCast(typeManager.getType(constraintTypeSignature), actualType);
         }
         throw new IllegalArgumentException("Unsupported relationshipType " + relationshipType);
     }
@@ -698,7 +704,7 @@ public class SignatureBinder
             }
         }
         try {
-            metadata.getCoercion(fromType, toType);
+            metadata.getCoercion(session, fromType, toType);
             return true;
         }
         catch (TrinoException e) {
@@ -866,7 +872,7 @@ public class SignatureBinder
                     originalTypeTypeParametersBuilder.add(typeSignatureParameter);
                 }
             }
-            Type originalType = metadata.getType(new TypeSignature(formalTypeSignature.getBase(), originalTypeTypeParametersBuilder.build()));
+            Type originalType = typeManager.getType(new TypeSignature(formalTypeSignature.getBase(), originalTypeTypeParametersBuilder.build()));
             Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(originalType, actualType);
             if (commonSuperType.isEmpty()) {
                 return SolverReturnStatus.UNSOLVABLE;
@@ -936,7 +942,7 @@ public class SignatureBinder
                 verify(getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get())));
             }
 
-            Type actualLambdaType = metadata.getType(actualLambdaTypeSignature);
+            Type actualLambdaType = typeManager.getType(actualLambdaTypeSignature);
             Type actualReturnType = ((FunctionType) actualLambdaType).getReturnType();
 
             ImmutableList.Builder<TypeConstraintSolver> constraintsBuilder = ImmutableList.builder();
@@ -971,7 +977,7 @@ public class SignatureBinder
                     lambdaArgumentTypesBuilder.add(typeVariable);
                 }
                 else {
-                    lambdaArgumentTypesBuilder.add(metadata.getType(lambdaArgument));
+                    lambdaArgumentTypesBuilder.add(typeManager.getType(lambdaArgument));
                 }
             }
             return Optional.of(lambdaArgumentTypesBuilder.build());
@@ -1002,7 +1008,7 @@ public class SignatureBinder
                 formalTypeSignature,
                 typeVariables,
                 longVariables,
-                metadata.getType(actualTypeSignatureProvider.getTypeSignature()),
+                typeManager.getType(actualTypeSignatureProvider.getTypeSignature()),
                 relationshipType));
         return true;
     }

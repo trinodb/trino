@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
+import okhttp3.logging.HttpLoggingInterceptor;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -128,11 +129,11 @@ public class ClientOptions
     @Option(names = "--debug", paramLabel = "<debug>", description = "Enable debug information")
     public boolean debug;
 
+    @Option(names = "--network-logging", paramLabel = "<level>", defaultValue = "NONE", description = "Network logging level [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
+    public HttpLoggingInterceptor.Level networkLogging;
+
     @Option(names = "--progress", paramLabel = "<progress>", description = "Show query progress in batch mode")
     public boolean progress;
-
-    @Option(names = "--log-levels-file", paramLabel = "<file>", description = "Configure log levels for debugging using this file")
-    public String logLevelsFile;
 
     @Option(names = "--execute", paramLabel = "<execute>", description = "Execute specified statements and exit")
     public String execute;
@@ -218,7 +219,9 @@ public class ClientOptions
 
         HostAndPort host = HostAndPort.fromString(server);
         try {
-            return new URI("http", null, host.getHost(), host.getPortOrDefault(80), null, null, null);
+            int port = host.getPortOrDefault(80);
+            String scheme = port == 443 ? "https" : "http";
+            return new URI(scheme, null, host.getHost(), port, null, null, null);
         }
         catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);

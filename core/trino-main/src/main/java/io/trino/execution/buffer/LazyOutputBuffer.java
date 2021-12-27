@@ -237,7 +237,7 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public ListenableFuture<?> isFull()
+    public ListenableFuture<Void> isFull()
     {
         OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
         return outputBuffer.isFull();

@@ -16,12 +16,12 @@ package io.trino.operator.aggregation;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionArgumentDefinition;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.LongVariableConstraint;
 import io.trino.metadata.Signature;
 import io.trino.metadata.TypeVariableConstraint;
 import io.trino.operator.ParametricImplementation;
-import io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
+import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
 import io.trino.operator.annotations.FunctionsParserHelper;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.spi.block.Block;
@@ -49,10 +49,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.inputChannelParameterType;
+import static io.trino.operator.ParametricFunctionHelpers.signatureWithName;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static io.trino.operator.annotations.FunctionsParserHelper.containsAnnotation;
 import static io.trino.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
@@ -92,37 +94,34 @@ public class AggregationImplementation
     private final Signature signature;
 
     private final Class<?> definitionClass;
-    private final Class<?> stateClass;
     private final MethodHandle inputFunction;
     private final Optional<MethodHandle> removeInputFunction;
     private final MethodHandle outputFunction;
-    private final MethodHandle combineFunction;
+    private final Optional<MethodHandle> combineFunction;
     private final List<AggregateNativeContainerType> argumentNativeContainerTypes;
     private final List<ImplementationDependency> inputDependencies;
     private final List<ImplementationDependency> removeInputDependencies;
     private final List<ImplementationDependency> combineDependencies;
     private final List<ImplementationDependency> outputDependencies;
-    private final List<ParameterType> inputParameterMetadataTypes;
-    private final ImmutableList<FunctionArgumentDefinition> argumentDefinitions;
+    private final List<AggregationParameterKind> inputParameterKinds;
+    private final FunctionNullability functionNullability;
 
     public AggregationImplementation(
             Signature signature,
             Class<?> definitionClass,
-            Class<?> stateClass,
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
             MethodHandle outputFunction,
-            MethodHandle combineFunction,
+            Optional<MethodHandle> combineFunction,
             List<AggregateNativeContainerType> argumentNativeContainerTypes,
             List<ImplementationDependency> inputDependencies,
             List<ImplementationDependency> removeInputDependencies,
             List<ImplementationDependency> combineDependencies,
             List<ImplementationDependency> outputDependencies,
-            List<ParameterType> inputParameterMetadataTypes)
+            List<AggregationParameterKind> inputParameterKinds)
     {
         this.signature = requireNonNull(signature, "signature cannot be null");
         this.definitionClass = requireNonNull(definitionClass, "definition class cannot be null");
-        this.stateClass = requireNonNull(stateClass, "stateClass cannot be null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction cannot be null");
         this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction cannot be null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction cannot be null");
@@ -132,12 +131,13 @@ public class AggregationImplementation
         this.removeInputDependencies = requireNonNull(removeInputDependencies, "removeInputDependencies cannot be null");
         this.outputDependencies = requireNonNull(outputDependencies, "outputDependencies cannot be null");
         this.combineDependencies = requireNonNull(combineDependencies, "combineDependencies cannot be null");
-        this.inputParameterMetadataTypes = requireNonNull(inputParameterMetadataTypes, "inputParameterMetadataTypes cannot be null");
-        this.argumentDefinitions = inputParameterMetadataTypes.stream()
-                .filter(parameterType -> parameterType != BLOCK_INDEX && parameterType != STATE)
-                .map(NULLABLE_BLOCK_INPUT_CHANNEL::equals)
-                .map(FunctionArgumentDefinition::new)
-                .collect(toImmutableList());
+        this.inputParameterKinds = requireNonNull(inputParameterKinds, "inputParameterKinds cannot be null");
+        this.functionNullability = new FunctionNullability(
+                true,
+                inputParameterKinds.stream()
+                        .filter(parameterType -> parameterType != BLOCK_INDEX && parameterType != STATE)
+                        .map(NULLABLE_BLOCK_INPUT_CHANNEL::equals)
+                        .collect(toImmutableList()));
     }
 
     @Override
@@ -153,26 +153,14 @@ public class AggregationImplementation
     }
 
     @Override
-    public final boolean isNullable()
+    public FunctionNullability getFunctionNullability()
     {
-        // for now all aggregation functions are considered nullable
-        return true;
-    }
-
-    @Override
-    public List<FunctionArgumentDefinition> getArgumentDefinitions()
-    {
-        return argumentDefinitions;
+        return functionNullability;
     }
 
     public Class<?> getDefinitionClass()
     {
         return definitionClass;
-    }
-
-    public Class<?> getStateClass()
-    {
-        return stateClass;
     }
 
     public MethodHandle getInputFunction()
@@ -190,7 +178,7 @@ public class AggregationImplementation
         return outputFunction;
     }
 
-    public MethodHandle getCombineFunction()
+    public Optional<MethodHandle> getCombineFunction()
     {
         return combineFunction;
     }
@@ -215,9 +203,9 @@ public class AggregationImplementation
         return combineDependencies;
     }
 
-    public List<ParameterType> getInputParameterMetadataTypes()
+    public List<AggregationParameterKind> getInputParameterKinds()
     {
-        return inputParameterMetadataTypes;
+        return inputParameterKinds;
     }
 
     public boolean areTypesAssignable(BoundSignature boundSignature)
@@ -242,43 +230,58 @@ public class AggregationImplementation
         return true;
     }
 
+    @Override
+    public AggregationImplementation withAlias(String alias)
+    {
+        return new AggregationImplementation(
+                signatureWithName(alias, signature),
+                definitionClass,
+                inputFunction,
+                removeInputFunction,
+                outputFunction,
+                combineFunction,
+                argumentNativeContainerTypes,
+                inputDependencies,
+                removeInputDependencies,
+                combineDependencies,
+                outputDependencies,
+                inputParameterKinds);
+    }
+
     public static final class Parser
     {
         private final Class<?> aggregationDefinition;
-        private final Class<?> stateClass;
         private final MethodHandle inputHandle;
         private final Optional<MethodHandle> removeInputHandle;
         private final MethodHandle outputHandle;
-        private final MethodHandle combineHandle;
+        private final Optional<MethodHandle> combineHandle;
         private final List<AggregateNativeContainerType> argumentNativeContainerTypes;
         private final List<ImplementationDependency> inputDependencies;
         private final List<ImplementationDependency> removeInputDependencies;
         private final List<ImplementationDependency> combineDependencies;
         private final List<ImplementationDependency> outputDependencies;
-        private final List<ParameterType> parameterMetadataTypes;
+        private final List<AggregationParameterKind> inputParameterKinds;
 
         private final List<LongVariableConstraint> longVariableConstraints;
         private final List<TypeVariableConstraint> typeVariableConstraints;
         private final List<TypeSignature> inputTypes;
         private final TypeSignature returnType;
 
-        private final AggregationHeader header;
+        private final String name;
         private final Set<String> literalParameters;
         private final List<TypeParameter> typeParameters;
 
         private Parser(
                 Class<?> aggregationDefinition,
-                AggregationHeader header,
-                Class<?> stateClass,
+                String name,
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
                 Method outputFunction,
-                Method combineFunction)
+                Optional<Method> combineFunction)
         {
             // rewrite data passed directly
             this.aggregationDefinition = aggregationDefinition;
-            this.header = header;
-            this.stateClass = stateClass;
+            this.name = name;
 
             // parse declared literal and type parameters
             // it is required to declare all literal and type parameters in input function
@@ -289,10 +292,10 @@ public class AggregationImplementation
             inputDependencies = parseImplementationDependencies(inputFunction);
             removeInputDependencies = removeInputFunction.map(this::parseImplementationDependencies).orElse(ImmutableList.of());
             outputDependencies = parseImplementationDependencies(outputFunction);
-            combineDependencies = parseImplementationDependencies(combineFunction);
+            combineDependencies = combineFunction.map(this::parseImplementationDependencies).orElse(ImmutableList.of());
 
-            // parse metadata types
-            parameterMetadataTypes = parseParameterMetadataTypes(inputFunction);
+            // parse input parameters
+            inputParameterKinds = parseInputParameterKinds(inputFunction);
 
             // parse constraints
             longVariableConstraints = FunctionsParserHelper.parseLongVariableConstraints(inputFunction);
@@ -316,14 +319,14 @@ public class AggregationImplementation
 
             inputHandle = methodHandle(inputFunction);
             removeInputHandle = removeInputFunction.map(Reflection::methodHandle);
-            combineHandle = methodHandle(combineFunction);
+            combineHandle = combineFunction.map(Reflection::methodHandle);
             outputHandle = methodHandle(outputFunction);
         }
 
         private AggregationImplementation get()
         {
             Signature signature = new Signature(
-                    header.getCanonicalName(),
+                    name,
                     typeVariableConstraints,
                     longVariableConstraints,
                     returnType,
@@ -332,7 +335,6 @@ public class AggregationImplementation
 
             return new AggregationImplementation(signature,
                     aggregationDefinition,
-                    stateClass,
                     inputHandle,
                     removeInputHandle,
                     outputHandle,
@@ -342,24 +344,23 @@ public class AggregationImplementation
                     removeInputDependencies,
                     combineDependencies,
                     outputDependencies,
-                    parameterMetadataTypes);
+                    inputParameterKinds);
         }
 
         public static AggregationImplementation parseImplementation(
                 Class<?> aggregationDefinition,
-                AggregationHeader header,
-                Class<?> stateClass,
+                String name,
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
                 Method outputFunction,
-                Method combineFunction)
+                Optional<Method> combineFunction)
         {
-            return new Parser(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
+            return new Parser(aggregationDefinition, name, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
         }
 
-        private static List<ParameterType> parseParameterMetadataTypes(Method method)
+        private static List<AggregationParameterKind> parseInputParameterKinds(Method method)
         {
-            ImmutableList.Builder<ParameterType> builder = ImmutableList.builder();
+            ImmutableList.Builder<AggregationParameterKind> builder = ImmutableList.builder();
 
             Annotation[][] annotations = method.getParameterAnnotations();
             String methodName = method.getDeclaringClass() + "." + method.getName();
@@ -386,7 +387,7 @@ public class AggregationImplementation
                 else if (baseTypeAnnotation instanceof SqlType) {
                     boolean isParameterBlock = isParameterBlock(annotations[i]);
                     boolean isParameterNullable = isParameterNullable(annotations[i]);
-                    builder.add(inputChannelParameterType(isParameterNullable, isParameterBlock, methodName));
+                    builder.add(getInputParameterKind(isParameterNullable, isParameterBlock, methodName));
                 }
                 else if (baseTypeAnnotation instanceof BlockIndex) {
                     builder.add(BLOCK_INDEX);
@@ -396,6 +397,26 @@ public class AggregationImplementation
                 }
             }
             return builder.build();
+        }
+
+        static AggregationParameterKind getInputParameterKind(boolean isNullable, boolean isBlock, String methodName)
+        {
+            if (isBlock) {
+                if (isNullable) {
+                    return NULLABLE_BLOCK_INPUT_CHANNEL;
+                }
+                else {
+                    return BLOCK_INPUT_CHANNEL;
+                }
+            }
+            else {
+                if (isNullable) {
+                    throw new IllegalArgumentException(methodName + " contains a parameter with @NullablePosition that is not @BlockPosition");
+                }
+                else {
+                    return INPUT_CHANNEL;
+                }
+            }
         }
 
         private static Annotation baseTypeAnnotation(Annotation[] annotations, String methodName)
