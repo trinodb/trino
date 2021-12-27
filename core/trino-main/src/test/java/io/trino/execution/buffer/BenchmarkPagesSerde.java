@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import io.trino.spiller.AesSpillCipher;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -42,7 +43,6 @@ import java.util.Random;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
@@ -127,7 +127,7 @@ public class BenchmarkPagesSerde
 
         private PagesSerde createPagesSerde()
         {
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(createTestMetadataManager().getBlockEncodingSerde(), compressed);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), compressed);
             return encrypted ? serdeFactory.createPagesSerdeForSpill(Optional.of(new AesSpillCipher())) : serdeFactory.createPagesSerde();
         }
 

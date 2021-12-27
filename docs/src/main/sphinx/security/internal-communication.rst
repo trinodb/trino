@@ -2,14 +2,16 @@
 Secure internal communication
 =============================
 
-The Trino cluster can be configured to use secured communication. Communication
-between Trino nodes can be secured with SSL/TLS.
+The Trino cluster can be configured to use secured communication with internal
+authentication of the nodes in the cluster, and optionally added security with
+:ref:`TLS <glossTLS>`.
 
 Internal authentication
 -----------------------
 
 Requests between Trino nodes are authenticated using a shared secret. For secure
-internal communication, the shared secret must be configured on all nodes in the cluster:
+internal communication, the shared secret must be set to the same value on all
+nodes in the cluster:
 
 .. code-block:: text
 
@@ -22,110 +24,64 @@ command:
 
     openssl rand 512 | base64
 
-Internal SSL/TLS configuration
-------------------------------
+Internal TLS configuration
+--------------------------
 
-SSL/TLS is configured in the ``config.properties`` file.  The SSL/TLS on the
-worker and coordinator nodes are configured using the same set of properties.
-Every node in the cluster must be configured. Nodes that have not been
-configured, or are configured incorrectly, are not able to communicate with
-other nodes in the cluster.
+You can configure the coordinator and all workers to encrypt all communication
+with each other using TLS. Every node in the cluster must be configured. Nodes
+that have not been configured, or are configured incorrectly, are not able to
+communicate with other nodes in the cluster.
 
-To enable SSL/TLS for Trino internal communication, do the following:
+In typical deployments, you should enable :ref:`TLS directly on the coordinator
+<https-secure-directly>` for fully encrypted access to the cluster by client
+tools.
 
-1. Disable HTTP endpoint.
+Now you can enable TLS for internal communication with the following
+configuration identical on all cluster nodes.
 
-   .. code-block:: text
+1. Configure a shared secret for internal communication as described in
+   the preceding section.
 
-       http-server.http.enabled=false
+2. Enable automatic certificate creation and trust setup in
+   ``etc/config.properties``:
 
-   .. warning::
+   .. code-block:: properties
 
-       You can enable HTTPS, while leaving HTTP enabled. In most cases this is a
-       security hole. If you are certain you want to use this configuration, you
-       should consider using an firewall to limit access to the HTTP endpoint to
-       only those hosts that should be allowed to use it.
+     internal-communication.https.required=true
 
-2. Configure the cluster to communicate using the fully qualified domain name (fqdn)
-   of the cluster nodes. This can be done in either of the following ways:
+3. Change the URI for the discovery service to use HTTPS and point to the IP
+   address of the coordinator in ``etc/config.properties``:
 
-   - If the DNS service is configured properly, we can just let the nodes
-     introduce themselves to the coordinator using the hostname taken from
-     the system configuration (``hostname --fqdn``)
+   .. code-block:: properties
 
-     .. code-block:: text
+     discovery.uri=https://<coordinator ip address>:<https port>
 
-         node.internal-address-source=FQDN
+   Note that using hostnames or fully qualified domain names for the URI is
+   not supported. The automatic certificate creation for internal TLS only
+   supports IP addresses. Java 17 is known to be incompatible with this feature
+   and can not be used as a runtime for Trino with this feature enabled.
 
-   - It is also possible to specify each node's fully-qualified hostname manually.
-     This is different for every host. Hosts should be in the same domain to
-     make it easy to create the correct SSL/TLS certificates.
-     e.g.: ``coordinator.example.com``, ``worker1.example.com``, ``worker2.example.com``.
+4. Enable the HTTPS endpoint on all workers.
 
-     .. code-block:: text
+   .. code-block:: properties
 
-         node.internal-address=<node fqdn>
+     http-server.https.enabled=true
+     http-server.https.port=<https port>
 
+5. Restart all nodes.
 
-3. Generate a Java Keystore File. Every Trino node must be able to connect to
-   any other node within the same cluster. It is possible to create unique
-   certificates for every node using the fully-qualified hostname of each host,
-   create a keystore that contains all the public keys for all of the hosts,
-   and specify it for the client (see step #8 below). In most cases it is
-   simpler to use a wildcard in the certificate as shown below.
+Certificates are automatically created and used to ensure all communication
+inside the cluster is secured with TLS.
 
-   .. code-block:: text
+.. warning::
 
-       keytool -genkeypair -alias example.com -keyalg RSA -keystore keystore.jks
-       Enter keystore password:
-       Re-enter new password:
-       What is your first and last name?
-         [Unknown]:  *.example.com
-       What is the name of your organizational unit?
-         [Unknown]:
-       What is the name of your organization?
-         [Unknown]:
-       What is the name of your City or Locality?
-         [Unknown]:
-       What is the name of your State or Province?
-         [Unknown]:
-       What is the two-letter country code for this unit?
-         [Unknown]:
-       Is CN=*.example.com, OU=Unknown, O=Unknown, L=Unknown, ST=Unknown, C=Unknown correct?
-         [no]:  yes
+    Older versions of Trino required you to manually manage all the certificates
+    on the nodes. If you upgrade from this setup, you must remove the following
+    configuration properties:
 
-   .. Note: Replace `example.com` with the appropriate domain.
-
-4. Distribute the Java Keystore File across the Trino cluster.
-
-5. Enable the HTTPS endpoint.
-
-   .. code-block:: text
-
-       http-server.https.enabled=true
-       http-server.https.port=<https port>
-       http-server.https.keystore.path=<keystore path>
-       http-server.https.keystore.key=<keystore password>
-
-6. Change the discovery uri to HTTPS.
-
-   .. code-block:: text
-
-       discovery.uri=https://<coordinator fqdn>:<https port>
-
-7. Configure the internal communication to require HTTPS.
-
-   .. code-block:: text
-
-       internal-communication.https.required=true
-
-8. Configure the internal communication to use the Java keystore file.
-
-   .. code-block:: text
-
-       internal-communication.https.keystore.path=<keystore path>
-       internal-communication.https.keystore.key=<keystore password>
-
+    * ``internal-communication.https.keystore.path``
+    * ``internal-communication.https.truststore.path``
+    * ``node.internal-address-source``
 
 Performance with SSL/TLS enabled
 --------------------------------

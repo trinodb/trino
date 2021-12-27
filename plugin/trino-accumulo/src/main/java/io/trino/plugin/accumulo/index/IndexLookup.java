@@ -270,7 +270,7 @@ public class IndexLookup
         // of rows
         long numEntries = indexRanges.size();
         double ratio = (double) numEntries / (double) numRows;
-        LOG.debug("Use of index would scan %d of %d rows, ratio %s. Threshold %2f, Using for table? %b", numEntries, numRows, ratio, threshold, ratio < threshold, table);
+        LOG.debug("Use of index would scan %d of %d rows, ratio %s. Threshold %2f, Using for table %s? %b", numEntries, numRows, ratio, threshold, table, ratio < threshold);
 
         // If the percentage of scanned rows, the ratio, less than the configured threshold
         if (ratio < threshold) {

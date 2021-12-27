@@ -30,27 +30,27 @@ import static java.util.Objects.requireNonNull;
 public final class FunctionImplementationDependency
         extends ScalarImplementationDependency
 {
-    private final QualifiedName name;
+    private final QualifiedName fullyQualifiedName;
     private final List<TypeSignature> argumentTypes;
 
-    public FunctionImplementationDependency(QualifiedName name, List<TypeSignature> argumentTypes, InvocationConvention invocationConvention, Class<?> type)
+    public FunctionImplementationDependency(QualifiedName fullyQualifiedName, List<TypeSignature> argumentTypes, InvocationConvention invocationConvention, Class<?> type)
     {
         super(invocationConvention, type);
-        this.name = requireNonNull(name, "name is null");
+        this.fullyQualifiedName = requireNonNull(fullyQualifiedName, "fullyQualifiedName is null");
         this.argumentTypes = requireNonNull(argumentTypes, "argumentTypes is null");
     }
 
     @Override
     public void declareDependencies(FunctionDependencyDeclarationBuilder builder)
     {
-        builder.addFunctionSignature(name, argumentTypes);
+        builder.addFunctionSignature(fullyQualifiedName, argumentTypes);
     }
 
     @Override
     protected FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
     {
         List<TypeSignature> types = applyBoundVariables(argumentTypes, functionBinding);
-        return functionDependencies.getFunctionSignatureInvoker(name, types, invocationConvention);
+        return functionDependencies.getFunctionSignatureInvoker(fullyQualifiedName, types, invocationConvention);
     }
 
     @Override
@@ -63,13 +63,13 @@ public final class FunctionImplementationDependency
             return false;
         }
         FunctionImplementationDependency that = (FunctionImplementationDependency) o;
-        return Objects.equals(name, that.name) &&
+        return Objects.equals(fullyQualifiedName, that.fullyQualifiedName) &&
                 Objects.equals(argumentTypes, that.argumentTypes);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, argumentTypes);
+        return Objects.hash(fullyQualifiedName, argumentTypes);
     }
 }

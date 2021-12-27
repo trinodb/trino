@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.primitives.Longs;
@@ -324,30 +325,22 @@ public final class MetastoreUtil
                 ImmutableMultimap.of());
     }
 
-    public static boolean isPartitionKeyFilterFalse(TupleDomain<String> partitionKeysFilter)
-    {
-        return partitionKeysFilter.isNone() || partitionKeysFilter.getDomains().get().values().stream().anyMatch(Domain::isNone);
-    }
-
     /**
      * @param assumeCanonicalPartitionKeys allow conversion of non-char types (eg BIGINT, timestamp) to canonical string formats. If false, non-char types will be replaced
      * with the wildcard
-     * @return the Domain for each partition key to either the wildcard or an equals check.
-     * TupleDomain.none() or any column's Domain.isNone() -> Optional.empty()
+     * @return the domain for each partition key to either the wildcard or an equals check, or empty if {@code TupleDomain.isNone()}
      */
     public static Optional<List<String>> partitionKeyFilterToStringList(List<String> columnNames, TupleDomain<String> partitionKeysFilter, boolean assumeCanonicalPartitionKeys)
     {
-        if (isPartitionKeyFilterFalse(partitionKeysFilter)) {
+        if (partitionKeysFilter.isNone()) {
             return Optional.empty();
         }
 
-        checkArgument(partitionKeysFilter.getDomains().isPresent());
+        Map<String, Domain> domainMap = partitionKeysFilter.getDomains().orElseThrow(VerifyException::new);
 
-        Map<String, Domain> domainMap = partitionKeysFilter.getDomains().orElse(ImmutableMap.of());
-        List<String> partitionList = columnNames.stream()
+        return Optional.of(columnNames.stream()
                 .map(cn -> domainToString(domainMap.get(cn), assumeCanonicalPartitionKeys, HIVE_PARTITION_VALUE_WILDCARD))
-                .collect(toImmutableList());
-        return Optional.of(partitionList);
+                .collect(toImmutableList()));
     }
 
     /**

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.ResolvedField;
@@ -50,7 +51,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -214,9 +214,14 @@ class TranslationMap
             public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 if (analysis.isPatternRecognitionFunction(node)) {
-                    List<Expression> rewrittenArguments = node.getArguments().stream()
-                            .map(argument -> treeRewriter.rewrite(argument, null))
-                            .collect(toImmutableList());
+                    ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
+                    if (!node.getArguments().isEmpty()) {
+                        rewrittenArguments.add(treeRewriter.rewrite(node.getArguments().get(0), null));
+                        if (node.getArguments().size() > 1) {
+                            // do not rewrite the offset literal
+                            rewrittenArguments.add(node.getArguments().get(1));
+                        }
+                    }
                     // Pattern recognition functions are special constructs, passed using the form of FunctionCall.
                     // They are not resolved like regular function calls. They are processed in LogicalIndexExtractor.
                     return coerceIfNecessary(node, new FunctionCall(
@@ -228,14 +233,16 @@ class TranslationMap
                             false,
                             Optional.empty(),
                             node.getProcessingMode(),
-                            rewrittenArguments));
+                            rewrittenArguments.build()));
                 }
 
-                // TODO handle aggregation in pattern recognition context (and handle its processingMode)
-
-                Optional<Expression> mapped = tryGetMapping(node);
-                if (mapped.isPresent()) {
-                    return coerceIfNecessary(node, mapped.get());
+                // Do not use the mapping for aggregate functions in pattern recognition context. They have different semantics
+                // than aggregate functions outside pattern recognition.
+                if (!analysis.isPatternAggregation(node)) {
+                    Optional<Expression> mapped = tryGetMapping(node);
+                    if (mapped.isPresent()) {
+                        return coerceIfNecessary(node, mapped.get());
+                    }
                 }
 
                 ResolvedFunction resolvedFunction = analysis.getResolvedFunction(node);
@@ -260,9 +267,12 @@ class TranslationMap
             {
                 LabelPrefixedReference labelDereference = analysis.getLabelDereference(node);
                 if (labelDereference != null) {
-                    Expression rewritten = treeRewriter.rewrite(labelDereference.getColumn(), null);
-                    checkState(rewritten instanceof SymbolReference, "expected symbol reference, got: " + rewritten);
-                    return coerceIfNecessary(node, new LabelDereference(labelDereference.getLabel(), (SymbolReference) rewritten));
+                    if (labelDereference.getColumn().isPresent()) {
+                        Expression rewritten = treeRewriter.rewrite(labelDereference.getColumn().get(), null);
+                        checkState(rewritten instanceof SymbolReference, "expected symbol reference, got: " + rewritten);
+                        return coerceIfNecessary(node, new LabelDereference(labelDereference.getLabel(), (SymbolReference) rewritten));
+                    }
+                    return new LabelDereference(labelDereference.getLabel());
                 }
 
                 Optional<Expression> mapped = tryGetMapping(node);
@@ -279,7 +289,7 @@ class TranslationMap
                 }
 
                 RowType rowType = (RowType) analysis.getType(node.getBase());
-                String fieldName = node.getField().getValue();
+                String fieldName = node.getField().orElseThrow().getValue();
 
                 List<RowType.Field> fields = rowType.getFields();
                 int index = -1;
@@ -291,13 +301,32 @@ class TranslationMap
                     }
                 }
 
-                checkState(index >= 0, "could not find field name: %s", node.getField());
+                checkState(index >= 0, "could not find field name: %s", fieldName);
 
                 return coerceIfNecessary(
                         node,
                         new SubscriptExpression(
                                 treeRewriter.rewrite(node.getBase(), context),
                                 new LongLiteral(Long.toString(index + 1))));
+            }
+
+            @Override
+            public Expression rewriteSubscriptExpression(SubscriptExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<Expression> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                Type baseType = analysis.getType(node.getBase());
+                if (baseType instanceof RowType) {
+                    // Do not rewrite subscript index into symbol. Row subscript index is required to be a literal.
+                    Expression rewrittenBase = treeRewriter.rewrite(node.getBase(), context);
+                    return coerceIfNecessary(node, new SubscriptExpression(rewrittenBase, node.getIndex()));
+                }
+
+                Expression rewritten = treeRewriter.defaultRewrite(node, context);
+                return coerceIfNecessary(node, rewritten);
             }
 
             @Override
@@ -372,7 +401,11 @@ class TranslationMap
             return Optional.of(fieldSymbols[field.getHierarchyFieldIndex()]);
         }
 
-        return Optional.of(Symbol.from(outerContext.get().rewrite(expression)));
+        if (outerContext.isPresent()) {
+            return Optional.of(Symbol.from(outerContext.get().rewrite(expression)));
+        }
+
+        return Optional.empty();
     }
 
     private static void verifyAstExpression(Expression astExpression)

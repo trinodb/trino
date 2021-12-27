@@ -13,12 +13,9 @@
  */
 package io.trino.execution.scheduler;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import org.testng.annotations.Test;
-
-import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.BROADCAST;
@@ -30,34 +27,35 @@ public class TestBroadcastOutputBufferManager
     @Test
     public void test()
     {
-        AtomicReference<OutputBuffers> outputBufferTarget = new AtomicReference<>();
-        BroadcastOutputBufferManager hashOutputBufferManager = new BroadcastOutputBufferManager(outputBufferTarget::set);
-        assertEquals(outputBufferTarget.get(), createInitialEmptyOutputBuffers(BROADCAST));
+        BroadcastOutputBufferManager hashOutputBufferManager = new BroadcastOutputBufferManager();
+        assertEquals(hashOutputBufferManager.getOutputBuffers(), createInitialEmptyOutputBuffers(BROADCAST));
 
-        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(0)), false);
+        hashOutputBufferManager.addOutputBuffer(new OutputBufferId(0));
         OutputBuffers expectedOutputBuffers = createInitialEmptyOutputBuffers(BROADCAST).withBuffer(new OutputBufferId(0), BROADCAST_PARTITION_ID);
-        assertEquals(outputBufferTarget.get(), expectedOutputBuffers);
+        assertEquals(hashOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
 
-        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(1), new OutputBufferId(2)), false);
+        hashOutputBufferManager.addOutputBuffer(new OutputBufferId(1));
+        hashOutputBufferManager.addOutputBuffer(new OutputBufferId(2));
 
         expectedOutputBuffers = expectedOutputBuffers.withBuffer(new OutputBufferId(1), BROADCAST_PARTITION_ID);
         expectedOutputBuffers = expectedOutputBuffers.withBuffer(new OutputBufferId(2), BROADCAST_PARTITION_ID);
-        assertEquals(outputBufferTarget.get(), expectedOutputBuffers);
+        assertEquals(hashOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
 
         // set no more buffers
-        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(3)), true);
+        hashOutputBufferManager.addOutputBuffer(new OutputBufferId(3));
+        hashOutputBufferManager.noMoreBuffers();
         expectedOutputBuffers = expectedOutputBuffers.withBuffer(new OutputBufferId(3), BROADCAST_PARTITION_ID);
         expectedOutputBuffers = expectedOutputBuffers.withNoMoreBufferIds();
-        assertEquals(outputBufferTarget.get(), expectedOutputBuffers);
+        assertEquals(hashOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
 
         // try to add another buffer, which should not result in an error
         // and output buffers should not change
-        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(5)), false);
-        assertEquals(outputBufferTarget.get(), expectedOutputBuffers);
+        hashOutputBufferManager.addOutputBuffer(new OutputBufferId(5));
+        assertEquals(hashOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
 
         // try to set no more buffers again, which should not result in an error
         // and output buffers should not change
-        hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(6)), true);
-        assertEquals(outputBufferTarget.get(), expectedOutputBuffers);
+        hashOutputBufferManager.addOutputBuffer(new OutputBufferId(6));
+        assertEquals(hashOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
     }
 }

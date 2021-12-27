@@ -21,8 +21,8 @@ import org.testng.annotations.Test;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.type.UuidOperators.castFromVarcharToUuid;
-import static io.trino.type.UuidType.UUID;
 import static org.testng.Assert.assertEquals;
 
 public class TestUuidType

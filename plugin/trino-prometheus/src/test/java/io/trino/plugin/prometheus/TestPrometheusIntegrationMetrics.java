@@ -49,7 +49,7 @@ public class TestPrometheusIntegrationMetrics
     private PrometheusClient client;
 
     @BeforeClass
-    protected void createQueryRunner()
+    public void createQueryRunner()
             throws Exception
     {
         this.server = new PrometheusServer();

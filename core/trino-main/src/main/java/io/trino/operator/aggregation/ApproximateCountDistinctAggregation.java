@@ -15,7 +15,6 @@ package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.stats.cardinality.HyperLogLog;
-import io.trino.operator.aggregation.state.BooleanDistinctState;
 import io.trino.operator.aggregation.state.HyperLogLogState;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -135,14 +134,6 @@ public final class ApproximateCountDistinctAggregation
         state.addMemoryUsage(hll.estimatedInMemorySize());
     }
 
-    @InputFunction
-    public static void input(BooleanDistinctState state, @SqlType(StandardTypes.BOOLEAN) boolean value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
-    {
-        @SuppressWarnings("NumericCastThatLosesPrecision")
-        byte newState = (byte) (state.getByte() | (value ? 1 : 2));
-        state.setByte(newState);
-    }
-
     private static HyperLogLog getOrCreateHyperLogLog(HyperLogLogState state, double maxStandardError)
     {
         HyperLogLog hll = state.getHyperLogLog();
@@ -185,12 +176,6 @@ public final class ApproximateCountDistinctAggregation
         }
     }
 
-    @CombineFunction
-    public static void combineState(BooleanDistinctState state, BooleanDistinctState otherState)
-    {
-        state.setByte((byte) (state.getByte() | otherState.getByte()));
-    }
-
     @OutputFunction(StandardTypes.BIGINT)
     public static void evaluateFinal(@AggregationState HyperLogLogState state, BlockBuilder out)
     {
@@ -201,11 +186,5 @@ public final class ApproximateCountDistinctAggregation
         else {
             BIGINT.writeLong(out, hyperLogLog.cardinality());
         }
-    }
-
-    @OutputFunction(StandardTypes.BIGINT)
-    public static void evaluateFinal(BooleanDistinctState state, BlockBuilder out)
-    {
-        BIGINT.writeLong(out, Integer.bitCount(state.getByte()));
     }
 }

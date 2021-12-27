@@ -32,8 +32,7 @@ public class TestFileHiveMetastoreConfig
         assertRecordedDefaults(recordDefaults(FileHiveMetastoreConfig.class)
                 .setCatalogDirectory(null)
                 .setVersionCompatibility(NOT_SUPPORTED)
-                .setMetastoreUser("presto")
-                .setAssumeCanonicalPartitionKeys(false));
+                .setMetastoreUser("presto"));
     }
 
     @Test
@@ -43,14 +42,12 @@ public class TestFileHiveMetastoreConfig
                 .put("hive.metastore.catalog.dir", "some path")
                 .put("hive.metastore.version-compatibility", "UNSAFE_ASSUME_COMPATIBILITY")
                 .put("hive.metastore.user", "some user")
-                .put("hive.metastore.assume-canonical-partition-keys", "true")
                 .build();
 
         FileHiveMetastoreConfig expected = new FileHiveMetastoreConfig()
                 .setCatalogDirectory("some path")
                 .setVersionCompatibility(UNSAFE_ASSUME_COMPATIBILITY)
-                .setMetastoreUser("some user")
-                .setAssumeCanonicalPartitionKeys(true);
+                .setMetastoreUser("some user");
 
         assertFullMapping(properties, expected);
     }

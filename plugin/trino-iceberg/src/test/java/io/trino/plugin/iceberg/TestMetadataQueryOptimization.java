@@ -59,13 +59,13 @@ public class TestMetadataQueryOptimization
 
         queryRunner.createCatalog(
                 ICEBERG_CATALOG,
-                new TestingIcebergConnectorFactory(Optional.of(metastore), false),
+                new TestingIcebergConnectorFactory(Optional.of(metastore), Optional.empty()),
                 ImmutableMap.of());
 
         Database database = Database.builder()
                 .setDatabaseName(SCHEMA_NAME)
-                .setOwnerName("public")
-                .setOwnerType(PrincipalType.ROLE)
+                .setOwnerName(Optional.of("public"))
+                .setOwnerType(Optional.of(PrincipalType.ROLE))
                 .build();
         metastore.createDatabase(new HiveIdentity(session.toConnectorSession()), database);
 

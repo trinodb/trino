@@ -15,32 +15,26 @@ package io.trino.server.ui;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
-import io.trino.server.security.oauth2.NonceCookie;
+import io.trino.server.security.oauth2.ChallengeFailedException;
 import io.trino.server.security.oauth2.OAuth2Config;
 import io.trino.server.security.oauth2.OAuth2Service;
-import io.trino.server.security.oauth2.OAuth2Service.OAuthChallenge;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.ResponseBuilder;
 
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.trino.server.ServletSecurityUtils.sendErrorMessage;
 import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
-import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.TRINO_FORM_LOGIN;
@@ -56,7 +50,6 @@ public class OAuth2WebUiAuthenticationFilter
     private final String principalField;
     private final OAuth2Service service;
     private final UserMapping userMapping;
-    private final Optional<String> validAudience;
 
     @Inject
     public OAuth2WebUiAuthenticationFilter(OAuth2Service service, OAuth2Config oauth2Config)
@@ -64,7 +57,6 @@ public class OAuth2WebUiAuthenticationFilter
         this.service = requireNonNull(service, "service is null");
         requireNonNull(oauth2Config, "oauth2Config is null");
         this.userMapping = UserMapping.createUserMapping(oauth2Config.getUserMappingPattern(), oauth2Config.getUserMappingFile());
-        this.validAudience = oauth2Config.getAudience();
         this.principalField = oauth2Config.getPrincipalField();
     }
 
@@ -87,17 +79,20 @@ public class OAuth2WebUiAuthenticationFilter
             request.abortWith(Response.seeOther(DISABLED_LOCATION_URI).build());
             return;
         }
-        Optional<Claims> claims = getAccessToken(request).map(Jws::getBody);
-        if (claims.isEmpty()) {
-            needAuthentication(request);
-            return;
+        Optional<Map<String, Object>> claims;
+        try {
+            claims = getAccessToken(request);
+            if (claims.isEmpty()) {
+                needAuthentication(request);
+                return;
+            }
         }
-        Object audience = claims.get().get(AUDIENCE);
-        if (!hasValidAudience(audience)) {
-            LOG.debug("Invalid audience: %s. Expected audience to be equal to or contain: %s", audience, validAudience);
+        catch (ChallengeFailedException e) {
+            LOG.debug(e, "Invalid token: %s", e.getMessage());
             sendErrorMessage(request, UNAUTHORIZED, "Unauthorized");
             return;
         }
+
         try {
             Object principal = claims.get().get(principalField);
             if (!isValidPrincipal(principal)) {
@@ -115,18 +110,19 @@ public class OAuth2WebUiAuthenticationFilter
         }
     }
 
-    private Optional<Jws<Claims>> getAccessToken(ContainerRequestContext request)
+    private Optional<Map<String, Object>> getAccessToken(ContainerRequestContext request)
+            throws ChallengeFailedException
     {
-        return OAuthWebUiCookie.read(request.getCookies().get(OAUTH2_COOKIE))
-                .flatMap(token -> {
-                    try {
-                        return Optional.ofNullable(service.parseClaimsJws(token));
-                    }
-                    catch (JwtException | IllegalArgumentException e) {
-                        LOG.debug("Unable to parse JWT token: " + e.getMessage(), e);
-                        return Optional.empty();
-                    }
-                });
+        Optional<String> accessToken = OAuthWebUiCookie.read(request.getCookies().get(OAUTH2_COOKIE));
+        if (accessToken.isPresent()) {
+            try {
+                return service.convertTokenToClaims(accessToken.get());
+            }
+            catch (JwtException | IllegalArgumentException e) {
+                LOG.debug(e, "Unable to parse JWT token");
+            }
+        }
+        return Optional.empty();
     }
 
     private void needAuthentication(ContainerRequestContext request)
@@ -136,30 +132,10 @@ public class OAuth2WebUiAuthenticationFilter
             sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
             return;
         }
-        OAuthChallenge challenge = service.startWebUiChallenge(request.getUriInfo().getBaseUri().resolve(CALLBACK_ENDPOINT));
-        ResponseBuilder response = Response.seeOther(challenge.getRedirectUrl());
-        challenge.getNonce().ifPresent(nonce -> response.cookie(NonceCookie.create(nonce, challenge.getChallengeExpiration())));
-        request.abortWith(response.build());
+        request.abortWith(service.startOAuth2Challenge(request.getUriInfo()));
     }
 
-    private boolean hasValidAudience(Object audience)
-    {
-        if (validAudience.isEmpty()) {
-            return true;
-        }
-        if (audience == null) {
-            return false;
-        }
-        if (audience instanceof String) {
-            return audience.equals(validAudience.get());
-        }
-        if (audience instanceof List) {
-            return ((List<?>) audience).contains(validAudience.get());
-        }
-        return false;
-    }
-
-    private boolean isValidPrincipal(Object principal)
+    private static boolean isValidPrincipal(Object principal)
     {
         return principal instanceof String && !((String) principal).isEmpty();
     }

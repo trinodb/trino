@@ -14,6 +14,8 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -24,10 +26,13 @@ import io.trino.metadata.Split;
 import io.trino.operator.WorkProcessor.Transformation;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.WorkProcessorAssertion.Transform;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.LocalExecutionPlanner.OperatorFactoryWithTypes;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.testing.TestingTaskContext;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -39,12 +44,14 @@ import java.util.function.Supplier;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.Lifespan.taskWide;
 import static io.trino.operator.WorkProcessorAssertion.transformationFrom;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSplit.createLocalSplit;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -82,19 +89,19 @@ public class TestWorkProcessorPipelineSourceOperator
                 Transform.of(Optional.of(split), TransformationState.ofResult(page1, false)),
                 Transform.of(Optional.of(split), TransformationState.ofResult(page2, true))));
 
-        SettableFuture<?> firstBlockedFuture = SettableFuture.create();
+        SettableFuture<Void> firstBlockedFuture = SettableFuture.create();
         Transformation<Page, Page> firstOperatorPages = transformationFrom(ImmutableList.of(
-                Transform.of(Optional.of(page1), TransformationState.blocked(firstBlockedFuture)),
-                Transform.of(Optional.of(page1), TransformationState.ofResult(page3, true)),
-                Transform.of(Optional.of(page2), TransformationState.ofResult(page4, false)),
-                Transform.of(Optional.of(page2), TransformationState.finished())),
+                        Transform.of(Optional.of(page1), TransformationState.blocked(firstBlockedFuture)),
+                        Transform.of(Optional.of(page1), TransformationState.ofResult(page3, true)),
+                        Transform.of(Optional.of(page2), TransformationState.ofResult(page4, false)),
+                        Transform.of(Optional.of(page2), TransformationState.finished())),
                 (left, right) -> left.getPositionCount() == right.getPositionCount());
 
-        SettableFuture<?> secondBlockedFuture = SettableFuture.create();
+        SettableFuture<Void> secondBlockedFuture = SettableFuture.create();
         Transformation<Page, Page> secondOperatorPages = transformationFrom(ImmutableList.of(
-                Transform.of(Optional.of(page3), TransformationState.ofResult(page5, true)),
-                Transform.of(Optional.of(page4), TransformationState.needsMoreData()),
-                Transform.of(Optional.empty(), TransformationState.blocked(secondBlockedFuture))),
+                        Transform.of(Optional.of(page3), TransformationState.ofResult(page5, true)),
+                        Transform.of(Optional.of(page4), TransformationState.needsMoreData()),
+                        Transform.of(Optional.empty(), TransformationState.blocked(secondBlockedFuture))),
                 (left, right) -> left.getPositionCount() == right.getPositionCount());
 
         TestWorkProcessorSourceOperatorFactory sourceOperatorFactory = new TestWorkProcessorSourceOperatorFactory(
@@ -112,8 +119,12 @@ public class TestWorkProcessorPipelineSourceOperator
                 DataSize.ofBytes(0),
                 0));
 
-        DriverContext driverContext = TestingOperatorContext.create(scheduledExecutor).getDriverContext();
+        DriverContext driverContext = TestingTaskContext.builder(MoreExecutors.directExecutor(), scheduledExecutor, TEST_SESSION)
+                .build()
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
         SourceOperator pipelineOperator = pipelineOperatorFactory.createOperator(driverContext);
+        OperatorContext pipelineOperatorContext = pipelineOperator.getOperatorContext();
 
         // make sure WorkProcessorOperator memory is accounted for
         sourceOperatorFactory.sourceOperator.memoryTrackingContext.localUserMemoryContext().setBytes(123);
@@ -122,7 +133,7 @@ public class TestWorkProcessorPipelineSourceOperator
         assertNull(pipelineOperator.getOutput());
         assertFalse(pipelineOperator.isBlocked().isDone());
         // blocking on splits should not account for blocked time for any WorkProcessorOperator
-        pipelineOperator.getOperatorContext().getNestedOperatorStats().forEach(
+        pipelineOperatorContext.getNestedOperatorStats().forEach(
                 operatorStats -> assertEquals(operatorStats.getBlockedWall().toMillis(), 0));
 
         pipelineOperator.addSplit(split);
@@ -136,7 +147,7 @@ public class TestWorkProcessorPipelineSourceOperator
         assertTrue(pipelineOperator.isBlocked().isDone());
 
         // blocking of first WorkProcessorOperator should be accounted for in stats
-        List<OperatorStats> operatorStats = pipelineOperator.getOperatorContext().getNestedOperatorStats();
+        List<OperatorStats> operatorStats = pipelineOperatorContext.getNestedOperatorStats();
         assertEquals(operatorStats.get(0).getBlockedWall().toMillis(), 0);
         assertTrue(operatorStats.get(1).getBlockedWall().toMillis() > 0);
         assertEquals(operatorStats.get(2).getBlockedWall().toMillis(), 0);
@@ -162,7 +173,7 @@ public class TestWorkProcessorPipelineSourceOperator
         // first operator should return final operator info
         assertEquals(getTestingOperatorInfo(operatorStats.get(1)).count, 3);
         assertEquals(getTestingOperatorInfo(operatorStats.get(2)).count, 2);
-        operatorStats = pipelineOperator.getOperatorContext().getNestedOperatorStats();
+        operatorStats = pipelineOperatorContext.getNestedOperatorStats();
         assertEquals(getTestingOperatorInfo(operatorStats.get(1)).count, 3);
         assertEquals(getTestingOperatorInfo(operatorStats.get(2)).count, 3);
 
@@ -178,8 +189,8 @@ public class TestWorkProcessorPipelineSourceOperator
         assertNull(pipelineOperator.getOutput());
         assertTrue(pipelineOperator.isFinished());
 
-        // assert number of processed rows is correct
-        operatorStats = pipelineOperator.getOperatorContext().getNestedOperatorStats();
+        // assert operator stats are correct
+        operatorStats = pipelineOperatorContext.getNestedOperatorStats();
         assertEquals(operatorStats.get(0).getOutputPositions(), 3);
         assertEquals(operatorStats.get(1).getInputPositions(), 3);
         assertEquals(operatorStats.get(0).getOutputDataSize().toBytes(), 27);
@@ -193,8 +204,23 @@ public class TestWorkProcessorPipelineSourceOperator
         assertEquals(operatorStats.get(2).getOutputPositions(), 5);
         assertEquals(operatorStats.get(2).getOutputDataSize().toBytes(), 45);
 
-        // assert source operator input stats are correct
+        assertThat(operatorStats.get(1).getMetrics().getMetrics())
+                .hasSize(2)
+                .containsEntry("testOperatorMetric", new LongCount(1));
+
+        // assert source operator stats are correct
         OperatorStats sourceOperatorStats = operatorStats.get(0);
+
+        assertThat(sourceOperatorStats.getMetrics().getMetrics())
+                .hasSize(3)
+                .containsEntry("testSourceMetric", new LongCount(1))
+                .containsEntry("testSourceClosed", new LongCount(1));
+        assertEquals(sourceOperatorStats.getConnectorMetrics().getMetrics(), ImmutableMap.of(
+                "testSourceConnectorMetric", new LongCount(2),
+                "testSourceConnectorClosed", new LongCount(1)));
+
+        assertEquals(sourceOperatorStats.getDynamicFilterSplitsProcessed(), 42L);
+
         assertEquals(sourceOperatorStats.getPhysicalInputDataSize(), DataSize.ofBytes(1));
         assertEquals(sourceOperatorStats.getPhysicalInputPositions(), 2);
 
@@ -206,18 +232,31 @@ public class TestWorkProcessorPipelineSourceOperator
 
         assertEquals(sourceOperatorStats.getAddInputWall(), new Duration(7, NANOSECONDS));
 
-        // pipeline operator input stats should match source WorkProcessorOperator stats
-        OperatorStats pipelineOperatorStats = pipelineOperator.getOperatorContext().getOperatorStats();
-        assertEquals(sourceOperatorStats.getPhysicalInputDataSize(), pipelineOperatorStats.getPhysicalInputDataSize());
-        assertEquals(sourceOperatorStats.getPhysicalInputPositions(), pipelineOperatorStats.getPhysicalInputPositions());
+        // pipeline input stats should match source WorkProcessorOperator stats
+        PipelineStats pipelineStats = pipelineOperator.getOperatorContext().getDriverContext().getPipelineContext().getPipelineStats();
+        assertEquals(sourceOperatorStats.getPhysicalInputDataSize(), pipelineStats.getPhysicalInputDataSize());
+        assertEquals(sourceOperatorStats.getPhysicalInputPositions(), pipelineStats.getPhysicalInputPositions());
 
-        assertEquals(sourceOperatorStats.getInternalNetworkInputDataSize(), pipelineOperatorStats.getInternalNetworkInputDataSize());
-        assertEquals(sourceOperatorStats.getInternalNetworkInputPositions(), pipelineOperatorStats.getInternalNetworkInputPositions());
+        assertEquals(sourceOperatorStats.getInternalNetworkInputDataSize(), pipelineStats.getInternalNetworkInputDataSize());
+        assertEquals(sourceOperatorStats.getInternalNetworkInputPositions(), pipelineStats.getInternalNetworkInputPositions());
 
-        assertEquals(sourceOperatorStats.getInputDataSize(), pipelineOperatorStats.getInputDataSize());
-        assertEquals(sourceOperatorStats.getInputPositions(), pipelineOperatorStats.getInputPositions());
+        assertEquals(sourceOperatorStats.getInputDataSize(), pipelineStats.getProcessedInputDataSize());
+        assertEquals(sourceOperatorStats.getInputPositions(), pipelineStats.getProcessedInputPositions());
 
-        assertEquals(sourceOperatorStats.getAddInputWall(), pipelineOperatorStats.getAddInputWall());
+        assertEquals(sourceOperatorStats.getAddInputWall(), pipelineStats.getPhysicalInputReadTime());
+
+        // assert pipeline metrics
+        List<OperatorStats> operatorSummaries = pipelineStats.getOperatorSummaries();
+        assertThat(operatorSummaries.get(0).getMetrics().getMetrics())
+                .hasSize(3)
+                .containsEntry("testSourceMetric", new LongCount(1))
+                .containsEntry("testSourceClosed", new LongCount(1));
+        assertEquals(operatorSummaries.get(0).getConnectorMetrics().getMetrics(), ImmutableMap.of(
+                "testSourceConnectorMetric", new LongCount(2),
+                "testSourceConnectorClosed", new LongCount(1)));
+        assertThat(operatorSummaries.get(1).getMetrics().getMetrics())
+                .hasSize(2)
+                .containsEntry("testOperatorMetric", new LongCount(1));
     }
 
     @Test
@@ -393,6 +432,28 @@ public class TestWorkProcessorPipelineSourceOperator
         }
 
         @Override
+        public long getDynamicFilterSplitsProcessed()
+        {
+            return 42;
+        }
+
+        @Override
+        public Metrics getMetrics()
+        {
+            return new Metrics(ImmutableMap.of(
+                    "testSourceMetric", new LongCount(1),
+                    "testSourceClosed", new LongCount(closed ? 1 : 0)));
+        }
+
+        @Override
+        public Metrics getConnectorMetrics()
+        {
+            return new Metrics(ImmutableMap.of(
+                    "testSourceConnectorMetric", new LongCount(2),
+                    "testSourceConnectorClosed", new LongCount(closed ? 1 : 0)));
+        }
+
+        @Override
         public WorkProcessor<Page> getOutputPages()
         {
             return pages;
@@ -482,6 +543,12 @@ public class TestWorkProcessorPipelineSourceOperator
         {
             operatorInfo.count++;
             return Optional.of(operatorInfo);
+        }
+
+        @Override
+        public Metrics getMetrics()
+        {
+            return new Metrics(ImmutableMap.of("testOperatorMetric", new LongCount(1)));
         }
 
         @Override

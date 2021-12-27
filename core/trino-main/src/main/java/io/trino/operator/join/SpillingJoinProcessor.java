@@ -17,8 +17,8 @@ import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.WorkProcessor;
+import io.trino.operator.join.DefaultPageJoiner.SavedRow;
 import io.trino.operator.join.PageJoiner.PageJoinerFactory;
-import io.trino.operator.join.PageJoiner.SavedRow;
 import io.trino.spi.Page;
 import io.trino.spiller.PartitioningSpillerFactory;
 
@@ -94,7 +94,7 @@ public class SpillingJoinProcessor
             // Closer is documented to mimic try-with-resource, which implies close will happen in reverse order.
             closer.register(afterClose::run);
 
-            closer.register(sourcePagesJoiner::close);
+            closer.register(sourcePagesJoiner);
             sourcePagesJoiner.getSpiller().ifPresent(closer::register);
         }
         catch (IOException e) {
@@ -108,7 +108,7 @@ public class SpillingJoinProcessor
         // wait for build side to be completed before fetching any probe data
         // TODO: fix support for probe short-circuit: https://github.com/trinodb/trino/issues/3957
         if (waitForBuild && !lookupSourceProvider.isDone()) {
-            return WorkProcessor.ProcessState.blocked(lookupSourceProvider);
+            return WorkProcessor.ProcessState.blocked(asVoid(lookupSourceProvider));
         }
 
         if (!joinedSourcePages.isFinished()) {
@@ -117,7 +117,7 @@ public class SpillingJoinProcessor
 
         if (partitionedConsumption == null) {
             partitionedConsumption = lookupSourceFactory.finishProbeOperator(lookupJoinsCount);
-            return WorkProcessor.ProcessState.blocked(partitionedConsumption);
+            return WorkProcessor.ProcessState.blocked(asVoid(partitionedConsumption));
         }
 
         if (lookupPartitions == null) {
@@ -128,7 +128,7 @@ public class SpillingJoinProcessor
             // If we had no rows for the previous spill partition, we would finish before it is unspilled.
             // Partition must be loaded before it can be released. // TODO remove this constraint
             if (!previousPartitionLookupSource.isDone()) {
-                return WorkProcessor.ProcessState.blocked(previousPartitionLookupSource);
+                return WorkProcessor.ProcessState.blocked(asVoid(previousPartitionLookupSource));
             }
 
             previousPartition.release();
@@ -146,6 +146,11 @@ public class SpillingJoinProcessor
         previousPartitionLookupSource = partition.load();
 
         return WorkProcessor.ProcessState.ofResult(joinUnspilledPages(partition));
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 
     private WorkProcessor<Page> joinUnspilledPages(PartitionedConsumption.Partition<Supplier<LookupSource>> partition)

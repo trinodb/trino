@@ -82,7 +82,7 @@ public class ServerIT
         }
     }
 
-    private static void assertPathDeleted(GenericContainer container, String path)
+    private static void assertPathDeleted(GenericContainer<?> container, String path)
             throws Exception
     {
         ExecResult actualResult = container.execInContainer(
@@ -106,7 +106,7 @@ public class ServerIT
                 "echo CONFIG_ENV[NODE_ID]=test-node-id-injected-via-env >> /etc/trino/env.sh\n" +
                 "sed -i \"s/^node.id=.*/node.id=\\${ENV:NODE_ID}/g\" /etc/trino/node.properties\n" +
                 "cat > /etc/trino/catalog/hive.properties <<\"EOT\"\n" +
-                "connector.name=hive-hadoop2\n" +
+                "connector.name=hive\n" +
                 "hive.metastore.uri=thrift://localhost:${ENV:HMS_PORT}\n" +
                 "EOT\n" +
                 // create JMX catalog file

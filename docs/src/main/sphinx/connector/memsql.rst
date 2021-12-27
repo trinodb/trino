@@ -7,12 +7,21 @@ creating tables in an external SingleStore database. The SingleStore connector
 is very similar to the MySQL connector with the only difference being the
 underlying driver.
 
+Requirements
+------------
+
+To connect to SingleStore, you need:
+
+* SingleStore version 7.1.4 or higher.
+* Network access from the Trino coordinator and workers to SingleStore. Port
+  3306 is the default port.
+
 Configuration
 -------------
 
 To configure the SingleStore connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``memsql.properties``, to
-mount the SingleStore connector as the ``memsql`` catalog.
+in ``etc/catalog`` named, for example, ``singlestore.properties``, to
+mount the SingleStore connector as the ``singlestore`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:
 
@@ -31,6 +40,14 @@ SingleStore servers, simply add another properties file to ``etc/catalog``
 with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Trino
 will create a catalog named ``sales`` using the configured connector.
+
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: jdbc-procedures.fragment
+
+.. include:: jdbc-case-insensitive-matching.fragment
+
+.. include:: non-transactional-insert.fragment
 
 Querying SingleStore
 --------------------
@@ -58,14 +75,14 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``memsql`` in the above examples.
 
-.. _memsql-type-mapping:
+.. _singlestore-type-mapping:
 
 Type mapping
 ------------
 
 .. include:: jdbc-type-mapping.fragment
 
-.. _memsql-pushdown:
+.. _singlestore-pushdown:
 
 Pushdown
 --------
@@ -76,14 +93,28 @@ The connector supports pushdown for a number of operations:
 * :ref:`limit-pushdown`
 * :ref:`topn-pushdown`
 
-Limitations
+.. include:: no-pushdown-text-type.fragment
+
+.. _singlestore-sql-support:
+
+SQL support
 -----------
 
-The following SQL statements are not yet supported:
+The connector provides read access and write access to data and metadata in
+a SingleStore database.  In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
 
+* :doc:`/sql/insert`
 * :doc:`/sql/delete`
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
-* :doc:`/sql/show-grants`
-* :doc:`/sql/show-roles`
-* :doc:`/sql/show-role-grants`
+* :doc:`/sql/truncate`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/alter-table`
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
+
+.. include:: sql-delete-limitation.fragment
+
+.. include:: alter-table-limitation.fragment

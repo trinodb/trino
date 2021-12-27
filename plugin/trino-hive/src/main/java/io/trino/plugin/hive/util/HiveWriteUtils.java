@@ -173,13 +173,18 @@ public final class HiveWriteUtils
 
     public static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties, String outputFormatName, ConnectorSession session)
     {
+        return createRecordWriter(target, conf, properties, outputFormatName, session, Optional.empty());
+    }
+
+    public static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties, String outputFormatName, ConnectorSession session, Optional<TextHeaderWriter> textHeaderWriter)
+    {
         try {
             boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
             if (outputFormatName.equals(MapredParquetOutputFormat.class.getName())) {
                 return ParquetRecordWriter.create(target, conf, properties, session);
             }
             if (outputFormatName.equals(HiveIgnoreKeyTextOutputFormat.class.getName())) {
-                return new TextRecordWriter(target, conf, properties, compress);
+                return new TextRecordWriter(target, conf, properties, compress, textHeaderWriter);
             }
             if (outputFormatName.equals(HiveSequenceFileOutputFormat.class.getName())) {
                 return new SequenceFileRecordWriter(target, conf, Text.class, compress);
@@ -443,7 +448,7 @@ public final class HiveWriteUtils
     public static Path getTableDefaultLocation(Database database, HdfsContext context, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
         Optional<String> location = database.getLocation();
-        if (location.isEmpty() || location.get().isEmpty()) {
+        if (location.isEmpty()) {
             throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
         }
 
@@ -523,6 +528,11 @@ public final class HiveWriteUtils
         }
     }
 
+    public static boolean isFileCreatedByQuery(String fileName, String queryId)
+    {
+        return fileName.startsWith(queryId) || fileName.endsWith(queryId);
+    }
+
     public static Path createTemporaryPath(ConnectorSession session, HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath)
     {
         // use a per-user temporary directory to avoid permission problems
@@ -576,7 +586,7 @@ public final class HiveWriteUtils
     public static void createDirectory(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
-            if (!hdfsEnvironment.getFileSystem(context, path).mkdirs(path, hdfsEnvironment.getNewDirectoryPermissions())) {
+            if (!hdfsEnvironment.getFileSystem(context, path).mkdirs(path, hdfsEnvironment.getNewDirectoryPermissions().orElse(null))) {
                 throw new IOException("mkdirs returned false");
             }
         }
@@ -584,12 +594,14 @@ public final class HiveWriteUtils
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to create directory: " + path, e);
         }
 
-        // explicitly set permission since the default umask overrides it on creation
-        try {
-            hdfsEnvironment.getFileSystem(context, path).setPermission(path, hdfsEnvironment.getNewDirectoryPermissions());
-        }
-        catch (IOException e) {
-            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to set permission on directory: " + path, e);
+        if (hdfsEnvironment.getNewDirectoryPermissions().isPresent()) {
+            // explicitly set permission since the default umask overrides it on creation
+            try {
+                hdfsEnvironment.getFileSystem(context, path).setPermission(path, hdfsEnvironment.getNewDirectoryPermissions().get());
+            }
+            catch (IOException e) {
+                throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to set permission on directory: " + path, e);
+            }
         }
     }
 

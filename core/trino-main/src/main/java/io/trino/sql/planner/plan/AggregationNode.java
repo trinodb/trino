@@ -229,8 +229,7 @@ public class AggregationNode
         boolean decomposableFunctions = getAggregations().values().stream()
                 .map(Aggregation::getResolvedFunction)
                 .map(metadata::getAggregationFunctionMetadata)
-                .map(AggregationFunctionMetadata::getIntermediateType)
-                .allMatch(Optional::isPresent);
+                .allMatch(AggregationFunctionMetadata::isDecomposable);
 
         return !hasOrderBy && !hasDistinct && decomposableFunctions;
     }

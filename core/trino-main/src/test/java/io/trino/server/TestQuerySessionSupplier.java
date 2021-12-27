@@ -20,7 +20,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
@@ -29,6 +31,7 @@ import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.SqlPath;
 import io.trino.sql.SqlPathElement;
 import io.trino.sql.tree.Identifier;
+import io.trino.transaction.TransactionManager;
 import org.testng.annotations.Test;
 
 import javax.ws.rs.core.MultivaluedMap;
@@ -41,11 +44,12 @@ import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 public class TestQuerySessionSupplier
 {
@@ -63,11 +67,12 @@ public class TestQuerySessionSupplier
             .put(TRINO_HEADERS.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
             .put(TRINO_HEADERS.requestPreparedStatement(), "query1=select * from foo,query2=select * from bar")
             .build());
+    private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(createTestMetadataManager(), ImmutableSet::of, new AllowAllAccessControl());
 
     @Test
     public void testCreateSession()
     {
-        SessionContext context = new HttpRequestSessionContext(TEST_HEADERS, Optional.empty(), "testRemote", Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(TEST_HEADERS, Optional.empty(), Optional.of("testRemote"), Optional.empty());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
         Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context);
 
@@ -99,14 +104,14 @@ public class TestQuerySessionSupplier
         MultivaluedMap<String, String> headers1 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .build());
-        SessionContext context1 = new HttpRequestSessionContext(headers1, Optional.empty(), "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context1 = SESSION_CONTEXT_FACTORY.createSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         assertEquals(context1.getClientTags(), ImmutableSet.of());
 
         MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .put(TRINO_HEADERS.requestClientTags(), "")
                 .build());
-        SessionContext context2 = new HttpRequestSessionContext(headers2, Optional.empty(), "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context2 = SESSION_CONTEXT_FACTORY.createSessionContext(headers2, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         assertEquals(context2.getClientTags(), ImmutableSet.of());
     }
 
@@ -117,26 +122,28 @@ public class TestQuerySessionSupplier
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .put(TRINO_HEADERS.requestClientCapabilities(), "foo, bar")
                 .build());
-        SessionContext context1 = new HttpRequestSessionContext(headers1, Optional.empty(), "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context1 = SESSION_CONTEXT_FACTORY.createSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         assertEquals(context1.getClientCapabilities(), ImmutableSet.of("foo", "bar"));
 
         MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .build());
-        SessionContext context2 = new HttpRequestSessionContext(headers2, Optional.empty(), "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context2 = SESSION_CONTEXT_FACTORY.createSessionContext(headers2, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         assertEquals(context2.getClientCapabilities(), ImmutableSet.of());
     }
 
-    @Test(expectedExceptions = TrinoException.class)
+    @Test
     public void testInvalidTimeZone()
     {
         MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .put(TRINO_HEADERS.requestTimeZone(), "unknown_timezone")
                 .build());
-        SessionContext context = new HttpRequestSessionContext(headers, Optional.empty(), "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headers, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
-        sessionSupplier.createSession(new QueryId("test_query_id"), context);
+        assertThatThrownBy(() -> sessionSupplier.createSession(new QueryId("test_query_id"), context))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Time zone not supported: unknown_timezone");
     }
 
     @Test
@@ -169,47 +176,43 @@ public class TestQuerySessionSupplier
     @Test
     public void testDefaultCatalogAndSchema()
     {
-        // none specified
+        // no session or defaults
         Session session = createSession(
                 ImmutableListMultimap.<String, String>builder()
                         .put(TRINO_HEADERS.requestUser(), "testUser")
                         .build(),
                 new SqlEnvironmentConfig());
-        assertFalse(session.getCatalog().isPresent());
-        assertFalse(session.getSchema().isPresent());
+        assertThat(session.getCatalog()).isEmpty();
+        assertThat(session.getSchema()).isEmpty();
 
-        // catalog
+        // no session with default catalog
         session = createSession(
                 ImmutableListMultimap.<String, String>builder()
                         .put(TRINO_HEADERS.requestUser(), "testUser")
                         .build(),
                 new SqlEnvironmentConfig()
-                        .setDefaultCatalog("catalog"));
-        assertEquals(session.getCatalog(), Optional.of("catalog"));
-        assertFalse(session.getSchema().isPresent());
+                        .setDefaultCatalog("default-catalog"));
+        assertThat(session.getCatalog()).contains("default-catalog");
+        assertThat(session.getSchema()).isEmpty();
 
-        // catalog and schema
+        // no session with default catalog and schema
         session = createSession(
                 ImmutableListMultimap.<String, String>builder()
                         .put(TRINO_HEADERS.requestUser(), "testUser")
                         .build(),
                 new SqlEnvironmentConfig()
-                        .setDefaultCatalog("catalog")
-                        .setDefaultSchema("schema"));
-        assertEquals(session.getCatalog(), Optional.of("catalog"));
-        assertEquals(session.getSchema(), Optional.of("schema"));
+                        .setDefaultCatalog("default-catalog")
+                        .setDefaultSchema("default-schema"));
+        assertThat(session.getCatalog()).contains("default-catalog");
+        assertThat(session.getSchema()).contains("default-schema");
 
-        // only schema
+        // only default schema
         assertThatThrownBy(() -> createSessionSupplier(new SqlEnvironmentConfig().setDefaultSchema("schema")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Default schema cannot be set if catalog is not set");
-    }
 
-    @Test
-    public void testCatalogAndSchemaOverrides()
-    {
-        // none specified
-        Session session = createSession(
+        // both session and defaults set
+        session = createSession(
                 ImmutableListMultimap.<String, String>builder()
                         .put(TRINO_HEADERS.requestUser(), "testUser")
                         .put(TRINO_HEADERS.requestCatalog(), "catalog")
@@ -218,22 +221,37 @@ public class TestQuerySessionSupplier
                 new SqlEnvironmentConfig()
                         .setDefaultCatalog("default-catalog")
                         .setDefaultSchema("default-schema"));
-        assertEquals(session.getCatalog(), Optional.of("catalog"));
-        assertEquals(session.getSchema(), Optional.of("schema"));
+        assertThat(session.getCatalog()).contains("catalog");
+        assertThat(session.getSchema()).contains("schema");
+
+        // default schema not used when session catalog is set
+        session = createSession(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(TRINO_HEADERS.requestUser(), "testUser")
+                        .put(TRINO_HEADERS.requestCatalog(), "catalog")
+                        .build(),
+                new SqlEnvironmentConfig()
+                        .setDefaultCatalog("default-catalog")
+                        .setDefaultSchema("default-schema"));
+        assertThat(session.getCatalog()).contains("catalog");
+        assertThat(session.getSchema()).isEmpty();
     }
 
     private static Session createSession(ListMultimap<String, String> headers, SqlEnvironmentConfig config)
     {
         MultivaluedMap<String, String> headerMap = new GuavaMultivaluedMap<>(headers);
-        SessionContext context = new HttpRequestSessionContext(headerMap, Optional.empty(), "testRemote", Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headerMap, Optional.empty(), Optional.of("testRemote"), Optional.empty());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(config);
         return sessionSupplier.createSession(new QueryId("test_query_id"), context);
     }
 
     private static QuerySessionSupplier createSessionSupplier(SqlEnvironmentConfig config)
     {
+        TransactionManager transactionManager = createTestTransactionManager();
+        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
         return new QuerySessionSupplier(
-                createTestTransactionManager(),
+                transactionManager,
+                metadata,
                 new AllowAllAccessControl(),
                 new SessionPropertyManager(),
                 config);

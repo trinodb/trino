@@ -31,7 +31,7 @@ public class ConnectorMaterializedViewDefinition
     private final Optional<String> schema;
     private final List<Column> columns;
     private final Optional<String> comment;
-    private final String owner;
+    private final Optional<String> owner;
     private final Map<String, Object> properties;
 
     public ConnectorMaterializedViewDefinition(
@@ -41,7 +41,7 @@ public class ConnectorMaterializedViewDefinition
             Optional<String> schema,
             List<Column> columns,
             Optional<String> comment,
-            String owner,
+            Optional<String> owner,
             Map<String, Object> properties)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
@@ -51,11 +51,11 @@ public class ConnectorMaterializedViewDefinition
         this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
         this.comment = requireNonNull(comment, "comment is null");
         this.owner = requireNonNull(owner, "owner is null");
+        this.properties = requireNonNull(properties, "properties are null");
 
         if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
         }
-        this.properties = requireNonNull(properties, "properties are null");
         if (columns.isEmpty()) {
             throw new IllegalArgumentException("columns list is empty");
         }
@@ -91,7 +91,7 @@ public class ConnectorMaterializedViewDefinition
         return comment;
     }
 
-    public String getOwner()
+    public Optional<String> getOwner()
     {
         return owner;
     }

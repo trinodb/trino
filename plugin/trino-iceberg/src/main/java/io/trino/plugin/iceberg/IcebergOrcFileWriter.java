@@ -25,12 +25,14 @@ import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.OrcType;
+import io.trino.orc.metadata.statistics.BooleanStatistics;
 import io.trino.orc.metadata.statistics.ColumnStatistics;
 import io.trino.orc.metadata.statistics.DateStatistics;
 import io.trino.orc.metadata.statistics.DecimalStatistics;
 import io.trino.orc.metadata.statistics.DoubleStatistics;
 import io.trino.orc.metadata.statistics.IntegerStatistics;
 import io.trino.orc.metadata.statistics.StringStatistics;
+import io.trino.orc.metadata.statistics.TimestampStatistics;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.orc.OrcFileWriter;
 import io.trino.spi.type.Type;
@@ -53,6 +55,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -177,6 +180,13 @@ public class IcebergOrcFileWriter
 
     private static Optional<IcebergMinMax> toIcebergMinMax(ColumnStatistics orcColumnStats, org.apache.iceberg.types.Type icebergType)
     {
+        BooleanStatistics booleanStatistics = orcColumnStats.getBooleanStatistics();
+        if (booleanStatistics != null) {
+            boolean hasTrueValues = booleanStatistics.getTrueValueCount() != 0;
+            boolean hasFalseValues = orcColumnStats.getNumberOfValues() != booleanStatistics.getTrueValueCount();
+            return Optional.of(new IcebergMinMax(icebergType, !hasFalseValues, hasTrueValues));
+        }
+
         IntegerStatistics integerStatistics = orcColumnStats.getIntegerStatistics();
         if (integerStatistics != null) {
             Object min = integerStatistics.getMin();
@@ -231,6 +241,17 @@ public class IcebergOrcFileWriter
             min = min.setScale(((Types.DecimalType) icebergType).scale());
             max = max.setScale(((Types.DecimalType) icebergType).scale());
             return Optional.of(new IcebergMinMax(icebergType, min, max));
+        }
+        TimestampStatistics timestampStatistics = orcColumnStats.getTimestampStatistics();
+        if (timestampStatistics != null) {
+            Long min = timestampStatistics.getMin();
+            Long max = timestampStatistics.getMax();
+            if (min == null || max == null) {
+                return Optional.empty();
+            }
+            // Since ORC timestamp statistics are truncated to millisecond precision, this can cause some column values to fall outside the stats range.
+            // We are appending 999 microseconds to account for the fact that Trino ORC writer truncates timestamps.
+            return Optional.of(new IcebergMinMax(icebergType, min * MICROSECONDS_PER_MILLISECOND, (max * MICROSECONDS_PER_MILLISECOND) + (MICROSECONDS_PER_MILLISECOND - 1)));
         }
         return Optional.empty();
     }

@@ -10,11 +10,17 @@ You can configure one or more authentication types with the
 ``http-server.authentication.type`` property. The following authentication types
 and authenticators are available:
 
-* ``PASSSWORD`` for  :doc:`password-file`, :doc:`ldap`, and :doc:`salesforce`
+* ``PASSWORD`` for
+
+  *  :doc:`password-file`
+  *  :doc:`ldap`
+  *  :doc:`salesforce`
+
 * ``OAUTH2`` for :doc:`oauth2`
-* ``CERTIFICATE`` for certificate authentication
-* ``JWT`` for Java Web Token (JWT) authentication
 * ``KERBEROS`` for :doc:`kerberos`
+* ``CERTIFICATE`` for :doc:`certificate`
+* ``JWT`` for :doc:`jwt`
+* ``HEADER`` for :doc:`/develop/header-authenticator`
 
 Get started with a basic password authentication configuration backed by a
 :doc:`password file <password-file>`:
@@ -62,3 +68,19 @@ User authentication credentials are first validated against the LDAP server from
 file. First successful authentication results in access, and no further
 authenticators are called.
 
+Multiple header authenticators
+------------------------------------
+
+You can use multiple header authenticator types by referencing multiple
+configuration files:
+
+.. code-block:: properties
+
+    http-server.authentication.type=HEADER
+    header-authenticator.config-files=etc/xfcc.properties,etc/azureAD.properties
+
+Relative paths to the installation directory or absolute paths can be used.
+
+The pre-configured headers are first validated against the ``xfcc`` authenticator,
+then the ``azureAD`` authenticator. First successful authentication results in access,
+and no further authenticators are called.

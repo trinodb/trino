@@ -50,6 +50,46 @@ that can be set when creating a new schema.
 The table properties table contains the list of available properties
 that can be set when creating a new table.
 
+.. _system_metadata_materialized_views:
+
+``metadata.materialized_views``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The materialized views table contains the following information about all
+:ref:`materialized views <sql-materialized-views-management>`:
+
+.. list-table:: Metadata for materialized views
+  :widths: 30, 70
+  :header-rows: 1
+
+  * - Column
+    - Description
+  * - ``catalog_name``
+    - Name of the catalog containing the materialized view.
+  * - ``schema_name``
+    - Name of the schema in ``catalog_name`` containing the materialized view.
+  * - ``name``
+    - Name of the materialized view.
+  * - ``storage_catalog``
+    - Name of the catalog used for the storage table backing the materialized
+      view.
+  * - ``storage_schema``
+    - Name of the schema in ``storage_catalog`` used for the storage table
+      backing the materialized view.
+  * - ``storage_table``
+    - Name of the storage table backing the materialized view.
+  * - ``is_fresh``
+    - Flag to signal if data in the storage table is up to date. Queries on the
+      materialized view access the storage table if ``true``, otherwise
+      the ``definition`` is used to access the underlying data in the source
+      tables.
+  * - ``owner``
+    - Username of the creator and owner of the materialized view.
+  * - ``comment``
+    - User supplied text about the materialized view.
+  * - ``definition``
+    - SQL query that defines the data provided by the materialized view.
+
 ``metadata.materialized_view_properties``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -110,3 +150,12 @@ System connector procedures
 
     Kill the query identified by ``query_id``. The query failure message
     includes the specified ``message``.
+
+.. _system-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access Trino system
+data and metadata.

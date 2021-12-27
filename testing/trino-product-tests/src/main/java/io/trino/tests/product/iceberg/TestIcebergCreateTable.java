@@ -16,11 +16,11 @@ package io.trino.tests.product.iceberg;
 import io.trino.tempto.AfterTestWithContext;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.ProductTest;
-import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
@@ -42,8 +42,7 @@ public class TestIcebergCreateTable
         onTrino().executeQuery("DROP SCHEMA iceberg.iceberg");
     }
 
-    @Test(groups = {ICEBERG, STORAGE_FORMATS})
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/4864", match = "Failed to read footer of file")
+    @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testCreateTable()
     {
         String tableName = "iceberg.iceberg.test_create_table_" + randomTableSuffix();
@@ -64,8 +63,7 @@ public class TestIcebergCreateTable
         }
     }
 
-    @Test(groups = {ICEBERG, STORAGE_FORMATS})
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/4864", match = "Failed to read footer of file")
+    @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testCreateTableAsSelect()
     {
         String tableName = "iceberg.iceberg.test_create_table_as_select_" + randomTableSuffix();

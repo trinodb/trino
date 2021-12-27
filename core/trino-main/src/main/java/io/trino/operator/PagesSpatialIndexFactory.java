@@ -66,7 +66,7 @@ public class PagesSpatialIndexFactory
     @Nullable
     private Supplier<PagesSpatialIndex> pagesSpatialIndex;
 
-    private final SettableFuture<?> destroyed = SettableFuture.create();
+    private final SettableFuture<Void> destroyed = SettableFuture.create();
 
     public PagesSpatialIndexFactory(List<Type> types, List<Type> outputTypes)
     {
@@ -114,7 +114,7 @@ public class PagesSpatialIndexFactory
      * <p>
      * Returns a Future that completes once all the {@link SpatialJoinOperator}s have completed.
      */
-    public ListenableFuture<?> lendPagesSpatialIndex(Supplier<PagesSpatialIndex> pagesSpatialIndex)
+    public ListenableFuture<Void> lendPagesSpatialIndex(Supplier<PagesSpatialIndex> pagesSpatialIndex)
     {
         requireNonNull(pagesSpatialIndex, "pagesSpatialIndex is null");
 

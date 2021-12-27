@@ -16,6 +16,7 @@ package io.trino.plugin.hive.s3;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.units.Duration;
 import io.trino.plugin.hive.ConfigurationInitializer;
 import io.trino.plugin.hive.DynamicConfigurationProvider;
 import io.trino.plugin.hive.HiveConfig;
@@ -23,9 +24,12 @@ import io.trino.plugin.hive.rubix.RubixEnabledConfig;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.JavaUtils;
 
+import java.util.concurrent.TimeUnit;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HiveS3Module
@@ -61,13 +65,28 @@ public class HiveS3Module
 
     private void bindSecurityMapping(Binder binder)
     {
-        if (buildConfigObject(S3SecurityMappingConfig.class).getConfigFile().isPresent()) {
-            checkArgument(!buildConfigObject(HiveConfig.class).isS3SelectPushdownEnabled(), "S3 security mapping is not compatible with S3 Select pushdown");
-            checkArgument(!buildConfigObject(RubixEnabledConfig.class).isCacheEnabled(), "S3 security mapping is not compatible with Hive caching");
-
-            newSetBinder(binder, DynamicConfigurationProvider.class).addBinding()
-                    .to(S3SecurityMappingConfigurationProvider.class).in(Scopes.SINGLETON);
+        S3SecurityMappingConfig configuration = buildConfigObject(S3SecurityMappingConfig.class);
+        if (configuration.getConfigFilePath().isEmpty()) {
+            return;
         }
+
+        if (isHttp(configuration)) {
+            binder.bind(S3SecurityMappingsProvider.class).to(UriBasedS3SecurityMappingsProvider.class).in(Scopes.SINGLETON);
+            httpClientBinder(binder).bindHttpClient("s3SecurityMapping", ForS3SecurityMapping.class)
+                    .withConfigDefaults(config -> config
+                            .setRequestTimeout(Duration.succinctDuration(10, TimeUnit.SECONDS))
+                            .setSelectorCount(1)
+                            .setMinThreads(1));
+        }
+        else {
+            binder.bind(S3SecurityMappingsProvider.class).to(FileBasedS3SecurityMappingsProvider.class).in(Scopes.SINGLETON);
+        }
+
+        newSetBinder(binder, DynamicConfigurationProvider.class).addBinding()
+                .to(S3SecurityMappingConfigurationProvider.class).in(Scopes.SINGLETON);
+
+        checkArgument(!buildConfigObject(HiveConfig.class).isS3SelectPushdownEnabled(), "S3 security mapping is not compatible with S3 Select pushdown");
+        checkArgument(!buildConfigObject(RubixEnabledConfig.class).isCacheEnabled(), "S3 security mapping is not compatible with Hive caching");
     }
 
     private static void validateEmrFsClass()
@@ -79,6 +98,11 @@ public class HiveS3Module
         catch (ClassNotFoundException e) {
             throw new RuntimeException("EMR File System class not found: " + EMR_FS_CLASS_NAME, e);
         }
+    }
+
+    private static boolean isHttp(S3SecurityMappingConfig config)
+    {
+        return config.getConfigFilePath().map(configFile -> configFile.startsWith("https://") || configFile.startsWith("http://")).orElse(false);
     }
 
     public static class EmrFsS3ConfigurationInitializer

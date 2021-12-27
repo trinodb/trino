@@ -59,6 +59,7 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -104,7 +105,7 @@ public class TestArrayOperators
     {
         Block actualBlock = arrayBlockOf(new ArrayType(BIGINT), arrayBlockOf(BIGINT, 1L, 2L), arrayBlockOf(BIGINT, 3L));
         DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
-        writeBlock(functionAssertions.getMetadata().getBlockEncodingSerde(), actualSliceOutput, actualBlock);
+        writeBlock(functionAssertions.getPlannerContext().getBlockEncodingSerde(), actualSliceOutput, actualBlock);
 
         Block expectedBlock = new ArrayType(BIGINT)
                 .createBlockBuilder(null, 3)
@@ -112,7 +113,7 @@ public class TestArrayOperators
                 .appendStructure(BIGINT.createBlockBuilder(null, 1).writeLong(3).closeEntry().build())
                 .build();
         DynamicSliceOutput expectedSliceOutput = new DynamicSliceOutput(100);
-        writeBlock(functionAssertions.getMetadata().getBlockEncodingSerde(), expectedSliceOutput, expectedBlock);
+        writeBlock(functionAssertions.getPlannerContext().getBlockEncodingSerde(), expectedSliceOutput, expectedBlock);
 
         assertEquals(actualSliceOutput.slice(), expectedSliceOutput.slice());
     }
@@ -125,7 +126,7 @@ public class TestArrayOperators
     }
 
     @Test
-    public void testArrayElements()
+    public void testArrayToArrayCast()
     {
         assertFunction("CAST(ARRAY [null] AS ARRAY<INTEGER>)", new ArrayType(INTEGER), asList((Integer) null));
         assertFunction("CAST(ARRAY [1, 2, 3] AS ARRAY<INTEGER>)", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3));
@@ -624,6 +625,38 @@ public class TestArrayOperators
         assertDecimalFunction("ARRAY_MIN(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223])", decimal("2.111111222111111114111"));
         assertDecimalFunction("ARRAY_MIN(ARRAY [1.9, 2, 2.3])", decimal("0000000001.9"));
         assertDecimalFunction("ARRAY_MIN(ARRAY [2.22222222222222222, 2.3])", decimal("2.22222222222222222"));
+
+        assertFunction("ARRAY_MIN(ARRAY [ROW(NaN()), ROW(2), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(2.0));
+        assertFunction("ARRAY_MIN(ARRAY [ROW(2), ROW(NaN()), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(2.0));
+        assertFunction("ARRAY_MIN(ARRAY [ROW(2), ROW(3), ROW(NaN())])", anonymousRow(DOUBLE), ImmutableList.of(2.0));
+        assertFunction("ARRAY_MIN(ARRAY [NULL, ROW(NaN()), ROW(1)])", anonymousRow(DOUBLE), null);
+        assertFunction("ARRAY_MIN(ARRAY [ROW(NaN()), NULL, ROW(3.0)])", anonymousRow(DOUBLE), null);
+        assertFunction("ARRAY_MIN(ARRAY [ROW(1.0E0), NULL, ROW(3)])", anonymousRow(DOUBLE), null);
+        assertFunction("ARRAY_MIN(ARRAY [ROW(1.0), ROW(NaN()), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(1.0));
+
+        assertFunction("ARRAY_MIN(ARRAY [ROW(CAST(NaN() AS REAL)), ROW(REAL '2'), ROW(REAL '3')])", anonymousRow(REAL), ImmutableList.of(2.0f));
+        assertFunction("ARRAY_MIN(ARRAY [ROW(REAL '2'), ROW(CAST(NaN() AS REAL)), ROW(REAL '3')])", anonymousRow(REAL), ImmutableList.of(2.0f));
+        assertFunction("ARRAY_MIN(ARRAY [ROW(REAL '2'), ROW(REAL '3'), ROW(CAST(NaN() AS REAL))])", anonymousRow(REAL), ImmutableList.of(2.0f));
+        assertFunction("ARRAY_MIN(ARRAY [NULL, ROW(CAST(NaN() AS REAL)), ROW(REAL '1')])", anonymousRow(REAL), null);
+        assertFunction("ARRAY_MIN(ARRAY [ROW(CAST(NaN() AS REAL)), NULL, ROW(REAL '3')])", anonymousRow(REAL), null);
+        assertFunction("ARRAY_MIN(ARRAY [ROW(REAL '1'), NULL, ROW(REAL '3')])", anonymousRow(REAL), null);
+        assertFunction("ARRAY_MIN(ARRAY [ROW(REAL '1'), ROW(CAST(NaN() AS REAL)), ROW(REAL '3')])", anonymousRow(REAL), ImmutableList.of(1.0f));
+
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[NaN()], ARRAY[2], ARRAY[3]])", new ArrayType(DOUBLE), ImmutableList.of(2.0));
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[2], ARRAY[NaN()], ARRAY[3]])", new ArrayType(DOUBLE), ImmutableList.of(2.0));
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[2], ARRAY[3], ARRAY[NaN()]])", new ArrayType(DOUBLE), ImmutableList.of(2.0));
+        assertFunction("ARRAY_MIN(ARRAY [NULL, ARRAY[NaN()], ARRAY[1]])", new ArrayType(DOUBLE), null);
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[NaN()], NULL, ARRAY[3.0]])", new ArrayType(DOUBLE), null);
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[1.0E0], NULL, ARRAY[3]])", new ArrayType(DOUBLE), null);
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[1.0], ARRAY[NaN()], ARRAY[3]])", new ArrayType(DOUBLE), ImmutableList.of(1.0));
+
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '2'], ARRAY[REAL '3']])", new ArrayType(REAL), ImmutableList.of(2.0f));
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[REAL '2'], ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '3']])", new ArrayType(REAL), ImmutableList.of(2.0f));
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[REAL '2'], ARRAY[REAL '3'], ARRAY[CAST(NaN() AS REAL)]])", new ArrayType(REAL), ImmutableList.of(2.0f));
+        assertFunction("ARRAY_MIN(ARRAY [NULL, ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '1']])", new ArrayType(REAL), null);
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[CAST(NaN() AS REAL)], NULL, ARRAY[REAL '3']])", new ArrayType(REAL), null);
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[REAL '1'], NULL, ARRAY[REAL '3']])", new ArrayType(REAL), null);
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[REAL '1'], ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '3']])", new ArrayType(REAL), ImmutableList.of(1.0f));
     }
 
     @Test
@@ -668,6 +701,38 @@ public class TestArrayOperators
         assertDecimalFunction("ARRAY_MAX(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223])", decimal("2.222222222222223000000"));
         assertDecimalFunction("ARRAY_MAX(ARRAY [1.9, 2, 2.3])", decimal("0000000002.3"));
         assertDecimalFunction("ARRAY_MAX(ARRAY [2.22222222222222222, 2.3])", decimal("2.30000000000000000"));
+
+        assertFunction("ARRAY_MAX(ARRAY [ROW(NaN()), ROW(2), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("ARRAY_MAX(ARRAY [ROW(2), ROW(NaN()), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("ARRAY_MAX(ARRAY [ROW(2), ROW(3), ROW(NaN())])", anonymousRow(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("ARRAY_MAX(ARRAY [NULL, ROW(NaN()), ROW(1)])", anonymousRow(DOUBLE), null);
+        assertFunction("ARRAY_MAX(ARRAY [ROW(NaN()), NULL, ROW(3.0)])", anonymousRow(DOUBLE), null);
+        assertFunction("ARRAY_MAX(ARRAY [ROW(1.0E0), NULL, ROW(3)])", anonymousRow(DOUBLE), null);
+        assertFunction("ARRAY_MAX(ARRAY [ROW(1.0), ROW(NaN()), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(3.0));
+
+        assertFunction("ARRAY_MAX(ARRAY [ROW(CAST(NaN() AS REAL)), ROW(REAL '2'), ROW(REAL '3')])", anonymousRow(REAL), ImmutableList.of(3.0f));
+        assertFunction("ARRAY_MAX(ARRAY [ROW(REAL '2'), ROW(CAST(NaN() AS REAL)), ROW(REAL '3')])", anonymousRow(REAL), ImmutableList.of(3.0f));
+        assertFunction("ARRAY_MAX(ARRAY [ROW(REAL '2'), ROW(REAL '3'), ROW(CAST(NaN() AS REAL))])", anonymousRow(REAL), ImmutableList.of(3.0f));
+        assertFunction("ARRAY_MAX(ARRAY [NULL, ROW(CAST(NaN() AS REAL)), ROW(REAL '1')])", anonymousRow(REAL), null);
+        assertFunction("ARRAY_MAX(ARRAY [ROW(CAST(NaN() AS REAL)), NULL, ROW(REAL '3')])", anonymousRow(REAL), null);
+        assertFunction("ARRAY_MAX(ARRAY [ROW(REAL '1'), NULL, ROW(REAL '3')])", anonymousRow(REAL), null);
+        assertFunction("ARRAY_MAX(ARRAY [ROW(REAL '1'), ROW(CAST(NaN() AS REAL)), ROW(REAL '3')])", anonymousRow(REAL), ImmutableList.of(3.0f));
+
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[NaN()], ARRAY[2], ARRAY[3]])", new ArrayType(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[2], ARRAY[NaN()], ARRAY[3]])", new ArrayType(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[2], ARRAY[3], ARRAY[NaN()]])", new ArrayType(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("ARRAY_MAX(ARRAY [NULL, ARRAY[NaN()], ARRAY[1]])", new ArrayType(DOUBLE), null);
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[NaN()], NULL, ARRAY[3.0]])", new ArrayType(DOUBLE), null);
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[1.0E0], NULL, ARRAY[3]])", new ArrayType(DOUBLE), null);
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[1.0], ARRAY[NaN()], ARRAY[3]])", new ArrayType(DOUBLE), ImmutableList.of(3.0));
+
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '2'], ARRAY[REAL '3']])", new ArrayType(REAL), ImmutableList.of(3.0f));
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[REAL '2'], ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '3']])", new ArrayType(REAL), ImmutableList.of(3.0f));
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[REAL '2'], ARRAY[REAL '3'], ARRAY[CAST(NaN() AS REAL)]])", new ArrayType(REAL), ImmutableList.of(3.0f));
+        assertFunction("ARRAY_MAX(ARRAY [NULL, ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '1']])", new ArrayType(REAL), null);
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[CAST(NaN() AS REAL)], NULL, ARRAY[REAL '3']])", new ArrayType(REAL), null);
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[REAL '1'], NULL, ARRAY[REAL '3']])", new ArrayType(REAL), null);
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[REAL '1'], ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '3']])", new ArrayType(REAL), ImmutableList.of(3.0f));
     }
 
     @Test
@@ -707,11 +772,11 @@ public class TestArrayOperators
     @Test
     public void testSubscript()
     {
-        assertInvalidFunction("ARRAY [][1]", INVALID_FUNCTION_ARGUMENT, "Array subscript must be less than or equal to array length: 1 > 0");
-        assertInvalidFunction("ARRAY [null][-1]", INVALID_FUNCTION_ARGUMENT, "Array subscript is negative: -1");
-        assertInvalidFunction("ARRAY [1, 2, 3][0]", INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
-        assertInvalidFunction("ARRAY [1, 2, 3][-1]", INVALID_FUNCTION_ARGUMENT, "Array subscript is negative: -1");
-        assertInvalidFunction("ARRAY [1, 2, 3][4]", INVALID_FUNCTION_ARGUMENT, "Array subscript must be less than or equal to array length: 4 > 3");
+        assertInvalidFunction("ARRAY [][1]", "Array subscript must be less than or equal to array length: 1 > 0");
+        assertInvalidFunction("ARRAY [null][-1]", "Array subscript is negative: -1");
+        assertInvalidFunction("ARRAY [1, 2, 3][0]", "SQL array indices start at 1");
+        assertInvalidFunction("ARRAY [1, 2, 3][-1]", "Array subscript is negative: -1");
+        assertInvalidFunction("ARRAY [1, 2, 3][4]", "Array subscript must be less than or equal to array length: 4 > 3");
         assertInvalidFunction("ARRAY [1, 2, 3][1.1E0]", TYPE_MISMATCH, "line 1:1: Cannot use double for subscript of array(integer)");
 
         assertFunction("ARRAY[NULL][1]", UNKNOWN, null);
@@ -971,19 +1036,15 @@ public class TestArrayOperators
         assertInvalidFunction("ARRAY_SORT(ARRAY[color('red'), color('blue')])", FUNCTION_NOT_FOUND);
         assertInvalidFunction(
                 "ARRAY_SORT(ARRAY[2, 1, 2, 4], (x, y) -> y - x)",
-                INVALID_FUNCTION_ARGUMENT,
                 "Lambda comparator must return either -1, 0, or 1");
         assertInvalidFunction(
                 "ARRAY_SORT(ARRAY[1, 2], (x, y) -> x / COALESCE(y, 0))",
-                INVALID_FUNCTION_ARGUMENT,
                 "Lambda comparator must return either -1, 0, or 1");
         assertInvalidFunction(
                 "ARRAY_SORT(ARRAY[2, 3, 2, 4, 1], (x, y) -> IF(x > y, NULL, IF(x = y, 0, -1)))",
-                INVALID_FUNCTION_ARGUMENT,
                 "Lambda comparator must return either -1, 0, or 1");
         assertInvalidFunction(
                 "ARRAY_SORT(ARRAY[1, null], (x, y) -> x / COALESCE(y, 0))",
-                INVALID_FUNCTION_ARGUMENT,
                 "Lambda comparator must return either -1, 0, or 1");
 
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_SORT(ARRAY[2, 3, 4, 1])");
@@ -1653,19 +1714,15 @@ public class TestArrayOperators
         // failure modes
         assertInvalidFunction(
                 "SEQUENCE(2, -1, 1)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(-1, -10, 1)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(1, 1000000)",
-                INVALID_FUNCTION_ARGUMENT,
                 "result of sequence function must not have more than 10000 entries");
         assertInvalidFunction(
                 "SEQUENCE(date '2000-04-14', date '2030-04-12')",
-                INVALID_FUNCTION_ARGUMENT,
                 "result of sequence function must not have more than 10000 entries");
     }
 
@@ -1739,31 +1796,24 @@ public class TestArrayOperators
         // failure modes
         assertInvalidFunction(
                 "SEQUENCE(date '2016-04-12', date '2016-04-14', interval '-1' day)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(date '2016-04-14', date '2016-04-12', interval '1' day)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(date '2000-04-14', date '2030-04-12', interval '1' day)",
-                INVALID_FUNCTION_ARGUMENT,
                 "result of sequence function must not have more than 10000 entries");
         assertInvalidFunction(
                 "SEQUENCE(date '2018-01-01', date '2018-01-04', interval '18' hour)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence step must be a day interval if start and end values are dates");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-16 01:01:00', interval '-20' second)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:10:10', timestamp '2016-04-16 01:01:00', interval '20' second)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-16 09:01:00', interval '1' second)",
-                INVALID_FUNCTION_ARGUMENT,
                 "result of sequence function must not have more than 10000 entries");
     }
 
@@ -1831,27 +1881,21 @@ public class TestArrayOperators
         // failure modes
         assertInvalidFunction(
                 "SEQUENCE(date '2016-06-12', date '2016-04-12', interval '1' month)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(date '2016-04-12', date '2016-06-12', interval '-1' month)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(date '2000-04-12', date '3000-06-12', interval '1' month)",
-                INVALID_FUNCTION_ARGUMENT,
                 "result of sequence function must not have more than 10000 entries");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-05-16 01:00:10', timestamp '2016-04-16 01:01:00', interval '1' month)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:10:10', timestamp '2016-05-16 01:01:00', interval '-1' month)",
-                INVALID_FUNCTION_ARGUMENT,
                 "sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
         assertInvalidFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '3000-04-16 09:01:00', interval '1' month)",
-                INVALID_FUNCTION_ARGUMENT,
                 "result of sequence function must not have more than 10000 entries");
     }
 

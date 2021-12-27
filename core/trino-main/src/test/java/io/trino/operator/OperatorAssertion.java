@@ -139,7 +139,7 @@ public final class OperatorAssertion
 
     private static boolean handledBlocked(Operator operator)
     {
-        ListenableFuture<?> isBlocked = operator.isBlocked();
+        ListenableFuture<Void> isBlocked = operator.isBlocked();
         if (!isBlocked.isDone()) {
             tryGetFutureValue(isBlocked, 1, TimeUnit.MILLISECONDS);
             return true;

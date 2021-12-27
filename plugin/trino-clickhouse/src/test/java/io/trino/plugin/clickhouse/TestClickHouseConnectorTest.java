@@ -15,16 +15,7 @@ package io.trino.plugin.clickhouse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
-import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.planner.plan.ExchangeNode;
-import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.JoinNode;
-import io.trino.sql.planner.plan.MarkDistinctNode;
-import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -33,17 +24,28 @@ import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROPERTY;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PARTITION_BY_PROPERTY;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PRIMARY_KEY_PROPERTY;
+import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -81,6 +83,12 @@ public class TestClickHouseConnectorTest
                 return false;
 
             case SUPPORTS_ARRAY:
+                return false;
+
+            case SUPPORTS_DELETE:
+                return false;
+
+            case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             default:
@@ -214,6 +222,18 @@ public class TestClickHouseConnectorTest
                         "col_required2 Int64) ENGINE=Log");
     }
 
+    @Override
+    public void testCharVarcharComparison()
+    {
+        assertThatThrownBy(super::testCharVarcharComparison)
+                .hasMessageContaining("For query: ")
+                .hasMessageContaining("Actual rows")
+                .hasMessageContaining("Expected rows");
+
+        // TODO run the test with clickhouse.map-string-as-varchar
+        throw new SkipException("");
+    }
+
     @Test
     public void testDifferentEngine()
     {
@@ -313,6 +333,46 @@ public class TestClickHouseConnectorTest
                 "Invalid value for table property 'partition_by': .*");
     }
 
+    @Test
+    public void testSetTableProperties()
+            throws Exception
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_alter_table_properties",
+                "(p1 int NOT NULL, p2 int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['p1', 'p2'], primary_key = ARRAY['p1', 'p2'])")) {
+            assertThat(getTableProperties("tpch", table.getName()))
+                    .containsExactlyEntriesOf(ImmutableMap.of(
+                            "engine", "MergeTree",
+                            "order_by", "p1, p2",
+                            "partition_by", "",
+                            "primary_key", "p1, p2",
+                            "sample_by", ""));
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sample_by = 'p2'");
+            assertThat(getTableProperties("tpch", table.getName()))
+                    .containsExactlyEntriesOf(ImmutableMap.of(
+                            "engine", "MergeTree",
+                            "order_by", "p1, p2",
+                            "partition_by", "",
+                            "primary_key", "p1, p2",
+                            "sample_by", "p2"));
+        }
+    }
+
+    @Test
+    public void testAlterInvalidTableProperties()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_alter_table_properties",
+                "(p1 int NOT NULL, p2 int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['p1', 'p2'], primary_key = ARRAY['p1', 'p2'])")) {
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES invalid_property = 'p2'",
+                    "Catalog 'clickhouse' does not support table property 'invalid_property'");
+        }
+    }
+
     @Override
     protected TestTable createTableWithUnsupportedColumn()
     {
@@ -329,10 +389,6 @@ public class TestClickHouseConnectorTest
             case "boolean":
                 // ClickHouse does not have built-in support for boolean type and we map boolean to tinyint.
                 // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
-                return Optional.empty();
-
-            case "real":
-                // TODO (https://github.com/trinodb/trino/issues/7101) enable the test
                 return Optional.empty();
 
             case "varbinary":
@@ -352,122 +408,76 @@ public class TestClickHouseConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
-    @Test
-    public void testAggregationPushdown()
+    // TODO: Remove override once decimal predicate pushdown is implemented (https://github.com/trinodb/trino/issues/7100)
+    @Override
+    public void testNumericAggregationPushdown()
     {
-        // TODO support aggregation pushdown with GROUPING SETS
-        // TODO support aggregation over expressions
-
-        // SELECT DISTINCT
-        assertThat(query("SELECT DISTINCT regionkey FROM nation")).isFullyPushedDown();
-
-        // count()
-        assertThat(query("SELECT count(*) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count(1) FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count() FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, count(1) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-
-        // GROUP BY
-        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-
-        Session withMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(USE_MARK_DISTINCT, "true")
-                .build();
-
-        // distinct aggregation
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
-        // distinct aggregation with GROUP BY
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        // distinct aggregation with varchar
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
-        // two distinct aggregations
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
-                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
-        // distinct aggregation and a non-distinct aggregation
-        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
-                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
-
-        Session withoutMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(USE_MARK_DISTINCT, "false")
-                .build();
-
-        // distinct aggregation
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
-        // distinct aggregation with GROUP BY
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
-        // distinct aggregation with varchar
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
-        // two distinct aggregations
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
-        // distinct aggregation and a non-distinct aggregation
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
-                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
-
-        // GROUP BY and WHERE on bigint column
-        // GROUP BY and WHERE on aggregation key
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
-
-        // GROUP BY and WHERE on varchar column
-        // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isNotFullyPushedDown(FilterNode.class);
-
-        // GROUP BY above WHERE and LIMIT
-        assertThat(query("" +
-                "SELECT regionkey, sum(nationkey) " +
-                "FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) " +
-                "GROUP BY regionkey"))
-                .isFullyPushedDown();
-
-        // GROUP BY above TopN
-        assertThat(query("" +
-                "SELECT clerk, sum(totalprice) " +
-                "FROM (SELECT clerk, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) " +
-                "GROUP BY clerk"))
-                .isNotFullyPushedDown(TopNNode.class);
-
-        // GROUP BY with JOIN
-        assertThat(query(joinPushdownEnabled(getSession()), "" +
-                "SELECT n.regionkey, sum(c.acctbal) acctbals " +
-                "FROM nation n " +
-                "LEFT JOIN customer c USING (nationkey) " +
-                "GROUP BY 1"))
-                .isNotFullyPushedDown(
-                        node(JoinNode.class,
-                                anyTree(node(TableScanNode.class)),
-                                anyTree(node(TableScanNode.class))));
-
-        // decimals
         String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = new TestTable(onRemoteDatabase(),
-                schemaName + ".test_aggregation_pushdown",
-                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10)) Engine=Log",
-                ImmutableList.of("100.000, 100000000.000000000", "123.321, 123456789.987654321"))) {
-            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
+        try (TestTable testTable = createAggregationTestTable(schemaName + ".test_aggregation_pushdown",
+                ImmutableList.of("100.000, 100000000.000000000, 100.000, 100000000", "123.321, 123456789.987654321, 123.321, 123456789"))) {
+            assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal), sum(a_bigint), sum(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal), avg(a_bigint), avg(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
-
-        // TODO array_agg returns array, so it could be supported
-        assertThat(query("SELECT array_agg(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-
-        // histogram returns map, which is not supported
-        assertThat(query("SELECT histogram(regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-
-        // multimap_agg returns multimap, which is not supported
-        assertThat(query("SELECT multimap_agg(regionkey, nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
-
-        // approx_set returns HyperLogLog, which is not supported
-        assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
     }
 
+    @Override
+    protected TestTable createAggregationTestTable(String name, List<String> rows)
+    {
+        return new TestTable(onRemoteDatabase(), name, "(short_decimal Nullable(Decimal(9, 3)), long_decimal Nullable(Decimal(30, 10)), t_double Nullable(Float64), a_bigint Nullable(Int64)) Engine=Log", rows);
+    }
+
+    @Override
+    protected TestTable createTableWithDoubleAndRealColumns(String name, List<String> rows)
+    {
+        return new TestTable(onRemoteDatabase(), name, "(t_double Nullable(Float64), u_double Nullable(Float64), v_real Nullable(Float32), w_real Nullable(Float32)) Engine=Log", rows);
+    }
+
+    @Test
+    @Override
+    public void testInsertIntoNotNullColumn()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_not_null_", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
+            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
+            // ClickHouse inserts default values (e.g. 0 for integer column) even if we don't specify default clause in CREATE TABLE statement
+            assertUpdate(format("INSERT INTO %s (nullable_col) VALUES (1)", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2), (1, 0)");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_commuted_not_null_table", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
+            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
+            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+        }
+    }
+
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return clickhouseServer::execute;
+    }
+
+    private Map<String, String> getTableProperties(String schemaName, String tableName)
+            throws SQLException
+    {
+        String sql = "SELECT * FROM system.tables WHERE database = ? AND name = ?";
+        try (Connection connection = DriverManager.getConnection(clickhouseServer.getJdbcUrl());
+                PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            preparedStatement.setString(1, schemaName);
+            preparedStatement.setString(2, tableName);
+
+            ResultSet resultSet = preparedStatement.executeQuery();
+            ImmutableMap.Builder<String, String> properties = new ImmutableMap.Builder<>();
+            while (resultSet.next()) {
+                properties.put(ENGINE_PROPERTY, resultSet.getString("engine"));
+                properties.put(ORDER_BY_PROPERTY, resultSet.getString("sorting_key"));
+                properties.put(PARTITION_BY_PROPERTY, resultSet.getString("partition_key"));
+                properties.put(PRIMARY_KEY_PROPERTY, resultSet.getString("primary_key"));
+                properties.put(SAMPLE_BY_PROPERTY, resultSet.getString("sampling_key"));
+            }
+            return properties.build();
+        }
     }
 }

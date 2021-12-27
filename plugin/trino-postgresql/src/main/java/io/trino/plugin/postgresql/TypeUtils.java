@@ -60,6 +60,8 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.joda.time.DateTimeZone.UTC;
@@ -73,7 +75,7 @@ final class TypeUtils
     static String getArrayElementPgTypeName(ConnectorSession session, PostgreSqlClient client, Type elementType)
     {
         if (DOUBLE.equals(elementType)) {
-            return "float";
+            return "float8";
         }
 
         if (REAL.equals(elementType)) {
@@ -208,8 +210,8 @@ final class TypeUtils
             }
             else {
                 LongTimestampWithTimeZone value = (LongTimestampWithTimeZone) prestoNative;
-                long epochSeconds = value.getEpochMillis() / MILLISECONDS_PER_SECOND;
-                long nanosOfSecond = value.getEpochMillis() % MILLISECONDS_PER_SECOND * NANOSECONDS_PER_MILLISECOND
+                long epochSeconds = floorDiv(value.getEpochMillis(), MILLISECONDS_PER_SECOND);
+                long nanosOfSecond = floorMod(value.getEpochMillis(), MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND
                         + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
                 return OffsetDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds, nanosOfSecond), UTC_KEY.getZoneId());
             }

@@ -51,7 +51,7 @@ public class PrioritizedSplitRunner
 
     private final Ticker ticker;
 
-    private final SettableFuture<?> finishedFuture = SettableFuture.create();
+    private final SettableFuture<Void> finishedFuture = SettableFuture.create();
 
     private final AtomicBoolean destroyed = new AtomicBoolean();
 
@@ -99,7 +99,7 @@ public class PrioritizedSplitRunner
         return taskHandle;
     }
 
-    public ListenableFuture<?> getFinishedFuture()
+    public ListenableFuture<Void> getFinishedFuture()
     {
         return finishedFuture;
     }
@@ -149,7 +149,7 @@ public class PrioritizedSplitRunner
         return waitNanos.get();
     }
 
-    public ListenableFuture<?> process()
+    public ListenableFuture<Void> process()
     {
         try {
             long startNanos = ticker.read();
@@ -160,7 +160,7 @@ public class PrioritizedSplitRunner
             waitNanos.getAndAdd(startNanos - lastReady.get());
 
             CpuTimer timer = new CpuTimer();
-            ListenableFuture<?> blocked = split.processFor(SPLIT_RUN_QUANTA);
+            ListenableFuture<Void> blocked = split.processFor(SPLIT_RUN_QUANTA);
             CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
             long quantaScheduledNanos = ticker.read() - startNanos;

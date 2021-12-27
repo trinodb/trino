@@ -43,7 +43,6 @@ import java.io.UncheckedIOException;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -53,6 +52,7 @@ import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.reader.ColumnReaders.createColumnReader;
 import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
 import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class StructColumnReader
@@ -98,13 +98,13 @@ public class StructColumnReader
         for (Field field : this.type.getFields()) {
             String fieldName = field.getName()
                     .orElseThrow(() -> new IllegalArgumentException("ROW type does not have field names declared: " + type))
-                    .toLowerCase(Locale.ENGLISH);
+                    .toLowerCase(ENGLISH);
             fieldNames.add(fieldName);
 
             OrcColumn fieldStream = fieldMapper.get(fieldName);
 
             if (fieldStream != null) {
-                OrcReader.ProjectedLayout fieldLayout = readLayout.getFieldLayout(fieldName);
+                OrcReader.ProjectedLayout fieldLayout = readLayout.getFieldLayout(fieldStream);
                 if (fieldLayout != null) {
                     structFields.put(
                             fieldName,

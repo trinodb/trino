@@ -106,7 +106,7 @@ public class RuleAssert
     {
         checkArgument(plan == null, "plan has already been set");
 
-        PlanBuilder builder = new PlanBuilder(idAllocator, metadata);
+        PlanBuilder builder = new PlanBuilder(idAllocator, metadata, session);
         plan = planProvider.apply(builder);
         types = builder.getTypes();
         return this;

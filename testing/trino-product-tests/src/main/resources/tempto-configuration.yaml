@@ -4,9 +4,6 @@ hdfs:
     uri: http://${databases.hive.host}:50070
 
 databases:
-  default:
-    alias: presto
-
   hive:
     host: hadoop-master
     jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
@@ -174,6 +171,6 @@ tests:
 
 ldap:
    admin:
-       dn: cn=admin,dc=presto,dc=testldap,dc=com
+       dn: cn=admin,dc=trino,dc=testldap,dc=com
        password: admin
    url: ldap://ldapserver

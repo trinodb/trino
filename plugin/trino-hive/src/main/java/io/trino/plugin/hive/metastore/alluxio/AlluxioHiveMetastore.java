@@ -33,6 +33,7 @@ import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
@@ -197,8 +198,7 @@ public class AlluxioHiveMetastore
     public void updatePartitionStatistics(
             HiveIdentity identity,
             Table table,
-            String partitionName,
-            Function<PartitionStatistics, PartitionStatistics> update)
+            Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
         throw new TrinoException(NOT_SUPPORTED, "updatePartitionStatistics");
     }
@@ -260,7 +260,7 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public void dropDatabase(HiveIdentity identity, String databaseName)
+    public void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
     {
         throw new TrinoException(NOT_SUPPORTED, "dropDatabase");
     }
@@ -465,21 +465,19 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee,
-            Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
         throw new TrinoException(NOT_SUPPORTED, "grantTablePrivileges");
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee,
-            Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
     {
         throw new TrinoException(NOT_SUPPORTED, "revokeTablePrivileges");
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
     {
         throw new TrinoException(NOT_SUPPORTED, "listTablePrivileges");
     }

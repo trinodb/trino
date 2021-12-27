@@ -1,0 +1,10 @@
+{
+  {
+    "name": "pipeline",
+    "schedulingWeight": 350,
+  },
+  {
+    "name": "adhoc",
+    "schedulingWeight": 150
+  }
+}

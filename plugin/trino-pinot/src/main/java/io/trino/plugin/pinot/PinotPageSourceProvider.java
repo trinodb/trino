@@ -16,7 +16,7 @@ package io.trino.plugin.pinot;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.plugin.pinot.client.PinotQueryClient;
 import io.trino.plugin.pinot.query.DynamicTable;
-import io.trino.plugin.pinot.query.PinotQuery;
+import io.trino.plugin.pinot.query.PinotQueryInfo;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -41,6 +41,7 @@ public class PinotPageSourceProvider
     private final PinotQueryClient pinotQueryClient;
     private final PinotClient clusterInfoFetcher;
     private final int limitForSegmentQueries;
+    private final int limitForBrokerQueries;
     private final int estimatedNonNumericColumnSize;
 
     @Inject
@@ -53,6 +54,7 @@ public class PinotPageSourceProvider
         this.pinotQueryClient = requireNonNull(pinotQueryClient, "pinotQueryClient is null");
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "clusterInfoFetcher is null");
         this.limitForSegmentQueries = pinotConfig.getMaxRowsPerSplitForSegmentQueries();
+        this.limitForBrokerQueries = pinotConfig.getMaxRowsForBrokerQueries();
         estimatedNonNumericColumnSize = pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
     }
 
@@ -87,22 +89,23 @@ public class PinotPageSourceProvider
                         handles,
                         query);
             case BROKER:
-                PinotQuery pinotQuery;
+                PinotQueryInfo pinotQueryInfo;
                 if (pinotTableHandle.getQuery().isPresent()) {
                     DynamicTable dynamicTable = pinotTableHandle.getQuery().get();
-                    pinotQuery = new PinotQuery(dynamicTable.getTableName(),
+                    pinotQueryInfo = new PinotQueryInfo(dynamicTable.getTableName(),
                             extractPql(dynamicTable, pinotTableHandle.getConstraint(), handles),
                             dynamicTable.getGroupingColumns().size());
                 }
                 else {
-                    pinotQuery = new PinotQuery(pinotTableHandle.getTableName(), query, 0);
+                    pinotQueryInfo = new PinotQueryInfo(pinotTableHandle.getTableName(), query, 0);
                 }
 
                 return new PinotBrokerPageSource(
                         session,
-                        pinotQuery,
+                        pinotQueryInfo,
                         handles,
-                        clusterInfoFetcher);
+                        clusterInfoFetcher,
+                        limitForBrokerQueries);
         }
         throw new UnsupportedOperationException("Unknown Pinot split type: " + pinotSplit.getSplitType());
     }

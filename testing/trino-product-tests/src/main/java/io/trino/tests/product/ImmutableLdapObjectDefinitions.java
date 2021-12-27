@@ -25,9 +25,10 @@ import static java.lang.String.format;
 
 public final class ImmutableLdapObjectDefinitions
 {
-    private static final String DOMAIN = "dc=presto,dc=testldap,dc=com";
+    private static final String DOMAIN = "dc=trino,dc=testldap,dc=com";
     private static final String AMERICA_DISTINGUISHED_NAME = format("ou=America,%s", DOMAIN);
     private static final String ASIA_DISTINGUISHED_NAME = format("ou=Asia,%s", DOMAIN);
+    private static final String EUROPE_DISTINGUISHED_NAME = format("ou=Europe,%s", DOMAIN);
     private static final String LDAP_PASSWORD = "LDAPPass123";
     private static final String MEMBER_OF = "memberOf";
     private static final String MEMBER = "member";
@@ -38,6 +39,8 @@ public final class ImmutableLdapObjectDefinitions
     public static final LdapObjectDefinition AMERICA_ORG = buildLdapOrganizationObject("America", AMERICA_DISTINGUISHED_NAME, "America");
 
     public static final LdapObjectDefinition ASIA_ORG = buildLdapOrganizationObject("Asia", ASIA_DISTINGUISHED_NAME, "Asia");
+
+    public static final LdapObjectDefinition EUROPE_ORG = buildLdapOrganizationObject("Europe", EUROPE_DISTINGUISHED_NAME, "Europe");
 
     public static final LdapObjectDefinition DEFAULT_GROUP = buildLdapGroupObject("DefaultGroup", "DefaultGroupUser", Optional.of(Arrays.asList("ChildGroup")));
 
@@ -56,6 +59,10 @@ public final class ImmutableLdapObjectDefinitions
     public static final LdapObjectDefinition SPECIAL_USER = buildLdapUserObject("User WithSpecialPwd", Optional.of(Arrays.asList("DefaultGroup")), "LDAP:Pass ~!@#$%^&*()_+{}|:\"<>?/.,';\\][=-`");
 
     public static final LdapObjectDefinition USER_IN_MULTIPLE_GROUPS = buildLdapUserObject("UserInMultipleGroups", Optional.of(Arrays.asList("DefaultGroup", "ParentGroup")), LDAP_PASSWORD);
+
+    public static final LdapObjectDefinition USER_IN_EUROPE = buildLdapUserObject("EuropeUser", EUROPE_DISTINGUISHED_NAME, Optional.of(Arrays.asList("DefaultGroup")), Optional.of(AMERICA_DISTINGUISHED_NAME), LDAP_PASSWORD);
+
+    public static final LdapObjectDefinition USER_IN_AMERICA = buildLdapUserObject("AmericanUser", AMERICA_DISTINGUISHED_NAME, Optional.of(Arrays.asList("DefaultGroup")), Optional.of(AMERICA_DISTINGUISHED_NAME), LDAP_PASSWORD);
 
     public static LdapObjectDefinition buildLdapOrganizationObject(String id, String distinguishedName, String unit)
     {

@@ -35,6 +35,8 @@ for (file in files) {
         Files.move(source, target)
     }
     else if (!Files.isSameFile(source, target)) {
+        // isSameFile returns true for hard links to the same file, so this means
+        // that source and target are different files with the same name
         throw new RuntimeException("Not same file: $source <> $target")
     }
     else {

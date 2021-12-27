@@ -2,8 +2,12 @@
 Deploying Trino
 ================
 
+.. _requirements:
+
 Requirements
 ------------
+
+.. _requirements-linux:
 
 Linux operating system
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -27,15 +31,16 @@ Linux operating system
 Java runtime environment
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Trino requires a 64-bit version of Java 11, with a minimum required version of 11.0.7.
-Newer patch versions such as 11.0.8 or 11.0.9 are recommended. Earlier patch versions
-such as 11.0.2 do not work, nor will earlier major versions such as Java 8. Newer major
-versions such as Java 12 or 13 are not supported -- they may work, but are not tested.
+Trino requires a 64-bit version of Java 11, with a minimum required version of 11.0.11.
+Earlier patch versions such as 11.0.2 do not work, nor will earlier major versions such as Java 8.
+Newer major versions such as Java 12 or 13 are not supported -- they may work, but are not tested.
 
 We recommend using `Azul Zulu <https://www.azul.com/downloads/zulu-community/>`_
 as the JDK for Trino, as Trino is tested against that distribution.
 Zulu is also the JDK used by the
 `Trino Docker image <https://hub.docker.com/r/trinodb/trino>`_.
+
+.. _requirements-python:
 
 Python
 ^^^^^^
@@ -65,6 +70,8 @@ This holds the following configuration:
 * Config Properties: configuration for the Trino server
 * Catalog Properties: configuration for :doc:`/connector` (data sources)
 
+.. _node_properties:
+
 Node properties
 ^^^^^^^^^^^^^^^
 
@@ -83,8 +90,8 @@ The above properties are described below:
 
 * ``node.environment``:
   The name of the environment. All Trino nodes in a cluster must have the same
-  environment name. The name must start with an alphanumeric character and
-  only contain alphanumeric, ``-``, or ``_`` characters.
+  environment name. The name must start with a lowercase alphanumeric character
+  and only contain lowercase alphanumeric or underscore (``_``) characters.
 
 * ``node.id``:
   The unique identifier for this installation of Trino. This must be
@@ -99,7 +106,7 @@ The above properties are described below:
   The location (filesystem path) of the data directory. Trino stores
   logs and other data here.
 
-.. _trino_jvm_config:
+.. _jvm_config:
 
 JVM config
 ^^^^^^^^^^
@@ -161,7 +168,6 @@ The following is a minimal configuration for the coordinator:
     query.max-memory=50GB
     query.max-memory-per-node=1GB
     query.max-total-memory-per-node=2GB
-    discovery-server.enabled=true
     discovery.uri=http://example.net:8080
 
 And this is a minimal configuration for the workers:
@@ -186,7 +192,6 @@ functions as both a coordinator and worker, use this configuration:
     query.max-memory=5GB
     query.max-memory-per-node=1GB
     query.max-total-memory-per-node=2GB
-    discovery-server.enabled=true
     discovery.uri=http://example.net:8080
 
 These properties require some explanation:
@@ -216,20 +221,14 @@ These properties require some explanation:
   The maximum amount of user and system memory, that a query may use on any one machine,
   where system memory is the memory used during execution by readers, writers, and network buffers, etc.
 
-* ``discovery-server.enabled``:
-  Trino uses the Discovery service to find all the nodes in the cluster.
-  Every Trino instance registers itself with the Discovery service
-  on startup. In order to simplify deployment and avoid running an additional
-  service, the Trino coordinator can run an embedded version of the
-  Discovery service. It shares the HTTP server with Trino and thus uses
-  the same port.
-
 * ``discovery.uri``:
-  The URI to the Discovery server. Because we have enabled the embedded
-  version of Discovery in the Trino coordinator, this should be the
-  URI of the Trino coordinator. Replace ``example.net:8080`` to match
-  the host and port of the Trino coordinator. This URI must not end
-  in a slash.
+  The Trino coordinator has a discovery service that is used by all the nodes
+  to find each other. Every Trino instance registers itself with the discovery
+  service on startup and continuously heartbeats to keep its registration
+  active. The discovery service shares the HTTP server with Trino and thus
+  uses the same port. Replace ``example.net:8080`` to match the host and
+  port of the Trino coordinator. If you have disabled HTTP on the coordinator,
+  the URI scheme must be ``https``, not ``http``.
 
 The above configuration properties are a minimal set to help you get started.
 Please see :doc:`/admin` and :doc:`/security` for a more comprehensive list.
@@ -255,6 +254,8 @@ This would set the minimum level to ``INFO`` for both
 The default minimum level is ``INFO``,
 thus the above example does not actually change anything.
 There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
+
+.. _catalog_properties:
 
 Catalog properties
 ^^^^^^^^^^^^^^^^^^

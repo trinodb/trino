@@ -17,7 +17,6 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -31,18 +30,13 @@ import io.trino.plugin.pinot.client.PinotHostMapper;
 import io.trino.plugin.pinot.client.PinotQueryClient;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeId;
-import io.trino.spi.type.TypeManager;
 import org.apache.pinot.common.utils.DataSchema;
 
-import javax.inject.Inject;
 import javax.management.MBeanServer;
 
 import java.io.IOException;
 import java.util.concurrent.Executor;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -60,13 +54,11 @@ public class PinotModule
         implements Module
 {
     private final String catalogName;
-    private final TypeManager typeManager;
     private final NodeManager nodeManager;
 
-    public PinotModule(String catalogName, TypeManager typeManager, NodeManager nodeManager)
+    public PinotModule(String catalogName, NodeManager nodeManager)
     {
         this.catalogName = catalogName;
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
@@ -97,36 +89,12 @@ public class PinotModule
                     cfg.setTimeoutConcurrency(4);
                 });
 
-        jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(DataSchema.class).to(DataSchemaDeserializer.class);
         PinotClient.addJsonBinders(jsonCodecBinder(binder));
         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(getPlatformMBeanServer()));
-        binder.bind(TypeManager.class).toInstance(typeManager);
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(ConnectorNodePartitioningProvider.class).to(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, PinotHostMapper.class).setDefault().to(IdentityPinotHostMapper.class).in(Scopes.SINGLETON);
-    }
-
-    @SuppressWarnings("serial")
-    public static final class TypeDeserializer
-            extends FromStringDeserializer<Type>
-    {
-        private final TypeManager typeManager;
-
-        @Inject
-        public TypeDeserializer(TypeManager typeManager)
-        {
-            super(Type.class);
-            this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        }
-
-        @Override
-        protected Type _deserialize(String value, DeserializationContext context)
-        {
-            Type type = typeManager.getType(TypeId.of(value));
-            checkArgument(type != null, "Unknown type %s", value);
-            return type;
-        }
     }
 
     public static final class DataSchemaDeserializer

@@ -18,13 +18,13 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
 import java.util.function.Supplier;
@@ -32,17 +32,9 @@ import java.util.function.Supplier;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
-/**
- * This factory class creates the KinesisConnector during server start and binds all the dependency
- * by calling create() method.
- */
 public class KinesisConnectorFactory
         implements ConnectorFactory
 {
-    public KinesisConnectorFactory()
-    {
-    }
-
     @Override
     public String getName()
     {
@@ -64,22 +56,21 @@ public class KinesisConnectorFactory
         try {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
+                    new TypeDeserializerModule(context.getTypeManager()),
                     new KinesisModule(),
                     binder -> {
-                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(KinesisHandleResolver.class).toInstance(new KinesisHandleResolver());
                         binder.bind(KinesisClientProvider.class).to(KinesisClientManager.class).in(Scopes.SINGLETON);
                         binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KinesisStreamDescription>>>() {}).to(KinesisTableDescriptionSupplier.class).in(Scopes.SINGLETON);
                     });
 
-            Injector injector = app.strictConfig()
+            Injector injector = app
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();
 
-            KinesisConnector connector = injector.getInstance(KinesisConnector.class);
-            return connector;
+            return injector.getInstance(KinesisConnector.class);
         }
         catch (Exception e) {
             throwIfUnchecked(e);

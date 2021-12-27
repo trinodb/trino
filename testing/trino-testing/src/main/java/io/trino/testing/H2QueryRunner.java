@@ -74,6 +74,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
@@ -356,6 +357,10 @@ public class H2QueryRunner
                     // H2 supports TIMESTAMP WITH TIME ZONE via org.h2.api.TimestampWithTimeZone, but it represent only a fixed-offset TZ (not named)
                     // This means H2 is unsuitable for testing TIMESTAMP WITH TIME ZONE-bearing queries. Those need to be tested manually.
                     throw new UnsupportedOperationException();
+                }
+                else if (UUID.equals(type)) {
+                    java.util.UUID value = (java.util.UUID) resultSet.getObject(i);
+                    row.add(value);
                 }
                 else if (UNKNOWN.equals(type)) {
                     Object objectValue = resultSet.getObject(i);

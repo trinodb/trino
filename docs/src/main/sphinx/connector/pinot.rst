@@ -5,10 +5,14 @@ Pinot connector
 The Pinot connector allows Trino to query data stored in
 `Apache Pinot™ <https://pinot.apache.org/>`_.
 
-Compatibility
--------------
+Requirements
+------------
 
-The Pinot connector is compatible with all Pinot versions starting from 0.1.0.
+To connect to Pinot, you need:
+
+* Pinot 0.8.0 or higher.
+* Network access from the Trino coordinator and workers to the Pinot controller
+  nodes. Port 8098 is the default port.
 
 Configuration
 -------------
@@ -19,9 +23,9 @@ e.g. ``etc/catalog/pinot.properties`` with at least the following contents:
 .. code-block:: text
 
     connector.name=pinot
-    pinot.controller-urls=host1:9000,host2:9000
+    pinot.controller-urls=host1:8098,host2:8098
 
-Replace ``host1:9000,host2:9000`` with a comma-separated list of Pinot Controller nodes.
+Replace ``host1:8098,host2:8098`` with a comma-separated list of Pinot controller nodes.
 This can be the ip or the FDQN, the url scheme (``http://``) is optional.
 
 Configuration properties
@@ -110,3 +114,38 @@ Pinot                        Trino
 ``STRING_ARRAY``             ``VARCHAR``
 ==========================   ============
 
+.. _pinot-sql-support:
+
+SQL support
+-----------
+
+The connector provides :ref:`globally available <sql-globally-available>` and
+:ref:`read operation <sql-read-operations>` statements to access data and
+metadata in Pinot.
+
+.. _pinot-pushdown:
+
+Pushdown
+--------
+
+The connector supports pushdown for a number of operations:
+
+* :ref:`limit-pushdown`
+
+:ref:`Aggregate pushdown <aggregation-pushdown>` for the following functions:
+
+* :func:`avg`
+* :func:`approx_distinct`
+* ``count(*)`` and ``count(distinct)`` variations of :func:`count`
+* :func:`max`
+* :func:`min`
+* :func:`sum`
+
+Aggregate function pushdown is enabled by default, but can be disabled with the
+catalog property ``pinot.aggregation-pushdown.enabled`` or the catalog session
+property ``aggregation_pushdown_enabled``.
+
+A ``count(distint)`` pushdown may cause Pinot to run a full table scan with
+significant performance impact. If you encounter this problem, you can disable
+it with the catalog property ``pinot.count-distinct-pushdown.enabled`` or the
+catalog session property ``count_distinct_pushdown_enabled``.

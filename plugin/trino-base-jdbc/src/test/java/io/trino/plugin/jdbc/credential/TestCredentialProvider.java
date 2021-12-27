@@ -18,9 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.bootstrap.Bootstrap;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.io.Resources.getResource;
 import static org.testng.Assert.assertEquals;
 
 public class TestCredentialProvider
@@ -81,6 +84,11 @@ public class TestCredentialProvider
 
     private String getResourceFilePath(String fileName)
     {
-        return this.getClass().getClassLoader().getResource(fileName).getPath();
+        try {
+            return new File(getResource(fileName).toURI()).getPath();
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

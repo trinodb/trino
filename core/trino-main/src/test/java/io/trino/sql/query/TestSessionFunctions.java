@@ -13,14 +13,18 @@
  */
 package io.trino.sql.query;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.security.Identity;
 import io.trino.sql.SqlPath;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSessionFunctions
@@ -68,8 +72,8 @@ public class TestSessionFunctions
                     .matches("VALUES CAST('" + session.getCatalog().get() + "' AS VARCHAR)");
 
             session = testSessionBuilder()
-                    .setCatalog(null)
-                    .setSchema(null)
+                    .setCatalog(Optional.empty())
+                    .setSchema(Optional.empty())
                     .build();
             assertThat(assertions.query(session, "SELECT CURRENT_CATALOG"))
                     .matches("VALUES CAST(NULL AS VARCHAR)");
@@ -88,10 +92,34 @@ public class TestSessionFunctions
                     .matches("VALUES CAST('" + session.getSchema().get() + "' AS VARCHAR)");
 
             session = testSessionBuilder()
-                    .setSchema(null)
+                    .setSchema(Optional.empty())
                     .build();
             assertThat(assertions.query(session, "SELECT CURRENT_SCHEMA"))
                     .matches("VALUES CAST(NULL AS VARCHAR)");
+        }
+    }
+
+    @Test
+    public void testCurrentGroups()
+    {
+        Identity identityWithoutGroups = Identity.ofUser("test_current_user");
+        Session session;
+
+        session = testSessionBuilder()
+                .setIdentity(identityWithoutGroups)
+                .build();
+        try (QueryAssertions queryAssertions = new QueryAssertions(session)) {
+            assertThat(queryAssertions.query("SELECT current_groups()")).matches("SELECT CAST(ARRAY[] AS ARRAY(VARCHAR))");
+        }
+
+        Set<String> groups = ImmutableSet.of("group_a", "group_b");
+        Identity identityWithGroups = new Identity.Builder("test_current_user").withGroups(groups).build();
+        session = testSessionBuilder()
+                .setIdentity(identityWithGroups)
+                .build();
+        try (QueryAssertions queryAssertions = new QueryAssertions(session)) {
+            assertThat(queryAssertions.query("SELECT array_sort(current_groups())"))
+                    .matches(format("SELECT CAST(ARRAY[%s] AS ARRAY(VARCHAR))", groups.stream().map(e -> format("'%s'", e)).collect(joining(","))));
         }
     }
 }

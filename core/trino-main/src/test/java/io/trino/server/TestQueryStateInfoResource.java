@@ -225,14 +225,16 @@ public class TestQueryStateInfoResource
         }
     }
 
-    @Test(expectedExceptions = UnexpectedResponseException.class, expectedExceptionsMessageRegExp = "Expected response code .*, but was 404")
+    @Test
     public void testGetQueryStateInfoNo()
     {
-        client.execute(
+        assertThatThrownBy(() -> client.execute(
                 prepareGet()
                         .setUri(server.resolve("/v1/queryState/123"))
                         .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                         .build(),
-                createJsonResponseHandler(jsonCodec(QueryStateInfo.class)));
+                createJsonResponseHandler(jsonCodec(QueryStateInfo.class))))
+                .isInstanceOf(UnexpectedResponseException.class)
+                .hasMessageMatching("Expected response code .*, but was 404");
     }
 }

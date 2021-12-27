@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.tests.product.launcher.env.Environments.canonicalName;
+import static io.trino.tests.product.launcher.Configurations.canonicalEnvironmentName;
 import static java.util.Objects.requireNonNull;
 
 public final class EnvironmentFactory
@@ -34,12 +34,12 @@ public final class EnvironmentFactory
         this.environmentProviders = requireNonNull(environmentProviders, "environmentProviders is null");
     }
 
-    public Environment.Builder get(String environmentName, EnvironmentConfig config)
+    public Environment.Builder get(String environmentName, EnvironmentConfig config, Map<String, String> extraOptions)
     {
-        environmentName = canonicalName(environmentName);
+        environmentName = canonicalEnvironmentName(environmentName);
         checkArgument(environmentProviders.containsKey(environmentName), "No environment with name '%s'. Those do exist, however: %s", environmentName, list());
         return environmentProviders.get(environmentName)
-                .createEnvironment(environmentName, config);
+                .createEnvironment(environmentName, config, extraOptions);
     }
 
     public List<String> list()

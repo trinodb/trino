@@ -70,45 +70,44 @@ public final class MapFromEntriesFunction
                     convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode keyHashCode,
             @TypeParameter("map(K,V)") MapType mapType,
             ConnectorSession session,
-            @SqlType("array(row(K,V))") Block block)
+            @SqlType("array(row(K,V))") Block mapEntries)
     {
         Type keyType = mapType.getKeyType();
         Type valueType = mapType.getValueType();
-        RowType rowType = RowType.anonymous(ImmutableList.of(keyType, valueType));
+        RowType mapEntryType = RowType.anonymous(ImmutableList.of(keyType, valueType));
 
         if (pageBuilder.isFull()) {
             pageBuilder.reset();
         }
 
-        int entryCount = block.getPositionCount();
+        int entryCount = mapEntries.getPositionCount();
 
         BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
         BlockBuilder resultBuilder = mapBlockBuilder.beginBlockEntry();
         TypedSet uniqueKeys = createEqualityTypedSet(keyType, keyEqual, keyHashCode, entryCount, "map_from_entries");
 
         for (int i = 0; i < entryCount; i++) {
-            if (block.isNull(i)) {
+            if (mapEntries.isNull(i)) {
                 mapBlockBuilder.closeEntry();
                 pageBuilder.declarePosition();
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map entry cannot be null");
             }
-            Block rowBlock = rowType.getObject(block, i);
+            Block mapEntryBlock = mapEntryType.getObject(mapEntries, i);
 
-            if (rowBlock.isNull(0)) {
+            if (mapEntryBlock.isNull(0)) {
                 mapBlockBuilder.closeEntry();
                 pageBuilder.declarePosition();
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
 
-            if (uniqueKeys.contains(rowBlock, 0)) {
+            if (!uniqueKeys.add(mapEntryBlock, 0)) {
                 mapBlockBuilder.closeEntry();
                 pageBuilder.declarePosition();
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", keyType.getObjectValue(session, rowBlock, 0)));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", keyType.getObjectValue(session, mapEntryBlock, 0)));
             }
-            uniqueKeys.add(rowBlock, 0);
 
-            keyType.appendTo(rowBlock, 0, resultBuilder);
-            valueType.appendTo(rowBlock, 1, resultBuilder);
+            keyType.appendTo(mapEntryBlock, 0, resultBuilder);
+            valueType.appendTo(mapEntryBlock, 1, resultBuilder);
         }
 
         mapBlockBuilder.closeEntry();

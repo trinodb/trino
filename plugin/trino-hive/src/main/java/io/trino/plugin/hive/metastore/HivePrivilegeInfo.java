@@ -92,8 +92,10 @@ public class HivePrivilegeInfo
                 return DELETE;
             case UPDATE:
                 return UPDATE;
+            case CREATE:// Hive does not support CREATE privilege
+            default:
+                throw new IllegalArgumentException("Unexpected privilege: " + privilege);
         }
-        throw new IllegalArgumentException("Unexpected privilege: " + privilege);
     }
 
     public boolean isContainedIn(HivePrivilegeInfo hivePrivilegeInfo)

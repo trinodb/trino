@@ -118,7 +118,7 @@ public abstract class AbstractResourceConfigurationManager
                     .filter(groupSpec -> groupSpec.getName().equals(groupName))
                     .findFirst();
             if (match.isEmpty()) {
-                throw new IllegalArgumentException(format("Selector refers to nonexistent group: %s", fullyQualifiedGroupName.toString()));
+                throw new IllegalArgumentException(format("Selector refers to nonexistent group: %s", fullyQualifiedGroupName));
             }
             fullyQualifiedGroupName.append(".");
             groups = match.get().getSubGroups();

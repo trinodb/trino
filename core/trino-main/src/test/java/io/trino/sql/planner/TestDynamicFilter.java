@@ -15,12 +15,12 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.FeaturesConfig.JoinDistributionType;
+import io.trino.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.sql.DynamicFilters;
-import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.MatchResult;
 import io.trino.sql.planner.assertions.Matcher;
@@ -28,6 +28,12 @@ import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.DataType;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.GenericDataType;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.NumericParameter;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -45,6 +51,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -119,6 +126,23 @@ public class TestDynamicFilter
     }
 
     @Test
+    public void testRightEquiJoinWithLeftExpression()
+    {
+        assertPlan("SELECT o.orderkey FROM orders o RIGHT JOIN lineitem l ON l.orderkey + 1 = o.orderkey",
+                output(
+                        join(
+                                RIGHT,
+                                ImmutableList.of(equiJoinClause("ORDERS_OK", "expr")),
+                                ImmutableMap.of("ORDERS_OK", "expr"),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("expr", expression("LINEITEM_OK + BIGINT '1'")),
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+    }
+
+    @Test
     public void testRightNonEquiJoin()
     {
         assertPlan("SELECT o.orderkey FROM orders o RIGHT JOIN lineitem l ON l.orderkey < o.orderkey",
@@ -155,6 +179,22 @@ public class TestDynamicFilter
     public void testCrossJoinInequalityDF()
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey > l.orderkey",
+                anyTree(filter("O_ORDERKEY > L_ORDERKEY",
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", GREATER_THAN, "L_ORDERKEY")),
+                                filter(
+                                        TRUE_LITERAL,
+                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
+                                exchange(
+                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testCrossJoinInequalityDFWithConditionReversed()
+    {
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey < o.orderkey",
                 anyTree(filter("O_ORDERKEY > L_ORDERKEY",
                         join(
                                 INNER,
@@ -212,17 +252,41 @@ public class TestDynamicFilter
     }
 
     @Test
-    public void testCrossJoinInequalityNoDFWithCast()
+    public void testCrossJoinInequalityWithCastOnTheLeft()
     {
         assertPlan("SELECT o.comment, l.comment FROM lineitem l, orders o WHERE o.comment < l.comment",
                 anyTree(filter("CAST(L_COMMENT AS varchar(79)) > O_COMMENT",
                         join(
                                 INNER,
                                 ImmutableList.of(),
-                                tableScan("lineitem", ImmutableMap.of("L_COMMENT", "comment")),
+                                ImmutableList.of(
+                                        new DynamicFilterPattern(
+                                                typeOnlyCast("L_COMMENT", varchar(79)),
+                                                GREATER_THAN,
+                                                "O_COMMENT",
+                                                false)),
+                                filter(TRUE_LITERAL,
+                                        tableScan("lineitem", ImmutableMap.of("L_COMMENT", "comment"))),
                                 exchange(
                                         tableScan("orders", ImmutableMap.of("O_COMMENT", "comment")))))));
+    }
 
+    private DataType varchar(int size)
+    {
+        return new GenericDataType(
+                Optional.empty(),
+                new Identifier("varchar"),
+                ImmutableList.of(new NumericParameter(Optional.empty(), String.valueOf(size))));
+    }
+
+    private Expression typeOnlyCast(String symbol, DataType asDataType)
+    {
+        return new Cast(new Symbol(symbol).toSymbolReference(), asDataType, false, true);
+    }
+
+    @Test
+    public void testCrossJoinInequalityWithCastOnTheRight()
+    {
         assertPlan("SELECT o.comment, l.comment FROM orders o, lineitem l WHERE o.comment < l.comment",
                 anyTree(filter("O_COMMENT < CAST(L_COMMENT AS varchar(79))",
                         join(
@@ -237,6 +301,22 @@ public class TestDynamicFilter
     public void testJoin()
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                                ImmutableMap.of("ORDERS_OK", "LINEITEM_OK"),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                exchange(
+                                        project(
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+    }
+
+    @Test
+    public void testInnerJoinWithConditionReversed()
+    {
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey = l.orderkey",
                 anyTree(
                         join(
                                 INNER,
@@ -285,6 +365,40 @@ public class TestDynamicFilter
                                 tableScan("orders", ImmutableMap.of("O_TOTALPRICE", "totalprice")),
                                 exchange(
                                         tableScan("lineitem", ImmutableMap.of("L_EXTENDEDPRICE", "extendedprice")))))));
+    }
+
+    @Test
+    public void testNotDistinctFromLeftJoin()
+    {
+        // IS NOT DISTINCT FROM condition does not promote LEFT to INNER
+        assertPlan("SELECT 1 FROM (SELECT o.orderkey FROM nation n LEFT JOIN orders o ON n.nationkey = o.orderkey) o JOIN lineitem l ON o.orderkey IS NOT DISTINCT FROM l.orderkey",
+                anyTree(join(
+                        INNER,
+                        ImmutableList.of(),
+                        join(
+                                LEFT,
+                                ImmutableList.of(equiJoinClause("nationkey", "ORDERS_OK")),
+                                anyTree(
+                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))),
+                        anyTree(
+                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+
+        // equi condition promotes LEFT to INNER
+        assertPlan("SELECT 1 FROM (SELECT o.orderkey FROM nation n LEFT JOIN orders o ON n.nationkey = o.orderkey) o JOIN lineitem l ON o.orderkey = l.orderkey",
+                anyTree(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("nationkey", "LINEITEM_OK")),
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("nationkey", "ORDERS_OK")),
+                                anyTree(
+                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))),
+                        anyTree(
+                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
     }
 
     @Test

@@ -18,10 +18,15 @@ import org.testng.annotations.Test;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
+import static io.trino.spi.type.LongTimestampWithTimeZone.fromEpochSecondsAndFraction;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.math.BigDecimal.ONE;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test
+/**
+ * Use TestBigQueryTypeMapping
+ */
+@Deprecated
 public class TestBigQueryType
 {
     @Test
@@ -29,15 +34,15 @@ public class TestBigQueryType
     {
         assertThat(BigQueryType.timeToStringConverter(
                 Long.valueOf(303497217825L)))
-                .isEqualTo("'12:34:56'");
+                .isEqualTo("'00:00:00.303497'");
     }
 
     @Test
     public void testTimestampToStringConverter()
     {
         assertThat(BigQueryType.timestampToStringConverter(
-                Long.valueOf(6494958783649569L)))
-                .isEqualTo("'2020-03-31 12:34:56.789'");
+                fromEpochSecondsAndFraction(1585658096, 123_456_000_000L, UTC_KEY)))
+                .isEqualTo("'2020-03-31 12:34:56.123456'");
     }
 
     @Test

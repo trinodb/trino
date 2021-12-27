@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
@@ -28,6 +27,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
@@ -40,16 +40,17 @@ import java.io.UncheckedIOException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
-import static io.trino.plugin.iceberg.Partition.toMap;
+import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
+import static io.trino.plugin.iceberg.Partition.convertBounds;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -86,11 +87,10 @@ public class TableStatisticsMaker
             return TableStatistics.empty();
         }
 
-        List<Types.NestedField> columns = icebergTable.schema().columns();
+        Schema icebergTableSchema = icebergTable.schema();
+        List<Types.NestedField> columns = icebergTableSchema.columns();
 
-        Map<Integer, Type.PrimitiveType> idToTypeMapping = columns.stream()
-                .filter(column -> column.type().isPrimitiveType())
-                .collect(Collectors.toMap(Types.NestedField::fieldId, column -> column.type().asPrimitiveType()));
+        Map<Integer, Type.PrimitiveType> idToTypeMapping = primitiveFieldTypes(icebergTableSchema);
         List<PartitionField> partitionFields = icebergTable.spec().fields();
 
         Set<Integer> identityPartitionIds = getIdentityPartitions(icebergTable.spec()).keySet().stream()
@@ -102,7 +102,7 @@ public class TableStatisticsMaker
                 .collect(toImmutableList());
 
         List<Type> icebergPartitionTypes = partitionTypes(partitionFields, idToTypeMapping);
-        List<IcebergColumnHandle> columnHandles = getColumns(icebergTable.schema(), typeManager);
+        List<IcebergColumnHandle> columnHandles = getColumns(icebergTableSchema, typeManager);
         Map<Integer, IcebergColumnHandle> idToColumnHandle = columnHandles.stream()
                 .collect(toUnmodifiableMap(IcebergColumnHandle::getId, identity()));
 
@@ -131,7 +131,6 @@ public class TableStatisticsMaker
                 if (!dataFileMatches(
                         dataFile,
                         constraint,
-                        idToTypeMapping,
                         partitionFields,
                         idToDetails)) {
                     continue;
@@ -144,8 +143,8 @@ public class TableStatisticsMaker
                             dataFile.partition(),
                             dataFile.recordCount(),
                             dataFile.fileSizeInBytes(),
-                            toMap(idToTypeMapping, dataFile.lowerBounds()),
-                            toMap(idToTypeMapping, dataFile.upperBounds()),
+                            convertBounds(idToTypeMapping, dataFile.lowerBounds()),
+                            convertBounds(idToTypeMapping, dataFile.upperBounds()),
                             dataFile.nullValueCounts(),
                             dataFile.columnSizes());
                 }
@@ -153,8 +152,9 @@ public class TableStatisticsMaker
                     summary.incrementFileCount();
                     summary.incrementRecordCount(dataFile.recordCount());
                     summary.incrementSize(dataFile.fileSizeInBytes());
-                    updateSummaryMin(summary, partitionFields, toMap(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
-                    updateSummaryMax(summary, partitionFields, toMap(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
+                    // TODO (https://github.com/trinodb/trino/issues/9716) for partition fields we should extract values with IcebergUtil#getPartitionKeys
+                    updateSummaryMin(summary, partitionFields, convertBounds(idToTypeMapping, dataFile.lowerBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
+                    updateSummaryMax(summary, partitionFields, convertBounds(idToTypeMapping, dataFile.upperBounds()), dataFile.nullValueCounts(), dataFile.recordCount());
                     summary.updateNullCount(dataFile.nullValueCounts());
                     updateColumnSizes(summary, dataFile.columnSizes());
                 }
@@ -172,6 +172,7 @@ public class TableStatisticsMaker
         double recordCount = summary.getRecordCount();
         for (IcebergColumnHandle columnHandle : idToColumnHandle.values()) {
             int fieldId = columnHandle.getId();
+            Type icebergType = icebergTableSchema.findType(fieldId);
             ColumnStatistics.Builder columnBuilder = new ColumnStatistics.Builder();
             Long nullCount = summary.getNullCounts().get(fieldId);
             if (nullCount != null) {
@@ -185,8 +186,8 @@ public class TableStatisticsMaker
             }
             Object min = summary.getMinValues().get(fieldId);
             Object max = summary.getMaxValues().get(fieldId);
-            if (min instanceof Number && max instanceof Number) {
-                columnBuilder.setRange(Optional.of(new DoubleRange(((Number) min).doubleValue(), ((Number) max).doubleValue())));
+            if (min != null && max != null) {
+                columnBuilder.setRange(DoubleRange.from(columnHandle.getType(), convertIcebergValueToTrino(icebergType, min), convertIcebergValueToTrino(icebergType, max)));
             }
             columnHandleBuilder.put(columnHandle, columnBuilder.build());
         }
@@ -196,41 +197,30 @@ public class TableStatisticsMaker
     private boolean dataFileMatches(
             DataFile dataFile,
             Constraint constraint,
-            Map<Integer, Type.PrimitiveType> idToTypeMapping,
             List<PartitionField> partitionFields,
             Map<Integer, ColumnFieldDetails> fieldDetails)
     {
+        // Currently this method is used only for IcebergMetadata.getTableStatistics and there Constraint never carries a predicate.
+        // TODO support pruning with constraint when this changes.
+        verify(constraint.predicate().isEmpty(), "Unexpected Constraint predicate");
+
         TupleDomain<ColumnHandle> constraintSummary = constraint.getSummary();
 
         Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().get();
-
-        Predicate<Map<ColumnHandle, NullableValue>> predicate = constraint.predicate().orElse(value -> true);
-
-        ImmutableMap.Builder<ColumnHandle, NullableValue> nullableValueBuilder = ImmutableMap.builder();
 
         for (int index = 0; index < partitionFields.size(); index++) {
             PartitionField field = partitionFields.get(index);
             int fieldId = field.sourceId();
             ColumnFieldDetails details = fieldDetails.get(fieldId);
             IcebergColumnHandle column = details.getColumnHandle();
-            Object value = PartitionTable.convert(dataFile.partition().get(index, details.getJavaClass()), idToTypeMapping.get(fieldId));
+            Object value = convertIcebergValueToTrino(details.getIcebergType(), dataFile.partition().get(index, details.getJavaClass()));
             Domain allowedDomain = domains.get(column);
             if (allowedDomain != null && !allowedDomain.includesNullableValue(value)) {
                 return false;
             }
-            nullableValueBuilder.put(column, makeNullableValue(details.getTrinoType(), value));
-        }
-
-        if (constraint.getPredicateColumns().isPresent()) {
-            return predicate.test(nullableValueBuilder.build());
         }
 
         return true;
-    }
-
-    private NullableValue makeNullableValue(io.trino.spi.type.Type type, Object value)
-    {
-        return value == null ? NullableValue.asNull(type) : NullableValue.of(type, value);
     }
 
     public List<Type> partitionTypes(List<PartitionField> partitionFields, Map<Integer, Type.PrimitiveType> idToTypeMapping)
@@ -320,8 +310,13 @@ public class TableStatisticsMaker
             List<PartitionField> partitionFields,
             Map<Integer, Object> current,
             Map<Integer, Object> newStats,
+            // TODO (https://github.com/trinodb/trino/issues/9716) replace with something like a comparator, or comparator factory
             Predicate<Integer> predicate)
     {
+        if (newStats == null) {
+            // TODO (https://github.com/trinodb/trino/issues/9716) if some/many files miss statistics, we should probably invalidate statistics collection, see Partition#hasValidColumnMetrics
+            return;
+        }
         for (PartitionField field : partitionFields) {
             int id = field.sourceId();
             if (summary.getCorruptedStats().contains(id)) {
@@ -330,6 +325,7 @@ public class TableStatisticsMaker
 
             Object newValue = newStats.get(id);
             if (newValue == null) {
+                // TODO (https://github.com/trinodb/trino/issues/9716) if some/many files miss statistics, we should probably invalidate statistics collection, see Partition#hasValidColumnMetrics
                 continue;
             }
 

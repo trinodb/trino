@@ -1,0 +1,4 @@
+databases:
+    hive:
+        # Make hive server configuration invalid to make sure the hms_only tests do not accidentally depend on HS2.
+        jdbc_url: jdbc:hive2://${databases.hive.host}:12345

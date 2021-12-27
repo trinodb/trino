@@ -91,7 +91,6 @@ import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveColumnProjectionInfo.generatePartialName;
 import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
-import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.trino.plugin.hive.HiveTestUtils.isDistinctFrom;
 import static io.trino.plugin.hive.HiveTestUtils.mapType;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
@@ -118,6 +117,7 @@ import static io.trino.testing.StructuralTestUtil.decimalMapBlockOf;
 import static io.trino.testing.StructuralTestUtil.mapBlockOf;
 import static io.trino.testing.StructuralTestUtil.rowBlockOf;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -504,7 +504,7 @@ public abstract class AbstractTestHiveFileFormats
 
             if (testColumn.getDereferenceNames().size() == 0) {
                 HiveType hiveType = HiveType.valueOf(testColumn.getObjectInspector().getTypeName());
-                columns.add(createBaseColumn(testColumn.getName(), columnIndex, hiveType, hiveType.getType(TYPE_MANAGER), testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
+                columns.add(createBaseColumn(testColumn.getName(), columnIndex, hiveType, hiveType.getType(TESTING_TYPE_MANAGER), testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
             }
             else {
                 HiveType baseHiveType = HiveType.valueOf(testColumn.getBaseObjectInspector().getTypeName());
@@ -513,12 +513,12 @@ public abstract class AbstractTestHiveFileFormats
                         testColumn.getBaseName(),
                         columnIndex,
                         baseHiveType,
-                        baseHiveType.getType(TYPE_MANAGER),
+                        baseHiveType.getType(TESTING_TYPE_MANAGER),
                         Optional.of(new HiveColumnProjectionInfo(
                                 testColumn.getDereferenceIndices(),
                                 testColumn.getDereferenceNames(),
                                 partialHiveType,
-                                partialHiveType.getType(TYPE_MANAGER))),
+                                partialHiveType.getType(TESTING_TYPE_MANAGER))),
                         testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR,
                         Optional.empty());
                 columns.add(hiveColumnHandle);
@@ -544,7 +544,7 @@ public abstract class AbstractTestHiveFileFormats
         List<Type> types = testColumns.stream()
                 .map(TestColumn::getType)
                 .map(HiveType::valueOf)
-                .map(type -> type.getType(TYPE_MANAGER))
+                .map(type -> type.getType(TESTING_TYPE_MANAGER))
                 .collect(toList());
 
         PageBuilder pageBuilder = new PageBuilder(types);
@@ -738,7 +738,7 @@ public abstract class AbstractTestHiveFileFormats
     {
         List<Type> types = testColumns.stream()
                 .map(column -> column.getObjectInspector().getTypeName())
-                .map(type -> HiveType.valueOf(type).getType(TYPE_MANAGER))
+                .map(type -> HiveType.valueOf(type).getType(TESTING_TYPE_MANAGER))
                 .collect(toImmutableList());
 
         Map<Type, MethodHandle> distinctFromOperators = types.stream().distinct()

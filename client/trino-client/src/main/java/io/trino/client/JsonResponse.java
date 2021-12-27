@@ -13,7 +13,7 @@
  */
 package io.trino.client;
 
-import io.airlift.json.JsonCodec;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import okhttp3.Headers;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -65,7 +65,7 @@ public final class JsonResponse<T>
         try {
             value = jsonCodec.fromJson(responseBody);
         }
-        catch (IllegalArgumentException e) {
+        catch (JsonProcessingException e) {
             exception = new IllegalArgumentException(format("Unable to create %s from JSON response:\n[%s]", jsonCodec.getType(), responseBody), e);
         }
         this.hasValue = (exception == null);

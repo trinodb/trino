@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorInsertTableHandle;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -25,7 +26,9 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -216,18 +219,18 @@ public class TestTableRedirection
                 verifySingleTableScan(SCHEMA_ONE, TABLE_FOO));
 
         assertThatThrownBy(() -> query(format("SELECT c0 FROM %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING)))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Table redirections form a loop: %s -> %s -> %s",
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, REDIRECTION_LOOP_PING),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, REDIRECTION_LOOP_PONG),
-                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, REDIRECTION_LOOP_PING)));
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, REDIRECTION_LOOP_PING));
 
         assertThatThrownBy(() -> query(format("SELECT c4 FROM %s.%s", SCHEMA_THREE, REDIRECTION_CHAIN.get(0))))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Table redirected too many times (10): [%s]",
                         REDIRECTION_CHAIN.stream()
                                 .map(table -> new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_THREE, table).toString())
-                                .collect(Collectors.joining(", "))));
+                                .collect(Collectors.joining(", ")));
     }
 
     @Test
@@ -269,6 +272,32 @@ public class TestTableRedirection
                                         .map(tableName -> row(mappings.getKey(), tableName)))
                                 .flatMap(Function.identity())
                                 .collect(Collectors.joining(","))));
+
+        assertQuery(
+                format("SELECT table_schema, table_name"
+                                + " FROM information_schema.tables"
+                                + " WHERE table_catalog='%s' AND table_schema = '%s' AND table_name='%s'",
+                        CATALOG_NAME,
+                        SCHEMA_ONE,
+                        VALID_REDIRECTION_SRC),
+                format("VALUES ('%s', '%s')", SCHEMA_ONE, VALID_REDIRECTION_SRC));
+
+        assertQueryFails(
+                format("SELECT table_schema, table_name"
+                                + " FROM information_schema.tables"
+                                + " WHERE table_catalog='%s' AND table_schema = '%s' AND table_name='%s'",
+                        CATALOG_NAME,
+                        SCHEMA_ONE,
+                        BAD_REDIRECTION_SRC),
+                format("Table '%1$s' redirected to '%2$s', but the target table '%2$s' does not exist",
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, BAD_REDIRECTION_SRC),
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE)));
+
+        assertQuery(format(
+                "SELECT table_schema, table_name"
+                        + " FROM information_schema.tables"
+                        + " WHERE table_catalog='%s' AND table_schema = '' AND table_name = ''",
+                CATALOG_NAME));
     }
 
     @Test
@@ -316,11 +345,11 @@ public class TestTableRedirection
         assertEquals(showCreateValidTarget, showCreateValidSource.replace(SCHEMA_ONE + "." + VALID_REDIRECTION_SRC, SCHEMA_TWO + "." + VALID_REDIRECTION_TARGET));
 
         assertThatThrownBy(() -> query((format("SHOW CREATE TABLE %s.%s", SCHEMA_ONE, BAD_REDIRECTION_SRC))))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Table '%s' redirected to '%s', but the target table '%s' does not exist",
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, BAD_REDIRECTION_SRC),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE),
-                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE)));
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE));
 
         assertThatThrownBy(() -> query((format("SHOW CREATE TABLE %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING))))
                 .hasMessageContaining("Table redirections form a loop");
@@ -333,11 +362,11 @@ public class TestTableRedirection
                 computeActual(format("DESCRIBE %s.%s", SCHEMA_TWO, VALID_REDIRECTION_TARGET)));
 
         assertThatThrownBy(() -> query((format("DESCRIBE %s.%s", SCHEMA_ONE, BAD_REDIRECTION_SRC))))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Table '%s' redirected to '%s', but the target table '%s' does not exist",
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, BAD_REDIRECTION_SRC),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE),
-                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE)));
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE));
 
         assertThatThrownBy(() -> query((format("DESCRIBE %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING))))
                 .hasMessageContaining("Table redirections form a loop");
@@ -353,14 +382,74 @@ public class TestTableRedirection
                         + row(C3, BIGINT.getDisplayName(), "", ""));
 
         assertThatThrownBy(() -> query((format("SHOW COLUMNS FROM %s.%s", SCHEMA_ONE, BAD_REDIRECTION_SRC))))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Table '%s' redirected to '%s', but the target table '%s' does not exist",
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_ONE, BAD_REDIRECTION_SRC),
                         new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE),
-                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE)));
+                        new CatalogSchemaTableName(CATALOG_NAME, SCHEMA_TWO, NON_EXISTENT_TABLE));
 
         assertThatThrownBy(() -> query((format("SHOW COLUMNS FROM %s.%s", SCHEMA_ONE, REDIRECTION_LOOP_PING))))
                 .hasMessageContaining("Table redirections form a loop");
+    }
+
+    @Test
+    public void testInsert()
+    {
+        assertUpdate(
+                getSession(),
+                format("INSERT INTO %s.%s VALUES (5, 6)", SCHEMA_ONE, VALID_REDIRECTION_SRC),
+                1,
+                // Verify the insert plan instead of through a successive SELECT, because insertion is a no-op for Mock connector
+                plan -> {
+                    TableFinishNode finishNode = searchFrom(plan.getRoot())
+                            .where(TableFinishNode.class::isInstance)
+                            .findOnlyElement();
+                    TableWriterNode.InsertTarget insertTarget = ((TableWriterNode.InsertTarget) finishNode.getTarget());
+                    assertEquals(
+                            ((MockConnectorInsertTableHandle) insertTarget.getHandle().getConnectorHandle()).getTableName(),
+                            schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                    assertEquals(insertTarget.getSchemaTableName(), schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                });
+    }
+
+    @Test
+    public void testDelete()
+    {
+        assertUpdate(
+                getSession(),
+                format("DELETE FROM %s.%s WHERE %s = 5", SCHEMA_ONE, VALID_REDIRECTION_SRC, C2),
+                0,
+                // Verify the insert plan instead of through a successive SELECT, because deletion is a no-op for Mock connector
+                plan -> {
+                    TableFinishNode finishNode = searchFrom(plan.getRoot())
+                            .where(TableFinishNode.class::isInstance)
+                            .findOnlyElement();
+                    TableWriterNode.DeleteTarget deleteTarget = ((TableWriterNode.DeleteTarget) finishNode.getTarget());
+                    assertEquals(
+                            ((MockConnectorTableHandle) deleteTarget.getHandle().get().getConnectorHandle()).getTableName(),
+                            schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                    assertEquals(deleteTarget.getSchemaTableName(), schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                });
+    }
+
+    @Test
+    public void testUpdate()
+    {
+        assertUpdate(
+                getSession(),
+                format("UPDATE %s.%s SET %s = 5 WHERE %s = 1", SCHEMA_ONE, VALID_REDIRECTION_SRC, C3, C2),
+                0,
+                // Verify the insert plan instead of through a successive SELECT, because update is a no-op for Mock connector
+                plan -> {
+                    TableFinishNode finishNode = searchFrom(plan.getRoot())
+                            .where(TableFinishNode.class::isInstance)
+                            .findOnlyElement();
+                    TableWriterNode.UpdateTarget updateTarget = ((TableWriterNode.UpdateTarget) finishNode.getTarget());
+                    assertEquals(
+                            ((MockConnectorTableHandle) updateTarget.getHandle().get().getConnectorHandle()).getTableName(),
+                            schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                    assertEquals(updateTarget.getSchemaTableName(), schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                });
     }
 
     // TODO: Add tests for redirection in CommentsSystemTable and CREATE TABLE LIKE

@@ -147,5 +147,5 @@ query::
 The resulting behavior is equivalent to using `INSERT OVERWRITE
 <https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML>`_ in Hive.
 
-Insert overwrite operation is not supported by Trino when the table is
-stored on S3, encrypted HDFS or an external location.
+Insert overwrite operation is not supported by Trino when the table is stored on
+encrypted HDFS, when the table is unpartitioned or table is transactional.

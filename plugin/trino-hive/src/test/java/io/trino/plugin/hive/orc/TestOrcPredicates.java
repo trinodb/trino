@@ -48,13 +48,14 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildColumnMappings;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.StructuralTestUtil.rowBlockOf;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -98,7 +99,7 @@ public class TestOrcPredicates
         file.delete();
         try {
             // Write data
-            OrcFileWriterFactory writerFactory = new OrcFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), STATS, new OrcWriterOptions());
+            OrcFileWriterFactory writerFactory = new OrcFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("test"), STATS, new OrcWriterOptions());
             FileSplit split = createTestFileTrino(file.getAbsolutePath(), ORC, HiveCompressionCodec.NONE, columnsToWrite, session, NUM_ROWS, writerFactory);
 
             TupleDomain<TestColumn> testingPredicate;
@@ -204,6 +205,17 @@ public class TestOrcPredicates
             return handle.get();
         });
 
+        List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
+                partitionName,
+                partitionKeys,
+                columnHandles,
+                ImmutableList.of(),
+                TableToPartitionMapping.empty(),
+                split.getPath(),
+                OptionalInt.empty(),
+                split.getLength(),
+                Instant.now().toEpochMilli());
+
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(readerFactory),
                 ImmutableSet.of(),
@@ -214,20 +226,17 @@ public class TestOrcPredicates
                 split.getStart(),
                 split.getLength(),
                 split.getLength(),
-                Instant.now().toEpochMilli(),
                 splitProperties,
                 predicate,
                 columnHandles,
-                partitionName,
-                partitionKeys,
-                TYPE_MANAGER,
-                TableToPartitionMapping.empty(),
+                TESTING_TYPE_MANAGER,
                 Optional.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty(),
                 false,
-                NO_ACID_TRANSACTION);
+                NO_ACID_TRANSACTION,
+                columnMappings);
 
         assertTrue(pageSource.isPresent());
         return pageSource.get();

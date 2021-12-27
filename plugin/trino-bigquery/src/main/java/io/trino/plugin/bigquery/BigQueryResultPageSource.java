@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
-import com.google.cloud.bigquery.storage.v1beta1.Storage;
+import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -25,11 +25,10 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.DateTimeEncoding;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarbinaryType;
@@ -52,18 +51,27 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_PRECISION;
-import static io.trino.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_SCALE;
 import static io.trino.plugin.bigquery.BigQueryType.toTrinoTimestamp;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.Decimals.encodeShortScaledValue;
+import static io.trino.spi.type.Decimals.isLongDecimal;
+import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.LongTimestampWithTimeZone.fromEpochMillisAndFraction;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -74,33 +82,34 @@ public class BigQueryResultPageSource
 
     private static final AvroDecimalConverter DECIMAL_CONVERTER = new AvroDecimalConverter();
 
-    private final BigQueryStorageClient bigQueryStorageClient;
+    private final BigQueryReadClient bigQueryReadClient;
     private final BigQuerySplit split;
+    private final List<String> columnNames;
     private final List<Type> columnTypes;
     private final AtomicLong readBytes;
     private final PageBuilder pageBuilder;
-    private final Iterator<Storage.ReadRowsResponse> responses;
+    private final Iterator<ReadRowsResponse> responses;
 
     public BigQueryResultPageSource(
-            BigQueryStorageClientFactory bigQueryStorageClientFactory,
+            BigQueryReadClient bigQueryReadClient,
             int maxReadRowsRetries,
             BigQuerySplit split,
             List<BigQueryColumnHandle> columns)
     {
-        this.bigQueryStorageClient = requireNonNull(bigQueryStorageClientFactory, "bigQueryStorageClientFactory is null").createBigQueryStorageClient();
+        this.bigQueryReadClient = requireNonNull(bigQueryReadClient, "bigQueryReadClient is null");
         this.split = requireNonNull(split, "split is null");
         this.readBytes = new AtomicLong();
-        this.columnTypes = requireNonNull(columns, "columns is null").stream()
+        requireNonNull(columns, "columns is null");
+        this.columnNames = columns.stream()
+                .map(BigQueryColumnHandle::getName)
+                .collect(toImmutableList());
+        this.columnTypes = columns.stream()
                 .map(BigQueryColumnHandle::getTrinoType)
                 .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(columnTypes);
 
         log.debug("Starting to read from %s", split.getStreamName());
-        Storage.ReadRowsRequest.Builder readRowsRequest = Storage.ReadRowsRequest.newBuilder()
-                .setReadPosition(Storage.StreamPosition.newBuilder()
-                        .setStream(Storage.Stream.newBuilder()
-                                .setName(split.getStreamName())));
-        responses = new ReadRowsHelper(bigQueryStorageClient, readRowsRequest, maxReadRowsRetries).readRows();
+        responses = new ReadRowsHelper(bigQueryReadClient, split.getStreamName(), maxReadRowsRetries).readRows();
     }
 
     @Override
@@ -125,13 +134,13 @@ public class BigQueryResultPageSource
     public Page getNextPage()
     {
         checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
-        Storage.ReadRowsResponse response = responses.next();
+        ReadRowsResponse response = responses.next();
         Iterable<GenericRecord> records = parse(response);
         for (GenericRecord record : records) {
             pageBuilder.declarePosition();
             for (int column = 0; column < columnTypes.size(); column++) {
                 BlockBuilder output = pageBuilder.getBlockBuilder(column);
-                appendTo(columnTypes.get(column), record.get(column), output);
+                appendTo(columnTypes.get(column), record.get(columnNames.get(column)), output);
             }
         }
 
@@ -159,17 +168,20 @@ public class BigQueryResultPageSource
                 else if (type.equals(INTEGER)) {
                     type.writeLong(output, ((Number) value).intValue());
                 }
+                else if (type instanceof DecimalType) {
+                    verify(isShortDecimal(type), "The type should be short decimal");
+                    DecimalType decimalType = (DecimalType) type;
+                    BigDecimal decimal = DECIMAL_CONVERTER.convert(decimalType.getPrecision(), decimalType.getScale(), value);
+                    type.writeLong(output, encodeShortScaledValue(decimal, decimalType.getScale()));
+                }
                 else if (type.equals(DATE)) {
                     type.writeLong(output, ((Number) value).intValue());
                 }
-                else if (type.equals(TIMESTAMP_MILLIS)) {
+                else if (type.equals(TIMESTAMP_MICROS)) {
                     type.writeLong(output, toTrinoTimestamp(((Utf8) value).toString()));
                 }
-                else if (type.equals(TIME_WITH_TIME_ZONE)) {
-                    type.writeLong(output, DateTimeEncoding.packDateTimeWithZone(((Long) value).longValue() / 1000, TimeZoneKey.UTC_KEY));
-                }
-                else if (type.equals(TIMESTAMP_TZ_MILLIS)) {
-                    type.writeLong(output, DateTimeEncoding.packDateTimeWithZone(((Long) value).longValue() / 1000, TimeZoneKey.UTC_KEY));
+                else if (type.equals(TIME_MICROS)) {
+                    type.writeLong(output, (long) value * PICOSECONDS_PER_MICROSECOND);
                 }
                 else {
                     throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
@@ -180,6 +192,12 @@ public class BigQueryResultPageSource
             }
             else if (javaType == Slice.class) {
                 writeSlice(output, type, value);
+            }
+            else if (javaType == LongTimestampWithTimeZone.class) {
+                verify(type.equals(TIMESTAMP_TZ_MICROS));
+                long epochMicros = (long) value;
+                int picosOfMillis = toIntExact(floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND)) * PICOSECONDS_PER_MICROSECOND;
+                type.writeObject(output, fromEpochMillisAndFraction(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND), picosOfMillis, UTC_KEY));
             }
             else if (javaType == Block.class) {
                 writeBlock(output, type, value);
@@ -200,8 +218,10 @@ public class BigQueryResultPageSource
             type.writeSlice(output, utf8Slice(((Utf8) value).toString()));
         }
         else if (type instanceof DecimalType) {
-            BigDecimal bdValue = DECIMAL_CONVERTER.convert(value);
-            type.writeSlice(output, Decimals.encodeScaledValue(bdValue, NUMERIC_DATA_TYPE_SCALE));
+            verify(isLongDecimal(type), "The type should be long decimal");
+            DecimalType decimalType = (DecimalType) type;
+            BigDecimal decimal = DECIMAL_CONVERTER.convert(decimalType.getPrecision(), decimalType.getScale(), value);
+            type.writeSlice(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
         }
         else if (type instanceof VarbinaryType) {
             if (value instanceof ByteBuffer) {
@@ -256,10 +276,10 @@ public class BigQueryResultPageSource
     @Override
     public void close()
     {
-        bigQueryStorageClient.close();
+        bigQueryReadClient.close();
     }
 
-    Iterable<GenericRecord> parse(Storage.ReadRowsResponse response)
+    Iterable<GenericRecord> parse(ReadRowsResponse response)
     {
         byte[] buffer = response.getAvroRows().getSerializedBinaryRows().toByteArray();
         readBytes.addAndGet(buffer.length);
@@ -268,7 +288,7 @@ public class BigQueryResultPageSource
         return () -> new AvroBinaryIterator(avroSchema, buffer);
     }
 
-    static class AvroBinaryIterator
+    private static class AvroBinaryIterator
             implements Iterator<GenericRecord>
     {
         GenericDatumReader<GenericRecord> reader;
@@ -306,13 +326,11 @@ public class BigQueryResultPageSource
     static class AvroDecimalConverter
     {
         private static final DecimalConversion AVRO_DECIMAL_CONVERSION = new DecimalConversion();
-        private static final Schema AVRO_DECIMAL_SCHEMA = new Schema.Parser().parse(format(
-                "{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":%d,\"scale\":%d}",
-                NUMERIC_DATA_TYPE_PRECISION, NUMERIC_DATA_TYPE_SCALE));
 
-        BigDecimal convert(Object value)
+        BigDecimal convert(int precision, int scale, Object value)
         {
-            return AVRO_DECIMAL_CONVERSION.fromBytes((ByteBuffer) value, AVRO_DECIMAL_SCHEMA, AVRO_DECIMAL_SCHEMA.getLogicalType());
+            Schema schema = new Schema.Parser().parse(format("{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":%d,\"scale\":%d}", precision, scale));
+            return AVRO_DECIMAL_CONVERSION.fromBytes((ByteBuffer) value, schema, schema.getLogicalType());
         }
     }
 }

@@ -23,8 +23,8 @@ The connector can query a single database on an SQL server instance. Create a
 catalog properties file that specifies the SQL server connector by setting the
 ``connector.name`` to ``sqlserver``.
 
-For example, to access a database as ``sqlserverdb``, create the file
-``etc/catalog/sqlserverdb.properties``. Replace the connection properties as
+For example, to access a database as ``sqlserver``, create the file
+``etc/catalog/sqlserver.properties``. Replace the connection properties as
 appropriate for your setup:
 
 .. code-block:: properties
@@ -47,19 +47,23 @@ properties files.
 Multiple SQL Server databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The SQL Server connector can't access more than one database using a single
-catalog.
+The SQL Server connector can only access a single SQL Server database
+within a single catalog. Thus, if you have multiple SQL Server databases,
+or want to connect to multiple SQL Server instances, you must configure
+multiple instances of the SQL Server connector.
 
-If you have multiple databases, or want to access multiple instances
-of SQL Server, you need to configure one catalog for each instance.
+To add another catalog, simply add another properties file to ``etc/catalog``
+with a different name, making sure it ends in ``.properties``. For example,
+if you name the property file ``sales.properties``, Trino creates a
+catalog named ``sales`` using the configured connector.
 
-To add another catalog:
+.. include:: jdbc-common-configurations.fragment
 
-- Add another properties file to ``etc/catalog``
-- Save it with a different name that ends in ``.properties``
+.. include:: jdbc-procedures.fragment
 
-For example, if you name the property file ``sales.properties``, Trino uses the
-configured connector to create a catalog named ``sales``.
+.. include:: jdbc-case-insensitive-matching.fragment
+
+.. include:: non-transactional-insert.fragment
 
 Querying SQL Server
 -------------------
@@ -107,6 +111,7 @@ SQL Server Type                     Trino Type
 ``varchar(n)``                      ``varchar(n)``
 ``date``                            ``date``
 ``datetime2(n)``                    ``timestamp(n)``
+``datetimeoffset(n)``               ``timestamp(n) with time zone``
 ==================================  ===============================
 
 Complete list of `SQL Server data types
@@ -114,14 +119,24 @@ Complete list of `SQL Server data types
 
 .. include:: jdbc-type-mapping.fragment
 
+.. _sqlserver-sql-support:
+
 SQL support
 -----------
 
-The following SQL statements are not yet supported:
+The connector provides read access and write access to data and metadata in SQL
+Server. In addition to the :ref:`globally available <sql-globally-available>`
+and :ref:`read operation <sql-read-operations>` statements, the connector
+supports the following features:
 
+* :doc:`/sql/insert`
 * :doc:`/sql/delete`
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
+* :doc:`/sql/truncate`
+* :ref:`sql-schema-table-management`
+
+.. include:: sql-delete-limitation.fragment
+
+.. include:: alter-table-limitation.fragment
 
 .. _sqlserver-pushdown:
 
@@ -147,6 +162,8 @@ The connector supports pushdown for a number of operations:
 * :func:`variance`
 * :func:`var_pop`
 * :func:`var_samp`
+
+.. include:: no-pushdown-text-type.fragment
 
 Data compression
 ----------------

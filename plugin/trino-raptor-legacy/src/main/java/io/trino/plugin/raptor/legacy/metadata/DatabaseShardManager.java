@@ -34,12 +34,11 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.h2.jdbc.JdbcConnection;
-import org.skife.jdbi.v2.Handle;
-import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.ResultIterator;
-import org.skife.jdbi.v2.exceptions.DBIException;
-import org.skife.jdbi.v2.tweak.HandleConsumer;
-import org.skife.jdbi.v2.util.ByteArrayMapper;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.HandleConsumer;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.JdbiException;
+import org.jdbi.v3.core.result.ResultIterator;
 
 import javax.inject.Inject;
 
@@ -103,7 +102,7 @@ public class DatabaseShardManager
     private static final String INDEX_TABLE_PREFIX = "x_shards_t";
     private static final int MAX_ADD_COLUMN_ATTEMPTS = 100;
 
-    private final IDBI dbi;
+    private final Jdbi dbi;
     private final DaoSupplier<ShardDao> shardDaoSupplier;
     private final ShardDao dao;
     private final NodeSupplier nodeSupplier;
@@ -122,7 +121,7 @@ public class DatabaseShardManager
 
     @Inject
     public DatabaseShardManager(
-            @ForMetadata IDBI dbi,
+            @ForMetadata Jdbi dbi,
             DaoSupplier<ShardDao> shardDaoSupplier,
             NodeSupplier nodeSupplier,
             AssignmentLimiter assignmentLimiter,
@@ -133,7 +132,7 @@ public class DatabaseShardManager
     }
 
     public DatabaseShardManager(
-            IDBI dbi,
+            Jdbi dbi,
             DaoSupplier<ShardDao> shardDaoSupplier,
             NodeSupplier nodeSupplier,
             AssignmentLimiter assignmentLimiter,
@@ -210,7 +209,7 @@ public class DatabaseShardManager
         try (Handle handle = dbi.open()) {
             handle.execute(sql);
         }
-        catch (DBIException e) {
+        catch (JdbiException e) {
             throw metadataError(e);
         }
     }
@@ -218,7 +217,7 @@ public class DatabaseShardManager
     @Override
     public void dropTable(long tableId)
     {
-        runTransaction(dbi, (handle, status) -> {
+        runTransaction(dbi, handle -> {
             lockTable(handle, tableId);
 
             ShardDao shardDao = shardDaoSupplier.attach(handle);
@@ -239,7 +238,7 @@ public class DatabaseShardManager
         try (Handle handle = dbi.open()) {
             handle.execute("DROP TABLE " + shardIndexTable(tableId));
         }
-        catch (DBIException e) {
+        catch (JdbiException e) {
             log.warn(e, "Failed to drop index table %s", shardIndexTable(tableId));
         }
     }
@@ -264,7 +263,7 @@ public class DatabaseShardManager
             try (Handle handle = dbi.open()) {
                 handle.execute(sql);
             }
-            catch (DBIException e) {
+            catch (JdbiException e) {
                 if (isSyntaxOrAccessError(e)) {
                     // exit when column already exists
                     return;
@@ -344,12 +343,12 @@ public class DatabaseShardManager
         });
     }
 
-    private void runCommit(long transactionId, HandleConsumer callback)
+    private void runCommit(long transactionId, HandleConsumer<SQLException> callback)
     {
         int maxAttempts = 5;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                dbi.useTransaction((handle, status) -> {
+                dbi.useTransaction(handle -> {
                     ShardDao dao = shardDaoSupplier.attach(handle);
                     if (commitTransaction(dao, transactionId)) {
                         callback.useHandle(handle);
@@ -358,7 +357,7 @@ public class DatabaseShardManager
                 });
                 return;
             }
-            catch (DBIException e) {
+            catch (JdbiException | SQLException e) {
                 if (isTransactionCacheFullError(e)) {
                     throw metadataError(e, "Transaction too large");
                 }
@@ -558,7 +557,7 @@ public class DatabaseShardManager
 
         int nodeId = getOrCreateNodeId(nodeIdentifier);
 
-        runTransaction(dbi, (handle, status) -> {
+        runTransaction(dbi, handle -> {
             ShardDao dao = shardDaoSupplier.attach(handle);
 
             Set<Integer> oldAssignments = new HashSet<>(fetchLockedNodeIds(handle, tableId, shardUuid));
@@ -821,8 +820,8 @@ public class DatabaseShardManager
 
         byte[] nodeArray = handle.createQuery(sql)
                 .bind(0, uuidToBytes(shardUuid))
-                .map(ByteArrayMapper.FIRST)
-                .first();
+                .mapTo(byte[].class)
+                .one();
 
         return intArrayFromBytes(nodeArray);
     }

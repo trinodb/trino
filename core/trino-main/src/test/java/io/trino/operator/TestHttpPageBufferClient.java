@@ -23,6 +23,9 @@ import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.execution.StageId;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.operator.HttpPageBufferClient.ClientCallback;
@@ -30,7 +33,6 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -74,6 +76,7 @@ public class TestHttpPageBufferClient
     private ExecutorService pageBufferClientCallbackExecutor;
 
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
+    private static final TaskId TASK_ID = new TaskId(new StageId("query", 0), 0, 0);
 
     @BeforeClass
     public void setUp()
@@ -116,6 +119,7 @@ public class TestHttpPageBufferClient
                 expectedMaxSize,
                 new Duration(1, TimeUnit.MINUTES),
                 true,
+                TASK_ID,
                 location,
                 callback,
                 scheduler,
@@ -204,6 +208,7 @@ public class TestHttpPageBufferClient
                 DataSize.of(10, MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
+                TASK_ID,
                 location,
                 callback,
                 scheduler,
@@ -247,6 +252,7 @@ public class TestHttpPageBufferClient
                 DataSize.of(10, MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
+                TASK_ID,
                 location,
                 callback,
                 scheduler,
@@ -293,6 +299,7 @@ public class TestHttpPageBufferClient
         assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
 
         // close client and verify
+        processor.setResponse(new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]));
         client.close();
         requestComplete.await(10, TimeUnit.SECONDS);
         assertStatus(client, location, "closed", 0, 3, 4, 3, "not scheduled");
@@ -318,6 +325,7 @@ public class TestHttpPageBufferClient
                 DataSize.of(10, MEGABYTE),
                 new Duration(1, TimeUnit.MINUTES),
                 true,
+                TASK_ID,
                 location,
                 callback,
                 scheduler,
@@ -375,6 +383,7 @@ public class TestHttpPageBufferClient
                 DataSize.of(10, MEGABYTE),
                 new Duration(30, TimeUnit.SECONDS),
                 true,
+                TASK_ID,
                 location,
                 callback,
                 scheduler,
@@ -457,6 +466,7 @@ public class TestHttpPageBufferClient
                 DataSize.of(10, MEGABYTE),
                 new Duration(30, TimeUnit.SECONDS),
                 true,
+                TASK_ID,
                 location,
                 callback,
                 scheduler,

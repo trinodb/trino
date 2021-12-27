@@ -36,11 +36,7 @@ public final class TypeTestUtils
     public static Block getHashBlock(List<? extends Type> hashTypes, Block... hashBlocks)
     {
         checkArgument(hashTypes.size() == hashBlocks.length);
-        int[] hashChannels = new int[hashBlocks.length];
-        for (int i = 0; i < hashBlocks.length; i++) {
-            hashChannels[i] = i;
-        }
-        HashGenerator hashGenerator = new InterpretedHashGenerator(ImmutableList.copyOf(hashTypes), hashChannels, TYPE_OPERATOR_FACTORY);
+        HashGenerator hashGenerator = InterpretedHashGenerator.createPositionalWithTypes(ImmutableList.copyOf(hashTypes), TYPE_OPERATOR_FACTORY);
         int positionCount = hashBlocks[0].getPositionCount();
         BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(positionCount);
         Page page = new Page(hashBlocks);

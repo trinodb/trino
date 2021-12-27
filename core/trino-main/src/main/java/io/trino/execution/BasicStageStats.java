@@ -48,6 +48,7 @@ public class BasicStageStats
             0,
 
             0,
+            0,
             DataSize.ofBytes(0),
             DataSize.ofBytes(0),
 
@@ -72,6 +73,7 @@ public class BasicStageStats
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
     private final long cumulativeUserMemory;
+    private final long cumulativeSystemMemory;
     private final DataSize userMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final Duration totalCpuTime;
@@ -99,6 +101,7 @@ public class BasicStageStats
             long rawInputPositions,
 
             long cumulativeUserMemory,
+            long cumulativeSystemMemory,
             DataSize userMemoryReservation,
             DataSize totalMemoryReservation,
 
@@ -123,6 +126,7 @@ public class BasicStageStats
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         this.rawInputPositions = rawInputPositions;
         this.cumulativeUserMemory = cumulativeUserMemory;
+        this.cumulativeSystemMemory = cumulativeSystemMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -197,6 +201,11 @@ public class BasicStageStats
         return cumulativeUserMemory;
     }
 
+    public long getCumulativeSystemMemory()
+    {
+        return cumulativeSystemMemory;
+    }
+
     public DataSize getUserMemoryReservation()
     {
         return userMemoryReservation;
@@ -240,6 +249,7 @@ public class BasicStageStats
         int completedDrivers = 0;
 
         long cumulativeUserMemory = 0;
+        long cumulativeSystemMemory = 0;
         long userMemoryReservation = 0;
         long totalMemoryReservation = 0;
 
@@ -268,6 +278,7 @@ public class BasicStageStats
             completedDrivers += stageStats.getCompletedDrivers();
 
             cumulativeUserMemory += stageStats.getCumulativeUserMemory();
+            cumulativeSystemMemory += stageStats.getCumulativeSystemMemory();
             userMemoryReservation += stageStats.getUserMemoryReservation().toBytes();
             totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
 
@@ -314,6 +325,7 @@ public class BasicStageStats
                 rawInputPositions,
 
                 cumulativeUserMemory,
+                cumulativeSystemMemory,
                 succinctBytes(userMemoryReservation),
                 succinctBytes(totalMemoryReservation),
 

@@ -45,7 +45,10 @@ public class DictionaryBlock
     private volatile long sizeInBytes = -1;
     private volatile long logicalSizeInBytes = -1;
     private volatile int uniqueIds = -1;
+    // isSequentialIds is only valid when uniqueIds is computed
+    private volatile boolean isSequentialIds;
     private final DictionaryId dictionarySourceId;
+    private final boolean mayHaveNull;
 
     public DictionaryBlock(Block dictionary, int[] ids)
     {
@@ -74,6 +77,11 @@ public class DictionaryBlock
 
     public DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, DictionaryId dictionarySourceId)
     {
+        this(idsOffset, positionCount, dictionary, ids, dictionaryIsCompacted, false, dictionarySourceId);
+    }
+
+    public DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, boolean isSequentialIds, DictionaryId dictionarySourceId)
+    {
         requireNonNull(dictionary, "dictionary is null");
         requireNonNull(ids, "ids is null");
 
@@ -91,6 +99,8 @@ public class DictionaryBlock
         this.ids = ids;
         this.dictionarySourceId = requireNonNull(dictionarySourceId, "dictionarySourceId is null");
         this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(ids);
+        // avoid eager loading of lazy dictionaries
+        this.mayHaveNull = positionCount > 0 && (!dictionary.isLoaded() || dictionary.mayHaveNull());
 
         if (dictionaryIsCompacted) {
             if (dictionary instanceof DictionaryBlock) {
@@ -99,6 +109,21 @@ public class DictionaryBlock
             this.sizeInBytes = dictionary.getSizeInBytes() + (Integer.BYTES * (long) positionCount);
             this.uniqueIds = dictionary.getPositionCount();
         }
+
+        if (isSequentialIds && !dictionaryIsCompacted) {
+            throw new IllegalArgumentException("sequential ids flag is only valid for compacted dictionary");
+        }
+        this.isSequentialIds = isSequentialIds;
+    }
+
+    int[] getRawIds()
+    {
+        return ids;
+    }
+
+    int getRawIdsOffset()
+    {
+        return idsOffset;
     }
 
     @Override
@@ -200,7 +225,7 @@ public class DictionaryBlock
     @Override
     public long getSizeInBytes()
     {
-        if (sizeInBytes < 0) {
+        if (sizeInBytes == -1) {
             calculateCompactSize();
         }
         return sizeInBytes;
@@ -210,31 +235,78 @@ public class DictionaryBlock
     {
         int uniqueIds = 0;
         boolean[] used = new boolean[dictionary.getPositionCount()];
+        int previousPosition = -1;
+        boolean isSequentialIds = true;
         for (int i = 0; i < positionCount; i++) {
             int position = getId(i);
-            if (!used[position]) {
-                uniqueIds++;
-                used[position] = true;
-            }
+            // Avoid branching
+            uniqueIds += used[position] ? 0 : 1;
+            used[position] = true;
+
+            isSequentialIds = isSequentialIds && previousPosition < position;
+            previousPosition = position;
         }
 
         long dictionaryBlockSize;
-        if (uniqueIds == dictionary.getPositionCount()) {
-            // dictionary is compact, all positions were used
-            dictionaryBlockSize = dictionary.getSizeInBytes();
-        }
-        else {
-            dictionaryBlockSize = dictionary.getPositionsSizeInBytes(used);
-        }
 
         if (dictionary instanceof DictionaryBlock) {
             // dictionary is nested, compaction would unnest it and nested ids
             // array shouldn't be accounted for
-            dictionaryBlockSize -= (Integer.BYTES * (long) uniqueIds);
+            DictionaryBlock nestedDictionary = (DictionaryBlock) dictionary;
+            if (uniqueIds == dictionary.getPositionCount()) {
+                // dictionary is compact, all positions were used
+                dictionaryBlockSize = nestedDictionary.getCompactedDictionarySizeInBytes();
+            }
+            else {
+                dictionaryBlockSize = nestedDictionary.getCompactedDictionaryPositionsSizeInBytes(used);
+            }
+            // nested dictionaries are assumed not to have sequential ids
+            isSequentialIds = false;
+        }
+        else {
+            if (uniqueIds == dictionary.getPositionCount()) {
+                // dictionary is compact, all positions were used
+                dictionaryBlockSize = dictionary.getSizeInBytes();
+            }
+            else {
+                dictionaryBlockSize = dictionary.getPositionsSizeInBytes(used, uniqueIds);
+            }
         }
 
         this.sizeInBytes = dictionaryBlockSize + (Integer.BYTES * (long) positionCount);
         this.uniqueIds = uniqueIds;
+        this.isSequentialIds = isSequentialIds;
+    }
+
+    /**
+     * Returns size of compacted dictionary. This is computed as if the dictionaries were unnested.
+     */
+    private long getCompactedDictionarySizeInBytes()
+    {
+        if (sizeInBytes == -1) {
+            calculateCompactSize();
+        }
+
+        return sizeInBytes - (Integer.BYTES * (long) positionCount);
+    }
+
+    /**
+     * Returns size of compacted dictionary for given positions. This is computed as if the dictionaries were unnested.
+     */
+    private long getCompactedDictionaryPositionsSizeInBytes(boolean[] positions)
+    {
+        boolean[] used = new boolean[dictionary.getPositionCount()];
+        for (int i = 0; i < positions.length; i++) {
+            if (positions[i]) {
+                used[getId(i)] = true;
+            }
+        }
+
+        if (dictionary instanceof DictionaryBlock) {
+            return ((DictionaryBlock) dictionary).getCompactedDictionaryPositionsSizeInBytes(used);
+        }
+
+        return dictionary.getPositionsSizeInBytes(used);
     }
 
     @Override
@@ -322,9 +394,9 @@ public class DictionaryBlock
     {
         checkArrayRange(positions, offset, length);
 
-        if (uniqueIds == positionCount) {
-            // each block position is unique, therefore it makes more sense to unwrap dictionary
-            // block by copying selected positions
+        if (length <= 1 || dictionary instanceof DictionaryBlock || uniqueIds == positionCount) {
+            // each block position is unique or the dictionary is a nested dictionary block,
+            // therefore it makes sense to unwrap this outer dictionary layer directly
             int[] positionsToCopy = new int[length];
             for (int i = 0; i < length; i++) {
                 positionsToCopy[i] = getId(positions[offset + i]);
@@ -346,13 +418,30 @@ public class DictionaryBlock
             }
             newIds[i] = newId;
         }
-        return new DictionaryBlock(dictionary.copyPositions(positionsToCopy.elements(), 0, positionsToCopy.size()), newIds);
+        Block compactDictionary = dictionary.copyPositions(positionsToCopy.elements(), 0, positionsToCopy.size());
+        if (positionsToCopy.size() == length) {
+            // discovered that all positions are unique, so return the unwrapped underlying dictionary directly
+            return compactDictionary;
+        }
+        return new DictionaryBlock(
+                0,
+                length,
+                compactDictionary,
+                newIds,
+                true, // new dictionary is compact
+                false,
+                randomDictionaryId());
     }
 
     @Override
     public Block getRegion(int positionOffset, int length)
     {
         checkValidRegion(positionCount, positionOffset, length);
+
+        if (length == positionCount) {
+            return this;
+        }
+
         return new DictionaryBlock(idsOffset + positionOffset, length, dictionary, ids, false, dictionarySourceId);
     }
 
@@ -360,15 +449,33 @@ public class DictionaryBlock
     public Block copyRegion(int position, int length)
     {
         checkValidRegion(positionCount, position, length);
+        // Avoid repeated volatile reads to the uniqueIds field
+        int uniqueIds = this.uniqueIds;
+        if (length <= 1 || (uniqueIds == dictionary.getPositionCount() && isSequentialIds)) {
+            // copy the contiguous range directly via copyRegion
+            return dictionary.copyRegion(getId(position), length);
+        }
+        if (dictionary instanceof DictionaryBlock || uniqueIds == positionCount) {
+            // each block position is unique or the dictionary is a nested dictionary block,
+            // therefore it makes sense to unwrap this outer dictionary layer directly
+            return dictionary.copyPositions(ids, idsOffset + position, length);
+        }
         int[] newIds = Arrays.copyOfRange(ids, idsOffset + position, idsOffset + position + length);
         DictionaryBlock dictionaryBlock = new DictionaryBlock(dictionary, newIds);
         return dictionaryBlock.compact();
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return positionCount > 0 && dictionary.mayHaveNull();
+    }
+
+    @Override
     public boolean isNull(int position)
     {
-        return dictionary.isNull(getId(position));
+        checkValidPosition(position, positionCount);
+        return mayHaveNull && dictionary.isNull(getIdUnchecked(position));
     }
 
     @Override
@@ -377,7 +484,7 @@ public class DictionaryBlock
         checkArrayRange(positions, offset, length);
 
         int[] newIds = new int[length];
-        boolean isCompact = isCompact() && length >= dictionary.getPositionCount();
+        boolean isCompact = length >= dictionary.getPositionCount() && isCompact();
         boolean[] seen = null;
         if (isCompact) {
             seen = new boolean[dictionary.getPositionCount()];
@@ -436,9 +543,32 @@ public class DictionaryBlock
         return Slices.wrappedIntArray(ids, idsOffset, positionCount);
     }
 
+    boolean isSequentialIds()
+    {
+        if (uniqueIds == -1) {
+            calculateCompactSize();
+        }
+
+        return isSequentialIds;
+    }
+
+    int getUniqueIds()
+    {
+        if (uniqueIds == -1) {
+            calculateCompactSize();
+        }
+
+        return uniqueIds;
+    }
+
     public int getId(int position)
     {
         checkValidPosition(position, positionCount);
+        return getIdUnchecked(position);
+    }
+
+    private int getIdUnchecked(int position)
+    {
         return ids[position + idsOffset];
     }
 
@@ -453,7 +583,7 @@ public class DictionaryBlock
             return false;
         }
 
-        if (uniqueIds < 0) {
+        if (uniqueIds == -1) {
             calculateCompactSize();
         }
         return uniqueIds == dictionary.getPositionCount();
@@ -502,7 +632,17 @@ public class DictionaryBlock
         }
         try {
             Block compactDictionary = dictionary.copyPositions(dictionaryPositionsToCopy.elements(), 0, dictionaryPositionsToCopy.size());
-            return new DictionaryBlock(positionCount, compactDictionary, newIds, true);
+            return new DictionaryBlock(
+                    0,
+                    positionCount,
+                    compactDictionary,
+                    newIds,
+                    true,
+                    // Copied dictionary positions match ids sequence. Therefore new
+                    // compact dictionary block has sequential ids only if single position
+                    // is not used more than once.
+                    uniqueIds == positionCount,
+                    randomDictionaryId());
         }
         catch (UnsupportedOperationException e) {
             // ignore if copy positions is not supported for the dictionary block

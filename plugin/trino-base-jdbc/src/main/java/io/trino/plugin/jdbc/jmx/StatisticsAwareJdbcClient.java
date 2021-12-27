@@ -46,10 +46,12 @@ import org.weakref.jmx.Managed;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -126,9 +128,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<AggregateFunction> aggregates, Map<String, ColumnHandle> assignments, List<List<ColumnHandle>> groupingSets)
     {
-        return delegate().supportsAggregationPushdown(session, table, groupingSets);
+        return delegate().supportsAggregationPushdown(session, table, aggregates, assignments, groupingSets);
     }
 
     @Override
@@ -151,10 +153,10 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void abortReadConnection(Connection connection)
+    public void abortReadConnection(Connection connection, ResultSet resultSet)
             throws SQLException
     {
-        stats.getAbortReadConnection().wrap(() -> delegate().abortReadConnection(connection));
+        stats.getAbortReadConnection().wrap(() -> delegate().abortReadConnection(connection, resultSet));
     }
 
     @Override
@@ -216,6 +218,12 @@ public final class StatisticsAwareJdbcClient
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         stats.getRenameTable().wrap(() -> delegate().renameTable(session, handle, newTableName));
+    }
+
+    @Override
+    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> properties)
+    {
+        stats.getSetTableProperties().wrap(() -> delegate().setTableProperties(session, handle, properties));
     }
 
     @Override
@@ -293,9 +301,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public boolean isTopNLimitGuaranteed(ConnectorSession session)
+    public boolean isTopNGuaranteed(ConnectorSession session)
     {
-        return delegate().isTopNLimitGuaranteed(session);
+        return delegate().isTopNGuaranteed(session);
     }
 
     @Override
@@ -350,5 +358,17 @@ public final class StatisticsAwareJdbcClient
     public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         return stats.getGetTableScanRedirection().wrap(() -> delegate().getTableScanRedirection(session, tableHandle));
+    }
+
+    @Override
+    public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return stats.getDelete().wrap(() -> delegate().delete(session, handle));
+    }
+
+    @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        stats.getTruncateTable().wrap(() -> delegate().truncateTable(session, handle));
     }
 }

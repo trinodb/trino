@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -55,6 +56,7 @@ public class ParquetPageSource
 
     private int batchId;
     private boolean closed;
+    private long completedPositions;
 
     public ParquetPageSource(ParquetReader parquetReader, List<Type> types, List<Optional<Field>> fields)
     {
@@ -103,6 +105,12 @@ public class ParquetPageSource
     }
 
     @Override
+    public OptionalLong getCompletedPositions()
+    {
+        return OptionalLong.of(completedPositions);
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return parquetReader.getDataSource().getReadTimeNanos();
@@ -131,6 +139,8 @@ public class ParquetPageSource
                 close();
                 return null;
             }
+
+            completedPositions += batchSize;
 
             Block[] blocks = new Block[fields.size()];
             for (int column = 0; column < blocks.length; column++) {

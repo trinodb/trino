@@ -14,20 +14,23 @@
 
 package io.trino.type.setdigest;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
-import io.airlift.slice.Slice;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.TypeOperators;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.type.setdigest.SetDigest.DEFAULT_MAX_HASHES;
 import static io.trino.type.setdigest.SetDigest.NUMBER_OF_BUCKETS;
 import static io.trino.type.setdigest.SetDigestFunctions.hashCounts;
@@ -89,7 +92,6 @@ public class TestSetDigest
 
     @Test
     public void testHashCounts()
-            throws Exception
     {
         SetDigest digest1 = new SetDigest();
         digest1.add(0);
@@ -102,18 +104,25 @@ public class TestSetDigest
         digest2.add(2);
         digest2.add(2);
 
-        ObjectMapper mapper = new ObjectMapperProvider().get();
-
-        Slice slice = hashCounts(digest1.serialize());
-        Map<Long, Short> counts = mapper.readValue(slice.toStringUtf8(), new TypeReference<>() {});
+        MapType mapType = new MapType(BIGINT, SMALLINT, new TypeOperators());
+        Block block = hashCounts(mapType, digest1.serialize());
+        assertTrue(block instanceof SingleMapBlock);
+        Set<Short> blockValues = new HashSet<>();
+        for (int i = 1; i < block.getPositionCount(); i += 2) {
+            blockValues.add(block.getShort(i, 0));
+        }
         Set<Short> expected = ImmutableSet.of((short) 1, (short) 2);
-        assertEquals(counts.values(), expected);
+        assertEquals(blockValues, expected);
 
         digest1.mergeWith(digest2);
-        slice = hashCounts(digest1.serialize());
-        counts = mapper.readValue(slice.toStringUtf8(), new TypeReference<>() {});
+        block = hashCounts(mapType, digest1.serialize());
+        assertTrue(block instanceof SingleMapBlock);
         expected = ImmutableSet.of((short) 1, (short) 2, (short) 4);
-        assertEquals(ImmutableSet.copyOf(counts.values()), expected);
+        blockValues = new HashSet<>();
+        for (int i = 1; i < block.getPositionCount(); i += 2) {
+            blockValues.add(block.getShort(i, 0));
+        }
+        assertEquals(blockValues, expected);
     }
 
     @Test

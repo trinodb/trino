@@ -34,19 +34,23 @@ public class SystemInformationRule
 {
     private final Set<AccessMode> allow;
     private final Optional<Pattern> userRegex;
+    private final Optional<Pattern> roleRegex;
 
     @JsonCreator
     public SystemInformationRule(
             @JsonProperty("allow") Set<AccessMode> allow,
-            @JsonProperty("user") Optional<Pattern> userRegex)
+            @JsonProperty("user") Optional<Pattern> userRegex,
+            @JsonProperty("role") Optional<Pattern> roleRegex)
     {
         this.allow = ImmutableSet.copyOf(requireNonNull(allow, "allow is null"));
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
+        this.roleRegex = requireNonNull(roleRegex, "roleRegex is null");
     }
 
-    public Optional<Set<AccessMode>> match(String user)
+    public Optional<Set<AccessMode>> match(String user, Set<String> roles)
     {
-        if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true)) {
+        if (userRegex.map(regex -> regex.matcher(user).matches()).orElse(true) &&
+                roleRegex.map(regex -> roles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true)) {
             return Optional.of(allow);
         }
         return Optional.empty();
@@ -59,6 +63,7 @@ public class SystemInformationRule
                 .omitNullValues()
                 .add("allow", allow)
                 .add("userRegex", userRegex.orElse(null))
+                .add("roleRegex", roleRegex.orElse(null))
                 .toString();
     }
 

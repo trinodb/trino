@@ -13,14 +13,15 @@
  */
 package io.trino.operator.window;
 
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlFunction;
 
-import static com.google.common.base.Strings.nullToEmpty;
+import java.util.Optional;
+
 import static io.trino.metadata.FunctionKind.WINDOW;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -31,18 +32,16 @@ public class SqlWindowFunction
     private final WindowFunctionSupplier supplier;
     private final FunctionMetadata functionMetadata;
 
-    public SqlWindowFunction(WindowFunctionSupplier supplier, boolean deprecated)
+    public SqlWindowFunction(Signature signature, Optional<String> description, boolean deprecated, WindowFunctionSupplier supplier)
     {
         this.supplier = requireNonNull(supplier, "supplier is null");
-        Signature signature = supplier.getSignature();
         functionMetadata = new FunctionMetadata(
                 signature,
                 signature.getName(),
-                true,
-                nCopies(signature.getArgumentTypes().size(), new FunctionArgumentDefinition(true)),
+                new FunctionNullability(true, nCopies(signature.getArgumentTypes().size(), true)),
                 false,
                 true,
-                nullToEmpty(supplier.getDescription()),
+                description.orElse(""),
                 WINDOW,
                 deprecated);
     }
@@ -53,12 +52,12 @@ public class SqlWindowFunction
         return functionMetadata;
     }
 
-    public WindowFunctionSupplier specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public WindowFunctionSupplier specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        return specialize(functionBinding);
+        return specialize(boundSignature);
     }
 
-    public WindowFunctionSupplier specialize(FunctionBinding functionBinding)
+    public WindowFunctionSupplier specialize(BoundSignature boundSignature)
     {
         return supplier;
     }

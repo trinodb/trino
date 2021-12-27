@@ -93,7 +93,7 @@ public class PageBuilder
 
         declaredPositions = 0;
 
-        for (int i = 0; i < types.size(); i++) {
+        for (int i = 0; i < blockBuilders.length; i++) {
             blockBuilders[i] = blockBuilders[i].newBlockBuilderLike(pageBuilderStatus.createBlockBuilderStatus());
         }
     }

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedTablePrefix;
+import io.trino.metadata.ViewInfo;
 import io.trino.security.AccessControl;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -25,7 +26,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GrantInfo;
@@ -250,7 +250,7 @@ public class InformationSchemaPageSource
     {
         for (Map.Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
             SchemaTableName tableName = entry.getKey();
-            int ordinalPosition = 1;
+            long ordinalPosition = 1;
 
             for (ColumnMetadata column : entry.getValue()) {
                 if (column.isHidden()) {
@@ -280,6 +280,7 @@ public class InformationSchemaPageSource
     {
         Set<SchemaTableName> tables = listTables(session, metadata, accessControl, prefix);
         Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);
+        // TODO (https://github.com/trinodb/trino/issues/8207) define a type for materialized views
 
         for (SchemaTableName name : union(tables, views)) {
             // if table and view names overlap, the view wins
@@ -298,7 +299,7 @@ public class InformationSchemaPageSource
 
     private void addViewsRecords(QualifiedTablePrefix prefix)
     {
-        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, metadata, accessControl, prefix).entrySet()) {
+        for (Map.Entry<SchemaTableName, ViewInfo> entry : getViews(session, metadata, accessControl, prefix).entrySet()) {
             addRecord(
                     prefix.getCatalogName(),
                     entry.getKey().getSchemaName(),
@@ -344,13 +345,13 @@ public class InformationSchemaPageSource
     private void addRolesRecords()
     {
         try {
-            accessControl.checkCanShowRoles(session.toSecurityContext(), catalogName);
+            accessControl.checkCanShowRoles(session.toSecurityContext(), Optional.of(catalogName));
         }
         catch (AccessDeniedException exception) {
             return;
         }
 
-        for (String role : metadata.listRoles(session, catalogName)) {
+        for (String role : metadata.listRoles(session, Optional.of(catalogName))) {
             addRecord(role);
             if (isLimitExhausted()) {
                 return;
@@ -361,13 +362,13 @@ public class InformationSchemaPageSource
     private void addRoleAuthorizationDescriptorRecords()
     {
         try {
-            accessControl.checkCanShowRoleAuthorizationDescriptors(session.toSecurityContext(), catalogName);
+            accessControl.checkCanShowRoleAuthorizationDescriptors(session.toSecurityContext(), Optional.of(catalogName));
         }
         catch (AccessDeniedException exception) {
             return;
         }
 
-        for (RoleGrant grant : metadata.listAllRoleGrants(session, catalogName, roles, grantees, limit)) {
+        for (RoleGrant grant : metadata.listAllRoleGrants(session, Optional.of(catalogName), roles, grantees, limit)) {
             addRecord(
                     grant.getRoleName(),
                     null, // grantor
@@ -383,7 +384,7 @@ public class InformationSchemaPageSource
 
     private void addApplicableRolesRecords()
     {
-        for (RoleGrant grant : metadata.listApplicableRoles(session, new TrinoPrincipal(USER, session.getUser()), catalogName)) {
+        for (RoleGrant grant : metadata.listApplicableRoles(session, new TrinoPrincipal(USER, session.getUser()), Optional.of(catalogName))) {
             addRecord(
                     grant.getGrantee().getName(),
                     grant.getGrantee().getType().toString(),

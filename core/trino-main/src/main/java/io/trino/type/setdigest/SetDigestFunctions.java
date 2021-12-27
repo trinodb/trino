@@ -14,11 +14,7 @@
 
 package io.trino.type.setdigest;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.ScalarFunction;
@@ -27,7 +23,6 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 
-import java.io.UncheckedIOException;
 import java.util.Map;
 
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -36,8 +31,6 @@ import static io.trino.type.setdigest.SetDigest.exactIntersectionCardinality;
 
 public final class SetDigestFunctions
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
-
     private SetDigestFunctions()
     {
     }
@@ -99,19 +92,5 @@ public final class SetDigestFunctions
         blockBuilder.closeEntry();
 
         return (Block) mapType.getObject(blockBuilder, 0);
-    }
-
-    @ScalarFunction
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice hashCounts(@SqlType(SetDigestType.NAME) Slice slice)
-    {
-        SetDigest digest = SetDigest.newInstance(slice);
-
-        try {
-            return Slices.utf8Slice(OBJECT_MAPPER.writeValueAsString(digest.getHashCounts()));
-        }
-        catch (JsonProcessingException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 }

@@ -446,6 +446,23 @@ used to resolve the subject name via the topic name. Note that a case
 insensitive match must be done, as identifiers cannot contain upper case
 characters.
 
+.. _kafka-sql-support:
+
+SQL support
+-----------
+
+The connector provides read and write access to data and metadata in Trino
+tables populated by Kafka topics. See :ref:`kafka-row-decoding` for more
+information.
+
+In addition to the :ref:`globally available <sql-globally-available>`
+and :ref:`read operation <sql-read-operations>` statements, the connector
+supports the following features:
+
+* :doc:`/sql/insert`, encoded to a specified data format. See also
+  :ref:`kafka-sql-inserts`.
+
+.. _kafka-sql-inserts:
 
 Kafka inserts
 -------------
@@ -924,6 +941,8 @@ Example insert query for the above table definition::
 
     INSERT INTO example_avro_table (field1, field2, field3)
       VALUES (123456789, 'example text', FALSE);
+
+.. _kafka-row-decoding:
 
 Row decoding
 ------------

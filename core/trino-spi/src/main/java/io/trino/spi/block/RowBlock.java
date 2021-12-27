@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.BlockUtil.ensureBlocksAreLoaded;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -42,14 +43,31 @@ public class RowBlock
     /**
      * Create a row block directly from columnar nulls and field blocks.
      */
-    public static Block fromFieldBlocks(int positionCount, Optional<boolean[]> rowIsNull, Block[] fieldBlocks)
+    public static Block fromFieldBlocks(int positionCount, Optional<boolean[]> rowIsNullOptional, Block[] fieldBlocks)
     {
+        boolean[] rowIsNull = rowIsNullOptional.orElse(null);
         int[] fieldBlockOffsets = new int[positionCount + 1];
-        for (int position = 0; position < positionCount; position++) {
-            fieldBlockOffsets[position + 1] = fieldBlockOffsets[position] + (rowIsNull.isPresent() && rowIsNull.get()[position] ? 0 : 1);
+        if (rowIsNull == null) {
+            // Fast-path create identity field block offsets from position only
+            for (int position = 0; position < fieldBlockOffsets.length; position++) {
+                fieldBlockOffsets[position] = position;
+            }
         }
-        validateConstructorArguments(0, positionCount, rowIsNull.orElse(null), fieldBlockOffsets, fieldBlocks);
-        return new RowBlock(0, positionCount, rowIsNull.orElse(null), fieldBlockOffsets, fieldBlocks);
+        else {
+            // Check for nulls when computing field block offsets
+            fieldBlockOffsets[0] = 0;
+            for (int position = 0; position < positionCount; position++) {
+                fieldBlockOffsets[position + 1] = fieldBlockOffsets[position] + (rowIsNull[position] ? 0 : 1);
+            }
+            // fieldBlockOffsets is positionCount + 1 in length
+            if (fieldBlockOffsets[positionCount] == positionCount) {
+                // No nulls encountered, discard the null mask
+                rowIsNull = null;
+            }
+        }
+
+        validateConstructorArguments(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
+        return new RowBlock(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
     }
 
     /**
@@ -137,6 +155,12 @@ public class RowBlock
     }
 
     @Override
+    public boolean mayHaveNull()
+    {
+        return rowIsNull != null;
+    }
+
+    @Override
     public int getPositionCount()
     {
         return positionCount;
@@ -213,17 +237,9 @@ public class RowBlock
     @Override
     public Block getLoadedBlock()
     {
-        boolean allLoaded = true;
-        Block[] loadedFieldBlocks = new Block[fieldBlocks.length];
-
-        for (int i = 0; i < fieldBlocks.length; i++) {
-            loadedFieldBlocks[i] = fieldBlocks[i].getLoadedBlock();
-            if (loadedFieldBlocks[i] != fieldBlocks[i]) {
-                allLoaded = false;
-            }
-        }
-
-        if (allLoaded) {
+        Block[] loadedFieldBlocks = ensureBlocksAreLoaded(fieldBlocks);
+        if (loadedFieldBlocks == fieldBlocks) {
+            // All blocks are already loaded
             return this;
         }
         return createRowBlockInternal(

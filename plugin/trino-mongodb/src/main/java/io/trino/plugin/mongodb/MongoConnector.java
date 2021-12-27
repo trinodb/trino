@@ -55,18 +55,12 @@ public class MongoConnector
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
         MongoTransactionHandle transaction = new MongoTransactionHandle();
         transactions.put(transaction, new MongoMetadata(mongoSession));
         return transaction;
-    }
-
-    @Override
-    public boolean isSingleStatementWritesOnly()
-    {
-        return true;
     }
 
     @Override

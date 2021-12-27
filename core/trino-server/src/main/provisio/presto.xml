@@ -68,7 +68,7 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/hive-hadoop2">
+    <artifactSet to="plugin/hive">
         <artifact id="${project.groupId}:trino-hive-hadoop2:zip:${project.version}">
             <unpack />
         </artifact>
@@ -160,6 +160,12 @@
 
     <artifactSet to="plugin/prometheus">
         <artifact id="${project.groupId}:trino-prometheus:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/http-event-listener">
+        <artifact id="${project.groupId}:trino-http-event-listener:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

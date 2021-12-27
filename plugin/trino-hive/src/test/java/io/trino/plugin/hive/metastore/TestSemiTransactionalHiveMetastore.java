@@ -52,7 +52,7 @@ public class TestSemiTransactionalHiveMetastore
             Optional.of("comment"));
     private static final Storage TABLE_STORAGE = new Storage(
             StorageFormat.create("serde", "input", "output"),
-            "location",
+            Optional.of("location"),
             Optional.of(new HiveBucketProperty(ImmutableList.of("column"), BUCKETING_V1, 10, ImmutableList.of(new SortingColumn("column", SortingColumn.Order.ASCENDING)))),
             true,
             ImmutableMap.of("param", "value2"));
@@ -85,6 +85,7 @@ public class TestSemiTransactionalHiveMetastore
                 directExecutor(),
                 false,
                 false,
+                true,
                 Optional.empty(),
                 newScheduledThreadPool(1));
     }
@@ -108,7 +109,8 @@ public class TestSemiTransactionalHiveMetastore
                     "table_" + i,
                     new Path("location"),
                     ImmutableList.of(),
-                    PartitionStatistics.empty()));
+                    PartitionStatistics.empty(),
+                    false));
             semiTransactionalHiveMetastore.commit();
         });
     }
@@ -122,6 +124,7 @@ public class TestSemiTransactionalHiveMetastore
                 updateExecutor,
                 false,
                 false,
+                true,
                 Optional.empty(),
                 newScheduledThreadPool(1));
     }
@@ -136,7 +139,7 @@ public class TestSemiTransactionalHiveMetastore
                 return Optional.of(new Table(
                         "database",
                         tableName,
-                        "owner",
+                        Optional.of("owner"),
                         "table_type",
                         TABLE_STORAGE,
                         ImmutableList.of(TABLE_COLUMN),

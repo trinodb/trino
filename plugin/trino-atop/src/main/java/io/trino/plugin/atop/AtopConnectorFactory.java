@@ -17,7 +17,8 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.trino.plugin.atop.AtopConnectorConfig.AtopSecurity;
-import io.trino.plugin.base.security.AllowAllAccessControlModule;
+import io.trino.plugin.base.CatalogNameModule;
+import io.trino.plugin.base.security.ConnectorAccessControlModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
@@ -27,7 +28,7 @@ import io.trino.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static java.util.Objects.requireNonNull;
 
 public class AtopConnectorFactory
@@ -65,22 +66,18 @@ public class AtopConnectorFactory
                             atopFactoryClass,
                             context.getTypeManager(),
                             context.getNodeManager(),
-                            context.getNodeManager().getEnvironment(),
-                            catalogName),
-                    installModuleIf(
-                            AtopConnectorConfig.class,
-                            config -> config.getSecurity() == AtopSecurity.NONE,
-                            new AllowAllAccessControlModule()),
-                    installModuleIf(
+                            context.getNodeManager().getEnvironment()),
+                    new CatalogNameModule(catalogName),
+                    new ConnectorAccessControlModule(),
+                    conditionalModule(
                             AtopConnectorConfig.class,
                             config -> config.getSecurity() == AtopSecurity.FILE,
                             binder -> {
-                                binder.install(new FileBasedAccessControlModule(catalogName));
+                                binder.install(new FileBasedAccessControlModule());
                                 binder.install(new JsonModule());
                             }));
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(requiredConfig)
                     .initialize();

@@ -17,14 +17,16 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.Environments;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.tests.product.launcher.Configurations.nameForEnvironmentClass;
 import static java.lang.System.getenv;
 import static java.util.Objects.requireNonNull;
 
@@ -39,14 +41,22 @@ public class SuiteTestRun
     private static final String TEMPTO_EXCLUDE_TEST_ARG = "-e";
 
     private final Class<? extends EnvironmentProvider> environment;
+    private final Map<String, String> extraOptions;
     private final List<String> groups;
     private final List<String> excludedGroups;
     private final List<String> tests;
     private final List<String> excludedTests;
 
-    public SuiteTestRun(Class<? extends EnvironmentProvider> environment, List<String> groups, List<String> excludedGroups, List<String> tests, List<String> excludedTests)
+    public SuiteTestRun(
+            Class<? extends EnvironmentProvider> environment,
+            Map<String, String> extraOptions,
+            List<String> groups,
+            List<String> excludedGroups,
+            List<String> tests,
+            List<String> excludedTests)
     {
         this.environment = requireNonNull(environment, "environment is null");
+        this.extraOptions = ImmutableMap.copyOf(requireNonNull(extraOptions, "extraOptions is null"));
         this.groups = requireNonNull(groups, "groups is null");
         this.excludedGroups = requireNonNull(excludedGroups, "excludedGroups is null");
         this.tests = requireNonNull(tests, "tests is null");
@@ -60,7 +70,12 @@ public class SuiteTestRun
 
     public String getEnvironmentName()
     {
-        return Environments.nameForClass(environment);
+        return nameForEnvironmentClass(environment);
+    }
+
+    public Map<String, String> getExtraOptions()
+    {
+        return extraOptions;
     }
 
     public List<String> getGroups()
@@ -117,6 +132,7 @@ public class SuiteTestRun
     {
         return new SuiteTestRun(
                 environment,
+                extraOptions,
                 getGroups(),
                 merge(getExcludedGroups(), config.getExcludedGroups()),
                 getTests(),
@@ -133,6 +149,7 @@ public class SuiteTestRun
     {
         return toStringHelper(this)
                 .add("environment", getEnvironmentName())
+                .add("options", getExtraOptions())
                 .add("groups", getGroups())
                 .add("excludedGroups", getExcludedGroups())
                 .add("tests", getTests())
@@ -153,20 +170,27 @@ public class SuiteTestRun
 
     public static Builder testOnEnvironment(Class<? extends EnvironmentProvider> environment)
     {
-        return new Builder(environment);
+        return new Builder(environment, ImmutableMap.of());
+    }
+
+    public static Builder testOnEnvironment(Class<? extends EnvironmentProvider> environment, Map<String, String> extraOptions)
+    {
+        return new Builder(environment, extraOptions);
     }
 
     public static class Builder
     {
         private Class<? extends EnvironmentProvider> environment;
+        private Map<String, String> extraOptions;
         private List<String> groups = ImmutableList.of();
         private List<String> excludedGroups = ImmutableList.of();
         private List<String> excludedTests = ImmutableList.of();
         private List<String> tests = ImmutableList.of();
 
-        private Builder(Class<? extends EnvironmentProvider> environment)
+        private Builder(Class<? extends EnvironmentProvider> environment, Map<String, String> extraOptions)
         {
             this.environment = requireNonNull(environment, "environment is null");
+            this.extraOptions = ImmutableMap.copyOf(requireNonNull(extraOptions, "extraOptions is null"));
         }
 
         public Builder withGroups(String... groups)
@@ -195,7 +219,7 @@ public class SuiteTestRun
 
         public SuiteTestRun build()
         {
-            return new SuiteTestRun(environment, groups, excludedGroups, tests, excludedTests);
+            return new SuiteTestRun(environment, extraOptions, groups, excludedGroups, tests, excludedTests);
         }
     }
 }

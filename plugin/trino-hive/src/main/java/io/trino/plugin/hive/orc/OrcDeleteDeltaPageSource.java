@@ -29,6 +29,7 @@ import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -47,15 +48,17 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
-import static io.trino.orc.OrcReader.ProjectedLayout.fullyProjectedLayout;
 import static io.trino.orc.OrcReader.createOrcReader;
+import static io.trino.orc.OrcReader.fullyProjectedLayout;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_BUCKET;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_ORIGINAL_TRANSACTION;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_ROW_ID;
 import static io.trino.plugin.hive.orc.OrcPageSource.handleException;
 import static io.trino.plugin.hive.orc.OrcPageSourceFactory.verifyAcidSchema;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -75,15 +78,15 @@ public class OrcDeleteDeltaPageSource
             Path path,
             long fileSize,
             OrcReaderOptions options,
-            String sessionUser,
+            ConnectorIdentity identity,
             Configuration configuration,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats)
     {
         OrcDataSource orcDataSource;
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
-            FSDataInputStream inputStream = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.open(path));
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(identity, path, configuration);
+            FSDataInputStream inputStream = hdfsEnvironment.doAs(identity, () -> fileSystem.open(path));
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     fileSize,
@@ -141,12 +144,13 @@ public class OrcDeleteDeltaPageSource
                 orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
         List<OrcColumn> rowIdColumns = ImmutableList.of(
                 acidColumns.get(ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)),
+                acidColumns.get(ACID_COLUMN_BUCKET.toLowerCase(ENGLISH)),
                 acidColumns.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
 
         recordReader = reader.createRecordReader(
                 rowIdColumns,
-                ImmutableList.of(BIGINT, BIGINT),
-                ImmutableList.of(fullyProjectedLayout(), fullyProjectedLayout()),
+                ImmutableList.of(BIGINT, INTEGER, BIGINT),
+                ImmutableList.of(fullyProjectedLayout(), fullyProjectedLayout(), fullyProjectedLayout()),
                 OrcPredicate.TRUE,
                 0,
                 fileSize,

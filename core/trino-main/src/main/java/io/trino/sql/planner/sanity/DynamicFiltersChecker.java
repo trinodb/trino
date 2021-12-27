@@ -16,10 +16,10 @@ package io.trino.sql.planner.sanity;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.SubExpressionExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -44,6 +44,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.intersection;
+import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 
 /**
  * When dynamic filter assignments are present on a Join node, they should be consumed by a Filter node on it's probe side
@@ -55,11 +56,28 @@ public class DynamicFiltersChecker
     public void validate(
             PlanNode plan,
             Session session,
-            Metadata metadata,
-            TypeOperators typeOperators,
+            PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
+    {
+        try {
+            validate(plan);
+        }
+        catch (RuntimeException e) {
+            try {
+                int nestLevel = 4; // so that it renders reasonably within exception stacktrace
+                String explain = textLogicalPlan(plan, types, plannerContext.getMetadata(), StatsAndCosts.empty(), session, nestLevel, false);
+                e.addSuppressed(new Exception("Current plan:\n" + explain));
+            }
+            catch (RuntimeException ignore) {
+                // ignored
+            }
+            throw e;
+        }
+    }
+
+    private void validate(PlanNode plan)
     {
         plan.accept(new PlanVisitor<Set<DynamicFilterId>, Void>()
         {
@@ -161,7 +179,7 @@ public class DynamicFiltersChecker
 
     private static List<DynamicFilters.Descriptor> extractDynamicPredicates(Expression expression)
     {
-        return SubExpressionExtractor.extract(expression).stream()
+        return SubExpressionExtractor.extract(expression)
                 .map(DynamicFilters::getDescriptor)
                 .filter(Optional::isPresent)
                 .map(Optional::get)

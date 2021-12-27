@@ -13,6 +13,7 @@
  */
 package io.trino.spi.eventlistener;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -24,6 +25,9 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
+ */
 public class QueryContext
 {
     private final String user;
@@ -51,6 +55,7 @@ public class QueryContext
 
     private final Optional<QueryType> queryType;
 
+    @JsonCreator
     public QueryContext(
             String user,
             Optional<String> principal,

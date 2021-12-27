@@ -20,9 +20,10 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
-import java.util.OptionalInt;
+import java.util.Set;
 
 public interface RemoteTaskFactory
 {
@@ -32,8 +33,8 @@ public interface RemoteTaskFactory
             InternalNode node,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
-            OptionalInt totalPartitions,
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
+            Set<DynamicFilterId> outboundDynamicFilterIds,
             boolean summarizeTaskInfo);
 }

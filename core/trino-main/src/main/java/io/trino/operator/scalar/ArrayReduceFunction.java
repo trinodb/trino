@@ -15,12 +15,13 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;
@@ -61,12 +62,7 @@ public final class ArrayReduceFunction
                                 functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")),
                                 functionType(new TypeSignature("S"), new TypeSignature("R"))),
                         false),
-                true,
-                ImmutableList.of(
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(true),
-                        new FunctionArgumentDefinition(false),
-                        new FunctionArgumentDefinition(false)),
+                new FunctionNullability(true, ImmutableList.of(false, true, false, false)),
                 false,
                 false,
                 "Reduce elements of the array into a single value",
@@ -74,14 +70,15 @@ public final class ArrayReduceFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
     {
-        Type inputType = functionBinding.getTypeVariable("T");
-        Type intermediateType = functionBinding.getTypeVariable("S");
-        Type outputType = functionBinding.getTypeVariable("R");
+        ArrayType arrayType = (ArrayType) boundSignature.getArgumentTypes().get(0);
+        Type inputType = arrayType.getElementType();
+        Type intermediateType = boundSignature.getArgumentTypes().get(1);
+        Type outputType = boundSignature.getReturnType();
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(inputType);
         return new ChoicesScalarFunctionImplementation(
-                functionBinding,
+                boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL, BOXED_NULLABLE, FUNCTION, FUNCTION),
                 ImmutableList.of(BinaryFunctionInterface.class, UnaryFunctionInterface.class),

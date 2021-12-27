@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.geospatial.Rectangle;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
@@ -32,7 +33,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
@@ -61,6 +61,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.operator.HashArraySizeSupplier.defaultHashArraySizeSupplier;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.operator.SyntheticAddress.encodeSyntheticAddress;
@@ -291,7 +292,7 @@ public class PagesIndex
         elements[b] = temp;
     }
 
-    public int buildPage(int position, int[] outputChannels, PageBuilder pageBuilder)
+    private int buildPage(int position, int[] outputChannels, PageBuilder pageBuilder)
     {
         while (!pageBuilder.isFull() && position < positionCount) {
             long pageAddress = valueAddresses.getLong(position);
@@ -386,6 +387,18 @@ public class PagesIndex
         return block.getSingleValueBlock(blockPosition);
     }
 
+    public Block getRawBlock(int channel, int position)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+        return channels[channel].get(decodeSliceIndex(pageAddress));
+    }
+
+    public int getRawBlockPosition(int position)
+    {
+        long pageAddress = valueAddresses.getLong(position);
+        return decodePosition(pageAddress);
+    }
+
     public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
         sort(sortChannels, sortOrders, 0, getPositionCount());
@@ -436,7 +449,7 @@ public class PagesIndex
         return createPagesHashStrategy(joinChannels, hashChannel, Optional.empty());
     }
 
-    public PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OptionalInt hashChannel, Optional<List<Integer>> outputChannels)
+    private PagesHashStrategy createPagesHashStrategy(List<Integer> joinChannels, OptionalInt hashChannel, Optional<List<Integer>> outputChannels)
     {
         try {
             return joinCompiler.compilePagesHashStrategyFactory(types, joinChannels, outputChannels)
@@ -460,7 +473,7 @@ public class PagesIndex
     public PagesIndexComparator createChannelComparator(int leftChannel, int rightChannel)
     {
         checkArgument(types.get(leftChannel).equals(types.get(rightChannel)), "comparing channels of different types: %s and %s", types.get(leftChannel), types.get(rightChannel));
-        return new SimpleChannelComparator(leftChannel, rightChannel, blockTypeOperators.getComparisonOperator(types.get(leftChannel)));
+        return new SimpleChannelComparator(leftChannel, rightChannel, blockTypeOperators.getComparisonUnorderedLastOperator(types.get(leftChannel)));
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
@@ -471,7 +484,7 @@ public class PagesIndex
             Optional<Integer> sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories)
     {
-        return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.empty());
+        return createLookupSourceSupplier(session, joinChannels, hashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.empty(), defaultHashArraySizeSupplier());
     }
 
     public PagesSpatialIndexSupplier createPagesSpatialIndex(
@@ -496,7 +509,8 @@ public class PagesIndex
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories,
-            Optional<List<Integer>> outputChannels)
+            Optional<List<Integer>> outputChannels,
+            HashArraySizeSupplier hashArraySizeSupplier)
     {
         List<List<Block>> channels = ImmutableList.copyOf(this.channels);
         if (!joinChannels.isEmpty()) {
@@ -512,10 +526,10 @@ public class PagesIndex
                     hashChannel,
                     filterFunctionFactory,
                     sortChannel,
-                    searchFunctionFactories);
+                    searchFunctionFactories,
+                    hashArraySizeSupplier);
         }
 
-        // if compilation fails
         PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
                 types,
                 outputChannels.orElse(rangeList(types.size())),
@@ -532,10 +546,11 @@ public class PagesIndex
                 channels,
                 filterFunctionFactory,
                 sortChannel,
-                searchFunctionFactories);
+                searchFunctionFactories,
+                hashArraySizeSupplier);
     }
 
-    private List<Integer> rangeList(int endExclusive)
+    private static List<Integer> rangeList(int endExclusive)
     {
         return IntStream.range(0, endExclusive)
                 .boxed()

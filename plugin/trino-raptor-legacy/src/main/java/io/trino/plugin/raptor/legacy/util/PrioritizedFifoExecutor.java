@@ -60,7 +60,7 @@ public class PrioritizedFifoExecutor<T extends Runnable>
         this.queue = new PriorityBlockingQueue<>(maxThreads);
     }
 
-    public ListenableFuture<?> submit(T task)
+    public ListenableFuture<Void> submit(T task)
     {
         FifoRunnableTask<T> fifoTask = new FifoRunnableTask<>(task, sequenceNumber.incrementAndGet(), taskComparator);
         queue.add(fifoTask);

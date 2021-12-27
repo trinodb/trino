@@ -46,6 +46,7 @@ system| metadata| analyze_properties| type| varchar| YES| null| null|
 system| metadata| analyze_properties| description| varchar| YES| null| null|
 system| metadata| catalogs| catalog_name| varchar| YES| null| null|
 system| metadata| catalogs| connector_id| varchar| YES| null| null|
+system| metadata| catalogs| connector_name| varchar| YES| null| null|
 system| metadata| column_properties| catalog_name| varchar| YES| null| null|
 system| metadata| column_properties| property_name| varchar| YES| null| null|
 system| metadata| column_properties| default_value| varchar| YES| null| null|
@@ -56,6 +57,15 @@ system| metadata| materialized_view_properties| property_name| varchar| YES| nul
 system| metadata| materialized_view_properties| default_value| varchar| YES| null| null|
 system| metadata| materialized_view_properties| type| varchar| YES| null| null|
 system| metadata| materialized_view_properties| description| varchar| YES| null| null|
+system| metadata| materialized_views| catalog_name| varchar| YES| null| null|
+system| metadata| materialized_views| schema_name| varchar| YES| null| null|
+system| metadata| materialized_views| name| varchar| YES| null| null|
+system| metadata| materialized_views| storage_catalog| varchar| YES| null| null|
+system| metadata| materialized_views| storage_schema| varchar| YES| null| null|
+system| metadata| materialized_views| storage_table| varchar| YES| null| null|
+system| metadata| materialized_views| is_fresh| boolean| YES| null| null|
+system| metadata| materialized_views| comment| varchar| YES| null| null|
+system| metadata| materialized_views| definition| varchar| YES| null| null|
 system| metadata| schema_properties| catalog_name| varchar| YES| null| null|
 system| metadata| schema_properties| property_name| varchar| YES| null| null|
 system| metadata| schema_properties| default_value| varchar| YES| null| null|

@@ -40,6 +40,8 @@ public class StageStats
     private final long processedRows;
     private final long processedBytes;
     private final long physicalInputBytes;
+    private final int failedTasks;
+    private final boolean coordinatorOnly;
     private final List<StageStats> subStages;
 
     @JsonCreator
@@ -57,6 +59,8 @@ public class StageStats
             @JsonProperty("processedRows") long processedRows,
             @JsonProperty("processedBytes") long processedBytes,
             @JsonProperty("physicalInputBytes") long physicalInputBytes,
+            @JsonProperty("failedTasks") int failedTasks,
+            @JsonProperty("coordinatorOnly") boolean coordinatorOnly,
             @JsonProperty("subStages") List<StageStats> subStages)
     {
         this.stageId = stageId;
@@ -72,6 +76,8 @@ public class StageStats
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
         this.physicalInputBytes = physicalInputBytes;
+        this.failedTasks = failedTasks;
+        this.coordinatorOnly = coordinatorOnly;
         this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "subStages is null"));
     }
 
@@ -154,6 +160,18 @@ public class StageStats
     }
 
     @JsonProperty
+    public int getFailedTasks()
+    {
+        return failedTasks;
+    }
+
+    @JsonProperty
+    public boolean isCoordinatorOnly()
+    {
+        return coordinatorOnly;
+    }
+
+    @JsonProperty
     public List<StageStats> getSubStages()
     {
         return subStages;
@@ -175,6 +193,8 @@ public class StageStats
                 .add("processedRows", processedRows)
                 .add("processedBytes", processedBytes)
                 .add("physicalInputBytes", physicalInputBytes)
+                .add("failedTasks", failedTasks)
+                .add("coordinatorOnly", coordinatorOnly)
                 .add("subStages", subStages)
                 .toString();
     }
@@ -199,6 +219,8 @@ public class StageStats
         private long processedRows;
         private long processedBytes;
         private long physicalInputBytes;
+        private int failedTasks;
+        private boolean coordinatorOnly;
         private List<StageStats> subStages;
 
         private Builder() {}
@@ -281,6 +303,18 @@ public class StageStats
             return this;
         }
 
+        public Builder setFailedTasks(int failedTasks)
+        {
+            this.failedTasks = failedTasks;
+            return this;
+        }
+
+        public Builder setCoordinatorOnly(boolean coordinatorOnly)
+        {
+            this.coordinatorOnly = coordinatorOnly;
+            return this;
+        }
+
         public Builder setSubStages(List<StageStats> subStages)
         {
             this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "subStages is null"));
@@ -303,6 +337,8 @@ public class StageStats
                     processedRows,
                     processedBytes,
                     physicalInputBytes,
+                    failedTasks,
+                    coordinatorOnly,
                     subStages);
         }
     }

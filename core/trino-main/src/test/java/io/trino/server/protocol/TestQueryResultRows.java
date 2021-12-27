@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
-import io.trino.metadata.Metadata;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
@@ -49,12 +48,13 @@ import static io.trino.client.ClientStandardTypes.MAP;
 import static io.trino.client.ClientStandardTypes.ROW;
 import static io.trino.client.ClientStandardTypes.TIMESTAMP;
 import static io.trino.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.protocol.QueryResultRows.queryResultRowsBuilder;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.collections.Lists.newArrayList;
@@ -64,8 +64,6 @@ public class TestQueryResultRows
     private static final Function<String, Column> BOOLEAN_COLUMN = name -> new Column(name, BOOLEAN, new ClientTypeSignature(BOOLEAN));
     private static final Function<String, Column> BIGINT_COLUMN = name -> new Column(name, BIGINT, new ClientTypeSignature(BIGINT));
     private static final Function<String, Column> INT_COLUMN = name -> new Column(name, INTEGER, new ClientTypeSignature(INTEGER));
-
-    private static final Metadata METADATA = createTestMetadataManager();
 
     @Test
     public void shouldNotReturnValues()
@@ -90,7 +88,6 @@ public class TestQueryResultRows
         assertThat((Iterable<? extends List<Object>>) rows).as("rows").isNotEmpty();
         assertThat(getAllValues(rows)).hasSize(1).containsOnly(ImmutableList.of(true));
         assertThat(rows.getColumns().orElseThrow()).containsOnly(column);
-        assertThat(rows.iterator().hasNext()).isFalse();
     }
 
     @Test
@@ -110,7 +107,6 @@ public class TestQueryResultRows
 
         assertThat(getAllValues(rows)).containsExactly(ImmutableList.of(value));
         assertThat(rows.getColumns().orElseThrow()).containsOnly(column);
-        assertThat(rows.iterator()).isExhausted();
     }
 
     @Test
@@ -385,7 +381,7 @@ public class TestQueryResultRows
         QueryResultRows.empty(getSession());
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "columns and types size mismatch")
+    @Test
     public void shouldThrowWhenColumnsAndTypesSizeMismatch()
     {
         List<Column> columns = ImmutableList.of(INT_COLUMN.apply("_col0"));
@@ -395,13 +391,12 @@ public class TestQueryResultRows
                 .row(0, null)
                 .build();
 
-        queryResultRowsBuilder(getSession())
-                .addPages(pages)
-                .withColumnsAndTypes(columns, types)
-                .build();
+        assertThatThrownBy(() -> queryResultRowsBuilder(getSession()).addPages(pages).withColumnsAndTypes(columns, types).build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("columns and types size mismatch");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "columns and types must be present at the same time")
+    @Test
     public void shouldThrowWhenColumnsAreNull()
     {
         List<Type> types = ImmutableList.of(IntegerType.INTEGER, BooleanType.BOOLEAN);
@@ -410,10 +405,9 @@ public class TestQueryResultRows
                 .row(0, null)
                 .build();
 
-        queryResultRowsBuilder(getSession())
-                .addPages(pages)
-                .withColumnsAndTypes(null, types)
-                .build();
+        assertThatThrownBy(() -> queryResultRowsBuilder(getSession()).addPages(pages).withColumnsAndTypes(null, types).build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("columns and types must be present at the same time");
     }
 
     @Test
@@ -424,7 +418,7 @@ public class TestQueryResultRows
                 .build();
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "columns and types must be present at the same time")
+    @Test
     public void shouldThrowWhenTypesAreNull()
     {
         List<Column> columns = ImmutableList.of(INT_COLUMN.apply("_col0"));
@@ -434,22 +428,21 @@ public class TestQueryResultRows
                 .row(0, null)
                 .build();
 
-        queryResultRowsBuilder(getSession())
-                .addPages(pages)
-                .withColumnsAndTypes(columns, null)
-                .build();
+        assertThatThrownBy(() -> queryResultRowsBuilder(getSession()).addPages(pages).withColumnsAndTypes(columns, null).build())
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("columns and types must be present at the same time");
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "data present without columns and types")
+    @Test
     public void shouldThrowWhenDataIsPresentWithoutColumns()
     {
         List<Page> pages = rowPagesBuilder(ImmutableList.of(IntegerType.INTEGER, BooleanType.BOOLEAN))
                 .row(0, null)
                 .build();
 
-        queryResultRowsBuilder(getSession())
-                .addPages(pages)
-                .build();
+        assertThatThrownBy(() -> queryResultRowsBuilder(getSession()).addPages(pages).build())
+                .isInstanceOf(VerifyException.class)
+                .hasMessage("data present without columns and types");
     }
 
     private static List<List<Object>> getAllValues(QueryResultRows rows)
@@ -488,6 +481,6 @@ public class TestQueryResultRows
 
     private static Type createMapType(Type keyType, Type valueType)
     {
-        return METADATA.getType(mapType(keyType.getTypeSignature(), valueType.getTypeSignature()));
+        return TESTING_TYPE_MANAGER.getType(mapType(keyType.getTypeSignature(), valueType.getTypeSignature()));
     }
 }

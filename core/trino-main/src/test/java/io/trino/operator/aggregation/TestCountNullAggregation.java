@@ -40,7 +40,7 @@ public class TestCountNullAggregation
     @BeforeClass
     public void setup()
     {
-        metadata.addFunctions(new FunctionListBuilder().aggregates(CountNull.class).getFunctions());
+        functionResolution.addFunctions(new FunctionListBuilder().aggregates(CountNull.class).getFunctions());
     }
 
     @Override
@@ -77,7 +77,7 @@ public class TestCountNullAggregation
         public static void input(@AggregationState NullableLongState state, @BlockPosition @NullablePosition @SqlType(StandardTypes.BIGINT) Block block, @BlockIndex int position)
         {
             if (block.isNull(position)) {
-                state.setLong(state.getLong() + 1);
+                state.setValue(state.getValue() + 1);
             }
             state.setNull(false);
         }
@@ -85,7 +85,7 @@ public class TestCountNullAggregation
         @CombineFunction
         public static void combine(@AggregationState NullableLongState state, @AggregationState NullableLongState scratchState)
         {
-            state.setLong(state.getLong() + scratchState.getLong());
+            state.setValue(state.getValue() + scratchState.getValue());
             state.setNull(state.isNull() && scratchState.isNull());
         }
 

@@ -42,7 +42,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.raptor.legacy.storage.OrcTestingUtil.createReader;
 import static io.trino.plugin.raptor.legacy.storage.OrcTestingUtil.fileOrcDataSource;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -54,6 +53,7 @@ import static io.trino.testing.StructuralTestUtil.arrayBlockOf;
 import static io.trino.testing.StructuralTestUtil.arrayBlocksEqual;
 import static io.trino.testing.StructuralTestUtil.mapBlockOf;
 import static io.trino.testing.StructuralTestUtil.mapBlocksEqual;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertEquals;
@@ -87,7 +87,7 @@ public class TestOrcFileRewriter
     {
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
-        Type mapType = createTestMetadataManager().getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        Type mapType = TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.typeParameter(createVarcharType(5).getTypeSignature()),
                 TypeSignatureParameter.typeParameter(BOOLEAN.getTypeSignature())));
         List<Long> columnIds = ImmutableList.of(3L, 7L, 9L, 10L, 11L, 12L);

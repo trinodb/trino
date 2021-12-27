@@ -16,29 +16,39 @@ package io.trino.plugin.jdbc.expression;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.plugin.base.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.VarcharType;
 
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.basicAggregation;
-import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.singleInput;
-import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.variable;
+import static io.trino.plugin.base.expression.AggregateFunctionPatterns.basicAggregation;
+import static io.trino.plugin.base.expression.AggregateFunctionPatterns.functionName;
+import static io.trino.plugin.base.expression.AggregateFunctionPatterns.singleInput;
+import static io.trino.plugin.base.expression.AggregateFunctionPatterns.variable;
 import static java.lang.String.format;
 
 /**
  * Implements {@code min(x)}, {@code max(x)}.
  */
 public class ImplementMinMax
-        implements AggregateFunctionRule
+        implements AggregateFunctionRule<JdbcExpression>
 {
     private static final Capture<Variable> INPUT = newCapture();
+
+    private final boolean isRemoteCollationSensitive;
+
+    public ImplementMinMax(boolean isRemoteCollationSensitive)
+    {
+        this.isRemoteCollationSensitive = isRemoteCollationSensitive;
+    }
 
     @Override
     public Pattern<AggregateFunction> getPattern()
@@ -54,6 +64,11 @@ public class ImplementMinMax
         Variable input = captures.get(INPUT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
         verify(columnHandle.getColumnType().equals(aggregateFunction.getOutputType()));
+
+        // Remote database is case insensitive or sorts values differently from Trino
+        if (!isRemoteCollationSensitive && (columnHandle.getColumnType() instanceof CharType || columnHandle.getColumnType() instanceof VarcharType)) {
+            return Optional.empty();
+        }
 
         return Optional.of(new JdbcExpression(
                 format("%s(%s)", aggregateFunction.getFunctionName(), context.getIdentifierQuote().apply(columnHandle.getColumnName())),

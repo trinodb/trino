@@ -32,10 +32,12 @@ import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -75,18 +77,22 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.common.io.Resources.getResource;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -103,7 +109,6 @@ import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.CSV;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
-import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
@@ -116,6 +121,7 @@ import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -326,7 +332,7 @@ public class TestBackgroundHiveSplitLoader
                 PARTITIONED_TABLE,
                 Optional.of(
                         new HiveBucketHandle(
-                                getRegularColumnHandles(PARTITIONED_TABLE, TYPE_MANAGER, DEFAULT_PRECISION),
+                                getRegularColumnHandles(PARTITIONED_TABLE, TESTING_TYPE_MANAGER, DEFAULT_PRECISION),
                                 BUCKETING_V1,
                                 BUCKET_COUNT,
                                 BUCKET_COUNT,
@@ -351,9 +357,7 @@ public class TestBackgroundHiveSplitLoader
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
         List<HiveSplit> splits = drainSplits(hiveSplitSource);
-        assertEquals(splits.size(), 1);
-        assertEquals(splits.get(0).getPath(), RETURNED_PATH.toString());
-        assertEquals(splits.get(0).getLength(), 0);
+        assertEquals(splits.size(), 0);
     }
 
     @Test
@@ -379,16 +383,22 @@ public class TestBackgroundHiveSplitLoader
                 new DynamicFilter()
                 {
                     @Override
+                    public Set<ColumnHandle> getColumnsCovered()
+                    {
+                        return ImmutableSet.of();
+                    }
+
+                    @Override
                     public CompletableFuture<?> isBlocked()
                     {
-                        return CompletableFuture.runAsync(() -> {
+                        return unmodifiableFuture(CompletableFuture.runAsync(() -> {
                             try {
                                 TimeUnit.HOURS.sleep(1);
                             }
                             catch (InterruptedException e) {
                                 throw new IllegalStateException(e);
                             }
-                        });
+                        }));
                     }
 
                     @Override
@@ -531,7 +541,7 @@ public class TestBackgroundHiveSplitLoader
                 TupleDomain.all(),
                 DynamicFilter.EMPTY,
                 new Duration(0, SECONDS),
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 SESSION,
                 new TestingHdfsEnvironment(TEST_FILES),
@@ -542,6 +552,7 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 false,
                 true,
+                Optional.empty(),
                 Optional.empty());
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
@@ -929,7 +940,7 @@ public class TestBackgroundHiveSplitLoader
             Files.write(file.toPath(), String.valueOf(orcAcidVersion).getBytes(UTF_8));
             return;
         }
-        checkState(file.createNewFile(), "Failed to create file %s", file);
+        Files.copy(getResource("fullacidNationTableWithOriginalFiles/000000_0").openStream(), file.toPath());
     }
 
     private static List<String> drain(HiveSplitSource source)
@@ -945,8 +956,15 @@ public class TestBackgroundHiveSplitLoader
     {
         ImmutableList.Builder<HiveSplit> splits = ImmutableList.builder();
         while (!source.isFinished()) {
-            source.getNextBatch(NOT_PARTITIONED, 100).get()
-                    .getSplits().stream()
+            ConnectorSplitBatch batch;
+            try {
+                batch = source.getNextBatch(NOT_PARTITIONED, 100).get();
+            }
+            catch (ExecutionException e) {
+                throwIfUnchecked(e.getCause());
+                throw e;
+            }
+            batch.getSplits().stream()
                     .map(HiveSplit.class::cast)
                     .forEach(splits::add);
         }
@@ -1056,7 +1074,7 @@ public class TestBackgroundHiveSplitLoader
                 compactEffectivePredicate,
                 dynamicFilter,
                 dynamicFilteringProbeBlockingTimeout,
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 createBucketSplitInfo(bucketHandle, hiveBucketFilter),
                 SESSION,
                 hdfsEnvironment,
@@ -1067,7 +1085,8 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 false,
                 true,
-                validWriteIds);
+                validWriteIds,
+                Optional.empty());
     }
 
     private BackgroundHiveSplitLoader backgroundHiveSplitLoader(List<LocatedFileStatus> files, DirectoryLister directoryLister)
@@ -1088,7 +1107,7 @@ public class TestBackgroundHiveSplitLoader
                 TupleDomain.none(),
                 DynamicFilter.EMPTY,
                 new Duration(0, SECONDS),
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 Optional.empty(),
                 connectorSession,
                 new TestingHdfsEnvironment(files),
@@ -1099,6 +1118,7 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 false,
                 true,
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -1114,7 +1134,7 @@ public class TestBackgroundHiveSplitLoader
                 TupleDomain.all(),
                 DynamicFilter.EMPTY,
                 new Duration(0, SECONDS),
-                TYPE_MANAGER,
+                TESTING_TYPE_MANAGER,
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,
                 new TestingHdfsEnvironment(TEST_FILES),
@@ -1125,6 +1145,7 @@ public class TestBackgroundHiveSplitLoader
                 false,
                 false,
                 true,
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -1168,7 +1189,8 @@ public class TestBackgroundHiveSplitLoader
                 Integer.MAX_VALUE,
                 hiveSplitLoader,
                 executor,
-                new CounterStat());
+                new CounterStat(),
+                false);
     }
 
     private static Table table(
@@ -1230,7 +1252,7 @@ public class TestBackgroundHiveSplitLoader
 
         return tableBuilder
                 .setDatabaseName("test_dbname")
-                .setOwner("testOwner")
+                .setOwner(Optional.of("testOwner"))
                 .setTableName("test_table")
                 .setTableType(TableType.MANAGED_TABLE.toString())
                 .setDataColumns(ImmutableList.of(new Column("col1", HIVE_STRING, Optional.empty())))
@@ -1241,7 +1263,7 @@ public class TestBackgroundHiveSplitLoader
 
     private static LocatedFileStatus locatedFileStatus(Path path)
     {
-        return locatedFileStatus(path, 0);
+        return locatedFileStatus(path, 10);
     }
 
     private static LocatedFileStatus locatedFileStatus(Path path, long fileLength)
@@ -1312,7 +1334,7 @@ public class TestBackgroundHiveSplitLoader
         }
 
         @Override
-        public FileSystem getFileSystem(String user, Path path, Configuration configuration)
+        public FileSystem getFileSystem(ConnectorIdentity identity, Path path, Configuration configuration)
         {
             return new TestingHdfsFileSystem(files);
         }

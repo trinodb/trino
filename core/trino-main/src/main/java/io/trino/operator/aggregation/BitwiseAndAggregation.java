@@ -33,10 +33,10 @@ public final class BitwiseAndAggregation
     public static void bitAnd(@AggregationState NullableLongState state, @SqlType(StandardTypes.BIGINT) long value)
     {
         if (state.isNull()) {
-            state.setLong(value);
+            state.setValue(value);
         }
         else {
-            state.setLong(state.getLong() & value);
+            state.setValue(state.getValue() & value);
         }
         state.setNull(false);
     }
@@ -45,11 +45,10 @@ public final class BitwiseAndAggregation
     public static void combine(@AggregationState NullableLongState state, @AggregationState NullableLongState otherState)
     {
         if (state.isNull()) {
-            state.setNull(otherState.isNull());
-            state.setLong(otherState.getLong());
+            state.set(otherState);
         }
         else if (!otherState.isNull()) {
-            state.setLong(state.getLong() & otherState.getLong());
+            state.setValue(state.getValue() & otherState.getValue());
         }
     }
 

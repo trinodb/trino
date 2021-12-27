@@ -7,7 +7,7 @@ These properties allow tuning the :doc:`/functions/regexp`.
 ``regex-library``
 ^^^^^^^^^^^^^^^^^
 
-* **Type:** ``string``
+* **Type:** :ref:`prop-type-string`
 * **Allowed values:** ``JONI``, ``RE2J``
 * **Default value:** ``JONI``
 
@@ -19,7 +19,7 @@ which guarantees linear time, but is often slower.
 ``re2j.dfa-states-limit``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``integer``
+* **Type:** :ref:`prop-type-integer`
 * **Minimum value:** ``2``
 * **Default value:** ``2147483647``
 
@@ -33,7 +33,7 @@ maximum memory footprint of a regular expression search at the cost of speed.
 ``re2j.dfa-retries``
 ^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``integer``
+* **Type:** :ref:`prop-type-integer`
 * **Minimum value:** ``0``
 * **Default value:** ``5``
 

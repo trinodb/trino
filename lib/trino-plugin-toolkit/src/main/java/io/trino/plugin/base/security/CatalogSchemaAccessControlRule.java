@@ -34,11 +34,12 @@ public class CatalogSchemaAccessControlRule
     public CatalogSchemaAccessControlRule(
             @JsonProperty("owner") boolean owner,
             @JsonProperty("user") Optional<Pattern> userRegex,
+            @JsonProperty("role") Optional<Pattern> roleRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
             @JsonProperty("schema") Optional<Pattern> schemaRegex,
             @JsonProperty("catalog") Optional<Pattern> catalogRegex)
     {
-        this.schemaAccessControlRule = new SchemaAccessControlRule(owner, userRegex, groupRegex, schemaRegex);
+        this.schemaAccessControlRule = new SchemaAccessControlRule(owner, userRegex, roleRegex, groupRegex, schemaRegex);
         this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
     }
 
@@ -48,12 +49,12 @@ public class CatalogSchemaAccessControlRule
         this.catalogRegex = catalogRegex;
     }
 
-    public Optional<Boolean> match(String user, Set<String> groups, CatalogSchemaName schema)
+    public Optional<Boolean> match(String user, Set<String> roles, Set<String> groups, CatalogSchemaName schema)
     {
         if (!catalogRegex.map(regex -> regex.matcher(schema.getCatalogName()).matches()).orElse(true)) {
             return Optional.empty();
         }
-        return schemaAccessControlRule.match(user, groups, schema.getSchemaName());
+        return schemaAccessControlRule.match(user, roles, groups, schema.getSchemaName());
     }
 
     Optional<AnyCatalogPermissionsRule> toAnyCatalogPermissionsRule()
@@ -63,6 +64,7 @@ public class CatalogSchemaAccessControlRule
         }
         return Optional.of(new AnyCatalogPermissionsRule(
                 schemaAccessControlRule.getUserRegex(),
+                schemaAccessControlRule.getRoleRegex(),
                 schemaAccessControlRule.getGroupRegex(),
                 catalogRegex));
     }
@@ -74,6 +76,7 @@ public class CatalogSchemaAccessControlRule
         }
         return Optional.of(new AnyCatalogSchemaPermissionsRule(
                 schemaAccessControlRule.getUserRegex(),
+                schemaAccessControlRule.getRoleRegex(),
                 schemaAccessControlRule.getGroupRegex(),
                 catalogRegex,
                 schemaAccessControlRule.getSchemaRegex()));

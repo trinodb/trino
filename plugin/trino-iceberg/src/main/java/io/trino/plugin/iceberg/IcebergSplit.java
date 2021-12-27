@@ -21,9 +21,9 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 import org.apache.iceberg.FileFormat;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -37,7 +37,7 @@ public class IcebergSplit
     private final long fileSize;
     private final FileFormat fileFormat;
     private final List<HostAddress> addresses;
-    private final Map<Integer, String> partitionKeys;
+    private final Map<Integer, Optional<String>> partitionKeys;
 
     @JsonCreator
     public IcebergSplit(
@@ -47,7 +47,7 @@ public class IcebergSplit
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("fileFormat") FileFormat fileFormat,
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("partitionKeys") Map<Integer, String> partitionKeys)
+            @JsonProperty("partitionKeys") Map<Integer, Optional<String>> partitionKeys)
     {
         this.path = requireNonNull(path, "path is null");
         this.start = start;
@@ -55,7 +55,7 @@ public class IcebergSplit
         this.fileSize = fileSize;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
-        this.partitionKeys = Collections.unmodifiableMap(requireNonNull(partitionKeys, "partitionKeys is null"));
+        this.partitionKeys = ImmutableMap.copyOf(requireNonNull(partitionKeys, "partitionKeys is null"));
     }
 
     @Override
@@ -102,7 +102,7 @@ public class IcebergSplit
     }
 
     @JsonProperty
-    public Map<Integer, String> getPartitionKeys()
+    public Map<Integer, Optional<String>> getPartitionKeys()
     {
         return partitionKeys;
     }

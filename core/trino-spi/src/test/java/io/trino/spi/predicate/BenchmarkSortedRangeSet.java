@@ -46,11 +46,19 @@ public class BenchmarkSortedRangeSet
     @Benchmark
     public SortedRangeSet benchmarkBuilder(Data data)
     {
-        SortedRangeSet build = new SortedRangeSet.Builder(BIGINT)
-                .addAll(data.ranges)
-                .build();
+        return SortedRangeSet.buildFromUnsortedRanges(BIGINT, data.ranges);
+    }
 
-        return build;
+    @Benchmark
+    public List<SortedRangeSet> ofSingleRange(Data data)
+    {
+        List<SortedRangeSet> result = new ArrayList<>(data.ranges.size());
+        for (Range range : data.ranges) {
+            // intentionally going through public interface to cover any overhead or code path redirection this could incur
+            ValueSet valueSet = ValueSet.ofRanges(range);
+            result.add((SortedRangeSet) valueSet);
+        }
+        return result;
     }
 
     @Benchmark
@@ -112,6 +120,27 @@ public class BenchmarkSortedRangeSet
         List<Boolean> result = new ArrayList<>(dataRanges.size() - 1);
         for (int index = 0; index < dataRanges.size() - 1; index++) {
             result.add(dataRanges.get(index).overlaps(dataRanges.get(index + 1)));
+        }
+        return result;
+    }
+
+    @Benchmark
+    public List<ValueSet> intersectSmall(Data data)
+    {
+        return benchmarkIntersect(data.smallRanges);
+    }
+
+    @Benchmark
+    public List<ValueSet> intersectLarge(Data data)
+    {
+        return benchmarkIntersect(data.largeRanges);
+    }
+
+    private List<ValueSet> benchmarkIntersect(List<SortedRangeSet> dataRanges)
+    {
+        List<ValueSet> result = new ArrayList<>(dataRanges.size() - 1);
+        for (int index = 0; index < dataRanges.size() - 1; index++) {
+            result.add(dataRanges.get(index).intersect(dataRanges.get(index + 1)));
         }
         return result;
     }
@@ -250,6 +279,8 @@ public class BenchmarkSortedRangeSet
 
         benchmarkBuilder(data);
 
+        ofSingleRange(data);
+
         equalsSmall(data);
         equalsLarge(data);
 
@@ -258,6 +289,9 @@ public class BenchmarkSortedRangeSet
 
         overlapsSmall(data);
         overlapsLarge(data);
+
+        intersectSmall(data);
+        intersectLarge(data);
 
         containsValueSmall(data);
         containsValueLarge(data);

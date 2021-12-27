@@ -134,7 +134,11 @@ public class TestGrantOnTable
     public static Object[][] privileges()
     {
         return new Object[][] {
+                {"CREATE"},
                 {"SELECT"},
+                {"INSERT"},
+                {"UPDATE"},
+                {"DELETE"},
                 {"ALL PRIVILEGES"}
         };
     }

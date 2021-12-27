@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.Distribution;
@@ -32,11 +32,8 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -48,7 +45,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -69,7 +65,9 @@ public class PipelineContext
     private final List<DriverContext> drivers = new CopyOnWriteArrayList<>();
 
     private final AtomicInteger totalSplits = new AtomicInteger();
+    private final AtomicLong totalSplitsWeight = new AtomicLong();
     private final AtomicInteger completedDrivers = new AtomicInteger();
+    private final AtomicLong completedSplitsWeight = new AtomicLong();
 
     private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
@@ -145,17 +143,19 @@ public class PipelineContext
 
     public DriverContext addDriverContext()
     {
-        return addDriverContext(Lifespan.taskWide());
+        return addDriverContext(Lifespan.taskWide(), 0);
     }
 
-    public DriverContext addDriverContext(Lifespan lifespan)
+    public DriverContext addDriverContext(Lifespan lifespan, long splitWeight)
     {
+        checkArgument(partitioned || splitWeight == 0, "Only partitioned splits should have weights");
         DriverContext driverContext = new DriverContext(
                 this,
                 notificationExecutor,
                 yieldExecutor,
                 pipelineMemoryContext.newMemoryTrackingContext(),
-                lifespan);
+                lifespan,
+                splitWeight);
         drivers.add(driverContext);
         return driverContext;
     }
@@ -165,10 +165,13 @@ public class PipelineContext
         return taskContext.getSession();
     }
 
-    public void splitsAdded(int count)
+    public void splitsAdded(int count, long weightSum)
     {
-        checkArgument(count >= 0);
+        checkArgument(count >= 0 && weightSum >= 0);
         totalSplits.addAndGet(count);
+        if (partitioned && weightSum != 0) {
+            totalSplitsWeight.addAndGet(weightSum);
+        }
     }
 
     public void driverFinished(DriverContext driverContext)
@@ -185,6 +188,9 @@ public class PipelineContext
         DriverStats driverStats = driverContext.getDriverStats();
 
         completedDrivers.getAndIncrement();
+        if (partitioned) {
+            completedSplitsWeight.addAndGet(driverContext.getSplitWeight());
+        }
 
         queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
         elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
@@ -239,7 +245,7 @@ public class PipelineContext
         return taskContext.isDone();
     }
 
-    public synchronized ListenableFuture<?> reserveSpill(long bytes)
+    public synchronized ListenableFuture<Void> reserveSpill(long bytes)
     {
         return taskContext.reserveSpill(bytes);
     }
@@ -319,7 +325,15 @@ public class PipelineContext
 
     public PipelineStatus getPipelineStatus()
     {
-        return getPipelineStatus(drivers.iterator(), totalSplits.get(), completedDrivers.get(), partitioned);
+        return getPipelineStatus(drivers.iterator(), totalSplits.get(), completedDrivers.get(), getActivePartitionedSplitsWeight(), partitioned);
+    }
+
+    private long getActivePartitionedSplitsWeight()
+    {
+        if (partitioned) {
+            return totalSplitsWeight.get() - completedSplitsWeight.get();
+        }
+        return 0;
     }
 
     public PipelineStats getPipelineStats()
@@ -335,7 +349,7 @@ public class PipelineContext
         int completedDrivers = this.completedDrivers.get();
         List<DriverContext> driverContexts = ImmutableList.copyOf(this.drivers);
         int totalSplits = this.totalSplits.get();
-        PipelineStatus pipelineStatus = getPipelineStatus(driverContexts.iterator(), totalSplits, completedDrivers, partitioned);
+        PipelineStatusBuilder pipelineStatusBuilder = new PipelineStatusBuilder(totalSplits, completedDrivers, getActivePartitionedSplitsWeight(), partitioned);
 
         int totalDrivers = completedDrivers + driverContexts.size();
 
@@ -364,13 +378,23 @@ public class PipelineContext
 
         long physicalWrittenDataSize = this.physicalWrittenDataSize.get();
 
-        List<DriverStats> drivers = new ArrayList<>();
+        ImmutableSet.Builder<BlockedReason> blockedReasons = ImmutableSet.builder();
+        boolean hasUnfinishedDrivers = false;
+        boolean unfinishedDriversFullyBlocked = true;
 
         TreeMap<Integer, OperatorStats> operatorSummaries = new TreeMap<>(this.operatorSummaries);
-        Multimap<Integer, OperatorStats> runningOperators = ArrayListMultimap.create();
+        ListMultimap<Integer, OperatorStats> runningOperators = ArrayListMultimap.create();
+        ImmutableList.Builder<DriverStats> drivers = ImmutableList.builderWithExpectedSize(driverContexts.size());
         for (DriverContext driverContext : driverContexts) {
             DriverStats driverStats = driverContext.getDriverStats();
             drivers.add(driverStats);
+            pipelineStatusBuilder.accumulate(driverStats, driverContext.getSplitWeight());
+            if (driverStats.getStartTime() != null && driverStats.getEndTime() == null) {
+                // driver has started running, but not yet completed
+                hasUnfinishedDrivers = true;
+                unfinishedDriversFullyBlocked &= driverStats.isFullyBlocked();
+                blockedReasons.addAll(driverStats.getBlockedReasons());
+            }
 
             queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
             elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
@@ -379,9 +403,8 @@ public class PipelineContext
             totalCpuTime += driverStats.getTotalCpuTime().roundTo(NANOSECONDS);
             totalBlockedTime += driverStats.getTotalBlockedTime().roundTo(NANOSECONDS);
 
-            List<OperatorStats> operators = driverContext.getOperatorStats();
-            for (OperatorStats operator : operators) {
-                runningOperators.put(operator.getOperatorId(), operator);
+            for (OperatorStats operatorStats : driverStats.getOperatorStats()) {
+                runningOperators.put(operatorStats.getOperatorId(), operatorStats);
             }
 
             physicalInputDataSize += driverStats.getPhysicalInputDataSize().toBytes();
@@ -404,25 +427,27 @@ public class PipelineContext
         }
 
         // merge the running operator stats into the operator summary
-        for (Entry<Integer, OperatorStats> entry : runningOperators.entries()) {
-            OperatorStats current = operatorSummaries.get(entry.getKey());
-            if (current == null) {
-                current = entry.getValue();
+        for (Integer operatorId : runningOperators.keySet()) {
+            List<OperatorStats> runningStats = runningOperators.get(operatorId);
+            if (runningStats.isEmpty()) {
+                continue;
+            }
+            OperatorStats current = operatorSummaries.get(operatorId);
+            OperatorStats combined;
+            if (current != null) {
+                combined = current.add(runningStats);
             }
             else {
-                current = current.add(entry.getValue());
+                combined = runningStats.get(0);
+                if (runningStats.size() > 1) {
+                    combined = combined.add(runningStats.subList(1, runningStats.size()));
+                }
             }
-            operatorSummaries.put(entry.getKey(), current);
+            operatorSummaries.put(operatorId, combined);
         }
 
-        Set<DriverStats> runningDriverStats = drivers.stream()
-                .filter(driver -> driver.getEndTime() == null && driver.getStartTime() != null)
-                .collect(toImmutableSet());
-        ImmutableSet<BlockedReason> blockedReasons = runningDriverStats.stream()
-                .flatMap(driver -> driver.getBlockedReasons().stream())
-                .collect(toImmutableSet());
-
-        boolean fullyBlocked = !runningDriverStats.isEmpty() && runningDriverStats.stream().allMatch(DriverStats::isFullyBlocked);
+        PipelineStatus pipelineStatus = pipelineStatusBuilder.build();
+        boolean fullyBlocked = hasUnfinishedDrivers && unfinishedDriversFullyBlocked;
 
         return new PipelineStats(
                 pipelineId,
@@ -437,8 +462,10 @@ public class PipelineContext
                 totalDrivers,
                 pipelineStatus.getQueuedDrivers(),
                 pipelineStatus.getQueuedPartitionedDrivers(),
+                pipelineStatus.getQueuedPartitionedSplitsWeight(),
                 pipelineStatus.getRunningDrivers(),
                 pipelineStatus.getRunningPartitionedDrivers(),
+                pipelineStatus.getRunningPartitionedSplitsWeight(),
                 pipelineStatus.getBlockedDrivers(),
                 completedDrivers,
 
@@ -453,7 +480,7 @@ public class PipelineContext
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 fullyBlocked,
-                blockedReasons,
+                blockedReasons.build(),
 
                 succinctBytes(physicalInputDataSize),
                 physicalInputPositions,
@@ -474,7 +501,7 @@ public class PipelineContext
                 succinctBytes(physicalWrittenDataSize),
 
                 ImmutableList.copyOf(operatorSummaries.values()),
-                drivers);
+                drivers.build());
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
@@ -495,10 +522,32 @@ public class PipelineContext
         return pipelineMemoryContext;
     }
 
-    private static PipelineStatus getPipelineStatus(Iterator<DriverContext> driverContextsIterator, int totalSplits, int completedDrivers, boolean partitioned)
+    private static PipelineStatus getPipelineStatus(Iterator<DriverContext> driverContextsIterator, int totalSplits, int completedDrivers, long activePartitionedSplitsWeight, boolean partitioned)
     {
-        int runningDrivers = 0;
-        int blockedDrivers = 0;
+        PipelineStatusBuilder builder = new PipelineStatusBuilder(totalSplits, completedDrivers, activePartitionedSplitsWeight, partitioned);
+        while (driverContextsIterator.hasNext()) {
+            builder.accumulate(driverContextsIterator.next());
+        }
+        return builder.build();
+    }
+
+    /**
+     * Allows building a {@link PipelineStatus} either from a series of {@link DriverContext} instances or
+     * {@link DriverStats} instances. In {@link PipelineContext#getPipelineStats()} where {@link DriverStats}
+     * instances are already created as a state snapshot of {@link DriverContext}, using those instead of
+     * re-checking the fields on {@link DriverContext} is cheaper since it avoids extra volatile reads and
+     * reduces the opportunities to read inconsistent values
+     */
+    private static final class PipelineStatusBuilder
+    {
+        private final int totalSplits;
+        private final int completedDrivers;
+        private final long activePartitionedSplitsWeight;
+        private final boolean partitioned;
+        private int runningDrivers;
+        private int blockedDrivers;
+        private long runningSplitsWeight;
+        private long blockedSplitsWeight;
         // When a split for a partitioned pipeline is delivered to a worker,
         // conceptually, the worker would have an additional driver.
         // The queuedDrivers field in PipelineStatus is supposed to represent this.
@@ -506,32 +555,77 @@ public class PipelineContext
         //
         // physically queued drivers: actual number of instantiated drivers whose execution hasn't started
         // conceptually queued drivers: includes assigned splits that haven't been turned into a driver
-        int physicallyQueuedDrivers = 0;
-        while (driverContextsIterator.hasNext()) {
-            DriverContext driverContext = driverContextsIterator.next();
+        private int physicallyQueuedDrivers;
+
+        private PipelineStatusBuilder(int totalSplits, int completedDrivers, long activePartitionedSplitsWeight, boolean partitioned)
+        {
+            this.totalSplits = totalSplits;
+            this.completedDrivers = completedDrivers;
+            this.activePartitionedSplitsWeight = activePartitionedSplitsWeight;
+            this.partitioned = partitioned;
+        }
+
+        public void accumulate(DriverContext driverContext)
+        {
             if (!driverContext.isExecutionStarted()) {
                 physicallyQueuedDrivers++;
             }
             else if (driverContext.isFullyBlocked()) {
                 blockedDrivers++;
+                blockedSplitsWeight += driverContext.getSplitWeight();
             }
             else {
                 runningDrivers++;
+                runningSplitsWeight += driverContext.getSplitWeight();
             }
         }
 
-        int queuedDrivers;
-        if (partitioned) {
-            queuedDrivers = totalSplits - runningDrivers - blockedDrivers - completedDrivers;
-            if (queuedDrivers < 0) {
-                // It is possible to observe negative here because inputs to the above expression was not taken in a snapshot.
-                queuedDrivers = 0;
+        public void accumulate(DriverStats driverStats, long splitWeight)
+        {
+            if (driverStats.getStartTime() == null) {
+                // driver has not started running
+                physicallyQueuedDrivers++;
+            }
+            else if (driverStats.isFullyBlocked()) {
+                blockedDrivers++;
+                blockedSplitsWeight += splitWeight;
+            }
+            else {
+                runningDrivers++;
+                runningSplitsWeight += splitWeight;
             }
         }
-        else {
-            queuedDrivers = physicallyQueuedDrivers;
-        }
 
-        return new PipelineStatus(queuedDrivers, runningDrivers, blockedDrivers, partitioned ? queuedDrivers : 0, partitioned ? runningDrivers : 0);
+        public PipelineStatus build()
+        {
+            int queuedDrivers;
+            int queuedPartitionedSplits;
+            int runningPartitionedSplits;
+            long queuedPartitionedSplitsWeight;
+            long runningPartitionedSplitsWeight;
+            if (partitioned) {
+                queuedDrivers = totalSplits - runningDrivers - blockedDrivers - completedDrivers;
+                if (queuedDrivers < 0) {
+                    // It is possible to observe negative here because inputs to the above expression was not taken in a snapshot.
+                    queuedDrivers = 0;
+                }
+                queuedPartitionedSplitsWeight = activePartitionedSplitsWeight - runningSplitsWeight - blockedSplitsWeight;
+                if (queuedDrivers == 0 || queuedPartitionedSplitsWeight < 0) {
+                    // negative or inconsistent count vs weight inputs might occur
+                    queuedPartitionedSplitsWeight = 0;
+                }
+                queuedPartitionedSplits = queuedDrivers;
+                runningPartitionedSplits = runningDrivers;
+                runningPartitionedSplitsWeight = runningSplitsWeight;
+            }
+            else {
+                queuedDrivers = physicallyQueuedDrivers;
+                queuedPartitionedSplits = 0;
+                queuedPartitionedSplitsWeight = 0;
+                runningPartitionedSplits = 0;
+                runningPartitionedSplitsWeight = 0;
+            }
+            return new PipelineStatus(queuedDrivers, runningDrivers, blockedDrivers, queuedPartitionedSplits, queuedPartitionedSplitsWeight, runningPartitionedSplits, runningPartitionedSplitsWeight);
+        }
     }
 }

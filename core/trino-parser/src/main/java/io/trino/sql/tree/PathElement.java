@@ -98,7 +98,7 @@ public final class PathElement
     public String toString()
     {
         if (catalog.isPresent()) {
-            return format("%s.%s", catalog.get().toString(), schema.toString());
+            return format("%s.%s", catalog.get(), schema);
         }
         return schema.toString();
     }

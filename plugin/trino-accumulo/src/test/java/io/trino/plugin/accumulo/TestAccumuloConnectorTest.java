@@ -64,6 +64,10 @@ public class TestAccumuloConnectorTest
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
+            case SUPPORTS_ADD_COLUMN:
+            case SUPPORTS_DROP_COLUMN:
+                return false;
+
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
@@ -74,6 +78,9 @@ public class TestAccumuloConnectorTest
             case SUPPORTS_CREATE_VIEW:
                 return true;
 
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -83,20 +90,6 @@ public class TestAccumuloConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Accumulo connector does not support column default values");
-    }
-
-    @Override
-    public void testAddColumn()
-    {
-        assertThatThrownBy(super::testAddColumn).hasMessage("This connector does not support adding columns");
-        throw new SkipException("Accumulo connector does not support adding columns");
-    }
-
-    @Override
-    public void testDropColumn()
-    {
-        assertThatThrownBy(super::testDropColumn).hasMessage("This connector does not support dropping columns");
-        throw new SkipException("Dropping columns are not supported by the connector");
     }
 
     @Override
@@ -304,6 +297,15 @@ public class TestAccumuloConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("date")) {
+            // TODO (https://github.com/trinodb/trino/issues/10074) Investigate why this test case fails
+            if (dataMappingTestSetup.getSampleValueLiteral().equals("DATE '0001-01-01'")
+                    || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-04'")
+                    || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'")
+                    || dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-14'")) {
+                return Optional.empty();
+            }
+        }
         if (typeName.startsWith("decimal(")
                 || typeName.equals("timestamp(3) with time zone")
                 || typeName.startsWith("char(")) {
@@ -321,5 +323,12 @@ public class TestAccumuloConnectorTest
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
         return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    public void testCharVarcharComparison()
+    {
+        assertThatThrownBy(super::testCharVarcharComparison)
+                .hasMessage("Unsupported Trino type: char(3)");
     }
 }

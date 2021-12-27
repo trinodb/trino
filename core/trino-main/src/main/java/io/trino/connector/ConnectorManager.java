@@ -25,11 +25,21 @@ import io.trino.connector.system.SystemTablesProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.index.IndexManager;
+import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.Catalog;
+import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.MetadataManager;
+import io.trino.metadata.ProcedureRegistry;
+import io.trino.metadata.SchemaPropertyManager;
+import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableProceduresPropertyManager;
+import io.trino.metadata.TableProceduresRegistry;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -47,17 +57,17 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.session.PropertyMetadata;
-import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSinkManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.RecordPageSourceProvider;
 import io.trino.split.SplitManager;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.transaction.TransactionManager;
-import io.trino.type.InternalTypeManager;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -78,6 +88,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
+import static io.trino.metadata.Catalog.SecurityManagement.CONNECTOR;
+import static io.trino.metadata.Catalog.SecurityManagement.SYSTEM;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -103,7 +115,16 @@ public class ConnectorManager
     private final VersionEmbedder versionEmbedder;
     private final TransactionManager transactionManager;
     private final EventListenerManager eventListenerManager;
-    private final TypeOperators typeOperators;
+    private final TypeManager typeManager;
+    private final ProcedureRegistry procedureRegistry;
+    private final TableProceduresRegistry tableProceduresRegistry;
+    private final SessionPropertyManager sessionPropertyManager;
+    private final SchemaPropertyManager schemaPropertyManager;
+    private final ColumnPropertyManager columnPropertyManager;
+    private final TablePropertyManager tablePropertyManager;
+    private final MaterializedViewPropertyManager materializedViewPropertyManager;
+    private final AnalyzePropertyManager analyzePropertyManager;
+    private final TableProceduresPropertyManager tableProceduresPropertyManager;
 
     private final boolean schedulerIncludeCoordinator;
 
@@ -133,7 +154,16 @@ public class ConnectorManager
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager,
             EventListenerManager eventListenerManager,
-            TypeOperators typeOperators,
+            TypeManager typeManager,
+            ProcedureRegistry procedureRegistry,
+            TableProceduresRegistry tableProceduresRegistry,
+            SessionPropertyManager sessionPropertyManager,
+            SchemaPropertyManager schemaPropertyManager,
+            ColumnPropertyManager columnPropertyManager,
+            TablePropertyManager tablePropertyManager,
+            MaterializedViewPropertyManager materializedViewPropertyManager,
+            AnalyzePropertyManager analyzePropertyManager,
+            TableProceduresPropertyManager tableProceduresPropertyManager,
             NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.metadataManager = metadataManager;
@@ -152,7 +182,16 @@ public class ConnectorManager
         this.versionEmbedder = versionEmbedder;
         this.transactionManager = transactionManager;
         this.eventListenerManager = eventListenerManager;
-        this.typeOperators = typeOperators;
+        this.typeManager = typeManager;
+        this.procedureRegistry = procedureRegistry;
+        this.tableProceduresRegistry = tableProceduresRegistry;
+        this.sessionPropertyManager = sessionPropertyManager;
+        this.schemaPropertyManager = schemaPropertyManager;
+        this.columnPropertyManager = columnPropertyManager;
+        this.tablePropertyManager = tablePropertyManager;
+        this.materializedViewPropertyManager = materializedViewPropertyManager;
+        this.analyzePropertyManager = analyzePropertyManager;
+        this.tableProceduresPropertyManager = tableProceduresPropertyManager;
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
     }
 
@@ -190,10 +229,10 @@ public class ConnectorManager
         requireNonNull(connectorName, "connectorName is null");
         InternalConnectorFactory connectorFactory = connectorFactories.get(connectorName);
         checkArgument(connectorFactory != null, "No factory for connector '%s'.  Available factories: %s", connectorName, connectorFactories.keySet());
-        return createCatalog(catalogName, connectorFactory, properties);
+        return createCatalog(catalogName, connectorName, connectorFactory, properties);
     }
 
-    private synchronized CatalogName createCatalog(String catalogName, InternalConnectorFactory connectorFactory, Map<String, String> properties)
+    private synchronized CatalogName createCatalog(String catalogName, String connectorName, InternalConnectorFactory connectorFactory, Map<String, String> properties)
     {
         checkState(!stopped.get(), "ConnectorManager is stopped");
         requireNonNull(catalogName, "catalogName is null");
@@ -204,12 +243,12 @@ public class ConnectorManager
         CatalogName catalog = new CatalogName(catalogName);
         checkState(!connectors.containsKey(catalog), "Catalog '%s' already exists", catalog);
 
-        createCatalog(catalog, connectorFactory, properties);
+        createCatalog(catalog, connectorName, connectorFactory, properties);
 
         return catalog;
     }
 
-    private synchronized void createCatalog(CatalogName catalogName, InternalConnectorFactory factory, Map<String, String> properties)
+    private synchronized void createCatalog(CatalogName catalogName, String connectorName, InternalConnectorFactory factory, Map<String, String> properties)
     {
         // create all connectors before adding, so a broken connector does not leave the system half updated
         MaterializedConnector connector = new MaterializedConnector(catalogName, createConnector(catalogName, factory, properties));
@@ -241,10 +280,14 @@ public class ConnectorManager
                 systemTablesProvider,
                 transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogName)));
 
+        SecurityManagement securityManagement = connector.getAccessControl().isPresent() ? CONNECTOR : SYSTEM;
+
         Catalog catalog = new Catalog(
                 catalogName.getCatalogName(),
                 connector.getCatalogName(),
+                connectorName,
                 connector.getConnector(),
+                securityManagement,
                 informationSchemaConnector.getCatalogName(),
                 informationSchemaConnector.getConnector(),
                 systemConnector.getCatalogName(),
@@ -292,17 +335,22 @@ public class ConnectorManager
         connector.getPartitioningProvider()
                 .ifPresent(partitioningProvider -> nodePartitioningManager.addPartitioningProvider(catalogName, partitioningProvider));
 
-        metadataManager.getProcedureRegistry().addProcedures(catalogName, connector.getProcedures());
+        procedureRegistry.addProcedures(catalogName, connector.getProcedures());
+        Set<TableProcedureMetadata> tableProcedures = connector.getTableProcedures();
+        tableProceduresRegistry.addTableProcedures(catalogName, tableProcedures);
 
         connector.getAccessControl()
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(catalogName, accessControl));
 
-        metadataManager.getTablePropertyManager().addProperties(catalogName, connector.getTableProperties());
-        metadataManager.getMaterializedViewPropertyManager().addProperties(catalogName, connector.getMaterializedViewProperties());
-        metadataManager.getColumnPropertyManager().addProperties(catalogName, connector.getColumnProperties());
-        metadataManager.getSchemaPropertyManager().addProperties(catalogName, connector.getSchemaProperties());
-        metadataManager.getAnalyzePropertyManager().addProperties(catalogName, connector.getAnalyzeProperties());
-        metadataManager.getSessionPropertyManager().addConnectorSessionProperties(catalogName, connector.getSessionProperties());
+        tablePropertyManager.addProperties(catalogName, connector.getTableProperties());
+        materializedViewPropertyManager.addProperties(catalogName, connector.getMaterializedViewProperties());
+        columnPropertyManager.addProperties(catalogName, connector.getColumnProperties());
+        schemaPropertyManager.addProperties(catalogName, connector.getSchemaProperties());
+        analyzePropertyManager.addProperties(catalogName, connector.getAnalyzeProperties());
+        for (TableProcedureMetadata tableProcedure : tableProcedures) {
+            tableProceduresPropertyManager.addProperties(catalogName, tableProcedure.getName(), tableProcedure.getProperties());
+        }
+        sessionPropertyManager.addConnectorSessionProperties(catalogName, connector.getSessionProperties());
     }
 
     public synchronized void dropConnection(String catalogName)
@@ -325,14 +373,16 @@ public class ConnectorManager
         pageSinkManager.removeConnectorPageSinkProvider(catalogName);
         indexManager.removeIndexProvider(catalogName);
         nodePartitioningManager.removePartitioningProvider(catalogName);
-        metadataManager.getProcedureRegistry().removeProcedures(catalogName);
+        procedureRegistry.removeProcedures(catalogName);
+        tableProceduresRegistry.removeProcedures(catalogName);
         accessControlManager.removeCatalogAccessControl(catalogName);
-        metadataManager.getTablePropertyManager().removeProperties(catalogName);
-        metadataManager.getMaterializedViewPropertyManager().removeProperties(catalogName);
-        metadataManager.getColumnPropertyManager().removeProperties(catalogName);
-        metadataManager.getSchemaPropertyManager().removeProperties(catalogName);
-        metadataManager.getAnalyzePropertyManager().removeProperties(catalogName);
-        metadataManager.getSessionPropertyManager().removeConnectorSessionProperties(catalogName);
+        tablePropertyManager.removeProperties(catalogName);
+        materializedViewPropertyManager.removeProperties(catalogName);
+        columnPropertyManager.removeProperties(catalogName);
+        schemaPropertyManager.removeProperties(catalogName);
+        analyzePropertyManager.removeProperties(catalogName);
+        tableProceduresPropertyManager.removeProperties(catalogName);
+        sessionPropertyManager.removeConnectorSessionProperties(catalogName);
 
         MaterializedConnector materializedConnector = connectors.remove(catalogName);
         if (materializedConnector != null) {
@@ -351,7 +401,8 @@ public class ConnectorManager
         ConnectorContext context = new ConnectorContextInstance(
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogName, schedulerIncludeCoordinator),
                 versionEmbedder,
-                new InternalTypeManager(metadataManager, typeOperators),
+                typeManager,
+                new InternalMetadataProvider(metadataManager, typeManager),
                 pageSorter,
                 pageIndexerFactory,
                 factory.getDuplicatePluginClassLoaderFactory());
@@ -395,6 +446,7 @@ public class ConnectorManager
         private final Connector connector;
         private final Set<SystemTable> systemTables;
         private final Set<Procedure> procedures;
+        private final Set<TableProcedureMetadata> tableProcedures;
         private final Optional<ConnectorSplitManager> splitManager;
         private final Optional<ConnectorPageSourceProvider> pageSourceProvider;
         private final Optional<ConnectorPageSinkProvider> pageSinkProvider;
@@ -421,6 +473,10 @@ public class ConnectorManager
             Set<Procedure> procedures = connector.getProcedures();
             requireNonNull(procedures, format("Connector '%s' returned a null procedures set", catalogName));
             this.procedures = ImmutableSet.copyOf(procedures);
+
+            Set<TableProcedureMetadata> tableProcedures = connector.getTableProcedures();
+            requireNonNull(procedures, format("Connector '%s' returned a null table procedures set", catalogName));
+            this.tableProcedures = ImmutableSet.copyOf(tableProcedures);
 
             ConnectorSplitManager splitManager = null;
             try {
@@ -530,6 +586,11 @@ public class ConnectorManager
         public Set<Procedure> getProcedures()
         {
             return procedures;
+        }
+
+        public Set<TableProcedureMetadata> getTableProcedures()
+        {
+            return tableProcedures;
         }
 
         public Optional<ConnectorSplitManager> getSplitManager()

@@ -8,7 +8,8 @@ Overview
 Apache Iceberg is an open table format for huge analytic datasets.
 The Iceberg connector allows querying data stored in
 files written in Iceberg format, as defined in the
-`Iceberg Table Spec <https://iceberg.apache.org/spec/>`_.
+`Iceberg Table Spec <https://iceberg.apache.org/spec/>`_. It supports Apache
+Iceberg table spec version 1.
 
 The Iceberg table state is maintained in metadata files. All changes to table state
 create a new metadata file and replace the old metadata with an atomic swap.
@@ -29,6 +30,17 @@ and then read metadata from each data file.
 Since Iceberg stores the paths to data files in the metadata files, it
 only consults the underlying file system for files that must be read.
 
+Requirements
+------------
+
+To use Iceberg, you need:
+
+* Network access from the Trino coordinator and workers to the distributed
+  object storage.
+* Access to a Hive metastore service (HMS).
+* Network access from the Trino coordinator to the HMS. Hive
+  metastore access with the Thrift protocol defaults to using port 9083.
+
 Configuration
 -------------
 
@@ -41,7 +53,7 @@ At a minimum, ``hive.metastore.uri`` must be configured:
     hive.metastore.uri=thrift://localhost:9083
 
 .. list-table:: Iceberg configuration properties
-  :widths: 35, 80, 5
+  :widths: 30, 58, 12
   :header-rows: 1
 
   * - Property name
@@ -50,7 +62,7 @@ At a minimum, ``hive.metastore.uri`` must be configured:
   * - ``iceberg.file-format``
     - Define the data storage file format for Iceberg tables.
       Possible values are
-      
+
       * ``PARQUET``
       * ``ORC``
     - ``ORC``
@@ -63,10 +75,145 @@ At a minimum, ``hive.metastore.uri`` must be configured:
       * ``LZ4``
       * ``ZSTD``
       * ``GZIP``
-    - ``GZIP``
+    - ``ZSTD``
   * - ``iceberg.max-partitions-per-writer``
     - Maximum number of partitions handled per writer.
     - 100
+
+.. _iceberg-sql-support:
+
+SQL support
+-----------
+
+This connector provides read access and write access to data and metadata in
+Iceberg. In addition to the :ref:`globally available <sql-globally-available>`
+and :ref:`read operation <sql-read-operations>` statements, the connector
+supports the following features:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/delete`, see also :ref:`iceberg-delete`
+* :ref:`sql-schema-table-management`, see also :ref:`iceberg-tables`
+* :ref:`sql-materialized-views-management`, see also
+  :ref:`iceberg-materialized-views`
+* :ref:`sql-views-management`
+
+.. _iceberg-type-mapping:
+
+Type mapping
+------------
+
+Both Iceberg and Trino have types that are not supported by the Iceberg
+connector. The following sections explain their type mapping.
+
+Iceberg to Trino type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Trino supports selecting Iceberg data types. The following table shows the
+Iceberg to Trino type mapping:
+
+.. list-table:: Iceberg to Trino type mapping
+  :widths: 40, 60
+  :header-rows: 1
+
+  * - Iceberg type
+    - Trino type
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+  * - ``INT``
+    - ``INTEGER``
+  * - ``LONG``
+    - ``BIGINT``
+  * - ``FLOAT``
+    - ``REAL``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``DECIMAL(p,s)``
+    - ``DECIMAL(p,s)``
+  * - ``DATE``
+    - ``DATE``
+  * - ``TIME``
+    - ``TIME(6)``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP(6)``
+  * - ``TIMESTAMPTZ``
+    - ``TIMESTAMP(6) WITH TIME ZONE``
+  * - ``STRING``
+    - ``VARCHAR``
+  * - ``UUID``
+    - ``UUID``
+  * - ``BINARY``
+    - ``VARBINARY``
+  * - ``STRUCT(...)``
+    - ``ROW(...)``
+  * - ``LIST(e)``
+    - ``ARRAY(e)``
+  * - ``MAP(k,v)``
+    - ``MAP(k,v)``
+
+Trino to Iceberg type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Trino supports creating tables with the following types in Iceberg. The table
+shows the mappings from Trino to Iceberg data types:
+
+
+.. list-table:: Trino to Iceberg type mapping
+  :widths: 25, 30, 45
+  :header-rows: 1
+
+  * - Trino type
+    - Iceberg type
+    - Notes
+  * - ``BOOLEAN``
+    - ``BOOLEAN``
+    -
+  * - ``INTEGER``
+    - ``INT``
+    -
+  * - ``BIGINT``
+    - ``LONG``
+    -
+  * - ``REAL``
+    - ``FLOAT``
+    -
+  * - ``DOUBLE``
+    - ``DOUBLE``
+    -
+  * - ``DECIMAL(p,s)``
+    - ``DECIMAL(p,s)``
+    -
+  * - ``DATE``
+    - ``DATE``
+    -
+  * - ``TIME(6)``
+    - ``TIME``
+    - Other precisions not supported
+  * - ``TIMESTAMP(6)``
+    - ``TIMESTAMP``
+    - Other precisions not supported
+  * - ``TIMESTAMP(6) WITH TIME ZONE``
+    - ``TIMESTAMPTZ``
+    - Other precisions not supported
+  * - ``VARCHAR, VARCHAR(n)``
+    - ``STRING``
+    -
+  * - ``UUID``
+    - ``UUID``
+    -
+  * - ``VARBINARY``
+    - ``BINARY``
+    -
+  * - ``ROW(...)``
+    - ``STRUCT(...)``
+    - All fields must have a name
+  * - ``ARRAY(e)``
+    - ``LIST(e)``
+    -
+  * - ``MAP(k,v)``
+    - ``MAP(k,v)``
+    -
+
+.. _iceberg-tables:
 
 Partitioned tables
 ------------------
@@ -110,8 +257,10 @@ In this example, the table is partitioned by the month of ``order_date``, a hash
         country VARCHAR)
     WITH (partitioning = ARRAY['month(order_date)', 'bucket(account_number, 10)', 'country'])
 
+.. _iceberg-delete:
+
 Deletion by partition
----------------------
+^^^^^^^^^^^^^^^^^^^^^
 
 For partitioned tables, the Iceberg connector supports the deletion of entire
 partitions if the ``WHERE`` clause specifies filters only on the identity-transformed
@@ -157,8 +306,8 @@ Migrating existing tables
 -------------------------
 
 The connector can read from or write to Hive tables that have been migrated to Iceberg.
-Currently, there is no Trino support to migrate Hive tables to Trino, so you will
-need to use either the Iceberg API or Spark.
+There is no Trino support for migrating Hive tables to Iceberg, so you need to either use
+the Iceberg API or Apache Spark.
 
 System tables and columns
 -------------------------
@@ -166,6 +315,8 @@ System tables and columns
 The connector supports queries of the table partitions.  Given a table ``customer_orders``,
 ``SELECT * FROM iceberg.testdb."customer_orders$partitions"`` shows the table partitions, including the minimum
 and maximum values for the partition columns.
+
+.. _iceberg-table-properties:
 
 Iceberg table properties
 ------------------------
@@ -196,3 +347,35 @@ and a file system location of ``/var/my_tables/test_table``::
         format = 'PARQUET',
         partitioning = ARRAY['c1', 'c2'],
         location = '/var/my_tables/test_table')
+
+.. _iceberg-materialized-views:
+
+Materialized views
+------------------
+
+The Iceberg connector supports :ref:`sql-materialized-views-management`. In the
+underlying system each materialized view consists of a view definition and an
+Iceberg storage table. The storage table name is stored as a materialized view
+property. The data is stored in that storage table.
+
+You can use the :ref:`iceberg-table-properties` to control the created storage
+table and therefore the layout and performance. For example, you can use the
+following clause with :doc:`/sql/create-materialized-view` to use the ORC format
+for the data files and partition the storage per day using the column
+``_date``::
+
+    WITH ( format = 'ORC', partitioning = ARRAY['event_date'] )
+
+Updating the data in the materialized view with
+:doc:`/sql/refresh-materialized-view` deletes the data from the storage table,
+and inserts new data that is the result of executing the materialized view
+query.
+
+.. warning::
+
+    There is a small time window between the commit of the delete and insert,
+    when the materialized view is empty. If the commit operation for the insert
+    fails, the materialized view remains empty.
+
+Dropping a materialized view with :doc:`/sql/refresh-materialized-view` removes
+the definition and the storage table.

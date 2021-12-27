@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.aggregation.MaxDataSizeForStats;
@@ -43,6 +44,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.util.Objects.requireNonNull;
 
@@ -50,11 +52,13 @@ public class StatisticsAggregationPlanner
 {
     private final SymbolAllocator symbolAllocator;
     private final Metadata metadata;
+    private final Session session;
 
-    public StatisticsAggregationPlanner(SymbolAllocator symbolAllocator, Metadata metadata)
+    public StatisticsAggregationPlanner(SymbolAllocator symbolAllocator, Metadata metadata, Session session)
     {
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.session = requireNonNull(session, "session is null");
     }
 
     public TableStatisticAggregation createStatisticsAggregation(TableStatisticsMetadata statisticsMetadata, Map<String, Symbol> columnToSymbolMap)
@@ -76,7 +80,7 @@ public class StatisticsAggregationPlanner
                 throw new TrinoException(NOT_SUPPORTED, "Table-wide statistic type not supported: " + type);
             }
             AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                    metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of()),
+                    metadata.resolveFunction(session, QualifiedName.of("count"), ImmutableList.of()),
                     ImmutableList.of(),
                     false,
                     Optional.empty(),
@@ -113,6 +117,9 @@ public class StatisticsAggregationPlanner
                 return createAggregation(QualifiedName.of("max"), input.toSymbolReference(), inputType, inputType);
             case NUMBER_OF_DISTINCT_VALUES:
                 return createAggregation(QualifiedName.of("approx_distinct"), input.toSymbolReference(), inputType, BIGINT);
+            case NUMBER_OF_DISTINCT_VALUES_SUMMARY:
+                // we use $approx_set here and not approx_set because latter is not defined for all types supported by Trino
+                return createAggregation(QualifiedName.of("$approx_set"), input.toSymbolReference(), inputType, HYPER_LOG_LOG);
             case NUMBER_OF_NON_NULL_VALUES:
                 return createAggregation(QualifiedName.of("count"), input.toSymbolReference(), inputType, BIGINT);
             case NUMBER_OF_TRUE_VALUES:
@@ -127,7 +134,7 @@ public class StatisticsAggregationPlanner
 
     private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType, Type outputType)
     {
-        ResolvedFunction resolvedFunction = metadata.resolveFunction(functionName, fromTypes(inputType));
+        ResolvedFunction resolvedFunction = metadata.resolveFunction(session, functionName, fromTypes(inputType));
         Type resolvedType = getOnlyElement(resolvedFunction.getSignature().getArgumentTypes());
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(

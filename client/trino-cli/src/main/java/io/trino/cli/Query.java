@@ -16,7 +16,6 @@ package io.trino.cli;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
 import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.Column;
@@ -44,6 +43,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Logger;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -56,6 +56,7 @@ import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.logging.Level.FINE;
 import static org.jline.utils.AttributedStyle.CYAN;
 import static org.jline.utils.AttributedStyle.DEFAULT;
 import static org.jline.utils.AttributedStyle.RED;
@@ -63,7 +64,7 @@ import static org.jline.utils.AttributedStyle.RED;
 public class Query
         implements Closeable
 {
-    private static final Logger log = Logger.get(Query.class);
+    private static final Logger log = Logger.getLogger(Query.class.getName());
 
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
     private final StatementClient client;
@@ -206,7 +207,7 @@ public class Query
                 client.advance();
             }
             catch (RuntimeException e) {
-                log.debug(e, "error printing status");
+                log.log(FINE, "error printing status", e);
             }
         }
         List<Warning> warnings;

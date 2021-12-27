@@ -44,6 +44,7 @@ public class RowBlockBuilder
     private final BlockBuilder[] fieldBlockBuilders;
 
     private boolean currentEntryOpened;
+    private boolean hasNullRow;
 
     public RowBlockBuilder(List<Type> fieldTypes, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
@@ -93,10 +94,17 @@ public class RowBlockBuilder
         return 0;
     }
 
+    @Nullable
     @Override
     protected boolean[] getRowIsNull()
     {
-        return rowIsNull;
+        return hasNullRow ? rowIsNull : null;
+    }
+
+    @Override
+    public boolean mayHaveNull()
+    {
+        return hasNullRow;
     }
 
     @Override
@@ -167,7 +175,6 @@ public class RowBlockBuilder
         if (currentEntryOpened) {
             throw new IllegalStateException("Current entry must be closed before a null can be written");
         }
-
         entryAdded(true);
         return this;
     }
@@ -187,6 +194,7 @@ public class RowBlockBuilder
             fieldBlockOffsets[positionCount + 1] = fieldBlockOffsets[positionCount] + 1;
         }
         rowIsNull[positionCount] = isNull;
+        hasNullRow |= isNull;
         positionCount++;
 
         for (int i = 0; i < numFields; i++) {
@@ -210,7 +218,7 @@ public class RowBlockBuilder
         for (int i = 0; i < numFields; i++) {
             fieldBlocks[i] = fieldBlockBuilders[i].build();
         }
-        return createRowBlockInternal(0, positionCount, rowIsNull, fieldBlockOffsets, fieldBlocks);
+        return createRowBlockInternal(0, positionCount, hasNullRow ? rowIsNull : null, fieldBlockOffsets, fieldBlocks);
     }
 
     @Override

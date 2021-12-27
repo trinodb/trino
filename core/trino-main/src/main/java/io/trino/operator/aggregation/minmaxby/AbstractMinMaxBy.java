@@ -14,79 +14,49 @@
 package io.trino.operator.aggregation.minmaxby;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.bytecode.BytecodeBlock;
-import io.airlift.bytecode.BytecodeNode;
-import io.airlift.bytecode.ClassDefinition;
-import io.airlift.bytecode.DynamicClassLoader;
-import io.airlift.bytecode.MethodDefinition;
-import io.airlift.bytecode.Parameter;
-import io.airlift.bytecode.control.IfStatement;
-import io.airlift.bytecode.expression.BytecodeExpression;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.metadata.AggregationFunctionMetadata;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
-import io.trino.operator.aggregation.AccumulatorCompiler;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.GenericAccumulatorFactoryBinder;
-import io.trino.operator.aggregation.InternalAggregationFunction;
-import io.trino.operator.aggregation.state.StateCompiler;
+import io.trino.operator.aggregation.state.BlockPositionState;
+import io.trino.operator.aggregation.state.BlockPositionStateSerializer;
+import io.trino.operator.aggregation.state.NullableBooleanState;
+import io.trino.operator.aggregation.state.NullableDoubleState;
+import io.trino.operator.aggregation.state.NullableLongState;
+import io.trino.operator.aggregation.state.NullableState;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.AccumulatorStateFactory;
-import io.trino.spi.function.AccumulatorStateSerializer;
-import io.trino.spi.type.ArrayType;
+import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.gen.CallSiteBinder;
-import io.trino.sql.gen.SqlTypeBytecodeExpression;
 import io.trino.util.MinMaxCompare;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.reflect.Method;
-import java.util.List;
-import java.util.Map;
+import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.bytecode.Access.FINAL;
-import static io.airlift.bytecode.Access.PRIVATE;
-import static io.airlift.bytecode.Access.PUBLIC;
-import static io.airlift.bytecode.Access.STATIC;
-import static io.airlift.bytecode.Access.a;
-import static io.airlift.bytecode.Parameter.arg;
-import static io.airlift.bytecode.ParameterizedType.type;
-import static io.airlift.bytecode.expression.BytecodeExpressions.and;
-import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean;
-import static io.airlift.bytecode.expression.BytecodeExpressions.not;
-import static io.airlift.bytecode.expression.BytecodeExpressions.or;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
-import static io.trino.operator.aggregation.minmaxby.TwoNullableValueStateMapping.getStateClass;
-import static io.trino.operator.aggregation.minmaxby.TwoNullableValueStateMapping.getStateSerializer;
+import static io.trino.operator.aggregation.state.StateCompiler.generateStateFactory;
+import static io.trino.operator.aggregation.state.StateCompiler.generateStateSerializer;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.function.OperatorType.COMPARISON;
-import static io.trino.sql.gen.BytecodeUtils.loadConstant;
-import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
-import static io.trino.util.CompilerUtils.defineClass;
-import static io.trino.util.CompilerUtils.makeClassName;
-import static io.trino.util.Reflection.methodHandle;
-import static java.util.Arrays.stream;
+import static io.trino.util.MinMaxCompare.getMinMaxCompareFunctionDependencies;
+import static io.trino.util.MinMaxCompare.getMinMaxCompareOperatorType;
+import static java.lang.invoke.MethodHandles.explicitCastArguments;
+import static java.lang.invoke.MethodHandles.insertArguments;
+import static java.lang.invoke.MethodHandles.lookup;
+import static java.lang.invoke.MethodType.methodType;
 
 public abstract class AbstractMinMaxBy
         extends SqlAggregationFunction
@@ -104,237 +74,311 @@ public abstract class AbstractMinMaxBy
                                 new TypeSignature("V"),
                                 ImmutableList.of(new TypeSignature("V"), new TypeSignature("K")),
                                 false),
-                        true,
-                        ImmutableList.of(
-                                new FunctionArgumentDefinition(true),
-                                new FunctionArgumentDefinition(false)),
+                        new FunctionNullability(true, ImmutableList.of(true, false)),
                         false,
                         true,
                         description,
                         AGGREGATE),
-                true,
-                false);
+                new AggregationFunctionMetadata(
+                        false,
+                        new TypeSignature("K"),
+                        new TypeSignature("V")));
         this.min = min;
     }
 
     @Override
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        return FunctionDependencyDeclaration.builder()
-                .addOperatorSignature(COMPARISON, ImmutableList.of(new TypeSignature("K"), new TypeSignature("K")))
-                .build();
+        return getMinMaxCompareFunctionDependencies(new TypeSignature("K"), min);
     }
 
     @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    public AggregationMetadata specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        Type keyType = functionBinding.getTypeVariable("K");
-        Type valueType = functionBinding.getTypeVariable("V");
+        try {
+            Type keyType = boundSignature.getArgumentType(1);
+            Type valueType = boundSignature.getArgumentType(0);
 
-        Class<?> stateClass = getStateClass(keyType.getJavaType(), valueType.getJavaType());
-        if (valueType.getJavaType().isPrimitive()) {
-            Map<String, Type> stateFieldTypes = ImmutableMap.of("First", keyType, "Second", valueType);
-            return ImmutableList.of(StateCompiler.getSerializedType(stateClass, stateFieldTypes).getTypeSignature());
+            MethodHandle inputMethod = generateInput(keyType, valueType, functionDependencies);
+            MethodHandle combineMethod = generateCombine(keyType, valueType, functionDependencies);
+            MethodHandle outputMethod = generateOutput(keyType, valueType);
+
+            return new AggregationMetadata(
+                    inputMethod,
+                    Optional.empty(),
+                    Optional.of(combineMethod),
+                    outputMethod,
+                    ImmutableList.of(
+                            getAccumulatorStateDescriptor(keyType),
+                            getAccumulatorStateDescriptor(valueType)));
         }
-
-        return ImmutableList.of(getStateSerializer(keyType, valueType).getSerializedType().getTypeSignature());
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    private static AccumulatorStateDescriptor<? extends AccumulatorState> getAccumulatorStateDescriptor(Type type)
     {
-        Type keyType = functionBinding.getTypeVariable("K");
-        Type valueType = functionBinding.getTypeVariable("V");
-        return generateAggregation(valueType, keyType, functionDependencies);
+        Class<? extends AccumulatorState> stateClass = getStateClass(type);
+        if (stateClass.equals(BlockPositionState.class)) {
+            return new AccumulatorStateDescriptor<>(
+                    BlockPositionState.class,
+                    new BlockPositionStateSerializer(type),
+                    generateStateFactory(BlockPositionState.class));
+        }
+        return getAccumulatorStateDescriptor(stateClass);
     }
 
-    private InternalAggregationFunction generateAggregation(Type valueType, Type keyType, FunctionDependencies functionDependencies)
+    private static <T extends AccumulatorState> AccumulatorStateDescriptor<T> getAccumulatorStateDescriptor(Class<T> stateClass)
     {
-        Class<?> stateClass = getStateClass(keyType.getJavaType(), valueType.getJavaType());
-        DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
+        return new AccumulatorStateDescriptor<>(
+                stateClass,
+                generateStateSerializer(stateClass),
+                generateStateFactory(stateClass));
+    }
 
-        // Generate states and serializers:
-        // For value that is a Block or Slice, we store them as Block/position combination
-        // to avoid generating long-living objects through getSlice or getObject.
-        // This can also help reducing cross-region reference in G1GC engine.
-        // TODO: keys can have the same problem. But usually they are primitive types (given the nature of comparison).
-        AccumulatorStateFactory<?> stateFactory;
-        AccumulatorStateSerializer<?> stateSerializer;
-        if (valueType.getJavaType().isPrimitive()) {
-            Map<String, Type> stateFieldTypes = ImmutableMap.of("First", keyType, "Second", valueType);
-            stateFactory = StateCompiler.generateStateFactory(stateClass, stateFieldTypes, classLoader);
-            stateSerializer = StateCompiler.generateStateSerializer(stateClass, stateFieldTypes, classLoader);
+    private MethodHandle generateInput(Type keyType, Type valueType, FunctionDependencies functionDependencies)
+            throws ReflectiveOperationException
+    {
+        MethodHandle input = lookup().findStatic(
+                AbstractMinMaxBy.class,
+                "input",
+                methodType(void.class,
+                        MethodHandle.class,
+                        MethodHandle.class,
+                        MethodHandle.class,
+                        NullableState.class,
+                        NullableState.class,
+                        Block.class,
+                        Block.class,
+                        int.class));
+
+        Class<? extends AccumulatorState> keyState = getStateClass(keyType);
+        Class<? extends AccumulatorState> valueState = getStateClass(valueType);
+
+        MethodHandle compareStateBlockPosition = generateCompareStateBlockPosition(keyType, functionDependencies, keyState);
+        MethodHandle setKeyState = getSetStateValue(keyType, keyState);
+        MethodHandle setValueState = getSetStateValue(valueType, valueState);
+        input = insertArguments(input, 0, compareStateBlockPosition, setKeyState, setValueState);
+        return explicitCastArguments(input, methodType(void.class, keyState, valueState, Block.class, Block.class, int.class));
+    }
+
+    private static void input(
+            MethodHandle compareStateBlockPosition,
+            MethodHandle setKeyState,
+            MethodHandle setValueState,
+            NullableState keyState,
+            NullableState valueState,
+            Block value,
+            Block key,
+            int position)
+            throws Throwable
+    {
+        if (keyState.isNull() || (boolean) compareStateBlockPosition.invoke(key, position, keyState)) {
+            setKeyState.invoke(keyState, key, position);
+            setValueState.invoke(valueState, value, position);
+        }
+    }
+
+    private MethodHandle generateCombine(Type keyType, Type valueType, FunctionDependencies functionDependencies)
+            throws ReflectiveOperationException
+    {
+        MethodHandle combine = lookup().findStatic(
+                AbstractMinMaxBy.class,
+                "combine",
+                methodType(void.class,
+                        MethodHandle.class,
+                        MethodHandle.class,
+                        MethodHandle.class,
+                        NullableState.class,
+                        NullableState.class,
+                        NullableState.class,
+                        NullableState.class));
+
+        Class<? extends AccumulatorState> keyState = getStateClass(keyType);
+        Class<? extends AccumulatorState> valueState = getStateClass(valueType);
+
+        MethodHandle compareStateBlockPosition = generateCompareStateState(keyType, functionDependencies, keyState);
+        MethodHandle setKeyState = lookup().findVirtual(keyState, "set", methodType(void.class, keyState));
+        MethodHandle setValueState = lookup().findVirtual(valueState, "set", methodType(void.class, valueState));
+        combine = insertArguments(combine, 0, compareStateBlockPosition, setKeyState, setValueState);
+        return explicitCastArguments(combine, methodType(void.class, keyState, valueState, keyState, valueState));
+    }
+
+    private static void combine(
+            MethodHandle compareStateState,
+            MethodHandle setKeyState,
+            MethodHandle setValueState,
+            NullableState keyState,
+            NullableState valueState,
+            NullableState otherKeyState,
+            NullableState otherValueState)
+            throws Throwable
+    {
+        if (otherKeyState.isNull()) {
+            return;
+        }
+        if (keyState.isNull() || (boolean) compareStateState.invoke(otherKeyState, keyState)) {
+            setKeyState.invoke(keyState, otherKeyState);
+            setValueState.invoke(valueState, otherValueState);
+        }
+    }
+
+    private static MethodHandle generateOutput(Type keyType, Type valueType)
+            throws ReflectiveOperationException
+    {
+        Class<? extends AccumulatorState> keyState = getStateClass(keyType);
+        Class<? extends AccumulatorState> valueState = getStateClass(valueType);
+        MethodHandle writeState = lookup().findStatic(AbstractMinMaxBy.class, "writeState", methodType(void.class, Type.class, valueState, BlockBuilder.class))
+                .bindTo(valueType);
+        MethodHandle output = lookup().findStatic(
+                AbstractMinMaxBy.class,
+                "output",
+                methodType(void.class, MethodHandle.class, NullableState.class, NullableState.class, BlockBuilder.class));
+        output = output.bindTo(writeState);
+        return explicitCastArguments(output, methodType(void.class, keyState, valueState, BlockBuilder.class));
+    }
+
+    private static void output(
+            MethodHandle valueWriter,
+            NullableState keyState,
+            NullableState valueState,
+            BlockBuilder blockBuilder)
+            throws Throwable
+    {
+        if (keyState.isNull() || valueState.isNull()) {
+            blockBuilder.appendNull();
+            return;
+        }
+        valueWriter.invoke(valueState, blockBuilder);
+    }
+
+    @UsedByGeneratedCode
+    private static void writeState(Type type, NullableLongState state, BlockBuilder output)
+    {
+        type.writeLong(output, state.getValue());
+    }
+
+    @UsedByGeneratedCode
+    private static void writeState(Type type, NullableDoubleState state, BlockBuilder output)
+    {
+        type.writeDouble(output, state.getValue());
+    }
+
+    @UsedByGeneratedCode
+    private static void writeState(Type type, NullableBooleanState state, BlockBuilder output)
+    {
+        type.writeBoolean(output, state.getValue());
+    }
+
+    @UsedByGeneratedCode
+    private static void writeState(Type type, BlockPositionState state, BlockBuilder output)
+    {
+        type.appendTo(state.getBlock(), state.getPosition(), output);
+    }
+
+    private static Class<? extends AccumulatorState> getStateClass(Type type)
+    {
+        if (type.getJavaType().equals(long.class)) {
+            return NullableLongState.class;
+        }
+        if (type.getJavaType().equals(double.class)) {
+            return NullableDoubleState.class;
+        }
+        if (type.getJavaType().equals(boolean.class)) {
+            return NullableBooleanState.class;
+        }
+        return BlockPositionState.class;
+    }
+
+    private static MethodHandle getSetStateValue(Type type, Class<?> stateClass)
+            throws ReflectiveOperationException
+    {
+        if (stateClass.equals(BlockPositionState.class)) {
+            return lookup().findStatic(AbstractMinMaxBy.class, "setStateValue", methodType(void.class, BlockPositionState.class, Block.class, int.class));
+        }
+        return lookup().findStatic(AbstractMinMaxBy.class, "setStateValue", methodType(void.class, Type.class, stateClass, Block.class, int.class))
+                .bindTo(type);
+    }
+
+    @UsedByGeneratedCode
+    private static void setStateValue(BlockPositionState state, Block block, int position)
+    {
+        state.setBlock(block);
+        state.setPosition(position);
+    }
+
+    @UsedByGeneratedCode
+    private static void setStateValue(Type valueType, NullableLongState state, Block block, int position)
+    {
+        if (block.isNull(position)) {
+            state.setNull(true);
         }
         else {
-            // StateCompiler checks type compatibility.
-            // Given "Second" in this case is always a Block, we only need to make sure the getter and setter of the Blocks are properly generated.
-            // We deliberately make "SecondBlock" an array type so that the compiler will treat it as a block to workaround the sanity check.
-            stateFactory = StateCompiler.generateStateFactory(stateClass, ImmutableMap.of("First", keyType, "SecondBlock", new ArrayType(valueType)), classLoader);
-
-            // States can be generated by StateCompiler given the they are simply classes with getters and setters.
-            // However, serializers have logic in it. Creating serializers is better than generating them.
-            stateSerializer = getStateSerializer(keyType, valueType);
+            state.setNull(false);
+            state.setValue(valueType.getLong(block, position));
         }
-
-        Type intermediateType = stateSerializer.getSerializedType();
-
-        List<Type> inputTypes = ImmutableList.of(valueType, keyType);
-
-        CallSiteBinder binder = new CallSiteBinder();
-        MethodHandle compareMethod = MinMaxCompare.getMinMaxCompare(functionDependencies, keyType, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL), min);
-
-        ClassDefinition definition = new ClassDefinition(
-                a(PUBLIC, FINAL),
-                makeClassName("processMaxOrMinBy"),
-                type(Object.class));
-        definition.declareDefaultConstructor(a(PRIVATE));
-        generateInputMethod(definition, binder, compareMethod, keyType, valueType, stateClass);
-        generateCombineMethod(definition, binder, compareMethod, valueType, stateClass);
-        generateOutputMethod(definition, binder, valueType, stateClass);
-        Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), classLoader);
-        MethodHandle inputMethod = methodHandle(generatedClass, "input", stateClass, Block.class, Block.class, int.class);
-        MethodHandle combineMethod = methodHandle(generatedClass, "combine", stateClass, stateClass);
-        MethodHandle outputMethod = methodHandle(generatedClass, "output", stateClass, BlockBuilder.class);
-        String name = getFunctionMetadata().getSignature().getName();
-        AggregationMetadata aggregationMetadata = new AggregationMetadata(
-                generateAggregationName(name, valueType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
-                createInputParameterMetadata(valueType, keyType),
-                inputMethod,
-                Optional.empty(),
-                combineMethod,
-                outputMethod,
-                ImmutableList.of(new AccumulatorStateDescriptor(
-                        stateClass,
-                        stateSerializer,
-                        stateFactory)),
-                valueType);
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(aggregationMetadata, classLoader);
-        return new InternalAggregationFunction(name, inputTypes, ImmutableList.of(intermediateType), valueType, factory);
     }
 
-    private static List<ParameterMetadata> createInputParameterMetadata(Type value, Type key)
+    @UsedByGeneratedCode
+    private static void setStateValue(Type valueType, NullableDoubleState state, Block block, int position)
     {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INPUT_CHANNEL, key), new ParameterMetadata(BLOCK_INDEX));
-    }
-
-    private static void generateInputMethod(ClassDefinition definition, CallSiteBinder binder, MethodHandle compareMethod, Type keyType, Type valueType, Class<?> stateClass)
-    {
-        Parameter state = arg("state", stateClass);
-        Parameter value = arg("value", Block.class);
-        Parameter key = arg("key", Block.class);
-        Parameter position = arg("position", int.class);
-        MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "input", type(void.class), state, value, key, position);
-        SqlTypeBytecodeExpression keySqlType = constantType(binder, keyType);
-
-        BytecodeBlock ifBlock = new BytecodeBlock()
-                .append(invokeMethod(stateClass, state, "setFirst", keySqlType.getValue(key, position)))
-                .append(state.invoke("setFirstNull", void.class, constantBoolean(false)))
-                .append(state.invoke("setSecondNull", void.class, value.invoke("isNull", boolean.class, position)));
-        BytecodeNode setValueNode;
-        if (valueType.getJavaType().isPrimitive()) {
-            SqlTypeBytecodeExpression valueSqlType = constantType(binder, valueType);
-            setValueNode = invokeMethod(stateClass, state, "setSecond", valueSqlType.getValue(value, position));
+        if (block.isNull(position)) {
+            state.setNull(true);
         }
         else {
-            // Do not get value directly given it creates object overhead.
-            // Such objects would live long enough in Block or SliceBigArray to cause GC pressure.
-            setValueNode = new BytecodeBlock()
-                    .append(state.invoke("setSecondBlock", void.class, value))
-                    .append(state.invoke("setSecondPosition", void.class, position));
+            state.setNull(false);
+            state.setValue(valueType.getDouble(block, position));
         }
-        ifBlock.append(new IfStatement()
-                .condition(value.invoke("isNull", boolean.class, position))
-                .ifFalse(setValueNode));
-
-        method.getBody().append(new IfStatement()
-                .condition(or(
-                        state.invoke("isFirstNull", boolean.class),
-                        and(
-                                not(key.invoke("isNull", boolean.class, position)),
-                                loadConstant(binder, compareMethod, MethodHandle.class).invoke(
-                                        "invokeExact",
-                                        boolean.class,
-                                        keySqlType.getValue(key, position).cast(compareMethod.type().parameterType(0)),
-                                        invokeMethod(stateClass, state, "getFirst").cast(compareMethod.type().parameterType(1))))))
-                .ifTrue(ifBlock))
-                .ret();
     }
 
-    private static void generateCombineMethod(ClassDefinition definition, CallSiteBinder binder, MethodHandle compareMethod, Type valueType, Class<?> stateClass)
+    @UsedByGeneratedCode
+    private static void setStateValue(Type valueType, NullableBooleanState state, Block block, int position)
     {
-        Parameter state = arg("state", stateClass);
-        Parameter otherState = arg("otherState", stateClass);
-        MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "combine", type(void.class), state, otherState);
-
-        BytecodeBlock ifBlock = new BytecodeBlock()
-                .append(invokeMethod(stateClass, state, "setFirst", invokeMethod(stateClass, otherState, "getFirst")))
-                .append(state.invoke("setFirstNull", void.class, otherState.invoke("isFirstNull", boolean.class)))
-                .append(state.invoke("setSecondNull", void.class, otherState.invoke("isSecondNull", boolean.class)));
-        if (valueType.getJavaType().isPrimitive()) {
-            ifBlock.append(invokeMethod(stateClass, state, "setSecond", otherState.invoke("getSecond", valueType.getJavaType())));
+        if (block.isNull(position)) {
+            state.setNull(true);
         }
         else {
-            ifBlock.append(new BytecodeBlock()
-                    .append(state.invoke("setSecondBlock", void.class, otherState.invoke("getSecondBlock", Block.class)))
-                    .append(state.invoke("setSecondPosition", void.class, otherState.invoke("getSecondPosition", int.class))));
+            state.setNull(false);
+            state.setValue(valueType.getBoolean(block, position));
         }
-
-        method.getBody()
-                .append(new IfStatement()
-                        .condition(or(
-                                state.invoke("isFirstNull", boolean.class),
-                                and(
-                                        not(otherState.invoke("isFirstNull", boolean.class)),
-                                        loadConstant(binder, compareMethod, MethodHandle.class).invoke(
-                                                "invokeExact",
-                                                boolean.class,
-                                                invokeMethod(stateClass, otherState, "getFirst").cast(compareMethod.type().parameterType(0)),
-                                                invokeMethod(stateClass, state, "getFirst").cast(compareMethod.type().parameterType(1))))))
-                        .ifTrue(ifBlock))
-                .ret();
     }
 
-    private static BytecodeExpression invokeMethod(Class<?> instanceType, Parameter instance, String methodName, BytecodeExpression... arguments)
+    private MethodHandle generateCompareStateBlockPosition(Type type, FunctionDependencies functionDependencies, Class<?> state)
+            throws ReflectiveOperationException
     {
-        Method method = getMethod(instanceType, methodName);
-        Class<?>[] parameterTypes = method.getParameterTypes();
-        checkArgument(parameterTypes.length == arguments.length, "Expected %s arguments, but got %s", parameterTypes.length, arguments.length);
-
-        ImmutableList.Builder<BytecodeExpression> castedArguments = ImmutableList.builder();
-        for (int i = 0; i < arguments.length; i++) {
-            BytecodeExpression argument = arguments[i];
-            Class<?> parameterType = parameterTypes[i];
-            castedArguments.add(argument.cast(parameterType));
+        if (state.equals(BlockPositionState.class)) {
+            MethodHandle comparisonMethod = lookup().findStatic(AbstractMinMaxBy.class, "compareStateBlockPosition", methodType(long.class, MethodHandle.class, Block.class, int.class, BlockPositionState.class))
+                    .bindTo(functionDependencies.getOperatorInvoker(getMinMaxCompareOperatorType(min), ImmutableList.of(type, type), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)).getMethodHandle());
+            return MinMaxCompare.comparisonToMinMaxResult(min, comparisonMethod);
         }
-        return instance.invoke(method, castedArguments.build());
+        MethodHandle minMaxMethod = MinMaxCompare.getMinMaxCompare(functionDependencies, type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, NEVER_NULL), min);
+        MethodHandle stateGetValue = lookup().findVirtual(state, "getValue", methodType(type.getJavaType()));
+        return MethodHandles.filterArguments(minMaxMethod, 2, stateGetValue);
     }
 
-    private static void generateOutputMethod(ClassDefinition definition, CallSiteBinder binder, Type valueType, Class<?> stateClass)
+    private static long compareStateBlockPosition(MethodHandle blockPositionBlockPositionOperator, Block left, int leftPosition, BlockPositionState state)
+            throws Throwable
     {
-        Parameter state = arg("state", stateClass);
-        Parameter out = arg("out", BlockBuilder.class);
-        MethodDefinition method = definition.declareMethod(a(PUBLIC, STATIC), "output", type(void.class), state, out);
-
-        IfStatement ifStatement = new IfStatement()
-                .condition(or(state.invoke("isFirstNull", boolean.class), state.invoke("isSecondNull", boolean.class)))
-                .ifTrue(new BytecodeBlock().append(out.invoke("appendNull", BlockBuilder.class)).pop());
-        SqlTypeBytecodeExpression valueSqlType = constantType(binder, valueType);
-        BytecodeExpression getValueExpression;
-        if (valueType.getJavaType().isPrimitive()) {
-            getValueExpression = state.invoke("getSecond", valueType.getJavaType());
-        }
-        else {
-            getValueExpression = valueSqlType.getValue(state.invoke("getSecondBlock", Block.class), state.invoke("getSecondPosition", int.class));
-        }
-        ifStatement.ifFalse(valueSqlType.writeValue(out, getValueExpression));
-        method.getBody().append(ifStatement).ret();
+        return (long) blockPositionBlockPositionOperator.invokeExact(left, leftPosition, state.getBlock(), state.getPosition());
     }
 
-    private static Method getMethod(Class<?> stateClass, String name)
+    private MethodHandle generateCompareStateState(Type type, FunctionDependencies functionDependencies, Class<?> state)
+            throws ReflectiveOperationException
     {
-        return stream(stateClass.getMethods())
-                .filter(method -> method.getName().equals(name))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("State class does not have a method named " + name));
+        if (state.equals(BlockPositionState.class)) {
+            MethodHandle comparisonMethod = lookup().findStatic(AbstractMinMaxBy.class, "compareStateState", methodType(long.class, MethodHandle.class, BlockPositionState.class, BlockPositionState.class))
+                    .bindTo(functionDependencies.getOperatorInvoker(getMinMaxCompareOperatorType(min), ImmutableList.of(type, type), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)).getMethodHandle());
+            return MinMaxCompare.comparisonToMinMaxResult(min, comparisonMethod);
+        }
+        MethodHandle maxMaxMethod = MinMaxCompare.getMinMaxCompare(functionDependencies, type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL), min);
+        MethodHandle stateGetValue = lookup().findVirtual(state, "getValue", methodType(type.getJavaType()));
+        return MethodHandles.filterArguments(maxMaxMethod, 0, stateGetValue, stateGetValue);
+    }
+
+    private static long compareStateState(MethodHandle blockPositionBlockPositionOperator, BlockPositionState state, BlockPositionState otherState)
+            throws Throwable
+    {
+        return (long) blockPositionBlockPositionOperator.invokeExact(state.getBlock(), state.getPosition(), otherState.getBlock(), otherState.getPosition());
     }
 }

@@ -18,6 +18,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.base.CatalogNameModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.raptor.legacy.backup.BackupModule;
@@ -69,6 +70,7 @@ public class RaptorConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         Bootstrap app = new Bootstrap(
+                new CatalogNameModule(catalogName),
                 new JsonModule(),
                 new MBeanModule(),
                 new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.raptor.legacy", "trino.plugin.raptor.legacy"),
@@ -81,11 +83,10 @@ public class RaptorConnectorFactory
                 metadataModule,
                 new BackupModule(backupProviders),
                 new StorageModule(),
-                new RaptorModule(catalogName),
-                new RaptorSecurityModule(catalogName));
+                new RaptorModule(),
+                new RaptorSecurityModule());
 
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(config)
                 .initialize();

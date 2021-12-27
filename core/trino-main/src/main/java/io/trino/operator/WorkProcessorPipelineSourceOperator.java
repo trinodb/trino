@@ -13,9 +13,11 @@
  */
 package io.trino.operator;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -28,6 +30,7 @@ import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.LocalExecutionPlanner.OperatorFactoryWithTypes;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -38,6 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -46,6 +50,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static io.trino.operator.OperatorContext.getOperatorMetrics;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.ProcessState.Type.BLOCKED;
 import static io.trino.operator.WorkProcessor.ProcessState.Type.FINISHED;
@@ -70,9 +75,9 @@ public class WorkProcessorPipelineSourceOperator
     private final List<WorkProcessorOperatorContext> workProcessorOperatorContexts = new ArrayList<>();
     private final List<Split> pendingSplits = new ArrayList<>();
 
-    private ListenableFuture<?> blockedFuture;
+    private ListenableFuture<Void> blockedFuture;
     private WorkProcessorSourceOperator sourceOperator;
-    private SettableFuture<?> blockedOnSplits = SettableFuture.create();
+    private SettableFuture<Void> blockedOnSplits = SettableFuture.create();
     private boolean operatorFinishing;
 
     public static List<OperatorFactory> convertOperators(
@@ -215,6 +220,8 @@ public class WorkProcessorPipelineSourceOperator
         WorkProcessorOperatorContext context = workProcessorOperatorContexts.get(operatorIndex);
         timer.recordOperationComplete(context.operatorTiming);
 
+        context.metrics.set(context.operator.getMetrics());
+
         if (operatorIndex == 0) {
             // update input stats for source operator
             WorkProcessorSourceOperator sourceOperator = (WorkProcessorSourceOperator) context.operator;
@@ -230,12 +237,12 @@ public class WorkProcessorPipelineSourceOperator
 
             long deltaReadTimeNanos = deltaAndSet(context.readTimeNanos, sourceOperator.getReadTime().roundTo(NANOSECONDS));
 
-            long deltaDynamicFilterSplitsProcessed = deltaAndSet(context.dynamicFilterSplitsProcessed, sourceOperator.getDynamicFilterSplitsProcessed());
+            context.dynamicFilterSplitsProcessed.set(sourceOperator.getDynamicFilterSplitsProcessed());
+            context.connectorMetrics.set(sourceOperator.getConnectorMetrics());
 
             operatorContext.recordPhysicalInputWithTiming(deltaPhysicalInputDataSize, deltaPhysicalInputPositions, deltaReadTimeNanos);
             operatorContext.recordNetworkInput(deltaInternalNetworkInputDataSize, deltaInternalNetworkInputPositions);
             operatorContext.recordProcessedInput(deltaInputDataSize, deltaInputPositions);
-            operatorContext.recordDynamicFilterSplitProcessed(deltaDynamicFilterSplitsProcessed);
         }
 
         if (state.getType() == FINISHED) {
@@ -326,7 +333,7 @@ public class WorkProcessorPipelineSourceOperator
 
                         succinctBytes(context.inputDataSize.get()),
                         context.inputPositions.get(),
-                        context.inputPositions.get() * context.inputPositions.get(),
+                        (double) context.inputPositions.get() * context.inputPositions.get(),
 
                         context.operatorTiming.getCalls(),
                         new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS),
@@ -336,6 +343,8 @@ public class WorkProcessorPipelineSourceOperator
                         context.outputPositions.get(),
 
                         context.dynamicFilterSplitsProcessed.get(),
+                        getOperatorMetrics(context.metrics.get(), context.inputPositions.get()),
+                        context.connectorMetrics.get(),
 
                         DataSize.ofBytes(0),
 
@@ -385,7 +394,7 @@ public class WorkProcessorPipelineSourceOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(split.getCatalogName(), splitInfo));
+            operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogName(), splitInfo)));
         }
 
         pendingSplits.add(split);
@@ -434,7 +443,7 @@ public class WorkProcessorPipelineSourceOperator
     }
 
     @Override
-    public ListenableFuture<?> startMemoryRevoke()
+    public ListenableFuture<Void> startMemoryRevoke()
     {
         // TODO: support spill
         throw new UnsupportedOperationException();
@@ -463,7 +472,7 @@ public class WorkProcessorPipelineSourceOperator
     }
 
     @Override
-    public ListenableFuture<?> isBlocked()
+    public ListenableFuture<Void> isBlocked()
     {
         if (!pages.isBlocked()) {
             return NOT_BLOCKED;
@@ -530,6 +539,11 @@ public class WorkProcessorPipelineSourceOperator
                             operatorContext.getDriverContext().getTaskId());
                 }
                 finally {
+                    workProcessorOperatorContext.metrics.set(operator.getMetrics());
+                    if (operator instanceof WorkProcessorSourceOperator) {
+                        WorkProcessorSourceOperator sourceOperator = (WorkProcessorSourceOperator) operator;
+                        workProcessorOperatorContext.connectorMetrics.set(sourceOperator.getConnectorMetrics());
+                    }
                     workProcessorOperatorContext.memoryTrackingContext.close();
                     workProcessorOperatorContext.finalOperatorInfo = operator.getOperatorInfo().orElse(null);
                     workProcessorOperatorContext.operator = null;
@@ -548,6 +562,7 @@ public class WorkProcessorPipelineSourceOperator
         }
     }
 
+    @FormatMethod
     private static Throwable handleOperatorCloseError(Throwable inFlightException, Throwable newException, String message, Object... args)
     {
         if (newException instanceof Error) {
@@ -587,9 +602,9 @@ public class WorkProcessorPipelineSourceOperator
         }
 
         @Override
-        public ListenableFuture<?> setBytes(long bytes)
+        public ListenableFuture<Void> setBytes(long bytes)
         {
-            ListenableFuture<?> blocked = delegate.setBytes(bytes);
+            ListenableFuture<Void> blocked = delegate.setBytes(bytes);
             allocationListener.run();
             return blocked;
         }
@@ -675,6 +690,8 @@ public class WorkProcessorPipelineSourceOperator
         final AtomicLong outputPositions = new AtomicLong();
 
         final AtomicLong dynamicFilterSplitsProcessed = new AtomicLong();
+        final AtomicReference<Metrics> metrics = new AtomicReference<>(Metrics.EMPTY);
+        final AtomicReference<Metrics> connectorMetrics = new AtomicReference<>(Metrics.EMPTY);
 
         final AtomicLong peakUserMemoryReservation = new AtomicLong();
         final AtomicLong peakSystemMemoryReservation = new AtomicLong();

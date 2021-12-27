@@ -13,79 +13,92 @@
  */
 package io.trino.operator.window.matcher;
 
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.window.pattern.LabelEvaluator;
+import io.trino.operator.window.pattern.MatchAggregation.MatchAggregationInstantiator;
+import io.trino.operator.window.pattern.PhysicalValueAccessor;
+import io.trino.sql.planner.LocalExecutionPlanner.MatchAggregationLabelDependency;
+import org.openjdk.jol.info.ClassLayout;
 
-import static com.google.common.base.Preconditions.checkState;
+import java.util.List;
+
 import static io.trino.operator.window.matcher.MatchResult.NO_MATCH;
 
 public class Matcher
 {
     private final Program program;
+    private final ThreadEquivalence threadEquivalence;
+    private final List<MatchAggregationInstantiator> aggregations;
 
     private static class Runtime
     {
-        private int step;
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(Runtime.class).instanceSize();
 
-        private final int[] threads;
+        // a helper structure for identifying equivalent threads
+        // program pointer (instruction) --> list of threads that have reached this instruction
+        private final IntMultimap threadsAtInstructions;
+
+        private final IntList threads;
         private final IntStack freeThreadIds;
+        private int newThreadId;
         private final int inputLength;
         private final boolean matchingAtPartitionStart;
         private final Captures captures;
 
-        // For each instruction of the program, track if it was processed, and in which step.
-        private final int[] steps;
+        // for each thread, array of MatchAggregations evaluated by this thread
+        private final MatchAggregations aggregations;
 
-        public Runtime(Program program, int inputLength, boolean matchingAtPartitionStart)
+        public Runtime(Program program, int inputLength, boolean matchingAtPartitionStart, List<MatchAggregationInstantiator> aggregationInstantiators, AggregatedMemoryContext aggregationsMemoryContext)
         {
-            int size = program.size();
-            threads = new int[2 * size];
-            freeThreadIds = new IntStack(threads.length);
-            for (int i = threads.length - 1; i >= 0; i--) {
-                freeThreadIds.push(i);
-            }
-            this.captures = new Captures(threads.length, program.getMinSlotCount(), program.getMinLabelCount());
+            int initialCapacity = 2 * program.size();
+            threads = new IntList(initialCapacity);
+            freeThreadIds = new IntStack(initialCapacity);
+            this.captures = new Captures(initialCapacity, program.getMinSlotCount(), program.getMinLabelCount());
             this.inputLength = inputLength;
-            this.steps = new int[size];
             this.matchingAtPartitionStart = matchingAtPartitionStart;
-        }
+            this.aggregations = new MatchAggregations(initialCapacity, aggregationInstantiators, aggregationsMemoryContext);
 
-        public void nextStep()
-        {
-            step++;
-        }
-
-        public boolean hasCapacity(int size)
-        {
-            return freeThreadIds.size() >= size;
+            this.threadsAtInstructions = new IntMultimap(program.size(), program.size());
         }
 
         private int forkThread(int parent)
         {
-            int threadId = freeThreadIds.pop();
-            captures.copy(parent, threadId);
-            return threadId;
+            int child = newThread();
+            captures.copy(parent, child);
+            aggregations.copy(parent, child);
+            return child;
         }
 
         private int newThread()
         {
-            int threadId = freeThreadIds.pop();
-            captures.allocate(threadId);
-            return threadId;
+            if (freeThreadIds.size() > 0) {
+                return freeThreadIds.pop();
+            }
+            return newThreadId++;
         }
 
         private void killThread(int threadId)
         {
             freeThreadIds.push(threadId);
             captures.release(threadId);
+            aggregations.release(threadId);
+        }
+
+        private long getSizeInBytes()
+        {
+            return INSTANCE_SIZE + threadsAtInstructions.getSizeInBytes() + threads.getSizeInBytes() + freeThreadIds.getSizeInBytes() + captures.getSizeInBytes() + aggregations.getSizeInBytes();
         }
     }
 
-    public Matcher(Program program)
+    public Matcher(Program program, List<List<PhysicalValueAccessor>> accessors, List<MatchAggregationLabelDependency> labelDependencies, List<MatchAggregationInstantiator> aggregations)
     {
         this.program = program;
+        this.threadEquivalence = new ThreadEquivalence(program, accessors, labelDependencies);
+        this.aggregations = aggregations;
     }
 
-    public MatchResult run(LabelEvaluator labelEvaluator)
+    public MatchResult run(LabelEvaluator labelEvaluator, LocalMemoryContext memoryContext, AggregatedMemoryContext aggregationsMemoryContext)
     {
         IntList current = new IntList(program.size());
         IntList next = new IntList(program.size());
@@ -93,9 +106,8 @@ public class Matcher
         int inputLength = labelEvaluator.getInputLength();
         boolean matchingAtPartitionStart = labelEvaluator.isMatchingAtPartitionStart();
 
-        Runtime runtime = new Runtime(program, inputLength, matchingAtPartitionStart);
-        // increase the step number to avoid shortcut in `advanceAndSchedule`.
-        runtime.nextStep();
+        Runtime runtime = new Runtime(program, inputLength, matchingAtPartitionStart, aggregations, aggregationsMemoryContext);
+
         advanceAndSchedule(current, runtime.newThread(), 0, 0, runtime);
 
         MatchResult result = NO_MATCH;
@@ -105,21 +117,26 @@ public class Matcher
                 // no match found -- all threads are dead
                 break;
             }
-            checkState(runtime.hasCapacity(current.size()), "thread capacity insufficient");
-            runtime.nextStep();
             boolean matched = false;
             // For every existing thread, consume the label if possible. Otherwise, kill the thread.
             // After consuming the label, advance to the next `MATCH_LABEL`. Collect the advanced threads in `next`,
             // which will be the starting point for the next iteration.
+
+            // clear the structure for new input index
+            runtime.threadsAtInstructions.clear();
+
             for (int i = 0; i < current.size(); i++) {
                 int threadId = current.get(i);
-                int pointer = runtime.threads[threadId];
+                int pointer = runtime.threads.get(threadId);
                 Instruction instruction = program.at(pointer);
                 switch (instruction.type()) {
                     case MATCH_LABEL:
                         int label = ((MatchLabel) instruction).getLabel();
-                        if (labelEvaluator.evaluateLabel(label, runtime.captures.getLabels(threadId))) {
-                            runtime.captures.saveLabel(threadId, label);
+                        // save the label before evaluating the defining condition, because evaluating assumes that the label is tentatively matched
+                        // - if the condition is true, the label is already saved
+                        // - if the condition is false, the thread is killed along with its captures, so the incorrectly saved label does not matter
+                        runtime.captures.saveLabel(threadId, label);
+                        if (labelEvaluator.evaluateLabel(runtime.captures.getLabels(threadId), runtime.aggregations.get(threadId))) {
                             advanceAndSchedule(next, threadId, pointer + 1, index + 1, runtime);
                         }
                         else {
@@ -142,6 +159,10 @@ public class Matcher
                     break;
                 }
             }
+
+            // report memory usage. memory is not reported for constant structures: program, threadEquivalence
+            memoryContext.setBytes(runtime.getSizeInBytes() + current.getSizeInBytes() + next.getSizeInBytes());
+
             IntList temp = current;
             temp.clear();
             current = next;
@@ -151,7 +172,7 @@ public class Matcher
         // handle the case when the program still has instructions to process after consuming the whole input
         for (int i = 0; i < current.size(); i++) {
             int threadId = current.get(i);
-            if (program.at(runtime.threads[threadId]).type() == Instruction.Type.DONE) {
+            if (program.at(runtime.threads.get(threadId)).type() == Instruction.Type.DONE) {
                 result = new MatchResult(true, runtime.captures.getLabels(threadId), runtime.captures.getCaptures(threadId));
                 break;
             }
@@ -168,14 +189,24 @@ public class Matcher
      */
     private void advanceAndSchedule(IntList next, int threadId, int pointer, int inputIndex, Runtime runtime)
     {
-        // avoid empty loop
-        if (runtime.steps[pointer] == runtime.step) {
-            // thread already exists at this point for the current input, so no need to schedule a new one
-            runtime.killThread(threadId);
-            return;
+        // avoid empty loop and try avoid exponential processing
+        ArrayView threadsAtInstruction = runtime.threadsAtInstructions.getArrayView(pointer);
+        for (int i = 0; i < threadsAtInstruction.length(); i++) {
+            int thread = threadsAtInstruction.get(i);
+            if (threadEquivalence.equivalent(
+                    thread,
+                    runtime.captures.getLabels(thread),
+                    runtime.aggregations.get(thread),
+                    threadId,
+                    runtime.captures.getLabels(threadId),
+                    runtime.aggregations.get(threadId),
+                    pointer)) {
+                // in case of equivalent threads, kill the one that comes later, because it is on a less preferred path
+                runtime.killThread(threadId);
+                return;
+            }
         }
-
-        runtime.steps[pointer] = runtime.step;
+        runtime.threadsAtInstructions.add(pointer, threadId);
 
         Instruction instruction = program.at(pointer);
         switch (instruction.type()) {
@@ -207,8 +238,8 @@ public class Matcher
                 runtime.captures.save(threadId, inputIndex);
                 advanceAndSchedule(next, threadId, pointer + 1, inputIndex, runtime);
                 break;
-            default:
-                runtime.threads[threadId] = pointer;
+            default: // MATCH_LABEL or DONE
+                runtime.threads.set(threadId, pointer);
                 next.add(threadId);
                 break;
         }

@@ -23,8 +23,8 @@ The connector can query a database on a PostgreSQL server. Create a catalog
 properties file that specifies the PostgreSQL connector by setting the
 ``connector.name`` to ``postgresql``.
 
-For example, to access a database as the ``postgresqlsdb`` catalog, create the
-file ``etc/catalog/postgresqlsdb.properties``. Replace the connection properties
+For example, to access a database as the ``postgresql`` catalog, create the
+file ``etc/catalog/postgresql.properties``. Replace the connection properties
 as appropriate for your setup:
 
 .. code-block:: text
@@ -58,6 +58,14 @@ To add another catalog, simply add another properties file to ``etc/catalog``
 with a different name, making sure it ends in ``.properties``. For example,
 if you name the property file ``sales.properties``, Trino creates a
 catalog named ``sales`` using the configured connector.
+
+.. include:: jdbc-common-configurations.fragment
+
+.. include:: jdbc-procedures.fragment
+
+.. include:: jdbc-case-insensitive-matching.fragment
+
+.. include:: non-transactional-insert.fragment
 
 .. _postgresql-type-mapping:
 
@@ -119,6 +127,25 @@ Finally, you can access the ``clicks`` table in the ``web`` schema::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``postgresql`` in the above examples.
 
+.. _postgresql-sql-support:
+
+SQL support
+-----------
+
+The connector provides read access and write access to data and metadata in
+PostgreSQL.  In addition to the :ref:`globally available
+<sql-globally-available>` and :ref:`read operation <sql-read-operations>`
+statements, the connector supports the following features:
+
+* :doc:`/sql/insert`
+* :doc:`/sql/delete`
+* :doc:`/sql/truncate`
+* :ref:`sql-schema-table-management`
+
+.. include:: sql-delete-limitation.fragment
+
+.. include:: alter-table-limitation.fragment
+
 .. _postgresql-pushdown:
 
 Pushdown
@@ -149,14 +176,32 @@ The connector supports pushdown for a number of operations:
 * :func:`regr_intercept`
 * :func:`regr_slope`
 
-Limitations
------------
+Predicate pushdown support
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The following SQL statements are not yet supported:
+The connector does not support pushdown of range predicates, such as ``>``,
+``<``, or ``BETWEEN``, on columns with :ref:`character string types
+<string-data-types>` like ``CHAR`` or ``VARCHAR``.  Equality predicates, such as
+``IN`` or ``=``, and inequality predicates, such as ``!=`` on columns with
+textual types are pushed down. This ensures correctness of results since the
+remote data source may sort strings differently than Trino.
 
-* :doc:`/sql/delete`
-* :doc:`/sql/grant`
-* :doc:`/sql/revoke`
-* :doc:`/sql/show-grants`
-* :doc:`/sql/show-roles`
-* :doc:`/sql/show-role-grants`
+In the following example, the predicate of the first query is not pushed down
+since ``name`` is a column of type ``VARCHAR`` and ``>`` is a range predicate.
+The other queries are pushed down.
+
+.. code-block:: sql
+
+    -- Not pushed down
+    SELECT * FROM nation WHERE name > 'CANADA';
+    -- Pushed down
+    SELECT * FROM nation WHERE name != 'CANADA';
+    SELECT * FROM nation WHERE name = 'CANADA';
+
+There is experimental support to enable pushdown of range predicates on columns
+with character string types which can be enabled by setting the
+``postgresql.experimental.enable-string-pushdown-with-collate`` catalog
+configuration property or the corresponding
+``enable_string_pushdown_with_collate`` session property to ``true``.
+Enabling this configuration will make the predicate of all the queries in the
+above example get pushed down.

@@ -53,7 +53,7 @@ public class FixedLifespanScheduler
     private final OptionalInt concurrentLifespansPerTask;
 
     private boolean initialScheduled;
-    private SettableFuture<?> newDriverGroupReady = SettableFuture.create();
+    private SettableFuture<Void> newDriverGroupReady = SettableFuture.create();
     @GuardedBy("this")
     private final List<Lifespan> recentlyCompletedDriverGroups = new ArrayList<>();
     private int totalDriverGroupsScheduled;
@@ -113,7 +113,7 @@ public class FixedLifespanScheduler
     {
         checkState(initialScheduled);
 
-        SettableFuture<?> newDriverGroupReady;
+        SettableFuture<Void> newDriverGroupReady;
         synchronized (this) {
             for (Lifespan newlyCompletedDriverGroup : newlyCompletedDriverGroups) {
                 checkArgument(!newlyCompletedDriverGroup.isTaskWide());
@@ -125,7 +125,7 @@ public class FixedLifespanScheduler
     }
 
     @Override
-    public SettableFuture<?> schedule(SourceScheduler scheduler)
+    public SettableFuture<Void> schedule(SourceScheduler scheduler)
     {
         // Return a new future even if newDriverGroupReady has not finished.
         // Returning the same SettableFuture instance could lead to ListenableFuture retaining too many listener objects.

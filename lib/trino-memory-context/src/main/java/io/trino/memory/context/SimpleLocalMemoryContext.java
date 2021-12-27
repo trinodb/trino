@@ -13,7 +13,6 @@
  */
 package io.trino.memory.context;
 
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -23,13 +22,14 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public final class SimpleLocalMemoryContext
         implements LocalMemoryContext
 {
-    private static final ListenableFuture<?> NOT_BLOCKED = Futures.immediateFuture(null);
+    private static final ListenableFuture<Void> NOT_BLOCKED = immediateVoidFuture();
 
     private final AbstractAggregatedMemoryContext parentMemoryContext;
     private final String allocationTag;
@@ -53,7 +53,7 @@ public final class SimpleLocalMemoryContext
     }
 
     @Override
-    public synchronized ListenableFuture<?> setBytes(long bytes)
+    public synchronized ListenableFuture<Void> setBytes(long bytes)
     {
         checkState(!closed, "SimpleLocalMemoryContext is already closed");
         checkArgument(bytes >= 0, "bytes cannot be negative");
@@ -63,7 +63,7 @@ public final class SimpleLocalMemoryContext
         }
 
         // update the parent first as it may throw a runtime exception (e.g., ExceededMemoryLimitException)
-        ListenableFuture<?> future = parentMemoryContext.updateBytes(allocationTag, bytes - usedBytes);
+        ListenableFuture<Void> future = parentMemoryContext.updateBytes(allocationTag, bytes - usedBytes);
         usedBytes = bytes;
         return future;
     }

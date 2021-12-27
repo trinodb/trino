@@ -32,21 +32,9 @@ public class SetDigestStateFactory
     }
 
     @Override
-    public Class<? extends SetDigestState> getSingleStateClass()
-    {
-        return SingleSetDigestState.class;
-    }
-
-    @Override
     public SetDigestState createGroupedState()
     {
         return new GroupedSetDigestState();
-    }
-
-    @Override
-    public Class<? extends SetDigestState> getGroupedStateClass()
-    {
-        return GroupedSetDigestState.class;
     }
 
     public static class GroupedSetDigestState

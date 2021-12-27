@@ -79,7 +79,7 @@ public interface OutputBuffer
     /**
      * Get a future that will be completed when the buffer is not full.
      */
-    ListenableFuture<?> isFull();
+    ListenableFuture<Void> isFull();
 
     /**
      * Adds a split-up page to an unpartitioned buffer. If no-more-pages has been set, the enqueue

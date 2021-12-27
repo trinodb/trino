@@ -14,7 +14,6 @@
 package io.trino.cli;
 
 import com.google.common.net.HostAndPort;
-import io.airlift.log.Logger;
 import io.trino.client.ClientSession;
 import io.trino.client.OkHttpUtil;
 import io.trino.client.StatementClient;
@@ -24,6 +23,7 @@ import io.trino.client.auth.external.KnownToken;
 import io.trino.client.auth.external.RedirectHandler;
 import io.trino.client.auth.external.TokenPoller;
 import okhttp3.OkHttpClient;
+import okhttp3.logging.HttpLoggingInterceptor;
 
 import java.io.Closeable;
 import java.io.File;
@@ -50,8 +50,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class QueryRunner
         implements Closeable
 {
-    private static final Logger log = Logger.get(QueryRunner.class);
-
     private final AtomicReference<ClientSession> session;
     private final boolean debug;
     private final OkHttpClient httpClient;
@@ -60,6 +58,7 @@ public class QueryRunner
     public QueryRunner(
             ClientSession session,
             boolean debug,
+            HttpLoggingInterceptor.Level networkLogging,
             Optional<HostAndPort> socksProxy,
             Optional<HostAndPort> httpProxy,
             Optional<String> keystorePath,
@@ -79,6 +78,7 @@ public class QueryRunner
             Optional<String> kerberosKeytabPath,
             Optional<String> kerberosCredentialCachePath,
             boolean kerberosUseCanonicalHostname,
+            boolean delegatedKerberos,
             boolean externalAuthentication)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
@@ -100,7 +100,8 @@ public class QueryRunner
         setupBasicAuth(builder, session, user, password);
         setupTokenAuth(builder, session, accessToken);
         setupExternalAuth(builder, session, externalAuthentication, sslSetup);
-        setupNetworkLogging(builder);
+
+        builder.addNetworkInterceptor(new HttpLoggingInterceptor(System.err::println).setLevel(networkLogging));
 
         if (kerberosRemoteServiceName.isPresent()) {
             checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
@@ -113,7 +114,8 @@ public class QueryRunner
                     kerberosPrincipal,
                     kerberosConfigPath.map(File::new),
                     kerberosKeytabPath.map(File::new),
-                    kerberosCredentialCachePath.map(File::new));
+                    kerberosCredentialCachePath.map(File::new),
+                    delegatedKerberos);
         }
 
         this.httpClient = builder.build();
@@ -211,12 +213,5 @@ public class QueryRunner
                     "Authentication using an access token requires HTTPS to be enabled");
             clientBuilder.addInterceptor(tokenAuth(accessToken.get()));
         }
-    }
-
-    private static void setupNetworkLogging(OkHttpClient.Builder clientBuilder)
-    {
-        clientBuilder.addNetworkInterceptor(OkHttpUtil.interceptRequest(request -> {
-            log.debug("Sending %s request to %s", request.method(), request.url().uri());
-        }));
     }
 }

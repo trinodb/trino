@@ -22,11 +22,10 @@ import com.google.common.primitives.Ints;
 import io.trino.block.BlockAssertions;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.geospatial.Rectangle;
-import io.trino.metadata.Metadata;
-import io.trino.operator.aggregation.Accumulator;
-import io.trino.operator.aggregation.AccumulatorFactory;
-import io.trino.operator.aggregation.GroupedAccumulator;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.Aggregator;
+import io.trino.operator.aggregation.AggregatorFactory;
+import io.trino.operator.aggregation.GroupedAggregator;
+import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -37,7 +36,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.math.DoubleMath.roundToInt;
 import static io.trino.geospatial.KdbTree.buildKdbTree;
@@ -48,6 +47,7 @@ import static io.trino.operator.aggregation.AggregationTestUtils.getGroupValue;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static java.math.RoundingMode.CEILING;
 import static org.testng.Assert.assertEquals;
 
@@ -69,7 +69,7 @@ public class TestSpatialPartitioningInternalAggregation
     @Test(dataProvider = "partitionCount")
     public void test(int partitionCount)
     {
-        InternalAggregationFunction function = getFunction();
+        TestingAggregationFunction function = getFunction();
         List<OGCGeometry> geometries = makeGeometries();
         Block geometryBlock = makeGeometryBlock(geometries);
 
@@ -78,26 +78,25 @@ public class TestSpatialPartitioningInternalAggregation
         Rectangle expectedExtent = new Rectangle(-10, -10, Math.nextUp(10.0), Math.nextUp(10.0));
         String expectedValue = getSpatialPartitioning(expectedExtent, geometries, partitionCount);
 
-        AccumulatorFactory accumulatorFactory = function.bind(Ints.asList(0, 1, 2), Optional.empty());
+        AggregatorFactory aggregatorFactory = function.createAggregatorFactory(SINGLE, Ints.asList(0, 1), OptionalInt.empty());
         Page page = new Page(geometryBlock, partitionCountBlock);
 
-        Accumulator accumulator = accumulatorFactory.createAccumulator();
-        accumulator.addInput(page);
-        String aggregation = (String) BlockAssertions.getOnlyValue(accumulator.getFinalType(), getFinalBlock(accumulator));
+        Aggregator aggregator = aggregatorFactory.createAggregator();
+        aggregator.processPage(page);
+        String aggregation = (String) BlockAssertions.getOnlyValue(function.getFinalType(), getFinalBlock(function.getFinalType(), aggregator));
         assertEquals(aggregation, expectedValue);
 
-        GroupedAccumulator groupedAggregation = accumulatorFactory.createGroupedAccumulator();
-        groupedAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
-        String groupValue = (String) getGroupValue(groupedAggregation, 0);
+        GroupedAggregator groupedAggregator = aggregatorFactory.createGroupedAggregator();
+        groupedAggregator.processPage(createGroupByIdBlock(0, page.getPositionCount()), page);
+        String groupValue = (String) getGroupValue(function.getFinalType(), groupedAggregator, 0);
         assertEquals(groupValue, expectedValue);
     }
 
-    private InternalAggregationFunction getFunction()
+    private TestingAggregationFunction getFunction()
     {
-        Metadata metadata = functionAssertions.getMetadata();
-        return metadata.getAggregateFunctionImplementation(metadata.resolveFunction(
+        return functionAssertions.getFunctionResolution().getAggregateFunction(
                 QualifiedName.of("spatial_partitioning"),
-                fromTypes(GEOMETRY, INTEGER)));
+                fromTypes(GEOMETRY, INTEGER));
     }
 
     private List<OGCGeometry> makeGeometries()

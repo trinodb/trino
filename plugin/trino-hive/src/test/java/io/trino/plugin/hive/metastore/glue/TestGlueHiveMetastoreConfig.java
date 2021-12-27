@@ -43,8 +43,8 @@ public class TestGlueHiveMetastoreConfig
                 .setPartitionSegments(5)
                 .setGetPartitionThreads(20)
                 .setAssumeCanonicalPartitionKeys(false)
-                .setReadStatisticsThreads(1)
-                .setWriteStatisticsThreads(1));
+                .setReadStatisticsThreads(5)
+                .setWriteStatisticsThreads(5));
     }
 
     @Test

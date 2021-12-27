@@ -16,6 +16,7 @@ package io.trino.cli;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
+import com.google.common.util.concurrent.Futures;
 import io.airlift.units.Duration;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.Terminal.Signal;
@@ -37,7 +38,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.propagateIfPossible;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -168,11 +168,14 @@ public final class QueryPreprocessor
 
             // check we got a valid exit code
             if (exitCode != 0) {
-                Optional<String> errorMessage = tryGetFutureValue(readStderr, 100, MILLISECONDS)
-                        .flatMap(value -> Optional.ofNullable(emptyToNull(value.trim())));
-
-                throw new QueryPreprocessorException("Query preprocessor exited " + exitCode +
-                        errorMessage.map(message1 -> "\n===\n" + message1 + "\n===").orElse(""));
+                String message = "";
+                try {
+                    message = Futures.getChecked(readStderr, Exception.class, 100, MILLISECONDS);
+                    message = "\n===\n" + message + "\n===";
+                }
+                catch (Exception ignored) {
+                }
+                throw new QueryPreprocessorException("Query preprocessor exited " + exitCode + message);
             }
             return result;
         });

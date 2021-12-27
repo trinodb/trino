@@ -13,10 +13,11 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.execution.DynamicFilterConfig;
+import io.trino.metadata.QualifiedObjectName;
 import io.trino.operator.OperatorStats;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.testing.AbstractTestJoinQueries;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -25,7 +26,7 @@ import org.testng.annotations.Test;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.trino.tpch.TpchTable.getTables;
+import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static org.testng.Assert.assertEquals;
 
 /**
@@ -40,7 +41,7 @@ public class TestHiveDistributedJoinQueries
     {
         verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
         return HiveQueryRunner.builder()
-                .setInitialTables(getTables())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 
@@ -63,7 +64,9 @@ public class TestHiveDistributedJoinQueries
                 "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice = 123.4567");
         assertEquals(result.getResult().getRowCount(), 0);
 
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch:lineitem");
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(
+                result.getQueryId(),
+                new QualifiedObjectName(HIVE_CATALOG, "tpch", "lineitem"));
         // Probe-side is not scanned at all, due to dynamic filtering:
         assertEquals(probeStats.getInputPositions(), 0L);
         assertEquals(probeStats.getDynamicFilterSplitsProcessed(), probeStats.getTotalDrivers());

@@ -37,6 +37,7 @@ import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
+import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -44,7 +45,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -167,6 +170,37 @@ public class TestDictionaryAwarePageProjection
         // last dictionary not effective, so dictionary processing is disabled again
         testProjectRange(effectiveBlock, LongArrayBlock.class, projection, forceYield, produceLazyBlock);
         testProjectList(effectiveBlock, LongArrayBlock.class, projection, forceYield, produceLazyBlock);
+    }
+
+    @Test
+    public void testPreservesDictionaryInstance()
+    {
+        DictionaryAwarePageProjection projection = new DictionaryAwarePageProjection(
+                new InputPageProjection(0, BIGINT),
+                block -> randomDictionaryId(),
+                false);
+        Block dictionary = createLongsBlock(0, 1);
+        DictionaryBlock firstDictionaryBlock = new DictionaryBlock(dictionary, new int[] {0, 1, 2, 3});
+        DictionaryBlock secondDictionaryBlock = new DictionaryBlock(dictionary, new int[] {3, 2, 1, 0});
+
+        DriverYieldSignal yieldSignal = new DriverYieldSignal();
+        Work<Block> firstWork = projection.project(null, yieldSignal, new Page(firstDictionaryBlock), SelectedPositions.positionsList(new int[] {0}, 0, 1));
+
+        assertTrue(firstWork.process());
+        Block firstOutputBlock = firstWork.getResult();
+        assertInstanceOf(firstOutputBlock, DictionaryBlock.class);
+
+        Work<Block> secondWork = projection.project(null, yieldSignal, new Page(secondDictionaryBlock), SelectedPositions.positionsList(new int[] {0}, 0, 1));
+
+        assertTrue(secondWork.process());
+        Block secondOutputBlock = secondWork.getResult();
+        assertInstanceOf(secondOutputBlock, DictionaryBlock.class);
+
+        assertNotSame(firstOutputBlock, secondOutputBlock);
+        Block firstDictionary = ((DictionaryBlock) firstOutputBlock).getDictionary();
+        Block secondDictionary = ((DictionaryBlock) secondOutputBlock).getDictionary();
+        assertSame(firstDictionary, secondDictionary);
+        assertSame(firstDictionary, dictionary);
     }
 
     private static DictionaryBlock createDictionaryBlock(int dictionarySize, int blockSize)

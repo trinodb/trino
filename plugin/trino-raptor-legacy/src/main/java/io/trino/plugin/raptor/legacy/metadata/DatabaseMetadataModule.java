@@ -29,8 +29,8 @@ import io.airlift.dbpool.MySqlDataSourceConfig;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.testing.StaticServiceSelector;
 import io.trino.plugin.raptor.legacy.util.DaoSupplier;
-import org.skife.jdbi.v2.IDBI;
-import org.skife.jdbi.v2.tweak.ConnectionFactory;
+import org.jdbi.v3.core.ConnectionFactory;
+import org.jdbi.v3.core.Jdbi;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -40,7 +40,7 @@ import javax.sql.DataSource;
 import java.lang.reflect.Type;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static java.util.Objects.requireNonNull;
@@ -51,7 +51,7 @@ public class DatabaseMetadataModule
     @Override
     protected void setup(Binder ignored)
     {
-        install(installModuleIf(
+        install(conditionalModule(
                 DatabaseConfig.class,
                 config -> "mysql".equals(config.getDatabaseType()),
                 binder -> {
@@ -59,7 +59,7 @@ public class DatabaseMetadataModule
                     bindDaoSupplier(binder, ShardDao.class, MySqlShardDao.class);
                 }));
 
-        install(installModuleIf(
+        install(conditionalModule(
                 DatabaseConfig.class,
                 config -> "h2".equals(config.getDatabaseType()),
                 binder -> {
@@ -113,7 +113,7 @@ public class DatabaseMetadataModule
         public DaoSupplier<T> get()
         {
             checkState(injector != null, "injector was not set");
-            IDBI dbi = injector.getInstance(Key.get(IDBI.class, ForMetadata.class));
+            Jdbi dbi = injector.getInstance(Key.get(Jdbi.class, ForMetadata.class));
             return new DaoSupplier<>(dbi, type);
         }
     }

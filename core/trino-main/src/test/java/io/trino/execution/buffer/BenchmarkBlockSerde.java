@@ -19,6 +19,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.execution.buffer.PagesSerde.PagesSerdeContext;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
@@ -360,7 +361,7 @@ public class BenchmarkBlockSerde
         {
             PagesSerde pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
 
-            List<Page> pages = ImmutableList.copyOf(getTablePages("lineitem", 0.1));
+            List<Page> pages = ImmutableList.copyOf(getTablePages("lineitem", 0.1, DecimalTypeMapping.DOUBLE));
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(0);
             writePages(pagesSerde, new OutputStreamSliceOutput(sliceOutput), pages.listIterator());
             setup(sliceOutput.slice(), pagesSerde, pages);

@@ -24,6 +24,7 @@ import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
@@ -81,8 +82,8 @@ public class TestSpatialJoins
                 new HiveIdentity(SESSION),
                 Database.builder()
                         .setDatabaseName("default")
-                        .setOwnerName("public")
-                        .setOwnerType(PrincipalType.ROLE)
+                        .setOwnerName(Optional.of("public"))
+                        .setOwnerType(Optional.of(PrincipalType.ROLE))
                         .build());
         queryRunner.installPlugin(new TestingHivePlugin(metastore));
 

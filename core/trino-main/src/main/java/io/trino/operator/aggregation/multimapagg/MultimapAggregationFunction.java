@@ -14,18 +14,15 @@
 package io.trino.operator.aggregation.multimapagg;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.array.ObjectBigArray;
-import io.trino.metadata.FunctionArgumentDefinition;
-import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.AggregationFunctionMetadata;
+import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
-import io.trino.operator.aggregation.AccumulatorCompiler;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.trino.operator.aggregation.GenericAccumulatorFactoryBinder;
-import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -38,22 +35,16 @@ import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.metadata.Signature.typeVariable;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeSignature.rowType;
+import static io.trino.spi.type.TypeSignatureParameter.anonymousField;
 import static io.trino.type.TypeUtils.expectedValueSize;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
@@ -97,69 +88,37 @@ public class MultimapAggregationFunction
                                 mapType(new TypeSignature("K"), arrayType(new TypeSignature("V"))),
                                 ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")),
                                 false),
-                        true,
-                        ImmutableList.of(
-                                new FunctionArgumentDefinition(false),
-                                new FunctionArgumentDefinition(true)),
+                        new FunctionNullability(true, ImmutableList.of(false, true)),
                         false,
                         true,
                         "Aggregates all the rows (key/value pairs) into a single multimap",
                         AGGREGATE),
-                true,
-                true);
+                new AggregationFunctionMetadata(
+                        true,
+                        arrayType(rowType(anonymousField(new TypeSignature("V")), anonymousField(new TypeSignature("K"))))));
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
     @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    public AggregationMetadata specialize(BoundSignature boundSignature)
     {
-        Type keyType = functionBinding.getTypeVariable("K");
-        Type valueType = functionBinding.getTypeVariable("V");
-        return ImmutableList.of(new MultimapAggregationStateSerializer(keyType, valueType).getSerializedType().getTypeSignature());
-    }
-
-    @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
-    {
-        Type keyType = functionBinding.getTypeVariable("K");
+        Type keyType = boundSignature.getArgumentType(0);
         BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
 
-        Type valueType = functionBinding.getTypeVariable("V");
-        Type outputType = functionBinding.getBoundSignature().getReturnType();
-        return generateAggregation(keyType, keyEqual, keyHashCode, valueType, outputType);
-    }
+        Type valueType = boundSignature.getArgumentType(1);
 
-    private InternalAggregationFunction generateAggregation(Type keyType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Type valueType, Type outputType)
-    {
-        DynamicClassLoader classLoader = new DynamicClassLoader(MultimapAggregationFunction.class.getClassLoader());
-        List<Type> inputTypes = ImmutableList.of(keyType, valueType);
         MultimapAggregationStateSerializer stateSerializer = new MultimapAggregationStateSerializer(keyType, valueType);
-        Type intermediateType = stateSerializer.getSerializedType();
 
-        AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, outputType.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
-                createInputParameterMetadata(keyType, valueType),
+        return new AggregationMetadata(
                 INPUT_FUNCTION,
                 Optional.empty(),
-                COMBINE_FUNCTION,
+                Optional.of(COMBINE_FUNCTION),
                 MethodHandles.insertArguments(OUTPUT_FUNCTION, 0, keyType, keyEqual, keyHashCode, valueType),
-                ImmutableList.of(new AccumulatorStateDescriptor(
+                ImmutableList.of(new AccumulatorStateDescriptor<>(
                         MultimapAggregationState.class,
                         stateSerializer,
-                        new MultimapAggregationStateFactory(keyType, valueType))),
-                outputType);
-
-        GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
-    }
-
-    private static List<ParameterMetadata> createInputParameterMetadata(Type keyType, Type valueType)
-    {
-        return ImmutableList.of(new ParameterMetadata(STATE),
-                new ParameterMetadata(BLOCK_INPUT_CHANNEL, keyType),
-                new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, valueType),
-                new ParameterMetadata(BLOCK_INDEX));
+                        new MultimapAggregationStateFactory(keyType, valueType))));
     }
 
     public static void input(MultimapAggregationState state, Block key, Block value, int position)
@@ -186,8 +145,7 @@ public class MultimapAggregationFunction
 
             state.forEach((key, value, keyValueIndex) -> {
                 // Merge values of the same key into an array
-                if (!keySet.contains(key, keyValueIndex)) {
-                    keySet.add(key, keyValueIndex);
+                if (keySet.add(key, keyValueIndex)) {
                     keyType.appendTo(key, keyValueIndex, distinctKeyBlockBuilder);
                     BlockBuilder valueArrayBuilder = valueType.createBlockBuilder(null, 10, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
                     valueArrayBlockBuilders.set(keySet.positionOf(key, keyValueIndex), valueArrayBuilder);

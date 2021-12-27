@@ -13,11 +13,13 @@
  */
 package io.trino.operator.aggregation;
 
+import com.google.common.base.Throwables;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import io.trino.type.BlockTypeOperators.BlockPositionComparison;
 import org.openjdk.jol.info.ClassLayout;
+
+import java.lang.invoke.MethodHandle;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -29,7 +31,7 @@ public class TypedHeap
     private static final int COMPACT_THRESHOLD_BYTES = 32768;
     private static final int COMPACT_THRESHOLD_RATIO = 3; // when 2/3 of elements in heapBlockBuilder is unreferenced, do compact
 
-    private final BlockPositionComparison comparison;
+    private final MethodHandle greaterThanMethod;
     private final Type type;
     private final int capacity;
 
@@ -37,13 +39,24 @@ public class TypedHeap
     private final int[] heapIndex;
     private BlockBuilder heapBlockBuilder;
 
-    public TypedHeap(BlockPositionComparison comparison, Type type, int capacity)
+    public TypedHeap(MethodHandle greaterThanMethod, Type type, int capacity)
     {
-        this.comparison = comparison;
+        this.greaterThanMethod = greaterThanMethod;
         this.type = type;
         this.capacity = capacity;
         this.heapIndex = new int[capacity];
         this.heapBlockBuilder = type.createBlockBuilder(null, capacity);
+    }
+
+    // for copying
+    private TypedHeap(MethodHandle greaterThanMethod, Type type, int capacity, int positionCount, int[] heapIndex, BlockBuilder heapBlockBuilder)
+    {
+        this.greaterThanMethod = greaterThanMethod;
+        this.type = type;
+        this.capacity = capacity;
+        this.positionCount = positionCount;
+        this.heapIndex = heapIndex;
+        this.heapBlockBuilder = heapBlockBuilder;
     }
 
     public int getCapacity()
@@ -92,7 +105,7 @@ public class TypedHeap
     {
         checkArgument(!block.isNull(position));
         if (positionCount == capacity) {
-            if (comparison.compare(heapBlockBuilder, heapIndex[0], block, position) >= 0) {
+            if (keyGreaterThanOrEqual(this.heapBlockBuilder, heapIndex[0], block, position)) {
                 return; // and new element is not larger than heap top: do not add
             }
             heapIndex[0] = heapBlockBuilder.getPositionCount();
@@ -136,9 +149,9 @@ public class TypedHeap
                 smallerChildPosition = leftPosition;
             }
             else {
-                smallerChildPosition = comparison.compare(heapBlockBuilder, heapIndex[leftPosition], heapBlockBuilder, heapIndex[rightPosition]) >= 0 ? rightPosition : leftPosition;
+                smallerChildPosition = keyGreaterThanOrEqual(heapBlockBuilder, heapIndex[leftPosition], heapBlockBuilder, heapIndex[rightPosition]) ? rightPosition : leftPosition;
             }
-            if (comparison.compare(heapBlockBuilder, heapIndex[smallerChildPosition], heapBlockBuilder, heapIndex[position]) >= 0) {
+            if (keyGreaterThanOrEqual(heapBlockBuilder, heapIndex[smallerChildPosition], heapBlockBuilder, heapIndex[position])) {
                 break; // child is larger or equal
             }
             int swapTemp = heapIndex[position];
@@ -153,7 +166,7 @@ public class TypedHeap
         int position = positionCount - 1;
         while (position != 0) {
             int parentPosition = (position - 1) / 2;
-            if (comparison.compare(heapBlockBuilder, heapIndex[position], heapBlockBuilder, heapIndex[parentPosition]) >= 0) {
+            if (keyGreaterThanOrEqual(heapBlockBuilder, heapIndex[position], heapBlockBuilder, heapIndex[parentPosition])) {
                 break; // child is larger or equal
             }
             int swapTemp = heapIndex[position];
@@ -177,5 +190,26 @@ public class TypedHeap
             heapIndex[i] = i;
         }
         heapBlockBuilder = newHeapBlockBuilder;
+    }
+
+    private boolean keyGreaterThanOrEqual(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        try {
+            // this is a greater than operator, so we swap the object order and not the result
+            return !((boolean) greaterThanMethod.invokeExact(rightBlock, rightPosition, leftBlock, leftPosition));
+        }
+        catch (Throwable throwable) {
+            Throwables.throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
+        }
+    }
+
+    public TypedHeap copy()
+    {
+        BlockBuilder heapBlockBuilderCopy = null;
+        if (heapBlockBuilder != null) {
+            heapBlockBuilderCopy = (BlockBuilder) heapBlockBuilder.copyRegion(0, heapBlockBuilder.getPositionCount());
+        }
+        return new TypedHeap(greaterThanMethod, type, capacity, positionCount, heapIndex.clone(), heapBlockBuilderCopy);
     }
 }

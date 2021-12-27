@@ -33,12 +33,6 @@ public class FunctionListBuilder
         return this;
     }
 
-    public FunctionListBuilder aggregate(Class<?> aggregationDefinition)
-    {
-        functions.addAll(SqlAggregationFunction.createFunctionByAnnotations(aggregationDefinition));
-        return this;
-    }
-
     public FunctionListBuilder aggregates(Class<?> aggregationDefinition)
     {
         functions.addAll(SqlAggregationFunction.createFunctionsByAnnotations(aggregationDefinition));

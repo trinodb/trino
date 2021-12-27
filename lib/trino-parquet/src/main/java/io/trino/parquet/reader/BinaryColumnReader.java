@@ -37,33 +37,20 @@ public class BinaryColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            Binary binary = valuesReader.readBytes();
-            Slice value;
-            if (binary.length() == 0) {
-                value = EMPTY_SLICE;
-            }
-            else {
-                value = wrappedBuffer(binary.getBytes());
-            }
-            if (type instanceof VarcharType) {
-                value = truncateToLength(value, type);
-            }
-            if (type instanceof CharType) {
-                value = truncateToLengthAndTrimSpaces(value, type);
-            }
-            type.writeSlice(blockBuilder, value);
+        Binary binary = valuesReader.readBytes();
+        Slice value;
+        if (binary.length() == 0) {
+            value = EMPTY_SLICE;
         }
-        else if (isValueNull()) {
-            blockBuilder.appendNull();
+        else {
+            value = wrappedBuffer(binary.getBytes());
         }
-    }
-
-    @Override
-    protected void skipValue()
-    {
-        if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            valuesReader.readBytes();
+        if (type instanceof VarcharType) {
+            value = truncateToLength(value, type);
         }
+        if (type instanceof CharType) {
+            value = truncateToLengthAndTrimSpaces(value, type);
+        }
+        type.writeSlice(blockBuilder, value);
     }
 }

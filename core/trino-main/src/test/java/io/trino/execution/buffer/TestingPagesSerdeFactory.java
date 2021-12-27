@@ -17,27 +17,31 @@ import io.airlift.compress.Compressor;
 import io.airlift.compress.Decompressor;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
+import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spiller.SpillCipher;
 
 import java.util.Optional;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
 public class TestingPagesSerdeFactory
         extends PagesSerdeFactory
 {
+    private static final InternalBlockEncodingSerde BLOCK_ENCODING_SERDE = new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER);
+
     public TestingPagesSerdeFactory()
     {
         // compression should be enabled in as many tests as possible
-        super(createTestMetadataManager().getBlockEncodingSerde(), true);
+        super(BLOCK_ENCODING_SERDE, true);
     }
 
     public static PagesSerde testingPagesSerde()
     {
         return new SynchronizedPagesSerde(
-                createTestMetadataManager().getBlockEncodingSerde(),
+                BLOCK_ENCODING_SERDE,
                 Optional.of(new Lz4Compressor()),
                 Optional.of(new Lz4Decompressor()),
                 Optional.empty());

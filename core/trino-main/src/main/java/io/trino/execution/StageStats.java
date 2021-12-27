@@ -32,7 +32,6 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.execution.StageState.FLUSHING;
 import static io.trino.execution.StageState.RUNNING;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -47,6 +46,7 @@ public class StageStats
     private final int totalTasks;
     private final int runningTasks;
     private final int completedTasks;
+    private final int failedTasks;
 
     private final int totalDrivers;
     private final int queuedDrivers;
@@ -55,6 +55,7 @@ public class StageStats
     private final int completedDrivers;
 
     private final double cumulativeUserMemory;
+    private final double cumulativeSystemMemory;
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
     private final DataSize totalMemoryReservation;
@@ -99,6 +100,7 @@ public class StageStats
             @JsonProperty("totalTasks") int totalTasks,
             @JsonProperty("runningTasks") int runningTasks,
             @JsonProperty("completedTasks") int completedTasks,
+            @JsonProperty("failedTasks") int failedTasks,
 
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
@@ -107,6 +109,7 @@ public class StageStats
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("cumulativeSystemMemory") double cumulativeSystemMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
@@ -151,6 +154,8 @@ public class StageStats
         this.runningTasks = runningTasks;
         checkArgument(completedTasks >= 0, "completedTasks is negative");
         this.completedTasks = completedTasks;
+        checkArgument(failedTasks >= 0, "failedTasks is negative");
+        this.failedTasks = failedTasks;
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
         this.totalDrivers = totalDrivers;
@@ -164,6 +169,8 @@ public class StageStats
         this.completedDrivers = completedDrivers;
         checkArgument(cumulativeUserMemory >= 0, "cumulativeUserMemory is negative");
         this.cumulativeUserMemory = cumulativeUserMemory;
+        checkArgument(cumulativeSystemMemory >= 0, "cumulativeSystemMemory is negative");
+        this.cumulativeSystemMemory = cumulativeSystemMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
@@ -236,6 +243,12 @@ public class StageStats
     }
 
     @JsonProperty
+    public int getFailedTasks()
+    {
+        return failedTasks;
+    }
+
+    @JsonProperty
     public int getTotalDrivers()
     {
         return totalDrivers;
@@ -269,6 +282,12 @@ public class StageStats
     public double getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
+    }
+
+    @JsonProperty
+    public double getCumulativeSystemMemory()
+    {
+        return cumulativeSystemMemory;
     }
 
     @JsonProperty
@@ -423,7 +442,7 @@ public class StageStats
 
     public BasicStageStats toBasicStageStats(StageState stageState)
     {
-        boolean isScheduled = stageState == RUNNING || stageState == FLUSHING || stageState.isDone();
+        boolean isScheduled = stageState == RUNNING || stageState == StageState.PENDING || stageState.isDone();
 
         OptionalDouble progressPercentage = OptionalDouble.empty();
         if (isScheduled && totalDrivers != 0) {
@@ -444,6 +463,7 @@ public class StageStats
                 rawInputDataSize,
                 rawInputPositions,
                 (long) cumulativeUserMemory,
+                (long) cumulativeSystemMemory,
                 userMemoryReservation,
                 totalMemoryReservation,
                 totalCpuTime,

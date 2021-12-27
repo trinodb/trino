@@ -82,8 +82,8 @@ final class TrinoSystemRequirements
             }
         }
         else if ("Mac OS X".equals(osName)) {
-            if (!"x86_64".equals(osArch)) {
-                failRequirement("Trino requires x86_64 on Mac OS X (found %s)", osArch);
+            if (!"x86_64".equals(osArch) && !"aarch64".equals(osArch)) {
+                failRequirement("Trino requires x86_64 or aarch64 on Mac OS X (found %s)", osArch);
             }
         }
         else {
@@ -93,7 +93,7 @@ final class TrinoSystemRequirements
 
     private static void verifyJavaVersion()
     {
-        Version required = Version.parse("11.0.7");
+        Version required = Version.parse("11.0.11");
         if (Runtime.version().compareTo(required) < 0) {
             failRequirement("Trino requires Java %s at minimum (found %s)", required, Runtime.version());
         }

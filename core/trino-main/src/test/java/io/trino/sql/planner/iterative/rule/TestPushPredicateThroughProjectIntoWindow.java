@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -53,7 +54,7 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     private void assertRankingSymbolPruned(Function rankingFunction)
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
@@ -80,7 +81,7 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     private void assertNoUpperBoundForRankingSymbol(Function rankingFunction)
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
@@ -107,7 +108,7 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     private void assertNonPositiveUpperBoundForRankingSymbol(Function rankingFunction)
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
@@ -134,7 +135,7 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     private void assertPredicateNotSatisfied(Function rankingFunction, RankingType rankingType)
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
@@ -175,7 +176,7 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     private void assertPredicateSatisfied(Function rankingFunction, RankingType rankingType)
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
@@ -214,7 +215,7 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     private void assertPredicatePartiallySatisfied(Function rankingFunction, RankingType rankingType)
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
@@ -245,7 +246,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                         values(ImmutableList.of("a")))
                                         .withAlias("ranking", new TopNRankingSymbolMatcher()))));
 
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
@@ -280,7 +281,7 @@ public class TestPushPredicateThroughProjectIntoWindow
     private Function rowNumberFunction()
     {
         return new Function(
-                tester().getMetadata().resolveFunction(QualifiedName.of("row_number"), fromTypes()),
+                tester().getMetadata().resolveFunction(TEST_SESSION, QualifiedName.of("row_number"), fromTypes()),
                 ImmutableList.of(),
                 DEFAULT_FRAME,
                 false);
@@ -289,7 +290,7 @@ public class TestPushPredicateThroughProjectIntoWindow
     private Function rankFunction()
     {
         return new Function(
-                tester().getMetadata().resolveFunction(QualifiedName.of("rank"), fromTypes()),
+                tester().getMetadata().resolveFunction(TEST_SESSION, QualifiedName.of("rank"), fromTypes()),
                 ImmutableList.of(),
                 DEFAULT_FRAME,
                 false);

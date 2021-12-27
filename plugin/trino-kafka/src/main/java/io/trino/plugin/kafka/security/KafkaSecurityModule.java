@@ -19,8 +19,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.kafka.KafkaSecurityConfig;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
 
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
-import static io.airlift.configuration.ConfigurationModule.installModules;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 
 public class KafkaSecurityModule
         extends AbstractConfigurationAwareModule
@@ -30,12 +29,12 @@ public class KafkaSecurityModule
     {
         bindSecurityModule(
                 SecurityProtocol.SSL,
-                installModules(new SslSecurityModule()));
+                new SslSecurityModule());
     }
 
     private void bindSecurityModule(SecurityProtocol securityProtocol, Module module)
     {
-        install(installModuleIf(
+        install(conditionalModule(
                 KafkaSecurityConfig.class,
                 config -> config.getSecurityProtocol().equals(securityProtocol),
                 module));

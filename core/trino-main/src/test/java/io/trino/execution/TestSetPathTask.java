@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.FeaturesConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
@@ -21,7 +22,6 @@ import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.PathElement;
 import io.trino.sql.tree.PathSpecification;
@@ -41,6 +41,7 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestSetPathTask
@@ -79,14 +80,17 @@ public class TestSetPathTask
         assertEquals(stateMachine.getSetPath(), "foo");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Catalog does not exist: .*")
+    @Test
     public void testSetPathInvalidCatalog()
     {
         PathSpecification invalidPathSpecification = new PathSpecification(Optional.empty(), ImmutableList.of(
                 new PathElement(Optional.of(new Identifier("invalidCatalog")), new Identifier("thisDoesNotMatter"))));
 
         QueryStateMachine stateMachine = createQueryStateMachine("SET PATH invalidCatalog.thisDoesNotMatter");
-        executeSetPathTask(invalidPathSpecification, stateMachine);
+
+        assertThatThrownBy(() -> executeSetPathTask(invalidPathSpecification, stateMachine))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("Catalog '.*' does not exist");
     }
 
     private QueryStateMachine createQueryStateMachine(String query)
@@ -108,11 +112,8 @@ public class TestSetPathTask
 
     private void executeSetPathTask(PathSpecification pathSpecification, QueryStateMachine stateMachine)
     {
-        getFutureValue(new SetPathTask().execute(
+        getFutureValue(new SetPathTask(metadata).execute(
                 new SetPath(pathSpecification),
-                transactionManager,
-                metadata,
-                accessControl,
                 stateMachine,
                 emptyList(),
                 WarningCollector.NOOP));

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.apache.iceberg.FileFormat;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
@@ -33,7 +32,7 @@ public class TestIcebergConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of(), FileFormat.ORC, REQUIRED_TPCH_TABLES);
+        return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @Override
@@ -41,9 +40,11 @@ public class TestIcebergConnectorSmokeTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_COMMENT_ON_COLUMN:
-            case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+
+            case SUPPORTS_CREATE_VIEW:
+                return true;
 
             case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return true;
@@ -57,21 +58,11 @@ public class TestIcebergConnectorSmokeTest
 
     @Test
     @Override
-    public void testDelete()
+    public void testRowLevelDelete()
     {
         // Deletes are covered AbstractTestIcebergConnectorTest
-        assertThatThrownBy(super::testDelete)
-                .hasStackTraceContaining("This connector only supports delete where one or more partitions are deleted entirely");
-    }
-
-    @Test
-    @Override
-    public void testRenameTable()
-    {
-        // Iceberg table rename is not supported in FileHiveMetastore
-        // TODO add a test with a different metastore, or block rename in IcebergMetadata
-        assertThatThrownBy(super::testRenameTable)
-                .hasStackTraceContaining("Rename not supported for Iceberg tables");
+        assertThatThrownBy(super::testRowLevelDelete)
+                .hasStackTraceContaining("This connector only supports delete where one or more identity-transformed partitions are deleted entirely");
     }
 
     @Test

@@ -14,12 +14,12 @@
 package io.trino.server;
 
 import com.google.inject.Key;
-import com.google.inject.TypeLiteral;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
 import io.trino.client.QueryResults;
 import io.trino.execution.QueryInfo;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -82,6 +82,40 @@ public class TestQueryResource
             throws Exception
     {
         closeAll(server, client);
+    }
+
+    @Test
+    public void testIdempotentResults()
+    {
+        String sql = "SELECT * FROM tpch.tiny.lineitem";
+
+        Request request = preparePost()
+                .setHeader(TRINO_HEADERS.requestUser(), "user")
+                .setUri(uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build())
+                .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        URI uri = queryResults.getNextUri();
+        while (uri != null) {
+            QueryResults attempt1 = client.execute(
+                    prepareGet()
+                            .setHeader(TRINO_HEADERS.requestUser(), "user")
+                            .setUri(uri)
+                            .build(),
+                    createJsonResponseHandler(jsonCodec(QueryResults.class)));
+
+            QueryResults attempt2 = client.execute(
+                    prepareGet()
+                            .setHeader(TRINO_HEADERS.requestUser(), "user")
+                            .setUri(uri)
+                            .build(),
+                    createJsonResponseHandler(jsonCodec(QueryResults.class)));
+
+            assertEquals(attempt2.getData(), attempt1.getData());
+
+            uri = attempt1.getNextUri();
+        }
     }
 
     @Test
@@ -288,7 +322,7 @@ public class TestQueryResource
                 .setUri(uri)
                 .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                 .build();
-        JsonCodec<QueryInfo> codec = server.getInstance(Key.get(new TypeLiteral<JsonCodec<QueryInfo>>() {}));
+        JsonCodec<QueryInfo> codec = server.getInstance(Key.get(JsonCodecFactory.class)).jsonCodec(QueryInfo.class);
         return client.execute(request, createJsonResponseHandler(codec));
     }
 

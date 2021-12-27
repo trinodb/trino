@@ -13,7 +13,7 @@
  */
 package io.trino.connector.system;
 
-import io.trino.metadata.Metadata;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
@@ -22,8 +22,8 @@ public class MaterializedViewPropertiesSystemTable
         extends AbstractPropertiesSystemTable
 {
     @Inject
-    public MaterializedViewPropertiesSystemTable(TransactionManager transactionManager, Metadata metadata)
+    public MaterializedViewPropertiesSystemTable(TransactionManager transactionManager, MaterializedViewPropertyManager materializedViewPropertyManager)
     {
-        super("materialized_view_properties", transactionManager, () -> metadata.getMaterializedViewPropertyManager().getAllProperties());
+        super("materialized_view_properties", transactionManager, materializedViewPropertyManager::getAllProperties);
     }
 }

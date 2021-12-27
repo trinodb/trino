@@ -1,0 +1,34 @@
+{
+    "schemaName": "date_time_fields",
+    "dimensionFieldSpecs": [
+        {
+            "name": "string_col",
+            "dataType": "STRING"
+        }
+    ],
+    "dateTimeFieldSpecs": [
+        {
+            "name": "updated_at_seconds",
+            "dataType": "LONG",
+            "defaultNullValue" : 0,
+            "format": "1:SECONDS:EPOCH",
+            "transformFunction": "toEpochSeconds(updated_at)",
+            "granularity" : "1:SECONDS"
+        },
+        {
+            "name": "created_at",
+            "dataType": "LONG",
+            "defaultNullValue" : 0,
+            "format": "1:MILLISECONDS:EPOCH",
+            "granularity" : "1:MILLISECONDS"
+        },
+        {
+            "name": "created_at_seconds",
+            "dataType": "LONG",
+            "defaultNullValue" : 0,
+            "format": "1:SECONDS:EPOCH",
+            "transformFunction": "toEpochSeconds(created_at)",
+            "granularity" : "1:SECONDS"
+        }
+    ]
+}

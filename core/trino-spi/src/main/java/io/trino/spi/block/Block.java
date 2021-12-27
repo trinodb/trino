@@ -200,6 +200,16 @@ public interface Block
     long getPositionsSizeInBytes(boolean[] positions);
 
     /**
+     * Returns the size of all positions marked true in the positions array.
+     * The 'selectedPositionsCount' variable may be used to skip iterating through
+     * the positions array in case this is a fixed-width block
+     */
+    default long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
+    {
+        return getPositionsSizeInBytes(positions);
+    }
+
+    /**
      * Returns the retained size of this block in memory, including over-allocations.
      * This method is called from the inner most execution loop and must be fast.
      */
