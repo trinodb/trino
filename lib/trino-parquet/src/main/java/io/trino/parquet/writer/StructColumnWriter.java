@@ -95,10 +95,4 @@ public class StructColumnWriter
         return INSTANCE_SIZE +
                 columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
     }
-
-    @Override
-    public void reset()
-    {
-        columnWriters.forEach(ColumnWriter::reset);
-    }
 }
