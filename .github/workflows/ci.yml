@@ -68,7 +68,7 @@ jobs:
         with:
           platforms: arm64
       - name: Test Docker Image
-        run: core/docker/build-local.sh
+        run: core/docker/build.sh
 
   error-prone-checks:
     runs-on: ubuntu-latest
