@@ -24,7 +24,6 @@
 See [DEVELOPMENT](.github/DEVELOPMENT.md) for information about code style,
 development process, and guidelines.
 
-See [CONTRIBUTING](.github/CONTRIBUTING.md) for contribution requirements.
 
 ## Security
 
