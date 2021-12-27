@@ -69,7 +69,7 @@ build as normal for the `trino-server` and `trino-cli` modules, then
 build the image:
 
 ```bash
-./build-local.sh
+./build.sh
 ```
 
 The Docker build process will print the ID of the image, which will also
