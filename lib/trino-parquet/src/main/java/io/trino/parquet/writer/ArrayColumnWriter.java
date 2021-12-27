@@ -83,10 +83,4 @@ public class ArrayColumnWriter
     {
         return INSTANCE_SIZE + elementWriter.getRetainedBytes();
     }
-
-    @Override
-    public void reset()
-    {
-        elementWriter.reset();
-    }
 }
