@@ -439,7 +439,7 @@ public class TestArrayOperators
 
         assertThatThrownBy(() -> assertFunction("ARRAY [ARRAY [1]] || ARRAY [ARRAY ['x']]", new ArrayType(new ArrayType(INTEGER)), null))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage("line 1:19: Unexpected parameters (array(array(integer)), array(array(varchar(1)))) for function concat. Expected: concat(char(x), char(y)) , concat(array(E), E) E, concat(E, array(E)) E, concat(array(E)) E, concat(varchar) , concat(varbinary) ");
+                .hasMessage("line 1:19: Unexpected parameters (array(array(integer)), array(array(varchar(1)))) for function concat. Expected: concat(char(x), char(y)), concat(array(E), E) E, concat(E, array(E)) E, concat(array(E)) E, concat(varchar), concat(varbinary)");
 
         assertCachedInstanceHasBoundedRetainedSize("ARRAY [1, NULL] || ARRAY [3]");
     }
@@ -477,7 +477,7 @@ public class TestArrayOperators
 
         assertThatThrownBy(() -> assertFunction("ARRAY [ARRAY[1]] || ARRAY ['x']", new ArrayType(new ArrayType(INTEGER)), null))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage("line 1:18: Unexpected parameters (array(array(integer)), array(varchar(1))) for function concat. Expected: concat(char(x), char(y)) , concat(array(E), E) E, concat(E, array(E)) E, concat(array(E)) E, concat(varchar) , concat(varbinary) ");
+                .hasMessage("line 1:18: Unexpected parameters (array(array(integer)), array(varchar(1))) for function concat. Expected: concat(char(x), char(y)), concat(array(E), E) E, concat(E, array(E)) E, concat(array(E)) E, concat(varchar), concat(varbinary)");
 
         assertCachedInstanceHasBoundedRetainedSize("ARRAY [1, NULL] || 3");
         assertCachedInstanceHasBoundedRetainedSize("3 || ARRAY [1, NULL]");
