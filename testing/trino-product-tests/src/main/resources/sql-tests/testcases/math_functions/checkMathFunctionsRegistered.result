@@ -10,7 +10,7 @@
  approx_percentile | double | double, double | aggregate | true | |
  approx_set | hyperloglog | bigint | aggregate | true | |
  approx_set | hyperloglog | double | aggregate | true | |
- arbitrary | T | T | aggregate | true | Return an arbitrary non-null input value |
+ arbitrary | t | t | aggregate | true | Return an arbitrary non-null input value |
  asin | double | double | scalar | true | Arc sine |
  atan | double | double | scalar | true | Arc tangent |
  atan2 | double | double, double | scalar | true | Arc tangent of given fraction |
