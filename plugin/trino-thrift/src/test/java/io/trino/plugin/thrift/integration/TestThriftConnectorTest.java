@@ -32,7 +32,7 @@ public class TestThriftConnectorTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_INSERT:
-            case SUPPORTS_INSERT_NOT_NULL_COLUMN:
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
 
             case SUPPORTS_CREATE_TABLE:
