@@ -17,7 +17,7 @@ import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -204,7 +204,7 @@ public class TranslatingPageSource
         @Override
         public long extractLong(Block block, int position)
         {
-            BigInteger value = Decimals.decodeUnscaledValue(LONG_DECIMAL_TYPE.getSlice(block, position));
+            BigInteger value = ((Int128) LONG_DECIMAL_TYPE.getObject(block, position)).toBigInteger();
             return value.longValue();
         }
 
