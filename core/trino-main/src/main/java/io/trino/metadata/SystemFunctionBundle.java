@@ -25,6 +25,7 @@ import io.trino.operator.aggregation.ApproximateRealPercentileAggregations;
 import io.trino.operator.aggregation.ApproximateRealPercentileArrayAggregations;
 import io.trino.operator.aggregation.ApproximateSetAggregation;
 import io.trino.operator.aggregation.ApproximateSetGenericAggregation;
+import io.trino.operator.aggregation.ArbitraryAggregationFunction;
 import io.trino.operator.aggregation.AverageAggregations;
 import io.trino.operator.aggregation.BigintApproximateMostFrequent;
 import io.trino.operator.aggregation.BitwiseAndAggregation;
@@ -260,7 +261,6 @@ import io.trino.type.setdigest.MergeSetDigestAggregation;
 import io.trino.type.setdigest.SetDigestFunctions;
 import io.trino.type.setdigest.SetDigestOperators;
 
-import static io.trino.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static io.trino.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
 import static io.trino.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
 import static io.trino.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
@@ -538,7 +538,7 @@ public final class SystemFunctionBundle
                 .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .function(new Histogram(blockTypeOperators))
                 .aggregates(ChecksumAggregationFunction.class)
-                .function(ARBITRARY_AGGREGATION)
+                .aggregates(ArbitraryAggregationFunction.class)
                 .functions(GREATEST, LEAST)
                 .functions(MAX_BY, MIN_BY, new MaxByNAggregationFunction(blockTypeOperators), new MinByNAggregationFunction(blockTypeOperators))
                 .functions(MAX_AGGREGATION, MIN_AGGREGATION, new MaxNAggregationFunction(blockTypeOperators), new MinNAggregationFunction(blockTypeOperators))
