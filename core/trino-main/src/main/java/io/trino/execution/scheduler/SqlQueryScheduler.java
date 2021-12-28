@@ -321,7 +321,7 @@ public class SqlQueryScheduler
                 attempt);
         this.distributedStagesScheduler.set(distributedStagesScheduler);
         distributedStagesScheduler.addStateChangeListener(state -> {
-            if (queryStateMachine.getQueryState() == QueryState.STARTING && state.isRunningOrDone()) {
+            if (queryStateMachine.getQueryState() == QueryState.STARTING && (state == DistributedStagesSchedulerState.RUNNING || state.isDone())) {
                 queryStateMachine.transitionToRunning();
             }
 
@@ -1675,11 +1675,6 @@ public class SqlQueryScheduler
         public boolean isFailure()
         {
             return failureState;
-        }
-
-        public boolean isRunningOrDone()
-        {
-            return this == RUNNING || isDone();
         }
     }
 
