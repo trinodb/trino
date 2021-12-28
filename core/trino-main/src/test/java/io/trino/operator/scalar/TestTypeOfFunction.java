@@ -16,6 +16,8 @@ package io.trino.operator.scalar;
 import io.trino.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+
 public class TestTypeOfFunction
         extends AbstractTestFunctions
 {
@@ -57,5 +59,11 @@ public class TestTypeOfFunction
         assertFunction("typeof(ARRAY [CAST(1 AS INTEGER),CAST(2 AS INTEGER),CAST(3 AS INTEGER)])", VarcharType.VARCHAR, "array(integer)");
         assertFunction("typeof(sin(2))", VarcharType.VARCHAR, "double");
         assertFunction("typeof(2+sin(2)+2.3)", VarcharType.VARCHAR, "double");
+    }
+
+    @Test
+    public void testLambda()
+    {
+        assertInvalidFunction("typeof(x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>) for function typeof. Expected: typeof(t) T");
     }
 }

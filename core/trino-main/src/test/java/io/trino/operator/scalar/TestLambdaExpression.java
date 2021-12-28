@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -165,6 +166,17 @@ public class TestLambdaExpression
         assertFunction("apply(ARRAY['abc', NULL, '123'], x -> x[2] IS NULL)", BOOLEAN, true);
         assertFunction("apply(ARRAY['abc', NULL, '123'], x -> x[2])", createVarcharType(3), null);
         assertFunction("apply(MAP(ARRAY['abc', 'def'], ARRAY[123, 456]), x -> map_keys(x))", new ArrayType(createVarcharType(3)), ImmutableList.of("abc", "def"));
+    }
+
+    @Test
+    public void testFunctionParameter()
+    {
+        assertInvalidFunction("count(x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>) for function count. Expected: count(), count(T) T");
+        assertInvalidFunction("max(x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>) for function max. Expected: max(E) E:orderable, max(E, bigint) E:orderable");
+        assertInvalidFunction("sqrt(x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>) for function sqrt. Expected: sqrt(double)");
+        assertInvalidFunction("sqrt(x -> x, 123, x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>, integer, <function>) for function sqrt. Expected: sqrt(double)");
+        assertInvalidFunction("pow(x -> x, 123)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (<function>, integer) for function pow. Expected: pow(double, double)");
+        assertInvalidFunction("pow(123, x -> x)", FUNCTION_NOT_FOUND, "line 1:1: Unexpected parameters (integer, <function>) for function pow. Expected: pow(double, double)");
     }
 
     private static String quote(String identifier)
