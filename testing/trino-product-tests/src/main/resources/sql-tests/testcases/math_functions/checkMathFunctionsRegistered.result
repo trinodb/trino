@@ -27,7 +27,7 @@
  cos | double | double | scalar | true | Cosine |
  cosh | double | double | scalar | true | Hyperbolic cosine |
  count | bigint | | aggregate | true | |
- count | bigint | T | aggregate | true | Counts the non-null values |
+ count | bigint | t | aggregate | true | Counts the non-null values |
  count_if | bigint | boolean | aggregate | true | |
  covar_pop | double | double, double | aggregate | true | |
  covar_samp | double | double, double | aggregate | true | |
