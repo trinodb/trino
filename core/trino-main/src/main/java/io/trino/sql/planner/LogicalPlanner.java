@@ -839,7 +839,7 @@ public class LogicalPlanner
 
         TableHandle tableHandle = analysis.getTableHandle(table);
         RelationPlan tableScanPlan = createRelationPlan(analysis, table);
-        PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of());
+        PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of(), session, plannerContext);
         if (statement.getWhere().isPresent()) {
             SubqueryPlanner subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, typeCoercion, Optional.empty(), session, ImmutableMap.of());
             Expression whereExpression = statement.getWhere().get();
