@@ -39,6 +39,7 @@ import io.trino.operator.aggregation.ChecksumAggregationFunction;
 import io.trino.operator.aggregation.CountAggregation;
 import io.trino.operator.aggregation.CountColumn;
 import io.trino.operator.aggregation.CountIfAggregation;
+import io.trino.operator.aggregation.DecimalSumAggregation;
 import io.trino.operator.aggregation.DefaultApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.DoubleCorrelationAggregation;
 import io.trino.operator.aggregation.DoubleCovarianceAggregation;
@@ -270,7 +271,6 @@ import io.trino.type.setdigest.SetDigestFunctions;
 import io.trino.type.setdigest.SetDigestOperators;
 
 import static io.trino.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
-import static io.trino.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
 import static io.trino.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG;
 import static io.trino.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
 import static io.trino.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
@@ -561,7 +561,7 @@ public final class SystemFunctionBundle
                 .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .function(DECIMAL_AVERAGE_AGGREGATION)
-                .function(DECIMAL_SUM_AGGREGATION)
+                .aggregates(DecimalSumAggregation.class)
                 .function(DECIMAL_MOD_FUNCTION)
                 .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
                 .functions(MAP_FILTER_FUNCTION, new MapTransformKeysFunction(blockTypeOperators), MAP_TRANSFORM_VALUES_FUNCTION)
