@@ -483,7 +483,7 @@ class QueryPlanner
         RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .process(table, null);
 
-        PlanBuilder builder = newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap);
+        PlanBuilder builder = newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
         if (node.getWhere().isPresent()) {
             builder = filter(builder, node.getWhere().get(), node);
         }
@@ -538,7 +538,7 @@ class QueryPlanner
         RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .process(table, null);
 
-        PlanBuilder builder = newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap);
+        PlanBuilder builder = newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
 
         if (node.getWhere().isPresent()) {
             builder = filter(builder, node.getWhere().get(), node);
@@ -602,7 +602,7 @@ class QueryPlanner
         RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                 .process(query.getQueryBody(), null);
 
-        return newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap);
+        return newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
     }
 
     private PlanBuilder planFrom(QuerySpecification node)
@@ -610,11 +610,11 @@ class QueryPlanner
         if (node.getFrom().isPresent()) {
             RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, outerContext, session, recursiveSubqueries)
                     .process(node.getFrom().get(), null);
-            return newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap);
+            return newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
         }
 
         return new PlanBuilder(
-                new TranslationMap(outerContext, analysis.getImplicitFromScope(node), analysis, lambdaDeclarationToSymbolMap, ImmutableList.of()),
+                new TranslationMap(outerContext, analysis.getImplicitFromScope(node), analysis, lambdaDeclarationToSymbolMap, ImmutableList.of(), session, plannerContext),
                 new ValuesNode(idAllocator.getNextId(), 1));
     }
 

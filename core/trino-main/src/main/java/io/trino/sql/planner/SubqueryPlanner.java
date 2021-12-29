@@ -235,7 +235,9 @@ class SubqueryPlanner
         PlanBuilder subqueryPlan = newPlanBuilder(
                 relationPlan,
                 analysis,
-                lambdaDeclarationToSymbolMap);
+                lambdaDeclarationToSymbolMap,
+                session,
+                plannerContext);
 
         PlanNode root = new EnforceSingleRowNode(idAllocator.getNextId(), subqueryPlan.getRoot());
 
@@ -464,7 +466,9 @@ class SubqueryPlanner
                 relationPlan,
                 analysis,
                 lambdaDeclarationToSymbolMap,
-                ImmutableMap.of(scopeAwareKey(subquery, analysis, relationPlan.getScope()), column));
+                ImmutableMap.of(scopeAwareKey(subquery, analysis, relationPlan.getScope()), column),
+                session,
+                plannerContext);
 
         RelationType descriptor = relationPlan.getDescriptor();
         ImmutableList.Builder<Expression> fields = ImmutableList.builder();
