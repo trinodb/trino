@@ -36,6 +36,7 @@ import io.trino.operator.aggregation.BooleanOrAggregation;
 import io.trino.operator.aggregation.CentralMomentsAggregation;
 import io.trino.operator.aggregation.ChecksumAggregationFunction;
 import io.trino.operator.aggregation.CountAggregation;
+import io.trino.operator.aggregation.CountColumn;
 import io.trino.operator.aggregation.CountIfAggregation;
 import io.trino.operator.aggregation.DefaultApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.DoubleCorrelationAggregation;
@@ -258,7 +259,6 @@ import io.trino.type.setdigest.SetDigestFunctions;
 import io.trino.type.setdigest.SetDigestOperators;
 
 import static io.trino.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
-import static io.trino.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static io.trino.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
 import static io.trino.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
 import static io.trino.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
@@ -544,7 +544,7 @@ public final class SystemFunctionBundle
                 .functions(GREATEST, LEAST)
                 .functions(MAX_BY, MIN_BY, new MaxByNAggregationFunction(blockTypeOperators), new MinByNAggregationFunction(blockTypeOperators))
                 .functions(MAX_AGGREGATION, MIN_AGGREGATION, new MaxNAggregationFunction(blockTypeOperators), new MinNAggregationFunction(blockTypeOperators))
-                .function(COUNT_COLUMN)
+                .aggregates(CountColumn.class)
                 .functions(JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_TO_ROW_CAST)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(CONCAT_WS)
