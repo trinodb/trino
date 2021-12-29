@@ -67,6 +67,7 @@ import io.trino.operator.aggregation.MinNAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.BigintQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.DoubleQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.RealQuantileDigestAggregationFunction;
+import io.trino.operator.aggregation.RealAverageAggregation;
 import io.trino.operator.aggregation.RealCorrelationAggregation;
 import io.trino.operator.aggregation.RealCovarianceAggregation;
 import io.trino.operator.aggregation.RealGeometricMeanAggregations;
@@ -269,7 +270,6 @@ import io.trino.type.setdigest.SetDigestOperators;
 
 import static io.trino.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
 import static io.trino.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
-import static io.trino.operator.aggregation.RealAverageAggregation.REAL_AVERAGE_AGGREGATION;
 import static io.trino.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG;
 import static io.trino.operator.aggregation.arrayagg.ArrayAggregationFunction.ARRAY_AGG;
 import static io.trino.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
@@ -393,7 +393,7 @@ public final class SystemFunctionBundle
                 .aggregates(IntervalDayToSecondSumAggregation.class)
                 .aggregates(IntervalYearToMonthSumAggregation.class)
                 .aggregates(AverageAggregations.class)
-                .function(REAL_AVERAGE_AGGREGATION)
+                .aggregates(RealAverageAggregation.class)
                 .aggregates(IntervalDayToSecondAverageAggregation.class)
                 .aggregates(IntervalYearToMonthAverageAggregation.class)
                 .aggregates(GeometricMeanAggregations.class)
