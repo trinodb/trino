@@ -21,6 +21,8 @@ import java.util.Optional;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
+import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureBlocksAreLoaded;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -252,5 +254,30 @@ public class RowBlock
                 rowIsNull,
                 fieldBlockOffsets,
                 loadedFieldBlocks);
+    }
+
+    @Override
+    public Block copyWithAppendedNull()
+    {
+        boolean[] newRowIsNull = copyIsNullAndAppendNull(getRowIsNull(), getOffsetBase(), getPositionCount());
+
+        int[] newOffsets;
+        if (getFieldBlockOffsets() == null) {
+            int desiredLength = getOffsetBase() + positionCount + 2;
+            newOffsets = new int[desiredLength];
+            newOffsets[getOffsetBase()] = getOffsetBase();
+            for (int position = getOffsetBase(); position < getOffsetBase() + positionCount; position++) {
+                // Since there are no nulls in the original array, new offsets are the same as previous ones
+                newOffsets[position + 1] = newOffsets[position] + 1;
+            }
+
+            // Null does not change offset
+            newOffsets[desiredLength - 1] = newOffsets[desiredLength - 2];
+        }
+        else {
+            newOffsets = copyOffsetsAndAppendNull(getFieldBlockOffsets(), getOffsetBase(), getPositionCount());
+        }
+
+        return createRowBlockInternal(getOffsetBase(), getPositionCount() + 1, newRowIsNull, newOffsets, getRawFieldBlocks());
     }
 }

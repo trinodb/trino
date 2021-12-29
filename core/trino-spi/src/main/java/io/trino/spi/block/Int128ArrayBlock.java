@@ -27,6 +27,8 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
+import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
 public class Int128ArrayBlock
         implements Block
@@ -212,6 +214,14 @@ public class Int128ArrayBlock
     public String getEncodingName()
     {
         return Int128ArrayBlockEncoding.NAME;
+    }
+
+    @Override
+    public Block copyWithAppendedNull()
+    {
+        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, positionOffset, positionCount);
+        long[] newValues = ensureCapacity(values, (positionOffset + positionCount + 1) * 2);
+        return new Int128ArrayBlock(positionOffset, positionCount + 1, newValueIsNull, newValues);
     }
 
     @Override

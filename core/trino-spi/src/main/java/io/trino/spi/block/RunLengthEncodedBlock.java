@@ -287,6 +287,19 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public Block copyWithAppendedNull()
+    {
+        if (value.isNull(0)) {
+            return new RunLengthEncodedBlock(value, positionCount + 1);
+        }
+
+        Block dictionary = value.copyWithAppendedNull();
+        int[] ids = new int[positionCount + 1];
+        ids[positionCount] = 1;
+        return new DictionaryBlock(dictionary, ids);
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder sb = new StringBuilder(getClass().getSimpleName());

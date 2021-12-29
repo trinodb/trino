@@ -96,4 +96,14 @@ public interface BlockBuilder
      * Creates a new block builder of the same type based on the current usage statistics of this block builder.
      */
     BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus);
+
+    /**
+     * This method is not expected to be implemented for {@code BlockBuilder} implementations, the method
+     * {@link BlockBuilder#appendNull} should be used instead.
+     */
+    @Override
+    default Block copyWithAppendedNull()
+    {
+        throw new UnsupportedOperationException("BlockBuilder implementation does not support newBlockWithAppendedNull");
+    }
 }
