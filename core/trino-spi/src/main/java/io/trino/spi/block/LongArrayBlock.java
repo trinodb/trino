@@ -27,6 +27,8 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
+import static io.trino.spi.block.BlockUtil.ensureCapacity;
 import static java.lang.Math.toIntExact;
 
 public class LongArrayBlock
@@ -252,6 +254,15 @@ public class LongArrayBlock
     public String getEncodingName()
     {
         return LongArrayBlockEncoding.NAME;
+    }
+
+    @Override
+    public Block copyWithAppendedNull()
+    {
+        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
+        long[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1);
+
+        return new LongArrayBlock(arrayOffset, positionCount + 1, newValueIsNull, newValues);
     }
 
     @Override

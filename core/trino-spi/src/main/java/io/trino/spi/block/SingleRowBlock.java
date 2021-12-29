@@ -107,6 +107,12 @@ public class SingleRowBlock
     }
 
     @Override
+    public Block copyWithAppendedNull()
+    {
+        throw new UnsupportedOperationException("SingleRowBlock does not support newBlockWithAppendedNull()");
+    }
+
+    @Override
     public String toString()
     {
         return format("SingleRowBlock{numFields=%d}", fieldBlocks.length);
