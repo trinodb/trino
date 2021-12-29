@@ -70,6 +70,10 @@ public abstract class AbstractTestBlock
         assertBlockPositions(block, newBlockBuilder, expectedValues);
         assertBlockPositions(copyBlockViaBlockSerde(block), newBlockBuilder, expectedValues);
 
+        Block blockWithNull = copyBlockViaBlockSerde(block).copyWithAppendedNull();
+        T[] expectedValuesWithNull = Arrays.copyOf(expectedValues, expectedValues.length + 1);
+        assertBlockPositions(blockWithNull, newBlockBuilder, expectedValuesWithNull);
+
         assertBlockSize(block);
         assertRetainedSize(block);
 
