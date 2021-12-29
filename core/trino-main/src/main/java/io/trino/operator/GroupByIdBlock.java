@@ -222,6 +222,12 @@ public class GroupByIdBlock
     }
 
     @Override
+    public Block copyWithAppendedNull()
+    {
+        throw new UnsupportedOperationException("GroupByIdBlock does not support newBlockWithAppendedNull()");
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

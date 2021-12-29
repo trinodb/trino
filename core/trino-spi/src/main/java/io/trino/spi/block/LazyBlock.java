@@ -220,6 +220,12 @@ public class LazyBlock
     }
 
     @Override
+    public Block copyWithAppendedNull()
+    {
+        throw new UnsupportedOperationException("LazyBlock does not support newBlockWithAppendedNull()");
+    }
+
+    @Override
     public Block getPositions(int[] positions, int offset, int length)
     {
         if (isLoaded()) {
