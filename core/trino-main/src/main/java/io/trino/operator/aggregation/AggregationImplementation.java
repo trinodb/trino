@@ -217,10 +217,12 @@ public class AggregationImplementation
             Class<?> methodDeclaredType = argumentNativeContainerTypes.get(i).getJavaType();
             boolean isCurrentBlockPosition = argumentNativeContainerTypes.get(i).isBlockPosition();
 
+            // block and position works for any type, but if block is annotated with SqlType nativeContainerType, then only types with the
+            // specified container type match
             if (isCurrentBlockPosition && methodDeclaredType.isAssignableFrom(Block.class)) {
                 continue;
             }
-            if (!isCurrentBlockPosition && methodDeclaredType.isAssignableFrom(argumentType)) {
+            if (methodDeclaredType.isAssignableFrom(argumentType)) {
                 continue;
             }
             return false;
@@ -446,7 +448,16 @@ public class AggregationImplementation
                     continue;
                 }
 
-                builder.add(new AggregateNativeContainerType(inputFunction.getParameterTypes()[i], isParameterBlock(annotations)));
+                Optional<Class<?>> nativeContainerType = Arrays.stream(annotations)
+                        .filter(SqlType.class::isInstance)
+                        .map(SqlType.class::cast)
+                        .findFirst()
+                        .map(SqlType::nativeContainerType);
+                // Note: this cannot be done as a chain due to strange generic type mismatches
+                if (nativeContainerType.isPresent() && !nativeContainerType.get().equals(Object.class)) {
+                    parameterType = nativeContainerType.get();
+                }
+                builder.add(new AggregateNativeContainerType(parameterType, isParameterBlock(annotations)));
             }
 
             return builder.build();
