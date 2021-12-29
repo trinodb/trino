@@ -16,6 +16,7 @@ package io.trino.operator.scalar.json;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionMetadata;
@@ -23,16 +24,23 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.trino.operator.scalar.JsonPath;
 import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
+import io.trino.sql.planner.JsonPathEvaluator;
+import io.trino.sql.planner.JsonPathEvaluator.PathEvaluationError;
+import io.trino.sql.tree.JsonExists.ErrorBehavior;
 import io.trino.type.JsonPath2016Type;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
+import java.util.Map;
 
+import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
+import static io.trino.operator.scalar.json.JsonQueryFunction.getParametersMap;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -46,7 +54,9 @@ public class JsonExistsFunction
         extends SqlScalarFunction
 {
     public static final String JSON_EXISTS_FUNCTION_NAME = "$json_exists";
-    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonExistsFunction.class, "jsonExists", Metadata.class, TypeManager.class, Type.class, ConnectorSession.class, JsonNode.class, JsonPath.class, Object.class, long.class); // TODO replace JsonPath with IrJsonPath
+    private static final MethodHandle METHOD_HANDLE = methodHandle(JsonExistsFunction.class, "jsonExists", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Object.class, long.class);
+    private static final TrinoException INPUT_ARGUMENT_ERROR = new JsonInputConversionError("malformed input argument to JSON_EXISTS function");
+    private static final TrinoException PATH_PARAMETER_ERROR = new JsonInputConversionError("malformed JSON path parameter to JSON_EXISTS function");
 
     private final FunctionManager functionManager;
     private final Metadata metadata;
@@ -77,6 +87,7 @@ public class JsonExistsFunction
     {
         Type parametersRowType = boundSignature.getArgumentType(2);
         MethodHandle methodHandle = METHOD_HANDLE
+                .bindTo(functionManager)
                 .bindTo(metadata)
                 .bindTo(typeManager)
                 .bindTo(parametersRowType);
@@ -89,15 +100,49 @@ public class JsonExistsFunction
 
     @UsedByGeneratedCode
     public static Boolean jsonExists(
+            FunctionManager functionManager,
             Metadata metadata,
             TypeManager typeManager,
             Type parametersRowType,
             ConnectorSession session,
             JsonNode inputExpression,
-            JsonPath jsonPath,
+            IrJsonPath jsonPath,
             Object parametersRow,
             long errorBehavior)
     {
-        throw new UnsupportedOperationException("JSON_EXISTS function is not yet supported");
+        if (inputExpression.equals(JSON_ERROR)) {
+            return handleError(errorBehavior, INPUT_ARGUMENT_ERROR); // ERROR ON ERROR was already handled by the input function
+        }
+        Map<String, Object> parameters = getParametersMap(parametersRowType, parametersRow); // TODO refactor
+        for (Object parameter : parameters.values()) {
+            if (parameter.equals(JSON_ERROR)) {
+                return handleError(errorBehavior, PATH_PARAMETER_ERROR); // ERROR ON ERROR was already handled by the input function
+            }
+        }
+        JsonPathEvaluator pathEvaluator = new JsonPathEvaluator(inputExpression, parameters, functionManager, metadata, typeManager, session);
+        List<Object> pathResult;
+        try {
+            pathResult = pathEvaluator.evaluate(jsonPath);
+        }
+        catch (PathEvaluationError e) {
+            return handleError(errorBehavior, e);
+        }
+
+        return !pathResult.isEmpty();
+    }
+
+    private static Boolean handleError(long errorBehavior, TrinoException error)
+    {
+        switch (ErrorBehavior.values()[(int) errorBehavior]) {
+            case FALSE:
+                return false;
+            case TRUE:
+                return true;
+            case UNKNOWN:
+                return null;
+            case ERROR:
+                throw error;
+        }
+        throw new IllegalStateException("unexpected error behavior");
     }
 }

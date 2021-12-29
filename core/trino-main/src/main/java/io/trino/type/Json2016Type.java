@@ -27,6 +27,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 
 public class Json2016Type
         extends AbstractVariableWidthType
@@ -42,7 +43,7 @@ public class Json2016Type
     @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
-        throw new UnsupportedOperationException();
+        return getObject(block, position);
     }
 
     @Override
@@ -58,9 +59,12 @@ public class Json2016Type
             return null;
         }
 
-        Slice bytes = block.getSlice(position, 0, block.getSliceLength(position));
+        String json = block.getSlice(position, 0, block.getSliceLength(position)).toStringUtf8();
+        if (json.equals(JSON_ERROR.toString())) {
+            return JSON_ERROR;
+        }
         try {
-            return MAPPER.readTree(bytes.toStringUtf8());
+            return MAPPER.readTree(json);
         }
         catch (JsonProcessingException e) {
             throw new JsonInputConversionError(e);
@@ -71,11 +75,16 @@ public class Json2016Type
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         String json;
-        try {
-            json = MAPPER.writeValueAsString(value);
+        if (value == JSON_ERROR) {
+            json = JSON_ERROR.toString();
         }
-        catch (JsonProcessingException e) {
-            throw new JsonOutputConversionError(e);
+        else {
+            try {
+                json = MAPPER.writeValueAsString(value);
+            }
+            catch (JsonProcessingException e) {
+                throw new JsonOutputConversionError(e);
+            }
         }
         Slice bytes = utf8Slice(json);
         blockBuilder.writeBytes(bytes, 0, bytes.length()).closeEntry();
