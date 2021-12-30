@@ -125,9 +125,9 @@ public class QueryBuilder
                 joinConditions.stream()
                         .map(condition -> format(
                                 "l.%s %s r.%s",
-                                client.quoted(condition.getLeftColumn().getColumnName()),
+                                client.buildJoinColumn(condition, condition.getLeftColumn()),
                                 condition.getOperator().getValue(),
-                                client.quoted(condition.getRightColumn().getColumnName())))
+                                client.buildJoinColumn(condition, condition.getRightColumn())))
                         .collect(joining(" AND ")));
         List<QueryParameter> parameters = ImmutableList.<QueryParameter>builder()
                 .addAll(leftSource.getParameters())

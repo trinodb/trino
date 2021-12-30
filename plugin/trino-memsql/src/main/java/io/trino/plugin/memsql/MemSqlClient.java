@@ -586,7 +586,7 @@ public class MemSqlClient
     }
 
     @Override
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         if (joinCondition.getOperator() == JoinCondition.Operator.IS_DISTINCT_FROM) {
             // Not supported in MemSQL

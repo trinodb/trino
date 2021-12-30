@@ -352,7 +352,7 @@ public class OracleClient
     }
 
     @Override
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         return joinCondition.getOperator() != JoinCondition.Operator.IS_DISTINCT_FROM;
     }

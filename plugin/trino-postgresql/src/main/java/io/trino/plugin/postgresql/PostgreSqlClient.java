@@ -817,7 +817,7 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         boolean isVarchar = Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
                 .map(JdbcColumnHandle::getColumnType)
@@ -830,7 +830,7 @@ public class PostgreSqlClient
                 case LESS_THAN_OR_EQUAL:
                 case GREATER_THAN:
                 case GREATER_THAN_OR_EQUAL:
-                    break;
+                    return isEnableStringPushdownWithCollate(session);
                 case EQUAL:
                 case NOT_EQUAL:
                 case IS_DISTINCT_FROM:
@@ -840,6 +840,27 @@ public class PostgreSqlClient
         }
 
         return true;
+    }
+
+    @Override
+    public String buildJoinColumn(JdbcJoinCondition joinCondition, JdbcColumnHandle column)
+    {
+        boolean isVarchar = Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
+                .map(JdbcColumnHandle::getColumnType)
+                .anyMatch(type -> type instanceof CharType || type instanceof VarcharType);
+        String collation = "";
+        if (isVarchar) {
+            JoinCondition.Operator operator = joinCondition.getOperator();
+            switch (operator) {
+                case LESS_THAN:
+                case LESS_THAN_OR_EQUAL:
+                case GREATER_THAN:
+                case GREATER_THAN_OR_EQUAL:
+                    collation = "COLLATE \"C\"";
+            }
+        }
+
+        return String.format("%s %s", quoted(column.getColumnName()), collation);
     }
 
     private static ColumnMapping charColumnMapping(int charLength)

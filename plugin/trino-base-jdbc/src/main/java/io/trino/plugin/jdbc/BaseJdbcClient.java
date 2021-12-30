@@ -27,6 +27,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
@@ -412,7 +413,7 @@ public abstract class BaseJdbcClient
             JoinStatistics statistics)
     {
         for (JdbcJoinCondition joinCondition : joinConditions) {
-            if (!isSupportedJoinCondition(joinCondition)) {
+            if (!isSupportedJoinCondition(session, joinCondition)) {
                 return Optional.empty();
             }
         }
@@ -428,7 +429,13 @@ public abstract class BaseJdbcClient
                 rightAssignments));
     }
 
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    @Override
+    public String buildJoinColumn(JdbcJoinCondition joinCondition, JdbcColumnHandle column)
+    {
+        return quoted(column.getColumnName());
+    }
+
+    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         return false;
     }

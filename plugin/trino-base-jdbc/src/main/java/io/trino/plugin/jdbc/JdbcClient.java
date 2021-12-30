@@ -168,6 +168,8 @@ public interface JdbcClient
         return Optional.empty();
     }
 
+    String buildJoinColumn(JdbcJoinCondition joinCondition, JdbcColumnHandle column);
+
     String quoted(String name);
 
     String quoted(RemoteTableName remoteTableName);
