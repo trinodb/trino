@@ -11,10 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation;
+package io.trino.operator.aggregation.minmaxn;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import org.testng.annotations.Test;
 
@@ -29,7 +30,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.util.MinMaxCompare.getMinMaxCompare;
 import static org.testng.Assert.assertEquals;
 
 public class TestTypedHeap
@@ -38,17 +38,21 @@ public class TestTypedHeap
     private static final int OUTPUT_SIZE = 1_000;
 
     private static final TypeOperators TYPE_OPERATOR_FACTORY = new TypeOperators();
-    private static final MethodHandle MAX_ELEMENTS_COMPARATOR = getMinMaxCompare(TYPE_OPERATOR_FACTORY, BIGINT, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION), false);
-    private static final MethodHandle MIN_ELEMENTS_COMPARATOR = getMinMaxCompare(TYPE_OPERATOR_FACTORY, BIGINT, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION), true);
+    private static final MethodHandle MAX_ELEMENTS_COMPARATOR = TYPE_OPERATOR_FACTORY.getComparisonUnorderedFirstOperator(BIGINT, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+    private static final MethodHandle MIN_ELEMENTS_COMPARATOR = TYPE_OPERATOR_FACTORY.getComparisonUnorderedLastOperator(BIGINT, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
 
     @Test
     public void testAscending()
     {
         test(IntStream.range(0, INPUT_SIZE),
+                false,
                 MAX_ELEMENTS_COMPARATOR,
+                BIGINT,
                 IntStream.range(INPUT_SIZE - OUTPUT_SIZE, INPUT_SIZE).iterator());
         test(IntStream.range(0, INPUT_SIZE),
+                true,
                 MIN_ELEMENTS_COMPARATOR,
+                BIGINT,
                 IntStream.range(0, OUTPUT_SIZE).map(x -> OUTPUT_SIZE - 1 - x).iterator());
     }
 
@@ -56,10 +60,14 @@ public class TestTypedHeap
     public void testDescending()
     {
         test(IntStream.range(0, INPUT_SIZE).map(x -> INPUT_SIZE - 1 - x),
+                false,
                 MAX_ELEMENTS_COMPARATOR,
+                BIGINT,
                 IntStream.range(INPUT_SIZE - OUTPUT_SIZE, INPUT_SIZE).iterator());
         test(IntStream.range(0, INPUT_SIZE).map(x -> INPUT_SIZE - 1 - x),
+                true,
                 MIN_ELEMENTS_COMPARATOR,
+                BIGINT,
                 IntStream.range(0, OUTPUT_SIZE).map(x -> OUTPUT_SIZE - 1 - x).iterator());
     }
 
@@ -69,19 +77,23 @@ public class TestTypedHeap
         List<Integer> list = IntStream.range(0, INPUT_SIZE).collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
         Collections.shuffle(list);
         test(list.stream().mapToInt(Integer::intValue),
+                false,
                 MAX_ELEMENTS_COMPARATOR,
+                BIGINT,
                 IntStream.range(INPUT_SIZE - OUTPUT_SIZE, INPUT_SIZE).iterator());
         test(list.stream().mapToInt(Integer::intValue),
+                true,
                 MIN_ELEMENTS_COMPARATOR,
+                BIGINT,
                 IntStream.range(0, OUTPUT_SIZE).map(x -> OUTPUT_SIZE - 1 - x).iterator());
     }
 
-    private static void test(IntStream inputStream, MethodHandle greaterThanMethod, PrimitiveIterator.OfInt outputIterator)
+    private static void test(IntStream inputStream, boolean min, MethodHandle comparisonMethod, Type elementType, PrimitiveIterator.OfInt outputIterator)
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, INPUT_SIZE);
-        inputStream.forEach(x -> BIGINT.writeLong(blockBuilder, x));
+        inputStream.forEach(value -> BIGINT.writeLong(blockBuilder, value));
 
-        TypedHeap heap = new TypedHeap(greaterThanMethod, BIGINT, OUTPUT_SIZE);
+        TypedHeap heap = new TypedHeap(min, comparisonMethod, elementType, OUTPUT_SIZE);
         heap.addAll(blockBuilder);
 
         BlockBuilder resultBlockBuilder = BIGINT.createBlockBuilder(null, OUTPUT_SIZE);

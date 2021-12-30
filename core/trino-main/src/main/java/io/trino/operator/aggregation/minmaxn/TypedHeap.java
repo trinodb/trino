@@ -11,11 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation;
+package io.trino.operator.aggregation.minmaxn;
 
 import com.google.common.base.Throwables;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -23,6 +24,9 @@ import java.lang.invoke.MethodHandle;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public class TypedHeap
 {
@@ -31,28 +35,31 @@ public class TypedHeap
     private static final int COMPACT_THRESHOLD_BYTES = 32768;
     private static final int COMPACT_THRESHOLD_RATIO = 3; // when 2/3 of elements in heapBlockBuilder is unreferenced, do compact
 
-    private final MethodHandle greaterThanMethod;
-    private final Type type;
+    private final boolean min;
+    private final MethodHandle compare;
+    private final Type elementType;
     private final int capacity;
 
     private int positionCount;
     private final int[] heapIndex;
     private BlockBuilder heapBlockBuilder;
 
-    public TypedHeap(MethodHandle greaterThanMethod, Type type, int capacity)
+    public TypedHeap(boolean min, MethodHandle compare, Type elementType, int capacity)
     {
-        this.greaterThanMethod = greaterThanMethod;
-        this.type = type;
+        this.min = min;
+        this.compare = requireNonNull(compare, "compare is null");
+        this.elementType = requireNonNull(elementType, "elementType is null");
         this.capacity = capacity;
         this.heapIndex = new int[capacity];
-        this.heapBlockBuilder = type.createBlockBuilder(null, capacity);
+        this.heapBlockBuilder = elementType.createBlockBuilder(null, capacity);
     }
 
     // for copying
-    private TypedHeap(MethodHandle greaterThanMethod, Type type, int capacity, int positionCount, int[] heapIndex, BlockBuilder heapBlockBuilder)
+    private TypedHeap(boolean min, MethodHandle compare, Type elementType, int capacity, int positionCount, int[] heapIndex, BlockBuilder heapBlockBuilder)
     {
-        this.greaterThanMethod = greaterThanMethod;
-        this.type = type;
+        this.min = min;
+        this.compare = requireNonNull(compare, "compare is null");
+        this.elementType = requireNonNull(elementType, "elementType is null");
         this.capacity = capacity;
         this.positionCount = positionCount;
         this.heapIndex = heapIndex;
@@ -66,7 +73,7 @@ public class TypedHeap
 
     public long getEstimatedSize()
     {
-        return INSTANCE_SIZE + heapBlockBuilder.getRetainedSizeInBytes() + sizeOf(heapIndex);
+        return INSTANCE_SIZE + (heapBlockBuilder == null ? 0 : heapBlockBuilder.getRetainedSizeInBytes()) + sizeOf(heapIndex);
     }
 
     public boolean isEmpty()
@@ -74,10 +81,48 @@ public class TypedHeap
         return positionCount == 0;
     }
 
-    public void writeAll(BlockBuilder resultBlockBuilder)
+    public void serialize(BlockBuilder out)
     {
+        BlockBuilder blockBuilder = out.beginBlockEntry();
+        BIGINT.writeLong(blockBuilder, capacity);
+
+        BlockBuilder elements = blockBuilder.beginBlockEntry();
         for (int i = 0; i < positionCount; i++) {
-            type.appendTo(heapBlockBuilder, heapIndex[i], resultBlockBuilder);
+            elementType.appendTo(heapBlockBuilder, heapIndex[i], elements);
+        }
+        blockBuilder.closeEntry();
+
+        out.closeEntry();
+    }
+
+    public static TypedHeap deserialize(boolean min, MethodHandle compare, Type elementType, Block rowBlock)
+    {
+        int capacity = toIntExact(BIGINT.getLong(rowBlock, 0));
+        int[] heapIndex = new int[capacity];
+
+        BlockBuilder heapBlockBuilder = elementType.createBlockBuilder(null, capacity);
+
+        Block heapBlock = new ArrayType(elementType).getObject(rowBlock, 1);
+        for (int position = 0; position < heapBlock.getPositionCount(); position++) {
+            heapIndex[position] = position;
+            elementType.appendTo(heapBlock, position, heapBlockBuilder);
+        }
+
+        return new TypedHeap(min, compare, elementType, capacity, heapBlock.getPositionCount(), heapIndex, heapBlockBuilder);
+    }
+
+    public void popAllReverse(BlockBuilder resultBlockBuilder)
+    {
+        int[] indexes = new int[positionCount];
+        while (positionCount > 0) {
+            indexes[positionCount - 1] = heapIndex[0];
+            positionCount--;
+            heapIndex[0] = heapIndex[positionCount];
+            siftDown();
+        }
+
+        for (int index : indexes) {
+            elementType.appendTo(heapBlockBuilder, index, resultBlockBuilder);
         }
     }
 
@@ -90,7 +135,7 @@ public class TypedHeap
 
     public void pop(BlockBuilder resultBlockBuilder)
     {
-        type.appendTo(heapBlockBuilder, heapIndex[0], resultBlockBuilder);
+        elementType.appendTo(heapBlockBuilder, heapIndex[0], resultBlockBuilder);
         remove();
     }
 
@@ -105,17 +150,17 @@ public class TypedHeap
     {
         checkArgument(!block.isNull(position));
         if (positionCount == capacity) {
-            if (keyGreaterThanOrEqual(this.heapBlockBuilder, heapIndex[0], block, position)) {
+            if (keyGreaterThanOrEqual(heapBlockBuilder, heapIndex[0], block, position)) {
                 return; // and new element is not larger than heap top: do not add
             }
             heapIndex[0] = heapBlockBuilder.getPositionCount();
-            type.appendTo(block, position, heapBlockBuilder);
+            elementType.appendTo(block, position, heapBlockBuilder);
             siftDown();
         }
         else {
             heapIndex[positionCount] = heapBlockBuilder.getPositionCount();
             positionCount++;
-            type.appendTo(block, position, heapBlockBuilder);
+            elementType.appendTo(block, position, heapBlockBuilder);
             siftUp();
         }
         compactIfNecessary();
@@ -178,15 +223,15 @@ public class TypedHeap
 
     private void compactIfNecessary()
     {
-        // Byte size check is needed. Otherwise, if size * 3 is small, BlockBuilder can be reallocate too often.
+        // Byte size check is needed. Otherwise, if size * 3 is small, BlockBuilder can be reallocated too often.
         // Position count is needed. Otherwise, for large elements, heap will be compacted every time.
         // Size instead of retained size is needed because default allocation size can be huge for some block builders. And the first check will become useless in such case.
         if (heapBlockBuilder.getSizeInBytes() < COMPACT_THRESHOLD_BYTES || heapBlockBuilder.getPositionCount() / positionCount < COMPACT_THRESHOLD_RATIO) {
             return;
         }
-        BlockBuilder newHeapBlockBuilder = type.createBlockBuilder(null, heapBlockBuilder.getPositionCount());
+        BlockBuilder newHeapBlockBuilder = elementType.createBlockBuilder(null, heapBlockBuilder.getPositionCount());
         for (int i = 0; i < positionCount; i++) {
-            type.appendTo(heapBlockBuilder, heapIndex[i], newHeapBlockBuilder);
+            elementType.appendTo(heapBlockBuilder, heapIndex[i], newHeapBlockBuilder);
             heapIndex[i] = i;
         }
         heapBlockBuilder = newHeapBlockBuilder;
@@ -195,8 +240,8 @@ public class TypedHeap
     private boolean keyGreaterThanOrEqual(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         try {
-            // this is a greater than operator, so we swap the object order and not the result
-            return !((boolean) greaterThanMethod.invokeExact(rightBlock, rightPosition, leftBlock, leftPosition));
+            long result = (long) compare.invokeExact(leftBlock, leftPosition, rightBlock, rightPosition);
+            return min ? result < 0 : result > 0;
         }
         catch (Throwable throwable) {
             Throwables.throwIfUnchecked(throwable);
@@ -210,6 +255,6 @@ public class TypedHeap
         if (heapBlockBuilder != null) {
             heapBlockBuilderCopy = (BlockBuilder) heapBlockBuilder.copyRegion(0, heapBlockBuilder.getPositionCount());
         }
-        return new TypedHeap(greaterThanMethod, type, capacity, positionCount, heapIndex.clone(), heapBlockBuilderCopy);
+        return new TypedHeap(min, compare, elementType, capacity, positionCount, heapIndex.clone(), heapBlockBuilderCopy);
     }
 }

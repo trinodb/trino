@@ -11,17 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation.state;
+package io.trino.operator.aggregation.minmaxn;
 
-import io.trino.operator.aggregation.TypedHeap;
-import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
-public interface MinMaxNState
-        extends AccumulatorState
-{
-    TypedHeap getTypedHeap();
-
-    void setTypedHeap(TypedHeap value);
-
-    void addMemoryUsage(long memory);
-}
+@AccumulatorStateMetadata(
+        stateFactoryClass = MinNStateFactory.class,
+        stateSerializerClass = MinNStateSerializer.class,
+        typeParameters = "T",
+        serializedType = "ROW(BIGINT, ARRAY(T))")
+public interface MinNState
+        extends MinMaxNState
+{}

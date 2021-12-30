@@ -11,17 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation;
+package io.trino.operator.aggregation.minmaxn;
 
-import io.trino.type.BlockTypeOperators;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
-public class MinNAggregationFunction
-        extends AbstractMinMaxNAggregationFunction
-{
-    private static final String NAME = "min";
-
-    public MinNAggregationFunction(BlockTypeOperators blockTypeOperators)
-    {
-        super(NAME, true, "Returns the minimum values of the argument");
-    }
-}
+@AccumulatorStateMetadata(
+        stateFactoryClass = MaxNStateFactory.class,
+        stateSerializerClass = MaxNStateSerializer.class,
+        typeParameters = "T",
+        serializedType = "ROW(BIGINT, ARRAY(T))")
+public interface MaxNState
+        extends MinMaxNState {}

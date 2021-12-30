@@ -11,17 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation;
+package io.trino.operator.aggregation.minmaxn;
 
-import io.trino.type.BlockTypeOperators;
+import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.Type;
 
-public class MaxNAggregationFunction
-        extends AbstractMinMaxNAggregationFunction
+public class MinNStateSerializer
+        extends MinMaxNStateSerializer<MinNState>
 {
-    private static final String NAME = "max";
-
-    public MaxNAggregationFunction(BlockTypeOperators blockTypeOperators)
+    public MinNStateSerializer(@TypeParameter("ROW(BIGINT, ARRAY(T))") Type serializedType)
     {
-        super(NAME, false, "Returns the maximum values of the argument");
+        super(serializedType);
     }
 }
