@@ -219,6 +219,125 @@ public class TestColumnMask
     }
 
     @Test
+    public void testMultipleMasksUsingOtherMaskedColumns()
+    {
+        String query = "SELECT comment, orderstatus, clerk FROM orders WHERE orderkey = 1";
+        String expected = "VALUES (CAST('nstructions sleep furiously among ' as varchar(79)), 'O', 'Clerk#000000951')";
+
+        accessControl.reset();
+        assertThat(assertions.query(query)).matches(expected);
+
+        // mask "clerk" and "orderstatus" using "comment" ("comment" appears after both in table definition)
+        // columns will not be masked since rules are not apply to row values
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "comment",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(regexp_replace(comment,'(password: [^ ]+)','password: ****') as varchar(79))"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "orderstatus",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(comment,'(country: [^ ]+)') IN ('country: 1'), '*', orderstatus)"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(comment,'(country: [^ ]+)') IN ('country: 1'), '***', clerk)"));
+
+        assertThat(assertions.query(query)).matches(expected);
+
+        // mask "comment" using "clerk" ("clerk" column appears before "comment" in table definition)
+        // columns will not be masked since rules are not apply to row values
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(regexp_replace(clerk,'(password: [^ ]+)','password: ****') as varchar(15))"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "comment",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'(country: [^ ]+)') IN ('country: 1'), '***', comment)"));
+
+        assertThat(assertions.query(query)).matches(expected);
+
+        // now add mask for "orderstatus" using "clerk"
+        // columns will not be masked since rules are not apply to row values
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(regexp_replace(clerk,'(password: [^ ]+)','password: ****') as varchar(15))"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "orderstatus",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'(country: [^ ]+)') IN ('country: 1'), '*', orderstatus)"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "comment",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'(country: [^ ]+)') IN ('country: 1'), '***', comment)"));
+
+        assertThat(assertions.query(query)).matches(expected);
+
+        query = "SELECT comment, orderstatus, clerk FROM orders WHERE orderkey = 39";
+
+        accessControl.reset();
+        assertThat(assertions.query(query))
+                .matches("VALUES (CAST('ole express, ironic requests: ir' as varchar(79)), 'O', 'Clerk#000000659')");
+
+        // mask "comment" and "orderstatus" using "clerk" ("clerk" appears before "comment" table definition)
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(regexp_replace(clerk,'(Clerk#)','***#') as varchar(15))"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "comment",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'([1-9]+)') IN ('659'), '***', comment)"));
+
+        assertThat(assertions.query(query))
+                .matches("VALUES (CAST('***' as varchar(79)), 'O', CAST('***#000000659' as varchar(15)))");
+
+        // mask "comment" and "orderstatus" using "clerk" ("clerk" appears before "comment" table definition)
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "cast(regexp_replace(clerk,'(Clerk#)','***#') as varchar(15))"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "orderstatus",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'([1-9]+)') IN ('659'), '*', orderstatus)"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "comment",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "if(regexp_extract(clerk,'([1-9]+)') IN ('659'), '***', comment)"));
+
+        assertThat(assertions.query(query))
+                .matches("VALUES (CAST('***' as varchar(79)), '*', CAST('***#000000659' as varchar(15)))");
+    }
+
+    @Test
     public void testReferenceInUsingClause()
     {
         accessControl.reset();
