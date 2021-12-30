@@ -19,6 +19,7 @@ import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.operator.ParametricImplementation;
+import io.trino.operator.aggregation.AggregationFromAnnotationsParser.AccumulatorStateDetails;
 import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.spi.block.Block;
@@ -37,6 +38,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -267,6 +269,7 @@ public class AggregationImplementation
         private Parser(
                 Class<?> aggregationDefinition,
                 String name,
+                List<AccumulatorStateDetails<?>> stateDetails,
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
                 Method outputFunction,
@@ -294,6 +297,7 @@ public class AggregationImplementation
             parseLongVariableConstraints(inputFunction, signatureBuilder);
             List<ImplementationDependency> allDependencies =
                     Stream.of(
+                            stateDetails.stream().map(AccumulatorStateDetails::getDependencies).flatMap(Collection::stream),
                             inputDependencies.stream(),
                             removeInputDependencies.stream(),
                             outputDependencies.stream(),
@@ -337,12 +341,13 @@ public class AggregationImplementation
         public static AggregationImplementation parseImplementation(
                 Class<?> aggregationDefinition,
                 String name,
+                List<AccumulatorStateDetails<?>> stateDetails,
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
                 Method outputFunction,
                 Optional<Method> combineFunction)
         {
-            return new Parser(aggregationDefinition, name, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
+            return new Parser(aggregationDefinition, name, stateDetails, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
         }
 
         private static List<AggregationParameterKind> parseInputParameterKinds(Method method)
