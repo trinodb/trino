@@ -58,12 +58,10 @@ import io.trino.operator.aggregation.MapAggregationFunction;
 import io.trino.operator.aggregation.MapUnionAggregation;
 import io.trino.operator.aggregation.MaxAggregationFunction;
 import io.trino.operator.aggregation.MaxDataSizeForStats;
-import io.trino.operator.aggregation.MaxNAggregationFunction;
 import io.trino.operator.aggregation.MergeHyperLogLogAggregation;
 import io.trino.operator.aggregation.MergeQuantileDigestFunction;
 import io.trino.operator.aggregation.MergeTDigestAggregation;
 import io.trino.operator.aggregation.MinAggregationFunction;
-import io.trino.operator.aggregation.MinNAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.BigintQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.DoubleQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.RealQuantileDigestAggregationFunction;
@@ -84,6 +82,8 @@ import io.trino.operator.aggregation.minmaxby.MaxByAggregationFunction;
 import io.trino.operator.aggregation.minmaxby.MaxByNAggregationFunction;
 import io.trino.operator.aggregation.minmaxby.MinByAggregationFunction;
 import io.trino.operator.aggregation.minmaxby.MinByNAggregationFunction;
+import io.trino.operator.aggregation.minmaxn.MaxNAggregationFunction;
+import io.trino.operator.aggregation.minmaxn.MinNAggregationFunction;
 import io.trino.operator.aggregation.multimapagg.MultimapAggregationFunction;
 import io.trino.operator.scalar.ArrayAllMatchFunction;
 import io.trino.operator.scalar.ArrayAnyMatchFunction;
@@ -549,7 +549,8 @@ public final class SystemFunctionBundle
                 .aggregates(MaxAggregationFunction.class)
                 .aggregates(MinByAggregationFunction.class)
                 .aggregates(MaxByAggregationFunction.class)
-                .functions(new MaxNAggregationFunction(blockTypeOperators), new MinNAggregationFunction(blockTypeOperators))
+                .aggregates(MaxNAggregationFunction.class)
+                .aggregates(MinNAggregationFunction.class)
                 .aggregates(CountColumn.class)
                 .functions(JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_TO_ROW_CAST)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
