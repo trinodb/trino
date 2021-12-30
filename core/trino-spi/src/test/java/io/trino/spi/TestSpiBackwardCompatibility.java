@@ -63,6 +63,8 @@ public class TestSpiBackwardCompatibility
                     "Method: public io.trino.spi.ptf.ReturnTypeSpecification io.trino.spi.ptf.ConnectorTableFunction.getReturnTypeSpecification()",
                     "Method: public java.lang.String io.trino.spi.ptf.ConnectorTableFunction.getName()",
                     "Method: public java.lang.String io.trino.spi.ptf.ConnectorTableFunction.getSchema()"))
+            .put("383", ImmutableSet.of(
+                    "Method: public abstract java.lang.String io.trino.spi.function.AggregationState.value()"))
             .buildOrThrow();
 
     @Test

@@ -37,7 +37,6 @@ import io.trino.array.IntBigArray;
 import io.trino.array.LongBigArray;
 import io.trino.array.ObjectBigArray;
 import io.trino.array.SliceBigArray;
-import io.trino.operator.aggregation.AggregationFromAnnotationsParser.AccumulatorStateDetails;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
@@ -49,7 +48,6 @@ import io.trino.spi.function.InOut;
 import io.trino.spi.function.InternalDataAccessor;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.CallSiteBinder;
 import io.trino.sql.gen.SqlTypeBytecodeExpression;
 import org.openjdk.jol.info.ClassLayout;
@@ -138,27 +136,6 @@ public final class StateCompiler
         return ObjectBigArray.class;
     }
 
-    public static TypeSignature getSerializedType(AccumulatorStateDetails stateDetails)
-    {
-        if (stateDetails.getStateType().isPresent()) {
-            return stateDetails.getStateType().get();
-        }
-
-        Class<? extends AccumulatorState> clazz = stateDetails.getStateClass();
-        AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
-        if (metadata != null && metadata.stateSerializerClass() != AccumulatorStateSerializer.class) {
-            try {
-                AccumulatorStateSerializer<?> stateSerializer = (AccumulatorStateSerializer<?>) metadata.stateSerializerClass().getConstructor().newInstance();
-                return stateSerializer.getSerializedType().getTypeSignature();
-            }
-            catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        return getSerializedType(enumerateFields(clazz, ImmutableMap.of())).getTypeSignature();
-    }
-
     public static <T extends AccumulatorState> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
     {
         return generateStateSerializer(clazz, ImmutableMap.of());
@@ -229,7 +206,7 @@ public final class StateCompiler
         return UNKNOWN;
     }
 
-    private static <T> AccumulatorStateMetadata getMetadataAnnotation(Class<T> clazz)
+    public static <T> AccumulatorStateMetadata getMetadataAnnotation(Class<T> clazz)
     {
         AccumulatorStateMetadata metadata = clazz.getAnnotation(AccumulatorStateMetadata.class);
         if (metadata != null) {

@@ -24,5 +24,5 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Target({METHOD, PARAMETER})
 public @interface AggregationState
 {
-    String value() default "";
+    String[] value() default {};
 }

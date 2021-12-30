@@ -17,7 +17,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 
-@AccumulatorStateMetadata
+@AccumulatorStateMetadata(typeParameters = "T", serializedType = "T")
 public interface InOut
         extends AccumulatorState
 {
