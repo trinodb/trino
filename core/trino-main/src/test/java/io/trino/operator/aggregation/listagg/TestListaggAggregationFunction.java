@@ -48,13 +48,13 @@ public class TestListaggAggregationFunction
     @Test
     public void testInputEmptyState()
     {
-        SingleListaggAggregationState state = new SingleListaggAggregationState(VARCHAR);
+        SingleListaggAggregationState state = new SingleListaggAggregationState();
 
         String s = "value1";
         Block value = createStringsBlock(s);
         Slice separator = utf8Slice(",");
         Slice overflowFiller = utf8Slice("...");
-        ListaggAggregationFunction.input(VARCHAR,
+        ListaggAggregationFunction.input(
                 state,
                 value,
                 separator,
@@ -84,9 +84,9 @@ public class TestListaggAggregationFunction
     {
         String overflowFillerTooLong = StringUtils.repeat(".", 65_537);
 
-        SingleListaggAggregationState state = new SingleListaggAggregationState(VARCHAR);
+        SingleListaggAggregationState state = new SingleListaggAggregationState();
 
-        assertThatThrownBy(() -> ListaggAggregationFunction.input(VARCHAR,
+        assertThatThrownBy(() -> ListaggAggregationFunction.input(
                 state,
                 createStringsBlock("value1"),
                 utf8Slice(","),
@@ -252,7 +252,7 @@ public class TestListaggAggregationFunction
 
     private static SingleListaggAggregationState createListaggAggregationState(String separator, boolean overflowError, String overflowFiller, boolean showOverflowEntryCount, String... values)
     {
-        SingleListaggAggregationState state = new SingleListaggAggregationState(VARCHAR);
+        SingleListaggAggregationState state = new SingleListaggAggregationState();
         state.setSeparator(utf8Slice(separator));
         state.setOverflowError(overflowError);
         state.setOverflowFiller(utf8Slice(overflowFiller));
