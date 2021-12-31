@@ -11,17 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation.minmaxby;
+package io.trino.operator.aggregation.minmaxbyn;
 
-import io.trino.operator.aggregation.TypedKeyValueHeap;
-import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.Type;
 
-public interface MinMaxByNState
-        extends AccumulatorState
+public class MaxByNStateSerializer
+        extends MinMaxByNStateSerializer<MaxByNState>
 {
-    TypedKeyValueHeap getTypedKeyValueHeap();
-
-    void setTypedKeyValueHeap(TypedKeyValueHeap value);
-
-    void addMemoryUsage(long memory);
+    public MaxByNStateSerializer(@TypeParameter("ROW(BIGINT, ARRAY(K), ARRAY(V))") Type serializedType)
+    {
+        super(serializedType);
+    }
 }
