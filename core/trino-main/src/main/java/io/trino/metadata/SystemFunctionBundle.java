@@ -61,6 +61,9 @@ import io.trino.operator.aggregation.MergeHyperLogLogAggregation;
 import io.trino.operator.aggregation.MergeQuantileDigestFunction;
 import io.trino.operator.aggregation.MergeTDigestAggregation;
 import io.trino.operator.aggregation.MinNAggregationFunction;
+import io.trino.operator.aggregation.QuantileDigestAggregationFunction.BigintQuantileDigestAggregationFunction;
+import io.trino.operator.aggregation.QuantileDigestAggregationFunction.DoubleQuantileDigestAggregationFunction;
+import io.trino.operator.aggregation.QuantileDigestAggregationFunction.RealQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.RealCorrelationAggregation;
 import io.trino.operator.aggregation.RealCovarianceAggregation;
 import io.trino.operator.aggregation.RealGeometricMeanAggregations;
@@ -262,9 +265,6 @@ import static io.trino.operator.aggregation.DecimalAverageAggregation.DECIMAL_AV
 import static io.trino.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
 import static io.trino.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
 import static io.trino.operator.aggregation.MinAggregationFunction.MIN_AGGREGATION;
-import static io.trino.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG;
-import static io.trino.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG_WITH_WEIGHT;
-import static io.trino.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG_WITH_WEIGHT_AND_ERROR;
 import static io.trino.operator.aggregation.RealAverageAggregation.REAL_AVERAGE_AGGREGATION;
 import static io.trino.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG;
 import static io.trino.operator.aggregation.arrayagg.ArrayAggregationFunction.ARRAY_AGG;
@@ -400,8 +400,10 @@ public final class SystemFunctionBundle
                 .aggregates(ApproximateSetAggregation.class)
                 .aggregates(ApproximateSetGenericAggregation.class)
                 .aggregates(TDigestAggregationFunction.class)
-                .functions(QDIGEST_AGG, QDIGEST_AGG_WITH_WEIGHT, QDIGEST_AGG_WITH_WEIGHT_AND_ERROR)
-                .function(MergeQuantileDigestFunction.MERGE)
+                .aggregates(DoubleQuantileDigestAggregationFunction.class)
+                .aggregates(RealQuantileDigestAggregationFunction.class)
+                .aggregates(BigintQuantileDigestAggregationFunction.class)
+                .aggregates(MergeQuantileDigestFunction.class)
                 .aggregates(MergeTDigestAggregation.class)
                 .aggregates(DoubleHistogramAggregation.class)
                 .aggregates(RealHistogramAggregation.class)
