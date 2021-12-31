@@ -15,11 +15,7 @@ package io.trino.plugin.exchange;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.trino.spi.exchange.ExchangeSinkHandle;
-
-import javax.crypto.SecretKey;
 
 import java.util.Optional;
 
@@ -30,12 +26,12 @@ public class FileSystemExchangeSinkHandle
         implements ExchangeSinkHandle
 {
     private final int partitionId;
-    private final Optional<SecretKey> secretKey;
+    private final Optional<byte[]> secretKey;
 
     @JsonCreator
     public FileSystemExchangeSinkHandle(
             @JsonProperty("partitionId") int partitionId,
-            @JsonProperty("secretKey") Optional<SecretKey> secretKey)
+            @JsonProperty("secretKey") Optional<byte[]> secretKey)
     {
         this.partitionId = partitionId;
         this.secretKey = requireNonNull(secretKey, "secretKey is null");
@@ -48,9 +44,7 @@ public class FileSystemExchangeSinkHandle
     }
 
     @JsonProperty
-    @JsonSerialize(contentUsing = SecretKeySerializer.class)
-    @JsonDeserialize(contentUsing = SecretKeyDeserializer.class)
-    public Optional<SecretKey> getSecretKey()
+    public Optional<byte[]> getSecretKey()
     {
         return secretKey;
     }

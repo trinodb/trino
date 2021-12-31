@@ -32,6 +32,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.security.Key;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -95,7 +96,7 @@ public class FileSystemExchange
     @Override
     public synchronized ExchangeSinkHandle addSink(int partitionId)
     {
-        FileSystemExchangeSinkHandle sinkHandle = new FileSystemExchangeSinkHandle(partitionId, secretKey);
+        FileSystemExchangeSinkHandle sinkHandle = new FileSystemExchangeSinkHandle(partitionId, secretKey.map(Key::getEncoded));
         allPartitions.add(partitionId);
         return sinkHandle;
     }
@@ -166,7 +167,7 @@ public class FileSystemExchange
 
         ImmutableList.Builder<ExchangeSourceHandle> result = ImmutableList.builder();
         for (Integer partitionId : partitionFilesMap.keySet()) {
-            result.add(new FileSystemExchangeSourceHandle(partitionId, ImmutableList.copyOf(partitionFilesMap.get(partitionId)), secretKey));
+            result.add(new FileSystemExchangeSourceHandle(partitionId, ImmutableList.copyOf(partitionFilesMap.get(partitionId)), secretKey.map(SecretKey::getEncoded)));
         }
         return result.build();
     }
@@ -248,7 +249,7 @@ public class FileSystemExchange
             public Optional<ExchangeSourceHandle> getNext()
             {
                 if (filesIterator.hasNext()) {
-                    return Optional.of(new FileSystemExchangeSourceHandle(sourceHandle.getPartitionId(), ImmutableList.of(filesIterator.next()), secretKey));
+                    return Optional.of(new FileSystemExchangeSourceHandle(sourceHandle.getPartitionId(), ImmutableList.of(filesIterator.next()), secretKey.map(SecretKey::getEncoded)));
                 }
                 return Optional.empty();
             }

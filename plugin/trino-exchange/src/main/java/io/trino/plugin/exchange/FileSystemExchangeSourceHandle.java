@@ -15,12 +15,8 @@ package io.trino.plugin.exchange;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.exchange.ExchangeSourceHandle;
-
-import javax.crypto.SecretKey;
 
 import java.net.URI;
 import java.util.List;
@@ -33,13 +29,13 @@ public class FileSystemExchangeSourceHandle
 {
     private final int partitionId;
     private final List<URI> files;
-    private final Optional<SecretKey> secretKey;
+    private final Optional<byte[]> secretKey;
 
     @JsonCreator
     public FileSystemExchangeSourceHandle(
             @JsonProperty("partitionId") int partitionId,
             @JsonProperty("files") List<URI> files,
-            @JsonProperty("secretKey") Optional<SecretKey> secretKey)
+            @JsonProperty("secretKey") Optional<byte[]> secretKey)
     {
         this.partitionId = partitionId;
         this.files = ImmutableList.copyOf(requireNonNull(files, "files is null"));
@@ -60,9 +56,7 @@ public class FileSystemExchangeSourceHandle
     }
 
     @JsonProperty
-    @JsonSerialize(contentUsing = SecretKeySerializer.class)
-    @JsonDeserialize(contentUsing = SecretKeyDeserializer.class)
-    public Optional<SecretKey> getSecretKey()
+    public Optional<byte[]> getSecretKey()
     {
         return secretKey;
     }

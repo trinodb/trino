@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.exchange;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
@@ -24,6 +25,7 @@ import io.trino.spi.exchange.ExchangeSourceHandle;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import javax.inject.Inject;
 
 import java.net.URI;
@@ -87,7 +89,7 @@ public class FileSystemExchangeManager
                 exchangeStorage,
                 instanceHandle.getOutputDirectory(),
                 instanceHandle.getOutputPartitionCount(),
-                instanceHandle.getSinkHandle().getSecretKey());
+                instanceHandle.getSinkHandle().getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, AES)));
     }
 
     @Override
@@ -97,10 +99,11 @@ public class FileSystemExchangeManager
                 .map(FileSystemExchangeSourceHandle.class::cast)
                 .flatMap(handle -> handle.getFiles().stream())
                 .collect(toImmutableList());
-        List<Optional<SecretKey>> secretKeys = handles.stream()
-                .map(FileSystemExchangeSourceHandle.class::cast)
-                .flatMap(handle -> Collections.nCopies(handle.getFiles().size(), handle.getSecretKey()).stream())
-                .collect(toImmutableList());
-        return new FileSystemExchangeSource(exchangeStorage, files, secretKeys);
+        ImmutableList.Builder<Optional<SecretKey>> secretKeys = ImmutableList.builder();
+        for (ExchangeSourceHandle handle : handles) {
+            FileSystemExchangeSourceHandle sourceHandle = (FileSystemExchangeSourceHandle) handle;
+            secretKeys.addAll(Collections.nCopies(sourceHandle.getFiles().size(), sourceHandle.getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, AES))));
+        }
+        return new FileSystemExchangeSource(exchangeStorage, files, secretKeys.build());
     }
 }
