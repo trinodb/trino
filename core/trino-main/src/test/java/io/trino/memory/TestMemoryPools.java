@@ -41,6 +41,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -96,6 +97,7 @@ public class TestMemoryPools
         QueryContext queryContext = new QueryContext(new QueryId("query"),
                 TEN_MEGABYTES,
                 DataSize.of(20, MEGABYTE),
+                Optional.empty(),
                 userPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),

@@ -128,13 +128,9 @@ public class QueuedStatementResource
     {
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
-
-        requireNonNull(dispatchManager, "dispatchManager is null");
         this.responseExecutor = requireNonNull(executor, "executor is null").getExecutor();
         this.timeoutExecutor = requireNonNull(executor, "executor is null").getScheduledExecutor();
-
         this.queryInfoUrlFactory = requireNonNull(queryInfoUrlTemplate, "queryInfoUrlTemplate is null");
-
         this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
         this.alternateHeaderName = requireNonNull(protocolConfig, "protocolConfig is null").getAlternateHeaderName();
 

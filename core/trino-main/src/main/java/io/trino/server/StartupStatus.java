@@ -11,21 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.thrift.integration;
+package io.trino.server;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.testing.AbstractTestQueries;
-import io.trino.testing.QueryRunner;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import static io.trino.plugin.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
+import static com.google.common.base.Preconditions.checkState;
 
-public class TestThriftDistributedQueries
-        extends AbstractTestQueries
+public final class StartupStatus
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    private final AtomicBoolean startupComplete = new AtomicBoolean();
+
+    public void startupComplete()
     {
-        return createThriftQueryRunner(3, false, ImmutableMap.of());
+        checkState(startupComplete.compareAndSet(false, true), "Server startup already marked as complete");
+    }
+
+    public boolean isStartupComplete()
+    {
+        return startupComplete.get();
     }
 }
