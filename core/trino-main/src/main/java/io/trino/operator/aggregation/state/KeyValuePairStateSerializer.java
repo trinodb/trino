@@ -17,23 +17,42 @@ import io.trino.operator.aggregation.KeyValuePairs;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
-import io.trino.spi.type.MapType;
+import io.trino.spi.function.Convention;
+import io.trino.spi.function.OperatorDependency;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static java.util.Objects.requireNonNull;
+
 public class KeyValuePairStateSerializer
         implements AccumulatorStateSerializer<KeyValuePairsState>
 {
-    private final MapType mapType;
+    private final Type mapType;
     private final BlockPositionEqual keyEqual;
     private final BlockPositionHashCode keyHashCode;
 
-    public KeyValuePairStateSerializer(MapType mapType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode)
+    public KeyValuePairStateSerializer(
+            @TypeParameter("MAP(K, V)") Type mapType,
+            @OperatorDependency(
+                    operator = OperatorType.EQUAL,
+                    argumentTypes = {"K", "K"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN))
+                    BlockPositionEqual keyEqual,
+            @OperatorDependency(
+                    operator = OperatorType.HASH_CODE,
+                    argumentTypes = "K",
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+                    BlockPositionHashCode keyHashCode)
     {
-        this.mapType = mapType;
-        this.keyEqual = keyEqual;
-        this.keyHashCode = keyHashCode;
+        this.mapType = requireNonNull(mapType, "mapType is null");
+        this.keyEqual = requireNonNull(keyEqual, "keyEqual is null");
+        this.keyHashCode = requireNonNull(keyHashCode, "keyHashCode is null");
     }
 
     @Override
@@ -56,6 +75,6 @@ public class KeyValuePairStateSerializer
     @Override
     public void deserialize(Block block, int index, KeyValuePairsState state)
     {
-        state.set(new KeyValuePairs(mapType.getObject(block, index), state.getKeyType(), keyEqual, keyHashCode, state.getValueType()));
+        state.set(new KeyValuePairs((Block) mapType.getObject(block, index), state.getKeyType(), keyEqual, keyHashCode, state.getValueType()));
     }
 }
