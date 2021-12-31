@@ -37,12 +37,12 @@ public class GroupedHistogramState
     private TypedHistogram typedHistogram;
     private long size;
 
-    public GroupedHistogramState(Type keyType, BlockPositionEqual equalOperator, BlockPositionHashCode hashCodeOperator, int expectedEntriesCount)
+    public GroupedHistogramState(Type type, BlockPositionEqual equalOperator, BlockPositionHashCode hashCodeOperator, int expectedEntriesCount)
     {
-        this.type = requireNonNull(keyType, "keyType is null");
+        this.type = requireNonNull(type, "type is null");
         this.equalOperator = requireNonNull(equalOperator, "equalOperator is null");
         this.hashCodeOperator = requireNonNull(hashCodeOperator, "hashCodeOperator is null");
-        typedHistogram = new GroupedTypedHistogram(keyType, equalOperator, hashCodeOperator, expectedEntriesCount);
+        typedHistogram = new GroupedTypedHistogram(type, equalOperator, hashCodeOperator, expectedEntriesCount);
     }
 
     @Override

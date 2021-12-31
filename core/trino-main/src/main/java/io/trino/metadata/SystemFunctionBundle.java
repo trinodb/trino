@@ -537,7 +537,7 @@ public final class SystemFunctionBundle
                 .functions(DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST, INTEGER_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST, SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
-                .function(new Histogram(blockTypeOperators))
+                .aggregates(Histogram.class)
                 .aggregates(ChecksumAggregationFunction.class)
                 .aggregates(ArbitraryAggregationFunction.class)
                 .functions(GREATEST, LEAST)
