@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation;
+package io.trino.operator.aggregation.minmaxbyn;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +28,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public class TypedKeyValueHeap
 {
@@ -36,7 +37,8 @@ public class TypedKeyValueHeap
     private static final int COMPACT_THRESHOLD_BYTES = 32768;
     private static final int COMPACT_THRESHOLD_RATIO = 3; // when 2/3 of elements in keyBlockBuilder is unreferenced, do compact
 
-    private final MethodHandle keyGreaterThan;
+    private final boolean min;
+    private final MethodHandle compare;
     private final Type keyType;
     private final Type valueType;
     private final int capacity;
@@ -46,11 +48,12 @@ public class TypedKeyValueHeap
     private BlockBuilder keyBlockBuilder;
     private BlockBuilder valueBlockBuilder;
 
-    public TypedKeyValueHeap(MethodHandle keyGreaterThan, Type keyType, Type valueType, int capacity)
+    public TypedKeyValueHeap(boolean min, MethodHandle compare, Type keyType, Type valueType, int capacity)
     {
-        this.keyGreaterThan = keyGreaterThan;
-        this.keyType = keyType;
-        this.valueType = valueType;
+        this.min = min;
+        this.compare = requireNonNull(compare, "compare is null");
+        this.keyType = requireNonNull(keyType, "keyType is null");
+        this.valueType = requireNonNull(valueType, "valueType is null");
         this.capacity = capacity;
         this.heapIndex = new int[capacity];
         this.keyBlockBuilder = keyType.createBlockBuilder(null, capacity);
@@ -58,11 +61,12 @@ public class TypedKeyValueHeap
     }
 
     // for copying
-    private TypedKeyValueHeap(MethodHandle keyGreaterThan, Type keyType, Type valueType, int capacity, int positionCount, int[] heapIndex, BlockBuilder keyBlockBuilder, BlockBuilder valueBlockBuilder)
+    private TypedKeyValueHeap(boolean min, MethodHandle compare, Type keyType, Type valueType, int capacity, int positionCount, int[] heapIndex, BlockBuilder keyBlockBuilder, BlockBuilder valueBlockBuilder)
     {
-        this.keyGreaterThan = keyGreaterThan;
-        this.keyType = keyType;
-        this.valueType = valueType;
+        this.min = min;
+        this.compare = requireNonNull(compare, "compare is null");
+        this.keyType = requireNonNull(keyType, "keyType is null");
+        this.valueType = requireNonNull(valueType, "valueType is null");
         this.capacity = capacity;
         this.positionCount = positionCount;
         this.heapIndex = heapIndex;
@@ -110,14 +114,46 @@ public class TypedKeyValueHeap
         out.closeEntry();
     }
 
-    public static TypedKeyValueHeap deserialize(Block block, Type keyType, Type valueType, MethodHandle keyComparisonOperator)
+    public static TypedKeyValueHeap deserialize(boolean min, MethodHandle compare, Type keyType, Type valueType, Block rowBlock)
     {
-        int capacity = toIntExact(BIGINT.getLong(block, 0));
-        Block keysBlock = new ArrayType(keyType).getObject(block, 1);
-        Block valuesBlock = new ArrayType(valueType).getObject(block, 2);
-        TypedKeyValueHeap heap = new TypedKeyValueHeap(keyComparisonOperator, keyType, valueType, capacity);
-        heap.addAll(keysBlock, valuesBlock);
-        return heap;
+        int capacity = toIntExact(BIGINT.getLong(rowBlock, 0));
+        int[] heapIndex = new int[capacity];
+
+        BlockBuilder keyBlockBuilder = keyType.createBlockBuilder(null, capacity);
+        Block keyBlock = new ArrayType(keyType).getObject(rowBlock, 1);
+        for (int position = 0; position < keyBlock.getPositionCount(); position++) {
+            heapIndex[position] = position;
+            keyType.appendTo(keyBlock, position, keyBlockBuilder);
+        }
+
+        BlockBuilder valueBlockBuilder = valueType.createBlockBuilder(null, capacity);
+        Block valueBlock = new ArrayType(valueType).getObject(rowBlock, 2);
+        for (int position = 0; position < valueBlock.getPositionCount(); position++) {
+            heapIndex[position] = position;
+            if (valueBlock.isNull(position)) {
+                valueBlockBuilder.appendNull();
+            }
+            else {
+                valueType.appendTo(valueBlock, position, valueBlockBuilder);
+            }
+        }
+
+        return new TypedKeyValueHeap(min, compare, keyType, valueType, capacity, keyBlock.getPositionCount(), heapIndex, keyBlockBuilder, valueBlockBuilder);
+    }
+
+    public void popAllReverse(BlockBuilder resultBlockBuilder)
+    {
+        int[] indexes = new int[positionCount];
+        while (positionCount > 0) {
+            indexes[positionCount - 1] = heapIndex[0];
+            positionCount--;
+            heapIndex[0] = heapIndex[positionCount];
+            siftDown();
+        }
+
+        for (int index : indexes) {
+            valueType.appendTo(valueBlockBuilder, index, resultBlockBuilder);
+        }
     }
 
     public void popAll(BlockBuilder resultBlockBuilder)
@@ -237,10 +273,8 @@ public class TypedKeyValueHeap
     private boolean keyGreaterThanOrEqual(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         try {
-            // Swap the argument order to get a less than operator, and negate the result to get greater than or equals.
-            // Note: the keyGreaterThan operator is based comparison, and specifically is not a pure greater than operator.
-            // This means negation of the result is safe for unordered values.
-            return !((boolean) keyGreaterThan.invokeExact(rightBlock, rightPosition, leftBlock, leftPosition));
+            long result = (long) compare.invokeExact(leftBlock, leftPosition, rightBlock, rightPosition);
+            return min ? result <= 0 : result >= 0;
         }
         catch (Throwable throwable) {
             Throwables.throwIfUnchecked(throwable);
@@ -259,7 +293,8 @@ public class TypedKeyValueHeap
             valueBlockBuilderCopy = (BlockBuilder) valueBlockBuilder.copyRegion(0, valueBlockBuilder.getPositionCount());
         }
         return new TypedKeyValueHeap(
-                keyGreaterThan,
+                min,
+                compare,
                 keyType,
                 valueType,
                 capacity,

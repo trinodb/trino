@@ -11,17 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation.minmaxby;
+package io.trino.operator.aggregation.minmaxbyn;
 
-import io.trino.type.BlockTypeOperators;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
-public class MaxByNAggregationFunction
-        extends AbstractMinMaxByNAggregationFunction
-{
-    private static final String NAME = "max_by";
-
-    public MaxByNAggregationFunction(BlockTypeOperators blockTypeOperators)
-    {
-        super(NAME, false, "Returns the values of the first argument associated with the maximum values of the second argument");
-    }
-}
+@AccumulatorStateMetadata(
+        stateFactoryClass = MinByNStateFactory.class,
+        stateSerializerClass = MinByNStateSerializer.class,
+        typeParameters = {"K", "V"},
+        serializedType = "ROW(BIGINT, ARRAY(K), ARRAY(V))")
+public interface MinByNState
+        extends MinMaxByNState
+{}
