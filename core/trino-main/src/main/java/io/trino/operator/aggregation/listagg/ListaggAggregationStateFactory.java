@@ -14,27 +14,19 @@
 package io.trino.operator.aggregation.listagg;
 
 import io.trino.spi.function.AccumulatorStateFactory;
-import io.trino.spi.type.Type;
 
 public class ListaggAggregationStateFactory
         implements AccumulatorStateFactory<ListaggAggregationState>
 {
-    private final Type type;
-
-    public ListaggAggregationStateFactory(Type type)
-    {
-        this.type = type;
-    }
-
     @Override
     public ListaggAggregationState createSingleState()
     {
-        return new SingleListaggAggregationState(type);
+        return new SingleListaggAggregationState();
     }
 
     @Override
     public ListaggAggregationState createGroupedState()
     {
-        return new GroupListaggAggregationState(type);
+        return new GroupListaggAggregationState();
     }
 }

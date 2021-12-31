@@ -16,7 +16,11 @@ package io.trino.operator.aggregation.listagg;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
+@AccumulatorStateMetadata(
+        stateFactoryClass = ListaggAggregationStateFactory.class,
+        stateSerializerClass = ListaggAggregationStateSerializer.class)
 public interface ListaggAggregationState
         extends AccumulatorState
 {

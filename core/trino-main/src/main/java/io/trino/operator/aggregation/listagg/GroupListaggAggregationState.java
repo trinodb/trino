@@ -18,7 +18,8 @@ import io.airlift.slice.Slice;
 import io.trino.operator.aggregation.AbstractGroupCollectionAggregationState;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.type.Type;
+
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public final class GroupListaggAggregationState
         extends AbstractGroupCollectionAggregationState<ListaggAggregationStateConsumer>
@@ -32,9 +33,9 @@ public final class GroupListaggAggregationState
     private Slice overflowFiller;
     private boolean showOverflowEntryCount;
 
-    public GroupListaggAggregationState(Type valueType)
+    public GroupListaggAggregationState()
     {
-        super(PageBuilder.withMaxPageSize(MAX_BLOCK_SIZE, ImmutableList.of(valueType)));
+        super(PageBuilder.withMaxPageSize(MAX_BLOCK_SIZE, ImmutableList.of(VARCHAR)));
     }
 
     @Override
