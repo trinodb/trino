@@ -77,7 +77,6 @@ public class ListaggAggregationFunction
                                 .argumentType(BOOLEAN)
                                 .build())
                         .nullable()
-                        .argumentNullability(true, false, false, false, false)
                         .description("concatenates the input values with the specified separator")
                         .build(),
                 AggregationFunctionMetadata.builder()
@@ -134,9 +133,7 @@ public class ListaggAggregationFunction
             state.setOverflowFiller(overflowFiller);
             state.setShowOverflowEntryCount(showOverflowEntryCount);
         }
-        if (!value.isNull(position)) {
-            state.add(value, position);
-        }
+        state.add(value, position);
     }
 
     public static void combine(Type type, ListaggAggregationState state, ListaggAggregationState otherState)
