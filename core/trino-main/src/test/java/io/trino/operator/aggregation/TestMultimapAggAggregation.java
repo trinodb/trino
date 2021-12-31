@@ -22,7 +22,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.aggregation.groupby.AggregationTestInput;
 import io.trino.operator.aggregation.groupby.AggregationTestInputBuilder;
 import io.trino.operator.aggregation.groupby.AggregationTestOutput;
-import io.trino.operator.aggregation.multimapagg.MultimapAggregationFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -181,7 +180,7 @@ public class TestMultimapAggAggregation
 
     private static TestingAggregationFunction getAggregationFunction(Type keyType, Type valueType)
     {
-        return FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of(MultimapAggregationFunction.NAME), fromTypes(keyType, valueType));
+        return FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("multimap_agg"), fromTypes(keyType, valueType));
     }
 
     /**
@@ -207,7 +206,7 @@ public class TestMultimapAggAggregation
 
         assertAggregation(
                 FUNCTION_RESOLUTION,
-                QualifiedName.of(MultimapAggregationFunction.NAME),
+                QualifiedName.of("multimap_agg"),
                 fromTypes(keyType, valueType),
                 map.isEmpty() ? null : map,
                 builder.build());
