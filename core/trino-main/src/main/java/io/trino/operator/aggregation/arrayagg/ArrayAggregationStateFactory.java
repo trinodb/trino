@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation.arrayagg;
 
 import io.trino.spi.function.AccumulatorStateFactory;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
 
 public class ArrayAggregationStateFactory
@@ -21,7 +22,7 @@ public class ArrayAggregationStateFactory
 {
     private final Type type;
 
-    public ArrayAggregationStateFactory(Type type)
+    public ArrayAggregationStateFactory(@TypeParameter("T") Type type)
     {
         this.type = type;
     }
