@@ -57,11 +57,13 @@ import io.trino.operator.aggregation.LongSumAggregation;
 import io.trino.operator.aggregation.MapAggregationFunction;
 import io.trino.operator.aggregation.MapUnionAggregation;
 import io.trino.operator.aggregation.MaxAggregationFunction;
+import io.trino.operator.aggregation.MaxByAggregationFunction;
 import io.trino.operator.aggregation.MaxDataSizeForStats;
 import io.trino.operator.aggregation.MergeHyperLogLogAggregation;
 import io.trino.operator.aggregation.MergeQuantileDigestFunction;
 import io.trino.operator.aggregation.MergeTDigestAggregation;
 import io.trino.operator.aggregation.MinAggregationFunction;
+import io.trino.operator.aggregation.MinByAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.BigintQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.DoubleQuantileDigestAggregationFunction;
 import io.trino.operator.aggregation.QuantileDigestAggregationFunction.RealQuantileDigestAggregationFunction;
@@ -78,10 +80,8 @@ import io.trino.operator.aggregation.VarcharApproximateMostFrequent;
 import io.trino.operator.aggregation.VarianceAggregation;
 import io.trino.operator.aggregation.histogram.Histogram;
 import io.trino.operator.aggregation.listagg.ListaggAggregationFunction;
-import io.trino.operator.aggregation.minmaxby.MaxByAggregationFunction;
-import io.trino.operator.aggregation.minmaxby.MaxByNAggregationFunction;
-import io.trino.operator.aggregation.minmaxby.MinByAggregationFunction;
-import io.trino.operator.aggregation.minmaxby.MinByNAggregationFunction;
+import io.trino.operator.aggregation.minmaxbyn.MaxByNAggregationFunction;
+import io.trino.operator.aggregation.minmaxbyn.MinByNAggregationFunction;
 import io.trino.operator.aggregation.minmaxn.MaxNAggregationFunction;
 import io.trino.operator.aggregation.minmaxn.MinNAggregationFunction;
 import io.trino.operator.aggregation.multimapagg.MultimapAggregationFunction;
@@ -544,13 +544,14 @@ public final class SystemFunctionBundle
                 .aggregates(ChecksumAggregationFunction.class)
                 .aggregates(ArbitraryAggregationFunction.class)
                 .functions(GREATEST, LEAST)
-                .functions(new MaxByNAggregationFunction(blockTypeOperators), new MinByNAggregationFunction(blockTypeOperators))
                 .aggregates(MinAggregationFunction.class)
                 .aggregates(MaxAggregationFunction.class)
                 .aggregates(MinByAggregationFunction.class)
                 .aggregates(MaxByAggregationFunction.class)
                 .aggregates(MaxNAggregationFunction.class)
                 .aggregates(MinNAggregationFunction.class)
+                .aggregates(MinByNAggregationFunction.class)
+                .aggregates(MaxByNAggregationFunction.class)
                 .aggregates(CountColumn.class)
                 .functions(JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_TO_ROW_CAST)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)

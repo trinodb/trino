@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation.minmaxby;
+package io.trino.operator.aggregation.minmaxbyn;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.TestingFunctionResolution;
@@ -590,7 +590,7 @@ public class TestMinMaxByNAggregation
             groupedAggregation(function, new Page(createStringsBlock("z"), createLongsBlock(0), createLongsBlock(10001)));
         }
         catch (TrinoException e) {
-            assertEquals(e.getMessage(), "third argument of max_by/min_by must be less than or equal to 10000; found 10001");
+            assertEquals(e.getMessage(), "third argument of max_by must be less than or equal to 10000; found 10001");
         }
     }
 }

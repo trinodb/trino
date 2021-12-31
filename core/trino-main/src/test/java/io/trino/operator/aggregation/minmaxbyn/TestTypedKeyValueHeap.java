@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation;
+package io.trino.operator.aggregation.minmaxbyn;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -31,7 +31,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.util.MinMaxCompare.getMinMaxCompare;
 import static org.testng.Assert.assertEquals;
 
 public class TestTypedKeyValueHeap
@@ -40,18 +39,20 @@ public class TestTypedKeyValueHeap
     private static final int OUTPUT_SIZE = 1_000;
 
     private static final TypeOperators TYPE_OPERATOR_FACTORY = new TypeOperators();
-    private static final MethodHandle MAX_ELEMENTS_COMPARATOR = getMinMaxCompare(TYPE_OPERATOR_FACTORY, BIGINT, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION), false);
-    private static final MethodHandle MIN_ELEMENTS_COMPARATOR = getMinMaxCompare(TYPE_OPERATOR_FACTORY, BIGINT, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION), true);
+    private static final MethodHandle MAX_ELEMENTS_COMPARATOR = TYPE_OPERATOR_FACTORY.getComparisonUnorderedFirstOperator(BIGINT, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+    private static final MethodHandle MIN_ELEMENTS_COMPARATOR = TYPE_OPERATOR_FACTORY.getComparisonUnorderedLastOperator(BIGINT, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
 
     @Test
     public void testAscending()
     {
         test(IntStream.range(0, INPUT_SIZE),
                 IntStream.range(0, INPUT_SIZE).mapToObj(key -> Integer.toString(key * 2)),
+                false,
                 MAX_ELEMENTS_COMPARATOR,
                 IntStream.range(INPUT_SIZE - OUTPUT_SIZE, INPUT_SIZE).mapToObj(key -> Integer.toString(key * 2)).iterator());
         test(IntStream.range(0, INPUT_SIZE),
                 IntStream.range(0, INPUT_SIZE).mapToObj(key -> Integer.toString(key * 2)),
+                true,
                 MIN_ELEMENTS_COMPARATOR,
                 IntStream.range(0, OUTPUT_SIZE).map(x -> OUTPUT_SIZE - 1 - x).mapToObj(key -> Integer.toString(key * 2)).iterator());
     }
@@ -61,10 +62,12 @@ public class TestTypedKeyValueHeap
     {
         test(IntStream.range(0, INPUT_SIZE).map(x -> INPUT_SIZE - 1 - x),
                 IntStream.range(0, INPUT_SIZE).map(x -> INPUT_SIZE - 1 - x).mapToObj(key -> Integer.toString(key * 2)),
+                false,
                 MAX_ELEMENTS_COMPARATOR,
                 IntStream.range(INPUT_SIZE - OUTPUT_SIZE, INPUT_SIZE).mapToObj(key -> Integer.toString(key * 2)).iterator());
         test(IntStream.range(0, INPUT_SIZE).map(x -> INPUT_SIZE - 1 - x),
                 IntStream.range(0, INPUT_SIZE).map(x -> INPUT_SIZE - 1 - x).mapToObj(key -> Integer.toString(key * 2)),
+                true,
                 MIN_ELEMENTS_COMPARATOR,
                 IntStream.range(0, OUTPUT_SIZE).map(x -> OUTPUT_SIZE - 1 - x).mapToObj(key -> Integer.toString(key * 2)).iterator());
     }
@@ -76,22 +79,24 @@ public class TestTypedKeyValueHeap
         Collections.shuffle(list);
         test(list.stream().mapToInt(Integer::intValue),
                 list.stream().mapToInt(Integer::intValue).mapToObj(key -> Integer.toString(key * 2)),
+                false,
                 MAX_ELEMENTS_COMPARATOR,
                 IntStream.range(INPUT_SIZE - OUTPUT_SIZE, INPUT_SIZE).mapToObj(key -> Integer.toString(key * 2)).iterator());
         test(list.stream().mapToInt(Integer::intValue),
                 list.stream().mapToInt(Integer::intValue).mapToObj(key -> Integer.toString(key * 2)),
+                true,
                 MIN_ELEMENTS_COMPARATOR,
                 IntStream.range(0, OUTPUT_SIZE).map(x -> OUTPUT_SIZE - 1 - x).mapToObj(key -> Integer.toString(key * 2)).iterator());
     }
 
-    private static void test(IntStream keyInputStream, Stream<String> valueInputStream, MethodHandle keyComparisonMethod, Iterator<String> outputIterator)
+    private static void test(IntStream keyInputStream, Stream<String> valueInputStream, boolean min, MethodHandle comparisonMethod, Iterator<String> outputIterator)
     {
         BlockBuilder keysBlockBuilder = BIGINT.createBlockBuilder(null, INPUT_SIZE);
         BlockBuilder valuesBlockBuilder = VARCHAR.createBlockBuilder(null, INPUT_SIZE);
         keyInputStream.forEach(x -> BIGINT.writeLong(keysBlockBuilder, x));
         valueInputStream.forEach(x -> VARCHAR.writeString(valuesBlockBuilder, x));
 
-        TypedKeyValueHeap heap = new TypedKeyValueHeap(keyComparisonMethod, BIGINT, VARCHAR, OUTPUT_SIZE);
+        TypedKeyValueHeap heap = new TypedKeyValueHeap(min, comparisonMethod, BIGINT, VARCHAR, OUTPUT_SIZE);
         heap.addAll(keysBlockBuilder, valuesBlockBuilder);
 
         BlockBuilder resultBlockBuilder = VARCHAR.createBlockBuilder(null, OUTPUT_SIZE);
