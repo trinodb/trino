@@ -152,16 +152,16 @@ Date and time functions
     number of nanoseconds since ``1970-01-01 00:00:00.000000000 UTC``::
 
         SELECT from_unixtime_nanos(100);
-        -- 1970-01-01 00:00:00.000000100
+        -- 1969-12-31 19:00:00.000000100 America/New_York
 
         SELECT from_unixtime_nanos(DECIMAL '1234');
-        -- 1970-01-01 00:00:00.000001234
+        -- 1969-12-31 19:00:00.000001234 America/New_York
 
         SELECT from_unixtime_nanos(DECIMAL '1234.499');
-        -- 1970-01-01 00:00:00.000001234
+        -- 1969-12-31 19:00:00.000001234 America/New_York
 
         SELECT from_unixtime_nanos(DECIMAL '-1234');
-        -- 1969-12-31 23:59:59.999998766
+        -- 1969-12-31 18:59:59.999998766 America/New_York
 
 .. data:: localtime
 
