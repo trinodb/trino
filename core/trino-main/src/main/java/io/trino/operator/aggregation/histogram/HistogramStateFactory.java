@@ -14,41 +14,55 @@
 package io.trino.operator.aggregation.histogram;
 
 import io.trino.spi.function.AccumulatorStateFactory;
+import io.trino.spi.function.Convention;
+import io.trino.spi.function.OperatorDependency;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static java.util.Objects.requireNonNull;
 
 public class HistogramStateFactory
         implements AccumulatorStateFactory<HistogramState>
 {
-    private final Type keyType;
+    public static final int EXPECTED_SIZE_FOR_HASHING = 10;
+
+    private final Type type;
     private final BlockPositionEqual equalOperator;
     private final BlockPositionHashCode hashCodeOperator;
-    private final int expectedEntriesCount;
 
     public HistogramStateFactory(
-            Type keyType,
-            BlockPositionEqual equalOperator,
-            BlockPositionHashCode hashCodeOperator,
-            int expectedEntriesCount)
+            @TypeParameter("T") Type type,
+            @OperatorDependency(
+                    operator = OperatorType.EQUAL,
+                    argumentTypes = {"T", "T"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN))
+                    BlockPositionEqual equalOperator,
+            @OperatorDependency(
+                    operator = OperatorType.HASH_CODE,
+                    argumentTypes = "T",
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
+                    BlockPositionHashCode hashCodeOperator)
     {
-        this.keyType = requireNonNull(keyType, "keyType is null");
+        this.type = requireNonNull(type, "type is null");
         this.equalOperator = requireNonNull(equalOperator, "equalOperator is null");
         this.hashCodeOperator = requireNonNull(hashCodeOperator, "hashCodeOperator is null");
-        this.expectedEntriesCount = expectedEntriesCount;
     }
 
     @Override
     public HistogramState createSingleState()
     {
-        return new SingleHistogramState(keyType, equalOperator, hashCodeOperator, expectedEntriesCount);
+        return new SingleHistogramState(type, equalOperator, hashCodeOperator, EXPECTED_SIZE_FOR_HASHING);
     }
 
     @Override
     public HistogramState createGroupedState()
     {
-        return new GroupedHistogramState(keyType, equalOperator, hashCodeOperator, expectedEntriesCount);
+        return new GroupedHistogramState(type, equalOperator, hashCodeOperator, EXPECTED_SIZE_FOR_HASHING);
     }
 }

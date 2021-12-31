@@ -16,16 +16,17 @@ package io.trino.operator.aggregation.histogram;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
 
-import static io.trino.operator.aggregation.histogram.Histogram.EXPECTED_SIZE_FOR_HASHING;
+import static io.trino.operator.aggregation.histogram.HistogramStateFactory.EXPECTED_SIZE_FOR_HASHING;
 
 public class HistogramStateSerializer
         implements AccumulatorStateSerializer<HistogramState>
 {
     private final Type serializedType;
 
-    public HistogramStateSerializer(Type serializedType)
+    public HistogramStateSerializer(@TypeParameter("map(T, BIGINT)") Type serializedType)
     {
         this.serializedType = serializedType;
     }
