@@ -33,7 +33,7 @@ Java runtime environment
 
 Trino requires a 64-bit version of Java 11, with a minimum required version of 11.0.11.
 Earlier patch versions such as 11.0.2 do not work, nor will earlier major versions such as Java 8.
-Newer major versions such as Java 12 or 13 are not supported -- they may work, but are not tested.
+Newer major versions such as Java 12 or 13, including Java 17, are not supported -- they may work, but are not tested.
 
 We recommend using `Azul Zulu <https://www.azul.com/downloads/zulu-community/>`_
 as the JDK for Trino, as Trino is tested against that distribution.
