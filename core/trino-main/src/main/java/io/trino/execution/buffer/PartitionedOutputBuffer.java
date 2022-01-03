@@ -16,6 +16,7 @@ package io.trino.execution.buffer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -37,6 +38,7 @@ import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
 import static io.trino.execution.buffer.BufferState.NO_MORE_PAGES;
 import static io.trino.execution.buffer.BufferState.OPEN;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
+import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.SerializedPageReference.dereferencePages;
 import static java.util.Objects.requireNonNull;
 
@@ -161,14 +163,14 @@ public class PartitionedOutputBuffer
     }
 
     @Override
-    public void enqueue(List<SerializedPage> pages)
+    public void enqueue(List<Slice> pages)
     {
         checkState(partitions.size() == 1, "Expected exactly one partition");
         enqueue(0, pages);
     }
 
     @Override
-    public void enqueue(int partitionNumber, List<SerializedPage> pages)
+    public void enqueue(int partitionNumber, List<Slice> pages)
     {
         requireNonNull(pages, "pages is null");
 
@@ -181,11 +183,12 @@ public class PartitionedOutputBuffer
         ImmutableList.Builder<SerializedPageReference> references = ImmutableList.builderWithExpectedSize(pages.size());
         long bytesAdded = 0;
         long rowCount = 0;
-        for (SerializedPage page : pages) {
-            bytesAdded += page.getRetainedSizeInBytes();
-            rowCount += page.getPositionCount();
+        for (Slice page : pages) {
+            bytesAdded += page.getRetainedSize();
+            int positionCount = getSerializedPagePositionCount(page);
+            rowCount += positionCount;
             // create page reference counts with an initial single reference
-            references.add(new SerializedPageReference(page, 1));
+            references.add(new SerializedPageReference(page, positionCount, 1));
         }
         List<SerializedPageReference> serializedPageReferences = references.build();
 

@@ -14,6 +14,7 @@
 package io.trino.execution.buffer;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
@@ -85,13 +86,13 @@ public interface OutputBuffer
      * Adds a split-up page to an unpartitioned buffer. If no-more-pages has been set, the enqueue
      * page call is ignored.  This can happen with limit queries.
      */
-    void enqueue(List<SerializedPage> pages);
+    void enqueue(List<Slice> pages);
 
     /**
      * Adds a split-up page to a specific partition.  If no-more-pages has been set, the enqueue
      * page call is ignored.  This can happen with limit queries.
      */
-    void enqueue(int partition, List<SerializedPage> pages);
+    void enqueue(int partition, List<Slice> pages);
 
     /**
      * Notify buffer that no more pages will be added. Any future calls to enqueue a

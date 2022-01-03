@@ -17,9 +17,9 @@ import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.TaskId;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.spi.TrinoException;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -66,9 +66,9 @@ public class DeduplicationExchangeClientBuffer
     private Throwable failure;
 
     @GuardedBy("this")
-    private final ListMultimap<TaskId, SerializedPage> pageBuffer = LinkedListMultimap.create();
+    private final ListMultimap<TaskId, Slice> pageBuffer = LinkedListMultimap.create();
     @GuardedBy("this")
-    private Iterator<SerializedPage> pagesIterator;
+    private Iterator<Slice> pagesIterator;
     @GuardedBy("this")
     private volatile long bufferRetainedSizeInBytes;
     @GuardedBy("this")
@@ -95,7 +95,7 @@ public class DeduplicationExchangeClientBuffer
     }
 
     @Override
-    public synchronized SerializedPage pollPage()
+    public synchronized Slice pollPage()
     {
         throwIfFailed();
 
@@ -115,9 +115,9 @@ public class DeduplicationExchangeClientBuffer
             return null;
         }
 
-        SerializedPage page = pagesIterator.next();
+        Slice page = pagesIterator.next();
         pagesIterator.remove();
-        bufferRetainedSizeInBytes -= page.getRetainedSizeInBytes();
+        bufferRetainedSizeInBytes -= page.getRetainedSize();
 
         return page;
     }
@@ -142,7 +142,7 @@ public class DeduplicationExchangeClientBuffer
     }
 
     @Override
-    public synchronized void addPages(TaskId taskId, List<SerializedPage> pages)
+    public synchronized void addPages(TaskId taskId, List<Slice> pages)
     {
         if (closed) {
             return;
@@ -161,8 +161,8 @@ public class DeduplicationExchangeClientBuffer
         }
 
         long pagesRetainedSizeInBytes = 0;
-        for (SerializedPage page : pages) {
-            pagesRetainedSizeInBytes += page.getRetainedSizeInBytes();
+        for (Slice page : pages) {
+            pagesRetainedSizeInBytes += page.getRetainedSize();
         }
         bufferRetainedSizeInBytes += pagesRetainedSizeInBytes;
         if (bufferRetainedSizeInBytes > bufferCapacityInBytes) {
@@ -286,11 +286,11 @@ public class DeduplicationExchangeClientBuffer
     {
         // wipe previous attempt pages
         long pagesRetainedSizeInBytes = 0;
-        Iterator<Map.Entry<TaskId, SerializedPage>> iterator = pageBuffer.entries().iterator();
+        Iterator<Map.Entry<TaskId, Slice>> iterator = pageBuffer.entries().iterator();
         while (iterator.hasNext()) {
-            Map.Entry<TaskId, SerializedPage> entry = iterator.next();
+            Map.Entry<TaskId, Slice> entry = iterator.next();
             if (entry.getKey().getAttemptId() < currentAttemptId) {
-                pagesRetainedSizeInBytes += entry.getValue().getRetainedSizeInBytes();
+                pagesRetainedSizeInBytes += entry.getValue().getRetainedSize();
                 iterator.remove();
             }
         }

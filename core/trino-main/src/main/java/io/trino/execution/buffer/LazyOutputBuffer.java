@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ExtendedSettableFuture;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -244,14 +245,14 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public void enqueue(List<SerializedPage> pages)
+    public void enqueue(List<Slice> pages)
     {
         OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
         outputBuffer.enqueue(pages);
     }
 
     @Override
-    public void enqueue(int partition, List<SerializedPage> pages)
+    public void enqueue(int partition, List<Slice> pages)
     {
         OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
         outputBuffer.enqueue(partition, pages);

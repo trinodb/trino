@@ -15,11 +15,10 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
-import io.trino.execution.buffer.PageCodecMarker;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.spi.QueryId;
 import org.testng.annotations.Test;
 
@@ -37,9 +36,9 @@ public class TestStreamingExchangeClientBuffer
     private static final StageId STAGE_ID = new StageId(new QueryId("query"), 0);
     private static final TaskId TASK_0 = new TaskId(STAGE_ID, 0, 0);
     private static final TaskId TASK_1 = new TaskId(STAGE_ID, 1, 0);
-    private static final SerializedPage PAGE_0 = createPage("page0");
-    private static final SerializedPage PAGE_1 = createPage("page-1");
-    private static final SerializedPage PAGE_2 = createPage("page-_2");
+    private static final Slice PAGE_0 = utf8Slice("page0");
+    private static final Slice PAGE_1 = utf8Slice("page-1");
+    private static final Slice PAGE_2 = utf8Slice("page-_2");
 
     @Test
     public void testHappyPath()
@@ -66,14 +65,14 @@ public class TestStreamingExchangeClientBuffer
 
             buffer.addPages(TASK_0, ImmutableList.of(PAGE_0));
             assertEquals(buffer.getBufferedPageCount(), 1);
-            assertEquals(buffer.getRetainedSizeInBytes(), PAGE_0.getRetainedSizeInBytes());
-            assertEquals(buffer.getMaxRetainedSizeInBytes(), PAGE_0.getRetainedSizeInBytes());
-            assertEquals(buffer.getRemainingCapacityInBytes(), DataSize.of(1, KILOBYTE).toBytes() - PAGE_0.getRetainedSizeInBytes());
+            assertEquals(buffer.getRetainedSizeInBytes(), PAGE_0.getRetainedSize());
+            assertEquals(buffer.getMaxRetainedSizeInBytes(), PAGE_0.getRetainedSize());
+            assertEquals(buffer.getRemainingCapacityInBytes(), DataSize.of(1, KILOBYTE).toBytes() - PAGE_0.getRetainedSize());
             assertFalse(buffer.isFinished());
             assertTrue(buffer.isBlocked().isDone());
-            assertPageEquals(buffer.pollPage(), PAGE_0);
+            assertEquals(buffer.pollPage(), PAGE_0);
             assertEquals(buffer.getRetainedSizeInBytes(), 0);
-            assertEquals(buffer.getMaxRetainedSizeInBytes(), PAGE_0.getRetainedSizeInBytes());
+            assertEquals(buffer.getMaxRetainedSizeInBytes(), PAGE_0.getRetainedSize());
             assertEquals(buffer.getRemainingCapacityInBytes(), DataSize.of(1, KILOBYTE).toBytes());
             assertFalse(buffer.isFinished());
             assertFalse(buffer.isBlocked().isDone());
@@ -84,17 +83,17 @@ public class TestStreamingExchangeClientBuffer
 
             buffer.addPages(TASK_1, ImmutableList.of(PAGE_1, PAGE_2));
             assertEquals(buffer.getBufferedPageCount(), 2);
-            assertEquals(buffer.getRetainedSizeInBytes(), PAGE_1.getRetainedSizeInBytes() + PAGE_2.getRetainedSizeInBytes());
-            assertEquals(buffer.getMaxRetainedSizeInBytes(), PAGE_1.getRetainedSizeInBytes() + PAGE_2.getRetainedSizeInBytes());
-            assertEquals(buffer.getRemainingCapacityInBytes(), DataSize.of(1, KILOBYTE).toBytes() - PAGE_1.getRetainedSizeInBytes() - PAGE_2.getRetainedSizeInBytes());
+            assertEquals(buffer.getRetainedSizeInBytes(), PAGE_1.getRetainedSize() + PAGE_2.getRetainedSize());
+            assertEquals(buffer.getMaxRetainedSizeInBytes(), PAGE_1.getRetainedSize() + PAGE_2.getRetainedSize());
+            assertEquals(buffer.getRemainingCapacityInBytes(), DataSize.of(1, KILOBYTE).toBytes() - PAGE_1.getRetainedSize() - PAGE_2.getRetainedSize());
             assertFalse(buffer.isFinished());
             assertTrue(buffer.isBlocked().isDone());
-            assertPageEquals(buffer.pollPage(), PAGE_1);
-            assertPageEquals(buffer.pollPage(), PAGE_2);
+            assertEquals(buffer.pollPage(), PAGE_1);
+            assertEquals(buffer.pollPage(), PAGE_2);
             assertFalse(buffer.isFinished());
             assertFalse(buffer.isBlocked().isDone());
             assertEquals(buffer.getRetainedSizeInBytes(), 0);
-            assertEquals(buffer.getMaxRetainedSizeInBytes(), PAGE_1.getRetainedSizeInBytes() + PAGE_2.getRetainedSizeInBytes());
+            assertEquals(buffer.getMaxRetainedSizeInBytes(), PAGE_1.getRetainedSize() + PAGE_2.getRetainedSize());
             assertEquals(buffer.getRemainingCapacityInBytes(), DataSize.of(1, KILOBYTE).toBytes());
 
             buffer.taskFinished(TASK_1);
@@ -196,18 +195,5 @@ public class TestStreamingExchangeClientBuffer
             assertTrue(blocked1.isDone());
             assertTrue(blocked2.isDone());
         }
-    }
-
-    private static SerializedPage createPage(String value)
-    {
-        return new SerializedPage(utf8Slice(value), PageCodecMarker.MarkerSet.empty(), 1, value.length());
-    }
-
-    private static void assertPageEquals(SerializedPage actual, SerializedPage expected)
-    {
-        assertEquals(actual.getPositionCount(), expected.getPositionCount());
-        assertEquals(actual.getUncompressedSizeInBytes(), expected.getUncompressedSizeInBytes());
-        assertEquals(actual.getPageCodecMarkers(), expected.getPageCodecMarkers());
-        assertEquals(actual.getSlice(), expected.getSlice());
     }
 }

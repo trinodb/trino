@@ -17,6 +17,8 @@ import io.airlift.compress.Compressor;
 import io.airlift.compress.Decompressor;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.execution.buffer.PageCodecMarker.MarkerSet;
 import io.trino.spi.Page;
@@ -41,6 +43,13 @@ import static java.util.Objects.requireNonNull;
 public class PagesSerde
 {
     private static final double MINIMUM_COMPRESSION_RATIO = 0.8;
+    private static final int SERIALIZED_PAGE_HEADER_SIZE = /*positionCount*/ Integer.BYTES +
+            // pageCodecMarkers
+            Byte.BYTES +
+            // uncompressedSizeInBytes
+            Integer.BYTES +
+            // sizeInBytes
+            Integer.BYTES;
 
     private final BlockEncodingSerde blockEncodingSerde;
     private final Optional<Compressor> compressor;
@@ -61,7 +70,7 @@ public class PagesSerde
         return new PagesSerdeContext();
     }
 
-    public SerializedPage serialize(PagesSerdeContext context, Page page)
+    public Slice serialize(PagesSerdeContext context, Page page)
     {
         DynamicSliceOutput serializationBuffer = context.acquireSliceOutput(toIntExact(page.getSizeInBytes() + Integer.BYTES)); // block length is an int
         byte[] inUseTempBuffer = null;
@@ -109,8 +118,15 @@ public class PagesSerde
                 }
                 inUseTempBuffer = encrypted;
             }
-            //  Resulting slice *must* be copied to ensure the shared buffers aren't referenced after method exit
-            return new SerializedPage(Slices.copyOf(slice), markers, page.getPositionCount(), uncompressedSize);
+
+            SliceOutput output = Slices.allocate(SERIALIZED_PAGE_HEADER_SIZE + slice.length()).getOutput();
+            output.writeInt(page.getPositionCount());
+            output.writeByte(markers.byteValue());
+            output.writeInt(uncompressedSize);
+            output.writeInt(slice.length());
+            output.writeBytes(slice);
+
+            return output.getUnderlyingSlice();
         }
         finally {
             context.releaseSliceOutput(serializationBuffer);
@@ -120,22 +136,48 @@ public class PagesSerde
         }
     }
 
-    public Page deserialize(SerializedPage serializedPage)
+    public static int getSerializedPagePositionCount(Slice serializedPage)
+    {
+        return serializedPage.getInt(0);
+    }
+
+    public static boolean isSerializedPageEncrypted(Slice serializedPage)
+    {
+        return getSerializedPageMarkerSet(serializedPage).contains(ENCRYPTED);
+    }
+
+    public static boolean isSerializedPageCompressed(Slice serializedPage)
+    {
+        return getSerializedPageMarkerSet(serializedPage).contains(COMPRESSED);
+    }
+
+    private static MarkerSet getSerializedPageMarkerSet(Slice serializedPage)
+    {
+        return MarkerSet.fromByteValue(serializedPage.getByte(Integer.BYTES));
+    }
+
+    public Page deserialize(Slice serializedPage)
     {
         try (PagesSerdeContext context = newContext()) {
             return deserialize(context, serializedPage);
         }
     }
 
-    public Page deserialize(PagesSerdeContext context, SerializedPage serializedPage)
+    public Page deserialize(PagesSerdeContext context, Slice serializedPage)
     {
         checkArgument(serializedPage != null, "serializedPage is null");
 
-        Slice slice = serializedPage.getSlice();
+        SliceInput input = serializedPage.getInput();
+        int positionCount = input.readInt();
+        MarkerSet markers = MarkerSet.fromByteValue(input.readByte());
+        int uncompressedSize = input.readInt();
+        int compressedSize = input.readInt();
+        Slice slice = input.readSlice(compressedSize);
+
         // This buffer *must not* be released at the end, since block decoding might create references to the buffer but
         // *can* be released for reuse if used for decryption and later released after decompression
         byte[] inUseTempBuffer = null;
-        if (serializedPage.isEncrypted()) {
+        if (markers.contains(ENCRYPTED)) {
             checkState(spillCipher.isPresent(), "Page is encrypted, but spill cipher is missing");
 
             byte[] decrypted = context.acquireBuffer(spillCipher.get().decryptedMaxLength(slice.length()));
@@ -150,10 +192,9 @@ public class PagesSerde
             inUseTempBuffer = decrypted;
         }
 
-        if (serializedPage.isCompressed()) {
+        if (markers.contains(COMPRESSED)) {
             checkState(decompressor.isPresent(), "Page is compressed, but decompressor is missing");
 
-            int uncompressedSize = serializedPage.getUncompressedSizeInBytes();
             byte[] decompressed = context.acquireBuffer(uncompressedSize);
             checkState(decompressor.get().decompress(
                     slice.byteArray(),
@@ -170,7 +211,26 @@ public class PagesSerde
             }
         }
 
-        return readRawPage(serializedPage.getPositionCount(), slice.getInput(), blockEncodingSerde);
+        return readRawPage(positionCount, slice.getInput(), blockEncodingSerde);
+    }
+
+    public static Slice readSerializedPage(SliceInput input)
+    {
+        int positionCount = input.readInt();
+        byte marker = input.readByte();
+        int uncompressedSize = input.readInt();
+        int compressedSize = input.readInt();
+
+        SliceOutput output = Slices.allocate(SERIALIZED_PAGE_HEADER_SIZE + compressedSize).getOutput();
+        output.writeInt(positionCount);
+        output.writeByte(marker);
+        output.writeInt(uncompressedSize);
+        output.writeInt(compressedSize);
+
+        Slice result = output.getUnderlyingSlice();
+        input.readBytes(result, SERIALIZED_PAGE_HEADER_SIZE, compressedSize);
+
+        return result;
     }
 
     public static final class PagesSerdeContext
