@@ -16,11 +16,11 @@ package io.trino.operator.output;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputInfo;
@@ -259,10 +259,10 @@ public class DefaultPagePartitioner
         }
     }
 
-    private List<SerializedPage> splitAndSerializePage(PagesSerde.PagesSerdeContext context, Page page)
+    private List<Slice> splitAndSerializePage(PagesSerde.PagesSerdeContext context, Page page)
     {
         List<Page> split = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
-        ImmutableList.Builder<SerializedPage> builder = ImmutableList.builderWithExpectedSize(split.size());
+        ImmutableList.Builder<Slice> builder = ImmutableList.builderWithExpectedSize(split.size());
         for (Page p : split) {
             builder.add(serde.serialize(context, p));
         }

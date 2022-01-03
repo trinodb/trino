@@ -14,8 +14,8 @@
 package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 import io.trino.execution.TaskId;
-import io.trino.execution.buffer.SerializedPage;
 
 import java.io.Closeable;
 import java.util.List;
@@ -30,11 +30,11 @@ public interface ExchangeClientBuffer
      */
     ListenableFuture<Void> isBlocked();
 
-    SerializedPage pollPage();
+    Slice pollPage();
 
     void addTask(TaskId taskId);
 
-    void addPages(TaskId taskId, List<SerializedPage> pages);
+    void addPages(TaskId taskId, List<Slice> pages);
 
     void taskFinished(TaskId taskId);
 

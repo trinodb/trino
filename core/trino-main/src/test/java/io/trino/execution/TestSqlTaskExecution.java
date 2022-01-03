@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.slice.Slice;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -31,7 +32,6 @@ import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PartitionedOutputBuffer;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
@@ -99,6 +99,7 @@ import static io.trino.execution.buffer.BufferState.OPEN;
 import static io.trino.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
@@ -661,8 +662,8 @@ public class TestSqlTaskExecution
                 assertFalse(bufferComplete, "bufferComplete is set before enough positions are consumed");
                 BufferResult results = outputBuffer.get(outputBufferId, sequenceId, DataSize.of(1, MEGABYTE)).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
                 bufferComplete = results.isBufferComplete();
-                for (SerializedPage serializedPage : results.getSerializedPages()) {
-                    surplusPositions += serializedPage.getPositionCount();
+                for (Slice serializedPage : results.getSerializedPages()) {
+                    surplusPositions += getSerializedPagePositionCount(serializedPage);
                 }
                 sequenceId += results.getSerializedPages().size();
             }
@@ -676,8 +677,8 @@ public class TestSqlTaskExecution
             while (!bufferComplete) {
                 BufferResult results = outputBuffer.get(outputBufferId, sequenceId, DataSize.of(1, MEGABYTE)).get(nanoUntil - System.nanoTime(), TimeUnit.NANOSECONDS);
                 bufferComplete = results.isBufferComplete();
-                for (SerializedPage serializedPage : results.getSerializedPages()) {
-                    assertEquals(serializedPage.getPositionCount(), 0);
+                for (Slice serializedPage : results.getSerializedPages()) {
+                    assertEquals(getSerializedPagePositionCount(serializedPage), 0);
                 }
                 sequenceId += results.getSerializedPages().size();
             }
