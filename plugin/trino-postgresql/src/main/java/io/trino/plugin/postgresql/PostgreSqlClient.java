@@ -830,7 +830,7 @@ public class PostgreSqlClient
                 case LESS_THAN_OR_EQUAL:
                 case GREATER_THAN:
                 case GREATER_THAN_OR_EQUAL:
-                    return false;
+                    return isEnableStringPushdownWithCollate(session);
                 case EQUAL:
                 case NOT_EQUAL:
                 case IS_DISTINCT_FROM:
