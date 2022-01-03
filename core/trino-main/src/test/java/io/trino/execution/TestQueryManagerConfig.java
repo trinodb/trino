@@ -51,7 +51,7 @@ public class TestQueryManagerConfig
                 .setRemoteTaskMinErrorDuration(new Duration(5, MINUTES))
                 .setRemoteTaskMaxErrorDuration(new Duration(5, MINUTES))
                 .setRemoteTaskMaxCallbackThreads(1000)
-                .setQueryExecutionPolicy("all-at-once")
+                .setQueryExecutionPolicy("phased")
                 .setQueryMaxRunTime(new Duration(100, DAYS))
                 .setQueryMaxExecutionTime(new Duration(100, DAYS))
                 .setQueryMaxPlanningTime(new Duration(10, MINUTES))
