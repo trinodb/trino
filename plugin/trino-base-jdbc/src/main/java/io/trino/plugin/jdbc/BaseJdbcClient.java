@@ -418,7 +418,7 @@ public abstract class BaseJdbcClient
             JoinStatistics statistics)
     {
         for (JdbcJoinCondition joinCondition : joinConditions) {
-            if (!isSupportedJoinCondition(joinCondition)) {
+            if (!isSupportedJoinCondition(session, joinCondition)) {
                 return Optional.empty();
             }
         }
@@ -440,7 +440,7 @@ public abstract class BaseJdbcClient
         }
     }
 
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         return false;
     }
