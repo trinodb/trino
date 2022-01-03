@@ -52,6 +52,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.TypeTestUtils.getHashBlock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestGroupByHash
@@ -204,6 +205,77 @@ public class TestGroupByHash
         GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER, TYPE_OPERATOR_FACTORY, NOOP);
         // Additional bigint channel for hash
         assertEquals(groupByHash.getTypes(), ImmutableList.of(VARCHAR, BIGINT));
+    }
+
+    @Test
+    public void testVarcharAddPage()
+    {
+        Block firstBlock = BlockAssertions.createStringsBlock("ala");
+        Block withNullBlock = BlockAssertions.createStringsBlock((String) null);
+        Block lastBlock = BlockAssertions.createStringsBlock("kota");
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR, VARCHAR, VARCHAR), new int[] {0,
+                1, 2}, Optional.empty(), 2, JOIN_COMPILER, TYPE_OPERATOR_FACTORY, NOOP);
+
+        Work<?> work = groupByHash.addPage(new Page(firstBlock, withNullBlock, lastBlock));
+        work.process();
+        PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
+        GroupByHash.GroupCursor groups = groupByHash.consecutiveGroups();
+        while (groups.hasNext()) {
+            groups.next();
+            pageBuilder.declarePosition();
+            groups.appendValuesTo(pageBuilder, 0);
+        }
+        Page page = pageBuilder.build();
+
+        int i = 0;
+        assertRow(page, i++, "ala", null, "kota");
+//        assertRow(page, i++, "kota", "ma", "ala");
+
+        assertEquals(page.getPositionCount(), i);
+    }
+
+    @Test
+    public void testVarcharAddPage2()
+    {
+        Block firstBlock = BlockAssertions.createStringsBlock("ala", "ma", "kota");
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR), new int[] {0},
+                Optional.empty(), 2, JOIN_COMPILER, TYPE_OPERATOR_FACTORY, NOOP);
+
+        Work<?> work = groupByHash.addPage(new Page(firstBlock));
+        work.process();
+        PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
+        GroupByHash.GroupCursor groups = groupByHash.consecutiveGroups();
+        while (groups.hasNext()) {
+            groups.next();
+            pageBuilder.declarePosition();
+            groups.appendValuesTo(pageBuilder, 0);
+        }
+        Page page = pageBuilder.build();
+
+        int i = 0;
+        assertValue(page, i++, 0, "ala");
+        assertValue(page, i++, 0, "ma");
+        assertValue(page, i++, 0, "kota");
+
+        assertEquals(page.getPositionCount(), i);
+    }
+
+    private void assertRow(Page page, int position, String value0, String value1, String value2)
+    {
+        assertValue(page, position, 0, value0);
+        assertValue(page, position, 1, value1);
+        assertValue(page, position, 2, value2);
+    }
+
+    private void assertValue(Page page, int position, int channel, String value)
+    {
+        if (value != null) {
+            assertEquals(VARCHAR.getSlice(page.getBlock(channel), position).toStringUtf8(), value,
+                    String.format("value at position %d and channel %d", position, channel));
+        }
+        else {
+            assertTrue(page.getBlock(channel).isNull(position), String.format("value at position %d and channel %d", position, channel));
+        }
     }
 
     @Test

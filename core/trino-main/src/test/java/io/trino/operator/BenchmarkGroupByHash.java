@@ -408,7 +408,7 @@ public class BenchmarkGroupByHash
         PageBuilder pageBuilder = new PageBuilder(types);
         for (int position = 0; position < positionCount; position++) {
             int rand = ThreadLocalRandom.current().nextInt(groupCount);
-            Slice value = Slices.wrappedBuffer(ByteBuffer.allocate(4).putInt(rand).flip());
+            Slice value = Slices.wrappedBuffer(ByteBuffer.allocate(16).putInt(rand).putInt(rand).putInt(rand).putInt(rand).flip());
             pageBuilder.declarePosition();
             for (int channel = 0; channel < channelCount; channel++) {
                 VARCHAR.writeSlice(pageBuilder.getBlockBuilder(channel), value);
@@ -653,15 +653,15 @@ public class BenchmarkGroupByHash
                 .includeMethod("groupByHashPreComputeInlineAllTypes")
 //                .includeMethod("groupByHashPreComputeInlineMultiChannelBigInt")
 //                .includeMethod("groupByHashPreComputeInlineMultiChannelBigIntBB")
-                .includeMethod("groupByHashPreComputeInlineMultiChannelBigIntFastBB")
+//                .includeMethod("groupByHashPreComputeInlineMultiChannelBigIntFastBB")
 //                .includeMethod("groupByHashPreComputeBatch")
-                .includeMethod("groupByHashPreComputeInlineMultiChannelBigIntBatch")
+//                .includeMethod("groupByHashPreComputeInlineMultiChannelBigIntBatch")
 //                .includeMethod("groupByHashPreCompute.*")
 //                .includeMethod("baseline")
 //                .includeMethod("baselineBigArray")
                 .withOptions(optionsBuilder -> optionsBuilder
 //                        .addProfiler(GCProfiler.class)
-//                        .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=text;output=flamegraph", profilerOutputDir))
+                        .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=text;output=flamegraph", profilerOutputDir))
 //                        .addProfiler(DTraceAsmProfiler.class, "event=branch-misses")
 //                        .addProfiler(DTraceAsmProfiler.class, String.format("hotThreshold=0.1;tooBigThreshold=3000;saveLog=true;saveLogTo=%s", profilerOutputDir, profilerOutputDir))
                         .jvmArgs("-Xmx32g")
@@ -672,15 +672,15 @@ public class BenchmarkGroupByHash
                         .param("groupCount", "8")
                         .param("channelCount", "2")
 //                        .param("channelCount", "5")
-                        .param("dataType", "BIGINT")
+                        .param("dataType", "VARCHAR")
                         .param("useOffHeap", "false")
                         .param("batchSize", "16")
-                        .param("rehash", "true")
+                        .param("rehash", "false")
                         .forks(1)
 //                        .jvmArgsAppend("-XX:+UnlockDiagnosticVMOptions", "-XX:+TraceClassLoading", "-XX:+LogCompilation", "-XX:+DebugNonSafepoints", "-XX:+PrintAssembly", "-XX:+PrintInlining")
 //                        .jvmArgsAppend("-XX:MaxInlineSize=300", "-XX:InlineSmallCode=3000")
-                        .warmupIterations(5)
-                        .measurementIterations(5))
+                        .warmupIterations(40)
+                        .measurementIterations(10))
                 .run();
         File dir = new File(profilerOutputDir);
         if (dir.list().length == 0) {

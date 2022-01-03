@@ -1,5 +1,6 @@
 package io.trino.operator.hash;
 
+import io.airlift.slice.Slice;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
@@ -82,6 +83,40 @@ public class ArrayFastByteBuffer
     }
 
     @Override
+    public short getShort(int position)
+    {
+        return UNSAFE.getShort(array, BYTE_ARRAY_BASE_OFFSET + position);
+    }
+
+    @Override
+    public void putShort(int position, short value)
+    {
+        UNSAFE.putShort(array, BYTE_ARRAY_BASE_OFFSET + position, value);
+    }
+
+    @Override
+    public void putSlice(int position, Slice value, int valueStartIndex, int valueLength)
+    {
+        byte[] bytes = value.byteArray();
+        if (valueLength < 8) {
+            for (int i = 0; i < valueLength; i++) {
+                array[position + i] = bytes[valueStartIndex + i];
+            }
+        }
+        else {
+            System.arraycopy(bytes, valueStartIndex, array, position, valueLength);
+        }
+
+//        value.getBytes(valueStartIndex, array, position, valueLength);
+    }
+
+    @Override
+    public void getSlice(int position, int length, Slice out, int slicePosition)
+    {
+        out.setBytes(slicePosition, array, position, length);
+    }
+
+    @Override
     public long getLong(int position)
     {
         return UNSAFE.getLong(array, BYTE_ARRAY_BASE_OFFSET + position);
@@ -93,8 +128,8 @@ public class ArrayFastByteBuffer
 //        byte[] otherArray = ((ArrayFastByteBuffer) other).array;
 //
 //        return Arrays.equals(array, thisOffset, thisOffset + length, otherArray, otherOffset, otherOffset + length);
-//    }
 
+    //    }
     @Override
     public boolean subArrayEquals(FastByteBuffer other, int thisOffset, int otherOffset, int length)
     {

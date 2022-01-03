@@ -1,5 +1,6 @@
 package io.trino.operator.hash;
 
+import io.airlift.slice.Slice;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
@@ -84,6 +85,34 @@ public class OffHeapByteBuffer
     public long getLong(int position)
     {
         return UNSAFE.getLong(address + position);
+    }
+
+    @Override
+    public short getShort(int position)
+    {
+        return UNSAFE.getShort(address + position);
+    }
+
+    @Override
+    public void putShort(int position, short value)
+    {
+        UNSAFE.putShort(address + position, value);
+    }
+
+    @Override
+    public void putSlice(int position, Slice value, int valueStartIndex, int valueLength)
+    {
+        Object base = value.getBase();
+        final long valueOffset = value.getAddress() + valueStartIndex;
+        UNSAFE.copyMemory(base, valueOffset, null, address + position, valueLength);
+    }
+
+    @Override
+    public void getSlice(int position, int length, Slice out, int slicePosition)
+    {
+        Object base = out.getBase();
+        final long valueOffset = out.getAddress() + slicePosition;
+        UNSAFE.copyMemory(null, address + position, base, valueOffset, length);
     }
 
     @Override

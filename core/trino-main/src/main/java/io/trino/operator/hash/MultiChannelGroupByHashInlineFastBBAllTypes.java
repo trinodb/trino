@@ -14,6 +14,8 @@
 package io.trino.operator.hash;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import io.trino.operator.GroupByHash;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.UpdateMemory;
@@ -84,7 +86,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
         // This interface is used for actively reserving memory (push model) for rehash.
         // The caller can also query memory usage on this object (pull model)
         this.updateMemory = requireNonNull(updateMemory, "updateMemory is null");
-        this.types = Collections.nCopies(hashChannels.length + (inputHashChannel.isPresent() ? 1 : 0), BIGINT);
+        this.types = inputHashChannel.isPresent() ? ImmutableList.copyOf(Iterables.concat(hashTypes, ImmutableList.of(BIGINT))) : ImmutableList.copyOf(hashTypes);
     }
 
     @Override
@@ -189,7 +191,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
                 blockBuilder.appendNull();
             }
             else {
-                BIGINT.writeLong(blockBuilder, hashTable.getValue(hashPosition, i));
+                hashTable.writeValue(hashPosition, i, blockBuilder);
             }
             outputChannelOffset++;
         }
@@ -376,7 +378,10 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
         public HashTableFactory(List<? extends Type> hashTypes, int[] hashChannels)
         {
             hashChannelsCount = hashChannels.length;
-            ColumnValueExtractor[] columnValueExtractors = hashTypes.stream().map(ColumnValueExtractor::columnValueExtractor).toArray(ColumnValueExtractor[]::new);
+            ColumnValueExtractor[] columnValueExtractors = hashTypes.stream()
+                    .map(ColumnValueExtractor::columnValueExtractor)
+                    .map(columnValueExtractor -> columnValueExtractor.orElseThrow(() -> new RuntimeException("unsupported type " + hashTypes)))
+                    .toArray(ColumnValueExtractor[]::new);
             this.rowExtractor = new RowExtractor(hashChannels, columnValueExtractors);
             this.dataValuesLength = Arrays.stream(columnValueExtractors).mapToInt(ColumnValueExtractor::getSummarySize).sum();
         }
@@ -440,13 +445,13 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
                 int dataValuesLength)
         {
             this.rowExtractor = rowExtractor;
-            this.rowBuffer = new GroupByHashTableAccess(1, FastByteBuffer.allocate(1024), hashChannelsCount, 0, dataValuesLength);
+            this.rowBuffer = new GroupByHashTableAccess(1, FastByteBuffer.allocate(1024), hashChannelsCount, false, dataValuesLength);
             this.hashCapacity = hashCapacity;
             this.groupToHashPosition = groupToHashPosition;
 
             this.maxFill = calculateMaxFill(hashCapacity);
             this.mask = hashCapacity - 1;
-            this.hashTableRow = new GroupByHashTableAccess(hashCapacity, overflow, hashChannelsCount, 1, dataValuesLength);
+            this.hashTableRow = new GroupByHashTableAccess(hashCapacity, overflow, hashChannelsCount, true, dataValuesLength);
             this.hashCollisions = hashCollisions;
         }
 
@@ -529,14 +534,15 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
                     }
                     // we can just copy data because overflow is reused
                     thisHashTable.copyEntryFrom(otherHashTable, i, hashPosition);
+                    groupToHashPosition[otherHashTable.getGroupId(i)] = hashPosition;
                 }
             }
             hashTableSize += other.getSize();
         }
 
-        public long getValue(int hashPosition, int index)
+        public void writeValue(int hashPosition, int valueIndex, BlockBuilder blockBuilder)
         {
-            return hashTableRow.getLongValue(hashPosition, index);
+            rowExtractor.writeValue(hashTableRow, hashPosition, valueIndex, blockBuilder);
         }
 
         private int getHashPosition(GroupByHashTableAccess row, int position)

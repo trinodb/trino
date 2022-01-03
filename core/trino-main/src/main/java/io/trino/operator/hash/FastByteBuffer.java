@@ -1,5 +1,7 @@
 package io.trino.operator.hash;
 
+import io.airlift.slice.Slice;
+
 public interface FastByteBuffer
 {
 
@@ -44,4 +46,12 @@ public interface FastByteBuffer
     {
         return Byte.toUnsignedInt(get(position));
     }
+
+    short getShort(int position);
+
+    void putShort(int position, short value);
+
+    void putSlice(int position, Slice value, int valueStartIndex, int valueLength);
+
+    void getSlice(int position, int length, Slice out, int slicePosition);
 }

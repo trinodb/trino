@@ -2,6 +2,7 @@ package io.trino.operator.hash;
 
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 
 public class RowExtractor
 {
@@ -31,5 +32,10 @@ public class RowExtractor
 
         long hash = row.calculateValuesHash(0);
         row.putHash(0, hash);
+    }
+
+    public void writeValue(GroupByHashTableAccess hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
+    {
+        columnValueExtractors[valueIndex].appendValue(hashTable, position, valueIndex, blockBuilder);
     }
 }

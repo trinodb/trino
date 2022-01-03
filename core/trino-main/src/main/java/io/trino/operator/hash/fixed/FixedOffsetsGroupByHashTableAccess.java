@@ -1,15 +1,12 @@
-package io.trino.operator.hash;
+package io.trino.operator.hash.fixed;
 
 import io.airlift.slice.Slice;
+import io.trino.operator.hash.FastByteBuffer;
 import it.unimi.dsi.fastutil.HashCommon;
 
 import static com.google.common.base.Verify.verify;
 
-/**
- * Each entry in the GroupByHashTableAccess can have values put at a different offset in the data buffer.
- * This maximizes memory utilization but makes it hard to compute offsets thus making writes nad reads slow.
- */
-public class GroupByHashTableAccess
+public class FixedOffsetsGroupByHashTableAccess
         implements AutoCloseable
 {
     private static final int INT96_BYTES = Long.BYTES + Integer.BYTES;
@@ -20,8 +17,7 @@ public class GroupByHashTableAccess
     //  4 - 8 : overflow position
     //  8 - 16 : hash
     // 16 - 16 + channelCount : isNull
-    // 16+channelCount - 16+2xchannelCount : values offsets
-    // 16+2xchannelCount - 16+2xchannelCount+valuesLength : values prefix
+    // 16 + channelCount - xxx fixoffset values
 
     private final FastByteBuffer data;
     private final FastByteBuffer overflow;
@@ -42,7 +38,7 @@ public class GroupByHashTableAccess
 
     private int overflowSize;
 
-    public GroupByHashTableAccess(int entryCount, FastByteBuffer overflow, int channelCount, boolean includeGroupId, int dataValuesLength)
+    public FixedOffsetsGroupByHashTableAccess(int entryCount, FastByteBuffer overflow, int channelCount, boolean includeGroupId, int dataValuesLength)
     {
         this.overflow = overflow;
         this.channelCount = channelCount;
@@ -82,7 +78,7 @@ public class GroupByHashTableAccess
         data.putLong(position + hashOffset, hash);
     }
 
-    public void copyKeyFrom(int toPosition, GroupByHashTableAccess src, int srcPosition)
+    public void copyKeyFrom(int toPosition, FixedOffsetsGroupByHashTableAccess src, int srcPosition)
     {
         data.copyFrom(src.data, srcPosition + src.keyOffset, toPosition + keyOffset, src.keyLength());
         int overflowLength = src.getOverflowLength(srcPosition);
@@ -93,7 +89,7 @@ public class GroupByHashTableAccess
         }
     }
 
-    public void copyEntryFrom(GroupByHashTableAccess src, int srcPosition, int toPosition)
+    public void copyEntryFrom(FixedOffsetsGroupByHashTableAccess src, int srcPosition, int toPosition)
     {
         data.copyFrom(src.data, srcPosition, toPosition, src.getEntrySize());
         // overflow is shared
@@ -131,7 +127,7 @@ public class GroupByHashTableAccess
         return keyLength;
     }
 
-    public boolean keyEquals(int position, GroupByHashTableAccess other, int otherPosition)
+    public boolean keyEquals(int position, FixedOffsetsGroupByHashTableAccess other, int otherPosition)
     {
         if (!data.subArrayEquals(other.data, position + hashOffset, otherPosition + other.hashOffset, hashValuesAndIsNullLength)) {
             return false;
@@ -439,7 +435,7 @@ public class GroupByHashTableAccess
         }
     }
 
-    public void putEntry(int hashPosition, int groupId, GroupByHashTableAccess key)
+    public void putEntry(int hashPosition, int groupId, FixedOffsetsGroupByHashTableAccess key)
     {
         data.putInt(hashPosition, groupId);
         copyKeyFrom(hashPosition, key, 0);
