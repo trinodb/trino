@@ -200,10 +200,15 @@ public class DefaultQueryBuilder
         return format(
                 "%s.%s %s %s.%s",
                 leftRelationAlias,
-                client.quoted(condition.getLeftColumn().getColumnName()),
+                buildJoinColumn(client, condition.getLeftColumn()),
                 condition.getOperator().getValue(),
                 rightRelationAlias,
-                client.quoted(condition.getRightColumn().getColumnName()));
+                buildJoinColumn(client, condition.getRightColumn()));
+    }
+
+    protected String buildJoinColumn(JdbcClient client, JdbcColumnHandle columnHandle)
+    {
+        return client.quoted(columnHandle.getColumnName());
     }
 
     protected String formatAssignments(JdbcClient client, String relationAlias, Map<JdbcColumnHandle, String> assignments)
