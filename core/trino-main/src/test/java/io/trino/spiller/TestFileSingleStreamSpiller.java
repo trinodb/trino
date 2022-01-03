@@ -17,9 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.InputStreamSliceInput;
-import io.trino.execution.buffer.PageCodecMarker;
+import io.airlift.slice.Slice;
 import io.trino.execution.buffer.PagesSerdeUtil;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.PageAssertions;
 import io.trino.spi.Page;
@@ -41,6 +40,8 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.MoreFiles.listFiles;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static io.trino.execution.buffer.PagesSerde.isSerializedPageCompressed;
+import static io.trino.execution.buffer.PagesSerde.isSerializedPageEncrypted;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -128,11 +129,11 @@ public class TestFileSingleStreamSpiller
 
         // Assert the spill codec flags match the expected configuration
         try (InputStream is = newInputStream(listFiles(spillPath.toPath()).get(0))) {
-            Iterator<SerializedPage> serializedPages = PagesSerdeUtil.readSerializedPages(new InputStreamSliceInput(is));
+            Iterator<Slice> serializedPages = PagesSerdeUtil.readSerializedPages(new InputStreamSliceInput(is));
             assertTrue(serializedPages.hasNext(), "at least one page should be successfully read back");
-            byte markers = serializedPages.next().getPageCodecMarkers();
-            assertEquals(PageCodecMarker.COMPRESSED.isSet(markers), compression);
-            assertEquals(PageCodecMarker.ENCRYPTED.isSet(markers), encryption);
+            Slice serializedPage = serializedPages.next();
+            assertEquals(isSerializedPageCompressed(serializedPage), compression);
+            assertEquals(isSerializedPageEncrypted(serializedPage), encryption);
         }
 
         // The spillers release their memory reservations when they are closed, therefore at this point

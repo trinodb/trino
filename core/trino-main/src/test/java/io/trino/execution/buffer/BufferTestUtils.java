@@ -15,6 +15,7 @@ package io.trino.execution.buffer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.block.BlockAssertions;
@@ -43,7 +44,7 @@ public final class BufferTestUtils
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
     static final Duration NO_WAIT = new Duration(0, MILLISECONDS);
     static final Duration MAX_WAIT = new Duration(1, SECONDS);
-    private static final DataSize BUFFERED_PAGE_SIZE = DataSize.ofBytes(serializePage(createPage(42)).getRetainedSizeInBytes());
+    private static final DataSize BUFFERED_PAGE_SIZE = DataSize.ofBytes(serializePage(createPage(42)).getRetainedSize());
 
     static BufferResult getFuture(ListenableFuture<BufferResult> future, Duration maxWait)
     {
@@ -68,7 +69,7 @@ public final class BufferTestUtils
     static BufferResult createBufferResult(String bufferId, long token, List<Page> pages)
     {
         checkArgument(!pages.isEmpty(), "pages is empty");
-        ImmutableList.Builder<SerializedPage> builder = ImmutableList.builderWithExpectedSize(pages.size());
+        ImmutableList.Builder<Slice> builder = ImmutableList.builderWithExpectedSize(pages.size());
         try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
             for (Page p : pages) {
                 builder.add(PAGES_SERDE.serialize(context, p));
@@ -87,7 +88,7 @@ public final class BufferTestUtils
         return new Page(BlockAssertions.createLongsBlock(i));
     }
 
-    static SerializedPage serializePage(Page page)
+    static Slice serializePage(Page page)
     {
         try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
             return PAGES_SERDE.serialize(context, page);

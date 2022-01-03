@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -32,7 +33,6 @@ import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.security.ResourceSecurity;
 import org.weakref.jmx.Managed;
@@ -320,7 +320,7 @@ public class TaskResource
                 timeoutExecutor);
 
         ListenableFuture<Response> responseFuture = Futures.transform(bufferResultFuture, result -> {
-            List<SerializedPage> serializedPages = result.getSerializedPages();
+            List<Slice> serializedPages = result.getSerializedPages();
 
             GenericEntity<?> entity = null;
             Status status;
@@ -328,7 +328,7 @@ public class TaskResource
                 status = Status.NO_CONTENT;
             }
             else {
-                entity = new GenericEntity<>(serializedPages, new TypeToken<List<SerializedPage>>() {}.getType());
+                entity = new GenericEntity<>(serializedPages, new TypeToken<List<Slice>>() {}.getType());
                 status = Status.OK;
             }
 

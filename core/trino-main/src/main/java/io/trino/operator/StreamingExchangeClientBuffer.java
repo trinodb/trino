@@ -15,9 +15,9 @@ package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.TaskId;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.spi.TrinoException;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -43,7 +43,7 @@ public class StreamingExchangeClientBuffer
     private final long bufferCapacityInBytes;
 
     @GuardedBy("this")
-    private final Queue<SerializedPage> bufferedPages = new ArrayDeque<>();
+    private final Queue<Slice> bufferedPages = new ArrayDeque<>();
     @GuardedBy("this")
     private volatile long bufferRetainedSizeInBytes;
     @GuardedBy("this")
@@ -72,16 +72,16 @@ public class StreamingExchangeClientBuffer
     }
 
     @Override
-    public synchronized SerializedPage pollPage()
+    public synchronized Slice pollPage()
     {
         throwIfFailed();
 
         if (closed) {
             return null;
         }
-        SerializedPage page = bufferedPages.poll();
+        Slice page = bufferedPages.poll();
         if (page != null) {
-            bufferRetainedSizeInBytes -= page.getRetainedSizeInBytes();
+            bufferRetainedSizeInBytes -= page.getRetainedSize();
             checkState(bufferRetainedSizeInBytes >= 0, "unexpected bufferRetainedSizeInBytes: %s", bufferRetainedSizeInBytes);
         }
         // if buffer is empty block future calls
@@ -102,11 +102,11 @@ public class StreamingExchangeClientBuffer
     }
 
     @Override
-    public void addPages(TaskId taskId, List<SerializedPage> pages)
+    public void addPages(TaskId taskId, List<Slice> pages)
     {
         long pagesRetainedSizeInBytes = 0;
-        for (SerializedPage page : pages) {
-            pagesRetainedSizeInBytes += page.getRetainedSizeInBytes();
+        for (Slice page : pages) {
+            pagesRetainedSizeInBytes += page.getRetainedSize();
         }
         synchronized (this) {
             if (closed) {

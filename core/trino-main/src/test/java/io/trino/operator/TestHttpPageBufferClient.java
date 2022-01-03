@@ -19,6 +19,7 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
+import io.airlift.slice.Slice;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -27,7 +28,6 @@ import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerde;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.operator.HttpPageBufferClient.ClientCallback;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
@@ -452,7 +452,7 @@ public class TestHttpPageBufferClient
         TestingClientCallback callback = new TestingClientCallback(requestComplete)
         {
             @Override
-            public boolean addPages(HttpPageBufferClient client, List<SerializedPage> pages)
+            public boolean addPages(HttpPageBufferClient client, List<Slice> pages)
             {
                 addPagesCalled.set(true);
                 throw expectedException;
@@ -517,7 +517,7 @@ public class TestHttpPageBufferClient
             implements ClientCallback
     {
         private final CyclicBarrier done;
-        private final List<SerializedPage> pages = Collections.synchronizedList(new ArrayList<>());
+        private final List<Slice> pages = Collections.synchronizedList(new ArrayList<>());
         private final AtomicInteger completedRequests = new AtomicInteger();
         private final AtomicInteger finishedBuffers = new AtomicInteger();
         private final AtomicInteger failedBuffers = new AtomicInteger();
@@ -556,7 +556,7 @@ public class TestHttpPageBufferClient
         }
 
         @Override
-        public boolean addPages(HttpPageBufferClient client, List<SerializedPage> pages)
+        public boolean addPages(HttpPageBufferClient client, List<Slice> pages)
         {
             this.pages.addAll(pages);
             return true;

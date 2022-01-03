@@ -16,6 +16,7 @@ package io.trino.execution.buffer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
@@ -357,7 +358,7 @@ class ClientBuffer
 
         // read the new pages
         long maxBytes = maxSize.toBytes();
-        List<SerializedPage> result = new ArrayList<>();
+        List<Slice> result = new ArrayList<>();
         long bytes = 0;
 
         for (SerializedPageReference page : pages) {
