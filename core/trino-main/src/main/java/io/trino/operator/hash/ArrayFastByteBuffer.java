@@ -4,6 +4,7 @@ import io.airlift.slice.Slice;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
+import java.util.Arrays;
 
 public class ArrayFastByteBuffer
         implements FastByteBuffer
@@ -97,16 +98,22 @@ public class ArrayFastByteBuffer
     @Override
     public void putSlice(int position, Slice value, int valueStartIndex, int valueLength)
     {
-        byte[] bytes = value.byteArray();
-        if (valueLength < 8) {
-            for (int i = 0; i < valueLength; i++) {
-                array[position + i] = bytes[valueStartIndex + i];
-            }
+        Object base = value.getBase();
+        long from = value.getAddress() + valueStartIndex;
+        int to = position;
+        long endFromIndex = value.getAddress() + valueStartIndex + valueLength;
+        for (; from <= endFromIndex - 8; from += 8, to += 8) {
+            UNSAFE.putLong(array, BYTE_ARRAY_BASE_OFFSET + to, UNSAFE.getLong(base, from));
         }
-        else {
-            System.arraycopy(bytes, valueStartIndex, array, position, valueLength);
+        if (from <= endFromIndex - 4) {
+            UNSAFE.putInt(array, BYTE_ARRAY_BASE_OFFSET + to, UNSAFE.getInt(base, from));
+            from += 4;
+            to += 4;
         }
-
+        for (; from < endFromIndex; from++, to++) {
+            array[to] = UNSAFE.getByte(base, from);
+        }
+//        UNSAFE.copyMemory(base, valueOffset, array, BYTE_ARRAY_BASE_OFFSET + position, valueLength);
 //        value.getBytes(valueStartIndex, array, position, valueLength);
     }
 
@@ -114,6 +121,12 @@ public class ArrayFastByteBuffer
     public void getSlice(int position, int length, Slice out, int slicePosition)
     {
         out.setBytes(slicePosition, array, position, length);
+    }
+
+    @Override
+    public void put(int position, byte[] value, int valueOffset, int valueLength)
+    {
+        System.arraycopy(value, valueOffset, array, position, valueLength);
     }
 
     @Override

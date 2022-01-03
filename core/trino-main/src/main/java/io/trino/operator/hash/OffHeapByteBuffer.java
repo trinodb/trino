@@ -116,6 +116,12 @@ public class OffHeapByteBuffer
     }
 
     @Override
+    public void put(int position, byte[] value, int valueOffset, int valueLength)
+    {
+        UNSAFE.copyMemory(value, valueOffset, null, address + position, valueLength);
+    }
+
+    @Override
     public boolean subArrayEquals(FastByteBuffer other, int thisOffset, int otherOffset, int length)
     {
         long thisPosition = address + thisOffset;

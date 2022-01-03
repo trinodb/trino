@@ -288,9 +288,9 @@ public class TestGroupByHash
         Work<GroupByIdBlock> work = groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
         work.process();
         GroupByIdBlock groupIds = work.getResult();
-//        for (int i = 0; i < groupIds.getPositionCount(); i++) {
-//            assertEquals(groupIds.getGroupId(i), i);
-//        }
+        for (int i = 0; i < groupIds.getPositionCount(); i++) {
+            assertEquals(groupIds.getGroupId(i), i);
+        }
         assertEquals(groupByHash.getGroupCount(), 100);
 
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());

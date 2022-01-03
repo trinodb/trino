@@ -2,8 +2,10 @@ package io.trino.operator.hash;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.operator.hash.var.VariableOffsetGroupByHashTableEntries;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.AbstractIntType;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.BooleanType;
@@ -22,26 +24,37 @@ import io.trino.type.IpAddressType;
 
 import java.util.Optional;
 
-import static io.trino.operator.hash.ColumnValueExtractor.AbstractColumnValueExtractor.MAX_SUMMARY_SIZE;
-
 public interface ColumnValueExtractor
 {
+    int INT96_BYTES = Long.BYTES + Integer.BYTES;
+    int INT128_BYTES = Long.BYTES + Long.BYTES;
+
     static boolean isSupported(Type type)
     {
         return columnValueExtractor(type).isPresent();
     }
 
-    void putValue(GroupByHashTableAccess row, int rowPosition, int valueIndex, Block block, int position);
+    void putValue(VariableOffsetGroupByHashTableEntries row, int rowPosition, int valueIndex, Block block, int position);
 
-    int getSummarySize();
+    void putValue(FastByteBuffer buffer, int offset, Block block, int position);
+
+    int getSize();
+
+    void appendValue(VariableOffsetGroupByHashTableEntries hashTable, int position, int valueIndex, BlockBuilder blockBuilder);
+
+    void appendValue(FastByteBuffer buffer, int offset, BlockBuilder blockBuilder);
+
+    int getSerializedValueLength(Block block, int position);
+
+    boolean isFixedSize();
 
     static Optional<ColumnValueExtractor> columnValueExtractor(Type type)
     {
         if (type instanceof VarcharType) {
-            return Optional.of(new SliceValueExtractor(((VarcharType) type).getLength().orElse(MAX_SUMMARY_SIZE)));
+            return Optional.of(new SliceValueExtractor(((VarcharType) type).getLength().orElse(Integer.MAX_VALUE)));
         }
         if (type instanceof VarbinaryType) {
-            return Optional.of(new SliceValueExtractor(MAX_SUMMARY_SIZE));
+            return Optional.of(new SliceValueExtractor(Integer.MAX_VALUE));
         }
         if (type instanceof BooleanType || type instanceof TinyintType) {
             return Optional.of(new ByteValueExtractor());
@@ -74,30 +87,58 @@ public interface ColumnValueExtractor
         return Optional.empty();
     }
 
-    void appendValue(GroupByHashTableAccess hashTable, int position, int valueIndex, BlockBuilder blockBuilder);
-
     class SliceValueExtractor
             extends AbstractColumnValueExtractor
             implements ColumnValueExtractor
     {
-        public SliceValueExtractor(int summarySize)
+        public SliceValueExtractor(int sizeInBytes)
         {
-            super(summarySize);
+            super(sizeInBytes);
         }
 
         @Override
-        public void putValue(GroupByHashTableAccess row, int rowPosition, int valueIndex, Block block, int position)
+        public void putValue(VariableOffsetGroupByHashTableEntries row, int rowPosition, int valueIndex, Block block, int position)
         {
             row.putSliceValue(rowPosition, valueIndex, block.getSlice(position, 0, block.getSliceLength(position)));
+        }
+
+        @Override
+        public void putValue(FastByteBuffer buffer, int offset, Block block, int position)
+        {
+            int valueLength = block.getSliceLength(position);
+            buffer.putByteUnsigned(offset, valueLength);
+            VariableWidthBlock varWidthBlock = (VariableWidthBlock) block;
+            Slice rawSlice = varWidthBlock.getRawSlice(position);
+            buffer.putSlice(offset + 1, rawSlice, varWidthBlock.getPositionOffset(position), valueLength);
         }
 
         private Slice buffer = Slices.allocate(64);
 
         @Override
-        public void appendValue(GroupByHashTableAccess hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
+        public void appendValue(VariableOffsetGroupByHashTableEntries hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
         {
             int valueLength = hashTable.getSliceValue(position, valueIndex, buffer);
             blockBuilder.writeBytes(buffer, 0, valueLength).closeEntry();
+        }
+
+        @Override
+        public void appendValue(FastByteBuffer from, int offset, BlockBuilder blockBuilder)
+        {
+            int length = from.getByteUnsigned(offset);
+            from.getSlice(offset + 1, length, buffer, 0);
+            blockBuilder.writeBytes(buffer, 0, length).closeEntry();
+        }
+
+        @Override
+        public int getSerializedValueLength(Block block, int position)
+        {
+            return block.getSliceLength(position) + Byte.BYTES /* length */;
+        }
+
+        @Override
+        public boolean isFixedSize()
+        {
+            return false;
         }
     }
 
@@ -111,15 +152,39 @@ public interface ColumnValueExtractor
         }
 
         @Override
-        public void putValue(GroupByHashTableAccess row, int rowPosition, int valueIndex, Block block, int position)
+        public void putValue(VariableOffsetGroupByHashTableEntries row, int rowPosition, int valueIndex, Block block, int position)
         {
             row.putLongValue(rowPosition, valueIndex, block.getLong(position, 0));
         }
 
         @Override
-        public void appendValue(GroupByHashTableAccess hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
+        public void putValue(FastByteBuffer buffer, int offset, Block block, int position)
+        {
+            buffer.putLong(offset, block.getLong(position, 0));
+        }
+
+        @Override
+        public void appendValue(VariableOffsetGroupByHashTableEntries hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
         {
             blockBuilder.writeLong(hashTable.getLongValue(position, valueIndex)).closeEntry();
+        }
+
+        @Override
+        public void appendValue(FastByteBuffer buffer, int offset, BlockBuilder blockBuilder)
+        {
+            blockBuilder.writeLong(buffer.getLong(offset)).closeEntry();
+        }
+
+        @Override
+        public int getSerializedValueLength(Block block, int position)
+        {
+            return Long.BYTES;
+        }
+
+        @Override
+        public boolean isFixedSize()
+        {
+            return true;
         }
     }
 
@@ -133,15 +198,39 @@ public interface ColumnValueExtractor
         }
 
         @Override
-        public void putValue(GroupByHashTableAccess row, int rowPosition, int valueIndex, Block block, int position)
+        public void putValue(VariableOffsetGroupByHashTableEntries row, int rowPosition, int valueIndex, Block block, int position)
         {
             row.putByteValue(rowPosition, valueIndex, block.getByte(position, 0));
         }
 
         @Override
-        public void appendValue(GroupByHashTableAccess hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
+        public void putValue(FastByteBuffer buffer, int offset, Block block, int position)
+        {
+            buffer.put(offset, block.getByte(position, 0));
+        }
+
+        @Override
+        public void appendValue(VariableOffsetGroupByHashTableEntries hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
         {
             blockBuilder.writeByte(hashTable.getByteValue(position, valueIndex)).closeEntry();
+        }
+
+        @Override
+        public void appendValue(FastByteBuffer buffer, int offset, BlockBuilder blockBuilder)
+        {
+            blockBuilder.writeByte(buffer.get(offset)).closeEntry();
+        }
+
+        @Override
+        public int getSerializedValueLength(Block block, int position)
+        {
+            return Byte.BYTES;
+        }
+
+        @Override
+        public boolean isFixedSize()
+        {
+            return true;
         }
     }
 
@@ -155,15 +244,39 @@ public interface ColumnValueExtractor
         }
 
         @Override
-        public void putValue(GroupByHashTableAccess row, int rowPosition, int valueIndex, Block block, int position)
+        public void putValue(VariableOffsetGroupByHashTableEntries row, int rowPosition, int valueIndex, Block block, int position)
         {
             row.putShortValue(rowPosition, valueIndex, block.getShort(position, 0));
         }
 
         @Override
-        public void appendValue(GroupByHashTableAccess hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
+        public void putValue(FastByteBuffer buffer, int offset, Block block, int position)
+        {
+            buffer.putShort(offset, block.getShort(position, 0));
+        }
+
+        @Override
+        public void appendValue(VariableOffsetGroupByHashTableEntries hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
         {
             blockBuilder.writeShort(hashTable.getShortValue(position, valueIndex)).closeEntry();
+        }
+
+        @Override
+        public void appendValue(FastByteBuffer buffer, int offset, BlockBuilder blockBuilder)
+        {
+            blockBuilder.writeShort(buffer.getShort(offset)).closeEntry();
+        }
+
+        @Override
+        public int getSerializedValueLength(Block block, int position)
+        {
+            return Short.BYTES;
+        }
+
+        @Override
+        public boolean isFixedSize()
+        {
+            return true;
         }
     }
 
@@ -177,15 +290,39 @@ public interface ColumnValueExtractor
         }
 
         @Override
-        public void putValue(GroupByHashTableAccess row, int rowPosition, int valueIndex, Block block, int position)
+        public void putValue(VariableOffsetGroupByHashTableEntries row, int rowPosition, int valueIndex, Block block, int position)
         {
             row.putIntValue(rowPosition, valueIndex, block.getInt(position, 0));
         }
 
         @Override
-        public void appendValue(GroupByHashTableAccess hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
+        public void putValue(FastByteBuffer buffer, int offset, Block block, int position)
+        {
+            buffer.putInt(offset, block.getInt(position, 0));
+        }
+
+        @Override
+        public void appendValue(VariableOffsetGroupByHashTableEntries hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
         {
             blockBuilder.writeInt(hashTable.getIntValue(position, valueIndex)).closeEntry();
+        }
+
+        @Override
+        public void appendValue(FastByteBuffer buffer, int offset, BlockBuilder blockBuilder)
+        {
+            blockBuilder.writeInt(buffer.getInt(offset)).closeEntry();
+        }
+
+        @Override
+        public int getSerializedValueLength(Block block, int position)
+        {
+            return Integer.BYTES;
+        }
+
+        @Override
+        public boolean isFixedSize()
+        {
+            return true;
         }
     }
 
@@ -199,18 +336,45 @@ public interface ColumnValueExtractor
         }
 
         @Override
-        public void putValue(GroupByHashTableAccess row, int rowPosition, int valueIndex, Block block, int position)
+        public void putValue(VariableOffsetGroupByHashTableEntries row, int rowPosition, int valueIndex, Block block, int position)
         {
             row.put128BitValue(rowPosition, valueIndex, block.getLong(position, 0), block.getLong(position, Long.BYTES));
+        }
+
+        @Override
+        public void putValue(FastByteBuffer buffer, int offset, Block block, int position)
+        {
+            buffer.putLong(offset, block.getLong(position, 0));
+            buffer.putLong(offset + Long.BYTES, block.getLong(position, Long.BYTES));
         }
 
         private final Slice buffer = Slices.allocate(16);
 
         @Override
-        public void appendValue(GroupByHashTableAccess hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
+        public void appendValue(VariableOffsetGroupByHashTableEntries hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
         {
             hashTable.getInt128Value(position, valueIndex, buffer);
             blockBuilder.writeLong(buffer.getLong(0)).writeLong(buffer.getLong(Long.BYTES)).closeEntry();
+        }
+
+        @Override
+        public void appendValue(FastByteBuffer buffer, int offset, BlockBuilder blockBuilder)
+        {
+            blockBuilder.writeLong(buffer.getLong(offset));
+            blockBuilder.writeLong(buffer.getLong(offset + Long.BYTES));
+            blockBuilder.closeEntry();
+        }
+
+        @Override
+        public int getSerializedValueLength(Block block, int position)
+        {
+            return INT128_BYTES;
+        }
+
+        @Override
+        public boolean isFixedSize()
+        {
+            return true;
         }
     }
 
@@ -224,36 +388,62 @@ public interface ColumnValueExtractor
         }
 
         @Override
-        public void putValue(GroupByHashTableAccess row, int rowPosition, int valueIndex, Block block, int position)
+        public void putValue(VariableOffsetGroupByHashTableEntries row, int rowPosition, int valueIndex, Block block, int position)
         {
             row.put96BitValue(rowPosition, valueIndex, block.getLong(position, 0), block.getInt(position, Long.BYTES));
+        }
+
+        @Override
+        public void putValue(FastByteBuffer buffer, int offset, Block block, int position)
+        {
+            buffer.putLong(offset, block.getLong(position, 0));
+            buffer.putInt(offset + Long.BYTES, block.getInt(position, Long.BYTES));
         }
 
         private final Slice buffer = Slices.allocate(12);
 
         @Override
-        public void appendValue(GroupByHashTableAccess hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
+        public void appendValue(VariableOffsetGroupByHashTableEntries hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
         {
             hashTable.getInt96Value(position, valueIndex, buffer);
             blockBuilder.writeLong(buffer.getLong(0)).writeInt(buffer.getInt(Long.BYTES)).closeEntry();
+        }
+
+        @Override
+        public void appendValue(FastByteBuffer buffer, int offset, BlockBuilder blockBuilder)
+        {
+            blockBuilder.writeLong(buffer.getLong(offset));
+            blockBuilder.writeInt(buffer.getInt(offset + Long.BYTES));
+            blockBuilder.closeEntry();
+        }
+
+        @Override
+        public int getSerializedValueLength(Block block, int position)
+        {
+            return INT96_BYTES;
+        }
+
+        @Override
+        public boolean isFixedSize()
+        {
+            return true;
         }
     }
 
     abstract class AbstractColumnValueExtractor
             implements ColumnValueExtractor
     {
-        static final int MAX_SUMMARY_SIZE = 16;
-        private final int summarySize;
+        private final int sizeInBytes;
 
-        protected AbstractColumnValueExtractor(int summarySize)
+        protected AbstractColumnValueExtractor(int sizeInBytes)
         {
-            this.summarySize = Math.min(summarySize, MAX_SUMMARY_SIZE);
+            this.sizeInBytes = sizeInBytes;
         }
 
         @Override
-        public int getSummarySize()
+        public int getSize()
         {
-            return summarySize;
+            return sizeInBytes;
         }
     }
 }

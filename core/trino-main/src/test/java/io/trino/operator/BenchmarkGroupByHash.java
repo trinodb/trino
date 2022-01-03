@@ -408,7 +408,7 @@ public class BenchmarkGroupByHash
         PageBuilder pageBuilder = new PageBuilder(types);
         for (int position = 0; position < positionCount; position++) {
             int rand = ThreadLocalRandom.current().nextInt(groupCount);
-            Slice value = Slices.wrappedBuffer(ByteBuffer.allocate(16).putInt(rand).putInt(rand).putInt(rand).putInt(rand).flip());
+            Slice value = Slices.wrappedBuffer(ByteBuffer.allocate(12).putInt(rand).putInt(rand).putInt(rand).flip());
             pageBuilder.declarePosition();
             for (int channel = 0; channel < channelCount; channel++) {
                 VARCHAR.writeSlice(pageBuilder.getBlockBuilder(channel), value);
