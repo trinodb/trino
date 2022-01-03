@@ -817,7 +817,7 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         boolean isVarchar = Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
                 .map(JdbcColumnHandle::getColumnType)
@@ -830,7 +830,7 @@ public class PostgreSqlClient
                 case LESS_THAN_OR_EQUAL:
                 case GREATER_THAN:
                 case GREATER_THAN_OR_EQUAL:
-                    break;
+                    return false;
                 case EQUAL:
                 case NOT_EQUAL:
                 case IS_DISTINCT_FROM:
