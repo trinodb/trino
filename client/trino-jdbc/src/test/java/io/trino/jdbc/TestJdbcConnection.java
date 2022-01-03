@@ -425,7 +425,7 @@ public class TestJdbcConnection
                     .extractingByKeys("hive.temporary_staging_directory_path", "execution_policy")
                     .containsExactly("/tmp", "legacy-phased");
             assertThat(listSession(connection)).containsAll(ImmutableSet.of(
-                    "execution_policy|legacy-phased|all-at-once",
+                    "execution_policy|legacy-phased|phased",
                     "hive.temporary_staging_directory_path|/tmp|/tmp/presto-${USER}"));
         }
     }
