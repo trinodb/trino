@@ -180,25 +180,6 @@ public class TestColumnMask
     }
 
     @Test
-    public void testMultipleMasksOnSameColumn()
-    {
-        accessControl.reset();
-        accessControl.columnMask(
-                new QualifiedObjectName(CATALOG, "tiny", "orders"),
-                "custkey",
-                USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "-custkey"));
-
-        accessControl.columnMask(
-                new QualifiedObjectName(CATALOG, "tiny", "orders"),
-                "custkey",
-                USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "custkey * 2"));
-
-        assertThat(assertions.query("SELECT custkey FROM orders WHERE orderkey = 1")).matches("VALUES BIGINT '-740'");
-    }
-
-    @Test
     public void testMultipleMasksOnDifferentColumns()
     {
         accessControl.reset();
