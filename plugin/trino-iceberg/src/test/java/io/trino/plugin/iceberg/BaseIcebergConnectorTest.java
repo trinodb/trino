@@ -265,6 +265,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testShowCreateTable()
     {
+        File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo("CREATE TABLE iceberg.tpch.orders (\n" +
                         "   orderkey bigint,\n" +
@@ -278,7 +279,8 @@ public abstract class BaseIcebergConnectorTest
                         "   comment varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   format = '" + format.name() + "'\n" +
+                        "   format = '" + format.name() + "',\n" +
+                        "   location = '" + tempDir + "/iceberg_data/tpch/orders'\n" +
                         ")");
     }
 
@@ -894,9 +896,12 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreatePartitionedTableAs()
     {
+        File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
+        String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix();
         assertUpdate(
                 "CREATE TABLE test_create_partitioned_table_as " +
                         "WITH (" +
+                        "location = '" + tempDirPath + "', " +
                         "partitioning = ARRAY['ORDER_STATUS', 'Ship_Priority', 'Bucket(order_key,9)']" +
                         ") " +
                         "AS " +
@@ -914,12 +919,14 @@ public abstract class BaseIcebergConnectorTest
                                 ")\n" +
                                 "WITH (\n" +
                                 "   format = '%s',\n" +
+                                "   location = '%s',\n" +
                                 "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
                                 ")",
                         getSession().getCatalog().orElseThrow(),
                         getSession().getSchema().orElseThrow(),
                         "test_create_partitioned_table_as",
-                        format));
+                        format,
+                        tempDirPath));
 
         assertQuery("SELECT * from test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
 
@@ -947,20 +954,24 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testTableComments()
     {
+        File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
+        String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix();
         String createTableTemplate = "" +
                 "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
                 "   _x bigint\n" +
                 ")\n" +
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
-                format("   format = '%s'\n", format) +
+                format("   format = '%s',\n", format) +
+                format("   location = '%s'\n", tempDirPath) +
                 ")";
         String createTableWithoutComment = "" +
                 "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
                 "   _x bigint\n" +
                 ")\n" +
                 "WITH (\n" +
-                "   format = '" + format + "'\n" +
+                "   format = '" + format + "',\n" +
+                "   location = '" + tempDirPath + "'\n" +
                 ")";
         String createTableSql = format(createTableTemplate, "test table comment", format);
         assertUpdate(createTableSql);
@@ -1072,9 +1083,13 @@ public abstract class BaseIcebergConnectorTest
 
     private void testCreateTableLikeForFormat(FileFormat otherFormat)
     {
-        assertUpdate(format("CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = '%s', partitioning = ARRAY['aDate'])", format));
+        File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
+        String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix();
+
+        assertUpdate(format("CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = '%s', location = '%s', partitioning = ARRAY['aDate'])", format, tempDirPath));
         assertEquals(getTablePropertiesString("test_create_table_like_original"), "WITH (\n" +
                 format("   format = '%s',\n", format) +
+                format("   location = '%s',\n", tempDirPath) +
                 "   partitioning = ARRAY['adate']\n" +
                 ")");
 
@@ -1085,17 +1100,18 @@ public abstract class BaseIcebergConnectorTest
 
         assertUpdate("CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy1"), "WITH (\n" +
-                format("   format = '%s'\n)", format));
+                format("   format = '%s',\n   location = '%s'\n)", format, tempDir + "/iceberg_data/tpch/test_create_table_like_copy1"));
         dropTable("test_create_table_like_copy1");
 
         assertUpdate("CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy2"), "WITH (\n" +
-                format("   format = '%s'\n)", format));
+                format("   format = '%s',\n   location = '%s'\n)", format, tempDir + "/iceberg_data/tpch/test_create_table_like_copy2"));
         dropTable("test_create_table_like_copy2");
 
         assertUpdate("CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
         assertEquals(getTablePropertiesString("test_create_table_like_copy3"), "WITH (\n" +
                 format("   format = '%s',\n", format) +
+                format("   location = '%s',\n", tempDirPath) +
                 "   partitioning = ARRAY['adate']\n" +
                 ")");
         dropTable("test_create_table_like_copy3");
@@ -1103,6 +1119,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = '%s')", otherFormat));
         assertEquals(getTablePropertiesString("test_create_table_like_copy4"), "WITH (\n" +
                 format("   format = '%s',\n", otherFormat) +
+                format("   location = '%s',\n", tempDirPath) +
                 "   partitioning = ARRAY['adate']\n" +
                 ")");
         dropTable("test_create_table_like_copy4");
