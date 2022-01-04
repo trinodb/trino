@@ -44,6 +44,10 @@ public final class StarburstCommonSqlServerSessionProperties
     }
 
     public static boolean isBulkCopyForWrite(ConnectorSession session)
+    /*
+    Note: certain data types are unsupported by sql server and prevent bulk copies from being performed
+    https://docs.microsoft.com/en-us/sql/connect/jdbc/use-bulk-copy-api-batch-insert-operation?view=sql-server-ver15#known-limitations
+     */
     {
         return session.getProperty(BULK_COPY_FOR_WRITE, Boolean.class);
     }
