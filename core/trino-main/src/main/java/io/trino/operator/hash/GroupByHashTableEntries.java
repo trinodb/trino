@@ -25,4 +25,15 @@ public interface GroupByHashTableEntries
     void copyEntryFrom(GroupByHashTableEntries src, int srcPosition, int toPosition);
 
     long getEstimatedSize();
+
+    void putHash(int position, long hash);
+
+    void putGroupId(int position, int groupId);
+
+    default boolean isOverflow(int position)
+    {
+        return getOverflowLength(position) != 0;
+    }
+
+    int getOverflowLength(int position);
 }

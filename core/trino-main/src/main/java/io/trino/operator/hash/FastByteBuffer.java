@@ -34,6 +34,8 @@ public interface FastByteBuffer
         clear(capacity());
     }
 
+    boolean subArrayEquals(Slice other, int thisOffset, int otherOffset, int length);
+
     void clear(int upToPosition);
 
     default void putByteUnsigned(int position, int value)

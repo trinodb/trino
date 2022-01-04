@@ -85,7 +85,7 @@ public interface GroupByHash
     {
 
         if (useEnhancedGroupBy && hashTypes.stream().allMatch(ColumnValueExtractor::isSupported)) {
-            return new MultiChannelGroupByHashInlineFastBBAllTypes(hashTypes, hashChannels, inputHashChannel, expectedSize, updateMemory);
+            return new MultiChannelGroupByHashInlineFastBBAllTypes(hashTypes, hashChannels, inputHashChannel, expectedSize, updateMemory, blockTypeOperators);
         }
         if (useEnhancedGroupBy && hashTypes.stream().allMatch(type -> type.equals(BIGINT))) {
             return new MultiChannelBigintGroupByHashInlineBatch(hashChannels, inputHashChannel, expectedSize, updateMemory);

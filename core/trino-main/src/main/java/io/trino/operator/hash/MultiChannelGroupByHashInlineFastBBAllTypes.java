@@ -18,17 +18,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.trino.operator.GroupByHash;
 import io.trino.operator.GroupByIdBlock;
+import io.trino.operator.HashGenerator;
+import io.trino.operator.InterpretedHashGenerator;
+import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.operator.UpdateMemory;
 import io.trino.operator.Work;
 import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import io.trino.operator.hash.fixed.FixedOffsetRowExtractor;
-import io.trino.operator.hash.fixed.FixedOffsetsGroupByHashTableEntries;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import org.jetbrains.annotations.NotNull;
+import io.trino.type.BlockTypeOperators;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
@@ -75,14 +77,15 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
             int[] hashChannels,
             Optional<Integer> inputHashChannel,
             int expectedSize,
-            UpdateMemory updateMemory)
+            UpdateMemory updateMemory,
+            BlockTypeOperators blockTypeOperators)
     {
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
         this.hashChannels = requireNonNull(hashChannels, "hashChannels is null");
         checkArgument(hashChannels.length > 0, "hashChannels.length must be at least 1");
         this.inputHashChannel = requireNonNull(inputHashChannel, "inputHashChannel is null");
-        this.hashTableFactory = new HashTableFactory(hashTypes, hashChannels);
+        this.hashTableFactory = new HashTableFactory(hashTypes, hashChannels, inputHashChannel, blockTypeOperators);
         this.hashTable = hashTableFactory.create(expectedSize);
 
         // This interface is used for actively reserving memory (push model) for rehash.
@@ -133,7 +136,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
             @Override
             public boolean hasNext()
             {
-                return currentGroupId + 1 < hashTable.hashTableSize;
+                return currentGroupId + 1 < hashTable.hashTableSize();
             }
 
             @Override
@@ -145,7 +148,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
             @Override
             public void appendValuesTo(PageBuilder pageBuilder, int outputChannelOffset)
             {
-                MultiChannelGroupByHashInlineFastBBAllTypes.this.appendValuesTo(hashTable, hashTable.groupToHashPosition[currentGroupId], pageBuilder, outputChannelOffset);
+                MultiChannelGroupByHashInlineFastBBAllTypes.this.appendValuesTo(hashTable, hashTable.groupToHashPosition(currentGroupId), pageBuilder, outputChannelOffset);
             }
 
             @Override
@@ -227,7 +230,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
 //        System.out.println("rehash: old: " + hashCapacity + " new: " + newCapacity);
         // An estimate of how much extra memory is needed before we can go ahead and expand the hash table.
         // This includes the new capacity for values, groupIds, and valuesByGroupId as well as the size of the current page
-        preallocatedMemoryInBytes = (newCapacity - hashTable.getCapacity()) * (long) (Long.BYTES + Integer.BYTES) + (calculateMaxFill(newCapacity) - hashTable.maxFill) * Long.BYTES + currentPageSizeInBytes;
+        preallocatedMemoryInBytes = (newCapacity - hashTable.getCapacity()) * (long) (Long.BYTES + Integer.BYTES) + (calculateMaxFill(newCapacity) - hashTable.maxFill()) * Long.BYTES + currentPageSizeInBytes;
         if (!updateMemory.update()) {
             // reserved memory but has exceeded the limit
             return false;
@@ -238,8 +241,8 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
 
         NoRehashHashTable newHashTable = hashTableFactory.create(
                 newCapacity,
-                hashTable.entries.takeOverflow(),
-                Arrays.copyOf(hashTable.groupToHashPosition, newCapacity),
+                hashTable.entries().takeOverflow(),
+                Arrays.copyOf(hashTable.groupToHashPosition(), newCapacity),
                 hashTable.getHashCollisions());
 
         newHashTable.copyFrom(hashTable);
@@ -357,8 +360,9 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
         private final int dataValuesLength;
         private final int hashChannelsCount;
         private final RowExtractor rowExtractor;
+        private final HashGenerator hashGenerator;
 
-        public HashTableFactory(List<? extends Type> hashTypes, int[] hashChannels)
+        public HashTableFactory(List<? extends Type> hashTypes, int[] hashChannels, Optional<Integer> inputHashChannel, BlockTypeOperators blockTypeOperators)
         {
             hashChannelsCount = hashChannels.length;
             ColumnValueExtractor[] columnValueExtractors = hashTypes.stream()
@@ -367,16 +371,25 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
                     .toArray(ColumnValueExtractor[]::new);
             this.rowExtractor = new FixedOffsetRowExtractor(hashChannels, columnValueExtractors);
             this.dataValuesLength = rowExtractor.mainBufferValuesLength();
+            this.hashGenerator = inputHashChannel.isPresent() ?
+                    new PrecomputedHashGenerator(inputHashChannel.get()) :
+                    new InterpretedHashGenerator(ImmutableList.copyOf(hashTypes), hashChannels, blockTypeOperators);
         }
 
         public NoRehashHashTable create(int expectedSize)
         {
-            return NoRehashHashTable.create(hashChannelsCount, expectedSize, rowExtractor, dataValuesLength);
+            int hashCapacity = arraySize(expectedSize, MultiChannelGroupByHashInlineFastBBAllTypes.FILL_RATIO);
+            return create(
+                    hashCapacity,
+                    FastByteBuffer.allocate(128 * 1024),
+                    new int[hashCapacity],
+                    0);
         }
 
         public NoRehashHashTable create(int totalEntryCount, FastByteBuffer overflow, int[] groupToHashPosition, long hashCollisions)
         {
-            return new NoRehashHashTable(
+            return new NoRowBufferNoRehashHashTable(
+                    hashGenerator,
                     rowExtractor,
                     hashChannelsCount,
                     totalEntryCount,
@@ -387,8 +400,179 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
         }
     }
 
-    static class NoRehashHashTable
-            implements AutoCloseable
+    // does not copy to rowBuffer in putIfAbsent
+    static class NoRowBufferNoRehashHashTable
+            implements NoRehashHashTable
+    {
+        private final HashGenerator hashGenerator;
+        private final int hashCapacity;
+        private final int maxFill;
+        private final int mask;
+        private final int[] groupToHashPosition;
+
+        private int hashTableSize;
+        private long hashCollisions;
+        private final RowExtractor rowExtractor;
+        private final GroupByHashTableEntries entries;
+
+        public NoRowBufferNoRehashHashTable(
+                HashGenerator hashGenerator,
+                RowExtractor rowExtractor,
+                int hashChannelsCount,
+                int hashCapacity,
+                FastByteBuffer overflow,
+                int[] groupToHashPosition,
+                long hashCollisions,
+                int dataValuesLength)
+        {
+            this.hashGenerator = hashGenerator;
+            this.rowExtractor = rowExtractor;
+            this.hashCapacity = hashCapacity;
+            this.groupToHashPosition = groupToHashPosition;
+
+            this.maxFill = calculateMaxFill(hashCapacity);
+            this.mask = hashCapacity - 1;
+            this.entries = rowExtractor.allocateHashTableEntries(hashChannelsCount, hashCapacity, overflow, dataValuesLength);
+            this.hashCollisions = hashCollisions;
+        }
+
+        public int putIfAbsent(int position, Page page)
+        {
+            long rawHash = hashGenerator.hashPosition(position, page);
+            int hashPosition = getHashPosition(rawHash);
+            // look for an empty slot or a slot containing this key
+            while (true) {
+                int current = entries.getGroupId(hashPosition);
+
+                if (current == -1) {
+                    // empty slot found
+                    int groupId = hashTableSize++;
+                    rowExtractor.putEntry(entries, hashPosition, groupId, page, position, rawHash);
+                    groupToHashPosition[groupId] = hashPosition;
+//                System.out.println(hashPosition + ": v=" + value + ", " + hashTableSize);
+                    return groupId;
+                }
+
+                if (rowExtractor.keyEquals(entries, hashPosition, page, position, rawHash)) {
+                    return current;
+                }
+
+                hashPosition = hashPosition + entries.getEntrySize();
+                if (hashPosition >= entries.capacity()) {
+                    hashPosition = 0;
+                }
+                hashCollisions++;
+            }
+        }
+
+        public int getSize()
+        {
+            return hashTableSize;
+        }
+
+        public boolean needRehash()
+        {
+            return hashTableSize >= maxFill;
+        }
+
+        @Override
+        public int maxFill()
+        {
+            return maxFill;
+        }
+
+        public int getCapacity()
+        {
+            return hashCapacity;
+        }
+
+        public long getEstimatedSize()
+        {
+            return entries.getEstimatedSize() + sizeOf(groupToHashPosition);
+        }
+
+        @Override
+        public void close()
+        {
+            entries.close();
+        }
+
+        public void copyFrom(NoRehashHashTable other)
+        {
+            GroupByHashTableEntries otherHashTable = other.entries();
+            GroupByHashTableEntries thisHashTable = this.entries;
+            int entrySize = entries.getEntrySize();
+            for (int i = 0; i <= otherHashTable.capacity() - entrySize; i += entrySize) {
+                if (otherHashTable.getGroupId(i) != -1) {
+                    int hashPosition = getHashPosition(otherHashTable.getHash(i));
+                    // look for an empty slot or a slot containing this key
+                    while (thisHashTable.getGroupId(hashPosition) != -1) {
+                        hashPosition = hashPosition + entrySize;
+                        if (hashPosition >= thisHashTable.capacity()) {
+                            hashPosition = 0;
+                        }
+                        hashCollisions++;
+                    }
+                    // we can just copy data because overflow is reused
+                    thisHashTable.copyEntryFrom(otherHashTable, i, hashPosition);
+                    groupToHashPosition[otherHashTable.getGroupId(i)] = hashPosition;
+                }
+            }
+            hashTableSize += other.getSize();
+        }
+
+        public void appendValuesTo(int hashPosition, PageBuilder pageBuilder, int outputChannelOffset, boolean outputHash)
+        {
+            rowExtractor.appendValuesTo(entries, hashPosition, pageBuilder, outputChannelOffset, outputHash);
+        }
+
+        private int getHashPosition(long rawHash)
+        {
+            return (int) (murmurHash3(rawHash) & mask) * entries.getEntrySize();
+        }
+
+        public long getHash(int startPosition)
+        {
+            return entries.getHash(startPosition + Integer.BYTES);
+        }
+
+        public long getHashCollisions()
+        {
+            return hashCollisions;
+        }
+
+        public int isNull(int hashPosition, int index)
+        {
+            return entries.isNull(hashPosition, index);
+        }
+
+        @Override
+        public GroupByHashTableEntries entries()
+        {
+            return entries;
+        }
+
+        @Override
+        public int hashTableSize()
+        {
+            return hashTableSize;
+        }
+
+        @Override
+        public int groupToHashPosition(int groupId)
+        {
+            return groupToHashPosition[groupId];
+        }
+
+        @Override
+        public int[] groupToHashPosition()
+        {
+            return groupToHashPosition;
+        }
+    }
+
+    static class RowBufferNoRehashHashTable
+            implements NoRehashHashTable
     {
         private final int hashCapacity;
         private final int maxFill;
@@ -401,24 +585,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
         private final GroupByHashTableEntries rowBuffer;
         private final GroupByHashTableEntries entries;
 
-        public static NoRehashHashTable create(
-                int hashChannelsCount,
-                int expectedSize,
-                RowExtractor rowExtractor,
-                int dataValuesLength)
-        {
-            int hashCapacity = arraySize(expectedSize, FILL_RATIO);
-            return new NoRehashHashTable(
-                    rowExtractor,
-                    hashChannelsCount,
-                    hashCapacity,
-                    FastByteBuffer.allocate(128 * 1024),
-                    new int[hashCapacity],
-                    0,
-                    dataValuesLength);
-        }
-
-        public NoRehashHashTable(
+        public RowBufferNoRehashHashTable(
                 RowExtractor rowExtractor,
                 int hashChannelsCount,
                 int hashCapacity,
@@ -438,9 +605,10 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
             this.hashCollisions = hashCollisions;
         }
 
-        private int putIfAbsent(int position, Page page)
+        @Override
+        public int putIfAbsent(int position, Page page)
         {
-            rowExtractor.copyToRow(page, position, rowBuffer);
+            rowExtractor.copyToEntriesTable(page, position, rowBuffer, 0);
 
             int hashPosition = getHashPosition(rowBuffer, 0);
             // look for an empty slot or a slot containing this key
@@ -468,21 +636,30 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
             }
         }
 
+        @Override
         public int getSize()
         {
             return hashTableSize;
         }
 
-        private boolean needRehash()
+        public boolean needRehash()
         {
             return hashTableSize >= maxFill;
         }
 
+        @Override
+        public int maxFill()
+        {
+            return maxFill;
+        }
+
+        @Override
         public int getCapacity()
         {
             return hashCapacity;
         }
 
+        @Override
         public long getEstimatedSize()
         {
             return entries.getEstimatedSize() + sizeOf(groupToHashPosition);
@@ -499,9 +676,10 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
             }
         }
 
+        @Override
         public void copyFrom(NoRehashHashTable other)
         {
-            GroupByHashTableEntries otherHashTable = other.entries;
+            GroupByHashTableEntries otherHashTable = other.entries();
             GroupByHashTableEntries thisHashTable = this.entries;
             int entrySize = entries.getEntrySize();
             for (int i = 0; i <= otherHashTable.capacity() - entrySize; i += entrySize) {
@@ -523,6 +701,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
             hashTableSize += other.getSize();
         }
 
+        @Override
         public void appendValuesTo(int hashPosition, PageBuilder pageBuilder, int outputChannelOffset, boolean outputHash)
         {
             rowExtractor.appendValuesTo(entries, hashPosition, pageBuilder, outputChannelOffset, outputHash);
@@ -535,19 +714,46 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
             return (int) (hash & mask) * entries.getEntrySize();
         }
 
+        @Override
         public long getHash(int startPosition)
         {
             return entries.getHash(startPosition + Integer.BYTES);
         }
 
+        @Override
         public long getHashCollisions()
         {
             return hashCollisions;
         }
 
+        @Override
         public int isNull(int hashPosition, int index)
         {
             return entries.isNull(hashPosition, index);
+        }
+
+        @Override
+        public GroupByHashTableEntries entries()
+        {
+            return entries;
+        }
+
+        @Override
+        public int hashTableSize()
+        {
+            return hashTableSize;
+        }
+
+        @Override
+        public int groupToHashPosition(int groupId)
+        {
+            return groupToHashPosition[groupId];
+        }
+
+        @Override
+        public int[] groupToHashPosition()
+        {
+            return groupToHashPosition;
         }
     }
 

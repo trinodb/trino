@@ -156,6 +156,41 @@ public class OffHeapByteBuffer
     }
 
     @Override
+    public boolean subArrayEquals(Slice other, int thisOffset, int otherOffset, int length)
+    {
+        Object otherBase = other.getBase();
+        long thisPosition = address + thisOffset;
+        long otherPosition = other.getAddress() + otherOffset;
+
+        int i = 0;
+        for (; i <= length - 8; i += 8) {
+            if (UNSAFE.getLong(thisPosition) != UNSAFE.getLong(otherBase, otherPosition)) {
+                return false;
+            }
+            thisPosition += 8;
+            otherPosition += 8;
+        }
+
+        if (i <= length - 4) {
+            if (UNSAFE.getInt(thisPosition) != UNSAFE.getInt(otherBase, otherPosition)) {
+                return false;
+            }
+            thisPosition += 4;
+            otherPosition += 4;
+            i += 4;
+        }
+
+        for (; i < length; i++) {
+            if (UNSAFE.getByte(thisPosition) != UNSAFE.getByte(otherBase, otherPosition)) {
+                return false;
+            }
+            thisPosition++;
+            otherPosition++;
+        }
+        return true;
+    }
+
+    @Override
     public void clear(int upTo)
     {
         UNSAFE.setMemory(address, upTo, (byte) 0);

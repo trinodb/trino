@@ -179,6 +179,42 @@ public class ArrayFastByteBuffer
     }
 
     @Override
+    public boolean subArrayEquals(Slice other, int thisOffset, int otherOffset, int length)
+    {
+        Object otherBase = other.getBase();
+        long thisPosition = BYTE_ARRAY_BASE_OFFSET + thisOffset;
+        long otherPosition = other.getAddress() + otherOffset;
+
+
+        int i = 0;
+        for (; i <= length - 8; i += 8) {
+            if (UNSAFE.getLong(this.array, thisPosition) != UNSAFE.getLong(otherBase, otherPosition)) {
+                return false;
+            }
+            thisPosition += 8;
+            otherPosition += 8;
+        }
+
+        if (i <= length - 4) {
+            if (UNSAFE.getInt(this.array, thisPosition) != UNSAFE.getInt(otherBase, otherPosition)) {
+                return false;
+            }
+            thisPosition += 4;
+            otherPosition += 4;
+            i += 4;
+        }
+
+        for (; i < length; i++) {
+            if (UNSAFE.getByte(this.array, thisPosition) != UNSAFE.getByte(otherBase, otherPosition)) {
+                return false;
+            }
+            thisPosition++;
+            otherPosition++;
+        }
+        return true;
+    }
+
+    @Override
     public void clear(int upToPosition)
     {
         UNSAFE.setMemory(array, BYTE_ARRAY_BASE_OFFSET, upToPosition, (byte) 0);

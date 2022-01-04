@@ -54,9 +54,39 @@ public class FixedOffsetRowExtractor
         return bufferSize;
     }
 
-    public void copyToRow(Page page, int position, FixedOffsetsGroupByHashTableEntries row)
+    private void copyToMainBuffer(Page page, int position, FixedOffsetGroupByHashTableEntries row, int offset)
     {
-//        row.clear();
+        row.markNoOverflow(offset);
+        int valuesOffset = row.getValuesOffset(offset);
+        FastByteBuffer mainBuffer = row.getMainBuffer();
+        for (int i = 0; i < hashChannels.length; i++) {
+            Block block = page.getBlock(hashChannels[i]);
+
+            columnValueExtractors[i].putValue(mainBuffer, valuesOffset + mainBufferOffsets[i], block, position);
+        }
+    }
+
+    @Override
+    public void copyToEntriesTable(Page page, int position, GroupByHashTableEntries table, int entriesPosition)
+    {
+        FixedOffsetGroupByHashTableEntries entries = (FixedOffsetGroupByHashTableEntries) table;
+        putEntryValue(page, position, entries, entriesPosition);
+
+        long hash = entries.calculateValuesHash(entriesPosition);
+        entries.putHash(entriesPosition, hash);
+    }
+
+    @Override
+    public void putEntry(GroupByHashTableEntries entries, int hashPosition, int groupId, Page page, int position, long rawHash)
+    {
+        entries.putGroupId(hashPosition, groupId);
+        putEntryValue(page, position, (FixedOffsetGroupByHashTableEntries) entries, hashPosition);
+        entries.putHash(hashPosition, rawHash);
+    }
+
+    private void putEntryValue(Page page, int position, FixedOffsetGroupByHashTableEntries entries, int entriesOffset)
+    {
+        //        entries.clear();
         boolean overflow = false;
         int offset = 0;
         for (int i = 0; i < hashChannels.length; i++) {
@@ -72,42 +102,62 @@ public class FixedOffsetRowExtractor
 //            }
         }
 
-        row.putIsNull(0, isNull);
+        entries.putIsNull(entriesOffset, isNull);
         if (!overflow) {
-            copyToMainBuffer(page, position, row);
+            copyToMainBuffer(page, position, entries, entriesOffset);
         }
         else {
             /// put in overflow
-//            row.reserveOverflowLength(0, offset);
+//            entries.reserveOverflowLength(0, offset);
             throw new UnsupportedOperationException();
-        }
-
-        long hash = row.calculateValuesHash(0);
-        row.putHash(0, hash);
-    }
-
-    private void copyToMainBuffer(Page page, int position, FixedOffsetsGroupByHashTableEntries row)
-    {
-        row.markNoOverflow(0);
-        int valuesOffset = row.getValuesOffset(0);
-        FastByteBuffer mainBuffer = row.getMainBuffer();
-        for (int i = 0; i < hashChannels.length; i++) {
-            Block block = page.getBlock(hashChannels[i]);
-
-            columnValueExtractors[i].putValue(mainBuffer, valuesOffset + mainBufferOffsets[i], block, position);
         }
     }
 
     @Override
-    public void copyToRow(Page page, int position, GroupByHashTableEntries entry)
+    public boolean keyEquals(GroupByHashTableEntries entries, int hashPosition, Page page, int position, long rawHash)
     {
-        copyToRow(page, position, (FixedOffsetsGroupByHashTableEntries) entry);
+        if (rawHash != entries.getHash(hashPosition)) {
+            return false;
+        }
+
+        boolean overflow = entries.isOverflow(hashPosition);
+        FixedOffsetGroupByHashTableEntries table = (FixedOffsetGroupByHashTableEntries) entries;
+        if (!overflow) {
+            int valuesOffset = table.getValuesOffset(hashPosition);
+            FastByteBuffer mainBuffer = table.getMainBuffer();
+            return valuesEquals(table, hashPosition, page, position, mainBuffer, valuesOffset);
+        }
+        else {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private boolean valuesEquals(FixedOffsetGroupByHashTableEntries table, int hashPosition,
+            Page page, int position, FastByteBuffer buffer, int valuesOffset)
+    {
+        for (int i = 0; i < hashChannels.length; i++) {
+            Block block = page.getBlock(hashChannels[i]);
+
+            boolean blockValueNull = block.isNull(position);
+            byte tableValueIsNull = table.isNull(hashPosition, i);
+            if (blockValueNull) {
+                return tableValueIsNull == 1;
+            }
+            if (tableValueIsNull == 1) {
+                return false;
+            }
+
+            if (!columnValueExtractors[i].valueEquals(buffer, valuesOffset + mainBufferOffsets[i], block, position)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
     public void appendValuesTo(GroupByHashTableEntries entries, int hashPosition, PageBuilder pageBuilder, int outputChannelOffset, boolean outputHash)
     {
-        FixedOffsetsGroupByHashTableEntries hashTable = (FixedOffsetsGroupByHashTableEntries) entries;
+        FixedOffsetGroupByHashTableEntries hashTable = (FixedOffsetGroupByHashTableEntries) entries;
         boolean overflow = hashTable.isOverflow(hashPosition);
         if (!overflow) {
             FastByteBuffer mainBuffer = hashTable.getMainBuffer();
@@ -136,13 +186,13 @@ public class FixedOffsetRowExtractor
     @Override
     public GroupByHashTableEntries allocateRowBuffer(int hashChannelsCount, int dataValuesLength)
     {
-        return new FixedOffsetsGroupByHashTableEntries(1, FastByteBuffer.allocate(1024), hashChannelsCount, false, dataValuesLength);
+        return new FixedOffsetGroupByHashTableEntries(1, FastByteBuffer.allocate(1024), hashChannelsCount, false, dataValuesLength);
     }
 
     @Override
     public GroupByHashTableEntries allocateHashTableEntries(int hashChannelsCount, int hashCapacity, FastByteBuffer overflow, int dataValuesLength)
     {
-        return new FixedOffsetsGroupByHashTableEntries(hashCapacity, overflow, hashChannelsCount, true, dataValuesLength);
+        return new FixedOffsetGroupByHashTableEntries(hashCapacity, overflow, hashChannelsCount, true, dataValuesLength);
     }
 
     @Override

@@ -6,15 +6,16 @@ import it.unimi.dsi.fastutil.HashCommon;
 
 import static com.google.common.base.Verify.verify;
 
-public class FixedOffsetsGroupByHashTableEntries
+public class FixedOffsetGroupByHashTableEntries
         implements AutoCloseable, GroupByHashTableEntries
 {
     // Memory layout per entry
-    //  0 - 4 : overflow length
-    //  4 - 8 : overflow position
-    //  8 - 16 : hash
-    // 16 - 16 + channelCount : isNull
-    // 16 + channelCount - xxx values
+    // 0  - 4 : group id - this is optional, if absent other fields are moved by -4 bytes
+    // 4  - 8 : overflow length
+    // 8  - 12 : overflow position
+    // 12 - 20 : hash
+    // 20 - 20 + channelCount : isNull
+    // 20 + channelCount - xxx values
 
     private final FastByteBuffer mainBuffer;
     private final FastByteBuffer overflowBuffer;
@@ -33,7 +34,7 @@ public class FixedOffsetsGroupByHashTableEntries
 
     private int overflowSize;
 
-    public FixedOffsetsGroupByHashTableEntries(int entryCount, FastByteBuffer overflowBuffer, int channelCount, boolean includeGroupId, int dataValuesLength)
+    public FixedOffsetGroupByHashTableEntries(int entryCount, FastByteBuffer overflowBuffer, int channelCount, boolean includeGroupId, int dataValuesLength)
     {
         this.overflowBuffer = overflowBuffer;
         this.channelCount = channelCount;
@@ -66,6 +67,7 @@ public class FixedOffsetsGroupByHashTableEntries
         return mainBuffer.getLong(position + hashOffset);
     }
 
+    @Override
     public void putHash(int position, long hash)
     {
         mainBuffer.putLong(position + hashOffset, hash);
@@ -73,7 +75,7 @@ public class FixedOffsetsGroupByHashTableEntries
 
     public void copyKeyFrom(int toPosition, GroupByHashTableEntries srcEntries, int srcPosition)
     {
-        FixedOffsetsGroupByHashTableEntries src = (FixedOffsetsGroupByHashTableEntries) srcEntries;
+        FixedOffsetGroupByHashTableEntries src = (FixedOffsetGroupByHashTableEntries) srcEntries;
         mainBuffer.copyFrom(src.mainBuffer, srcPosition + src.keyOffset, toPosition + keyOffset, src.keyLength());
         int overflowLength = src.getOverflowLength(srcPosition);
         if (overflowLength > 0) {
@@ -85,7 +87,7 @@ public class FixedOffsetsGroupByHashTableEntries
 
     public void copyEntryFrom(GroupByHashTableEntries srcEntries, int srcPosition, int toPosition)
     {
-        FixedOffsetsGroupByHashTableEntries src = (FixedOffsetsGroupByHashTableEntries) srcEntries;
+        FixedOffsetGroupByHashTableEntries src = (FixedOffsetGroupByHashTableEntries) srcEntries;
         mainBuffer.copyFrom(src.mainBuffer, srcPosition, toPosition, src.getEntrySize());
         // overflow is shared
         verify(src.overflowBuffer == overflowBuffer);
@@ -96,7 +98,7 @@ public class FixedOffsetsGroupByHashTableEntries
         return mainBuffer.getInt(position + overflowPositionOffset);
     }
 
-    private int getOverflowLength(int position)
+    public int getOverflowLength(int position)
     {
         return mainBuffer.getInt(position + overflowLengthOffset);
     }
@@ -109,7 +111,7 @@ public class FixedOffsetsGroupByHashTableEntries
     @Override
     public boolean keyEquals(int position, GroupByHashTableEntries entries, int otherPosition)
     {
-        FixedOffsetsGroupByHashTableEntries other = (FixedOffsetsGroupByHashTableEntries) entries;
+        FixedOffsetGroupByHashTableEntries other = (FixedOffsetGroupByHashTableEntries) entries;
         if (!mainBuffer.subArrayEquals(other.mainBuffer, position + hashOffset, otherPosition + other.hashOffset, contentLength)) {
             return false;
         }
@@ -174,11 +176,6 @@ public class FixedOffsetsGroupByHashTableEntries
         overflowSize += overflowLength;
     }
 
-    public boolean isOverflow(int position)
-    {
-        return mainBuffer.getInt(position + overflowLengthOffset) != 0;
-    }
-
     public int getValuesOffset(int position)
     {
         return position + valuesOffset;
@@ -208,15 +205,21 @@ public class FixedOffsetsGroupByHashTableEntries
         }
     }
 
-    public void putEntry(int hashPosition, int groupId, GroupByHashTableEntries key)
+    public void putEntry(int position, int groupId, GroupByHashTableEntries key)
     {
-        mainBuffer.putInt(hashPosition, groupId);
-        copyKeyFrom(hashPosition, key, 0);
+        mainBuffer.putInt(position, groupId);
+        copyKeyFrom(position, key, 0);
     }
 
-    public int getGroupId(int hashPosition)
+    public int getGroupId(int position)
     {
-        return mainBuffer.getInt(hashPosition);
+        return mainBuffer.getInt(position);
+    }
+
+    @Override
+    public void putGroupId(int position, int groupId)
+    {
+        mainBuffer.putInt(position, groupId);
     }
 
     public int capacity()

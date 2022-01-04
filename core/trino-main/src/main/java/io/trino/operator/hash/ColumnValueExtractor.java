@@ -44,6 +44,8 @@ public interface ColumnValueExtractor
 
     void appendValue(FastByteBuffer buffer, int offset, BlockBuilder blockBuilder);
 
+    boolean valueEquals(FastByteBuffer serialized, int offset, Block block, int position);
+
     int getSerializedValueLength(Block block, int position);
 
     boolean isFixedSize();
@@ -107,6 +109,7 @@ public interface ColumnValueExtractor
         {
             int valueLength = block.getSliceLength(position);
             buffer.putByteUnsigned(offset, valueLength);
+            // TODO lysy: the cast here makes it faster but a lot (e.g. no allocation) but we need to handle this differently
             VariableWidthBlock varWidthBlock = (VariableWidthBlock) block;
             Slice rawSlice = varWidthBlock.getRawSlice(position);
             buffer.putSlice(offset + 1, rawSlice, varWidthBlock.getPositionOffset(position), valueLength);
@@ -127,6 +130,24 @@ public interface ColumnValueExtractor
             int length = from.getByteUnsigned(offset);
             from.getSlice(offset + 1, length, buffer, 0);
             blockBuilder.writeBytes(buffer, 0, length).closeEntry();
+        }
+
+        @Override
+        public boolean valueEquals(FastByteBuffer serialized, int offset, Block block, int position)
+        {
+            int blockLength = block.getSliceLength(position);
+            int length = serialized.getByteUnsigned(offset);
+            if (blockLength != length) {
+                return false;
+            }
+            // TODO lysy: the cast here makes it faster but a lot (e.g. no allocation) but we need to handle this differently
+            VariableWidthBlock varWidthBlock = (VariableWidthBlock) block;
+            Slice rawSlice = varWidthBlock.getRawSlice(position);
+            int rawSlicePositionOffset = varWidthBlock.getPositionOffset(position);
+
+//            serialized.getSlice(offset + 1, length, buffer, 0);
+//            return rawSlice.equals(rawSlicePositionOffset, length, buffer, 0, length);
+            return serialized.subArrayEquals(rawSlice, offset + 1, rawSlicePositionOffset, length);
         }
 
         @Override
@@ -176,6 +197,12 @@ public interface ColumnValueExtractor
         }
 
         @Override
+        public boolean valueEquals(FastByteBuffer serialized, int offset, Block block, int position)
+        {
+            return serialized.getLong(offset) == block.getLong(position, 0);
+        }
+
+        @Override
         public int getSerializedValueLength(Block block, int position)
         {
             return Long.BYTES;
@@ -219,6 +246,12 @@ public interface ColumnValueExtractor
         public void appendValue(FastByteBuffer buffer, int offset, BlockBuilder blockBuilder)
         {
             blockBuilder.writeByte(buffer.get(offset)).closeEntry();
+        }
+
+        @Override
+        public boolean valueEquals(FastByteBuffer serialized, int offset, Block block, int position)
+        {
+            return serialized.get(offset) == block.getByte(position, 0);
         }
 
         @Override
@@ -268,6 +301,12 @@ public interface ColumnValueExtractor
         }
 
         @Override
+        public boolean valueEquals(FastByteBuffer serialized, int offset, Block block, int position)
+        {
+            return serialized.getShort(offset) == block.getShort(position, 0);
+        }
+
+        @Override
         public int getSerializedValueLength(Block block, int position)
         {
             return Short.BYTES;
@@ -311,6 +350,12 @@ public interface ColumnValueExtractor
         public void appendValue(FastByteBuffer buffer, int offset, BlockBuilder blockBuilder)
         {
             blockBuilder.writeInt(buffer.getInt(offset)).closeEntry();
+        }
+
+        @Override
+        public boolean valueEquals(FastByteBuffer serialized, int offset, Block block, int position)
+        {
+            return serialized.getInt(offset) == block.getInt(position, 0);
         }
 
         @Override
@@ -366,6 +411,13 @@ public interface ColumnValueExtractor
         }
 
         @Override
+        public boolean valueEquals(FastByteBuffer serialized, int offset, Block block, int position)
+        {
+            return serialized.getLong(offset) == block.getLong(position, 0) &&
+                    serialized.getLong(offset + Long.BYTES) == block.getLong(position, Long.BYTES);
+        }
+
+        @Override
         public int getSerializedValueLength(Block block, int position)
         {
             return INT128_BYTES;
@@ -415,6 +467,13 @@ public interface ColumnValueExtractor
             blockBuilder.writeLong(buffer.getLong(offset));
             blockBuilder.writeInt(buffer.getInt(offset + Long.BYTES));
             blockBuilder.closeEntry();
+        }
+
+        @Override
+        public boolean valueEquals(FastByteBuffer serialized, int offset, Block block, int position)
+        {
+            return serialized.getLong(offset) == block.getLong(position, 0) &&
+                    serialized.getInt(offset + Long.BYTES) == block.getInt(position, Long.BYTES);
         }
 
         @Override
