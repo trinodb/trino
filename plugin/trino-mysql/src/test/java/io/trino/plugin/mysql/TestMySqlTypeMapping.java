@@ -145,6 +145,8 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("varchar(16777216)", "'text_g'", createUnboundedVarcharType(), "CAST('text_g' AS varchar)")
                 .addRoundTrip("varchar(2147483646)", "'text_h'", createUnboundedVarcharType(), "CAST('text_h' AS varchar)")
                 .addRoundTrip("varchar", "'unbounded'", createUnboundedVarcharType(), "CAST('unbounded' AS varchar)")
+                .addRoundTrip("varchar(10)", "NULL", createVarcharType(255), "CAST(NULL AS varchar(255))")
+                .addRoundTrip("varchar", "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_parameterized_varchar"));
     }
 
@@ -186,6 +188,8 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("char(8)", "'abc'", createCharType(8), "CAST('abc' AS char(8))")
                 .addRoundTrip("char(8)", "'12345678'", createCharType(8), "CAST('12345678' AS char(8))")
                 .addRoundTrip("char(255)", format("'%s'", "a".repeat(255)), createCharType(255), format("CAST('%s' AS char(255))", "a".repeat(255)))
+                .addRoundTrip("char", "NULL", createCharType(1), "CAST(NULL AS char(1))")
+                .addRoundTrip("char(255)", "NULL", createCharType(255), "CAST(NULL AS char(255))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("mysql_test_parameterized_char"))
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_parameterized_char"));
     }
@@ -220,6 +224,8 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("decimal(30, 5)", "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
                 .addRoundTrip("decimal(38, 0)", "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))")
                 .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST(NULL AS decimal(3, 0))", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
+                .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_decimal"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
     }
@@ -460,6 +466,7 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
                 .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
                 .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
+                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"))
@@ -486,6 +493,8 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("TIME(4)", "TIME '23:59:59.9999'", createTimeType(4), "TIME '23:59:59.9999'")
                 .addRoundTrip("TIME(5)", "TIME '23:59:59.99999'", createTimeType(5), "TIME '23:59:59.99999'")
                 .addRoundTrip("TIME(6)", "TIME '23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'")
+
+                .addRoundTrip("TIME", "NULL", createTimeType(0), "CAST(NULL AS TIME(0))")
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_time"));
     }
 
@@ -566,6 +575,15 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("TIME '23:59:59.99999999999'", "TIME '00:00:00.000000'")
                 .addRoundTrip("TIME '23:59:59.999999999999'", "TIME '00:00:00.000000'")
 
+                // null
+                .addRoundTrip("TIME", "NULL", createTimeType(3), "CAST(NULL AS TIME(3))")
+                .addRoundTrip("TIME(1)", "NULL", createTimeType(1), "CAST(NULL AS TIME(1))")
+                .addRoundTrip("TIME(2)", "NULL", createTimeType(2), "CAST(NULL AS TIME(2))")
+                .addRoundTrip("TIME(3)", "NULL", createTimeType(3), "CAST(NULL AS TIME(3))")
+                .addRoundTrip("TIME(4)", "NULL", createTimeType(4), "CAST(NULL AS TIME(4))")
+                .addRoundTrip("TIME(5)", "NULL", createTimeType(5), "CAST(NULL AS TIME(5))")
+                .addRoundTrip("TIME(6)", "NULL", createTimeType(6), "CAST(NULL AS TIME(6))")
+
                 .execute(getQueryRunner(), session, trinoCreateAsSelect("tpch.test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "tpch.test_time"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(getSession(), "tpch.test_time"));
@@ -623,6 +641,15 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("datetime(6)", "TIMESTAMP '1969-12-31 23:59:59.999995'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999995'")
                 .addRoundTrip("datetime(6)", "TIMESTAMP '1969-12-31 23:59:59.999949'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999949'")
                 .addRoundTrip("datetime(6)", "TIMESTAMP '1969-12-31 23:59:59.999994'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.999994'")
+
+                // null
+                .addRoundTrip("datetime(0)", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
+                .addRoundTrip("datetime(1)", "NULL", createTimestampType(1), "CAST(NULL AS TIMESTAMP(1))")
+                .addRoundTrip("datetime(2)", "NULL", createTimestampType(2), "CAST(NULL AS TIMESTAMP(2))")
+                .addRoundTrip("datetime(3)", "NULL", createTimestampType(3), "CAST(NULL AS TIMESTAMP(3))")
+                .addRoundTrip("datetime(4)", "NULL", createTimestampType(4), "CAST(NULL AS TIMESTAMP(4))")
+                .addRoundTrip("datetime(5)", "NULL", createTimestampType(5), "CAST(NULL AS TIMESTAMP(5))")
+                .addRoundTrip("datetime(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
 
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_datetime"));
     }
@@ -708,6 +735,16 @@ public class TestMySqlTypeMapping
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-03-25 03:17:17.123'", createTimestampType(3), "TIMESTAMP '2018-03-25 03:17:17.123'")
                 // time gap in Kathmandu
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '1986-01-01 00:13:07.123'", createTimestampType(3), "TIMESTAMP '1986-01-01 00:13:07.123'")
+
+                // null
+                .addRoundTrip("timestamp", "NULL", createTimestampType(3), "CAST(NULL AS TIMESTAMP(3))")
+                .addRoundTrip("timestamp(0)", "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))")
+                .addRoundTrip("timestamp(1)", "NULL", createTimestampType(1), "CAST(NULL AS TIMESTAMP(1))")
+                .addRoundTrip("timestamp(2)", "NULL", createTimestampType(2), "CAST(NULL AS TIMESTAMP(2))")
+                .addRoundTrip("timestamp(3)", "NULL", createTimestampType(3), "CAST(NULL AS TIMESTAMP(3))")
+                .addRoundTrip("timestamp(4)", "NULL", createTimestampType(4), "CAST(NULL AS TIMESTAMP(4))")
+                .addRoundTrip("timestamp(5)", "NULL", createTimestampType(5), "CAST(NULL AS TIMESTAMP(5))")
+                .addRoundTrip("timestamp(6)", "NULL", createTimestampType(6), "CAST(NULL AS TIMESTAMP(6))")
 
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_timestamp"))
