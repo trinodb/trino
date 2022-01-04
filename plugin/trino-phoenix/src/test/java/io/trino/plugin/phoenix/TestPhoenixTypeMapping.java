@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.CharType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -150,7 +151,7 @@ public class TestPhoenixTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("char(10)", "'text_a'", createCharType(10), "CAST('text_a' AS CHAR(10))")
                 .addRoundTrip("char(255)", "'text_b'", createCharType(255), "CAST('text_b' AS CHAR(255))")
-                .addRoundTrip("char(65535)", "'text_e'", createCharType(65535), "CAST('text_e' AS CHAR(65535))")
+                .addRoundTrip("char(65536)", "'text_e'", createCharType(CharType.MAX_LENGTH), "CAST('text_e' AS CHAR(65536))")
                 .addRoundTrip("char(10)", "NULL", createCharType(10), "CAST(NULL AS CHAR(10))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_char"))
 
