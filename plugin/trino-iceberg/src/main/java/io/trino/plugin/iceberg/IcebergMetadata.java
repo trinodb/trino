@@ -106,6 +106,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
@@ -600,6 +601,10 @@ public class IcebergMetadata
         properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));
         if (!icebergTable.spec().fields().isEmpty()) {
             properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
+        }
+
+        if (!icebergTable.location().isEmpty()) {
+            properties.put(LOCATION_PROPERTY, icebergTable.location());
         }
 
         return new ConnectorTableMetadata(table, columns, properties.build(), getTableComment(icebergTable));

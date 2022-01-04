@@ -269,6 +269,7 @@ public class TestHiveRedirectionToIceberg
                         ")\n" +
                         "WITH (\n" +
                         "   format = 'ORC',\n" +
+                        format("   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/%s',\n", tableName) +
                         "   partitioning = ARRAY['regionkey']\n" + // 'partitioning' comes from Iceberg
                         ")"));
 
