@@ -60,7 +60,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeType.createTimeType;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -484,8 +483,8 @@ public class TestMySqlTypeMapping
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_binary"));
     }
 
-    @Test
-    public void testDate()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testDate(ZoneId sessionZone)
     {
         // Note: there is identical test for PostgreSQL
 
@@ -502,15 +501,14 @@ public class TestMySqlTypeMapping
                 .addRoundTrip(dateDataType(), LocalDate.of(1983, 4, 1))
                 .addRoundTrip(dateDataType(), LocalDate.of(1983, 10, 1));
 
-        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), vilnius.getId())) {
-            Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
-                    .build();
-            testCases.execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_date"));
-            testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
-            testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"));
-            testCases.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
-        }
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        testCases.execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_date"));
+        testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+        testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"));
+        testCases.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")
