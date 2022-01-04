@@ -294,6 +294,9 @@ public class TestColumnMask
         assertThat(assertions.query(query))
                 .matches("VALUES (CAST('***' as varchar(79)), 'O', CAST('***#000000659' as varchar(15)))");
 
+        assertThat(assertions.query("SELECT comment, orderstatus, clerk, length(clerk) FROM orders WHERE orderkey = 39"))
+                .matches("VALUES (CAST('***' as varchar(79)), 'O', CAST('***#000000659' as varchar(15)), bigint'13')");
+
         // mask "comment" and "orderstatus" using "clerk" ("clerk" appears before "comment" table definition)
         accessControl.reset();
         accessControl.columnMask(
