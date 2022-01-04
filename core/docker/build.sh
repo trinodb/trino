@@ -44,24 +44,26 @@ cd "${SCRIPT_DIR}" || exit 2
 
 if [ -n "$TRINO_VERSION" ]; then
     echo "🎣 Downloading server and client artifacts for release version ${TRINO_VERSION}"
-    for artifactId in io.trino:trino-server:"${TRINO_VERSION}":tar.gz io.trino:trino-cli:"${TRINO_VERSION}":jar:executable; do
+    for artifactId in io.trino:trino-server:"${TRINO_VERSION}":tar.gz io.trino:trino-cli:"${TRINO_VERSION}":jar:executable io.trino:trino-cli:"${TRINO_VERSION}":jar:shaded; do
         "${SOURCE_DIR}/mvnw" -C dependency:get -Dtransitive=false -Dartifact="$artifactId"
     done
     local_repo=$("${SOURCE_DIR}/mvnw" -B help:evaluate -Dexpression=settings.localRepository -q -DforceStdout)
     trino_server="$local_repo/io/trino/trino-server/${TRINO_VERSION}/trino-server-${TRINO_VERSION}.tar.gz"
     trino_client="$local_repo/io/trino/trino-cli/${TRINO_VERSION}/trino-cli-${TRINO_VERSION}-executable.jar"
+    trino_client_shaded="$local_repo/io/trino/trino-cli/${TRINO_VERSION}/trino-cli-${TRINO_VERSION}-shaded.jar"
     chmod +x "$trino_client"
 else
     TRINO_VERSION=$("${SOURCE_DIR}/mvnw" -f "${SOURCE_DIR}/pom.xml" --quiet help:evaluate -Dexpression=project.version -DforceStdout)
     echo "🎯 Using currently built artifacts from the core/trino-server and client/trino-cli modules and version ${TRINO_VERSION}"
     trino_server="${SOURCE_DIR}/core/trino-server/target/trino-server-${TRINO_VERSION}.tar.gz"
     trino_client="${SOURCE_DIR}/client/trino-cli/target/trino-cli-${TRINO_VERSION}-executable.jar"
+    trino_client_shaded="${SOURCE_DIR}/client/trino-cli/target/trino-cli-${TRINO_VERSION}-shaded.jar"
 fi
 
 echo "🧱 Preparing the image build context directory"
 WORK_DIR="$(mktemp -d)"
 cp "$trino_server" "${WORK_DIR}/"
-cp "$trino_client" "${WORK_DIR}/"
+cp "$trino_client" "$trino_client_shaded" "${WORK_DIR}/"
 tar -C "${WORK_DIR}" -xzf "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
 rm "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
 cp -R bin "${WORK_DIR}/trino-server-${TRINO_VERSION}"
@@ -82,7 +84,7 @@ for arch in "${ARCHITECTURES[@]}"; do
         "${WORK_DIR}" \
         --pull \
         --platform "linux/$arch" \
-        -f Dockerfile.cli \
+        -f Dockerfile.cli-"$arch" \
         -t "${TAG_PREFIX}-cli-$arch" \
         --build-arg "TRINO_VERSION=${TRINO_VERSION}"
 done
