@@ -21,7 +21,6 @@ import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
-import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
@@ -36,8 +35,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Optional;
-import java.util.function.IntFunction;
-import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
@@ -377,21 +374,6 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("nchar(2)", "'😂'", createCharType(2), "CAST('😂' AS CHAR(2))")
                 .addRoundTrip("nchar(7)", "'😂'", createCharType(7), "CAST('😂' AS CHAR(7))")
                 .execute(getQueryRunner(), oracleCreateAndInsert("read_char_unicode"));
-    }
-
-    private static DataTypeTest unicodeTests(IntFunction<DataType<String>> typeConstructor, ToIntFunction<String> stringLength, int maxSize)
-    {
-        String unicodeText = "攻殻機動隊";
-        String nonBmpCharacter = "\ud83d\ude02";
-        int unicodeLength = stringLength.applyAsInt(unicodeText);
-        int nonBmpLength = stringLength.applyAsInt(nonBmpCharacter);
-
-        return DataTypeTest.create()
-                .addRoundTrip(typeConstructor.apply(unicodeLength), unicodeText)
-                .addRoundTrip(typeConstructor.apply(unicodeLength + 8), unicodeText)
-                .addRoundTrip(typeConstructor.apply(maxSize), unicodeText)
-                .addRoundTrip(typeConstructor.apply(nonBmpLength), nonBmpCharacter)
-                .addRoundTrip(typeConstructor.apply(nonBmpLength + 5), nonBmpCharacter);
     }
 
     /* Decimal tests */
