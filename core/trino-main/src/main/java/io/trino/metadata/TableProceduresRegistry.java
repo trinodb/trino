@@ -32,10 +32,6 @@ public class TableProceduresRegistry
 {
     private final Map<CatalogName, Map<String, TableProcedureMetadata>> tableProcedures = new ConcurrentHashMap<>();
 
-    public TableProceduresRegistry()
-    {
-    }
-
     public void addTableProcedures(CatalogName catalogName, Collection<TableProcedureMetadata> procedures)
     {
         requireNonNull(catalogName, "catalogName is null");

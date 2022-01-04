@@ -17,11 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.metadata.QualifiedObjectName;
 import io.trino.operator.OperatorStats;
 import io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import io.trino.server.DynamicFilterService.DynamicFiltersStats;
-import io.trino.spi.QueryId;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.tpch.TpchTable;
@@ -420,28 +418,10 @@ public abstract class BaseDynamicPartitionPruningTest
                 .isEqualTo(getSimplifiedDomainString(1L, 100L, 100, BIGINT));
     }
 
-    private DynamicFiltersStats getDynamicFilteringStats(QueryId queryId)
-    {
-        return getDistributedQueryRunner().getCoordinator()
-                .getQueryManager()
-                .getFullQueryInfo(queryId)
-                .getQueryStats()
-                .getDynamicFiltersStats();
-    }
-
     private Session withDynamicFilteringDisabled()
     {
         return Session.builder(getSession())
                 .setSystemProperty("enable_dynamic_filtering", "false")
                 .build();
-    }
-
-    private QualifiedObjectName getQualifiedTableName(String tableName)
-    {
-        Session session = getQueryRunner().getDefaultSession();
-        return new QualifiedObjectName(
-                session.getCatalog().orElseThrow(),
-                session.getSchema().orElseThrow(),
-                tableName);
     }
 }

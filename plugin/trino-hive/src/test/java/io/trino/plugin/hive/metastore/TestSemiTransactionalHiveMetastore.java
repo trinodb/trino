@@ -85,6 +85,7 @@ public class TestSemiTransactionalHiveMetastore
                 directExecutor(),
                 false,
                 false,
+                true,
                 Optional.empty(),
                 newScheduledThreadPool(1));
     }
@@ -108,7 +109,8 @@ public class TestSemiTransactionalHiveMetastore
                     "table_" + i,
                     new Path("location"),
                     ImmutableList.of(),
-                    PartitionStatistics.empty()));
+                    PartitionStatistics.empty(),
+                    false));
             semiTransactionalHiveMetastore.commit();
         });
     }
@@ -122,6 +124,7 @@ public class TestSemiTransactionalHiveMetastore
                 updateExecutor,
                 false,
                 false,
+                true,
                 Optional.empty(),
                 newScheduledThreadPool(1));
     }

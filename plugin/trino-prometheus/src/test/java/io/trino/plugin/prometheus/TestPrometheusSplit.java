@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.airlift.json.JsonCodec;
-import io.trino.metadata.Metadata;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
@@ -27,9 +26,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
-import io.trino.type.InternalTypeManager;
 import org.apache.http.NameValuePair;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -49,7 +45,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.plugin.prometheus.PrometheusClock.fixedClockAt;
@@ -58,6 +53,7 @@ import static io.trino.plugin.prometheus.PrometheusSplitManager.decimalSecondStr
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.time.Instant.ofEpochMilli;
 import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -71,9 +67,7 @@ import static org.testng.Assert.assertTrue;
 public class TestPrometheusSplit
 {
     private PrometheusHttpServer prometheusHttpServer;
-    private final PrometheusSplit split = new PrometheusSplit(URI.create("http://127.0.0.1/test.file"));
-    private static final Metadata METADATA = createTestMetadataManager();
-    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA, new TypeOperators());
+    private final PrometheusSplit split = new PrometheusSplit("http://127.0.0.1/test.file");
     private static final int NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS = 100;
 
     @BeforeClass
@@ -86,22 +80,22 @@ public class TestPrometheusSplit
     public void testAddresses()
     {
         // http split with default port
-        PrometheusSplit httpSplit = new PrometheusSplit(URI.create("http://prometheus.com/prometheus"));
+        PrometheusSplit httpSplit = new PrometheusSplit("http://prometheus.com/prometheus");
         assertEquals(httpSplit.getAddresses(), ImmutableList.of(HostAddress.fromString("prometheus.com")));
         assertTrue(httpSplit.isRemotelyAccessible());
 
         // http split with custom port
-        httpSplit = new PrometheusSplit(URI.create("http://prometheus.com:8080/prometheus"));
+        httpSplit = new PrometheusSplit("http://prometheus.com:8080/prometheus");
         assertEquals(httpSplit.getAddresses(), ImmutableList.of(HostAddress.fromParts("prometheus.com", 8080)));
         assertTrue(httpSplit.isRemotelyAccessible());
 
         // http split with default port
-        PrometheusSplit httpsSplit = new PrometheusSplit(URI.create("https://prometheus.com/prometheus"));
+        PrometheusSplit httpsSplit = new PrometheusSplit("https://prometheus.com/prometheus");
         assertEquals(httpsSplit.getAddresses(), ImmutableList.of(HostAddress.fromString("prometheus.com")));
         assertTrue(httpsSplit.isRemotelyAccessible());
 
         // http split with custom port
-        httpsSplit = new PrometheusSplit(URI.create("https://prometheus.com:8443/prometheus"));
+        httpsSplit = new PrometheusSplit("https://prometheus.com:8443/prometheus");
         assertEquals(httpsSplit.getAddresses(), ImmutableList.of(HostAddress.fromParts("prometheus.com", 8443)));
         assertTrue(httpsSplit.isRemotelyAccessible());
     }
@@ -124,7 +118,7 @@ public class TestPrometheusSplit
     {
         Instant now = LocalDateTime.of(2019, 10, 2, 7, 26, 56, 0).toInstant(UTC);
         PrometheusConnectorConfig config = getCommonConfig(prometheusHttpServer.resolve("/prometheus-data/prom-metrics-non-standard-name.json"));
-        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TYPE_MANAGER);
+        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
         PrometheusTable table = client.getTable("default", "up now");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, fixedClockAt(now), config);
         ConnectorSplitSource splits = splitManager.getSplits(
@@ -134,7 +128,7 @@ public class TestPrometheusSplit
                 null,
                 (DynamicFilter) null);
         PrometheusSplit split = (PrometheusSplit) splits.getNextBatch(NOT_PARTITIONED, 1).getNow(null).getSplits().get(0);
-        String queryInSplit = split.getUri().getQuery();
+        String queryInSplit = URI.create(split.getUri()).getQuery();
         String timeShouldBe = decimalSecondString(now.toEpochMilli() -
                 config.getMaxQueryRangeDuration().toMillis() +
                 config.getQueryChunkSizeDuration().toMillis() -
@@ -150,7 +144,7 @@ public class TestPrometheusSplit
     {
         Instant now = LocalDateTime.of(2019, 10, 2, 7, 26, 56, 0).toInstant(UTC);
         PrometheusConnectorConfig config = getCommonConfig(prometheusHttpServer.resolve("/prometheus-data/prometheus-metrics.json"));
-        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TYPE_MANAGER);
+        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
         PrometheusTable table = client.getTable("default", "up");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, fixedClockAt(now), config);
         ConnectorSplitSource splits = splitManager.getSplits(
@@ -160,7 +154,7 @@ public class TestPrometheusSplit
                 null,
                 (DynamicFilter) null);
         PrometheusSplit split = (PrometheusSplit) splits.getNextBatch(NOT_PARTITIONED, 1).getNow(null).getSplits().get(0);
-        String queryInSplit = split.getUri().getQuery();
+        String queryInSplit = URI.create(split.getUri()).getQuery();
         String timeShouldBe = decimalSecondString(now.toEpochMilli() -
                 config.getMaxQueryRangeDuration().toMillis() +
                 config.getQueryChunkSizeDuration().toMillis() -
@@ -176,7 +170,7 @@ public class TestPrometheusSplit
     {
         Instant now = LocalDateTime.of(2019, 10, 2, 7, 26, 56, 0).toInstant(UTC);
         PrometheusConnectorConfig config = getCommonConfig(prometheusHttpServer.resolve("/prometheus-data/prometheus-metrics.json"));
-        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TYPE_MANAGER);
+        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
         PrometheusTable table = client.getTable("default", "up");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, fixedClockAt(now), config);
         ConnectorSplitSource splitsMaybe = splitManager.getSplits(
@@ -188,7 +182,7 @@ public class TestPrometheusSplit
         List<ConnectorSplit> splits = splitsMaybe.getNextBatch(NOT_PARTITIONED, NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS).getNow(null).getSplits();
         int lastSplitIndex = splits.size() - 1;
         PrometheusSplit lastSplit = (PrometheusSplit) splits.get(lastSplitIndex);
-        String queryInSplit = lastSplit.getUri().getQuery();
+        String queryInSplit = URI.create(lastSplit.getUri()).getQuery();
         String timeShouldBe = decimalSecondString(now.toEpochMilli());
         URI uriAsFormed = new URI("http://doesnotmatter:9090/api/v1/query?query=up[" +
                 getQueryChunkSizeDurationAsPrometheusCompatibleDurationString(config) + "]" +
@@ -201,7 +195,7 @@ public class TestPrometheusSplit
     {
         Instant now = LocalDateTime.of(2019, 10, 2, 7, 26, 56, 0).toInstant(UTC);
         PrometheusConnectorConfig config = getCommonConfig(prometheusHttpServer.resolve("/prometheus-data/prometheus-metrics.json"));
-        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TYPE_MANAGER);
+        PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
         PrometheusTable table = client.getTable("default", "up");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, fixedClockAt(now), config);
         ConnectorSplitSource splits = splitManager.getSplits(
@@ -211,9 +205,9 @@ public class TestPrometheusSplit
                 null,
                 (DynamicFilter) null);
         PrometheusSplit split1 = (PrometheusSplit) splits.getNextBatch(NOT_PARTITIONED, 1).getNow(null).getSplits().get(0);
-        Map<String, String> paramsMap1 = parse(split1.getUri(), StandardCharsets.UTF_8).stream().collect(Collectors.toMap(NameValuePair::getName, NameValuePair::getValue));
+        Map<String, String> paramsMap1 = parse(URI.create(split1.getUri()), StandardCharsets.UTF_8).stream().collect(Collectors.toMap(NameValuePair::getName, NameValuePair::getValue));
         PrometheusSplit split2 = (PrometheusSplit) splits.getNextBatch(NOT_PARTITIONED, 1).getNow(null).getSplits().get(0);
-        Map<String, String> paramsMap2 = parse(split2.getUri(), StandardCharsets.UTF_8).stream().collect(Collectors.toMap(NameValuePair::getName, NameValuePair::getValue));
+        Map<String, String> paramsMap2 = parse(URI.create(split2.getUri()), StandardCharsets.UTF_8).stream().collect(Collectors.toMap(NameValuePair::getName, NameValuePair::getValue));
         assertEquals(paramsMap1.get("query"), "up[1d]");
         assertEquals(paramsMap2.get("query"), "up[1d]");
         long diff = Double.valueOf(paramsMap2.get("time")).longValue() - Double.valueOf(paramsMap1.get("time")).longValue();

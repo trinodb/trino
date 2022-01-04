@@ -16,15 +16,20 @@ package io.trino.sql.planner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.PeekingIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableProceduresPropertyManager;
+import io.trino.metadata.TableProceduresRegistry;
+import io.trino.metadata.TablePropertyManager;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
-import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.DiscreteValues;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -36,10 +41,10 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.ExpressionUtils;
 import io.trino.sql.InterpretedFunctionInvoker;
+import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BetweenPredicate;
@@ -83,6 +88,7 @@ import static io.airlift.slice.SliceUtf8.setCodePointAt;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
@@ -104,16 +110,16 @@ import static java.util.stream.Collectors.toList;
 
 public final class DomainTranslator
 {
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final LiteralEncoder literalEncoder;
 
-    public DomainTranslator(Session session, Metadata metadata)
+    public DomainTranslator(PlannerContext plannerContext)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.literalEncoder = new LiteralEncoder(session, metadata);
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.literalEncoder = new LiteralEncoder(plannerContext);
     }
 
-    public Expression toPredicate(TupleDomain<Symbol> tupleDomain)
+    public Expression toPredicate(Session session, TupleDomain<Symbol> tupleDomain)
     {
         if (tupleDomain.isNone()) {
             return FALSE_LITERAL;
@@ -121,11 +127,11 @@ public final class DomainTranslator
 
         Map<Symbol, Domain> domains = tupleDomain.getDomains().get();
         return domains.entrySet().stream()
-                .map(entry -> toPredicate(entry.getValue(), entry.getKey().toSymbolReference()))
-                .collect(collectingAndThen(toImmutableList(), expressions -> ExpressionUtils.combineConjuncts(metadata, expressions)));
+                .map(entry -> toPredicate(session, entry.getValue(), entry.getKey().toSymbolReference()))
+                .collect(collectingAndThen(toImmutableList(), expressions -> combineConjuncts(plannerContext.getMetadata(), expressions)));
     }
 
-    private Expression toPredicate(Domain domain, SymbolReference reference)
+    private Expression toPredicate(Session session, Domain domain, SymbolReference reference)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? new IsNullPredicate(reference) : FALSE_LITERAL;
@@ -138,8 +144,8 @@ public final class DomainTranslator
         List<Expression> disjuncts = new ArrayList<>();
 
         disjuncts.addAll(domain.getValues().getValuesProcessor().transform(
-                ranges -> extractDisjuncts(domain.getType(), ranges, reference),
-                discreteValues -> extractDisjuncts(domain.getType(), discreteValues, reference),
+                ranges -> extractDisjuncts(session, domain.getType(), ranges, reference),
+                discreteValues -> extractDisjuncts(session, domain.getType(), discreteValues, reference),
                 allOrNone -> {
                     throw new IllegalStateException("Case should not be reachable");
                 }));
@@ -149,10 +155,10 @@ public final class DomainTranslator
             disjuncts.add(new IsNullPredicate(reference));
         }
 
-        return combineDisjunctsWithDefault(metadata, disjuncts, TRUE_LITERAL);
+        return combineDisjunctsWithDefault(plannerContext.getMetadata(), disjuncts, TRUE_LITERAL);
     }
 
-    private Expression processRange(Type type, Range range, SymbolReference reference)
+    private Expression processRange(Session session, Type type, Range range, SymbolReference reference)
     {
         if (range.isAll()) {
             return TRUE_LITERAL;
@@ -160,7 +166,10 @@ public final class DomainTranslator
 
         if (isBetween(range)) {
             // specialize the range with BETWEEN expression if possible b/c it is currently more efficient
-            return new BetweenPredicate(reference, literalEncoder.toExpression(range.getLowBoundedValue(), type), literalEncoder.toExpression(range.getHighBoundedValue(), type));
+            return new BetweenPredicate(
+                    reference,
+                    literalEncoder.toExpression(session, range.getLowBoundedValue(), type),
+                    literalEncoder.toExpression(session, range.getHighBoundedValue(), type));
         }
 
         List<Expression> rangeConjuncts = new ArrayList<>();
@@ -168,23 +177,23 @@ public final class DomainTranslator
             rangeConjuncts.add(new ComparisonExpression(
                     range.isLowInclusive() ? GREATER_THAN_OR_EQUAL : GREATER_THAN,
                     reference,
-                    literalEncoder.toExpression(range.getLowBoundedValue(), type)));
+                    literalEncoder.toExpression(session, range.getLowBoundedValue(), type)));
         }
         if (!range.isHighUnbounded()) {
             rangeConjuncts.add(new ComparisonExpression(
                     range.isHighInclusive() ? LESS_THAN_OR_EQUAL : LESS_THAN,
                     reference,
-                    literalEncoder.toExpression(range.getHighBoundedValue(), type)));
+                    literalEncoder.toExpression(session, range.getHighBoundedValue(), type)));
         }
         // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
         checkState(!rangeConjuncts.isEmpty());
-        return combineConjuncts(metadata, rangeConjuncts);
+        return combineConjuncts(plannerContext.getMetadata(), rangeConjuncts);
     }
 
-    private Expression combineRangeWithExcludedPoints(Type type, SymbolReference reference, Range range, List<Expression> excludedPoints)
+    private Expression combineRangeWithExcludedPoints(Session session, Type type, SymbolReference reference, Range range, List<Expression> excludedPoints)
     {
         if (excludedPoints.isEmpty()) {
-            return processRange(type, range, reference);
+            return processRange(session, type, range, reference);
         }
 
         Expression excludedPointsExpression = new NotExpression(new InPredicate(reference, new InListExpression(excludedPoints)));
@@ -192,10 +201,10 @@ public final class DomainTranslator
             excludedPointsExpression = new ComparisonExpression(NOT_EQUAL, reference, getOnlyElement(excludedPoints));
         }
 
-        return combineConjuncts(metadata, processRange(type, range, reference), excludedPointsExpression);
+        return combineConjuncts(plannerContext.getMetadata(), processRange(session, type, range, reference), excludedPointsExpression);
     }
 
-    private List<Expression> extractDisjuncts(Type type, Ranges ranges, SymbolReference reference)
+    private List<Expression> extractDisjuncts(Session session, Type type, Ranges ranges, SymbolReference reference)
     {
         List<Expression> disjuncts = new ArrayList<>();
         List<Expression> singleValues = new ArrayList<>();
@@ -221,7 +230,7 @@ public final class DomainTranslator
             boolean coalescedRangeIsAll = originalUnionSingleValues.stream().anyMatch(Range::isAll);
             if (!originalRangeIsAll && coalescedRangeIsAll) {
                 for (Range range : orderedRanges) {
-                    disjuncts.add(processRange(type, range, reference));
+                    disjuncts.add(processRange(session, type, range, reference));
                 }
                 return disjuncts;
             }
@@ -229,22 +238,22 @@ public final class DomainTranslator
 
         for (Range range : originalUnionSingleValues) {
             if (range.isSingleValue()) {
-                singleValues.add(literalEncoder.toExpression(range.getSingleValue(), type));
+                singleValues.add(literalEncoder.toExpression(session, range.getSingleValue(), type));
                 continue;
             }
 
             // attempt to optimize ranges that can be coalesced as long as single value points are excluded
             List<Expression> singleValuesInRange = new ArrayList<>();
             while (singleValueExclusions.hasNext() && range.contains(singleValueExclusions.peek())) {
-                singleValuesInRange.add(literalEncoder.toExpression(singleValueExclusions.next().getSingleValue(), type));
+                singleValuesInRange.add(literalEncoder.toExpression(session, singleValueExclusions.next().getSingleValue(), type));
             }
 
             if (!singleValuesInRange.isEmpty()) {
-                disjuncts.add(combineRangeWithExcludedPoints(type, reference, range, singleValuesInRange));
+                disjuncts.add(combineRangeWithExcludedPoints(session, type, reference, range, singleValuesInRange));
                 continue;
             }
 
-            disjuncts.add(processRange(type, range, reference));
+            disjuncts.add(processRange(session, type, range, reference));
         }
 
         // Add back all of the possible single values either as an equality or an IN predicate
@@ -257,10 +266,10 @@ public final class DomainTranslator
         return disjuncts;
     }
 
-    private List<Expression> extractDisjuncts(Type type, DiscreteValues discreteValues, SymbolReference reference)
+    private List<Expression> extractDisjuncts(Session session, Type type, DiscreteValues discreteValues, SymbolReference reference)
     {
         List<Expression> values = discreteValues.getValues().stream()
-                .map(object -> literalEncoder.toExpression(object, type))
+                .map(object -> literalEncoder.toExpression(session, object, type))
                 .collect(toList());
 
         // If values is empty, then the equatableValues was either ALL or NONE, both of which should already have been checked for
@@ -292,21 +301,28 @@ public final class DomainTranslator
      * 2) An Expression fragment which represents the part of the original Expression that will need to be re-evaluated
      * after filtering with the TupleDomain.
      */
-    public static ExtractionResult fromPredicate(
-            Metadata metadata,
-            TypeOperators typeOperators,
-            Session session,
-            Expression predicate,
-            TypeProvider types)
+    public static ExtractionResult getExtractionResult(PlannerContext plannerContext, Session session, Expression predicate, TypeProvider types)
     {
-        return new Visitor(metadata, typeOperators, session, types, new TypeAnalyzer(new SqlParser(), metadata)).process(predicate, false);
+        // This is a limited type analyzer for the simple expressions used in this method
+        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(
+                plannerContext,
+                new StatementAnalyzerFactory(
+                        plannerContext,
+                        new SqlParser(),
+                        new AllowAllAccessControl(),
+                        user -> ImmutableSet.of(),
+                        new TableProceduresRegistry(),
+                        new SessionPropertyManager(),
+                        new TablePropertyManager(),
+                        new AnalyzePropertyManager(),
+                        new TableProceduresPropertyManager()));
+        return new Visitor(plannerContext, session, types, typeAnalyzer).process(predicate, false);
     }
 
     private static class Visitor
             extends AstVisitor<ExtractionResult, Boolean>
     {
-        private final Metadata metadata;
-        private final TypeOperators typeOperators;
+        private final PlannerContext plannerContext;
         private final LiteralEncoder literalEncoder;
         private final Session session;
         private final TypeProvider types;
@@ -314,16 +330,15 @@ public final class DomainTranslator
         private final TypeAnalyzer typeAnalyzer;
         private final TypeCoercion typeCoercion;
 
-        private Visitor(Metadata metadata, TypeOperators typeOperators, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
+        private Visitor(PlannerContext plannerContext, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
         {
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.literalEncoder = new LiteralEncoder(session, metadata);
-            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+            this.literalEncoder = new LiteralEncoder(plannerContext);
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata);
+            this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getMetadata());
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-            this.typeCoercion = new TypeCoercion(metadata::getType);
+            this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         }
 
         private Type checkedTypeLookup(Symbol symbol)
@@ -375,7 +390,7 @@ public final class DomainTranslator
                 case AND:
                     return new ExtractionResult(
                             TupleDomain.intersect(tupleDomains),
-                            combineConjuncts(metadata, residuals));
+                            combineConjuncts(plannerContext.getMetadata(), residuals));
 
                 case OR:
                     TupleDomain<Symbol> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(tupleDomains);
@@ -388,7 +403,7 @@ public final class DomainTranslator
                     // some of these cases, we won't have to double check the bounds unnecessarily at execution time.
 
                     // We can only make inferences if the remaining expressions on all terms are equal and deterministic
-                    if (Set.copyOf(residuals).size() == 1 && DeterminismEvaluator.isDeterministic(residuals.get(0), metadata)) {
+                    if (Set.copyOf(residuals).size() == 1 && DeterminismEvaluator.isDeterministic(residuals.get(0), plannerContext.getMetadata())) {
                         // NONE are no-op for the purpose of OR
                         tupleDomains = tupleDomains.stream()
                                 .filter(domain -> !domain.isNone())
@@ -524,8 +539,8 @@ public final class DomainTranslator
         private Optional<NormalizedSimpleComparison> toNormalizedSimpleComparison(ComparisonExpression comparison)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(comparison);
-            Object left = new ExpressionInterpreter(comparison.getLeft(), metadata, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
-            Object right = new ExpressionInterpreter(comparison.getRight(), metadata, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
+            Object left = new ExpressionInterpreter(comparison.getLeft(), plannerContext, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
+            Object right = new ExpressionInterpreter(comparison.getRight(), plannerContext, session, expressionTypes).optimize(NoOpSymbolResolver.INSTANCE);
 
             Type leftType = expressionTypes.get(NodeRef.of(comparison.getLeft()));
             Type rightType = expressionTypes.get(NodeRef.of(comparison.getRight()));
@@ -763,7 +778,7 @@ public final class DomainTranslator
             boolean coercedValueIsEqualToOriginal = originalComparedToCoerced == 0;
             boolean coercedValueIsLessThanOriginal = originalComparedToCoerced > 0;
             boolean coercedValueIsGreaterThanOriginal = originalComparedToCoerced < 0;
-            Expression coercedLiteral = literalEncoder.toExpression(coercedValue, symbolExpressionType);
+            Expression coercedLiteral = literalEncoder.toExpression(session, coercedValue, symbolExpressionType);
 
             switch (comparisonOperator) {
                 case GREATER_THAN_OR_EQUAL:
@@ -824,7 +839,7 @@ public final class DomainTranslator
         private Optional<ResolvedFunction> getSaturatedFloorCastOperator(Type fromType, Type toType)
         {
             try {
-                return Optional.of(metadata.getCoercion(session, SATURATED_FLOOR_CAST, fromType, toType));
+                return Optional.of(plannerContext.getMetadata().getCoercion(session, SATURATED_FLOOR_CAST, fromType, toType));
             }
             catch (OperatorNotFoundException e) {
                 return Optional.empty();
@@ -835,10 +850,10 @@ public final class DomainTranslator
         {
             requireNonNull(originalValueType, "originalValueType is null");
             requireNonNull(coercedValue, "coercedValue is null");
-            ResolvedFunction castToOriginalTypeOperator = metadata.getCoercion(session, coercedValueType, originalValueType);
+            ResolvedFunction castToOriginalTypeOperator = plannerContext.getMetadata().getCoercion(session, coercedValueType, originalValueType);
             Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session.toConnectorSession(), coercedValue);
             // choice of placing unordered values first or last does not matter for this code
-            MethodHandle comparisonOperator = typeOperators.getComparisonUnorderedLastOperator(originalValueType, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            MethodHandle comparisonOperator = plannerContext.getTypeOperators().getComparisonUnorderedLastOperator(originalValueType, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
             try {
                 return (int) (long) comparisonOperator.invoke(originalValue, coercedValueInOriginalType);
             }
@@ -893,7 +908,7 @@ public final class DomainTranslator
             List<Expression> excludedExpressions = new ArrayList<>();
 
             for (Expression expression : valueList.getValues()) {
-                Object value = new ExpressionInterpreter(expression, metadata, session, expressionTypes)
+                Object value = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes)
                         .optimize(NoOpSymbolResolver.INSTANCE);
                 if (value == null || value instanceof NullLiteral) {
                     if (!complement) {

@@ -117,7 +117,7 @@ public class ParquetFileWriterFactory
             ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(fileColumnTypes, fileColumnNames);
 
             return Optional.of(new ParquetFileWriter(
-                    fileSystem.create(path),
+                    fileSystem.create(path, false),
                     rollbackAction,
                     fileColumnTypes,
                     schemaConverter.getMessageType(),

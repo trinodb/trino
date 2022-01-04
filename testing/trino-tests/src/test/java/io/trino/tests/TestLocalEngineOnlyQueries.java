@@ -30,9 +30,9 @@ public class TestLocalEngineOnlyQueries
         LocalQueryRunner queryRunner = TestLocalQueries.createLocalQueryRunner();
         try {
             // for testing session properties
-            queryRunner.getMetadata().getSessionPropertyManager().addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
+            queryRunner.getSessionPropertyManager().addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
             queryRunner.getCatalogManager().registerCatalog(createBogusTestingCatalog(TESTING_CATALOG));
-            queryRunner.getMetadata().getSessionPropertyManager().addConnectorSessionProperties(new CatalogName(TESTING_CATALOG), TEST_CATALOG_PROPERTIES);
+            queryRunner.getSessionPropertyManager().addConnectorSessionProperties(new CatalogName(TESTING_CATALOG), TEST_CATALOG_PROPERTIES);
         }
         catch (RuntimeException e) {
             throw closeAllSuppress(e, queryRunner);

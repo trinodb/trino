@@ -136,7 +136,7 @@ public class FileHiveMetastore
 {
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
-    private static final String TRINO_SCHEMA_FILE_NAME = ".trinoSchema";
+    private static final String TRINO_SCHEMA_FILE_NAME_SUFFIX = ".trinoSchema";
     private static final String TRINO_PERMISSIONS_DIRECTORY_NAME = ".trinoPermissions";
     public static final String ROLES_FILE_NAME = ".roles";
     public static final String ROLE_GRANTS_FILE_NAME = ".roleGrants";
@@ -204,10 +204,16 @@ public class FileHiveMetastore
 
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
         writeSchemaFile(DATABASE, databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, database), false);
+        try {
+            metadataFileSystem.mkdirs(databaseMetadataDirectory);
+        }
+        catch (IOException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, "Could not write database", e);
+        }
     }
 
     @Override
-    public synchronized void dropDatabase(HiveIdentity identity, String databaseName)
+    public synchronized void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
     {
         requireNonNull(databaseName, "databaseName is null");
 
@@ -216,7 +222,13 @@ public class FileHiveMetastore
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
         }
 
-        deleteMetadataDirectory(getDatabaseMetadataDirectory(databaseName));
+        // Either delete the entire database directory or just its metadata files
+        if (deleteData) {
+            deleteDirectoryAndSchema(DATABASE, getDatabaseMetadataDirectory(databaseName));
+        }
+        else {
+            deleteSchemaFile(DATABASE, getDatabaseMetadataDirectory(databaseName));
+        }
     }
 
     @Override
@@ -280,7 +292,7 @@ public class FileHiveMetastore
     @Override
     public synchronized List<String> getAllDatabases()
     {
-        List<String> databases = getChildSchemaDirectories(catalogDirectory).stream()
+        List<String> databases = getChildSchemaDirectories(DATABASE, catalogDirectory).stream()
                 .map(Path::getName)
                 .collect(toList());
         return ImmutableList.copyOf(databases);
@@ -492,7 +504,7 @@ public class FileHiveMetastore
         }
 
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(databaseName);
-        List<String> tables = getChildSchemaDirectories(databaseMetadataDirectory).stream()
+        List<String> tables = getChildSchemaDirectories(TABLE, databaseMetadataDirectory).stream()
                 .map(Path::getName)
                 .collect(toImmutableList());
         return tables;
@@ -522,10 +534,10 @@ public class FileHiveMetastore
 
         // It is safe to delete the whole meta directory for external tables and views
         if (!table.getTableType().equals(MANAGED_TABLE.name()) || deleteData) {
-            deleteMetadataDirectory(tableMetadataDirectory);
+            deleteDirectoryAndSchema(TABLE, tableMetadataDirectory);
         }
         else {
-            // in this case we only wan to delete the metadata of a managed table
+            // in this case we only want to delete the metadata of a managed table
             deleteSchemaFile(TABLE, tableMetadataDirectory);
             deleteTablePrivileges(table);
         }
@@ -576,7 +588,7 @@ public class FileHiveMetastore
                     throw new TrinoException(HIVE_METASTORE_ERROR, "Could not create new table directory");
                 }
                 // Iceberg metadata references files in old path, so these cannot be moved. Moving table description (metadata from metastore perspective) only.
-                if (!metadataFileSystem.rename(getSchemaPath(oldPath), getSchemaPath(newPath))) {
+                if (!metadataFileSystem.rename(getSchemaPath(TABLE, oldPath), getSchemaPath(TABLE, newPath))) {
                     throw new TrinoException(HIVE_METASTORE_ERROR, "Could not rename table schema file");
                 }
                 // TODO drop data files when table is being dropped
@@ -734,7 +746,7 @@ public class FileHiveMetastore
                 Partition partition = partitionWithStatistics.getPartition();
                 verifiedPartition(table, partition);
                 Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partition.getValues());
-                Path schemaPath = getSchemaPath(partitionMetadataDirectory);
+                Path schemaPath = getSchemaPath(PARTITION, partitionMetadataDirectory);
                 if (metadataFileSystem.exists(schemaPath)) {
                     throw new TrinoException(HIVE_METASTORE_ERROR, "Partition already exists");
                 }
@@ -814,7 +826,7 @@ public class FileHiveMetastore
 
         Path partitionMetadataDirectory = getPartitionMetadataDirectory(table, partitionValues);
         if (deleteData) {
-            deleteMetadataDirectory(partitionMetadataDirectory);
+            deleteDirectoryAndSchema(PARTITION, partitionMetadataDirectory);
         }
         else {
             deleteSchemaFile(PARTITION, partitionMetadataDirectory);
@@ -1015,7 +1027,7 @@ public class FileHiveMetastore
     private boolean isValidPartition(Table table, String partitionName)
     {
         try {
-            return metadataFileSystem.exists(getSchemaPath(getPartitionMetadataDirectory(table, partitionName)));
+            return metadataFileSystem.exists(getSchemaPath(PARTITION, getPartitionMetadataDirectory(table, partitionName)));
         }
         catch (IOException e) {
             return false;
@@ -1185,7 +1197,7 @@ public class FileHiveMetastore
         }
     }
 
-    private List<Path> getChildSchemaDirectories(Path metadataDirectory)
+    private List<Path> getChildSchemaDirectories(SchemaType type, Path metadataDirectory)
     {
         try {
             if (!metadataFileSystem.isDirectory(metadataDirectory)) {
@@ -1201,7 +1213,7 @@ public class FileHiveMetastore
                 if (childPath.getName().startsWith(".")) {
                     continue;
                 }
-                if (metadataFileSystem.isFile(getSchemaPath(childPath))) {
+                if (metadataFileSystem.isFile(getSchemaPath(type, childPath))) {
                     childSchemaDirectories.add(childPath);
                 }
             }
@@ -1233,14 +1245,18 @@ public class FileHiveMetastore
         }
     }
 
-    private void deleteMetadataDirectory(Path metadataDirectory)
+    private void deleteDirectoryAndSchema(SchemaType type, Path metadataDirectory)
     {
         try {
-            Path schemaPath = getSchemaPath(metadataDirectory);
+            Path schemaPath = getSchemaPath(type, metadataDirectory);
             if (!metadataFileSystem.isFile(schemaPath)) {
                 // if there is no schema file, assume this is not a database, partition or table
                 return;
             }
+
+            // Delete the schema file first, so it can never exist after the directory is deleted.
+            // (For cases when the schema file isn't in the metadata directory.)
+            deleteSchemaFile(type, metadataDirectory);
 
             if (!metadataFileSystem.delete(metadataDirectory, true)) {
                 throw new TrinoException(HIVE_METASTORE_ERROR, "Could not delete metadata directory");
@@ -1273,7 +1289,7 @@ public class FileHiveMetastore
 
     private <T> Optional<T> readSchemaFile(SchemaType type, Path metadataDirectory, JsonCodec<T> codec)
     {
-        return readFile(type + " schema", getSchemaPath(metadataDirectory), codec);
+        return readFile(type + " schema", getSchemaPath(type, metadataDirectory), codec);
     }
 
     private <T> Optional<T> readFile(String type, Path path, JsonCodec<T> codec)
@@ -1295,7 +1311,7 @@ public class FileHiveMetastore
 
     private <T> void writeSchemaFile(SchemaType type, Path directory, JsonCodec<T> codec, T value, boolean overwrite)
     {
-        writeFile(type + " schema", getSchemaPath(directory), codec, value, overwrite);
+        writeFile(type + " schema", getSchemaPath(type, directory), codec, value, overwrite);
     }
 
     private <T> void writeFile(String type, Path path, JsonCodec<T> codec, T value, boolean overwrite)
@@ -1324,7 +1340,7 @@ public class FileHiveMetastore
     private void deleteSchemaFile(SchemaType type, Path metadataDirectory)
     {
         try {
-            if (!metadataFileSystem.delete(getSchemaPath(metadataDirectory), false)) {
+            if (!metadataFileSystem.delete(getSchemaPath(type, metadataDirectory), false)) {
                 throw new TrinoException(HIVE_METASTORE_ERROR, "Could not delete " + type + " schema");
             }
         }
@@ -1380,9 +1396,14 @@ public class FileHiveMetastore
         return new Path(catalogDirectory, ROLE_GRANTS_FILE_NAME);
     }
 
-    private static Path getSchemaPath(Path metadataDirectory)
+    private static Path getSchemaPath(SchemaType type, Path metadataDirectory)
     {
-        return new Path(metadataDirectory, TRINO_SCHEMA_FILE_NAME);
+        if (type == DATABASE) {
+            return new Path(
+                    requireNonNull(metadataDirectory.getParent(), "Can't use root directory as database path"),
+                    format(".%s%s", metadataDirectory.getName(), TRINO_SCHEMA_FILE_NAME_SUFFIX));
+        }
+        return new Path(metadataDirectory, TRINO_SCHEMA_FILE_NAME_SUFFIX);
     }
 
     private static boolean isChildDirectory(Path parentDirectory, Path childDirectory)

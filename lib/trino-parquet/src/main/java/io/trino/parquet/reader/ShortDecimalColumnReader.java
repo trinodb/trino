@@ -99,7 +99,7 @@ public class ShortDecimalColumnReader
                 trinoType.writeLong(blockBuilder, convertedValue);
             }
             else if (isLongDecimal(trinoDecimalType)) {
-                trinoType.writeSlice(blockBuilder, shortToLongCast(
+                trinoType.writeObject(blockBuilder, shortToLongCast(
                         value,
                         parquetDecimalType.getPrecision(),
                         parquetDecimalType.getScale(),
@@ -140,20 +140,6 @@ public class ShortDecimalColumnReader
         }
 
         throw new IllegalArgumentException("Unsupported type: " + type);
-    }
-
-    @Override
-    protected void skipValue()
-    {
-        if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT32) {
-            valuesReader.readInteger();
-        }
-        else if (columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == INT64) {
-            valuesReader.readLong();
-        }
-        else {
-            valuesReader.readBytes();
-        }
     }
 
     private void checkBytesFitInShortDecimal(byte[] bytes, int endOffset, Type trinoType)

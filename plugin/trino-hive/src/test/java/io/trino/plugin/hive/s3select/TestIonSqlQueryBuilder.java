@@ -23,15 +23,12 @@ import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeOperators;
-import io.trino.type.InternalTypeManager;
 import io.trino.util.DateTimeUtils;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveTestUtils.longDecimal;
@@ -49,16 +46,15 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.testng.Assert.assertEquals;
 
 public class TestIonSqlQueryBuilder
 {
-    private final TypeManager typeManager = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
-
     @Test
     public void testBuildSQL()
     {
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER);
         List<HiveColumnHandle> columns = ImmutableList.of(
                 createBaseColumn("n_nationkey", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty()),
                 createBaseColumn("n_name", 1, HIVE_STRING, VARCHAR, REGULAR, Optional.empty()),
@@ -75,14 +71,14 @@ public class TestIonSqlQueryBuilder
     @Test
     public void testEmptyColumns()
     {
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER);
         assertEquals("SELECT ' ' FROM S3Object s", queryBuilder.buildSql(ImmutableList.of(), TupleDomain.all()));
     }
 
     @Test
     public void testDecimalColumns()
     {
-        TypeManager typeManager = this.typeManager;
+        TypeManager typeManager = TESTING_TYPE_MANAGER;
         IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         List<HiveColumnHandle> columns = ImmutableList.of(
                 createBaseColumn("quantity", 0, HiveType.valueOf("decimal(20,0)"), DecimalType.createDecimalType(), REGULAR, Optional.empty()),
@@ -103,7 +99,7 @@ public class TestIonSqlQueryBuilder
     @Test
     public void testDateColumn()
     {
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER);
         List<HiveColumnHandle> columns = ImmutableList.of(
                 createBaseColumn("t1", 0, HIVE_TIMESTAMP, TIMESTAMP_MILLIS, REGULAR, Optional.empty()),
                 createBaseColumn("t2", 1, HIVE_DATE, DATE, REGULAR, Optional.empty()));
@@ -116,7 +112,7 @@ public class TestIonSqlQueryBuilder
     @Test
     public void testNotPushDoublePredicates()
     {
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER);
         List<HiveColumnHandle> columns = ImmutableList.of(
                 createBaseColumn("quantity", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty()),
                 createBaseColumn("extendedprice", 1, HIVE_DOUBLE, DOUBLE, REGULAR, Optional.empty()),

@@ -48,4 +48,6 @@ WHERE ("sold_item_sk" = "i_item_sk")
    AND (("t_meal_time" = 'breakfast')
       OR ("t_meal_time" = 'dinner'))
 GROUP BY "i_brand", "i_brand_id", "t_hour", "t_minute"
-ORDER BY "ext_price" DESC, "i_brand_id" ASC
+ORDER BY "ext_price" DESC, "i_brand_id" ASC,
+   -- additional columns to assure results stability for larger scale factors; this is a deviation from TPC-DS specification
+   "t_hour" ASC, "t_minute" ASC

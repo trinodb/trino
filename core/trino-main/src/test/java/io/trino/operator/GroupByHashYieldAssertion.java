@@ -27,6 +27,7 @@ import io.trino.spiller.SpillSpaceTracker;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
@@ -83,6 +84,7 @@ public final class GroupByHashYieldAssertion
                 queryId,
                 DataSize.of(512, MEGABYTE),
                 DataSize.of(1024, MEGABYTE),
+                Optional.empty(),
                 memoryPool,
                 new TestingGcMonitor(),
                 EXECUTOR,

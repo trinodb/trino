@@ -16,7 +16,6 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Decimals;
@@ -27,6 +26,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.InterpretedFunctionInvoker;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
@@ -66,12 +66,12 @@ public final class LiteralInterpreter
 {
     private LiteralInterpreter() {}
 
-    public static Object evaluate(Metadata metadata, Session session, Map<NodeRef<Expression>, Type> types, Expression node)
+    public static Object evaluate(PlannerContext plannerContext, Session session, Map<NodeRef<Expression>, Type> types, Expression node)
     {
         if (!(node instanceof Literal)) {
             throw new IllegalArgumentException("node must be a Literal");
         }
-        return new LiteralVisitor(session, metadata, types).process(node, null);
+        return new LiteralVisitor(session, plannerContext, types).process(node, null);
     }
 
     private static class LiteralVisitor
@@ -79,16 +79,16 @@ public final class LiteralInterpreter
     {
         private final Session session;
         private final ConnectorSession connectorSession;
-        private final Metadata metadata;
+        private final PlannerContext plannerContext;
         private final InterpretedFunctionInvoker functionInvoker;
         private final Map<NodeRef<Expression>, Type> types;
 
-        private LiteralVisitor(Session session, Metadata metadata, Map<NodeRef<Expression>, Type> types)
+        private LiteralVisitor(Session session, PlannerContext plannerContext, Map<NodeRef<Expression>, Type> types)
         {
             this.session = requireNonNull(session, "session is null");
             this.connectorSession = session.toConnectorSession();
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata);
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+            this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getMetadata());
             this.types = requireNonNull(types, "types is null");
         }
 
@@ -145,19 +145,19 @@ public final class LiteralInterpreter
         {
             Type type;
             try {
-                type = metadata.fromSqlType(node.getType());
+                type = plannerContext.getTypeManager().fromSqlType(node.getType());
             }
             catch (TypeNotFoundException e) {
                 throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: %s", node.getType());
             }
 
             if (JSON.equals(type)) {
-                ResolvedFunction resolvedFunction = metadata.resolveFunction(session, QualifiedName.of("json_parse"), fromTypes(VARCHAR));
+                ResolvedFunction resolvedFunction = plannerContext.getMetadata().resolveFunction(session, QualifiedName.of("json_parse"), fromTypes(VARCHAR));
                 return functionInvoker.invoke(resolvedFunction, connectorSession, ImmutableList.of(utf8Slice(node.getValue())));
             }
 
             try {
-                ResolvedFunction resolvedFunction = metadata.getCoercion(session, VARCHAR, type);
+                ResolvedFunction resolvedFunction = plannerContext.getMetadata().getCoercion(session, VARCHAR, type);
                 return functionInvoker.invoke(resolvedFunction, connectorSession, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {

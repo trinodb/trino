@@ -39,6 +39,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -46,7 +47,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -96,11 +96,17 @@ public class TestMemoryTracking
     @BeforeMethod
     public void setUpTest()
     {
+        setupTestWithLimits(queryMaxMemory, queryMaxTotalMemory, Optional.empty());
+    }
+
+    private void setupTestWithLimits(DataSize queryMaxMemory, DataSize queryMaxTotalMemory, Optional<DataSize> queryMaxTaskMemory)
+    {
         memoryPool = new MemoryPool(new MemoryPoolId("test"), memoryPoolSize);
         queryContext = new QueryContext(
                 new QueryId("test_query"),
                 queryMaxMemory,
                 queryMaxTotalMemory,
+                queryMaxTaskMemory,
                 memoryPool,
                 new TestingGcMonitor(),
                 notificationExecutor,
@@ -154,7 +160,22 @@ public class TestMemoryTracking
         assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, queryMaxTotalMemory.toBytes(), 0);
         assertThatThrownBy(() -> systemMemoryContext.setBytes(queryMaxTotalMemory.toBytes() + 1))
                 .isInstanceOf(ExceededMemoryLimitException.class)
-                .hasMessage(format("Query exceeded per-node total memory limit of %1$s [Allocated: %1$s, Delta: 1B, Top Consumers: {test=%1$s}]", queryMaxTotalMemory));
+                .hasMessage("Query exceeded per-node total memory limit of %1$s [Allocated: %1$s, Delta: 1B, Top Consumers: {test=%1$s}]", queryMaxTotalMemory);
+    }
+
+    @Test
+    public void testTaskMemoryLimitExceeded()
+    {
+        DataSize taskMaxMemory = DataSize.of(1, GIGABYTE);
+        setupTestWithLimits(DataSize.of(2, GIGABYTE), DataSize.of(2, GIGABYTE), Optional.of(taskMaxMemory));
+        LocalMemoryContext systemMemoryContext = operatorContext.newLocalSystemMemoryContext("test");
+        systemMemoryContext.setBytes(100);
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 100, 0);
+        systemMemoryContext.setBytes(taskMaxMemory.toBytes());
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, taskMaxMemory.toBytes(), 0);
+        assertThatThrownBy(() -> systemMemoryContext.setBytes(taskMaxMemory.toBytes() + 1))
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessage("Query exceeded per-task total memory limit of %1$s [Allocated: %s, Delta: 1B, Top Consumers: {test=%s}]", taskMaxMemory, DataSize.succinctBytes(taskMaxMemory.toBytes() + 1));
     }
 
     @Test

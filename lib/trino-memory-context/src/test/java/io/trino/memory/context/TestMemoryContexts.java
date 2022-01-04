@@ -22,6 +22,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -100,7 +101,7 @@ public class TestMemoryContexts
     }
 
     @Test
-    public void testHieararchicalMemoryContexts()
+    public void testHierarchicalMemoryContexts()
     {
         TestMemoryReservationHandler reservationHandler = new TestMemoryReservationHandler(1_000);
         AggregatedMemoryContext parentContext = newRootAggregatedMemoryContext(reservationHandler, GUARANTEED_MEMORY);
@@ -164,16 +165,135 @@ public class TestMemoryContexts
         localContext.setBytes(100);
     }
 
+    @Test
+    public void testValidatingAggregateContext()
+    {
+        TestMemoryReservationHandler reservationHandler = new TestMemoryReservationHandler(1_000, true);
+        AggregatedMemoryContext rootContext = newRootAggregatedMemoryContext(reservationHandler, GUARANTEED_MEMORY);
+
+        AggregatedMemoryContext childContext = new ValidatingAggregateContext(rootContext, new TestAllocationValidator(500));
+
+        LocalMemoryContext localContext = childContext.newLocalMemoryContext("test");
+
+        assertEquals(localContext.setBytes(500), NOT_BLOCKED);
+        assertEquals(localContext.getBytes(), 500);
+        assertEquals(rootContext.getBytes(), 500);
+        assertEquals(reservationHandler.getReservation(), rootContext.getBytes());
+
+        // reserve above validator limit
+        assertThatThrownBy(() -> localContext.setBytes(501)).hasMessage("limit exceeded");
+        assertEquals(localContext.getBytes(), 500);
+        assertEquals(rootContext.getBytes(), 500);
+        assertEquals(reservationHandler.getReservation(), rootContext.getBytes());
+
+        // try reserve above validator limit
+        assertFalse(localContext.trySetBytes(501));
+        assertEquals(localContext.getBytes(), 500);
+        assertEquals(rootContext.getBytes(), 500);
+        assertEquals(reservationHandler.getReservation(), rootContext.getBytes());
+
+        // unreserve a bit
+        assertEquals(localContext.setBytes(400), NOT_BLOCKED);
+        assertEquals(localContext.getBytes(), 400);
+        assertEquals(rootContext.getBytes(), 400);
+        assertEquals(reservationHandler.getReservation(), rootContext.getBytes());
+
+        // unreserve a bit using trySetBytes
+        assertTrue(localContext.trySetBytes(300));
+        assertEquals(localContext.getBytes(), 300);
+        assertEquals(rootContext.getBytes(), 300);
+        assertEquals(reservationHandler.getReservation(), rootContext.getBytes());
+
+        // another context based directly on rootContext
+        LocalMemoryContext anotherLocalContext = rootContext.newLocalMemoryContext("another");
+
+        assertEquals(anotherLocalContext.setBytes(650), NOT_BLOCKED);
+        // total reservation is 950 at root level now
+        assertEquals(localContext.getBytes(), 300);
+        assertEquals(anotherLocalContext.getBytes(), 650);
+        assertEquals(rootContext.getBytes(), 950);
+        assertEquals(reservationHandler.getReservation(), rootContext.getBytes());
+
+        // exceed root context limit but be within validator boundaries
+        assertThatThrownBy(() -> localContext.setBytes(400)).hasMessage("out of memory");
+        assertEquals(localContext.getBytes(), 300);
+        assertEquals(anotherLocalContext.getBytes(), 650);
+        assertEquals(rootContext.getBytes(), 950);
+        assertEquals(reservationHandler.getReservation(), rootContext.getBytes());
+
+        // exceed root context limit but be within validator boundaries using trySetBytes
+        assertFalse(localContext.trySetBytes(400));
+        assertEquals(localContext.getBytes(), 300);
+        assertEquals(anotherLocalContext.getBytes(), 650);
+        assertEquals(rootContext.getBytes(), 950);
+        assertEquals(reservationHandler.getReservation(), rootContext.getBytes());
+
+        // if we free space in root context we can still allocate up to validator imposed limit
+        assertEquals(anotherLocalContext.setBytes(499), NOT_BLOCKED);
+
+        // reserve using setBytes
+        assertEquals(localContext.setBytes(400), NOT_BLOCKED);
+        assertEquals(localContext.getBytes(), 400);
+        assertEquals(anotherLocalContext.getBytes(), 499);
+        assertEquals(rootContext.getBytes(), 899);
+        assertEquals(reservationHandler.getReservation(), rootContext.getBytes());
+
+        // reserve using trySetBytes
+        assertEquals(localContext.setBytes(500), NOT_BLOCKED);
+        assertEquals(localContext.getBytes(), 500);
+        assertEquals(anotherLocalContext.getBytes(), 499);
+        assertEquals(rootContext.getBytes(), 999);
+        assertEquals(reservationHandler.getReservation(), rootContext.getBytes());
+    }
+
+    private static class TestAllocationValidator
+            implements MemoryAllocationValidator
+    {
+        private final long limit;
+        private long reserved;
+
+        public TestAllocationValidator(long limit)
+        {
+            this.limit = limit;
+        }
+
+        @Override
+        public void reserveMemory(String allocationTag, long delta)
+        {
+            if (reserved + delta > limit) {
+                throw new IllegalArgumentException("limit exceeded");
+            }
+            reserved = reserved + delta;
+        }
+
+        @Override
+        public boolean tryReserveMemory(String allocationTag, long delta)
+        {
+            if (reserved + delta > limit) {
+                return false;
+            }
+            reserved = reserved + delta;
+            return true;
+        }
+    }
+
     private static class TestMemoryReservationHandler
             implements MemoryReservationHandler
     {
         private long reservation;
         private final long maxMemory;
+        private final boolean throwWhenExceeded;
         private SettableFuture<Void> future;
 
         public TestMemoryReservationHandler(long maxMemory)
         {
+            this(maxMemory, false);
+        }
+
+        public TestMemoryReservationHandler(long maxMemory, boolean throwWhenExceeded)
+        {
             this.maxMemory = maxMemory;
+            this.throwWhenExceeded = throwWhenExceeded;
         }
 
         public long getReservation()
@@ -184,6 +304,9 @@ public class TestMemoryContexts
         @Override
         public ListenableFuture<Void> reserveMemory(String allocationTag, long delta)
         {
+            if (delta > 0 && reservation + delta > maxMemory && throwWhenExceeded) {
+                throw new IllegalStateException("out of memory");
+            }
             reservation += delta;
             if (delta >= 0) {
                 if (reservation >= maxMemory) {

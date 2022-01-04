@@ -18,9 +18,6 @@ import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
-import io.trino.security.AccessControl;
-import io.trino.spi.security.GroupProvider;
-import io.trino.sql.parser.SqlParser;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
@@ -43,11 +40,8 @@ import static java.util.Objects.requireNonNull;
 
 public class Analyzer
 {
-    private final Metadata metadata;
-    private final SqlParser sqlParser;
     private final AnalyzerFactory analyzerFactory;
-    private final AccessControl accessControl;
-    private final GroupProvider groupProvider;
+    private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final Session session;
     private final List<Expression> parameters;
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
@@ -56,22 +50,16 @@ public class Analyzer
 
     Analyzer(
             Session session,
-            Metadata metadata,
-            SqlParser sqlParser,
             AnalyzerFactory analyzerFactory,
-            GroupProvider groupProvider,
-            AccessControl accessControl,
+            StatementAnalyzerFactory statementAnalyzerFactory,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector,
             StatementRewrite statementRewrite)
     {
         this.session = requireNonNull(session, "session is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
-        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
-        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.parameters = parameters;
         this.parameterLookup = parameterLookup;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -87,7 +75,7 @@ public class Analyzer
     {
         Statement rewrittenStatement = statementRewrite.rewrite(analyzerFactory, session, statement, parameters, parameterLookup, warningCollector);
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, queryType);
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
+        StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
         analyzer.analyze(rewrittenStatement, Optional.empty());
 
         // check column access permissions for each table

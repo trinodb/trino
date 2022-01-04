@@ -23,12 +23,11 @@ import com.google.common.collect.Maps;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.BoundSignature;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.ResolvedIndex;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -73,13 +72,11 @@ import static java.util.function.Function.identity;
 public class IndexJoinOptimizer
         implements PlanOptimizer
 {
-    private final Metadata metadata;
-    private final TypeOperators typeOperators;
+    private final PlannerContext plannerContext;
 
-    public IndexJoinOptimizer(Metadata metadata, TypeOperators typeOperators)
+    public IndexJoinOptimizer(PlannerContext plannerContext)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.plannerContext = plannerContext;
     }
 
     @Override
@@ -90,7 +87,7 @@ public class IndexJoinOptimizer
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, metadata, typeOperators, session), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(symbolAllocator, idAllocator, plannerContext, session), plan, null);
     }
 
     private static class Rewriter
@@ -98,21 +95,18 @@ public class IndexJoinOptimizer
     {
         private final SymbolAllocator symbolAllocator;
         private final PlanNodeIdAllocator idAllocator;
-        private final Metadata metadata;
-        private final TypeOperators typeOperators;
+        private final PlannerContext plannerContext;
         private final Session session;
 
         private Rewriter(
                 SymbolAllocator symbolAllocator,
                 PlanNodeIdAllocator idAllocator,
-                Metadata metadata,
-                TypeOperators typeOperators,
+                PlannerContext plannerContext,
                 Session session)
         {
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
         }
 
@@ -131,8 +125,7 @@ public class IndexJoinOptimizer
                         ImmutableSet.copyOf(leftJoinSymbols),
                         symbolAllocator,
                         idAllocator,
-                        metadata,
-                        typeOperators,
+                        plannerContext,
                         session);
                 if (leftIndexCandidate.isPresent()) {
                     // Sanity check that we can trace the path for the index lookup key
@@ -145,8 +138,7 @@ public class IndexJoinOptimizer
                         ImmutableSet.copyOf(rightJoinSymbols),
                         symbolAllocator,
                         idAllocator,
-                        metadata,
-                        typeOperators,
+                        plannerContext,
                         session);
                 if (rightIndexCandidate.isPresent()) {
                     // Sanity check that we can trace the path for the index lookup key
@@ -255,23 +247,20 @@ public class IndexJoinOptimizer
     {
         private final SymbolAllocator symbolAllocator;
         private final PlanNodeIdAllocator idAllocator;
-        private final Metadata metadata;
-        private final TypeOperators typeOperators;
+        private final PlannerContext plannerContext;
         private final DomainTranslator domainTranslator;
         private final Session session;
 
         private IndexSourceRewriter(
                 SymbolAllocator symbolAllocator,
                 PlanNodeIdAllocator idAllocator,
-                Metadata metadata,
-                TypeOperators typeOperators,
+                PlannerContext plannerContext,
                 Session session)
         {
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.domainTranslator = new DomainTranslator(session, metadata);
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+            this.domainTranslator = new DomainTranslator(plannerContext);
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
-            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
             this.session = requireNonNull(session, "session is null");
         }
 
@@ -280,12 +269,11 @@ public class IndexJoinOptimizer
                 Set<Symbol> lookupSymbols,
                 SymbolAllocator symbolAllocator,
                 PlanNodeIdAllocator idAllocator,
-                Metadata metadata,
-                TypeOperators typeOperators,
+                PlannerContext plannerContext,
                 Session session)
         {
             AtomicBoolean success = new AtomicBoolean();
-            IndexSourceRewriter indexSourceRewriter = new IndexSourceRewriter(symbolAllocator, idAllocator, metadata, typeOperators, session);
+            IndexSourceRewriter indexSourceRewriter = new IndexSourceRewriter(symbolAllocator, idAllocator, plannerContext, session);
             PlanNode rewritten = SimplePlanRewriter.rewriteWith(indexSourceRewriter, planNode, new Context(lookupSymbols, success));
             if (success.get()) {
                 return Optional.of(rewritten);
@@ -308,9 +296,8 @@ public class IndexJoinOptimizer
 
         private PlanNode planTableScan(TableScanNode node, Expression predicate, Context context)
         {
-            DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
-                    metadata,
-                    typeOperators,
+            DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(
+                    plannerContext,
                     session,
                     predicate,
                     symbolAllocator.getTypes());
@@ -327,7 +314,7 @@ public class IndexJoinOptimizer
 
             Set<ColumnHandle> outputColumns = node.getOutputSymbols().stream().map(node.getAssignments()::get).collect(toImmutableSet());
 
-            Optional<ResolvedIndex> optionalResolvedIndex = metadata.resolveIndex(session, node.getTable(), lookupColumns, outputColumns, simplifiedConstraint);
+            Optional<ResolvedIndex> optionalResolvedIndex = plannerContext.getMetadata().resolveIndex(session, node.getTable(), lookupColumns, outputColumns, simplifiedConstraint);
             if (optionalResolvedIndex.isEmpty()) {
                 // No index available, so give up by returning something
                 return node;
@@ -345,8 +332,8 @@ public class IndexJoinOptimizer
                     node.getAssignments());
 
             Expression resultingPredicate = combineConjuncts(
-                    metadata,
-                    domainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
+                    plannerContext.getMetadata(),
+                    domainTranslator.toPredicate(session, resolvedIndex.getUnresolvedTupleDomain().transformKeys(inverseAssignments::get)),
                     decomposedPredicate.getRemainingExpression());
 
             if (!resultingPredicate.equals(TRUE_LITERAL)) {
@@ -392,7 +379,7 @@ public class IndexJoinOptimizer
                     .map(ResolvedFunction::getSignature)
                     .map(BoundSignature::getName)
                     .map(QualifiedName::of)
-                    .allMatch(metadata::isAggregationFunction)) {
+                    .allMatch(plannerContext.getMetadata()::isAggregationFunction)) {
                 return node;
             }
 

@@ -14,6 +14,7 @@
 package io.trino.plugin.phoenix;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -87,11 +88,12 @@ public class PhoenixSplitManager
                     columns,
                     Optional.empty());
 
-            List<ConnectorSplit> splits = getSplits(inputQuery).stream()
+            int maxScansPerSplit = session.getProperty(PhoenixSessionProperties.MAX_SCANS_PER_SPLIT, Integer.class);
+            List<ConnectorSplit> splits = getSplits(inputQuery, maxScansPerSplit).stream()
                     .map(PhoenixInputSplit.class::cast)
                     .map(split -> new PhoenixSplit(
                             getSplitAddresses(split),
-                            new WrappedPhoenixInputSplit(split)))
+                            SerializedPhoenixInputSplit.serialize(split)))
                     .collect(toImmutableList());
             return new FixedSplitSource(splits);
         }
@@ -113,15 +115,15 @@ public class PhoenixSplitManager
         }
     }
 
-    private List<InputSplit> getSplits(PhoenixPreparedStatement inputQuery)
+    private List<InputSplit> getSplits(PhoenixPreparedStatement inputQuery, int maxScansPerSplit)
             throws IOException
     {
         QueryPlan queryPlan = phoenixClient.getQueryPlan(inputQuery);
-        return generateSplits(queryPlan, queryPlan.getSplits());
+        return generateSplits(queryPlan, queryPlan.getSplits(), maxScansPerSplit);
     }
 
     // mostly copied from PhoenixInputFormat, but without the region size calculations
-    private List<InputSplit> generateSplits(QueryPlan queryPlan, List<KeyRange> splits)
+    private List<InputSplit> generateSplits(QueryPlan queryPlan, List<KeyRange> splits, int maxScansPerSplit)
             throws IOException
     {
         requireNonNull(queryPlan, "queryPlan is null");
@@ -147,7 +149,14 @@ public class PhoenixSplitManager
                         log.debug("EXPECTED_UPPER_REGION_KEY[%d] : %s", i, Bytes.toStringBinary(scans.get(i).getAttribute(EXPECTED_UPPER_REGION_KEY)));
                     }
                 }
-                inputSplits.add(new PhoenixInputSplit(scans, regionSize, regionLocation));
+                /*
+                 * Handle parallel execution explicitly in Trino rather than internally in Phoenix.
+                 * Each split is handled by a single ConcatResultIterator
+                 * (See PhoenixClient.getResultSet(...))
+                 */
+                for (List<Scan> splitScans : Lists.partition(scans, maxScansPerSplit)) {
+                    inputSplits.add(new PhoenixInputSplit(splitScans, regionSize, regionLocation));
+                }
             }
             return inputSplits;
         }

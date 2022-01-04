@@ -963,6 +963,10 @@ Procedures
   Unregisters given, existing partition in the metastore for the specified table.
   The partition data is not deleted.
 
+* ``system.flush_metadata_cache()``
+
+  Flush Hive metadata caches.
+
 Special columns
 ---------------
 

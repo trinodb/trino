@@ -21,6 +21,7 @@ import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.MetadataManager;
+import io.trino.metadata.ProcedureRegistry;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
@@ -30,6 +31,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.TestingAccessControlManager;
@@ -48,6 +50,7 @@ import java.util.function.Function;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.block.MethodHandleUtil.methodHandle;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
@@ -121,8 +124,8 @@ public class TestCallTask
     private void executeCallTask(MethodHandle methodHandle, Function<TransactionManager, AccessControl> accessControlProvider)
     {
         TransactionManager transactionManager = createTransactionManager();
-        MetadataManager metadata = createMetadataManager(
-                transactionManager,
+        MetadataManager metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        ProcedureRegistry procedureRegistry = createProcedureRegistry(
                 new Procedure(
                         "test",
                         "testing_procedure",
@@ -130,7 +133,8 @@ public class TestCallTask
                         methodHandle));
         AccessControl accessControl = accessControlProvider.apply(transactionManager);
 
-        new CallTask(transactionManager, metadata, accessControl)
+        PlannerContext plannerContext = plannerContextBuilder().withMetadata(metadata).build();
+        new CallTask(transactionManager, plannerContext, accessControl, procedureRegistry)
                 .execute(
                         new Call(QualifiedName.of("testing_procedure"), ImmutableList.of()),
                         stateMachine(transactionManager, metadata, accessControl),
@@ -138,18 +142,18 @@ public class TestCallTask
                         WarningCollector.NOOP);
     }
 
-    private TransactionManager createTransactionManager()
+    private static TransactionManager createTransactionManager()
     {
         CatalogManager catalogManager = new CatalogManager();
         catalogManager.registerCatalog(createBogusTestingCatalog("test"));
         return createTestTransactionManager(catalogManager);
     }
 
-    private MetadataManager createMetadataManager(TransactionManager transactionManager, Procedure procedure)
+    private static ProcedureRegistry createProcedureRegistry(Procedure procedure)
     {
-        MetadataManager metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
-        metadata.getProcedureRegistry().addProcedures(new CatalogName("test"), ImmutableList.of(procedure));
-        return metadata;
+        ProcedureRegistry procedureRegistry = new ProcedureRegistry();
+        procedureRegistry.addProcedures(new CatalogName("test"), ImmutableList.of(procedure));
+        return procedureRegistry;
     }
 
     private QueryStateMachine stateMachine(TransactionManager transactionManager, MetadataManager metadata, AccessControl accessControl)

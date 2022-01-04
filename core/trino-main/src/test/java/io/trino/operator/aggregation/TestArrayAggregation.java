@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.aggregation.groupby.AggregationTestInput;
 import io.trino.operator.aggregation.groupby.AggregationTestInputBuilder;
@@ -29,7 +28,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Random;
 
 import static io.trino.block.BlockAssertions.createArrayBigintBlock;
@@ -43,6 +42,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static org.testng.Assert.assertTrue;
 
 public class TestArrayAggregation
@@ -141,11 +141,11 @@ public class TestArrayAggregation
     public void testEmptyStateOutputsNull()
     {
         TestingAggregationFunction bigIntAgg = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("array_agg"), fromTypes(BIGINT));
-        GroupedAccumulator groupedAccumulator = bigIntAgg.bind(Ints.asList(new int[] {}), Optional.empty())
-                .createGroupedAccumulator();
-        BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
+        GroupedAggregator groupedAggregator = bigIntAgg.createAggregatorFactory(SINGLE, ImmutableList.of(), OptionalInt.empty())
+                .createGroupedAggregator();
+        BlockBuilder blockBuilder = bigIntAgg.getFinalType().createBlockBuilder(null, 1000);
 
-        groupedAccumulator.evaluateFinal(0, blockBuilder);
+        groupedAggregator.evaluate(0, blockBuilder);
         assertTrue(blockBuilder.isNull(0));
     }
 
@@ -161,7 +161,7 @@ public class TestArrayAggregation
         AggregationTestOutput testOutput = new AggregationTestOutput(ImmutableList.of("hello", "world", "hello2", "world2", "hello3", "world3", "goodbye"));
         AggregationTestInput testInput = testInputBuilder.build();
 
-        testInput.runPagesOnAccumulatorWithAssertion(0L, testInput.createGroupedAccumulator(), testOutput);
+        testInput.runPagesOnAggregatorWithAssertion(0L, varcharAgg.getFinalType(), testInput.createGroupedAggregator(), testOutput);
     }
 
     @Test
@@ -176,16 +176,16 @@ public class TestArrayAggregation
                 new Block[] {block1},
                 varcharAgg);
         AggregationTestInput test1 = testInputBuilder1.build();
-        GroupedAccumulator groupedAccumulator = test1.createGroupedAccumulator();
+        GroupedAggregator groupedAggregator = test1.createGroupedAggregator();
 
-        test1.runPagesOnAccumulatorWithAssertion(0L, groupedAccumulator, aggregationTestOutput1);
+        test1.runPagesOnAggregatorWithAssertion(0L, varcharAgg.getFinalType(), groupedAggregator, aggregationTestOutput1);
 
         AggregationTestOutput aggregationTestOutput2 = new AggregationTestOutput(ImmutableList.of("f", "g", "h", "i", "j"));
         AggregationTestInputBuilder testBuilder2 = new AggregationTestInputBuilder(
                 new Block[] {block2},
                 varcharAgg);
         AggregationTestInput test2 = testBuilder2.build();
-        test2.runPagesOnAccumulatorWithAssertion(255L, groupedAccumulator, aggregationTestOutput2);
+        test2.runPagesOnAggregatorWithAssertion(255L, varcharAgg.getFinalType(), groupedAggregator, aggregationTestOutput2);
     }
 
     @Test
@@ -197,8 +197,8 @@ public class TestArrayAggregation
         int numGroups = 50000;
         int arraySize = 30;
         Random random = new Random();
-        GroupedAccumulator groupedAccumulator = varcharAgg.bind(ImmutableList.of(0), Optional.empty())
-                .createGroupedAccumulator();
+        GroupedAggregator groupedAggregator = varcharAgg.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())
+                .createGroupedAggregator();
 
         for (int j = 0; j < numGroups; j++) {
             List<String> expectedValues = new ArrayList<>();
@@ -216,7 +216,7 @@ public class TestArrayAggregation
                     varcharAgg);
             AggregationTestInput test1 = testInputBuilder.build();
 
-            test1.runPagesOnAccumulatorWithAssertion(j, groupedAccumulator, new AggregationTestOutput(expectedValues));
+            test1.runPagesOnAggregatorWithAssertion(j, varcharAgg.getFinalType(), groupedAggregator, new AggregationTestOutput(expectedValues));
         }
     }
 }

@@ -16,20 +16,30 @@ package io.trino.plugin.hive.metastore.cache;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreDecorator;
+import io.trino.plugin.hive.metastore.procedure.FlushHiveMetastoreCacheProcedure;
 import io.trino.spi.NodeManager;
+import io.trino.spi.procedure.Procedure;
 
+import javax.inject.Qualifier;
 import javax.inject.Singleton;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import java.util.Optional;
-import java.util.concurrent.Executor;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -43,32 +53,57 @@ public class CachingHiveMetastoreModule
         newOptionalBinder(binder, HiveMetastoreDecorator.class);
         newExporter(binder).export(HiveMetastore.class)
                 .as(generator -> generator.generatedNameOf(CachingHiveMetastore.class));
+        newSetBinder(binder, Procedure.class).addBinding().toProvider(FlushHiveMetastoreCacheProcedure.class).in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
-    public HiveMetastore createCachingHiveMetastore(
-            NodeManager nodeManager,
+    @DecoratedForCachingHiveMetastore
+    public HiveMetastore createDecoratedHiveMetastore(
             @ForCachingHiveMetastore HiveMetastore delegate,
-            CachingHiveMetastoreConfig config,
-            CatalogName catalogName,
             Optional<HiveMetastoreDecorator> hiveMetastoreDecorator)
     {
-        HiveMetastore decoratedDelegate = hiveMetastoreDecorator
+        return hiveMetastoreDecorator
                 .map(decorator -> decorator.decorate(delegate))
                 .orElse(delegate);
+    }
 
-        if (!nodeManager.getCurrentNode().isCoordinator()) {
+    @Provides
+    @Singleton
+    public Optional<CachingHiveMetastore> createCachingHiveMetastore(
+            NodeManager nodeManager,
+            @DecoratedForCachingHiveMetastore HiveMetastore delegate,
+            CachingHiveMetastoreConfig config,
+            CatalogName catalogName)
+    {
+        if (!nodeManager.getCurrentNode().isCoordinator() || !config.isCacheEnabled()) {
             // Disable caching on workers, because there currently is no way to invalidate such a cache.
             // Note: while we could skip CachingHiveMetastoreModule altogether on workers, we retain it so that catalog
             // configuration can remain identical for all nodes, making cluster configuration easier.
-            return decoratedDelegate;
+            return Optional.empty();
         }
 
-        Executor executor = new ReentrantBoundedExecutor(
-                newCachedThreadPool(daemonThreadsNamed("hive-metastore-" + catalogName + "-%s")),
-                config.getMaxMetastoreRefreshThreads());
+        return Optional.of(cachingHiveMetastore(
+                delegate,
+                new ReentrantBoundedExecutor(
+                        newCachedThreadPool(daemonThreadsNamed("hive-metastore-" + catalogName + "-%s")),
+                        config.getMaxMetastoreRefreshThreads()),
+                config));
+    }
 
-        return cachingHiveMetastore(decoratedDelegate, executor, config);
+    @Provides
+    @Singleton
+    public HiveMetastore createHiveMetastore(
+            @DecoratedForCachingHiveMetastore HiveMetastore delegate,
+            Optional<CachingHiveMetastore> cachingMetastore)
+    {
+        return cachingMetastore.map(metastore -> (HiveMetastore) metastore).orElse(delegate);
+    }
+
+    @Retention(RUNTIME)
+    @Target({FIELD, PARAMETER, METHOD})
+    @Qualifier
+    public @interface DecoratedForCachingHiveMetastore
+    {
     }
 }

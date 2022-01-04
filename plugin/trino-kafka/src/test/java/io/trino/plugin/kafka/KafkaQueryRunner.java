@@ -21,7 +21,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.decoder.DecoderModule;
-import io.trino.metadata.Metadata;
 import io.trino.plugin.kafka.encoder.EncoderModule;
 import io.trino.plugin.kafka.schema.ContentSchemaReader;
 import io.trino.plugin.kafka.schema.MapBasedTableDescriptionSupplier;
@@ -30,6 +29,7 @@ import io.trino.plugin.kafka.schema.file.FileContentSchemaReader;
 import io.trino.plugin.kafka.util.CodecSupplier;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.TypeManager;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 import io.trino.tpch.TpchTable;
@@ -100,7 +100,7 @@ public final class KafkaQueryRunner
         {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
-            Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables);
+            Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getTypeManager(), tables);
 
             List<SchemaTableName> tableNames = new ArrayList<>();
             tableNames.add(new SchemaTableName("read_test", "all_datatypes_json"));
@@ -109,7 +109,7 @@ public final class KafkaQueryRunner
             tableNames.add(new SchemaTableName("write_test", "all_datatypes_raw"));
             tableNames.add(new SchemaTableName("write_test", "all_datatypes_json"));
 
-            JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, queryRunner.getMetadata()).get();
+            JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, queryRunner.getCoordinator().getTypeManager()).get();
 
             ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> testTopicDescriptions = ImmutableMap.builder();
             for (SchemaTableName tableName : tableNames) {
@@ -184,10 +184,10 @@ public final class KafkaQueryRunner
         return TPCH_SCHEMA + "." + table.getTableName().toLowerCase(ENGLISH);
     }
 
-    private static Map<SchemaTableName, KafkaTopicDescription> createTpchTopicDescriptions(Metadata metadata, Iterable<TpchTable<?>> tables)
+    private static Map<SchemaTableName, KafkaTopicDescription> createTpchTopicDescriptions(TypeManager typeManager, Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, metadata).get();
+        JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, typeManager).get();
 
         ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> topicDescriptions = ImmutableMap.builder();
         for (TpchTable<?> table : tables) {

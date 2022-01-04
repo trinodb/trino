@@ -17,6 +17,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.security.AccessControl;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
@@ -60,7 +61,7 @@ public class TableProceduresPropertyManager
             String catalogNameForDiagnostics,
             Map<String, Expression> sqlPropertyValues,
             Session session,
-            Metadata metadata,
+            PlannerContext plannerContext,
             AccessControl accessControl,
             Map<NodeRef<Parameter>, Expression> parameters,
             boolean setDefaultProperties)
@@ -70,7 +71,7 @@ public class TableProceduresPropertyManager
                 catalogNameForDiagnostics,
                 sqlPropertyValues,
                 session,
-                metadata,
+                plannerContext,
                 accessControl,
                 parameters,
                 setDefaultProperties);

@@ -40,6 +40,7 @@ import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.index.IndexManager;
+import io.trino.metadata.FunctionKind;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
@@ -95,8 +96,11 @@ import io.trino.operator.WindowFunctionDefinition;
 import io.trino.operator.WindowOperator.WindowOperatorFactory;
 import io.trino.operator.WorkProcessorPipelineSourceOperator;
 import io.trino.operator.aggregation.AccumulatorFactory;
-import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.AggregationMetadata;
+import io.trino.operator.aggregation.AggregatorFactory;
+import io.trino.operator.aggregation.DistinctAccumulatorFactory;
 import io.trino.operator.aggregation.LambdaProvider;
+import io.trino.operator.aggregation.OrderedAccumulatorFactory;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeFactory;
 import io.trino.operator.exchange.LocalExchangeSinkOperator.LocalExchangeSinkOperatorFactory;
 import io.trino.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourceOperatorFactory;
@@ -121,6 +125,7 @@ import io.trino.operator.output.TaskOutputOperator.TaskOutputFactory;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
+import io.trino.operator.window.AggregationWindowFunctionSupplier;
 import io.trino.operator.window.FrameInfo;
 import io.trino.operator.window.PartitionerSupplier;
 import io.trino.operator.window.PatternRecognitionPartitionerSupplier;
@@ -152,7 +157,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.spiller.SingleStreamSpillerFactory;
 import io.trino.spiller.SpillerFactory;
@@ -160,6 +164,7 @@ import io.trino.split.MappedRecordSet;
 import io.trino.split.PageSinkManager;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.DynamicFilters;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
@@ -294,6 +299,7 @@ import static io.trino.operator.TableWriterOperator.STATS_START_CHANNEL;
 import static io.trino.operator.TableWriterOperator.TableWriterOperatorFactory;
 import static io.trino.operator.WindowFunctionDefinition.window;
 import static io.trino.operator.WorkProcessorPipelineSourceOperator.toOperatorFactories;
+import static io.trino.operator.aggregation.AccumulatorCompiler.generateAccumulatorFactory;
 import static io.trino.operator.join.JoinUtils.isBuildSideReplicated;
 import static io.trino.operator.join.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import static io.trino.operator.join.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
@@ -352,6 +358,7 @@ public class LocalExecutionPlanner
 {
     private static final Logger log = Logger.get(LocalExecutionPlanner.class);
 
+    private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final TypeAnalyzer typeAnalyzer;
     private final Optional<ExplainAnalyzeContext> explainAnalyzeContext;
@@ -376,13 +383,12 @@ public class LocalExecutionPlanner
     private final OperatorFactories operatorFactories;
     private final OrderingCompiler orderingCompiler;
     private final DynamicFilterConfig dynamicFilterConfig;
-    private final TypeOperators typeOperators;
     private final BlockTypeOperators blockTypeOperators;
     private final TableExecuteContextManager tableExecuteContextManager;
 
     @Inject
     public LocalExecutionPlanner(
-            Metadata metadata,
+            PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             Optional<ExplainAnalyzeContext> explainAnalyzeContext,
             PageSourceProvider pageSourceProvider,
@@ -403,16 +409,16 @@ public class LocalExecutionPlanner
             OperatorFactories operatorFactories,
             OrderingCompiler orderingCompiler,
             DynamicFilterConfig dynamicFilterConfig,
-            TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators,
             TableExecuteContextManager tableExecuteContextManager)
     {
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.metadata = plannerContext.getMetadata();
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.indexManager = requireNonNull(indexManager, "indexManager is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.exchangeClientSupplier = exchangeClientSupplier;
-        this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
         this.expressionCompiler = requireNonNull(expressionCompiler, "expressionCompiler is null");
@@ -431,7 +437,6 @@ public class LocalExecutionPlanner
         this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.dynamicFilterConfig = requireNonNull(dynamicFilterConfig, "dynamicFilterConfig is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
     }
@@ -548,7 +553,7 @@ public class LocalExecutionPlanner
                                 plan.getId(),
                                 outputTypes,
                                 pagePreprocessor,
-                                new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session))),
+                                new PagesSerdeFactory(plannerContext.getBlockEncodingSerde(), isExchangeCompressionEnabled(session))),
                         physicalOperation),
                 context.getDriverInstanceCount());
 
@@ -879,7 +884,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     exchangeClientSupplier,
-                    new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)),
+                    new PagesSerdeFactory(plannerContext.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)),
                     orderingCompiler,
                     types,
                     outputChannels,
@@ -899,7 +904,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     exchangeClientSupplier,
-                    new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)),
+                    new PagesSerdeFactory(plannerContext.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)),
                     node.getRetryPolicy());
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
@@ -1019,7 +1024,7 @@ public class LocalExecutionPlanner
                     1000,
                     maxPartialTopNMemorySize,
                     joinCompiler,
-                    typeOperators,
+                    plannerContext.getTypeOperators(),
                     blockTypeOperators);
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
@@ -1096,7 +1101,7 @@ public class LocalExecutionPlanner
                     }
                 }
                 Symbol symbol = entry.getKey();
-                WindowFunctionSupplier windowFunctionSupplier = metadata.getWindowFunctionImplementation(resolvedFunction);
+                WindowFunctionSupplier windowFunctionSupplier = getWindowFunctionImplementation(resolvedFunction);
                 Type type = resolvedFunction.getSignature().getReturnType();
 
                 List<LambdaExpression> lambdaExpressions = function.getArguments().stream()
@@ -1148,6 +1153,18 @@ public class LocalExecutionPlanner
                     new RegularPartitionerSupplier());
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
+        }
+
+        private WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
+        {
+            if (resolvedFunction.getFunctionKind() == FunctionKind.AGGREGATE) {
+                AggregationMetadata aggregationMetadata = metadata.getAggregateFunctionImplementation(resolvedFunction);
+                return new AggregationWindowFunctionSupplier(
+                        resolvedFunction.getSignature(),
+                        aggregationMetadata,
+                        resolvedFunction.getFunctionNullability());
+            }
+            return metadata.getWindowFunctionImplementation(resolvedFunction);
         }
 
         @Override
@@ -1222,7 +1239,7 @@ public class LocalExecutionPlanner
                         arguments.add(source.getLayout().get(argumentSymbol));
                     }
                 }
-                WindowFunctionSupplier windowFunctionSupplier = metadata.getWindowFunctionImplementation(resolvedFunction);
+                WindowFunctionSupplier windowFunctionSupplier = getWindowFunctionImplementation(resolvedFunction);
                 Type type = resolvedFunction.getSignature().getReturnType();
 
                 List<LambdaExpression> lambdaExpressions = function.getArguments().stream()
@@ -1484,7 +1501,7 @@ public class LocalExecutionPlanner
 
                     boolean classifierInvolved = false;
 
-                    InternalAggregationFunction internalAggregationFunction = metadata.getAggregateFunctionImplementation(pointer.getFunction());
+                    AggregationMetadata aggregationMetadata = metadata.getAggregateFunctionImplementation(pointer.getFunction());
 
                     ImmutableList.Builder<Map.Entry<Expression, Type>> builder = ImmutableList.builder();
                     List<Type> signatureTypes = pointer.getFunction().getSignature().getArgumentTypes();
@@ -1506,7 +1523,7 @@ public class LocalExecutionPlanner
                             .collect(toImmutableList());
 
                     // TODO when we support lambda arguments: lambda cannot have runtime-evaluated symbols -- add check in the Analyzer
-                    List<LambdaProvider> lambdaProviders = makeLambdaProviders(lambdaExpressions, internalAggregationFunction.getLambdaInterfaces(), functionTypes);
+                    List<LambdaProvider> lambdaProviders = makeLambdaProviders(lambdaExpressions, aggregationMetadata.getLambdaInterfaces(), functionTypes);
 
                     // handle non-lambda arguments
                     List<Integer> valueChannels = new ArrayList<>();
@@ -1550,8 +1567,9 @@ public class LocalExecutionPlanner
                     }
 
                     matchAggregations.add(new MatchAggregationInstantiator(
-                            pointer.getFunction().getSignature().getName(),
-                            internalAggregationFunction,
+                            pointer.getFunction().getSignature(),
+                            aggregationMetadata,
+                            pointer.getFunction().getFunctionNullability(),
                             valueChannels,
                             lambdaProviders,
                             new SetEvaluatorSupplier(pointer.getSetDescriptor(), mapping)));
@@ -1612,7 +1630,7 @@ public class LocalExecutionPlanner
                     (int) node.getCount(),
                     sortChannels,
                     sortOrders,
-                    typeOperators);
+                    plannerContext.getTypeOperators());
 
             return new PhysicalOperation(operator, source.getLayout(), context, source);
         }
@@ -1981,7 +1999,7 @@ public class LocalExecutionPlanner
                     tableScanNode.getAssignments(),
                     context.getTypes(),
                     metadata,
-                    typeOperators);
+                    plannerContext.getTypeOperators());
         }
 
         @Override
@@ -2006,7 +2024,7 @@ public class LocalExecutionPlanner
                     Map<NodeRef<Expression>, Type> types = typeAnalyzer.getTypes(session, TypeProvider.empty(), row);
                     checkState(types.get(NodeRef.of(row)) instanceof RowType, "unexpected type of Values row: %s", types);
                     // evaluate the literal value
-                    Object result = new ExpressionInterpreter(row, metadata, session, types).evaluate();
+                    Object result = new ExpressionInterpreter(row, plannerContext, session, types).evaluate();
                     for (int j = 0; j < outputTypes.size(); j++) {
                         // divide row into fields
                         writeNativeValue(outputTypes.get(j), pageBuilder.getBlockBuilder(j), readNativeValue(outputTypes.get(j), (SingleRowBlock) result, j));
@@ -2120,7 +2138,7 @@ public class LocalExecutionPlanner
             List<Integer> remappedProbeKeyChannels = remappedProbeKeyChannelsBuilder.build();
             Function<RecordSet, RecordSet> probeKeyNormalizer = recordSet -> {
                 if (!overlappingFieldSets.isEmpty()) {
-                    recordSet = new FieldSetFilteringRecordSet(typeOperators, recordSet, overlappingFieldSets);
+                    recordSet = new FieldSetFilteringRecordSet(plannerContext.getTypeOperators(), recordSet, overlappingFieldSets);
                 }
                 return new MappedRecordSet(recordSet, remappedProbeKeyChannels);
             };
@@ -3511,20 +3529,23 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
         }
 
-        private AccumulatorFactory buildAccumulatorFactory(
+        private AggregatorFactory buildAggregatorFactory(
                 PhysicalOperation source,
-                Aggregation aggregation)
+                Aggregation aggregation,
+                Step step)
         {
-            InternalAggregationFunction internalAggregationFunction = metadata.getAggregateFunctionImplementation(aggregation.getResolvedFunction());
-
-            List<Integer> valueChannels = new ArrayList<>();
+            List<Integer> argumentChannels = new ArrayList<>();
             for (Expression argument : aggregation.getArguments()) {
                 if (!(argument instanceof LambdaExpression)) {
                     Symbol argumentSymbol = Symbol.from(argument);
-                    valueChannels.add(source.getLayout().get(argumentSymbol));
+                    argumentChannels.add(source.getLayout().get(argumentSymbol));
                 }
             }
 
+            OptionalInt maskChannel = aggregation.getMask().stream()
+                    .mapToInt(value -> source.getLayout().get(value))
+                    .findAny();
+            AggregationMetadata aggregationMetadata = metadata.getAggregateFunctionImplementation(aggregation.getResolvedFunction());
             List<LambdaExpression> lambdaExpressions = aggregation.getArguments().stream()
                     .filter(LambdaExpression.class::isInstance)
                     .map(LambdaExpression.class::cast)
@@ -3533,32 +3554,72 @@ public class LocalExecutionPlanner
                     .filter(FunctionType.class::isInstance)
                     .map(FunctionType.class::cast)
                     .collect(toImmutableList());
+            List<LambdaProvider> lambdaProviders = makeLambdaProviders(lambdaExpressions, aggregationMetadata.getLambdaInterfaces(), functionTypes);
 
-            List<LambdaProvider> lambdaProviders = makeLambdaProviders(lambdaExpressions, internalAggregationFunction.getLambdaInterfaces(), functionTypes);
+            AccumulatorFactory accumulatorFactory = generateAccumulatorFactory(
+                    aggregation.getResolvedFunction().getSignature(),
+                    aggregationMetadata,
+                    aggregation.getResolvedFunction().getFunctionNullability(),
+                    lambdaProviders);
 
-            Optional<Integer> maskChannel = aggregation.getMask().map(value -> source.getLayout().get(value));
-            List<SortOrder> sortOrders = ImmutableList.of();
-            List<Symbol> sortKeys = ImmutableList.of();
-            if (aggregation.getOrderingScheme().isPresent()) {
-                OrderingScheme orderingScheme = aggregation.getOrderingScheme().get();
-                sortKeys = orderingScheme.getOrderBy();
-                sortOrders = sortKeys.stream()
-                        .map(orderingScheme::getOrdering)
-                        .collect(toImmutableList());
+            if (aggregation.isDistinct()) {
+                accumulatorFactory = new DistinctAccumulatorFactory(
+                        accumulatorFactory,
+                        argumentChannels.stream()
+                                .map(channel -> source.getTypes().get(channel))
+                                .collect(toImmutableList()),
+                        joinCompiler,
+                        blockTypeOperators,
+                        session);
             }
 
-            return internalAggregationFunction.bind(
-                    valueChannels,
+            if (aggregation.getOrderingScheme().isPresent()) {
+                List<Integer> inputArgumentChannels = range(0, argumentChannels.size())
+                        .boxed()
+                        .collect(toImmutableList());
+
+                OrderingScheme orderingScheme = aggregation.getOrderingScheme().get();
+                List<Symbol> sortKeys = orderingScheme.getOrderBy();
+
+                List<SortOrder> sortOrders = sortKeys.stream()
+                        .map(orderingScheme::getOrdering)
+                        .collect(toImmutableList());
+
+                List<Integer> inputOrderByChannels = new ArrayList<>();
+                for (int orderByChannel : getChannelsForSymbols(sortKeys, source.getLayout())) {
+                    int inputChannel = argumentChannels.indexOf(orderByChannel);
+                    if (inputChannel < 0) {
+                        inputChannel = argumentChannels.size();
+                        argumentChannels.add(orderByChannel);
+                    }
+                    inputOrderByChannels.add(inputChannel);
+                }
+
+                accumulatorFactory = new OrderedAccumulatorFactory(
+                        accumulatorFactory,
+                        argumentChannels.stream()
+                                .map(channel -> source.getTypes().get(channel))
+                                .collect(toImmutableList()),
+                        inputArgumentChannels,
+                        inputOrderByChannels,
+                        sortOrders,
+                        pagesIndexFactory);
+            }
+
+            ImmutableList<Type> intermediateTypes = aggregationMetadata.getAccumulatorStateDescriptors().stream()
+                    .map(stateDescriptor -> stateDescriptor.getSerializer().getSerializedType())
+                    .collect(toImmutableList());
+            Type intermediateType = (intermediateTypes.size() == 1) ? getOnlyElement(intermediateTypes) : RowType.anonymous(intermediateTypes);
+            Type finalType = aggregation.getResolvedFunction().getSignature().getReturnType();
+
+            return new AggregatorFactory(
+                    accumulatorFactory,
+                    step,
+                    intermediateType,
+                    finalType,
+                    argumentChannels,
                     maskChannel,
-                    source.getTypes(),
-                    getChannelsForSymbols(sortKeys, source.getLayout()),
-                    sortOrders,
-                    pagesIndexFactory,
-                    aggregation.isDistinct(),
-                    joinCompiler,
-                    blockTypeOperators,
-                    lambdaProviders,
-                    session);
+                    !aggregation.isDistinct() && aggregation.getOrderingScheme().isEmpty());
         }
 
         private List<LambdaProvider> makeLambdaProviders(List<LambdaExpression> lambdaExpressions, List<Class<?>> lambdaInterfaces, List<FunctionType> functionTypes)
@@ -3641,15 +3702,15 @@ public class LocalExecutionPlanner
                 boolean useSystemMemory)
         {
             int outputChannel = startOutputChannel;
-            ImmutableList.Builder<AccumulatorFactory> accumulatorFactories = ImmutableList.builder();
+            ImmutableList.Builder<AggregatorFactory> aggregatorFactories = ImmutableList.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
                 Symbol symbol = entry.getKey();
                 Aggregation aggregation = entry.getValue();
-                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
+                aggregatorFactories.add(buildAggregatorFactory(source, aggregation, step));
                 outputMappings.put(symbol, outputChannel); // one aggregation per channel
                 outputChannel++;
             }
-            return new AggregationOperatorFactory(context.getNextOperatorId(), planNodeId, step, accumulatorFactories.build(), useSystemMemory);
+            return new AggregationOperatorFactory(context.getNextOperatorId(), planNodeId, aggregatorFactories.build(), useSystemMemory);
         }
 
         private PhysicalOperation planGroupByAggregation(
@@ -3703,12 +3764,12 @@ public class LocalExecutionPlanner
                 boolean useSystemMemory)
         {
             List<Symbol> aggregationOutputSymbols = new ArrayList<>();
-            List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
+            List<AggregatorFactory> aggregatorFactories = new ArrayList<>();
             for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
                 Symbol symbol = entry.getKey();
                 Aggregation aggregation = entry.getValue();
 
-                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
+                aggregatorFactories.add(buildAggregatorFactory(source, aggregation, step));
                 aggregationOutputSymbols.add(symbol);
             }
 
@@ -3747,7 +3808,7 @@ public class LocalExecutionPlanner
                         groupByTypes,
                         groupByChannels,
                         step,
-                        accumulatorFactories,
+                        aggregatorFactories,
                         joinCompiler);
             }
             else {
@@ -3760,7 +3821,7 @@ public class LocalExecutionPlanner
                         ImmutableList.copyOf(globalGroupingSets),
                         step,
                         hasDefaultOutput,
-                        accumulatorFactories,
+                        aggregatorFactories,
                         hashChannel,
                         groupIdChannel,
                         expectedGroups,

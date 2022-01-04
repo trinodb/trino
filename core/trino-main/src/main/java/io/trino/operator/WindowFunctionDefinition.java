@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.aggregation.LambdaProvider;
 import io.trino.operator.window.FrameInfo;
+import io.trino.operator.window.MappedWindowFunction;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.type.Type;
@@ -56,7 +57,13 @@ public class WindowFunctionDefinition
         return new WindowFunctionDefinition(functionSupplier, type, Optional.empty(), ignoreNulls, lambdaProviders, inputs);
     }
 
-    WindowFunctionDefinition(WindowFunctionSupplier functionSupplier, Type type, Optional<FrameInfo> frameInfo, boolean ignoreNulls, List<LambdaProvider> lambdaProviders, List<Integer> argumentChannels)
+    private WindowFunctionDefinition(
+            WindowFunctionSupplier functionSupplier,
+            Type type,
+            Optional<FrameInfo> frameInfo,
+            boolean ignoreNulls,
+            List<LambdaProvider> lambdaProviders,
+            List<Integer> argumentChannels)
     {
         requireNonNull(functionSupplier, "functionSupplier is null");
         requireNonNull(type, "type is null");
@@ -84,6 +91,6 @@ public class WindowFunctionDefinition
 
     public WindowFunction createWindowFunction()
     {
-        return functionSupplier.createWindowFunction(argumentChannels, ignoreNulls, lambdaProviders);
+        return new MappedWindowFunction(functionSupplier.createWindowFunction(ignoreNulls, lambdaProviders), argumentChannels);
     }
 }

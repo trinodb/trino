@@ -20,11 +20,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.SingleRowBlock;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.DistinctLimitNode;
@@ -94,36 +98,38 @@ public class EffectivePredicateExtractor
                 return new ComparisonExpression(EQUAL, reference, expression);
             };
 
+    private final PlannerContext plannerContext;
     private final DomainTranslator domainTranslator;
-    private final Metadata metadata;
     private final boolean useTableProperties;
 
-    public EffectivePredicateExtractor(DomainTranslator domainTranslator, Metadata metadata, boolean useTableProperties)
+    public EffectivePredicateExtractor(DomainTranslator domainTranslator, PlannerContext plannerContext, boolean useTableProperties)
     {
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
         this.useTableProperties = useTableProperties;
     }
 
     public Expression extract(Session session, PlanNode node, TypeProvider types, TypeAnalyzer typeAnalyzer)
     {
-        return node.accept(new Visitor(domainTranslator, metadata, session, types, typeAnalyzer, useTableProperties), null);
+        return node.accept(new Visitor(domainTranslator, plannerContext, session, types, typeAnalyzer, useTableProperties), null);
     }
 
     private static class Visitor
             extends PlanVisitor<Expression, Void>
     {
         private final DomainTranslator domainTranslator;
+        private final PlannerContext plannerContext;
         private final Metadata metadata;
         private final Session session;
         private final TypeProvider types;
         private final TypeAnalyzer typeAnalyzer;
         private final boolean useTableProperties;
 
-        public Visitor(DomainTranslator domainTranslator, Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer, boolean useTableProperties)
+        public Visitor(DomainTranslator domainTranslator, PlannerContext plannerContext, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer, boolean useTableProperties)
         {
             this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+            this.metadata = plannerContext.getMetadata();
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -253,7 +259,7 @@ public class EffectivePredicateExtractor
             }
 
             // TODO: replace with metadata.getTableProperties() when table layouts are fully removed
-            return domainTranslator.toPredicate(predicate.simplify()
+            return domainTranslator.toPredicate(session, predicate.simplify()
                     .filter((columnHandle, domain) -> assignments.containsKey(columnHandle))
                     .transformKeys(assignments::get));
         }
@@ -380,7 +386,7 @@ public class EffectivePredicateExtractor
                             nonDeterministic[i] = true;
                         }
                         else {
-                            ExpressionInterpreter interpreter = new ExpressionInterpreter(value, metadata, session, expressionTypes);
+                            ExpressionInterpreter interpreter = new ExpressionInterpreter(value, plannerContext, session, expressionTypes);
                             Object item = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
                             if (item instanceof Expression) {
                                 return TRUE_LITERAL;
@@ -390,6 +396,11 @@ public class EffectivePredicateExtractor
                             }
                             else {
                                 Type type = types.get(node.getOutputSymbols().get(i));
+                                if (hasNestedNulls(type, item)) {
+                                    // Workaround solution to deal with array and row comparisons don't support null elements currently.
+                                    // TODO: remove when comparisons are fixed
+                                    return TRUE_LITERAL;
+                                }
                                 if (isFloatingPointNaN(type, item)) {
                                     hasNaN[i] = true;
                                 }
@@ -402,7 +413,7 @@ public class EffectivePredicateExtractor
                     if (!DeterminismEvaluator.isDeterministic(row, metadata)) {
                         return TRUE_LITERAL;
                     }
-                    ExpressionInterpreter interpreter = new ExpressionInterpreter(row, metadata, session, expressionTypes);
+                    ExpressionInterpreter interpreter = new ExpressionInterpreter(row, plannerContext, session, expressionTypes);
                     Object evaluated = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
                     if (evaluated instanceof Expression) {
                         return TRUE_LITERAL;
@@ -414,6 +425,11 @@ public class EffectivePredicateExtractor
                             hasNull[i] = true;
                         }
                         else {
+                            if (hasNestedNulls(type, item)) {
+                                // Workaround solution to deal with array and row comparisons don't support null elements currently.
+                                // TODO: remove when comparisons are fixed
+                                return TRUE_LITERAL;
+                            }
                             if (isFloatingPointNaN(type, item)) {
                                 hasNaN[i] = true;
                             }
@@ -455,7 +471,45 @@ public class EffectivePredicateExtractor
             }
 
             // simplify to avoid a large expression if there are many rows in ValuesNode
-            return domainTranslator.toPredicate(TupleDomain.withColumnDomains(domains.build()).simplify());
+            return domainTranslator.toPredicate(session, TupleDomain.withColumnDomains(domains.build()).simplify());
+        }
+
+        private boolean hasNestedNulls(Type type, Object value)
+        {
+            if (type instanceof RowType) {
+                Block container = (Block) value;
+                RowType rowType = (RowType) type;
+                for (int i = 0; i < rowType.getFields().size(); i++) {
+                    Type elementType = rowType.getFields().get(i).getType();
+
+                    if (container.isNull(i) || elementHasNulls(elementType, container, i)) {
+                        return true;
+                    }
+                }
+            }
+            else if (type instanceof ArrayType) {
+                Block container = (Block) value;
+                ArrayType arrayType = (ArrayType) type;
+                Type elementType = arrayType.getElementType();
+
+                for (int i = 0; i < container.getPositionCount(); i++) {
+                    if (container.isNull(i) || elementHasNulls(elementType, container, i)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private boolean elementHasNulls(Type elementType, Block container, int position)
+        {
+            if (elementType instanceof RowType || elementType instanceof ArrayType) {
+                Block element = (Block) elementType.getObject(container, position);
+                return hasNestedNulls(elementType, element);
+            }
+
+            return false;
         }
 
         @SafeVarargs

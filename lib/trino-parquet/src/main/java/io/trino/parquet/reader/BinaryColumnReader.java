@@ -53,10 +53,4 @@ public class BinaryColumnReader
         }
         type.writeSlice(blockBuilder, value);
     }
-
-    @Override
-    protected void skipValue()
-    {
-        valuesReader.readBytes();
-    }
 }

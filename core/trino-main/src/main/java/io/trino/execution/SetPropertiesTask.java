@@ -16,10 +16,11 @@ package io.trino.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControl;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SetProperties;
 
@@ -42,14 +43,16 @@ import static java.util.Objects.requireNonNull;
 public class SetPropertiesTask
         implements DataDefinitionTask<SetProperties>
 {
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
     private final AccessControl accessControl;
+    private final TablePropertyManager tablePropertyManager;
 
     @Inject
-    public SetPropertiesTask(Metadata metadata, AccessControl accessControl)
+    public SetPropertiesTask(PlannerContext plannerContext, AccessControl accessControl, TablePropertyManager tablePropertyManager)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
     }
 
     @Override
@@ -71,12 +74,12 @@ public class SetPropertiesTask
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
 
         if (statement.getType() == SetProperties.Type.TABLE) {
-            Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
-                    getRequiredCatalogHandle(metadata, session, statement, tableName.getCatalogName()),
+            Map<String, Object> properties = tablePropertyManager.getProperties(
+                    getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, tableName.getCatalogName()),
                     tableName.getCatalogName(),
                     sqlProperties,
                     session,
-                    metadata,
+                    plannerContext,
                     accessControl,
                     parameterExtractor(statement, parameters),
                     false); // skip setting of default properties since they should not be stored explicitly
@@ -91,21 +94,21 @@ public class SetPropertiesTask
 
     private void setTableProperties(SetProperties statement, QualifiedObjectName tableName, Session session, Map<String, Object> properties)
     {
-        if (metadata.isMaterializedView(session, tableName)) {
+        if (plannerContext.getMetadata().isMaterializedView(session, tableName)) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot set properties to a materialized view in ALTER TABLE");
         }
 
-        if (metadata.isView(session, tableName)) {
+        if (plannerContext.getMetadata().isView(session, tableName)) {
             throw semanticException(NOT_SUPPORTED, statement, "Cannot set properties to a view in ALTER TABLE");
         }
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName);
         if (tableHandle.isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", tableName);
         }
 
         accessControl.checkCanSetTableProperties(session.toSecurityContext(), tableName, properties);
 
-        metadata.setTableProperties(session, tableHandle.get(), properties);
+        plannerContext.getMetadata().setTableProperties(session, tableHandle.get(), properties);
     }
 }

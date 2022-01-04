@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +42,8 @@ import static java.util.Objects.requireNonNull;
  */
 public final class Domain
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Domain.class).instanceSize();
+
     public static final int DEFAULT_COMPACTION_THRESHOLD = 32;
 
     private final ValueSet values;
@@ -341,6 +344,11 @@ public final class Domain
             return "[NULL]";
         }
         return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(session, limit) + " ]";
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + values.getRetainedSizeInBytes();
     }
 
     public static class DiscreteSet

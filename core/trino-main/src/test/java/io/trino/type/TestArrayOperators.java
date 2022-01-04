@@ -105,7 +105,7 @@ public class TestArrayOperators
     {
         Block actualBlock = arrayBlockOf(new ArrayType(BIGINT), arrayBlockOf(BIGINT, 1L, 2L), arrayBlockOf(BIGINT, 3L));
         DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
-        writeBlock(functionAssertions.getMetadata().getBlockEncodingSerde(), actualSliceOutput, actualBlock);
+        writeBlock(functionAssertions.getPlannerContext().getBlockEncodingSerde(), actualSliceOutput, actualBlock);
 
         Block expectedBlock = new ArrayType(BIGINT)
                 .createBlockBuilder(null, 3)
@@ -113,7 +113,7 @@ public class TestArrayOperators
                 .appendStructure(BIGINT.createBlockBuilder(null, 1).writeLong(3).closeEntry().build())
                 .build();
         DynamicSliceOutput expectedSliceOutput = new DynamicSliceOutput(100);
-        writeBlock(functionAssertions.getMetadata().getBlockEncodingSerde(), expectedSliceOutput, expectedBlock);
+        writeBlock(functionAssertions.getPlannerContext().getBlockEncodingSerde(), expectedSliceOutput, expectedBlock);
 
         assertEquals(actualSliceOutput.slice(), expectedSliceOutput.slice());
     }

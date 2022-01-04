@@ -38,7 +38,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -60,6 +60,7 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
@@ -236,11 +237,11 @@ public class TestHistogram
     public void testEmptyHistogramOutputsNull()
     {
         TestingAggregationFunction function = getInternalDefaultVarCharAggregation();
-        GroupedAccumulator groupedAccumulator = function.bind(Ints.asList(new int[] {}), Optional.empty())
-                .createGroupedAccumulator();
-        BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
+        GroupedAggregator groupedAggregator = function.createAggregatorFactory(SINGLE, Ints.asList(new int[] {}), OptionalInt.empty())
+                .createGroupedAggregator();
+        BlockBuilder blockBuilder = function.getFinalType().createBlockBuilder(null, 1000);
 
-        groupedAccumulator.evaluateFinal(0, blockBuilder);
+        groupedAggregator.evaluate(0, blockBuilder);
         assertTrue(blockBuilder.isNull(0));
     }
 
@@ -292,8 +293,8 @@ public class TestHistogram
         int numGroups = 50000;
         int itemCount = 30;
         Random random = new Random();
-        GroupedAccumulator groupedAccumulator = aggregationFunction.bind(ImmutableList.of(0), Optional.empty())
-                .createGroupedAccumulator();
+        GroupedAggregator groupedAggregator = aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())
+                .createGroupedAggregator();
 
         for (int j = 0; j < numGroups; j++) {
             Map<String, Long> expectedValues = new HashMap<>();
@@ -320,7 +321,7 @@ public class TestHistogram
                     aggregationFunction);
             AggregationTestInput test1 = testInputBuilder.build();
 
-            test1.runPagesOnAccumulatorWithAssertion(j, groupedAccumulator, new AggregationTestOutput(expectedValues));
+            test1.runPagesOnAggregatorWithAssertion(j, aggregationFunction.getFinalType(), groupedAggregator, new AggregationTestOutput(expectedValues));
         }
     }
 
@@ -333,16 +334,16 @@ public class TestHistogram
                 new Block[] {block1},
                 aggregationFunction);
         AggregationTestInput test1 = testBuilder1.build();
-        GroupedAccumulator groupedAccumulator = test1.createGroupedAccumulator();
+        GroupedAggregator groupedAggregator = test1.createGroupedAggregator();
 
-        test1.runPagesOnAccumulatorWithAssertion(0L, groupedAccumulator, aggregationTestOutput1);
+        test1.runPagesOnAggregatorWithAssertion(0L, aggregationFunction.getFinalType(), groupedAggregator, aggregationTestOutput1);
 
         AggregationTestOutput aggregationTestOutput2 = new AggregationTestOutput(ImmutableMap.of("b", 1L, "c", 1L, "d", 1L));
         AggregationTestInputBuilder testbuilder2 = new AggregationTestInputBuilder(
                 new Block[] {block2},
                 aggregationFunction);
         AggregationTestInput test2 = testbuilder2.build();
-        test2.runPagesOnAccumulatorWithAssertion(255L, groupedAccumulator, aggregationTestOutput2);
+        test2.runPagesOnAggregatorWithAssertion(255L, aggregationFunction.getFinalType(), groupedAggregator, aggregationTestOutput2);
     }
 
     private static void testSharedGroupByWithDistinctValuesPerGroupRunner(TestingAggregationFunction aggregationFunction)
@@ -354,16 +355,16 @@ public class TestHistogram
                 new Block[] {block1},
                 aggregationFunction);
         AggregationTestInput test1 = testInputBuilder1.build();
-        GroupedAccumulator groupedAccumulator = test1.createGroupedAccumulator();
+        GroupedAggregator groupedAggregator = test1.createGroupedAggregator();
 
-        test1.runPagesOnAccumulatorWithAssertion(0L, groupedAccumulator, aggregationTestOutput1);
+        test1.runPagesOnAggregatorWithAssertion(0L, aggregationFunction.getFinalType(), groupedAggregator, aggregationTestOutput1);
 
         AggregationTestOutput aggregationTestOutput2 = new AggregationTestOutput(ImmutableMap.of("d", 1L, "e", 1L, "f", 1L));
         AggregationTestInputBuilder testBuilder2 = new AggregationTestInputBuilder(
                 new Block[] {block2},
                 aggregationFunction);
         AggregationTestInput test2 = testBuilder2.build();
-        test2.runPagesOnAccumulatorWithAssertion(255L, groupedAccumulator, aggregationTestOutput2);
+        test2.runPagesOnAggregatorWithAssertion(255L, aggregationFunction.getFinalType(), groupedAggregator, aggregationTestOutput2);
     }
 
     private static void testSharedGroupByWithOverlappingValuesRunner(TestingAggregationFunction aggregationFunction)
@@ -386,7 +387,7 @@ public class TestHistogram
                 .build());
         AggregationTestInput test1 = testInputBuilder1.build();
 
-        test1.runPagesOnAccumulatorWithAssertion(0L, test1.createGroupedAccumulator(), aggregationTestOutput1);
+        test1.runPagesOnAggregatorWithAssertion(0L, aggregationFunction.getFinalType(), test1.createGroupedAggregator(), aggregationTestOutput1);
     }
 
     private static TestingAggregationFunction getInternalDefaultVarCharAggregation()

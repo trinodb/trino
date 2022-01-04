@@ -21,7 +21,7 @@ import io.trino.metadata.LongVariableConstraint;
 import io.trino.metadata.Signature;
 import io.trino.metadata.TypeVariableConstraint;
 import io.trino.operator.ParametricImplementation;
-import io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind;
+import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
 import io.trino.operator.annotations.FunctionsParserHelper;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.spi.block.Block;
@@ -50,11 +50,11 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.operator.ParametricFunctionHelpers.signatureWithName;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INDEX;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
-import static io.trino.operator.aggregation.AggregationMetadata.AggregationParameterKind.STATE;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.NULLABLE_BLOCK_INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static io.trino.operator.annotations.FunctionsParserHelper.containsAnnotation;
 import static io.trino.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
@@ -97,7 +97,7 @@ public class AggregationImplementation
     private final MethodHandle inputFunction;
     private final Optional<MethodHandle> removeInputFunction;
     private final MethodHandle outputFunction;
-    private final MethodHandle combineFunction;
+    private final Optional<MethodHandle> combineFunction;
     private final List<AggregateNativeContainerType> argumentNativeContainerTypes;
     private final List<ImplementationDependency> inputDependencies;
     private final List<ImplementationDependency> removeInputDependencies;
@@ -112,7 +112,7 @@ public class AggregationImplementation
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
             MethodHandle outputFunction,
-            MethodHandle combineFunction,
+            Optional<MethodHandle> combineFunction,
             List<AggregateNativeContainerType> argumentNativeContainerTypes,
             List<ImplementationDependency> inputDependencies,
             List<ImplementationDependency> removeInputDependencies,
@@ -178,7 +178,7 @@ public class AggregationImplementation
         return outputFunction;
     }
 
-    public MethodHandle getCombineFunction()
+    public Optional<MethodHandle> getCombineFunction()
     {
         return combineFunction;
     }
@@ -254,7 +254,7 @@ public class AggregationImplementation
         private final MethodHandle inputHandle;
         private final Optional<MethodHandle> removeInputHandle;
         private final MethodHandle outputHandle;
-        private final MethodHandle combineHandle;
+        private final Optional<MethodHandle> combineHandle;
         private final List<AggregateNativeContainerType> argumentNativeContainerTypes;
         private final List<ImplementationDependency> inputDependencies;
         private final List<ImplementationDependency> removeInputDependencies;
@@ -277,7 +277,7 @@ public class AggregationImplementation
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
                 Method outputFunction,
-                Method combineFunction)
+                Optional<Method> combineFunction)
         {
             // rewrite data passed directly
             this.aggregationDefinition = aggregationDefinition;
@@ -292,7 +292,7 @@ public class AggregationImplementation
             inputDependencies = parseImplementationDependencies(inputFunction);
             removeInputDependencies = removeInputFunction.map(this::parseImplementationDependencies).orElse(ImmutableList.of());
             outputDependencies = parseImplementationDependencies(outputFunction);
-            combineDependencies = parseImplementationDependencies(combineFunction);
+            combineDependencies = combineFunction.map(this::parseImplementationDependencies).orElse(ImmutableList.of());
 
             // parse input parameters
             inputParameterKinds = parseInputParameterKinds(inputFunction);
@@ -319,7 +319,7 @@ public class AggregationImplementation
 
             inputHandle = methodHandle(inputFunction);
             removeInputHandle = removeInputFunction.map(Reflection::methodHandle);
-            combineHandle = methodHandle(combineFunction);
+            combineHandle = combineFunction.map(Reflection::methodHandle);
             outputHandle = methodHandle(outputFunction);
         }
 
@@ -353,7 +353,7 @@ public class AggregationImplementation
                 Method inputFunction,
                 Optional<Method> removeInputFunction,
                 Method outputFunction,
-                Method combineFunction)
+                Optional<Method> combineFunction)
         {
             return new Parser(aggregationDefinition, name, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
         }

@@ -42,10 +42,8 @@ import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingNodeManager;
-import io.trino.type.InternalTypeManager;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.joda.time.DateTime;
@@ -78,7 +76,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
@@ -97,6 +94,7 @@ import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertFalse;
@@ -616,7 +614,7 @@ public class TestRaptorStorageManager
                 new BackupManager(backupStore, storageService, 1),
                 recoveryManager,
                 shardRecorder,
-                new InternalTypeManager(createTestMetadataManager(), new TypeOperators()),
+                TESTING_TYPE_MANAGER,
                 CONNECTOR_ID,
                 DELETION_THREADS,
                 SHARD_RECOVERY_TIMEOUT,

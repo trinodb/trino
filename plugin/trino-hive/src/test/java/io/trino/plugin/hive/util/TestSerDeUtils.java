@@ -24,6 +24,7 @@ import io.trino.block.BlockSerdeUtil;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import org.apache.hadoop.hive.common.type.Date;
@@ -42,7 +43,6 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.hive.HiveTestUtils.mapType;
 import static io.trino.plugin.hive.util.SerDeUtils.getBlockObject;
 import static io.trino.plugin.hive.util.SerDeUtils.serializeObject;
@@ -73,7 +73,7 @@ import static org.testng.Assert.assertEquals;
 @SuppressWarnings("PackageVisibleField")
 public class TestSerDeUtils
 {
-    private final BlockEncodingSerde blockEncodingSerde = createTestMetadataManager().getBlockEncodingSerde();
+    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
     private static class ListHolder
     {

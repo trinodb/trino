@@ -48,19 +48,17 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Calendar;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TimeZone;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -99,13 +97,16 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
-import static io.trino.spi.type.Timestamps.epochMicrosToMillisWithRounding;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -128,6 +129,9 @@ public class OracleClient
     private static final int ORACLE_CHAR_MAX_CHARS = ORACLE_CHAR_MAX_BYTES / MAX_BYTES_PER_CHAR;
 
     private static final int PRECISION_OF_UNSPECIFIED_NUMBER = 127;
+
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS");
 
     private static final Set<String> INTERNAL_SCHEMAS = ImmutableSet.<String>builder()
             .add("ctxsys")
@@ -300,7 +304,7 @@ public class OracleClient
                             shortDecimalWriteFunction(decimalType),
                             FULL_PUSHDOWN));
                 }
-                return Optional.of(ColumnMapping.sliceMapping(
+                return Optional.of(ColumnMapping.objectMapping(
                         decimalType,
                         longDecimalReadFunction(decimalType, roundingMode),
                         longDecimalWriteFunction(decimalType),
@@ -359,18 +363,42 @@ public class OracleClient
 
     public static LongWriteFunction oracleDateWriteFunction()
     {
-        return (statement, index, value) -> {
-            long utcMillis = DAYS.toMillis(value);
-            ZonedDateTime date = Instant.ofEpochMilli(utcMillis).atZone(ZoneOffset.UTC);
-            // because of how JDBC works with dates we need to use the ZonedDataTime object and not a LocalDateTime
-            statement.setObject(index, date);
+        return new LongWriteFunction() {
+            @Override
+            public String getBindExpression()
+            {
+                return "TO_DATE(?, 'SYYYY-MM-DD')";
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, long value)
+                    throws SQLException
+            {
+                long utcMillis = DAYS.toMillis(value);
+                LocalDateTime date = LocalDateTime.from(Instant.ofEpochMilli(utcMillis).atZone(ZoneOffset.UTC));
+                statement.setString(index, DATE_FORMATTER.format(date));
+            }
         };
     }
 
     public static LongWriteFunction oracleTimestampWriteFunction()
     {
-        return (statement, index, utcMillis) -> {
-            statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(epochMicrosToMillisWithRounding(utcMillis)), Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("UTC")))));
+        return new LongWriteFunction() {
+            @Override
+            public String getBindExpression()
+            {
+                return "TO_TIMESTAMP(?, 'SYYYY-MM-DD HH24:MI:SS.FF')";
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, long utcMillis)
+                    throws SQLException
+            {
+                long epochSecond = floorDiv(utcMillis, MICROSECONDS_PER_SECOND);
+                int nanoFraction = floorMod(utcMillis, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+                LocalDateTime localDateTime = LocalDateTime.ofEpochSecond(epochSecond, nanoFraction, ZoneOffset.UTC);
+                statement.setString(index, TIMESTAMP_FORMATTER.format(localDateTime));
+            }
         };
     }
 
@@ -380,6 +408,10 @@ public class OracleClient
                 TIMESTAMP_MILLIS,
                 (resultSet, columnIndex) -> {
                     LocalDateTime timestamp = resultSet.getObject(columnIndex, LocalDateTime.class);
+                    // Adjust years when the value is B.C. dates because Oracle returns +1 year unless converting to string in their server side
+                    if (timestamp.getYear() <= 0) {
+                        timestamp = timestamp.minusYears(1);
+                    }
                     return timestamp.toInstant(ZoneOffset.UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
                 },
                 oracleTimestampWriteFunction(),
@@ -461,7 +493,7 @@ public class OracleClient
             if (((DecimalType) type).isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction((DecimalType) type));
             }
-            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction((DecimalType) type));
+            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction((DecimalType) type));
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
             return WriteMapping.longMapping("timestamp(3)", oracleTimestampWriteFunction());

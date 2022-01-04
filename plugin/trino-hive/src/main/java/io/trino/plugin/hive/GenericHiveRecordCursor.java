@@ -23,7 +23,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
@@ -454,7 +454,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
                 longs[column] = unscaledDecimal.longValue();
             }
             else {
-                slices[column] = Decimals.encodeUnscaledValue(unscaledDecimal);
+                objects[column] = Int128.valueOf(unscaledDecimal);
             }
             nulls[column] = false;
         }

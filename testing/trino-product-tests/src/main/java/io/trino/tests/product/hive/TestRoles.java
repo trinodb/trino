@@ -144,14 +144,14 @@ public class TestRoles
     {
         onTrino().executeQuery(format("CREATE ROLE %s IN hive", ROLE1));
         QueryAssert.assertQueryFailure(() -> onTrino().executeQuery(format("CREATE ROLE %s IN hive", ROLE1)))
-                .hasMessageContaining(format("Role '%s' already exists", ROLE1));
+                .hasMessageContaining("Role '%s' already exists", ROLE1);
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropNonExistentRole()
     {
         QueryAssert.assertQueryFailure(() -> onTrino().executeQuery(format("DROP ROLE %s IN hive", ROLE3)))
-                .hasMessageContaining(format("Role '%s' does not exist", ROLE3));
+                .hasMessageContaining("Role '%s' does not exist", ROLE3);
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -160,9 +160,9 @@ public class TestRoles
         // Only users that are granted with "admin" role can create, drop and list roles
         // Alice is not granted with "admin" role
         QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery(format("CREATE ROLE %s IN hive", ROLE3)))
-                .hasMessageContaining(format("Cannot create role %s", ROLE3));
+                .hasMessageContaining("Cannot create role %s", ROLE3);
         QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery(format("DROP ROLE %s IN hive", ROLE3)))
-                .hasMessageContaining(format("Cannot drop role %s", ROLE3));
+                .hasMessageContaining("Cannot drop role %s", ROLE3);
         QueryAssert.assertQueryFailure(() -> onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.roles"))
                 .hasMessageContaining("Cannot select from table information_schema.roles");
     }

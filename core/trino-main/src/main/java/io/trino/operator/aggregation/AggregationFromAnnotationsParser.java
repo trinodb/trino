@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
+import io.airlift.log.Logger;
 import io.trino.metadata.Signature;
 import io.trino.operator.ParametricImplementationsGroup;
 import io.trino.operator.annotations.FunctionsParserHelper;
@@ -45,6 +46,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class AggregationFromAnnotationsParser
 {
+    private static final Logger log = Logger.get(AggregationFromAnnotationsParser.class);
+
     private AggregationFromAnnotationsParser() {}
 
     public static List<ParametricAggregation> parseFunctionDefinitions(Class<?> aggregationDefinition)
@@ -56,18 +59,30 @@ public final class AggregationFromAnnotationsParser
 
         // There must be a single state class and combine function
         Class<? extends AccumulatorState> stateClass = getStateClass(aggregationDefinition);
-        Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
+        Optional<Method> combineFunction = getCombineFunction(aggregationDefinition, stateClass);
 
         // Each output function defines a new aggregation function
         for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
             AggregationHeader header = parseHeader(aggregationDefinition, outputFunction);
+            if (header.isDecomposable()) {
+                checkArgument(combineFunction.isPresent(), "Decomposable method %s does not have a combine method", header.getName());
+            }
+            else if (combineFunction.isPresent()) {
+                log.warn("Aggregation function %s is not decomposable, but has combine method", header.getName());
+            }
 
             // Input functions can have either an exact signature, or generic/calculate signature
             List<AggregationImplementation> exactImplementations = new ArrayList<>();
             List<AggregationImplementation> nonExactImplementations = new ArrayList<>();
             for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
                 Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, inputFunction);
-                AggregationImplementation implementation = parseImplementation(aggregationDefinition, header.getName(), inputFunction, removeInputFunction, outputFunction, combineFunction);
+                AggregationImplementation implementation = parseImplementation(
+                        aggregationDefinition,
+                        header.getName(),
+                        inputFunction,
+                        removeInputFunction,
+                        outputFunction,
+                        combineFunction.filter(function -> header.isDecomposable()));
                 if (isGenericOrCalculated(implementation.getSignature())) {
                     exactImplementations.add(implementation);
                 }
@@ -158,7 +173,7 @@ public final class AggregationFromAnnotationsParser
         return ImmutableList.copyOf(aggregationAnnotation.alias());
     }
 
-    private static Method getCombineFunction(Class<?> clazz, Class<?> stateClass)
+    private static Optional<Method> getCombineFunction(Class<?> clazz, Class<?> stateClass)
     {
         // Only include methods that match this state class
         List<Method> combineFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, CombineFunction.class).stream()
@@ -166,8 +181,8 @@ public final class AggregationFromAnnotationsParser
                 .filter(method -> method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method, 1)] == stateClass)
                 .collect(toImmutableList());
 
-        checkArgument(combineFunctions.size() == 1, "There must be exactly one @CombineFunction in class %s for the @AggregationState %s", clazz.toGenericString(), stateClass.toGenericString());
-        return getOnlyElement(combineFunctions);
+        checkArgument(combineFunctions.size() <= 1, "There must be only one @CombineFunction in class %s for the @AggregationState %s", clazz.toGenericString(), stateClass.toGenericString());
+        return combineFunctions.stream().findFirst();
     }
 
     private static List<Method> getOutputFunctions(Class<?> clazz, Class<?> stateClass)

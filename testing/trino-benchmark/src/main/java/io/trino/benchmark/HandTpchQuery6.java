@@ -27,7 +27,6 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.sql.gen.PageFunctionCompiler;
-import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.util.DateTimeUtils;
@@ -78,7 +77,6 @@ public class HandTpchQuery6
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(
                 2,
                 new PlanNodeId("test"),
-                Step.SINGLE,
                 ImmutableList.of(
                         doubleSum.bind(ImmutableList.of(0))),
                 false);

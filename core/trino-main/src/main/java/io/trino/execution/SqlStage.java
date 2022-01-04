@@ -44,6 +44,15 @@ import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFilters
 import static io.trino.server.DynamicFilterService.getOutboundDynamicFilters;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * This class is merely a container used by coordinator to track tasks for a single stage.
+ * <p>
+ * It is designed to keep track of execution statistics for tasks from the same stage as well
+ * as aggregating them and providing a final stage info when the stage execution is completed.
+ * <p>
+ * This class doesn't imply anything about the nature of execution. It is not responsible
+ * for scheduling tasks in a certain order, gang scheduling or any other execution primitives.
+ */
 @ThreadSafe
 public final class SqlStage
 {

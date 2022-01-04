@@ -14,17 +14,18 @@
 
 package io.trino.operator.aggregation.groupby;
 
-import com.google.common.base.Suppliers;
 import com.google.common.primitives.Ints;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.aggregation.AggregationTestUtils;
-import io.trino.operator.aggregation.GroupedAccumulator;
+import io.trino.operator.aggregation.GroupedAggregator;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.spi.Page;
+import io.trino.spi.type.Type;
 
-import java.util.Optional;
-import java.util.function.Supplier;
+import java.util.OptionalInt;
 import java.util.stream.IntStream;
+
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 public class AggregationTestInput
 {
@@ -33,45 +34,25 @@ public class AggregationTestInput
     private final int[] args;
 
     private final int offset;
-    private final boolean isReversed;
 
-    public AggregationTestInput(TestingAggregationFunction function, Page[] pages, int offset, boolean isReversed)
+    public AggregationTestInput(TestingAggregationFunction function, Page[] pages, int offset)
     {
         this.pages = pages;
         this.function = function;
         args = IntStream.range(0, pages[0].getChannelCount()).toArray();
         this.offset = offset;
-        this.isReversed = isReversed;
     }
 
-    public void runPagesOnAccumulatorWithAssertion(long groupId, GroupedAccumulator groupedAccumulator, AggregationTestOutput expectedValue)
+    public void runPagesOnAggregatorWithAssertion(long groupId, Type finalType, GroupedAggregator groupedAggregator, AggregationTestOutput expectedValue)
     {
-        GroupedAccumulator accumulator = Suppliers.ofInstance(groupedAccumulator).get();
-
         for (Page page : getPages()) {
-            accumulator.addInput(getGroupIdBlock(groupId, page), page);
+            groupedAggregator.processPage(getGroupIdBlock(groupId, page), page);
         }
 
-        expectedValue.validateAccumulator(accumulator, groupId);
+        expectedValue.validateAggregator(finalType, groupedAggregator, groupId);
     }
 
-    public GroupedAccumulator runPagesOnAccumulator(long groupId, GroupedAccumulator groupedAccumulator)
-    {
-        return runPagesOnAccumulator(groupId, Suppliers.ofInstance(groupedAccumulator));
-    }
-
-    public GroupedAccumulator runPagesOnAccumulator(long groupId, Supplier<GroupedAccumulator> accumulatorSupplier)
-    {
-        GroupedAccumulator accumulator = accumulatorSupplier.get();
-
-        for (Page page : getPages()) {
-            accumulator.addInput(getGroupIdBlock(groupId, page), page);
-        }
-
-        return accumulator;
-    }
-
-    private GroupByIdBlock getGroupIdBlock(long groupId, Page page)
+    private static GroupByIdBlock getGroupIdBlock(long groupId, Page page)
     {
         return AggregationTestUtils.createGroupByIdBlock((int) groupId, page.getPositionCount());
     }
@@ -80,10 +61,6 @@ public class AggregationTestInput
     {
         Page[] pages = this.pages;
 
-        if (isReversed) {
-            pages = AggregationTestUtils.reverseColumns(pages);
-        }
-
         if (offset > 0) {
             pages = AggregationTestUtils.offsetColumns(pages, offset);
         }
@@ -91,9 +68,9 @@ public class AggregationTestInput
         return pages;
     }
 
-    public GroupedAccumulator createGroupedAccumulator()
+    public GroupedAggregator createGroupedAggregator()
     {
-        return function.bind(Ints.asList(args), Optional.empty())
-                .createGroupedAccumulator();
+        return function.createAggregatorFactory(SINGLE, Ints.asList(args), OptionalInt.empty())
+                .createGroupedAggregator();
     }
 }

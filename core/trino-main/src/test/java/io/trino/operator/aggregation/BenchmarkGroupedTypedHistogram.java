@@ -34,7 +34,7 @@ import org.openjdk.jmh.runner.RunnerException;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -44,6 +44,7 @@ import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 @OutputTimeUnit(TimeUnit.SECONDS)
 //@BenchmarkMode(Mode.AverageTime)
@@ -76,7 +77,7 @@ public class BenchmarkGroupedTypedHistogram
         private final Random random = new Random();
         private Page[] pages;
         private GroupByIdBlock[] groupByIdBlocks;
-        private GroupedAccumulator groupedAccumulator;
+        private GroupedAggregator groupedAggregator;
 
         @Setup
         public void setUp()
@@ -111,23 +112,23 @@ public class BenchmarkGroupedTypedHistogram
             }
 
             TestingAggregationFunction aggregationFunction = getInternalAggregationFunctionVarChar();
-            groupedAccumulator = aggregationFunction.bind(ImmutableList.of(0), Optional.empty())
-                    .createGroupedAccumulator();
+            groupedAggregator = aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())
+                    .createGroupedAggregator();
         }
     }
 
     @Benchmark
-    public GroupedAccumulator testSharedGroupWithLargeBlocksRunner(Data data)
+    public GroupedAggregator testSharedGroupWithLargeBlocksRunner(Data data)
     {
-        GroupedAccumulator groupedAccumulator = data.groupedAccumulator;
+        GroupedAggregator groupedAggregator = data.groupedAggregator;
 
         for (int i = 0; i < data.numGroups; i++) {
             GroupByIdBlock groupByIdBlock = data.groupByIdBlocks[i];
             Page page = data.pages[i];
-            groupedAccumulator.addInput(groupByIdBlock, page);
+            groupedAggregator.processPage(groupByIdBlock, page);
         }
 
-        return groupedAccumulator;
+        return groupedAggregator;
     }
 
     private static TestingAggregationFunction getInternalAggregationFunctionVarChar()

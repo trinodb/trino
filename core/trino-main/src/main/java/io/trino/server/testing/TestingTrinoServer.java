@@ -59,6 +59,8 @@ import io.trino.metadata.CatalogManager;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ProcedureRegistry;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
@@ -76,9 +78,12 @@ import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.SystemAccessControl;
+import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.analyzer.QueryExplainer;
+import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Plan;
 import io.trino.testing.ProcedureTester;
@@ -144,8 +149,11 @@ public class TestingTrinoServer
     private final CatalogManager catalogManager;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
-    private final AnalyzerFactory analyzerFactory;
+    private final TypeManager typeManager;
+    private final QueryExplainer queryExplainer;
+    private final SessionPropertyManager sessionPropertyManager;
     private final StatsCalculator statsCalculator;
+    private final ProcedureRegistry procedureRegistry;
     private final TestingAccessControlManager accessControl;
     private final TestingGroupProvider groupProvider;
     private final ProcedureTester procedureTester;
@@ -293,31 +301,36 @@ public class TestingTrinoServer
         catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
         metadata = injector.getInstance(Metadata.class);
+        typeManager = injector.getInstance(TypeManager.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         groupProvider = injector.getInstance(TestingGroupProvider.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
+        sessionPropertyManager = injector.getInstance(SessionPropertyManager.class);
         if (coordinator) {
-            analyzerFactory = injector.getInstance(AnalyzerFactory.class);
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
+            queryExplainer = injector.getInstance(QueryExplainerFactory.class)
+                    .createQueryExplainer(injector.getInstance(AnalyzerFactory.class));
             resourceGroupManager = Optional.of((InternalResourceGroupManager<?>) injector.getInstance(InternalResourceGroupManager.class));
             sessionPropertyDefaults = injector.getInstance(SessionPropertyDefaults.class);
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
+            procedureRegistry = injector.getInstance(ProcedureRegistry.class);
             injector.getInstance(CertificateAuthenticatorManager.class).useDefaultAuthenticator();
         }
         else {
-            analyzerFactory = null;
             dispatchManager = null;
             queryManager = null;
+            queryExplainer = null;
             resourceGroupManager = Optional.empty();
             sessionPropertyDefaults = null;
             nodePartitioningManager = null;
             clusterMemoryManager = null;
             statsCalculator = null;
+            procedureRegistry = null;
         }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
@@ -446,15 +459,30 @@ public class TestingTrinoServer
         return metadata;
     }
 
-    public AnalyzerFactory getAnalyzerFactory()
+    public TypeManager getTypeManager()
     {
-        return analyzerFactory;
+        return typeManager;
+    }
+
+    public QueryExplainer getQueryExplainer()
+    {
+        return queryExplainer;
+    }
+
+    public SessionPropertyManager getSessionPropertyManager()
+    {
+        return sessionPropertyManager;
     }
 
     public StatsCalculator getStatsCalculator()
     {
         checkState(coordinator, "not a coordinator");
         return statsCalculator;
+    }
+
+    public ProcedureRegistry getProcedureRegistry()
+    {
+        return procedureRegistry;
     }
 
     public TestingAccessControlManager getAccessControl()

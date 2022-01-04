@@ -22,6 +22,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ParameterRewriter;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
@@ -74,7 +75,7 @@ abstract class AbstractPropertyManager<K>
             String catalogNameForDiagnostics,
             Map<String, Expression> sqlPropertyValues,
             Session session,
-            Metadata metadata,
+            PlannerContext plannerContext,
             AccessControl accessControl,
             Map<NodeRef<Parameter>, Expression> parameters,
             boolean setDefaultProperties)
@@ -101,7 +102,7 @@ abstract class AbstractPropertyManager<K>
 
             Object sqlObjectValue;
             try {
-                sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), property.getSqlType(), session, metadata, accessControl, parameters);
+                sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), property.getSqlType(), session, plannerContext, accessControl, parameters);
             }
             catch (TrinoException e) {
                 throw new TrinoException(
@@ -158,12 +159,12 @@ abstract class AbstractPropertyManager<K>
             Expression expression,
             Type expectedType,
             Session session,
-            Metadata metadata,
+            PlannerContext plannerContext,
             AccessControl accessControl,
             Map<NodeRef<Parameter>, Expression> parameters)
     {
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
-        Object value = evaluateConstantExpression(rewritten, expectedType, metadata, session, accessControl, parameters);
+        Object value = evaluateConstantExpression(rewritten, expectedType, plannerContext, session, accessControl, parameters);
 
         // convert to object value type of SQL type
         BlockBuilder blockBuilder = expectedType.createBlockBuilder(null, 1);

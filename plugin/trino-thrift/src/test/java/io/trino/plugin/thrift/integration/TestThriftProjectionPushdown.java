@@ -129,9 +129,9 @@ public class TestThriftProjectionPushdown
     public void testDoesNotFire()
     {
         PushProjectionIntoTableScan pushProjectionIntoTableScan = new PushProjectionIntoTableScan(
-                tester().getMetadata(),
+                tester().getPlannerContext(),
                 tester().getTypeAnalyzer(),
-                new ScalarStatsCalculator(tester().getMetadata(), tester().getTypeAnalyzer()));
+                new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
         String columnName = "orderstatus";
         ColumnHandle columnHandle = new ThriftColumnHandle(columnName, VARCHAR, "", false);
@@ -165,9 +165,9 @@ public class TestThriftProjectionPushdown
     public void testProjectionPushdown()
     {
         PushProjectionIntoTableScan pushProjectionIntoTableScan = new PushProjectionIntoTableScan(
-                tester().getMetadata(),
+                tester().getPlannerContext(),
                 tester().getTypeAnalyzer(),
-                new ScalarStatsCalculator(tester().getMetadata(), tester().getTypeAnalyzer()));
+                new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
         TableHandle inputTableHandle = NATION_TABLE;
         String columnName = "orderstatus";

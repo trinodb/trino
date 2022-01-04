@@ -17,12 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.plugin.tpch.TpchTransactionHandle;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -36,14 +35,14 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestValidateStreamingAggregations
         extends BasePlanTest
 {
-    private Metadata metadata;
-    private TypeOperators typeOperators = new TypeOperators();
+    private PlannerContext plannerContext;
     private TypeAnalyzer typeAnalyzer;
     private PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private TableHandle nationTableHandle;
@@ -51,8 +50,8 @@ public class TestValidateStreamingAggregations
     @BeforeClass
     public void setup()
     {
-        metadata = getQueryRunner().getMetadata();
-        typeAnalyzer = new TypeAnalyzer(getQueryRunner().getSqlParser(), metadata);
+        plannerContext = getQueryRunner().getPlannerContext();
+        typeAnalyzer = createTestingTypeAnalyzer(plannerContext);
 
         CatalogName catalogName = getCurrentConnectorId();
         nationTableHandle = new TableHandle(
@@ -108,13 +107,13 @@ public class TestValidateStreamingAggregations
     private void validatePlan(Function<PlanBuilder, PlanNode> planProvider)
     {
         getQueryRunner().inTransaction(session -> {
-            PlanBuilder builder = new PlanBuilder(idAllocator, metadata, session);
+            PlanBuilder builder = new PlanBuilder(idAllocator, plannerContext.getMetadata(), session);
             PlanNode planNode = planProvider.apply(builder);
             TypeProvider types = builder.getTypes();
 
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new ValidateStreamingAggregations().validate(planNode, session, metadata, typeOperators, typeAnalyzer, types, WarningCollector.NOOP);
+            session.getCatalog().ifPresent(catalog -> plannerContext.getMetadata().getCatalogHandle(session, catalog));
+            new ValidateStreamingAggregations().validate(planNode, session, plannerContext, typeAnalyzer, types, WarningCollector.NOOP);
             return null;
         });
     }
