@@ -18,7 +18,7 @@ directory, configured by the launcher script as detailed in
 * **Type:** :ref:`prop-type-integer`
 * **Default value:** ``30``
 
-The maximum number of general application log files to use, before log
+The number of days to retain general application log files before log
 rotation replaces old content.
 
 ``log.max-size``
