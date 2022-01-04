@@ -50,6 +50,12 @@ public class TestHiveMinioQueryFailureRecoveryTest
                 .setInitialTables(requiredTpchTables)
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(coordinatorProperties)
+                .setHiveProperties(ImmutableMap.<String, String>builder()
+                        // Streaming upload allocates non trivial amount of memory for buffering (16MB per output file by default).
+                        // When streaming upload is enabled insert into a table with high number of buckets / partitions may cause
+                        // the tests to run out of memory as the buffer space is eagerly allocated for each output file.
+                        .put("hive.s3.streaming.enabled", "false")
+                        .build())
                 .build();
     }
 
