@@ -136,6 +136,8 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("varchar(65535)", "'text_d'", createVarcharType(65535), "CAST('text_d' AS VARCHAR(65535))")
                 .addRoundTrip("varchar(10485760)", "'text_f'", createVarcharType(10485760), "CAST('text_f' AS VARCHAR(10485760))")
                 .addRoundTrip("varchar", "'unbounded'", VARCHAR, "VARCHAR 'unbounded'")
+                .addRoundTrip("varchar(10)", "NULL", createVarcharType(10), "CAST(NULL AS VARCHAR(10))")
+                .addRoundTrip("varchar", "NULL", VARCHAR, "CAST(NULL AS VARCHAR)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"))
 
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
@@ -203,6 +205,8 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("decimal(30, 5)", "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
                 .addRoundTrip("decimal(38, 0)", "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))")
                 .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 0)", "NULL", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
+                .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
 
         SqlDataTypeTest.create()
@@ -224,6 +228,8 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("decimal(30, 5)", "CAST(-3141592653589793238462643.38327 AS decimal(30, 5))", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
                 .addRoundTrip("decimal(38, 0)", "CAST(27182818284590452353602874713526624977 AS decimal(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))")
                 .addRoundTrip("decimal(38, 0)", "CAST(-27182818284590452353602874713526624977 AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST(NULL AS decimal(3, 0))", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
+                .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_decimal"));
     }
@@ -288,6 +294,7 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
                 .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
                 .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
+                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
@@ -300,6 +307,7 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("date", "TO_DATE('2017-01-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
                 .addRoundTrip("date", "TO_DATE('1983-04-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1983-04-01'")
                 .addRoundTrip("date", "TO_DATE('1983-10-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1983-10-01'")
+                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), session, phoenixCreateAndInsert("tpch.test_date"));
     }
