@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.TaskId;
@@ -39,6 +40,8 @@ import static java.util.Objects.requireNonNull;
 public class StreamingExchangeClientBuffer
         implements ExchangeClientBuffer
 {
+    private static final Logger log = Logger.get(StreamingExchangeClientBuffer.class);
+
     private final Executor executor;
     private final long bufferCapacityInBytes;
 
@@ -142,7 +145,9 @@ public class StreamingExchangeClientBuffer
         checkState(activeTasks.contains(taskId), "taskId not registered: %s", taskId);
 
         if (t instanceof TrinoException && REMOTE_TASK_FAILED.toErrorCode().equals(((TrinoException) t).getErrorCode())) {
-            // let coordinator handle this
+            // This error indicates that a downstream task was trying to fetch results from an upstream task that is marked as failed
+            // Instead of failing a downstream task let the coordinator handle and report the failure of an upstream task to ensure correct error reporting
+            log.debug("Task failure discovered while fetching task results: %s", taskId);
             return;
         }
 
