@@ -316,7 +316,7 @@ public class TestClickHouseTypeMapping
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
+    @Test(dataProvider = "sessionZonesDataProvider")
     public void testDate(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
@@ -335,7 +335,7 @@ public class TestClickHouseTypeMapping
     }
 
     @DataProvider
-    public Object[][] testTimestampDataProvider()
+    public Object[][] sessionZonesDataProvider()
     {
         return new Object[][] {
                 {UTC},

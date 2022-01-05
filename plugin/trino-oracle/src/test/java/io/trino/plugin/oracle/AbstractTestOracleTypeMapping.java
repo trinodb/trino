@@ -732,7 +732,7 @@ public abstract class AbstractTestOracleTypeMapping
         }
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
+    @Test(dataProvider = "sessionZonesDataProvider")
     public void testTimestamp(ZoneId sessionZone)
     {
         // using two non-JVM zones so that we don't need to worry what Oracle system zone is
@@ -793,7 +793,7 @@ public abstract class AbstractTestOracleTypeMapping
     }
 
     @DataProvider
-    public Object[][] testTimestampDataProvider()
+    public Object[][] sessionZonesDataProvider()
     {
         return new Object[][] {
                 {UTC},
