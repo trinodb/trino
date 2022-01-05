@@ -53,10 +53,10 @@ public interface ColumnValueExtractor
     static Optional<ColumnValueExtractor> columnValueExtractor(Type type)
     {
         if (type instanceof VarcharType) {
-            return Optional.of(new SliceValueExtractor(((VarcharType) type).getLength().orElse(Integer.MAX_VALUE)));
+            return Optional.of(new SliceValueExtractor(((VarcharType) type).getLength()));
         }
         if (type instanceof VarbinaryType) {
-            return Optional.of(new SliceValueExtractor(Integer.MAX_VALUE));
+            return Optional.of(new SliceValueExtractor(Optional.empty()));
         }
         if (type instanceof BooleanType || type instanceof TinyintType) {
             return Optional.of(new ByteValueExtractor());
@@ -93,9 +93,9 @@ public interface ColumnValueExtractor
             extends AbstractColumnValueExtractor
             implements ColumnValueExtractor
     {
-        public SliceValueExtractor(int sizeInBytes)
+        public SliceValueExtractor(Optional<Integer> sizeInBytes)
         {
-            super(sizeInBytes);
+            super(sizeInBytes.filter(size -> size < Integer.MAX_VALUE).map(size -> size + 1).orElse(Integer.MAX_VALUE));
         }
 
         @Override
