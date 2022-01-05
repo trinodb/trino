@@ -26,6 +26,7 @@ import io.trino.metadata.Split;
 import io.trino.operator.WorkProcessor.Transformation;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.WorkProcessorAssertion.Transform;
+import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
@@ -217,7 +218,8 @@ public class TestWorkProcessorPipelineSourceOperator
                 .containsEntry("testSourceClosed", new LongCount(1));
         assertEquals(sourceOperatorStats.getConnectorMetrics().getMetrics(), ImmutableMap.of(
                 "testSourceConnectorMetric", new LongCount(2),
-                "testSourceConnectorClosed", new LongCount(1)));
+                "testSourceConnectorClosed", new LongCount(1),
+                "Physical input read time", new DurationTiming(new Duration(7, NANOSECONDS))));
 
         assertEquals(sourceOperatorStats.getDynamicFilterSplitsProcessed(), 42L);
 
@@ -230,7 +232,7 @@ public class TestWorkProcessorPipelineSourceOperator
         assertEquals(sourceOperatorStats.getInputDataSize(), DataSize.ofBytes(5));
         assertEquals(sourceOperatorStats.getInputPositions(), 6);
 
-        assertEquals(sourceOperatorStats.getAddInputWall(), new Duration(7, NANOSECONDS));
+        assertEquals(sourceOperatorStats.getAddInputWall(), new Duration(0, NANOSECONDS));
 
         // pipeline input stats should match source WorkProcessorOperator stats
         PipelineStats pipelineStats = pipelineOperator.getOperatorContext().getDriverContext().getPipelineContext().getPipelineStats();
@@ -253,7 +255,8 @@ public class TestWorkProcessorPipelineSourceOperator
                 .containsEntry("testSourceClosed", new LongCount(1));
         assertEquals(operatorSummaries.get(0).getConnectorMetrics().getMetrics(), ImmutableMap.of(
                 "testSourceConnectorMetric", new LongCount(2),
-                "testSourceConnectorClosed", new LongCount(1)));
+                "testSourceConnectorClosed", new LongCount(1),
+                "Physical input read time", new DurationTiming(new Duration(7, NANOSECONDS))));
         assertThat(operatorSummaries.get(1).getMetrics().getMetrics())
                 .hasSize(2)
                 .containsEntry("testOperatorMetric", new LongCount(1));

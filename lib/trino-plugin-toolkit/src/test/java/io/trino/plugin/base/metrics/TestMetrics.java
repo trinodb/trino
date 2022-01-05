@@ -17,6 +17,7 @@ package io.trino.plugin.base.metrics;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.TDigest;
+import io.airlift.units.Duration;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 import org.testng.annotations.Test;
@@ -24,6 +25,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.Map;
 
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMetrics
@@ -66,6 +68,21 @@ public class TestMetrics
     }
 
     @Test
+    public void testDurationTiming()
+    {
+        DurationTiming d1 = new DurationTiming(new Duration(123, NANOSECONDS));
+        DurationTiming d2 = new DurationTiming(new Duration(1, NANOSECONDS));
+
+        Metrics m1 = new Metrics(ImmutableMap.of("a", d1));
+        Metrics m2 = new Metrics(ImmutableMap.of("a", d2));
+
+        DurationTiming merged = (DurationTiming) merge(m1, m2).getMetrics().get("a");
+
+        assertThat(merged.getAirliftDuration().roundTo(NANOSECONDS)).isEqualTo(124);
+        assertThat(merged.getDuration().toNanos()).isEqualTo(124);
+    }
+
+    @Test
     public void testHistogramJson()
     {
         JsonCodec<TDigestHistogram> codec = JsonCodec.jsonCodec(TDigestHistogram.class);
@@ -76,6 +93,16 @@ public class TestMetrics
         String json = codec.toJson(new TDigestHistogram(digest));
         TDigestHistogram result = codec.fromJson(json);
         assertThat(result.getDigest().getCount()).isEqualTo(digest.getCount());
+    }
+
+    @Test
+    public void testDurationJson()
+    {
+        JsonCodec<DurationTiming> codec = JsonCodec.jsonCodec(DurationTiming.class);
+        DurationTiming duration = new DurationTiming(new Duration(123, NANOSECONDS));
+        String json = codec.toJson(duration);
+        DurationTiming result = codec.fromJson(json);
+        assertThat(result.getAirliftDuration()).isEqualTo(duration.getAirliftDuration());
     }
 
     @Test(expectedExceptions = ClassCastException.class)
