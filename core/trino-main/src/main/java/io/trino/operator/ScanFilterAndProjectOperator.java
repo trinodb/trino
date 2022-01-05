@@ -283,7 +283,7 @@ public class ScanFilterAndProjectOperator
             return WorkProcessor
                     .create(new RecordCursorToPages(session, yieldSignal, cursorProcessor, types, pageSourceMemoryContext, outputMemoryContext))
                     .yielding(yieldSignal::isSet)
-                    .withProcessStateMonitor(state -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
+                    .blocking(() -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
 
         WorkProcessor<Page> processPageSource()
@@ -299,7 +299,7 @@ public class ScanFilterAndProjectOperator
                             page,
                             avoidPageMaterialization))
                     .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
-                    .withProcessStateMonitor(state -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
+                    .blocking(() -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
     }
 
