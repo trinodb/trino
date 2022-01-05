@@ -173,4 +173,9 @@ public final class ColumnarRow
     {
         return fields[index];
     }
+
+    public Block getNullCheckBlock()
+    {
+        return nullCheckBlock;
+    }
 }
