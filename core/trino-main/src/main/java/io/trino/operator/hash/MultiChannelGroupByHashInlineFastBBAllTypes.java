@@ -55,9 +55,10 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
 
     private static final float FILL_RATIO = 0.75f;
 
-    private final int[] hashChannels;
     private final Optional<Integer> inputHashChannel;
     private final HashTableFactory hashTableFactory;
+    private final int[] hashChannels;
+    private final int[] hashChannelsWithHash;
 
     // the hash table with value + groupId entries.
     // external groupId is the position/index in this table and artificial groupId concatenated.
@@ -82,10 +83,37 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
     {
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
-        this.hashChannels = requireNonNull(hashChannels, "hashChannels is null");
         checkArgument(hashChannels.length > 0, "hashChannels.length must be at least 1");
-        this.inputHashChannel = requireNonNull(inputHashChannel, "inputHashChannel is null");
-        this.hashTableFactory = new HashTableFactory(hashTypes, hashChannels, inputHashChannel, blockTypeOperators);
+        this.hashChannels = hashChannels;
+        requireNonNull(inputHashChannel, "inputHashChannel is null");
+
+        if (inputHashChannel.isPresent()) {
+            int channel = inputHashChannel.get();
+            int mappedChannel = -1;
+            for (int i = 0; i < hashChannels.length; i++) {
+                if (hashChannels[i] == channel) {
+                    mappedChannel = i;
+                    break;
+                }
+            }
+            if (mappedChannel == -1) {
+                this.inputHashChannel = Optional.of(hashChannels.length);
+                this.hashChannelsWithHash = Arrays.copyOf(hashChannels, hashChannels.length + 1);
+                // map inputHashChannel to last column
+                this.hashChannelsWithHash[hashChannels.length] = channel;
+            }
+            else {
+                // inputHashChannel is one of the hashChannels
+                this.inputHashChannel = inputHashChannel;
+                this.hashChannelsWithHash = hashChannels;
+            }
+        }
+        else {
+            this.inputHashChannel = Optional.empty();
+            this.hashChannelsWithHash = hashChannels;
+        }
+
+        this.hashTableFactory = new HashTableFactory(hashTypes, hashChannels.length, this.inputHashChannel, blockTypeOperators);
         this.hashTable = hashTableFactory.create(expectedSize);
 
         // This interface is used for actively reserving memory (push model) for rehash.
@@ -193,14 +221,14 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
 
-        return new AddPageWork(page);
+        return new AddPageWork(page.getColumns(hashChannelsWithHash));
     }
 
     @Override
     public Work<GroupByIdBlock> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        return new GetGroupIdsWork(page);
+        return new GetGroupIdsWork(page.getColumns(hashChannelsWithHash));
     }
 
     @Override
@@ -362,18 +390,18 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
         private final RowExtractor rowExtractor;
         private final HashGenerator hashGenerator;
 
-        public HashTableFactory(List<? extends Type> hashTypes, int[] hashChannels, Optional<Integer> inputHashChannel, BlockTypeOperators blockTypeOperators)
+        public HashTableFactory(List<? extends Type> hashTypes, int hashChannelsCount, Optional<Integer> inputHashChannel, BlockTypeOperators blockTypeOperators)
         {
-            hashChannelsCount = hashChannels.length;
+            this.hashChannelsCount = hashChannelsCount;
             ColumnValueExtractor[] columnValueExtractors = hashTypes.stream()
                     .map(ColumnValueExtractor::columnValueExtractor)
                     .map(columnValueExtractor -> columnValueExtractor.orElseThrow(() -> new RuntimeException("unsupported type " + hashTypes)))
                     .toArray(ColumnValueExtractor[]::new);
-            this.rowExtractor = new FixedOffsetRowExtractor(hashChannels, columnValueExtractors);
+            this.rowExtractor = new FixedOffsetRowExtractor(hashChannelsCount, columnValueExtractors);
             this.dataValuesLength = rowExtractor.mainBufferValuesLength();
             this.hashGenerator = inputHashChannel.isPresent() ?
                     new PrecomputedHashGenerator(inputHashChannel.get()) :
-                    new InterpretedHashGenerator(ImmutableList.copyOf(hashTypes), hashChannels, blockTypeOperators);
+                    InterpretedHashGenerator.createPositionalWithTypes(ImmutableList.copyOf(hashTypes), blockTypeOperators);
         }
 
         public NoRehashHashTable create(int expectedSize)

@@ -16,22 +16,22 @@ public class FixedOffsetRowExtractor
         implements RowExtractor
 {
     private static final int MAX_VAR_WIDTH_BUFFER_SIZE = 16;
-    private final int[] hashChannels;
+    private final int hashChannelsCount;
     private final ColumnValueExtractor[] columnValueExtractors;
     private final int[] mainBufferOffsets;
     private final int[] valueOffsets;
     private final byte[] isNull;
     private final int mainBufferValuesLength;
 
-    public FixedOffsetRowExtractor(int[] hashChannels, ColumnValueExtractor[] columnValueExtractors)
+    public FixedOffsetRowExtractor(int hashChannelsCount, ColumnValueExtractor[] columnValueExtractors)
     {
-        checkArgument(hashChannels.length == columnValueExtractors.length);
-        this.hashChannels = hashChannels;
+        checkArgument(hashChannelsCount == columnValueExtractors.length);
+        this.hashChannelsCount = hashChannelsCount;
         this.columnValueExtractors = columnValueExtractors;
 
-        valueOffsets = new int[hashChannels.length];
-        isNull = new byte[hashChannels.length];
-        mainBufferOffsets = new int[hashChannels.length];
+        valueOffsets = new int[hashChannelsCount];
+        isNull = new byte[hashChannelsCount];
+        mainBufferOffsets = new int[hashChannelsCount];
         int mainBufferOffset = 0;
         for (int i = 0; i < columnValueExtractors.length; i++) {
             mainBufferOffsets[i] = mainBufferOffset;
@@ -59,8 +59,8 @@ public class FixedOffsetRowExtractor
         row.markNoOverflow(offset);
         int valuesOffset = row.getValuesOffset(offset);
         FastByteBuffer mainBuffer = row.getMainBuffer();
-        for (int i = 0; i < hashChannels.length; i++) {
-            Block block = page.getBlock(hashChannels[i]);
+        for (int i = 0; i < hashChannelsCount; i++) {
+            Block block = page.getBlock(i);
 
             columnValueExtractors[i].putValue(mainBuffer, valuesOffset + mainBufferOffsets[i], block, position);
         }
@@ -89,8 +89,8 @@ public class FixedOffsetRowExtractor
         //        entries.clear();
         boolean overflow = false;
         int offset = 0;
-        for (int i = 0; i < hashChannels.length; i++) {
-            Block block = page.getBlock(hashChannels[i]);
+        for (int i = 0; i < hashChannelsCount; i++) {
+            Block block = page.getBlock(i);
             boolean valueIsNull = block.isNull(position);
             isNull[i] = (byte) (valueIsNull ? 1 : 0);
 
@@ -135,8 +135,8 @@ public class FixedOffsetRowExtractor
     private boolean valuesEquals(FixedOffsetGroupByHashTableEntries table, int hashPosition,
             Page page, int position, FastByteBuffer buffer, int valuesOffset)
     {
-        for (int i = 0; i < hashChannels.length; i++) {
-            Block block = page.getBlock(hashChannels[i]);
+        for (int i = 0; i < hashChannelsCount; i++) {
+            Block block = page.getBlock(i);
 
             boolean blockValueNull = block.isNull(position);
             byte tableValueIsNull = table.isNull(hashPosition, i);
@@ -163,7 +163,7 @@ public class FixedOffsetRowExtractor
             FastByteBuffer mainBuffer = hashTable.getMainBuffer();
             int valuesOffset = hashTable.getValuesOffset(hashPosition);
 
-            for (int i = 0; i < hashChannels.length; i++, outputChannelOffset++) {
+            for (int i = 0; i < hashChannelsCount; i++, outputChannelOffset++) {
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
                 if (hashTable.isNull(hashPosition, i) == 1) {
                     blockBuilder.appendNull();
