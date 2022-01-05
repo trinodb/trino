@@ -84,7 +84,7 @@ public class TestPhoenixTypeMapping
             throws Exception
     {
         phoenixServer = TestingPhoenixServer.getInstance();
-        return createPhoenixQueryRunner(phoenixServer, ImmutableMap.of());
+        return createPhoenixQueryRunner(phoenixServer, ImmutableMap.of(), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)
