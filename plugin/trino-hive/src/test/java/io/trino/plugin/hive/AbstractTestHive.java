@@ -2894,7 +2894,7 @@ public abstract class AbstractTestHive
                 ConnectorMetadata metadata = transaction.getMetadata();
                 metadata.beginQuery(session);
                 assertThatThrownBy(() -> getTableHandle(metadata, tableName))
-                        .hasMessage("Cannot query Delta Lake table");
+                        .hasMessage(format("Cannot query Delta Lake table '%s'", tableName));
             }
 
             // Assert that table is hidden

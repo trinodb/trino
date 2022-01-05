@@ -31,7 +31,8 @@ public class TestHiveDeltaLakeTable
                 "CREATE TABLE test_delta_lake_table (ignored int) " +
                 "TBLPROPERTIES ('spark.sql.sources.provider'='DELTA')");
 
-        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM test_delta_lake_table")).hasMessageContaining("Cannot query Delta Lake table");
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM test_delta_lake_table"))
+                .hasMessageContaining("Cannot query Delta Lake table 'default.test_delta_lake_table'");
 
         onHive().executeQuery("DROP TABLE test_delta_lake_table");
     }
