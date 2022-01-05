@@ -1013,7 +1013,7 @@ public class SqlQueryScheduler
         @Override
         public void onTaskFailed(TaskId taskId, Throwable failure)
         {
-            if (failure instanceof TrinoException && ((TrinoException) failure).getErrorCode() == REMOTE_TASK_FAILED.toErrorCode()) {
+            if (failure instanceof TrinoException && REMOTE_TASK_FAILED.toErrorCode().equals(((TrinoException) failure).getErrorCode())) {
                 // This error indicates that a downstream task was trying to fetch results from an upstream task that is marked as failed
                 // Instead of failing a downstream task let the coordinator handle and report the failure of an upstream task to ensure correct error reporting
                 log.info("Task failure discovered while fetching task results: %s", taskId);

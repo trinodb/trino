@@ -141,7 +141,7 @@ public class StreamingExchangeClientBuffer
         }
         checkState(activeTasks.contains(taskId), "taskId not registered: %s", taskId);
 
-        if (t instanceof TrinoException && ((TrinoException) t).getErrorCode() == REMOTE_TASK_FAILED.toErrorCode()) {
+        if (t instanceof TrinoException && REMOTE_TASK_FAILED.toErrorCode().equals(((TrinoException) t).getErrorCode())) {
             // let coordinator handle this
             return;
         }
