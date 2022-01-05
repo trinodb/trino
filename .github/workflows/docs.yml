@@ -55,6 +55,7 @@ jobs:
           echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Checks
         run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY $MAVEN install -B --strict-checksums -V -T C1 -DskipTests -P ci -am -pl ':trino-docs'
 
   test-docs:
