@@ -194,7 +194,12 @@ public final class BlockAssertions
         return createRandomBlockForNestedType(type, positionCount, nullRate);
     }
 
-    private static Block createRandomBlockForNestedType(Type type, int positionCount, float nullRate)
+    public static Block createRandomBlockForNestedType(Type type, int positionCount, float nullRate)
+    {
+        return createRandomBlockForNestedType(type, positionCount, nullRate, ENTRY_SIZE);
+    }
+
+    public static Block createRandomBlockForNestedType(Type type, int positionCount, float nullRate, int maxCardinality)
     {
         // Builds isNull and offsets of size positionCount
         boolean[] isNull = null;
@@ -214,7 +219,7 @@ public final class BlockAssertions
             else {
                 // RowType doesn't need offsets, so we just use 1,
                 // for ArrayType and MapType we choose randomly either array length or map size at the current position
-                offsets[position + 1] = offsets[position] + (type instanceof RowType ? 1 : random.nextInt(ENTRY_SIZE) + 1);
+                offsets[position + 1] = offsets[position] + (type instanceof RowType ? 1 : random.nextInt(maxCardinality) + 1);
             }
         }
 
