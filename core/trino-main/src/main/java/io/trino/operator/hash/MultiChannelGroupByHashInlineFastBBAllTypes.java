@@ -24,8 +24,6 @@ import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.operator.UpdateMemory;
 import io.trino.operator.Work;
 import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
-import io.trino.operator.hash.fixed.FixedOffsetRowExtractor;
-import io.trino.operator.hash.fixed.FixedOffsetRowExtractor2Channels;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -75,6 +73,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
     private final List<Type> types;
 
     public MultiChannelGroupByHashInlineFastBBAllTypes(
+            IsolatedRowExtractorFactory isolatedRowExtractorFactory,
             List<? extends Type> hashTypes,
             int[] hashChannels,
             Optional<Integer> inputHashChannel,
@@ -115,7 +114,11 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
             this.hashChannelsWithHash = hashChannels;
         }
 
-        this.hashTableFactory = new HashTableFactory(hashTypes, hashChannels.length, this.inputHashChannel, blockTypeOperators, maxVarWidthBufferSize);
+        this.hashTableFactory = new HashTableFactory(
+                isolatedRowExtractorFactory.create(hashTypes, maxVarWidthBufferSize),
+                hashTypes,
+                this.inputHashChannel,
+                blockTypeOperators);
         this.hashTable = hashTableFactory.create(expectedSize);
 
         // This interface is used for actively reserving memory (push model) for rehash.
@@ -365,7 +368,8 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
             NoRehashHashTable hashTable = MultiChannelGroupByHashInlineFastBBAllTypes.this.hashTable;
             while (lastPosition < positionCount && !hashTable.needRehash()) {
                 // output the group id for this row
-                BIGINT.writeLong(blockBuilder, hashTable.putIfAbsent(lastPosition, page));
+                int groupId = hashTable.putIfAbsent(lastPosition, page);
+                BIGINT.writeLong(blockBuilder, groupId);
                 lastPosition++;
                 if (hashTable.needRehash()) {
                     tryRehash();
@@ -385,8 +389,6 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
         }
     }
 
-    public static volatile boolean USE_DEDICATED_EXTRACTOR = true;
-
     static class HashTableFactory
     {
         private final int dataValuesLength;
@@ -394,16 +396,14 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
         private final RowExtractor rowExtractor;
         private final HashGenerator hashGenerator;
 
-        public HashTableFactory(List<? extends Type> hashTypes, int hashChannelsCount, Optional<Integer> inputHashChannel, BlockTypeOperators blockTypeOperators, int maxVarWidthBufferSize)
+        public HashTableFactory(
+                RowExtractor rowExtractor,
+                List<? extends Type> hashTypes,
+                Optional<Integer> inputHashChannel,
+                BlockTypeOperators blockTypeOperators)
         {
-            this.hashChannelsCount = hashChannelsCount;
-            ColumnValueExtractor[] columnValueExtractors = hashTypes.stream()
-                    .map(ColumnValueExtractor::columnValueExtractor)
-                    .map(columnValueExtractor -> columnValueExtractor.orElseThrow(() -> new RuntimeException("unsupported type " + hashTypes)))
-                    .toArray(ColumnValueExtractor[]::new);
-            this.rowExtractor = columnValueExtractors.length == 2 && USE_DEDICATED_EXTRACTOR ?
-                    new FixedOffsetRowExtractor2Channels(maxVarWidthBufferSize, columnValueExtractors) :
-                    new FixedOffsetRowExtractor(maxVarWidthBufferSize, columnValueExtractors);
+            this.hashChannelsCount = hashTypes.size();
+            this.rowExtractor = rowExtractor;
             this.dataValuesLength = rowExtractor.mainBufferValuesLength();
             this.hashGenerator = inputHashChannel.isPresent() ?
                     new PrecomputedHashGenerator(inputHashChannel.get()) :

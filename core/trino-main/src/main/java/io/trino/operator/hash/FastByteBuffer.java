@@ -75,4 +75,6 @@ public interface FastByteBuffer
             b.append(", ");
         }
     }
+
+    Slice asSlice();
 }

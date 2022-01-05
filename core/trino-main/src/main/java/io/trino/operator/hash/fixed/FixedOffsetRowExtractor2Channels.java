@@ -168,7 +168,7 @@ public class FixedOffsetRowExtractor2Channels
                 blockBuilder1.appendNull();
             }
             else {
-                columnValueExtractor1.appendValue(mainBuffer, valuesOffset, blockBuilder1);
+                columnValueExtractor1.appendValue(mainBuffer, valuesOffset + mainBufferOffset1, blockBuilder1);
             }
         }
         else {

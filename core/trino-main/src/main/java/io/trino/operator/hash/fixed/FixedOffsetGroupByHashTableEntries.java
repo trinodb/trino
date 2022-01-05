@@ -193,7 +193,10 @@ public class FixedOffsetGroupByHashTableEntries
 
     public void putIsNull(int position, byte[] isNull)
     {
-        mainBuffer.put(position + isNullOffset, isNull, 0, isNull.length);
+        for (int i = 0; i < isNull.length; i++) {
+            mainBuffer.put(position + isNullOffset + i, isNull[i]);
+        }
+//        mainBuffer.put(position + isNullOffset, isNull, 0, isNull.length);
     }
 
     public void clear()

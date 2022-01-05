@@ -1,10 +1,10 @@
 package io.trino.operator.hash;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
-import java.util.Arrays;
 
 public class ArrayFastByteBuffer
         implements FastByteBuffer
@@ -25,12 +25,14 @@ public class ArrayFastByteBuffer
     }
 
     private final byte[] array;
+    private final Slice slice; // Slice that wraps the array for operations that require Slice
     private final int capacity;
 
     public ArrayFastByteBuffer(int capacity)
     {
         this.capacity = capacity;
         this.array = new byte[capacity];
+        this.slice = Slices.wrappedBuffer(array);
     }
 
     @Override
@@ -72,15 +74,15 @@ public class ArrayFastByteBuffer
     @Override
     public byte get(int position)
     {
-//        return array[position];
-        return UNSAFE.getByte(array, BYTE_ARRAY_BASE_OFFSET + position);
+        return array[position];
+//        return UNSAFE.getByte(array, BYTE_ARRAY_BASE_OFFSET + position);
     }
 
     @Override
     public void put(int position, byte value)
     {
-        UNSAFE.putByte(array, BYTE_ARRAY_BASE_OFFSET + position, value);
-//        array[position] = value;
+//        UNSAFE.putByte(array, BYTE_ARRAY_BASE_OFFSET + position, value);
+        array[position] = value;
     }
 
     @Override
@@ -126,7 +128,16 @@ public class ArrayFastByteBuffer
     @Override
     public void put(int position, byte[] value, int valueOffset, int valueLength)
     {
-        System.arraycopy(value, valueOffset, array, position, valueLength);
+//        System.arraycopy(value, valueOffset, array, position, valueLength);
+        for (int i = 0; i < valueLength; i++) {
+            array[position + i] = value[valueOffset + i];
+        }
+    }
+
+    @Override
+    public Slice asSlice()
+    {
+        return slice;
     }
 
     @Override
@@ -184,7 +195,6 @@ public class ArrayFastByteBuffer
         Object otherBase = other.getBase();
         long thisPosition = BYTE_ARRAY_BASE_OFFSET + thisOffset;
         long otherPosition = other.getAddress() + otherOffset;
-
 
         int i = 0;
         for (; i <= length - 8; i += 8) {

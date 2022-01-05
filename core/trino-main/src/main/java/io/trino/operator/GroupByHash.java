@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.trino.Session;
 import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import io.trino.operator.hash.ColumnValueExtractor;
+import io.trino.operator.hash.IsolatedRowExtractorFactory;
 import io.trino.operator.hash.MultiChannelBigintGroupByHashInlineBatch;
 import io.trino.operator.hash.MultiChannelGroupByHashBatch;
 import io.trino.operator.hash.MultiChannelGroupByHashInlineFastBBAllTypes;
@@ -38,6 +39,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 public interface GroupByHash
         extends AutoCloseable
 {
+    IsolatedRowExtractorFactory ISOLATED_ROW_EXTRACTOR_FACTORY = new IsolatedRowExtractorFactory();
+
     static GroupByHash createGroupByHash(
             Session session,
             List<? extends Type> hashTypes,
@@ -85,9 +88,8 @@ public interface GroupByHash
             BlockTypeOperators blockTypeOperators,
             UpdateMemory updateMemory)
     {
-
         if (useEnhancedGroupBy && hashTypes.stream().allMatch(ColumnValueExtractor::isSupported)) {
-            return new MultiChannelGroupByHashInlineFastBBAllTypes(hashTypes, hashChannels, inputHashChannel, expectedSize, updateMemory, blockTypeOperators, maxVarWidthBufferSize);
+            return new MultiChannelGroupByHashInlineFastBBAllTypes(ISOLATED_ROW_EXTRACTOR_FACTORY, hashTypes, hashChannels, inputHashChannel, expectedSize, updateMemory, blockTypeOperators, maxVarWidthBufferSize);
         }
         if (useEnhancedGroupBy && hashTypes.stream().allMatch(type -> type.equals(BIGINT))) {
             return new MultiChannelBigintGroupByHashInlineBatch(hashChannels, inputHashChannel, expectedSize, updateMemory);

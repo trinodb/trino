@@ -1,6 +1,7 @@
 package io.trino.operator.hash;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.UnsafeSliceFactory;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
@@ -11,6 +12,7 @@ public class OffHeapByteBuffer
     public static boolean USE_OFF_HEAP = false;
 
     static final Unsafe UNSAFE = getUnsafe();
+    private final Slice slice;
 
     private static Unsafe getUnsafe()
     {
@@ -31,6 +33,7 @@ public class OffHeapByteBuffer
     {
         this.capacity = capacity;
         this.address = UNSAFE.allocateMemory(capacity);
+        this.slice = UnsafeSliceFactory.getInstance().newSlice(address, capacity, this);
     }
 
     @Override
@@ -119,6 +122,12 @@ public class OffHeapByteBuffer
     public void put(int position, byte[] value, int valueOffset, int valueLength)
     {
         UNSAFE.copyMemory(value, valueOffset, null, address + position, valueLength);
+    }
+
+    @Override
+    public Slice asSlice()
+    {
+        return slice;
     }
 
     @Override

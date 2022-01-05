@@ -18,8 +18,6 @@ public class FixedOffsetRowExtractor
     private final int hashChannelsCount;
     private final ColumnValueExtractor[] columnValueExtractors;
     private final int[] mainBufferOffsets;
-    private final int[] valueOffsets;
-    private final byte[] isNull;
     private final int mainBufferValuesLength;
 
     public FixedOffsetRowExtractor(int maxVarWidthBufferSize, ColumnValueExtractor[] columnValueExtractors)
@@ -28,8 +26,6 @@ public class FixedOffsetRowExtractor
         this.hashChannelsCount = columnValueExtractors.length;
         this.columnValueExtractors = columnValueExtractors;
 
-        valueOffsets = new int[hashChannelsCount];
-        isNull = new byte[hashChannelsCount];
         mainBufferOffsets = new int[hashChannelsCount];
         int mainBufferOffset = 0;
         for (int i = 0; i < columnValueExtractors.length; i++) {
@@ -90,12 +86,14 @@ public class FixedOffsetRowExtractor
 
     private void putEntryValue(Page page, int position, FixedOffsetGroupByHashTableEntries entries, int entriesOffset)
     {
+//        byte[] isNull = new byte[hashChannelsCount];
         boolean overflow = false;
         int offset = 0;
         for (int i = 0; i < hashChannelsCount; i++) {
             Block block = page.getBlock(i);
             boolean valueIsNull = block.isNull(position);
-            isNull[i] = (byte) (valueIsNull ? 1 : 0);
+//            isNull[i] = (byte) (valueIsNull ? 1 : 0);
+            entries.putIsNull(entriesOffset, i, (byte) (valueIsNull ? 1 : 0));
 
             int valueLength = valueIsNull ? 0 : columnValueExtractors[i].getSerializedValueLength(block, position);
 //            valueOffsets[i] = offset;
@@ -105,7 +103,7 @@ public class FixedOffsetRowExtractor
             }
         }
 
-        entries.putIsNull(entriesOffset, isNull);
+//        entries.putIsNull(entriesOffset, isNull);
         if (!overflow) {
             copyToMainBuffer(page, position, entries, entriesOffset);
         }

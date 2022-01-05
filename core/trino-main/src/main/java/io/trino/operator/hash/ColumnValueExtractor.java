@@ -115,11 +115,10 @@ public interface ColumnValueExtractor
             buffer.putSlice(offset + 1, rawSlice, varWidthBlock.getPositionOffset(position), valueLength);
         }
 
-        private Slice buffer = Slices.allocate(64);
-
         @Override
         public void appendValue(VariableOffsetGroupByHashTableEntries hashTable, int position, int valueIndex, BlockBuilder blockBuilder)
         {
+            Slice buffer = Slices.allocate(64);
             int valueLength = hashTable.getSliceValue(position, valueIndex, buffer);
             blockBuilder.writeBytes(buffer, 0, valueLength).closeEntry();
         }
@@ -128,8 +127,7 @@ public interface ColumnValueExtractor
         public void appendValue(FastByteBuffer from, int offset, BlockBuilder blockBuilder)
         {
             int length = from.getByteUnsigned(offset);
-            from.getSlice(offset + 1, length, buffer, 0);
-            blockBuilder.writeBytes(buffer, 0, length).closeEntry();
+            blockBuilder.writeBytes(from.asSlice(), offset + 1, length).closeEntry();
         }
 
         @Override

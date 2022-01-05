@@ -75,7 +75,9 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.jmh.Benchmarks.benchmark;
+import static io.trino.operator.GroupByHash.ISOLATED_ROW_EXTRACTOR_FACTORY;
 import static io.trino.operator.UpdateMemory.NOOP;
+import static io.trino.operator.hash.IsolatedRowExtractorFactory.USE_DEDICATED_EXTRACTOR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
@@ -130,7 +132,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public void groupByHashPreComputeInlineAllTypes(RowWiseBenchmarkData data, Blackhole blackhole)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHashInlineFastBBAllTypes(data.getTypes(), data.getChannels(), data.getHashChannel(), data.getExpectedSize(), NOOP, TYPE_OPERATOR_FACTORY, 16);
+        GroupByHash groupByHash = new MultiChannelGroupByHashInlineFastBBAllTypes(ISOLATED_ROW_EXTRACTOR_FACTORY, data.getTypes(), data.getChannels(), data.getHashChannel(), data.getExpectedSize(), NOOP, TYPE_OPERATOR_FACTORY, 16);
         addInputPagesToHash(groupByHash, data.getPages());
 
         buildPages(groupByHash, blackhole);
@@ -557,7 +559,7 @@ public class BenchmarkGroupByHash
         @Override
         public void setup()
         {
-            MultiChannelGroupByHashInlineFastBBAllTypes.USE_DEDICATED_EXTRACTOR = useDedicatedExtractor;
+            USE_DEDICATED_EXTRACTOR = useDedicatedExtractor;
             super.setup();
         }
     }
@@ -646,15 +648,15 @@ public class BenchmarkGroupByHash
         }
     }
 
-//    static {
-//        // pollute BigintGroupByHash profile by different block types
-//        SingleChannelBenchmarkData singleChannelBenchmarkData = new SingleChannelBenchmarkData();
-//        singleChannelBenchmarkData.setup(true);
-//        BenchmarkGroupByHash hash = new BenchmarkGroupByHash();
-//        for (int i = 0; i < 5; ++i) {
-//            hash.bigintGroupByHash(singleChannelBenchmarkData, fakeBlackhole());
-//        }
-//    }
+    static {
+        // pollute BigintGroupByHash profile by different block types
+        SingleChannelBenchmarkData singleChannelBenchmarkData = new SingleChannelBenchmarkData();
+        singleChannelBenchmarkData.setup(true);
+        BenchmarkGroupByHash hash = new BenchmarkGroupByHash();
+        for (int i = 0; i < 5; ++i) {
+            hash.bigintGroupByHash(singleChannelBenchmarkData, fakeBlackhole());
+        }
+    }
 
     private static Blackhole fakeBlackhole()
     {
@@ -685,7 +687,7 @@ public class BenchmarkGroupByHash
 //                .includeMethod("bigintGroupByHashMultiChannel")
 //                .includeMethod("bigintGroupByHashBatchGID")
 //                .includeMethod("bigintGroupByHashGIDBigArray")
-//                .includeMethod("groupByHashPreCompute")
+                .includeMethod("groupByHashPreCompute")
 //                .includeMethod("groupByHashPreComputeInline")
                 .includeMethod("groupByHashPreComputeInlineAllTypes")
 //                .includeMethod("groupByHashPreComputeInlineMultiChannelBigInt")
@@ -698,7 +700,7 @@ public class BenchmarkGroupByHash
 //                .includeMethod("baselineBigArray")
                 .withOptions(optionsBuilder -> optionsBuilder
 //                        .addProfiler(GCProfiler.class)
-                        .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=text;output=flamegraph", profilerOutputDir))
+//                        .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=text;output=flamegraph", profilerOutputDir))
 //                        .addProfiler(DTraceAsmProfiler.class, "event=branch-misses")
 //                        .addProfiler(DTraceAsmProfiler.class, String.format("hotThreshold=0.1;tooBigThreshold=3000;saveLog=true;saveLogTo=%s", profilerOutputDir, profilerOutputDir))
                         .jvmArgs("-Xmx32g")
@@ -707,14 +709,15 @@ public class BenchmarkGroupByHash
                         .param("rehash", "false")
 //                        .param("expectedSize", "10000")
 //                        .param("groupCount", "3000000")
-                        .param("groupCount", "8", "3000000")
-//                        .param("channelCount", "1", "2", "5", "10")
-                        .param("channelCount", "2")
+                        .param("groupCount", "8")
+                        .param("channelCount", "1", "2", "5", "10")
+//                        .param("channelCount", "2")
 //                        .param("dataType", "VARCHAR")
 //                        .param("dataType", "VARCHAR")
                         .param("useOffHeap", "false")
                         .param("batchSize", "16")
                         .param("valuesLength", "4")
+                        .param("useDedicatedExtractor", "false")
                         .forks(1)
 //                        .jvmArgsAppend("-XX:+UnlockDiagnosticVMOptions", "-XX:+TraceClassLoading", "-XX:+LogCompilation", "-XX:+DebugNonSafepoints", "-XX:+PrintAssembly", "-XX:+PrintInlining")
 //                        .jvmArgsAppend("-XX:MaxInlineSize=300", "-XX:InlineSmallCode=3000")
