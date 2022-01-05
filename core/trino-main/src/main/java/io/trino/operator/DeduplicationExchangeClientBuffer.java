@@ -17,6 +17,7 @@ import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.TaskId;
@@ -35,18 +36,20 @@ import java.util.concurrent.Executor;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.trino.operator.RetryPolicy.QUERY;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
 public class DeduplicationExchangeClientBuffer
         implements ExchangeClientBuffer
 {
+    private static final Logger log = Logger.get(DeduplicationExchangeClientBuffer.class);
+
     private final Executor executor;
     private final long bufferCapacityInBytes;
     private final RetryPolicy retryPolicy;
@@ -255,21 +258,32 @@ public class DeduplicationExchangeClientBuffer
                     return;
                 }
 
-                List<Throwable> failures = failedTasks.entrySet().stream()
-                        .filter(entry -> entry.getKey().getAttemptId() == maxAttemptId)
-                        .map(Map.Entry::getValue)
-                        .collect(toImmutableList());
+                Throwable failure = null;
+                for (Map.Entry<TaskId, Throwable> entry : failedTasks.entrySet()) {
+                    TaskId taskId = entry.getKey();
+                    Throwable taskFailure = entry.getValue();
 
-                if (!failures.isEmpty()) {
-                    Throwable failure = null;
-                    for (Throwable taskFailure : failures) {
-                        if (failure == null) {
-                            failure = taskFailure;
-                        }
-                        else if (failure != taskFailure) {
-                            failure.addSuppressed(taskFailure);
-                        }
+                    if (taskId.getAttemptId() != maxAttemptId) {
+                        // ignore failures from previous attempts
+                        continue;
                     }
+
+                    if (taskFailure instanceof TrinoException && REMOTE_TASK_FAILED.toErrorCode().equals(((TrinoException) taskFailure).getErrorCode())) {
+                        // This error indicates that a downstream task was trying to fetch results from an upstream task that is marked as failed
+                        // Instead of failing a downstream task let the coordinator handle and report the failure of an upstream task to ensure correct error reporting
+                        log.debug("Task failure discovered while fetching task results: %s", taskId);
+                        continue;
+                    }
+
+                    if (failure == null) {
+                        failure = taskFailure;
+                    }
+                    else if (failure != taskFailure) {
+                        failure.addSuppressed(taskFailure);
+                    }
+                }
+
+                if (failure != null) {
                     pageBuffer.clear();
                     bufferRetainedSizeInBytes = 0;
                     this.failure = failure;
