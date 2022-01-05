@@ -15,11 +15,14 @@ package io.trino.operator.unnest;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.operator.DriverContext;
+import io.trino.operator.Operator;
 import io.trino.operator.OperatorFactory;
+import io.trino.operator.PageTestUtils;
 import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
@@ -27,19 +30,42 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
+import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.operator.PageTestUtils.Wrapping.DICTIONARY;
+import static io.trino.operator.PageTestUtils.Wrapping.RUN_LENGTH;
+import static io.trino.operator.PageTestUtils.createRandomPage;
+import static io.trino.operator.unnest.TestingUnnesterUtil.UnnestedLengths;
+import static io.trino.operator.unnest.TestingUnnesterUtil.buildExpectedPage;
+import static io.trino.operator.unnest.TestingUnnesterUtil.buildOutputTypes;
+import static io.trino.operator.unnest.TestingUnnesterUtil.calculateMaxCardinalities;
+import static io.trino.operator.unnest.TestingUnnesterUtil.mergePages;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.anonymous;
+import static io.trino.spi.type.RowType.anonymousRow;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
@@ -49,6 +75,7 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestUnnestOperator
@@ -56,6 +83,9 @@ public class TestUnnestOperator
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
+
+    private static final int PAGE_COUNT = 2;
+    private static final int POSITION_COUNT = 500;
 
     @BeforeMethod
     public void setUp()
@@ -191,7 +221,7 @@ public class TestUnnestOperator
     @Test
     public void testUnnestWithArrayOfRows()
     {
-        Type elementType = RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE, VARCHAR));
+        Type elementType = anonymous(ImmutableList.of(BIGINT, DOUBLE, VARCHAR));
         Type arrayOfRowType = new ArrayType(elementType);
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayOfRowType)
@@ -222,7 +252,7 @@ public class TestUnnestOperator
     {
         Type mapType = TESTING_TYPE_MANAGER.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
         Type arrayType = new ArrayType(BIGINT);
-        Type elementType = RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE, VARCHAR));
+        Type elementType = anonymous(ImmutableList.of(BIGINT, DOUBLE, VARCHAR));
         Type arrayOfRowType = new ArrayType(elementType);
 
         List<Page> input = rowPagesBuilder(BIGINT, mapType, arrayType, arrayOfRowType)
@@ -254,7 +284,7 @@ public class TestUnnestOperator
     {
         Type mapType = TESTING_TYPE_MANAGER.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
         Type arrayType = new ArrayType(BIGINT);
-        Type elementType = RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE, VARCHAR));
+        Type elementType = anonymous(ImmutableList.of(BIGINT, DOUBLE, VARCHAR));
         Type arrayOfRowType = new ArrayType(elementType);
 
         List<Page> input = rowPagesBuilder(BIGINT, mapType, arrayType, arrayOfRowType)
@@ -279,5 +309,261 @@ public class TestUnnestOperator
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
+    }
+
+    @Test
+    public void testUnnestSingleArray()
+    {
+        testUnnest(
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(new ArrayType(BIGINT)));
+
+        testUnnest(
+                ImmutableList.of(VARCHAR),
+                ImmutableList.of(new ArrayType(VARCHAR)));
+
+        testUnnest(
+                ImmutableList.of(VARCHAR),
+                ImmutableList.of(new ArrayType(BIGINT)));
+    }
+
+    @Test
+    public void testUnnestSingleMap()
+    {
+        testUnnest(
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(createMapType(BIGINT, BIGINT)));
+
+        testUnnest(
+                ImmutableList.of(VARCHAR),
+                ImmutableList.of(createMapType(VARCHAR, VARCHAR)));
+
+        testUnnest(
+                ImmutableList.of(VARCHAR),
+                ImmutableList.of(createMapType(VARCHAR, BIGINT)));
+    }
+
+    @Test
+    public void testUnnestSingleArrayWithEmptyInput()
+    {
+        Page emptyPage = new PageBuilder(ImmutableList.of(BIGINT, new ArrayType(BIGINT))).build();
+        testUnnest(
+                ImmutableList.of(emptyPage),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(new ArrayType(BIGINT)),
+                false,
+                false);
+    }
+
+    @Test
+    public void testUnnestSingleArrayOfRow()
+    {
+        testUnnest(
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(new ArrayType(anonymousRow(BIGINT, BIGINT, BIGINT))));
+
+        testUnnest(
+                ImmutableList.of(VARCHAR),
+                ImmutableList.of(new ArrayType(anonymousRow(VARCHAR, VARCHAR, VARCHAR))));
+
+        testUnnest(
+                ImmutableList.of(VARCHAR),
+                ImmutableList.of(new ArrayType(anonymousRow(
+                        VARCHAR,
+                        new ArrayType(BIGINT),
+                        createMapType(VARCHAR, VARCHAR)))));
+    }
+
+    @Test
+    public void testUnnestTwoArrays()
+    {
+        testUnnest(
+                ImmutableList.of(BOOLEAN),
+                ImmutableList.of(new ArrayType(BOOLEAN), new ArrayType(BOOLEAN)));
+
+        testUnnest(
+                ImmutableList.of(SMALLINT),
+                ImmutableList.of(new ArrayType(SMALLINT), new ArrayType(SMALLINT)));
+
+        testUnnest(
+                ImmutableList.of(INTEGER),
+                ImmutableList.of(new ArrayType(INTEGER), new ArrayType(INTEGER)));
+
+        testUnnest(
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(new ArrayType(BIGINT), new ArrayType(BIGINT)));
+
+        Type decimalType = createDecimalType(MAX_SHORT_PRECISION + 1);
+        testUnnest(
+                ImmutableList.of(decimalType),
+                ImmutableList.of(new ArrayType(decimalType), new ArrayType(decimalType)));
+
+        testUnnest(
+                ImmutableList.of(VARCHAR),
+                ImmutableList.of(new ArrayType(VARCHAR), new ArrayType(VARCHAR)));
+
+        testUnnest(
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(new ArrayType(BIGINT), new ArrayType(VARCHAR)));
+
+        Type bigintMapType = createMapType(BIGINT, BIGINT);
+        testUnnest(
+                ImmutableList.of(bigintMapType),
+                ImmutableList.of(new ArrayType(bigintMapType), new ArrayType(bigintMapType)));
+    }
+
+    @Test
+    public void testUnnestTwoMaps()
+    {
+        testUnnest(
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(createMapType(BIGINT, BIGINT), createMapType(VARCHAR, VARCHAR)));
+    }
+
+    @Test
+    public void testUnnestTwoArraysOfRow()
+    {
+        Type rowOfIntegers = anonymousRow(INTEGER, INTEGER);
+        testUnnest(
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(new ArrayType(rowOfIntegers), new ArrayType(rowOfIntegers)));
+    }
+
+    @Test
+    public void testUnnestMultipleMixed()
+    {
+        testUnnest(
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(
+                        new ArrayType(BIGINT),
+                        createMapType(VARCHAR, VARCHAR),
+                        new ArrayType(anonymousRow(BIGINT, BIGINT, BIGINT)),
+                        new ArrayType(anonymousRow(VARCHAR, VARCHAR, VARCHAR))));
+    }
+
+    @Test
+    public void testUnnestArrayOfRowsWithNulls()
+    {
+        Type replicatedType = VARCHAR;
+        // Unnest type
+        Type elementType = anonymousRow(VARCHAR, VARCHAR);
+        Type unnestType = new ArrayType(elementType);
+
+        List<Object> nonNullRowValue = ImmutableList.of("lalala", "lalala");
+        List<Page> input = rowPagesBuilder(VARCHAR, unnestType)
+                .row(
+                        "abc",
+                        arrayBlockOf(elementType, Collections.nCopies(999, nonNullRowValue).toArray()))
+                .row(
+                        "def",
+                        arrayBlockOf(elementType, new Integer[]{null, null}))
+                .build();
+
+        testUnnest(input, ImmutableList.of(replicatedType), ImmutableList.of(unnestType), false, false);
+    }
+
+    protected void testUnnest(List<Type> replicatedTypes, List<Type> unnestTypes)
+    {
+        testUnnest(replicatedTypes, unnestTypes, 0.0f, ImmutableList.of());
+        testUnnest(replicatedTypes, unnestTypes, 0.2f, ImmutableList.of());
+
+        testUnnest(replicatedTypes, unnestTypes, 0.0f, ImmutableList.of(DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, 0.0f, ImmutableList.of(RUN_LENGTH));
+        testUnnest(replicatedTypes, unnestTypes, 0.0f, ImmutableList.of(DICTIONARY, DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, 0.0f, ImmutableList.of(RUN_LENGTH, DICTIONARY));
+
+        testUnnest(replicatedTypes, unnestTypes, 0.2f, ImmutableList.of(DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, 0.2f, ImmutableList.of(RUN_LENGTH));
+        testUnnest(replicatedTypes, unnestTypes, 0.2f, ImmutableList.of(DICTIONARY, DICTIONARY));
+        testUnnest(replicatedTypes, unnestTypes, 0.2f, ImmutableList.of(RUN_LENGTH, DICTIONARY));
+    }
+
+    private void testUnnest(
+            List<Type> replicatedTypes,
+            List<Type> unnestTypes,
+            float nullRate,
+            List<PageTestUtils.Wrapping> wrappings)
+    {
+        List<Type> types = ImmutableList.<Type>builder()
+                .addAll(replicatedTypes)
+                .addAll(unnestTypes)
+                .build();
+
+        List<Page> inputPages = new ArrayList<>();
+        for (int i = 0; i < PAGE_COUNT; i++) {
+            Page inputPage = createRandomPage(types, POSITION_COUNT, Optional.empty(), nullRate, wrappings);
+            inputPages.add(inputPage);
+        }
+
+        testUnnest(inputPages, replicatedTypes, unnestTypes, false, false);
+        testUnnest(inputPages, replicatedTypes, unnestTypes, true, false);
+        testUnnest(inputPages, replicatedTypes, unnestTypes, false, true);
+        testUnnest(inputPages, replicatedTypes, unnestTypes, true, true);
+    }
+
+    private void testUnnest(List<Page> inputPages, List<Type> replicatedTypes, List<Type> unnestTypes, boolean withOrdinality, boolean outer)
+    {
+        List<Integer> replicatedChannels = IntStream.range(0, replicatedTypes.size()).boxed().collect(toImmutableList());
+        List<Integer> unnestChannels = IntStream.range(replicatedTypes.size(), replicatedTypes.size() + unnestTypes.size()).boxed().collect(toImmutableList());
+
+        Operator unnestOperator = new UnnestOperator.UnnestOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                replicatedChannels,
+                replicatedTypes,
+                unnestChannels,
+                unnestTypes,
+                withOrdinality,
+                outer)
+                .createOperator(createDriverContext());
+
+        for (Page inputPage : inputPages) {
+            UnnestedLengths unnestedLengths = calculateMaxCardinalities(inputPage, replicatedTypes, unnestTypes, outer);
+            List<Type> outputTypes = buildOutputTypes(replicatedTypes, unnestTypes, withOrdinality);
+
+            Page expectedPage = buildExpectedPage(inputPage, replicatedTypes, unnestTypes, outputTypes, unnestedLengths, withOrdinality);
+
+            unnestOperator.addInput(inputPage);
+
+            List<Page> outputPages = new ArrayList<>();
+            while (true) {
+                Page outputPage = unnestOperator.getOutput();
+
+                if (outputPage == null) {
+                    break;
+                }
+
+                assertTrue(outputPage.getPositionCount() <= 1000);
+
+                outputPages.add(outputPage);
+            }
+
+            Page mergedOutputPage = mergePages(outputTypes, outputPages);
+            try {
+                assertPageEquals(outputTypes, mergedOutputPage, expectedPage);
+            }
+            catch (Throwable e) {
+                System.out.println("withOrdinality: " + withOrdinality + ", outer: " + outer);
+                System.out.println("Last index: " + (outputTypes.size() - 1));
+                throw e;
+            }
+        }
+    }
+
+    private DriverContext createDriverContext()
+    {
+        Session testSession = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
+                .build();
+
+        return createTaskContext(executor, scheduledExecutor, testSession)
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+    }
+
+    private static Type createMapType(Type keyType, Type valueType)
+    {
+        return TESTING_TYPE_MANAGER.getType(mapType(keyType.getTypeSignature(), valueType.getTypeSignature()));
     }
 }
