@@ -981,7 +981,7 @@
             <dependency>
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
-                <version>3.0.3</version>
+                <version>3.0.5</version>
             </dependency>
 
             <dependency>
@@ -1437,7 +1437,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.18.0</version>
+                <version>3.19.0</version>
             </dependency>
 
             <dependency>
