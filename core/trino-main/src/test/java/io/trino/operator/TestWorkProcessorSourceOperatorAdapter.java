@@ -15,10 +15,12 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.MoreExecutors;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
 import io.trino.operator.WorkProcessorSourceOperatorAdapter.AdapterWorkProcessorSourceOperatorFactory;
+import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
@@ -36,6 +38,7 @@ import java.util.function.Supplier;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestWorkProcessorSourceOperatorAdapter
@@ -73,14 +76,18 @@ public class TestWorkProcessorSourceOperatorAdapter
         assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
                 .hasSize(2)
                 .containsEntry("testOperatorMetric", new LongCount(1));
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of("testConnectorMetric", new LongCount(2)));
+        assertThat(getOnlyElement(context.getNestedOperatorStats()).getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
+                "testConnectorMetric", new LongCount(2),
+                "Physical input read time", new DurationTiming(new Duration(7, NANOSECONDS))));
 
         operator.getOutput();
         assertThat(operator.isFinished()).isTrue();
         assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
                 .hasSize(2)
                 .containsEntry("testOperatorMetric", new LongCount(2));
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of("testConnectorMetric", new LongCount(3)));
+        assertThat(getOnlyElement(context.getNestedOperatorStats()).getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
+                "testConnectorMetric", new LongCount(3),
+                "Physical input read time", new DurationTiming(new Duration(7, NANOSECONDS))));
     }
 
     private static class TestWorkProcessorOperatorFactory
@@ -136,6 +143,12 @@ public class TestWorkProcessorSourceOperatorAdapter
         public Metrics getConnectorMetrics()
         {
             return new Metrics(ImmutableMap.of("testConnectorMetric", new LongCount(count + 1)));
+        }
+
+        @Override
+        public Duration getReadTime()
+        {
+            return new Duration(7, NANOSECONDS);
         }
 
         @Override
