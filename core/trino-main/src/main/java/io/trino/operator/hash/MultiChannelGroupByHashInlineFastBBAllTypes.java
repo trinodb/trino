@@ -25,6 +25,7 @@ import io.trino.operator.UpdateMemory;
 import io.trino.operator.Work;
 import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import io.trino.operator.hash.fixed.FixedOffsetRowExtractor;
+import io.trino.operator.hash.fixed.FixedOffsetRowExtractor2Channels;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -384,6 +385,8 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
         }
     }
 
+    public static volatile boolean USE_DEDICATED_EXTRACTOR = true;
+
     static class HashTableFactory
     {
         private final int dataValuesLength;
@@ -398,7 +401,9 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
                     .map(ColumnValueExtractor::columnValueExtractor)
                     .map(columnValueExtractor -> columnValueExtractor.orElseThrow(() -> new RuntimeException("unsupported type " + hashTypes)))
                     .toArray(ColumnValueExtractor[]::new);
-            this.rowExtractor = new FixedOffsetRowExtractor(maxVarWidthBufferSize, hashChannelsCount, columnValueExtractors);
+            this.rowExtractor = columnValueExtractors.length == 2 && USE_DEDICATED_EXTRACTOR ?
+                    new FixedOffsetRowExtractor2Channels(maxVarWidthBufferSize, columnValueExtractors) :
+                    new FixedOffsetRowExtractor(maxVarWidthBufferSize, columnValueExtractors);
             this.dataValuesLength = rowExtractor.mainBufferValuesLength();
             this.hashGenerator = inputHashChannel.isPresent() ?
                     new PrecomputedHashGenerator(inputHashChannel.get()) :

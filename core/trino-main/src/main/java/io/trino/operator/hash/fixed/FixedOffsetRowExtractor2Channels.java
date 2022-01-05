@@ -9,34 +9,28 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.BigintType.BIGINT;
 
-public class FixedOffsetRowExtractor
+public class FixedOffsetRowExtractor2Channels
         implements RowExtractor
 {
     private final int maxVarWidthBufferSize;
-    private final int hashChannelsCount;
-    private final ColumnValueExtractor[] columnValueExtractors;
-    private final int[] mainBufferOffsets;
-    private final int[] valueOffsets;
-    private final byte[] isNull;
+    private final ColumnValueExtractor columnValueExtractor0;
+    private final ColumnValueExtractor columnValueExtractor1;
+    private final int mainBufferOffset1;
     private final int mainBufferValuesLength;
 
-    public FixedOffsetRowExtractor(int maxVarWidthBufferSize, ColumnValueExtractor[] columnValueExtractors)
+    public FixedOffsetRowExtractor2Channels(int maxVarWidthBufferSize, ColumnValueExtractor[] columnValueExtractors)
     {
         this.maxVarWidthBufferSize = maxVarWidthBufferSize;
-        this.hashChannelsCount = columnValueExtractors.length;
-        this.columnValueExtractors = columnValueExtractors;
+        checkArgument(columnValueExtractors.length == 2);
+        columnValueExtractor0 = columnValueExtractors[0];
+        columnValueExtractor1 = columnValueExtractors[1];
 
-        valueOffsets = new int[hashChannelsCount];
-        isNull = new byte[hashChannelsCount];
-        mainBufferOffsets = new int[hashChannelsCount];
-        int mainBufferOffset = 0;
-        for (int i = 0; i < columnValueExtractors.length; i++) {
-            mainBufferOffsets[i] = mainBufferOffset;
-            mainBufferOffset += calculateMainBufferSize(columnValueExtractors[i]);
-        }
-        this.mainBufferValuesLength = mainBufferOffset;
+        mainBufferOffset1 = calculateMainBufferSize(columnValueExtractor0);
+
+        this.mainBufferValuesLength = mainBufferOffset1 + calculateMainBufferSize(columnValueExtractor1);
     }
 
     public int calculateMainBufferSize(ColumnValueExtractor columnValueExtractor)
@@ -63,11 +57,14 @@ public class FixedOffsetRowExtractor
         row.markNoOverflow(offset);
         int valuesOffset = row.getValuesOffset(offset);
         FastByteBuffer mainBuffer = row.getMainBuffer();
-        for (int i = 0; i < hashChannelsCount; i++) {
-            Block block = page.getBlock(i);
 
-            columnValueExtractors[i].putValue(mainBuffer, valuesOffset + mainBufferOffsets[i], block, position);
-        }
+        Block block0 = page.getBlock(0);
+
+        columnValueExtractor0.putValue(mainBuffer, valuesOffset, block0, position);
+
+        Block block1 = page.getBlock(1);
+
+        columnValueExtractor1.putValue(mainBuffer, valuesOffset + mainBufferOffset1, block1, position);
     }
 
     @Override
@@ -90,30 +87,9 @@ public class FixedOffsetRowExtractor
 
     private void putEntryValue(Page page, int position, FixedOffsetGroupByHashTableEntries entries, int entriesOffset)
     {
-        boolean overflow = false;
-        int offset = 0;
-        for (int i = 0; i < hashChannelsCount; i++) {
-            Block block = page.getBlock(i);
-            boolean valueIsNull = block.isNull(position);
-            isNull[i] = (byte) (valueIsNull ? 1 : 0);
-
-            int valueLength = valueIsNull ? 0 : columnValueExtractors[i].getSerializedValueLength(block, position);
-//            valueOffsets[i] = offset;
-            offset += valueLength;
-            if (valueLength > maxVarWidthBufferSize) {
-                overflow = true;
-            }
-        }
-
-        entries.putIsNull(entriesOffset, isNull);
-        if (!overflow) {
-            copyToMainBuffer(page, position, entries, entriesOffset);
-        }
-        else {
-            /// put in overflow
-//            entries.reserveOverflowLength(0, offset);
-            throw new UnsupportedOperationException();
-        }
+        entries.putIsNull(entriesOffset, 0, (byte) (page.getBlock(0).isNull(position) ? 1 : 0));
+        entries.putIsNull(entriesOffset, 1, (byte) (page.getBlock(1).isNull(position) ? 1 : 0));
+        copyToMainBuffer(page, position, entries, entriesOffset);
     }
 
     @Override
@@ -138,22 +114,36 @@ public class FixedOffsetRowExtractor
     private boolean valuesEquals(FixedOffsetGroupByHashTableEntries table, int hashPosition,
             Page page, int position, FastByteBuffer buffer, int valuesOffset)
     {
-        for (int i = 0; i < hashChannelsCount; i++) {
-            Block block = page.getBlock(i);
+        Block block0 = page.getBlock(0);
 
-            boolean blockValueNull = block.isNull(position);
-            byte tableValueIsNull = table.isNull(hashPosition, i);
-            if (blockValueNull) {
-                return tableValueIsNull == 1;
-            }
-            if (tableValueIsNull == 1) {
-                return false;
-            }
-
-            if (!columnValueExtractors[i].valueEquals(buffer, valuesOffset + mainBufferOffsets[i], block, position)) {
-                return false;
-            }
+        boolean blockValue0Null = block0.isNull(position);
+        byte tableValue0IsNull = table.isNull(hashPosition, 0);
+        if (blockValue0Null) {
+            return tableValue0IsNull == 1;
         }
+        if (tableValue0IsNull == 1) {
+            return false;
+        }
+
+        if (!columnValueExtractor0.valueEquals(buffer, valuesOffset, block0, position)) {
+            return false;
+        }
+
+        Block block1 = page.getBlock(1);
+
+        boolean blockValue1Null = block1.isNull(position);
+        byte tableValue1IsNull = table.isNull(hashPosition, 1);
+        if (blockValue1Null) {
+            return tableValue1IsNull == 1;
+        }
+        if (tableValue1IsNull == 1) {
+            return false;
+        }
+
+        if (!columnValueExtractor1.valueEquals(buffer, valuesOffset + mainBufferOffset1, block1, position)) {
+            return false;
+        }
+
         return true;
     }
 
@@ -166,14 +156,19 @@ public class FixedOffsetRowExtractor
             FastByteBuffer mainBuffer = hashTable.getMainBuffer();
             int valuesOffset = hashTable.getValuesOffset(hashPosition);
 
-            for (int i = 0; i < hashChannelsCount; i++, outputChannelOffset++) {
-                BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
-                if (hashTable.isNull(hashPosition, i) == 1) {
-                    blockBuilder.appendNull();
-                }
-                else {
-                    columnValueExtractors[i].appendValue(mainBuffer, valuesOffset + mainBufferOffsets[i], blockBuilder);
-                }
+            BlockBuilder blockBuilder0 = pageBuilder.getBlockBuilder(outputChannelOffset);
+            if (hashTable.isNull(hashPosition, 0) == 1) {
+                blockBuilder0.appendNull();
+            }
+            else {
+                columnValueExtractor0.appendValue(mainBuffer, valuesOffset, blockBuilder0);
+            }
+            BlockBuilder blockBuilder1 = pageBuilder.getBlockBuilder(outputChannelOffset + 1);
+            if (hashTable.isNull(hashPosition, 1) == 1) {
+                blockBuilder1.appendNull();
+            }
+            else {
+                columnValueExtractor1.appendValue(mainBuffer, valuesOffset, blockBuilder1);
             }
         }
         else {
@@ -181,7 +176,7 @@ public class FixedOffsetRowExtractor
         }
 
         if (outputHash) {
-            BlockBuilder hashBlockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
+            BlockBuilder hashBlockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset + 2);
             BIGINT.writeLong(hashBlockBuilder, hashTable.getHash(hashPosition));
         }
     }
