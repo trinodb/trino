@@ -20,11 +20,13 @@ import io.airlift.units.DataSize;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import org.testng.annotations.Test;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -194,6 +196,32 @@ public class TestStreamingExchangeClientBuffer
             assertTrue(buffer.isFinished());
             assertTrue(blocked1.isDone());
             assertTrue(blocked2.isDone());
+        }
+    }
+
+    @Test
+    public void testRemoteTaskFailedError()
+    {
+        // fail before noMoreTasks
+        try (ExchangeClientBuffer buffer = new StreamingExchangeClientBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
+            buffer.addTask(TASK_0);
+            buffer.taskFailed(TASK_0, new TrinoException(REMOTE_TASK_FAILED, "Remote task failed"));
+            buffer.noMoreTasks();
+
+            assertFalse(buffer.isFinished());
+            assertFalse(buffer.isFailed());
+            assertNull(buffer.pollPage());
+        }
+
+        // fail after noMoreTasks
+        try (ExchangeClientBuffer buffer = new StreamingExchangeClientBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
+            buffer.addTask(TASK_0);
+            buffer.noMoreTasks();
+            buffer.taskFailed(TASK_0, new TrinoException(REMOTE_TASK_FAILED, "Remote task failed"));
+
+            assertFalse(buffer.isFinished());
+            assertFalse(buffer.isFailed());
+            assertNull(buffer.pollPage());
         }
     }
 }
