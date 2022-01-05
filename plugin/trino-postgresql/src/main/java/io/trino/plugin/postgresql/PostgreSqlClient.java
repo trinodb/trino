@@ -236,22 +236,13 @@ public class PostgreSqlClient
     private final List<String> tableTypes;
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
 
-    private static final PredicatePushdownController POSTGRESQL_STRING_PUSHDOWN_WITHOUT_COLLATE = (session, domain) -> {
-        checkArgument(
-                domain.getType() instanceof VarcharType || domain.getType() instanceof CharType,
-                "This PredicatePushdownController can be used only for chars and varchars");
-
+    private static final PredicatePushdownController POSTGRESQL_STRING_COLLATION_AWARE_PUSHDOWN = (session, domain) -> {
         if (domain.isOnlyNull()) {
             return FULL_PUSHDOWN.apply(session, domain);
         }
 
-        // PostgreSQL is case sensitive by default
-        // PostgreSQL by default orders lowercase letters before uppercase, which is different from Trino
-        // TODO We could still push the predicates down if we could inject a PostgreSQL-specific syntax for selecting a collation for given comparison.
-        if (!domain.getValues().isDiscreteSet()) {
-            // Push down of range predicate for varchar/char types could lead to incorrect results
-            // due to different sort ordering of lowercase and uppercase letters in PostgreSQL
-            return DISABLE_PUSHDOWN.apply(session, domain);
+        if (isEnableStringPushdownWithCollate(session)) {
+            return FULL_PUSHDOWN.apply(session, domain);
         }
 
         Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
@@ -509,21 +500,12 @@ public class PostgreSqlClient
             }
 
             case Types.CHAR:
-                if (isEnableStringPushdownWithCollate(session)) {
-                    return Optional.of(charColumnMappingWithCollate(typeHandle.getRequiredColumnSize()));
-                }
                 return Optional.of(charColumnMapping(typeHandle.getRequiredColumnSize()));
 
             case Types.VARCHAR:
                 if (!jdbcTypeName.equals("varchar")) {
                     // This can be e.g. an ENUM
-                    if (isCollatable(jdbcTypeName) && isEnableStringPushdownWithCollate(session)) {
-                        return Optional.of(typedVarcharColumnMappingWithCollate(jdbcTypeName));
-                    }
                     return Optional.of(typedVarcharColumnMapping(jdbcTypeName));
-                }
-                if (isCollatable(jdbcTypeName) && isEnableStringPushdownWithCollate(session)) {
-                    return Optional.of(varcharColumnMappingWithCollate(typeHandle.getRequiredColumnSize()));
                 }
                 return Optional.of(varcharColumnMapping(typeHandle.getRequiredColumnSize()));
 
@@ -759,7 +741,7 @@ public class PostgreSqlClient
         });
     }
 
-    private boolean isCollatable(JdbcColumnHandle column)
+    protected static boolean isCollatable(JdbcColumnHandle column)
     {
         if (column.getColumnType() instanceof CharType || column.getColumnType() instanceof VarcharType) {
             String jdbcTypeName = column.getJdbcTypeHandle().getJdbcTypeName()
@@ -771,7 +753,7 @@ public class PostgreSqlClient
         return false;
     }
 
-    private boolean isCollatable(String jdbcTypeName)
+    private static boolean isCollatable(String jdbcTypeName)
     {
         // Only char (internally named bpchar)/varchar/text are the built-in collatable types
         return "bpchar".equals(jdbcTypeName) || "varchar".equals(jdbcTypeName) || "text".equals(jdbcTypeName);
@@ -852,20 +834,7 @@ public class PostgreSqlClient
                 charType,
                 charReadFunction(charType),
                 charWriteFunction(),
-                POSTGRESQL_STRING_PUSHDOWN_WITHOUT_COLLATE);
-    }
-
-    private static ColumnMapping charColumnMappingWithCollate(int charLength)
-    {
-        if (charLength > CharType.MAX_LENGTH) {
-            return varcharColumnMappingWithCollate(charLength);
-        }
-        CharType charType = createCharType(charLength);
-        return ColumnMapping.sliceMapping(
-                charType,
-                charReadFunction(charType),
-                stringWriteFunctionWithCollate(),
-                FULL_PUSHDOWN);
+                POSTGRESQL_STRING_COLLATION_AWARE_PUSHDOWN);
     }
 
     private static ColumnMapping varcharColumnMapping(int varcharLength)
@@ -877,38 +846,7 @@ public class PostgreSqlClient
                 varcharType,
                 varcharReadFunction(varcharType),
                 varcharWriteFunction(),
-                POSTGRESQL_STRING_PUSHDOWN_WITHOUT_COLLATE);
-    }
-
-    private static ColumnMapping varcharColumnMappingWithCollate(int varcharLength)
-    {
-        VarcharType varcharType = varcharLength <= VarcharType.MAX_LENGTH
-                ? createVarcharType(varcharLength)
-                : createUnboundedVarcharType();
-        return ColumnMapping.sliceMapping(
-                varcharType,
-                varcharReadFunction(varcharType),
-                stringWriteFunctionWithCollate(),
-                FULL_PUSHDOWN);
-    }
-
-    private static SliceWriteFunction stringWriteFunctionWithCollate()
-    {
-        return new SliceWriteFunction()
-        {
-            @Override
-            public String getBindExpression()
-            {
-                return "? COLLATE \"C\"";
-            }
-
-            @Override
-            public void set(PreparedStatement statement, int index, Slice value)
-                    throws SQLException
-            {
-                statement.setString(index, value.toStringUtf8());
-            }
-        };
+                POSTGRESQL_STRING_COLLATION_AWARE_PUSHDOWN);
     }
 
     private static ColumnMapping timeColumnMapping(int precision)
@@ -1225,43 +1163,12 @@ public class PostgreSqlClient
                 VARCHAR,
                 (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)),
                 typedVarcharWriteFunction(jdbcTypeName),
-                POSTGRESQL_STRING_PUSHDOWN_WITHOUT_COLLATE);
-    }
-
-    private static ColumnMapping typedVarcharColumnMappingWithCollate(String jdbcTypeName)
-    {
-        return ColumnMapping.sliceMapping(
-                VARCHAR,
-                (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)),
-                typedVarcharWriteFunctionWithCollate(jdbcTypeName),
-                FULL_PUSHDOWN);
+                POSTGRESQL_STRING_COLLATION_AWARE_PUSHDOWN);
     }
 
     private static SliceWriteFunction typedVarcharWriteFunction(String jdbcTypeName)
     {
         String bindExpression = format("CAST(? AS %s)", requireNonNull(jdbcTypeName, "jdbcTypeName is null"));
-
-        return new SliceWriteFunction()
-        {
-            @Override
-            public String getBindExpression()
-            {
-                return bindExpression;
-            }
-
-            @Override
-            public void set(PreparedStatement statement, int index, Slice value)
-                    throws SQLException
-            {
-                statement.setString(index, value.toStringUtf8());
-            }
-        };
-    }
-
-    private static SliceWriteFunction typedVarcharWriteFunctionWithCollate(String jdbcTypeName)
-    {
-        String collation = "COLLATE \"C\"";
-        String bindExpression = format("CAST(? AS %s) %s", requireNonNull(jdbcTypeName, "jdbcTypeName is null"), collation);
 
         return new SliceWriteFunction()
         {

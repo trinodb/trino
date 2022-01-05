@@ -17,12 +17,18 @@ import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
-import io.trino.spi.type.CharType;
+import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.QueryParameter;
+import io.trino.plugin.jdbc.WriteFunction;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarcharType;
 
+import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static io.trino.plugin.postgresql.PostgreSqlClient.isCollatable;
+import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.isEnableStringPushdownWithCollate;
 import static java.lang.String.format;
 
 public class CollationAwareQueryBuilder
@@ -31,11 +37,10 @@ public class CollationAwareQueryBuilder
     @Override
     protected String formatJoinCondition(JdbcClient client, String leftRelationAlias, String rightRelationAlias, JdbcJoinCondition condition)
     {
-        boolean needsCollation = Stream.of(condition.getLeftColumn(), condition.getRightColumn())
-                .map(JdbcColumnHandle::getColumnType)
-                .anyMatch(CollationAwareQueryBuilder::isCharType);
+        boolean isCollatable = Stream.of(condition.getLeftColumn(), condition.getRightColumn())
+                .anyMatch(PostgreSqlClient::isCollatable);
 
-        if (needsCollation) {
+        if (isCollatable) {
             return format(
                     "%s.%s COLLATE \"C\" %s %s.%s COLLATE \"C\"",
                     leftRelationAlias,
@@ -48,8 +53,14 @@ public class CollationAwareQueryBuilder
         return super.formatJoinCondition(client, leftRelationAlias, rightRelationAlias, condition);
     }
 
-    private static boolean isCharType(Type type)
+    @Override
+    protected String toPredicate(JdbcClient client, ConnectorSession session, JdbcColumnHandle column, JdbcTypeHandle jdbcType, Type type, WriteFunction writeFunction, String operator, Object value, Consumer<QueryParameter> accumulator)
     {
-        return type instanceof CharType || type instanceof VarcharType;
+        if (isCollatable(column) && isEnableStringPushdownWithCollate(session)) {
+            accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(value)));
+            return format("%s %s %s COLLATE \"C\"", client.quoted(column.getColumnName()), operator, writeFunction.getBindExpression());
+        }
+
+        return super.toPredicate(client, session, column, jdbcType, type, writeFunction, operator, value, accumulator);
     }
 }
