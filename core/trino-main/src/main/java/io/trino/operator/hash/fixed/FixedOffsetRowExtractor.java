@@ -15,7 +15,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 public class FixedOffsetRowExtractor
         implements RowExtractor
 {
-    private static final int MAX_VAR_WIDTH_BUFFER_SIZE = 16;
+    private final int maxVarWidthBufferSize;
     private final int hashChannelsCount;
     private final ColumnValueExtractor[] columnValueExtractors;
     private final int[] mainBufferOffsets;
@@ -23,8 +23,9 @@ public class FixedOffsetRowExtractor
     private final byte[] isNull;
     private final int mainBufferValuesLength;
 
-    public FixedOffsetRowExtractor(int hashChannelsCount, ColumnValueExtractor[] columnValueExtractors)
+    public FixedOffsetRowExtractor(int maxVarWidthBufferSize, int hashChannelsCount, ColumnValueExtractor[] columnValueExtractors)
     {
+        this.maxVarWidthBufferSize = maxVarWidthBufferSize;
         checkArgument(hashChannelsCount == columnValueExtractors.length);
         this.hashChannelsCount = hashChannelsCount;
         this.columnValueExtractors = columnValueExtractors;
@@ -40,15 +41,20 @@ public class FixedOffsetRowExtractor
         this.mainBufferValuesLength = mainBufferOffset;
     }
 
-    public static int calculateMainBufferSize(ColumnValueExtractor columnValueExtractor)
+    public int calculateMainBufferSize(ColumnValueExtractor columnValueExtractor)
+    {
+        return calculateMainBufferSize(columnValueExtractor, maxVarWidthBufferSize);
+    }
+
+    public static int calculateMainBufferSize(ColumnValueExtractor columnValueExtractor, int maxVarWidthBufferSize)
     {
         int bufferSize = columnValueExtractor.getSize();
         if (columnValueExtractor.isFixedSize()) {
             return bufferSize;
         }
 
-        if (bufferSize > MAX_VAR_WIDTH_BUFFER_SIZE) {
-            bufferSize = MAX_VAR_WIDTH_BUFFER_SIZE;
+        if (bufferSize > maxVarWidthBufferSize) {
+            bufferSize = maxVarWidthBufferSize;
         }
 
         return bufferSize;

@@ -79,7 +79,8 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
             Optional<Integer> inputHashChannel,
             int expectedSize,
             UpdateMemory updateMemory,
-            BlockTypeOperators blockTypeOperators)
+            BlockTypeOperators blockTypeOperators,
+            int maxVarWidthBufferSize)
     {
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
@@ -113,7 +114,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
             this.hashChannelsWithHash = hashChannels;
         }
 
-        this.hashTableFactory = new HashTableFactory(hashTypes, hashChannels.length, this.inputHashChannel, blockTypeOperators);
+        this.hashTableFactory = new HashTableFactory(hashTypes, hashChannels.length, this.inputHashChannel, blockTypeOperators, maxVarWidthBufferSize);
         this.hashTable = hashTableFactory.create(expectedSize);
 
         // This interface is used for actively reserving memory (push model) for rehash.
@@ -390,14 +391,14 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
         private final RowExtractor rowExtractor;
         private final HashGenerator hashGenerator;
 
-        public HashTableFactory(List<? extends Type> hashTypes, int hashChannelsCount, Optional<Integer> inputHashChannel, BlockTypeOperators blockTypeOperators)
+        public HashTableFactory(List<? extends Type> hashTypes, int hashChannelsCount, Optional<Integer> inputHashChannel, BlockTypeOperators blockTypeOperators, int maxVarWidthBufferSize)
         {
             this.hashChannelsCount = hashChannelsCount;
             ColumnValueExtractor[] columnValueExtractors = hashTypes.stream()
                     .map(ColumnValueExtractor::columnValueExtractor)
                     .map(columnValueExtractor -> columnValueExtractor.orElseThrow(() -> new RuntimeException("unsupported type " + hashTypes)))
                     .toArray(ColumnValueExtractor[]::new);
-            this.rowExtractor = new FixedOffsetRowExtractor(hashChannelsCount, columnValueExtractors);
+            this.rowExtractor = new FixedOffsetRowExtractor(maxVarWidthBufferSize, hashChannelsCount, columnValueExtractors);
             this.dataValuesLength = rowExtractor.mainBufferValuesLength();
             this.hashGenerator = inputHashChannel.isPresent() ?
                     new PrecomputedHashGenerator(inputHashChannel.get()) :

@@ -145,6 +145,7 @@ public class FeaturesConfig
     private boolean disableSetPropertiesSecurityCheckForCreateDdl;
     private boolean incrementalHashArrayLoadFactorEnabled = true;
     private boolean useEnhancedGroupBy = true;
+    private int enhancedGroupByMaxVarWidthBufferSize = 16;
 
     public enum JoinReorderingStrategy
     {
@@ -529,6 +530,17 @@ public class FeaturesConfig
     public void setUseEnhancedGroupBy(boolean useEnhancedGroupBy)
     {
         this.useEnhancedGroupBy = useEnhancedGroupBy;
+    }
+
+    public int getEnhancedGroupByMaxVarWidthBufferSize()
+    {
+        return enhancedGroupByMaxVarWidthBufferSize;
+    }
+
+    @Config("optimizer.enhanced-group-by.max-var-width-buffer-size")
+    public void setEnhancedGroupByMaxVarWidthBufferSize(int enhancedGroupByMaxVarWidthBufferSize)
+    {
+        this.enhancedGroupByMaxVarWidthBufferSize = enhancedGroupByMaxVarWidthBufferSize;
     }
 
     @Min(2)

@@ -13,7 +13,6 @@
  */
 package io.trino.operator;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
@@ -43,7 +42,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
-import org.jetbrains.annotations.NotNull;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -58,7 +56,6 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.profile.AsyncProfiler;
-import org.openjdk.jmh.profile.DTraceAsmProfiler;
 import org.openjdk.jmh.runner.RunnerException;
 import org.testcontainers.shaded.org.apache.commons.io.FileUtils;
 
@@ -133,7 +130,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public void groupByHashPreComputeInlineAllTypes(BenchmarkData data, Blackhole blackhole)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHashInlineFastBBAllTypes(data.getTypes(), data.getChannels(), data.getHashChannel(), data.getExpectedSize(), NOOP, TYPE_OPERATOR_FACTORY);
+        GroupByHash groupByHash = new MultiChannelGroupByHashInlineFastBBAllTypes(data.getTypes(), data.getChannels(), data.getHashChannel(), data.getExpectedSize(), NOOP, TYPE_OPERATOR_FACTORY, 16);
         addInputPagesToHash(groupByHash, data.getPages());
 
         buildPages(groupByHash, blackhole);

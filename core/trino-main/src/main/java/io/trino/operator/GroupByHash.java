@@ -30,6 +30,7 @@ import io.trino.type.BlockTypeOperators;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getEnhancedGroupByMaxVarWidthBufferSize;
 import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.trino.SystemSessionProperties.isUseEnhancedGroupByEnabled;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -54,6 +55,7 @@ public interface GroupByHash
                 expectedSize,
                 isDictionaryAggregationEnabled(session),
                 isUseEnhancedGroupByEnabled(session),
+                getEnhancedGroupByMaxVarWidthBufferSize(session),
                 joinCompiler,
                 blockTypeOperators,
                 updateMemory);
@@ -69,7 +71,7 @@ public interface GroupByHash
             BlockTypeOperators blockTypeOperators,
             UpdateMemory updateMemory)
     {
-        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, false, joinCompiler, blockTypeOperators, updateMemory);
+        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, false, 16, joinCompiler, blockTypeOperators, updateMemory);
     }
 
     static GroupByHash createGroupByHash(
@@ -79,13 +81,13 @@ public interface GroupByHash
             int expectedSize,
             boolean processDictionary,
             boolean useEnhancedGroupBy,
-            JoinCompiler joinCompiler,
+            int maxVarWidthBufferSize, JoinCompiler joinCompiler,
             BlockTypeOperators blockTypeOperators,
             UpdateMemory updateMemory)
     {
 
         if (useEnhancedGroupBy && hashTypes.stream().allMatch(ColumnValueExtractor::isSupported)) {
-            return new MultiChannelGroupByHashInlineFastBBAllTypes(hashTypes, hashChannels, inputHashChannel, expectedSize, updateMemory, blockTypeOperators);
+            return new MultiChannelGroupByHashInlineFastBBAllTypes(hashTypes, hashChannels, inputHashChannel, expectedSize, updateMemory, blockTypeOperators, maxVarWidthBufferSize);
         }
         if (useEnhancedGroupBy && hashTypes.stream().allMatch(type -> type.equals(BIGINT))) {
             return new MultiChannelBigintGroupByHashInlineBatch(hashChannels, inputHashChannel, expectedSize, updateMemory);

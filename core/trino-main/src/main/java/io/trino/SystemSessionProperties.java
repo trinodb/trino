@@ -79,6 +79,7 @@ public final class SystemSessionProperties
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
     public static final String USE_ENHANCED_GROUP_BY = "use_enhanced_group_by";
+    public static final String ENHANCED_GROUP_BY_MAX_VAR_WIDTH_BUFFER_SIZE = "enhanced_group_by_max_var_width_buffer_size";
     public static final String USE_TABLE_SCAN_NODE_PARTITIONING = "use_table_scan_node_partitioning";
     public static final String TABLE_SCAN_NODE_PARTITIONING_MIN_BUCKET_TO_TASK_RATIO = "table_scan_node_partitioning_min_bucket_to_task_ratio";
     public static final String SPATIAL_JOIN = "spatial_join";
@@ -315,6 +316,11 @@ public final class SystemSessionProperties
                         USE_ENHANCED_GROUP_BY,
                         "Enable optimization for aggregations",
                         featuresConfig.isUseEnhancedGroupBy(),
+                        false),
+                integerProperty(
+                        ENHANCED_GROUP_BY_MAX_VAR_WIDTH_BUFFER_SIZE,
+                        "The maximum number of bytes per variable width column value stored in the hash table main buffer",
+                        featuresConfig.getEnhancedGroupByMaxVarWidthBufferSize(),
                         false),
                 integerProperty(
                         INITIAL_SPLITS_PER_NODE,
@@ -778,6 +784,11 @@ public final class SystemSessionProperties
     public static boolean isUseEnhancedGroupByEnabled(Session session)
     {
         return session.getSystemProperty(USE_ENHANCED_GROUP_BY, Boolean.class);
+    }
+
+    public static int getEnhancedGroupByMaxVarWidthBufferSize(Session session)
+    {
+        return session.getSystemProperty(ENHANCED_GROUP_BY_MAX_VAR_WIDTH_BUFFER_SIZE, Integer.class);
     }
 
     public static boolean isOptimizeMetadataQueries(Session session)
