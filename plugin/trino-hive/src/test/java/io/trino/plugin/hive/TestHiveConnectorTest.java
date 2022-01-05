@@ -8279,6 +8279,14 @@ public class TestHiveConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testExplainAnalyzePhysicalReadWallTime()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
+                "'Physical input read time' = \\{duration=.*}");
+    }
+
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
 
     @DataProvider
