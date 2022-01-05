@@ -238,6 +238,8 @@ public class IcebergMetadata
                 return Optional.of(new ManifestsTable(systemTableName, table, getSnapshotId(table, name.getSnapshotId())));
             case FILES:
                 return Optional.of(new FilesTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId())));
+            case PROPERTIES:
+                return Optional.of(new PropertiesTable(systemTableName, table));
         }
         return Optional.empty();
     }

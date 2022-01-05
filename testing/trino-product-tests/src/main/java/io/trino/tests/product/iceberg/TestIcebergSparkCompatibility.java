@@ -461,6 +461,34 @@ public class TestIcebergSparkCompatibility
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
+    public void testTrinoReadingSparkIcebergTablePropertiesData(StorageFormat storageFormat, int specVersion)
+    {
+        String baseTableName = "test_trino_reading_spark_iceberg_table_properties_" + storageFormat;
+        String propertiesTableName = "\"" + baseTableName + "$properties\"";
+        String sparkTableName = sparkTableName(baseTableName);
+        String trinoPropertiesTableName = trinoTableName(propertiesTableName);
+
+        onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
+        onSpark().executeQuery(format(
+                "CREATE TABLE %s (\n" +
+                        " doc_id STRING)\n" +
+                        " USING ICEBERG TBLPROPERTIES (" +
+                        " 'write.format.default'='%s'," +
+                        " 'format-version' = %s," +
+                        " 'custom.table-property' = 'my_custom_value')",
+                sparkTableName,
+                storageFormat.toString(),
+                specVersion));
+
+        assertThat(onTrino().executeQuery("SELECT key, value FROM " + trinoPropertiesTableName))
+                .containsOnly(
+                        row("custom.table-property", "my_custom_value"),
+                        row("write.format.default", storageFormat.name()),
+                        row("owner", "hive"));
+        onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
     public void testTrinoReadingNestedSparkData(StorageFormat storageFormat, int specVersion)
     {
         String baseTableName = "test_trino_reading_nested_spark_data_" + storageFormat;
