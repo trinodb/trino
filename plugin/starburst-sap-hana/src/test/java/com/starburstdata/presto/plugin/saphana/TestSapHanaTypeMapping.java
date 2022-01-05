@@ -29,61 +29,36 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.prestoTimeForSapHanaDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.prestoVarcharForSapHanaDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaAlphanumDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaBintextDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaBlobDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaClobDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaDecimalDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaLongFloatDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaNcharDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaNclobDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaNvarcharDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaSeconddateDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaShortFloatDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaShorttextDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaTextDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaTimeDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaTimestampDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaVarbinaryDataType;
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.spi.type.Chars.padSpaces;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.datatype.DataType.bigintDataType;
-import static io.trino.testing.datatype.DataType.booleanDataType;
-import static io.trino.testing.datatype.DataType.charDataType;
-import static io.trino.testing.datatype.DataType.dataType;
-import static io.trino.testing.datatype.DataType.dateDataType;
-import static io.trino.testing.datatype.DataType.decimalDataType;
 import static io.trino.testing.datatype.DataType.doubleDataType;
-import static io.trino.testing.datatype.DataType.integerDataType;
 import static io.trino.testing.datatype.DataType.realDataType;
-import static io.trino.testing.datatype.DataType.smallintDataType;
-import static io.trino.testing.datatype.DataType.stringDataType;
-import static io.trino.testing.datatype.DataType.tinyintDataType;
-import static io.trino.testing.datatype.DataType.varbinaryDataType;
-import static io.trino.testing.datatype.DataType.varcharDataType;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_16LE;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -93,16 +68,7 @@ public class TestSapHanaTypeMapping
 {
     private static final LocalDate EPOCH_DAY = LocalDate.ofEpochDay(0);
 
-    // A single Unicode character that occupies 4 bytes in UTF-8 encoding and uses surrogate pairs in UTF-16 representation
-    private static final String SAMPLE_LENGTHY_CHARACTER = "\uD83D\uDE02";
-    private static final String SAMPLE_UNICODE_TEXT = "\u653b\u6bbb\u6a5f\u52d5\u968a";
-    private static final String SAMPLE_OTHER_UNICODE_TEXT = "\u041d\u0443, \u043f\u043e\u0433\u043e\u0434\u0438!";
-
     private TestingSapHanaServer server;
-
-    private final LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
-    private final LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
-    private final LocalDateTime afterEpoch = LocalDateTime.of(2019, 3, 18, 10, 1, 17, 987_000_000);
 
     private final ZoneId jvmZone = ZoneId.systemDefault();
     private final LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
@@ -146,31 +112,29 @@ public class TestSapHanaTypeMapping
     @Test
     public void testBasicTypes()
     {
-        DataTypeTest dataTypeTest = DataTypeTest.create(true)
-                .addRoundTrip(booleanDataType(), true)
-                .addRoundTrip(booleanDataType(), false)
-                .addRoundTrip(bigintDataType(), 123_456_789_012L)
-                .addRoundTrip(integerDataType(), 1_234_567_890)
-                .addRoundTrip(smallintDataType(), (short) 32_456)
-                .addRoundTrip(tinyintDataType(), (byte) 5)
-                .addRoundTrip(doubleDataType(), 123.45d)
-                .addRoundTrip(realDataType(), 123.45f);
-
-        dataTypeTest.execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_basic_types"));
-        dataTypeTest.execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "true", BOOLEAN, "true")
+                .addRoundTrip("boolean", "false", BOOLEAN, "false")
+                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
+                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
+                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
+                .addRoundTrip("double", "123.45", DOUBLE, "DOUBLE '123.45'")
+                .addRoundTrip("real", "123.45", REAL, "REAL '123.45'")
+                .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_basic_types"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
     }
 
     @Test
     public void testReal()
     {
         DataType<Float> dataType = realDataType();
-        DataTypeTest dataTypeTest = DataTypeTest.create(true)
-                .addRoundTrip(dataType, 3.14f)
-                .addRoundTrip(dataType, 3.1415927f)
-                .addRoundTrip(dataType, null);
-
-        dataTypeTest.execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_real"));
-        dataTypeTest.execute(getQueryRunner(), trinoCreateAsSelect("test_real"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("real", "3.14", REAL, "REAL '3.14'")
+                .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'")
+                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
+                .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_real"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_real"));
 
         testSapHanaUnsupportedValue(dataType, Float.NaN, "com.sap.db.jdbc.exceptions.SQLDataExceptionSapDB: Invalid number: NaN");
         testSapHanaUnsupportedValue(dataType, Float.NEGATIVE_INFINITY, "com.sap.db.jdbc.exceptions.SQLDataExceptionSapDB: Invalid number: -Infinity");
@@ -181,12 +145,11 @@ public class TestSapHanaTypeMapping
     public void testDouble()
     {
         DataType<Double> dataType = doubleDataType();
-        DataTypeTest dataTypeTest = DataTypeTest.create(true)
-                .addRoundTrip(dataType, 1.0e100d)
-                .addRoundTrip(dataType, null);
-
-        dataTypeTest.execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_double"));
-        dataTypeTest.execute(getQueryRunner(), trinoCreateAsSelect("test_double"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("double", "1.0E100", DOUBLE, "DOUBLE '1.0E100'")
+                .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_double"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_double"));
 
         testSapHanaUnsupportedValue(dataType, Double.NaN, "com.sap.db.jdbc.exceptions.SQLDataExceptionSapDB: Invalid number: NaN");
         testSapHanaUnsupportedValue(dataType, Double.NEGATIVE_INFINITY, "com.sap.db.jdbc.exceptions.SQLDataExceptionSapDB: Invalid number: -Infinity");
@@ -205,40 +168,39 @@ public class TestSapHanaTypeMapping
     @Test
     public void testFloat()
     {
-        DataTypeTest.create(true)
-                .addRoundTrip(sapHanaShortFloatDataType(10), 3.14f)
-                .addRoundTrip(sapHanaShortFloatDataType(24), 3.1415927f)
-                .addRoundTrip(sapHanaLongFloatDataType(25), 3.1415927)
-                .addRoundTrip(sapHanaLongFloatDataType(31), 1.2345678912)
-                .addRoundTrip(sapHanaLongFloatDataType(53), 1.234567891234567)
+        SqlDataTypeTest.create()
+                .addRoundTrip("float(10)", "3.14", REAL, "REAL '3.14'")
+                .addRoundTrip("float(24)", "3.1415927", REAL, "REAL '3.1415927'")
+                .addRoundTrip("float(25)", "3.1415927", DOUBLE, "DOUBLE '3.1415927'")
+                .addRoundTrip("float(31)", "1.2345678912", DOUBLE, "DOUBLE '1.2345678912'")
+                .addRoundTrip("float(53)", "1.234567891234567", DOUBLE, "DOUBLE '1.234567891234567'")
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_float"));
     }
 
     @Test
     public void testDecimal()
     {
-        DataTypeTest dataTypeTest = DataTypeTest.create()
-                .addRoundTrip(decimalDataType(3, 0), null)
-                .addRoundTrip(decimalDataType(3, 0), new BigDecimal("193"))
-                .addRoundTrip(decimalDataType(3, 0), new BigDecimal("19"))
-                .addRoundTrip(decimalDataType(3, 0), new BigDecimal("-193"))
-                .addRoundTrip(decimalDataType(3, 1), new BigDecimal("10.0"))
-                .addRoundTrip(decimalDataType(3, 1), new BigDecimal("10.1"))
-                .addRoundTrip(decimalDataType(3, 1), new BigDecimal("-10.1"))
-                .addRoundTrip(decimalDataType(4, 2), new BigDecimal("2"))
-                .addRoundTrip(decimalDataType(4, 2), new BigDecimal("2.3"))
-                .addRoundTrip(decimalDataType(24, 2), null)
-                .addRoundTrip(decimalDataType(24, 2), new BigDecimal("2"))
-                .addRoundTrip(decimalDataType(24, 2), new BigDecimal("2.3"))
-                .addRoundTrip(decimalDataType(24, 2), new BigDecimal("123456789.3"))
-                .addRoundTrip(decimalDataType(24, 4), new BigDecimal("12345678901234567890.31"))
-                .addRoundTrip(decimalDataType(30, 5), new BigDecimal("3141592653589793238462643.38327"))
-                .addRoundTrip(decimalDataType(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
-                .addRoundTrip(decimalDataType(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
-                .addRoundTrip(decimalDataType(38, 0), new BigDecimal("-27182818284590452353602874713526624977"));
-
-        dataTypeTest.execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_decimal"));
-        dataTypeTest.execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "NULL", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('193' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('19' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('19' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('-193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('-193' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.0' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.0' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.1' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST('-10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('-10.1' AS decimal(3, 1))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2' AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2' AS decimal(4, 2))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2.3' AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2.3' AS decimal(4, 2))")
+                .addRoundTrip("decimal(24, 2)", "NULL", createDecimalType(24, 2), "CAST(NULL AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST('2' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('2' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST('2.3' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('2.3' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST('123456789.3' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('123456789.3' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 4)", "CAST('12345678901234567890.31' AS decimal(24, 4))", createDecimalType(24, 4), "CAST('12345678901234567890.31' AS decimal(24, 4))")
+                .addRoundTrip("decimal(30, 5)", "CAST('3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('3141592653589793238462643.38327' AS decimal(30, 5))")
+                .addRoundTrip("decimal(30, 5)", "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
+                .addRoundTrip("decimal(38, 0)", "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))")
+                .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
+                .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_decimal"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
     }
 
     @Test
@@ -282,71 +244,96 @@ public class TestSapHanaTypeMapping
     @Test
     public void testDecimalUnbounded()
     {
-        DataType<BigDecimal> dataType = sapHanaDecimalDataType();
-        DataTypeTest.create()
-                .addRoundTrip(dataType, null)
-                .addRoundTrip(dataType, new BigDecimal("193"))
-                .addRoundTrip(dataType, new BigDecimal("19"))
-                .addRoundTrip(dataType, new BigDecimal("-193"))
-                .addRoundTrip(dataType, new BigDecimal("10.0"))
-                .addRoundTrip(dataType, new BigDecimal("10.1"))
-                .addRoundTrip(dataType, new BigDecimal("-10.1"))
-                .addRoundTrip(dataType, new BigDecimal("2"))
-                .addRoundTrip(dataType, new BigDecimal("2.3"))
-                .addRoundTrip(dataType, new BigDecimal("2"))
-                .addRoundTrip(dataType, new BigDecimal("2.3"))
-                .addRoundTrip(dataType, new BigDecimal("123456789.3"))
-                .addRoundTrip(dataType, new BigDecimal("12345678901234567890.31"))
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('193' AS DECIMAL)", DOUBLE, "CAST('193' AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('19' AS DECIMAL)", DOUBLE, "CAST('19' AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('-193' AS DECIMAL)", DOUBLE, "CAST('-193' AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('10.0' AS DECIMAL)", DOUBLE, "CAST('10.0' AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('10.1' AS DECIMAL)", DOUBLE, "CAST('10.1' AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('-10.1' AS DECIMAL)", DOUBLE, "CAST('-10.1' AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('2' AS DECIMAL)", DOUBLE, "CAST('2' AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('2.3' AS DECIMAL)", DOUBLE, "CAST('2.3' AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('2' AS DECIMAL)", DOUBLE, "CAST('2' AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('2.3' AS DECIMAL)", DOUBLE, "CAST('2.3' AS DOUBLE)")
+                .addRoundTrip("decimal", "CAST('123456789.3' AS DECIMAL)", DOUBLE, "CAST('123456789.3' AS DOUBLE)")
+                // TODO (https://starburstdata.atlassian.net/browse/SEP-8262) Comment out because these values can't verify predicates correctly. Testing only SELECT in testDecimalUnboundedIncorrectPredicatePushdown()
+                // .addRoundTrip("decimal", "CAST('12345678901234567890.31' AS DECIMAL)", DOUBLE, "CAST('12345678901234567890.31' AS DOUBLE)")
                 // up to 34 decimal digits
-                .addRoundTrip(dataType, new BigDecimal("3141592653589793238462643.383271234"))
-                .addRoundTrip(dataType, new BigDecimal("-3141592653589793238462643.383271234"))
-                .addRoundTrip(dataType, new BigDecimal("27182818284590452353602874713526624977"))
-                .addRoundTrip(dataType, new BigDecimal("-27182818284590452353602874713526624977"))
+                // .addRoundTrip("decimal", "CAST('3141592653589793238462643.383271234' AS DECIMAL)", DOUBLE, "CAST('3141592653589793238462643.383271234' AS DOUBLE)")
+                // .addRoundTrip("decimal", "CAST('-3141592653589793238462643.383271234' AS DECIMAL)", DOUBLE, "CAST('-3141592653589793238462643.383271234' AS DOUBLE)")
+                // .addRoundTrip("decimal", "CAST('27182818284590452353602874713526624977' AS DECIMAL)", DOUBLE, "CAST('27182818284590452353602874713526624977' AS DOUBLE)")
+                // .addRoundTrip("decimal", "CAST('-27182818284590452353602874713526624977' AS DECIMAL)", DOUBLE, "CAST('-27182818284590452353602874713526624977' AS DOUBLE)")
                 // large number
-                .addRoundTrip(dataType, new BigDecimal("1234" + "0".repeat(100)))
-                .addRoundTrip(dataType, new BigDecimal("-234" + "0".repeat(100)))
+                .addRoundTrip("decimal", format("CAST('1234%s' AS DECIMAL)", "0".repeat(100)), DOUBLE, format("CAST('1234%s' AS DOUBLE)", "0".repeat(100)))
+                .addRoundTrip("decimal", format("CAST('-234%s' AS DECIMAL)", "0".repeat(100)), DOUBLE, format("CAST('-234%s' AS DOUBLE)", "0".repeat(100)))
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_decimal_unbounded"));
+    }
+
+    @Deprecated
+    @Test(dataProvider = "largeDecimalProvider")
+    public void testDecimalUnboundedIncorrectPredicatePushdown(String value)
+    {
+        try (TestTable table = new TestTable(server::execute, "tpch.test_large_decimal", "(c1 decimal)", ImmutableList.of(value))) {
+            assertQuery("SELECT * FROM " + table.getName(), format("VALUES CAST('%s' AS DOUBLE)", value));
+            assertQueryReturnsEmptyResult(format("SELECT * FROM %s WHERE c1 = CAST('%s' AS DOUBLE)", table.getName(), value)); // This should return a row
+        }
+    }
+
+    @DataProvider
+    public Object[][] largeDecimalProvider()
+    {
+        // These cases should go to testDecimalUnbounded() when fixing incorrect predicate pushdown
+        return new Object[][] {
+                {"12345678901234567890.31"},
+                {"3141592653589793238462643.383271234"},
+                {"-3141592653589793238462643.383271234"},
+                {"27182818284590452353602874713526624977"},
+                {"-27182818284590452353602874713526624977"},
+        };
     }
 
     @Test
     public void testChar()
     {
-        characterDataTypeTest(DataType::charDataType, string -> charDataType(sapHanaTextLength(string)), charDataType(2000))
+        // A single Unicode character that occupies 4 bytes in UTF-8 encoding and uses surrogate pairs in UTF-16 representation
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(10)", "'text_a'", createCharType(10), "CAST('text_a' AS char(10))")
+                .addRoundTrip("char(255)", "'text_b'", createCharType(255), "CAST('text_b' AS char(255))")
+                .addRoundTrip("char(2000)", format("'%s'", "a".repeat(2000)), createCharType(2000), format("CAST('%s' AS char(2000))", "a".repeat(2000))) // max length
+                .addRoundTrip("char(25)", "'攻殻機動隊'", createCharType(25), "CAST('攻殻機動隊' AS char(25))") // Connector does not extend char type to accommodate for different counting semantics
+                .addRoundTrip("char(100)", "'攻殻機動隊'", createCharType(100), "CAST('攻殻機動隊' AS char(100))")
+                .addRoundTrip("char(2000)", "'攻殻機動隊'", createCharType(2000), "CAST('攻殻機動隊' AS char(2000))")
+                .addRoundTrip("char(77)", "'Ну, погоди!'", createCharType(77), "CAST('Ну, погоди!' AS char(77))")
+                .addRoundTrip("char(16)", "'😂'", createCharType(16), "CAST('😂' AS char(16))") // Connector does not extend char type to accommodate for different counting semantics
+                .addRoundTrip("char(610)", format("'%s'", "😂".repeat(100)), createCharType(610), format("CAST('%s' AS char(610))", "😂".repeat(100))) // Connector does not extend char type to accommodate for different counting semantics
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_char"))
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_char"));
-
-        int sapHanaMaxCharLength = 2000;
-        DataTypeTest.create()
-                .addRoundTrip(charDataType(10), "text_a")
-                .addRoundTrip(charDataType(255), "text_b")
-                .addRoundTrip(charDataType(sapHanaMaxCharLength), "a".repeat(sapHanaMaxCharLength)) // max length
-                .addRoundTrip(charDataType(100), SAMPLE_UNICODE_TEXT)
-                .addRoundTrip(charDataType(sapHanaTextLength(SAMPLE_UNICODE_TEXT)), SAMPLE_UNICODE_TEXT) // Connector does not extend char type to accommodate for different counting semantics
-                .addRoundTrip(charDataType(sapHanaMaxCharLength), SAMPLE_UNICODE_TEXT)
-                .addRoundTrip(charDataType(77), SAMPLE_OTHER_UNICODE_TEXT)
-                .addRoundTrip(charDataType(sapHanaTextLength(SAMPLE_LENGTHY_CHARACTER)), SAMPLE_LENGTHY_CHARACTER) // Connector does not extend char type to accommodate for different counting semantics
-                .addRoundTrip(charDataType(sapHanaTextLength(SAMPLE_LENGTHY_CHARACTER.repeat(100))), SAMPLE_LENGTHY_CHARACTER.repeat(100)) // Connector does not extend char type to accommodate for different counting semantics
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_char"));
 
         // too long for a char in SAP HANA
         int length = 2001;
         //noinspection ConstantConditions
         verify(length <= CharType.MAX_LENGTH);
-        DataType<String> longChar = dataType(
-                format("char(%s)", length),
-                createUnboundedVarcharType(),
-                DataType::formatStringLiteral,
-                input -> padSpaces(utf8Slice(input), length).toStringUtf8());
-        DataTypeTest.create()
-                .addRoundTrip(longChar, "text_f")
-                .addRoundTrip(longChar, "a".repeat(length))
-                .addRoundTrip(longChar, SAMPLE_LENGTHY_CHARACTER.repeat(length))
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(2001)", "'text_f'", VARCHAR, format("CAST('text_f%s' AS varchar)", " ".repeat(2001 - "text_f".length())))
+                .addRoundTrip("char(2001)", format("'%s'", "a".repeat(length)), VARCHAR, format("CAST('%s' AS varchar)", "a".repeat(length)))
+                .addRoundTrip("char(2001)", format("'%s'", "😂".repeat(length)), VARCHAR, format("CAST('%s' AS varchar)", "😂".repeat(length)))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_char"));
     }
 
     @Test
     public void testNchar()
     {
-        characterDataTypeTest(SapHanaDataTypes::sapHanaNcharDataType, string -> sapHanaNcharDataType(sapHanaTextLength(string)), sapHanaNcharDataType(2000))
+        SqlDataTypeTest.create()
+                .addRoundTrip("nchar(10)", "'text_a'", createCharType(10), "CAST('text_a' AS char(10))")
+                .addRoundTrip("nchar(255)", "'text_b'", createCharType(255), "CAST('text_b' AS char(255))")
+                .addRoundTrip("nchar(2000)", format("'%s'", "a".repeat(2000)), createCharType(2000), format("CAST('%s' AS char(2000))", "a".repeat(2000)))
+                .addRoundTrip("nchar(25)", "'攻殻機動隊'", createCharType(25), "CAST('攻殻機動隊' AS char(25))")
+                .addRoundTrip("nchar(100)", "'攻殻機動隊'", createCharType(100), "CAST('攻殻機動隊' AS char(100))")
+                .addRoundTrip("nchar(2000)", "'攻殻機動隊'", createCharType(2000), "CAST('攻殻機動隊' AS char(2000))")
+                .addRoundTrip("nchar(77)", "'Ну, погоди!'", createCharType(77), "CAST('Ну, погоди!' AS char(77))")
+                .addRoundTrip("nchar(16)", "'😂'", createCharType(16), "CAST('😂' AS char(16))")
+                .addRoundTrip("nchar(610)", format("'%s'", "😂".repeat(100)), createCharType(610), format("CAST('%s' AS char(610))", "😂".repeat(100)))
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_nchar"));
     }
 
@@ -354,70 +341,102 @@ public class TestSapHanaTypeMapping
     public void testVarchar()
     {
         // varchar(p)
-        characterDataTypeTest(DataType::varcharDataType, string -> varcharDataType(sapHanaTextLength(string)), varcharDataType(5000))
-                .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_varchar"));
-
-        characterDataTypeTest(SapHanaDataTypes::prestoVarcharForSapHanaDataType, string -> prestoVarcharForSapHanaDataType(sapHanaTextLength(string)), prestoVarcharForSapHanaDataType(5000))
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(10)", "'text_a'", createVarcharType(10), "CAST('text_a' AS varchar(10))")
+                .addRoundTrip("varchar(255)", "'text_b'", createVarcharType(255), "CAST('text_b' AS varchar(255))")
+                .addRoundTrip("varchar(5000)", format("'%s'", "a".repeat(5000)), createVarcharType(5000), format("CAST('%s' AS varchar(5000))", "a".repeat(5000)))
+                .addRoundTrip("varchar(25)", "'攻殻機動隊'", createVarcharType(25), "CAST('攻殻機動隊' AS varchar(25))")
+                .addRoundTrip("varchar(100)", "'攻殻機動隊'", createVarcharType(100), "CAST('攻殻機動隊' AS varchar(100))")
+                .addRoundTrip("varchar(5000)", "'攻殻機動隊'", createVarcharType(5000), "CAST('攻殻機動隊' AS varchar(5000))")
+                .addRoundTrip("varchar(77)", "'Ну, погоди!'", createVarcharType(77), "CAST('Ну, погоди!' AS varchar(77))")
+                .addRoundTrip("varchar(16)", "'😂'", createVarcharType(16), "CAST('😂' AS varchar(16))")
+                .addRoundTrip("varchar(610)", format("'%s'", "😂".repeat(100)), createVarcharType(610), format("CAST('%s' AS varchar(610))", "😂".repeat(100)))
+                .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
 
         // varchar
-        DataTypeTest.create()
-                .addRoundTrip(stringDataType("varchar", createVarcharType(1)), "a")
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar", "'a'", createVarcharType(1), "'a'")
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_varchar"));
 
-        DataType<String> varcharDataType = varcharDataType();
-        longVarcharDataTypeTest(length -> varcharDataType, string -> varcharDataType, varcharDataType)
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("varchar", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("varchar", format("'%s'", "a".repeat(5000)), VARCHAR, format("CAST('%s' AS varchar)", "a".repeat(5000)))
+                .addRoundTrip("varchar", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
+                .addRoundTrip("varchar", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("varchar", format("'%s'", "😂".repeat(100)), VARCHAR, format("CAST('%s' AS varchar)", "😂".repeat(100)))
+                .addRoundTrip("varchar", "'text_f'", VARCHAR, "CAST('text_f' AS varchar)")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
     }
 
     @Test
     public void testNvarchar()
     {
-        characterDataTypeTest(SapHanaDataTypes::sapHanaNvarcharDataType, string -> sapHanaNvarcharDataType(sapHanaTextLength(string)), sapHanaNvarcharDataType(5000))
-                .addRoundTrip(stringDataType("nvarchar", createVarcharType(1)), "a")
+        SqlDataTypeTest.create()
+                .addRoundTrip("nvarchar(10)", "'text_a'", createVarcharType(10), "CAST('text_a' AS varchar(10))")
+                .addRoundTrip("nvarchar(255)", "'text_b'", createVarcharType(255), "CAST('text_b' AS varchar(255))")
+                .addRoundTrip("nvarchar(5000)", "'text_d'", createVarcharType(5000), "CAST('text_d' AS varchar(5000))")
+                .addRoundTrip("nvarchar(25)", "'攻殻機動隊'", createVarcharType(25), "CAST('攻殻機動隊' AS varchar(25))")
+                .addRoundTrip("nvarchar(100)", "'攻殻機動隊'", createVarcharType(100), "CAST('攻殻機動隊' AS varchar(100))")
+                .addRoundTrip("nvarchar(5000)", "'攻殻機動隊'", createVarcharType(5000), "CAST('攻殻機動隊' AS varchar(5000))")
+                .addRoundTrip("nvarchar(77)", "'Ну, погоди!'", createVarcharType(77), "CAST('Ну, погоди!' AS varchar(77))")
+                .addRoundTrip("nvarchar(16)", "'😂'", createVarcharType(16), "CAST('😂' AS varchar(16))")
+                .addRoundTrip("nvarchar(610)", format("'%s'", "😂".repeat(100)), createVarcharType(610), format("CAST('%s' AS varchar(610))", "😂".repeat(100)))
+                .addRoundTrip("nvarchar", "'a'", createVarcharType(1), "'a'")
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_varchar"));
     }
 
     @Test
     public void testAlphanum()
     {
-        DataTypeTest.create()
-                .addRoundTrip(sapHanaAlphanumDataType(10), null)
-                .addRoundTrip(sapHanaAlphanumDataType(10), "")
-                .addRoundTrip(sapHanaAlphanumDataType(10), "abcdef")
-                .addRoundTrip(sapHanaAlphanumDataType(10), "123456") // "purely numeric value" is a distinguished case in documentation
-                .addRoundTrip(sapHanaAlphanumDataType(127), "a".repeat(127)) // max length
-                .addRoundTrip(sapHanaAlphanumDataType(), "") // default length
-                .addRoundTrip(sapHanaAlphanumDataType(), "a") // default length
+        SqlDataTypeTest.create()
+                .addRoundTrip("alphanum(10)", "NULL", createVarcharType(10), "CAST(NULL AS varchar(10))")
+                .addRoundTrip("alphanum(10)", "''", createVarcharType(10), "CAST('' AS varchar(10))")
+                .addRoundTrip("alphanum(10)", "'abcdef'", createVarcharType(10), "CAST('abcdef' AS varchar(10))")
+                .addRoundTrip("alphanum(10)", "'123456'", createVarcharType(10), "CAST('0000123456' AS varchar(10))") // "purely numeric value" is a distinguished case in documentation
+                .addRoundTrip("alphanum(127)", format("'%s'", "a".repeat(127)), createVarcharType(127), format("CAST('%s' AS varchar(127))", "a".repeat(127))) // max length
+                .addRoundTrip("alphanum", "''", createVarcharType(1), "CAST('' AS varchar(1))") // default length
+                .addRoundTrip("alphanum", "'a'", createVarcharType(1), "CAST('a' AS varchar(1))") // default length
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_varchar"));
     }
 
     @Test
     public void testShorttext()
     {
-        characterDataTypeTest(SapHanaDataTypes::sapHanaShorttextDataType, string -> sapHanaShorttextDataType(sapHanaTextLength(string)), sapHanaShorttextDataType(5000))
+        SqlDataTypeTest.create()
+                .addRoundTrip("shorttext(10)", "'text_a'", createVarcharType(10), "CAST('text_a' AS varchar(10))")
+                .addRoundTrip("shorttext(255)", "'text_b'", createVarcharType(255), "CAST('text_b' AS varchar(255))")
+                .addRoundTrip("shorttext(5000)", "'text_d'", createVarcharType(5000), "CAST('text_d' AS varchar(5000))")
+                .addRoundTrip("shorttext(25)", "'攻殻機動隊'", createVarcharType(25), "CAST('攻殻機動隊' AS varchar(25))")
+                .addRoundTrip("shorttext(100)", "'攻殻機動隊'", createVarcharType(100), "CAST('攻殻機動隊' AS varchar(100))")
+                .addRoundTrip("shorttext(5000)", "'攻殻機動隊'", createVarcharType(5000), "CAST('攻殻機動隊' AS varchar(5000))")
+                .addRoundTrip("shorttext(77)", "'Ну, погоди!'", createVarcharType(77), "CAST('Ну, погоди!' AS varchar(77))")
+                .addRoundTrip("shorttext(16)", "'😂'", createVarcharType(16), "CAST('😂' AS varchar(16))")
+                .addRoundTrip("shorttext(610)", format("'%s'", "😂".repeat(100)), createVarcharType(610), format("CAST('%s' AS varchar(610))", "😂".repeat(100)))
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_varchar"));
     }
 
     @Test
     public void testText()
     {
-        DataType<String> dataType = sapHanaTextDataType();
-        longVarcharDataTypeTest(length -> dataType, string -> dataType, dataType)
+        characterDataTypeTest("text")
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_varchar"));
     }
 
     @Test
     public void testBintext()
     {
-        DataType<String> dataType = sapHanaBintextDataType();
-        DataTypeTest.create()
-                .addRoundTrip(dataType, null)
-                .addRoundTrip(dataType, "")
-                .addRoundTrip(dataType, "abc")
-                .addRoundTrip(dataType, "a".repeat(500))
-                .addRoundTrip(dataType, SAMPLE_UNICODE_TEXT)
-                .addRoundTrip(dataType, SAMPLE_OTHER_UNICODE_TEXT)
+        SqlDataTypeTest.create()
+                .addRoundTrip("bintext", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("bintext", "''", VARCHAR, "CAST('' AS varchar)")
+                .addRoundTrip("bintext", "'abc'", VARCHAR, "CAST('abc' AS varchar)")
+                .addRoundTrip("bintext", format("'%s'", "a".repeat(500)), createUnboundedVarcharType(), format("CAST('%s' AS varchar)", "a".repeat(500)))
+                .addRoundTrip("bintext", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("bintext", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
                 // TODO SAMPLE_LENGTHY_CHARACTER comes back garbled
                 // TODO SAMPLE_LENGTHY_CHARACTER.repeat(100) comes back garbled
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_varchar"));
@@ -426,64 +445,57 @@ public class TestSapHanaTypeMapping
     @Test
     public void testClob()
     {
-        DataType<String> dataType = sapHanaClobDataType();
-        longVarcharDataTypeTest(length -> dataType, string -> dataType, dataType)
+        characterDataTypeTest("clob")
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_varchar"));
     }
 
     @Test
     public void testNclob()
     {
-        DataType<String> dataType = sapHanaNclobDataType();
-        longVarcharDataTypeTest(length -> dataType, string -> dataType, dataType)
+        characterDataTypeTest("nclob")
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_varchar"));
     }
 
-    private DataTypeTest longVarcharDataTypeTest(Function<Integer, DataType<String>> dataTypeForLength, Function<String, DataType<String>> dataTypeForValue, DataType<String> maxLengthType)
+    private SqlDataTypeTest characterDataTypeTest(String inputType)
     {
-        return characterDataTypeTest(dataTypeForLength, dataTypeForValue, maxLengthType)
-                .addRoundTrip(dataTypeForLength.apply(10485760), "text_f");
-    }
-
-    private DataTypeTest characterDataTypeTest(Function<Integer, DataType<String>> dataTypeForLength, Function<String, DataType<String>> dataTypeForValue, DataType<String> maxLengthType)
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(dataTypeForLength.apply(10), "text_a")
-                .addRoundTrip(dataTypeForLength.apply(255), "text_b")
-                .addRoundTrip(maxLengthType, "text_d")
-                .addRoundTrip(dataTypeForValue.apply(SAMPLE_UNICODE_TEXT), SAMPLE_UNICODE_TEXT)
-                .addRoundTrip(dataTypeForLength.apply(100), SAMPLE_UNICODE_TEXT)
-                .addRoundTrip(maxLengthType, SAMPLE_UNICODE_TEXT)
-                .addRoundTrip(dataTypeForLength.apply(77), SAMPLE_OTHER_UNICODE_TEXT)
-                .addRoundTrip(dataTypeForValue.apply(SAMPLE_LENGTHY_CHARACTER), SAMPLE_LENGTHY_CHARACTER)
-                .addRoundTrip(dataTypeForValue.apply(SAMPLE_LENGTHY_CHARACTER.repeat(100)), SAMPLE_LENGTHY_CHARACTER.repeat(100));
+        return SqlDataTypeTest.create()
+                .addRoundTrip(inputType, "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip(inputType, "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip(inputType, "'text_d'", VARCHAR, "CAST('text_d' AS varchar)")
+                .addRoundTrip(inputType, "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip(inputType, "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip(inputType, "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip(inputType, "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
+                .addRoundTrip(inputType, "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip(inputType, format("'%s'", "😂".repeat(100)), VARCHAR, format("CAST('%s' AS varchar)", "😂".repeat(100)))
+                .addRoundTrip(inputType, "'text_f'", VARCHAR, "CAST('text_f' AS varchar)");
     }
 
     @Test
     public void testVarbinary()
     {
-        varbinaryTestCases(sapHanaBlobDataType())
+        varbinaryTestCases("blob")
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_varbinary"));
 
-        varbinaryTestCases(sapHanaVarbinaryDataType(29)) // shortest to contain the test cases
+        varbinaryTestCases("varbinary(29)")
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_varbinary"));
 
-        varbinaryTestCases(sapHanaVarbinaryDataType(5000)) // longest allowed
+        varbinaryTestCases("varbinary(5000)") // longest allowed
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_varbinary"));
 
-        varbinaryTestCases(varbinaryDataType())
+        varbinaryTestCases("varbinary")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
     }
 
-    private DataTypeTest varbinaryTestCases(DataType<byte[]> varbinaryDataType)
+    private SqlDataTypeTest varbinaryTestCases(String inputType)
     {
-        return DataTypeTest.create()
-                .addRoundTrip(varbinaryDataType, "hello".getBytes(UTF_8))
-                .addRoundTrip(varbinaryDataType, "Piękna łąka w 東京都".getBytes(UTF_8))
-                .addRoundTrip(varbinaryDataType, "Bag full of 💰".getBytes(UTF_16LE))
-                .addRoundTrip(varbinaryDataType, null)
-                .addRoundTrip(varbinaryDataType, new byte[] {})
-                .addRoundTrip(varbinaryDataType, new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 13, -7, 54, 122, -89, 0, 0, 0});
+        return SqlDataTypeTest.create()
+                .addRoundTrip(inputType, "X'68656C6C6F'", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip(inputType, "X'5069C4996B6E6120C582C4856B61207720E69DB1E4BAACE983BD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip(inputType, "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip(inputType, "NULL", VARBINARY, "CAST(NULL AS VARBINARY)")
+                .addRoundTrip(inputType, "X''", VARBINARY, "X''")
+                .addRoundTrip(inputType, "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'");
     }
 
     @Test
@@ -500,24 +512,23 @@ public class TestSapHanaTypeMapping
         LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
         checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
 
-        DataTypeTest testCases = DataTypeTest.create(true)
-                .addRoundTrip(dateDataType(), LocalDate.of(1, 1, 1)) // min value in SAP HANA
-                .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3)) // before epoch
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 7, 1)) // summer on northern hemisphere (possible DST)
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 1, 1)) // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInJvmZone)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInSomeZone)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeBackwardAtMidnightInSomeZone)
-                .addRoundTrip(dateDataType(), LocalDate.of(9999, 12, 31)); // max value in SAP HANA
-
         for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
                     .build();
-            testCases.execute(getQueryRunner(), session, sapHanaCreateAndInsert("tpch.test_date"));
-            testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+            SqlDataTypeTest.create()
+                    .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'") // min value in SAP HANA
+                    .addRoundTrip("date", "DATE '1952-04-03'", DATE, "DATE '1952-04-03'") // before epoch
+                    .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
+                    .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
+                    .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
+                    .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                    .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
+                    .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
+                    .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
+                    .addRoundTrip("date", "DATE '9999-12-31'", DATE, "DATE '9999-12-31'") // max value in SAP HANA
+                    .execute(getQueryRunner(), session, sapHanaCreateAndInsert("tpch.test_date"))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
         }
     }
 
@@ -553,22 +564,22 @@ public class TestSapHanaTypeMapping
         LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34, 567_000_000);
         checkIsGap(jvmZone, timeGapInJvmZone.atDate(EPOCH_DAY));
 
-        DataType<LocalTime> dataType = sapHanaTimeDataType();
-        DataTypeTest.create()
-                .addRoundTrip(dataType, LocalTime.of(1, 12, 34, 0))
-                .addRoundTrip(dataType, LocalTime.of(2, 12, 34, 0))
-                .addRoundTrip(dataType, LocalTime.of(2, 12, 34, 1_000_000))
-                .addRoundTrip(dataType, LocalTime.of(3, 12, 34, 0))
-                .addRoundTrip(dataType, LocalTime.of(4, 12, 34, 0))
-                .addRoundTrip(dataType, LocalTime.of(5, 12, 34, 0))
-                .addRoundTrip(dataType, LocalTime.of(6, 12, 34, 0))
-                .addRoundTrip(dataType, LocalTime.of(9, 12, 34, 0))
-                .addRoundTrip(dataType, LocalTime.of(10, 12, 34, 0))
-                .addRoundTrip(dataType, LocalTime.of(15, 12, 34, 567_000_000))
-                .addRoundTrip(dataType, LocalTime.of(23, 59, 59, 999_000_000))
+        // SAP HANA's TIME does not support second fraction
+        SqlDataTypeTest.create()
+                .addRoundTrip("time", "TIME '01:12:34.000000000'", createTimeType(0), "TIME '01:12:34'")
+                .addRoundTrip("time", "TIME '02:12:34.000000000'", createTimeType(0), "TIME '02:12:34'")
+                .addRoundTrip("time", "TIME '02:12:34.001000000'", createTimeType(0), "TIME '02:12:34'")
+                .addRoundTrip("time", "TIME '03:12:34.000000000'", createTimeType(0), "TIME '03:12:34'")
+                .addRoundTrip("time", "TIME '04:12:34.000000000'", createTimeType(0), "TIME '04:12:34'")
+                .addRoundTrip("time", "TIME '05:12:34.000000000'", createTimeType(0), "TIME '05:12:34'")
+                .addRoundTrip("time", "TIME '06:12:34.000000000'", createTimeType(0), "TIME '06:12:34'")
+                .addRoundTrip("time", "TIME '09:12:34.000000000'", createTimeType(0), "TIME '09:12:34'")
+                .addRoundTrip("time", "TIME '10:12:34.000000000'", createTimeType(0), "TIME '10:12:34'")
+                .addRoundTrip("time", "TIME '15:12:34.567000000'", createTimeType(0), "TIME '15:12:34'")
+                .addRoundTrip("time", "TIME '23:59:59.999000000'", createTimeType(0), "TIME '23:59:59'")
                 // epoch is also a gap in JVM zone
-                .addRoundTrip(dataType, epoch.toLocalTime())
-                .addRoundTrip(dataType, timeGapInJvmZone)
+                .addRoundTrip("time", "TIME '00:00:00.000000000'", createTimeType(0), "TIME '00:00:00'")
+                .addRoundTrip("time", "TIME '00:12:34.567000000'", createTimeType(0), "TIME '00:12:34'")
                 .execute(getQueryRunner(), session, sapHanaCreateAndInsert("tpch.test_time"));
     }
 
@@ -582,34 +593,34 @@ public class TestSapHanaTypeMapping
         LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34);
         checkIsGap(jvmZone, timeGapInJvmZone.atDate(EPOCH_DAY));
 
-        DataTypeTest dataTypeTest = DataTypeTest.create()
-                .addRoundTrip(prestoTimeForSapHanaDataType(0), LocalTime.of(1, 12, 34, 0))
-                .addRoundTrip(prestoTimeForSapHanaDataType(1), LocalTime.of(2, 12, 34, 0))
-                .addRoundTrip(prestoTimeForSapHanaDataType(2), LocalTime.of(2, 12, 34, 1_000_000))
-                .addRoundTrip(prestoTimeForSapHanaDataType(3), LocalTime.of(3, 12, 34, 0))
-                .addRoundTrip(prestoTimeForSapHanaDataType(4), LocalTime.of(4, 12, 34, 0))
-                .addRoundTrip(prestoTimeForSapHanaDataType(5), LocalTime.of(5, 12, 34, 0))
-                .addRoundTrip(prestoTimeForSapHanaDataType(6), LocalTime.of(6, 12, 34, 0))
-                .addRoundTrip(prestoTimeForSapHanaDataType(7), LocalTime.of(9, 12, 34, 0))
-                .addRoundTrip(prestoTimeForSapHanaDataType(8), LocalTime.of(10, 12, 34, 0))
-                .addRoundTrip(prestoTimeForSapHanaDataType(9), LocalTime.of(15, 12, 34, 567_000_000))
-                .addRoundTrip(prestoTimeForSapHanaDataType(10), LocalTime.of(23, 59, 59, 999_000_000))
+        // TODO: Need to check round up behavior
+        SqlDataTypeTest.create()
+                .addRoundTrip("time(0)", "TIME '01:12:34'", createTimeType(0), "TIME '01:12:34'")
+                .addRoundTrip("time(1)", "TIME '02:12:34.0'", createTimeType(0), "TIME '02:12:34'")
+                .addRoundTrip("time(2)", "TIME '02:12:34.00'", createTimeType(0), "TIME '02:12:34'")
+                .addRoundTrip("time(3)", "TIME '03:12:34.000'", createTimeType(0), "TIME '03:12:34'")
+                .addRoundTrip("time(4)", "TIME '04:12:34.0000'", createTimeType(0), "TIME '04:12:34'")
+                .addRoundTrip("time(5)", "TIME '05:12:34.00000'", createTimeType(0), "TIME '05:12:34'")
+                .addRoundTrip("time(6)", "TIME '06:12:34.000000'", createTimeType(0), "TIME '06:12:34'")
+                .addRoundTrip("time(7)", "TIME '09:12:34.0000000'", createTimeType(0), "TIME '09:12:34'")
+                .addRoundTrip("time(8)", "TIME '10:12:34.00000000'", createTimeType(0), "TIME '10:12:34'")
+                .addRoundTrip("time(9)", "TIME '15:12:34.567000000'", createTimeType(0), "TIME '15:12:35'")
+                .addRoundTrip("time(10)", "TIME '23:59:59.999000000'", createTimeType(0), "TIME '00:00:00'")
                 // highest possible value
-                .addRoundTrip(prestoTimeForSapHanaDataType(9), LocalTime.of(23, 59, 59, 999_999_999))
+                .addRoundTrip("time(9)", "TIME '23:59:59.999999999'", createTimeType(0), "TIME '00:00:00'")
                 // epoch is also a gap in JVM zone
-                .addRoundTrip(prestoTimeForSapHanaDataType(0), epoch.toLocalTime())
-                .addRoundTrip(prestoTimeForSapHanaDataType(3), epoch.toLocalTime())
-                .addRoundTrip(prestoTimeForSapHanaDataType(6), epoch.toLocalTime())
-                .addRoundTrip(prestoTimeForSapHanaDataType(9), epoch.toLocalTime())
-                .addRoundTrip(prestoTimeForSapHanaDataType(12), epoch.toLocalTime())
-                .addRoundTrip(prestoTimeForSapHanaDataType(0), timeGapInJvmZone.withNano(0))
-                .addRoundTrip(prestoTimeForSapHanaDataType(3), timeGapInJvmZone.withNano(567_000_000))
-                .addRoundTrip(prestoTimeForSapHanaDataType(6), timeGapInJvmZone.withNano(567_123_000))
-                .addRoundTrip(prestoTimeForSapHanaDataType(9), timeGapInJvmZone.withNano(567_123_456))
-                .addRoundTrip(prestoTimeForSapHanaDataType(12), timeGapInJvmZone.withNano(567_123_456));
-
-        dataTypeTest.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"));
-        dataTypeTest.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"));
+                .addRoundTrip("time(0)", "TIME '00:00:00'", createTimeType(0), "TIME '00:00:00'")
+                .addRoundTrip("time(3)", "TIME '00:00:00.000'", createTimeType(0), "TIME '00:00:00'")
+                .addRoundTrip("time(6)", "TIME '00:00:00.000000'", createTimeType(0), "TIME '00:00:00'")
+                .addRoundTrip("time(9)", "TIME '00:00:00.000000000'", createTimeType(0), "TIME '00:00:00'")
+                .addRoundTrip("time(12)", "TIME '00:00:00.000000000'", createTimeType(0), "TIME '00:00:00'")
+                .addRoundTrip("time(0)", "TIME '00:12:34'", createTimeType(0), "TIME '00:12:34'")
+                .addRoundTrip("time(3)", "TIME '00:12:34.567'", createTimeType(0), "TIME '00:12:35'")
+                .addRoundTrip("time(6)", "TIME '00:12:34.567123'", createTimeType(0), "TIME '00:12:35'")
+                .addRoundTrip("time(9)", "TIME '00:12:34.567123456'", createTimeType(0), "TIME '00:12:35'")
+                .addRoundTrip("time(12)", "TIME '00:12:34.567123456'", createTimeType(0), "TIME '00:12:35'")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"));
     }
 
     /**
@@ -707,20 +718,18 @@ public class TestSapHanaTypeMapping
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        DataType<LocalDateTime> dataType = sapHanaSeconddateDataType();
-
-        DataTypeTest.create(true)
-                .addRoundTrip(dataType, beforeEpoch.withNano(0))
-                .addRoundTrip(dataType, afterEpoch.withNano(0))
-                .addRoundTrip(dataType, timeDoubledInJvmZone.withNano(0))
-                .addRoundTrip(dataType, timeDoubledInVilnius.withNano(0))
-                .addRoundTrip(dataType, epoch.withNano(0)) // epoch also is a gap in JVM zone
-                .addRoundTrip(dataType, timeGapInJvmZone1.withNano(0))
-                .addRoundTrip(dataType, timeGapInJvmZone2.withNano(0))
-                .addRoundTrip(dataType, timeGapInVilnius.withNano(0))
-                .addRoundTrip(dataType, timeGapInKathmandu.withNano(0))
+        SqlDataTypeTest.create()
+                .addRoundTrip("seconddate", "TIMESTAMP '1958-01-01 13:18:03'", createTimestampType(0), "TIMESTAMP '1958-01-01 13:18:03'")
+                .addRoundTrip("seconddate", "TIMESTAMP '2019-03-18 10:01:17'", createTimestampType(0), "TIMESTAMP '2019-03-18 10:01:17'")
+                .addRoundTrip("seconddate", "TIMESTAMP '2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'")
+                .addRoundTrip("seconddate", "TIMESTAMP '2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'")
+                .addRoundTrip("seconddate", "TIMESTAMP '1970-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'") // epoch also is a gap in JVM zone
+                .addRoundTrip("seconddate", "TIMESTAMP '1970-01-01 00:13:42'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:13:42'")
+                .addRoundTrip("seconddate", "TIMESTAMP '2018-04-01 02:13:55'", createTimestampType(0), "TIMESTAMP '2018-04-01 02:13:55'")
+                .addRoundTrip("seconddate", "TIMESTAMP '2018-03-25 03:17:17'", createTimestampType(0), "TIMESTAMP '2018-03-25 03:17:17'")
+                .addRoundTrip("seconddate", "TIMESTAMP '1986-01-01 00:13:07'", createTimestampType(0), "TIMESTAMP '1986-01-01 00:13:07'")
                 // test arbitrary time for all supported precisions
-                .addRoundTrip(dataType, LocalDateTime.of(1970, 1, 1, 0, 0, 0))
+                .addRoundTrip("seconddate", "TIMESTAMP '1970-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'")
                 .execute(getQueryRunner(), session, sapHanaCreateAndInsert("tpch.test_seconddate"));
     }
 
@@ -731,30 +740,28 @@ public class TestSapHanaTypeMapping
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        DataType<LocalDateTime> dataType = sapHanaTimestampDataType();
-
-        DataTypeTest.create(true)
-                .addRoundTrip(dataType, beforeEpoch)
-                .addRoundTrip(dataType, afterEpoch)
-                .addRoundTrip(dataType, timeDoubledInJvmZone)
-                .addRoundTrip(dataType, timeDoubledInVilnius)
-                .addRoundTrip(dataType, epoch) // epoch also is a gap in JVM zone
-                .addRoundTrip(dataType, timeGapInJvmZone1)
-                .addRoundTrip(dataType, timeGapInJvmZone2)
-                .addRoundTrip(dataType, timeGapInVilnius)
-                .addRoundTrip(dataType, timeGapInKathmandu)
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp", "TIMESTAMP '1958-01-01 13:18:03.1230000'", createTimestampType(7), "TIMESTAMP '1958-01-01 13:18:03.1230000'") // beforeEpoch
+                .addRoundTrip("timestamp", "TIMESTAMP '2019-03-18 10:01:17.9870000'", createTimestampType(7), "TIMESTAMP '2019-03-18 10:01:17.9870000'") // afterEpoch
+                .addRoundTrip("timestamp", "TIMESTAMP '2018-10-28 01:33:17.4560000'", createTimestampType(7), "TIMESTAMP '2018-10-28 01:33:17.4560000'") // timeDoubledInJvmZone
+                .addRoundTrip("timestamp", "TIMESTAMP '2018-10-28 03:33:33.3330000'", createTimestampType(7), "TIMESTAMP '2018-10-28 03:33:33.3330000'") // timeDoubledInVilnius
+                .addRoundTrip("timestamp", "TIMESTAMP '1970-01-01 00:00:00.0000000'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:00:00.0000000'") // epoch also is a gap in JVM zone
+                .addRoundTrip("timestamp", "TIMESTAMP '1970-01-01 00:13:42.0000000'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:13:42.0000000'") // timeGapInJvmZone1
+                .addRoundTrip("timestamp", "TIMESTAMP '2018-04-01 02:13:55.1230000'", createTimestampType(7), "TIMESTAMP '2018-04-01 02:13:55.1230000'") // timeGapInJvmZone2
+                .addRoundTrip("timestamp", "TIMESTAMP '2018-03-25 03:17:17.0000000'", createTimestampType(7), "TIMESTAMP '2018-03-25 03:17:17.0000000'") // timeGapInVilnius
+                .addRoundTrip("timestamp", "TIMESTAMP '1986-01-01 00:13:07.0000000'", createTimestampType(7), "TIMESTAMP '1986-01-01 00:13:07.0000000'") // timeGapInKathmandu
                 // test arbitrary time for all supported precisions
-                .addRoundTrip(dataType, LocalDateTime.of(1970, 1, 1, 0, 0, 0))
-                .addRoundTrip(dataType, LocalDateTime.of(1970, 1, 1, 0, 0, 0, 100_000_000))
-                .addRoundTrip(dataType, LocalDateTime.of(1970, 1, 1, 0, 0, 0, 120_000_000))
-                .addRoundTrip(dataType, LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_000_000))
-                .addRoundTrip(dataType, LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_400_000))
-                .addRoundTrip(dataType, LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_450_000))
-                .addRoundTrip(dataType, LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_000))
-                .addRoundTrip(dataType, LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_700))
+                .addRoundTrip("timestamp", "TIMESTAMP '1970-01-01 00:00:00.0000000'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:00:00.0000000'")
+                .addRoundTrip("timestamp", "TIMESTAMP '1970-01-01 00:00:00.1000000'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:00:00.1000000'")
+                .addRoundTrip("timestamp", "TIMESTAMP '1970-01-01 00:00:00.1200000'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:00:00.1200000'")
+                .addRoundTrip("timestamp", "TIMESTAMP '1970-01-01 00:00:00.1230000'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:00:00.1230000'")
+                .addRoundTrip("timestamp", "TIMESTAMP '1970-01-01 00:00:00.1234000'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:00:00.1234000'")
+                .addRoundTrip("timestamp", "TIMESTAMP '1970-01-01 00:00:00.1234500'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:00:00.1234500'")
+                .addRoundTrip("timestamp", "TIMESTAMP '1970-01-01 00:00:00.1234560'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:00:00.1234560'")
+                .addRoundTrip("timestamp", "TIMESTAMP '1970-01-01 00:00:00.1234567'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:00:00.1234567'")
                 // before epoch with nanos
-                .addRoundTrip(dataType, LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_000))
-                .addRoundTrip(dataType, LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_700))
+                .addRoundTrip("timestamp", "TIMESTAMP '1969-12-31 23:59:59.1234560'", createTimestampType(7), "TIMESTAMP '1969-12-31 23:59:59.1234560'")
+                .addRoundTrip("timestamp", "TIMESTAMP '1969-12-31 23:59:59.1234567'", createTimestampType(7), "TIMESTAMP '1969-12-31 23:59:59.1234567'")
                 .execute(getQueryRunner(), session, sapHanaCreateAndInsert("tpch.test_timestamp"));
     }
 
@@ -900,17 +907,6 @@ public class TestSapHanaTypeMapping
     private DataSetup sapHanaCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(server::execute, tableNamePrefix);
-    }
-
-    private static int sapHanaTextLength(String string)
-    {
-        if (string.codePoints().noneMatch(codePoint -> codePoint > 127)) {
-            // ASCII
-            return string.length();
-        }
-
-        // TODO find out exact formula
-        return string.length() * 3 + 10;
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
