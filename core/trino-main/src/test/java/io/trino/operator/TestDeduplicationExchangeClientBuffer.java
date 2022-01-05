@@ -34,11 +34,13 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestDeduplicationExchangeClientBuffer
@@ -452,6 +454,36 @@ public class TestDeduplicationExchangeClientBuffer
             buffer.addPages(taskId, ImmutableList.of(page));
 
             assertEquals(buffer.getRemainingCapacityInBytes(), ONE_KB.toBytes() - page.getRetainedSize());
+        }
+    }
+
+    @Test
+    public void testRemoteTaskFailedError()
+    {
+        // fail before noMoreTasks
+        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+            TaskId taskId = createTaskId(0, 0);
+            buffer.addTask(taskId);
+            buffer.taskFailed(taskId, new TrinoException(REMOTE_TASK_FAILED, "Remote task failed"));
+            buffer.noMoreTasks();
+
+            assertFalse(buffer.isFinished());
+            assertFalse(buffer.isFailed());
+            assertBlocked(buffer.isBlocked());
+            assertNull(buffer.pollPage());
+        }
+
+        // fail after noMoreTasks
+        try (ExchangeClientBuffer buffer = new DeduplicationExchangeClientBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+            TaskId taskId = createTaskId(0, 0);
+            buffer.addTask(taskId);
+            buffer.noMoreTasks();
+            buffer.taskFailed(taskId, new TrinoException(REMOTE_TASK_FAILED, "Remote task failed"));
+
+            assertFalse(buffer.isFinished());
+            assertFalse(buffer.isFailed());
+            assertBlocked(buffer.isBlocked());
+            assertNull(buffer.pollPage());
         }
     }
 
