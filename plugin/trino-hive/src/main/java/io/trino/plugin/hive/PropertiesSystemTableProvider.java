@@ -60,14 +60,14 @@ public class PropertiesSystemTableProvider
         }
 
         SchemaTableName sourceTableName = PROPERTIES.getSourceTableName(tableName);
-        Optional<Table> table = metadata.getMetastore().getTable(new HiveIdentity(session), sourceTableName.getSchemaName(), sourceTableName.getTableName());
-        if (table.isEmpty()) {
-            throw new TableNotFoundException(tableName);
-        }
-        if (isDeltaLakeTable(table.get())) {
+        Table table = metadata.getMetastore()
+                .getTable(new HiveIdentity(session), sourceTableName.getSchemaName(), sourceTableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+
+        if (isDeltaLakeTable(table)) {
             throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Cannot query Delta Lake table '%s'", sourceTableName));
         }
-        Map<String, String> sortedTableParameters = ImmutableSortedMap.copyOf(table.get().getParameters());
+        Map<String, String> sortedTableParameters = ImmutableSortedMap.copyOf(table.getParameters());
         List<ColumnMetadata> columns = sortedTableParameters.keySet().stream()
                 .map(key -> new ColumnMetadata(key, VarcharType.VARCHAR))
                 .collect(toImmutableList());
