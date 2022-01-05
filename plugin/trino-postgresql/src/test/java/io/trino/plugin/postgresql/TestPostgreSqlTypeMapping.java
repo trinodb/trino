@@ -1028,7 +1028,7 @@ public class TestPostgreSqlTypeMapping
     /**
      * @see #testTimeCoercion
      */
-    @Test(dataProvider = "testTimestampDataProvider")
+    @Test(dataProvider = "sessionZonesDataProvider")
     public void testTime(boolean insertWithTrino, ZoneId sessionZone)
     {
         LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34, 567_000_000);
@@ -1205,7 +1205,7 @@ public class TestPostgreSqlTypeMapping
     /**
      * @see #testTimestampCoercion
      */
-    @Test(dataProvider = "testTimestampDataProvider")
+    @Test(dataProvider = "sessionZonesDataProvider")
     public void testTimestamp(boolean insertWithTrino, ZoneId sessionZone)
     {
         DataTypeTest tests = DataTypeTest.create(true);
@@ -1310,7 +1310,7 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_timestamp_coercion"));
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
+    @Test(dataProvider = "sessionZonesDataProvider")
     public void testArrayTimestamp(boolean insertWithTrino, ZoneId sessionZone)
     {
         DataTypeTest tests = DataTypeTest.create(true);
@@ -1358,7 +1358,7 @@ public class TestPostgreSqlTypeMapping
     }
 
     @DataProvider
-    public Object[][] testTimestampDataProvider()
+    public Object[][] sessionZonesDataProvider()
     {
         return new Object[][] {
                 {true, UTC},
