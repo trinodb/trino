@@ -129,6 +129,7 @@ import io.trino.operator.output.TaskOutputOperator.TaskOutputFactory;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
+import io.trino.operator.unnest.UnnestOperator;
 import io.trino.operator.window.AggregationWindowFunctionSupplier;
 import io.trino.operator.window.FrameInfo;
 import io.trino.operator.window.PartitionerSupplier;
@@ -314,7 +315,6 @@ import static io.trino.operator.aggregation.AccumulatorCompiler.generateAccumula
 import static io.trino.operator.join.JoinUtils.isBuildSideReplicated;
 import static io.trino.operator.join.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import static io.trino.operator.join.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
-import static io.trino.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.CLASSIFIER;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
@@ -2101,7 +2101,7 @@ public class LocalExecutionPlanner
                 channel++;
             }
             boolean outer = node.getJoinType() == LEFT || node.getJoinType() == FULL;
-            OperatorFactory operatorFactory = new UnnestOperatorFactory(
+            OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
                     replicateChannels,
