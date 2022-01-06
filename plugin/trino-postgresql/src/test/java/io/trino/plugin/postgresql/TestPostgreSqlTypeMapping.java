@@ -974,21 +974,22 @@ public class TestPostgreSqlTypeMapping
                     .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'") // change forward at midnight in JVM
                     .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'") // change forward at midnight in Vilnius
                     .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'") // change backward at midnight in Vilnius
+                    .addRoundTrip("date", "DATE '5874897-12-31'", DATE, "DATE '5874897-12-31'") // max value in Trino
                     .execute(getQueryRunner(), session, postgresCreateAndInsert("test_date"))
                     .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
                     .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"))
                     .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
-        }
-    }
 
-    @Test
-    public void testDateMinMax()
-    {
-        // Merge into 'testDate()' when converting the method to SqlDataTypeTest. Currently, we can't test these values with DataTypeTest.
-        SqlDataTypeTest.create()
-                .addRoundTrip("DATE", "'4713-01-01 BC'", DATE, "DATE '-4712-01-01'")
-                .addRoundTrip("DATE", "'5874897-12-31'", DATE, "DATE '5874897-12-31'")
-                .execute(getQueryRunner(), postgresCreateAndInsert("test_date_min_max"));
+            // min value
+            SqlDataTypeTest.create()
+                    .addRoundTrip("DATE", "'4713-01-01 BC'", DATE, "DATE '-4712-01-01'")
+                    .execute(getQueryRunner(), postgresCreateAndInsert("test_date_min"));
+            SqlDataTypeTest.create()
+                    .addRoundTrip("DATE", "DATE '-4712-01-01'", DATE, "DATE '-4712-01-01'")
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date_min"))
+                    .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date_min"))
+                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date_min"));
+        }
     }
 
     @Test
