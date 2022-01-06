@@ -29,6 +29,7 @@ import io.trino.spi.security.PasswordAuthenticator;
 import javax.inject.Inject;
 import javax.naming.NamingException;
 
+import java.io.File;
 import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
@@ -68,6 +69,8 @@ public class LdapAuthenticator
         this.userBaseDistinguishedName = Optional.ofNullable(ldapConfig.getUserBaseDistinguishedName());
         this.bindDistinguishedName = Optional.ofNullable(ldapConfig.getBindDistingushedName());
         this.bindPassword = Optional.ofNullable(ldapConfig.getBindPassword());
+        boolean ignoreCertificate = ldapConfig.isIgnoreCertificate();
+        Optional<File> trustCertificate = Optional.ofNullable(ldapConfig.getTrustCertificate());
 
         checkArgument(
                 groupAuthorizationSearchPattern.isEmpty() || userBaseDistinguishedName.isPresent(),
@@ -81,6 +84,9 @@ public class LdapAuthenticator
         checkArgument(
                 bindDistinguishedName.isPresent() || !userBindSearchPatterns.isEmpty(),
                 "Either user bind search pattern or bind distinguished name must be provided");
+        checkArgument(
+                !ignoreCertificate || trustCertificate.isEmpty(),
+                "PEM trust certificate cannot be provided when ignore certificate");
 
         this.authenticationCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(ldapConfig.getLdapCacheTtl().toMillis(), MILLISECONDS)

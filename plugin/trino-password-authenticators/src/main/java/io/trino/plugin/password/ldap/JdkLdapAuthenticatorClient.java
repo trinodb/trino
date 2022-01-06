@@ -35,6 +35,7 @@ import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
+import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -71,8 +72,13 @@ public class JdkLdapAuthenticatorClient
                 .put(REFERRAL, ldapConfig.isIgnoreReferrals() ? "ignore" : "follow")
                 .build();
 
-        this.sslContext = Optional.ofNullable(ldapConfig.getTrustCertificate())
-                .map(JdkLdapAuthenticatorClient::createSslContext);
+        if (ldapConfig.isIgnoreCertificate()) {
+            this.sslContext = Optional.of(createIgnoreCertificateSslContext());
+        }
+        else {
+            this.sslContext = Optional.ofNullable(ldapConfig.getTrustCertificate())
+                    .map(JdkLdapAuthenticatorClient::createSslContext);
+        }
     }
 
     @Override
@@ -147,6 +153,40 @@ public class JdkLdapAuthenticatorClient
         });
 
         return environment.build();
+    }
+
+    private static SSLContext createIgnoreCertificateSslContext()
+    {
+        try {
+            TrustManager[] trustManagers = {
+                new X509TrustManager()
+                {
+                    @Override
+                    public void checkClientTrusted(X509Certificate[] chain, String authType)
+                    {
+                        throw new UnsupportedOperationException("checkClientTrusted should not be called");
+                    }
+
+                    @Override
+                    public void checkServerTrusted(X509Certificate[] chain, String authType)
+                    {
+                        // skip validation of server certificate
+                    }
+
+                    @Override
+                    public X509Certificate[] getAcceptedIssuers()
+                    {
+                        return new X509Certificate[0];
+                    }
+                }
+            };
+            SSLContext sslContext = SSLContext.getInstance("SSL");
+            sslContext.init(null, trustManagers, null);
+            return sslContext;
+        }
+        catch (GeneralSecurityException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static SSLContext createSslContext(File trustCertificate)

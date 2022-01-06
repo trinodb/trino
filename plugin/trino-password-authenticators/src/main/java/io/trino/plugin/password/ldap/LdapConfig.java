@@ -37,6 +37,7 @@ public class LdapConfig
     private String ldapUrl;
     private boolean allowInsecure;
     private File trustCertificate;
+    private boolean ignoreCertificate;
     private List<String> userBindSearchPatterns = ImmutableList.of();
     private String groupAuthorizationSearchPattern;
     private String userBaseDistinguishedName;
@@ -90,6 +91,19 @@ public class LdapConfig
     public LdapConfig setTrustCertificate(File trustCertificate)
     {
         this.trustCertificate = trustCertificate;
+        return this;
+    }
+
+    public boolean isIgnoreCertificate()
+    {
+        return ignoreCertificate;
+    }
+
+    @Config("ldap.ignore-ssl-certificate")
+    @ConfigDescription("Ignore trust certificate for the LDAP server")
+    public LdapConfig setIgnoreCertificate(boolean ignoreCertificate)
+    {
+        this.ignoreCertificate = ignoreCertificate;
         return this;
     }
 
