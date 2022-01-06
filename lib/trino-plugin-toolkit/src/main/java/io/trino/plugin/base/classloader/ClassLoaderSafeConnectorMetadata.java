@@ -830,14 +830,6 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.usesLegacyTableLayouts();
-        }
-    }
-
-    @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

@@ -550,12 +550,6 @@ public class MockConnector
         public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments) {}
 
         @Override
-        public boolean usesLegacyTableLayouts()
-        {
-            return false;
-        }
-
-        @Override
         public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
         {
             return getTableProperties.apply(session, table);
