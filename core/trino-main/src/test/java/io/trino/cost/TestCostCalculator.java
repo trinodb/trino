@@ -26,7 +26,6 @@ import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.plugin.tpch.TpchTableHandle;
-import io.trino.plugin.tpch.TpchTableLayoutHandle;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
@@ -794,7 +793,7 @@ public class TestCostCalculator
         TpchTableHandle tableHandle = new TpchTableHandle("sf1", "orders", 1.0);
         return new TableScanNode(
                 new PlanNodeId(id),
-                new TableHandle(new CatalogName("tpch"), tableHandle, INSTANCE, Optional.of(new TpchTableLayoutHandle(tableHandle, TupleDomain.all()))),
+                new TableHandle(new CatalogName("tpch"), tableHandle, INSTANCE, Optional.empty()),
                 symbolsList,
                 assignments.build(),
                 TupleDomain.all(),

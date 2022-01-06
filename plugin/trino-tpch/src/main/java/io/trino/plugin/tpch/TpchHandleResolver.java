@@ -18,7 +18,6 @@ import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
 public class TpchHandleResolver
@@ -40,12 +39,6 @@ public class TpchHandleResolver
     public Class<? extends ConnectorSplit> getSplitClass()
     {
         return TpchSplit.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        return TpchTableLayoutHandle.class;
     }
 
     @Override
