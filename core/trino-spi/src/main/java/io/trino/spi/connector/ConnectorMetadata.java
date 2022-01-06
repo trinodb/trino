@@ -159,25 +159,6 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Return a list of table layouts that satisfy the given constraint.
-     * <p>
-     * For each layout, connectors must return an "unenforced constraint" representing the part of the constraint summary that isn't guaranteed by the layout.
-     */
-    @Deprecated
-    default List<ConnectorTableLayoutResult> getTableLayouts(
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            Constraint constraint,
-            Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        if (usesLegacyTableLayouts()) {
-            throw new IllegalStateException("Connector uses legacy Table Layout but doesn't implement getTableLayouts()");
-        }
-
-        throw new UnsupportedOperationException("Not yet implemented");
-    }
-
-    /**
      * Return a table handle whose partitioning is converted to the provided partitioning handle,
      * but otherwise identical to the provided table handle.
      * The provided table handle must be one that the connector can transparently convert to from
@@ -1017,9 +998,7 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Attempt to push down the provided constraint into the table. This method is provided as replacement to
-     * {@link ConnectorMetadata#getTableLayouts(ConnectorSession, ConnectorTableHandle, Constraint, Optional)} to ease
-     * migration for the legacy API.
+     * Attempt to push down the provided constraint into the table.
      * <p>
      * Connectors can indicate whether they don't support predicate pushdown or that the action had no effect
      * by returning {@link Optional#empty()}. Connectors should expect this method to be called multiple times

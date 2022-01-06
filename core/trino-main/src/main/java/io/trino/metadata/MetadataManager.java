@@ -55,10 +55,7 @@ import io.trino.spi.connector.ConnectorResolvedIndex;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableLayout;
-import io.trino.spi.connector.ConnectorTableLayoutResult;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -440,39 +437,6 @@ public final class MetadataManager
             return metadata.getSystemTable(session.toConnectorSession(catalogName), tableName.asSchemaTableName());
         }
         return Optional.empty();
-    }
-
-    @Override
-    public Optional<TableLayoutResult> getLayout(Session session, TableHandle table, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        if (constraint.getSummary().isNone()) {
-            return Optional.empty();
-        }
-
-        CatalogName catalogName = table.getCatalogName();
-        ConnectorTableHandle connectorTable = table.getConnectorHandle();
-
-        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
-
-        checkState(metadata.usesLegacyTableLayouts(), "getLayout() was called even though connector doesn't support legacy Table Layout");
-
-        ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(catalogName);
-        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(connectorSession, connectorTable, constraint, desiredColumns);
-        if (layouts.isEmpty()) {
-            return Optional.empty();
-        }
-
-        if (layouts.size() > 1) {
-            throw new TrinoException(NOT_SUPPORTED, format("Connector returned multiple layouts for table %s", table));
-        }
-
-        ConnectorTableLayout tableLayout = layouts.get(0).getTableLayout();
-        return Optional.of(new TableLayoutResult(
-                new TableHandle(catalogName, connectorTable, transaction, Optional.of(tableLayout.getHandle())),
-                new TableProperties(catalogName, transaction, new ConnectorTableProperties(tableLayout)),
-                layouts.get(0).getUnenforcedConstraint()));
     }
 
     @Override
@@ -1606,12 +1570,6 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         Optional<ConnectorResolvedIndex> resolvedIndex = metadata.resolveIndex(connectorSession, tableHandle.getConnectorHandle(), indexableColumns, outputColumns, tupleDomain);
         return resolvedIndex.map(resolved -> new ResolvedIndex(tableHandle.getCatalogName(), transaction, resolved));
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts(Session session, TableHandle table)
-    {
-        return getMetadata(session, table.getCatalogName()).usesLegacyTableLayouts();
     }
 
     @Override

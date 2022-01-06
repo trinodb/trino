@@ -103,9 +103,6 @@ public interface Metadata
 
     void finishTableExecute(Session session, TableExecuteHandle handle, Collection<Slice> fragments, List<Object> tableExecuteState);
 
-    @Deprecated
-    Optional<TableLayoutResult> getLayout(Session session, TableHandle tableHandle, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns);
-
     TableProperties getTableProperties(Session session, TableHandle handle);
 
     /**
@@ -448,9 +445,6 @@ public interface Metadata
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
      */
     Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain);
-
-    @Deprecated
-    boolean usesLegacyTableLayouts(Session session, TableHandle table);
 
     Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit);
 

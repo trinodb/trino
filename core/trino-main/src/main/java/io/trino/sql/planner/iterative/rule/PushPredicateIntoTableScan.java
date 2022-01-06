@@ -23,7 +23,6 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableLayoutResult;
 import io.trino.metadata.TableProperties;
 import io.trino.metadata.TableProperties.TablePartitioning;
 import io.trino.spi.connector.ColumnHandle;
@@ -50,7 +49,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
@@ -196,71 +194,47 @@ public class PushPredicateIntoTableScan
             constraint = new Constraint(newDomain);
         }
 
-        TableHandle newTable;
-        Optional<TablePartitioning> newTablePartitioning;
-        TupleDomain<ColumnHandle> remainingFilter;
-        boolean precalculateStatistics;
-        if (!plannerContext.getMetadata().usesLegacyTableLayouts(session, node.getTable())) {
-            // check if new domain is wider than domain already provided by table scan
-            if (constraint.predicate().isEmpty() && newDomain.contains(node.getEnforcedConstraint())) {
-                Expression resultingPredicate = createResultingPredicate(
-                        plannerContext,
-                        session,
-                        symbolAllocator,
-                        typeAnalyzer,
-                        TRUE_LITERAL,
-                        nonDeterministicPredicate,
-                        decomposedPredicate.getRemainingExpression());
-
-                if (!TRUE_LITERAL.equals(resultingPredicate)) {
-                    return Optional.of(new FilterNode(filterNode.getId(), node, resultingPredicate));
-                }
-
-                return Optional.of(node);
-            }
-
-            if (newDomain.isNone()) {
-                // TODO: DomainTranslator.fromPredicate can infer that the expression is "false" in some cases (TupleDomain.none()).
-                // This should move to another rule that simplifies the filter using that logic and then rely on RemoveTrivialFilters
-                // to turn the subtree into a Values node
-                return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
-            }
-
-            Optional<ConstraintApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyFilter(session, node.getTable(), constraint);
-
-            if (result.isEmpty()) {
-                return Optional.empty();
-            }
-
-            newTable = result.get().getHandle();
-
-            TableProperties newTableProperties = plannerContext.getMetadata().getTableProperties(session, newTable);
-            newTablePartitioning = newTableProperties.getTablePartitioning();
-            if (newTableProperties.getPredicate().isNone()) {
-                return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
-            }
-
-            remainingFilter = result.get().getRemainingFilter();
-            precalculateStatistics = result.get().isPrecalculateStatistics();
-        }
-        else {
-            Optional<TableLayoutResult> layout = plannerContext.getMetadata().getLayout(
+        // check if new domain is wider than domain already provided by table scan
+        if (constraint.predicate().isEmpty() && newDomain.contains(node.getEnforcedConstraint())) {
+            Expression resultingPredicate = createResultingPredicate(
+                    plannerContext,
                     session,
-                    node.getTable(),
-                    constraint,
-                    Optional.of(node.getOutputSymbols().stream()
-                            .map(node.getAssignments()::get)
-                            .collect(toImmutableSet())));
+                    symbolAllocator,
+                    typeAnalyzer,
+                    TRUE_LITERAL,
+                    nonDeterministicPredicate,
+                    decomposedPredicate.getRemainingExpression());
 
-            if (layout.isEmpty() || layout.get().getTableProperties().getPredicate().isNone()) {
-                return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            if (!TRUE_LITERAL.equals(resultingPredicate)) {
+                return Optional.of(new FilterNode(filterNode.getId(), node, resultingPredicate));
             }
 
-            newTable = layout.get().getNewTableHandle();
-            newTablePartitioning = layout.get().getTableProperties().getTablePartitioning();
-            remainingFilter = layout.get().getUnenforcedConstraint();
-            precalculateStatistics = false;
+            return Optional.of(node);
         }
+
+        if (newDomain.isNone()) {
+            // TODO: DomainTranslator.fromPredicate can infer that the expression is "false" in some cases (TupleDomain.none()).
+            // This should move to another rule that simplifies the filter using that logic and then rely on RemoveTrivialFilters
+            // to turn the subtree into a Values node
+            return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+        }
+
+        Optional<ConstraintApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyFilter(session, node.getTable(), constraint);
+
+        if (result.isEmpty()) {
+            return Optional.empty();
+        }
+
+        TableHandle newTable = result.get().getHandle();
+
+        TableProperties newTableProperties = plannerContext.getMetadata().getTableProperties(session, newTable);
+        Optional<TablePartitioning> newTablePartitioning = newTableProperties.getTablePartitioning();
+        if (newTableProperties.getPredicate().isNone()) {
+            return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+        }
+
+        TupleDomain<ColumnHandle> remainingFilter = result.get().getRemainingFilter();
+        boolean precalculateStatistics = result.get().isPrecalculateStatistics();
 
         verifyTablePartitioning(session, plannerContext.getMetadata(), node, newTablePartitioning);
 
@@ -337,24 +311,7 @@ public class PushPredicateIntoTableScan
 
     public static TupleDomain<ColumnHandle> computeEnforced(TupleDomain<ColumnHandle> predicate, TupleDomain<ColumnHandle> unenforced)
     {
-        if (predicate.isNone()) {
-            // If the engine requests that the connector provides a layout with a domain of "none". The connector can have two possible reactions, either:
-            // 1. The connector can provide an empty table layout.
-            //   * There would be no unenforced predicate, i.e., unenforced predicate is TupleDomain.all().
-            //   * The predicate was successfully enforced. Enforced predicate would be same as predicate: TupleDomain.none().
-            // 2. The connector can't/won't.
-            //   * The connector would tell the engine to put a filter on top of the scan, i.e., unenforced predicate is TupleDomain.none().
-            //   * The connector didn't successfully enforce anything. Therefore, enforced predicate would be TupleDomain.all().
-            if (unenforced.isNone()) {
-                return TupleDomain.all();
-            }
-            if (unenforced.isAll()) {
-                return TupleDomain.none();
-            }
-            throw new IllegalArgumentException();
-        }
-
-        // The engine requested the connector provides a layout with a non-none TupleDomain.
+        // The engine requested the connector to apply a filter with a non-none TupleDomain.
         // A TupleDomain is effectively a list of column-Domain pairs.
         // The connector is expected enforce the respective domain entirely on none, some, or all of the columns.
         // 1. When the connector could enforce none of the domains, the unenforced would be equal to predicate;
