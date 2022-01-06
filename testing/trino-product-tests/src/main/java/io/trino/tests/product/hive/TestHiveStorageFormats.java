@@ -30,6 +30,7 @@ import io.trino.tests.product.utils.JdbcDriverUtils;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.SoftAssertions;
+import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -552,6 +553,9 @@ public class TestHiveStorageFormats
     @Test(dataProvider = "storageFormatsWithConfiguration", groups = STORAGE_FORMATS_DETAILED)
     public void testInsertAllSupportedDataTypesWithTrino(StorageFormat storageFormat)
     {
+        if (storageFormat.getSessionProperties().containsKey("hive.experimental_parquet_optimized_writer_enabled")) {
+            throw new SkipException("TODO https://github.com/trinodb/trino/issues/10486");
+        }
         // only admin user is allowed to change session properties
         setAdminRole();
         setSessionProperties(storageFormat);
