@@ -159,12 +159,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<TableLayoutResult> getLayout(Session session, TableHandle tableHandle, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public TableProperties getTableProperties(Session session, TableHandle handle)
     {
         throw new UnsupportedOperationException();
@@ -544,12 +538,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts(Session session, TableHandle table)
     {
         throw new UnsupportedOperationException();
     }
