@@ -56,7 +56,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTableLayoutResult;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
@@ -496,10 +495,7 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
         ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(catalogName);
-        if (metadata.usesLegacyTableLayouts()) {
-            ConnectorTableLayoutHandle newTableLayoutHandle = metadata.makeCompatiblePartitioning(session.toConnectorSession(catalogName), tableHandle.getLayout().get(), partitioningHandle.getConnectorHandle());
-            return new TableHandle(catalogName, tableHandle.getConnectorHandle(), transaction, Optional.of(newTableLayoutHandle));
-        }
+
         verify(tableHandle.getLayout().isEmpty(), "layout should not be present");
         ConnectorTableHandle newTableHandle = metadata.makeCompatiblePartitioning(
                 session.toConnectorSession(catalogName),
