@@ -398,12 +398,6 @@ public class KuduMetadata
     }
 
     @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
-    }
-
-    @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
         KuduTableHandle handle = (KuduTableHandle) table;

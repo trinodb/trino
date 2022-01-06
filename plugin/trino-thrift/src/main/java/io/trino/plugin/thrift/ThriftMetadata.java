@@ -215,12 +215,6 @@ public class ThriftMetadata
         return Optional.of(new ProjectionApplicationResult<>(handle, projections, assignmentList.build(), false));
     }
 
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
-    }
-
     private ThriftTableMetadata getRequiredTableMetadata(SchemaTableName schemaTableName)
     {
         Optional<ThriftTableMetadata> table = tableCache.getUnchecked(schemaTableName);

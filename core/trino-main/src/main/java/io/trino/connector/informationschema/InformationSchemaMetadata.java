@@ -160,12 +160,6 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
-    }
-
-    @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle) table;

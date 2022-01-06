@@ -688,12 +688,6 @@ public class IcebergMetadata
         return OptionalLong.empty();
     }
 
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
-    }
-
     public void rollback()
     {
         // TODO: cleanup open transaction
