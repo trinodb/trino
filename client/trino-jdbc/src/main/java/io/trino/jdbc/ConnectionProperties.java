@@ -355,9 +355,12 @@ final class ConnectionProperties
     private static class SslTrustStorePath
             extends AbstractConnectionProperty<String>
     {
+        private static final Predicate<Properties> IF_SYSTEM_TRUST_STORE_NOT_ENABLED =
+                checkedPredicate(properties -> !SSL_USE_SYSTEM_TRUST_STORE.getValue(properties).orElse(false));
+
         public SslTrustStorePath()
         {
-            super("SSLTrustStorePath", NOT_REQUIRED, SslVerification.IF_SSL_VERIFICATION_ENABLED, STRING_CONVERTER);
+            super("SSLTrustStorePath", NOT_REQUIRED, IF_SYSTEM_TRUST_STORE_NOT_ENABLED.and(SslVerification.IF_SSL_VERIFICATION_ENABLED), STRING_CONVERTER);
         }
     }
 

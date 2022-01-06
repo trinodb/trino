@@ -159,6 +159,9 @@ public class TestTrinoDriverUri
         // use system trust store with ssl verification mode NONE
         assertInvalid("jdbc:trino://localhost:8080?SSLUseSystemTrustStore=true", "Connection property 'SSLUseSystemTrustStore' is not allowed");
 
+        // use system trust store with key store path
+        assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLUseSystemTrustStore=true&SSLTrustStorePath=truststore.jks", "Connection property 'SSLTrustStorePath' is not allowed");
+
         // kerberos config without service name
         assertInvalid("jdbc:trino://localhost:8080?KerberosCredentialCachePath=/test", "Connection property 'KerberosCredentialCachePath' is not allowed");
 
