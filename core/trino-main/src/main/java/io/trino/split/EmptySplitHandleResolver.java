@@ -17,19 +17,12 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
 
 public class EmptySplitHandleResolver
         implements ConnectorHandleResolver
 {
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
     {
         throw new UnsupportedOperationException();
     }

@@ -24,7 +24,6 @@ import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.split.EmptySplitHandleResolver;
 
@@ -74,11 +73,6 @@ public final class HandleResolver
         return getId(tableHandle, MaterializedHandleResolver::getTableHandleClass);
     }
 
-    public String getId(ConnectorTableLayoutHandle handle)
-    {
-        return getId(handle, MaterializedHandleResolver::getTableLayoutHandleClass);
-    }
-
     public String getId(ColumnHandle columnHandle)
     {
         return getId(columnHandle, MaterializedHandleResolver::getColumnHandleClass);
@@ -122,11 +116,6 @@ public final class HandleResolver
     public Class<? extends ConnectorTableHandle> getTableHandleClass(String id)
     {
         return resolverFor(id).getTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
-    }
-
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass(String id)
-    {
-        return resolverFor(id).getTableLayoutHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
     public Class<? extends ColumnHandle> getColumnHandleClass(String id)
@@ -193,7 +182,6 @@ public final class HandleResolver
     private static class MaterializedHandleResolver
     {
         private final Optional<Class<? extends ConnectorTableHandle>> tableHandle;
-        private final Optional<Class<? extends ConnectorTableLayoutHandle>> layoutHandle;
         private final Optional<Class<? extends ColumnHandle>> columnHandle;
         private final Optional<Class<? extends ConnectorSplit>> split;
         private final Optional<Class<? extends ConnectorIndexHandle>> indexHandle;
@@ -206,7 +194,6 @@ public final class HandleResolver
         public MaterializedHandleResolver(ConnectorHandleResolver resolver)
         {
             tableHandle = getHandleClass(resolver::getTableHandleClass);
-            layoutHandle = getHandleClass(resolver::getTableLayoutHandleClass);
             columnHandle = getHandleClass(resolver::getColumnHandleClass);
             split = getHandleClass(resolver::getSplitClass);
             indexHandle = getHandleClass(resolver::getIndexHandleClass);
@@ -230,11 +217,6 @@ public final class HandleResolver
         public Optional<Class<? extends ConnectorTableHandle>> getTableHandleClass()
         {
             return tableHandle;
-        }
-
-        public Optional<Class<? extends ConnectorTableLayoutHandle>> getTableLayoutHandleClass()
-        {
-            return layoutHandle;
         }
 
         public Optional<Class<? extends ColumnHandle>> getColumnHandleClass()
@@ -288,7 +270,6 @@ public final class HandleResolver
             }
             MaterializedHandleResolver that = (MaterializedHandleResolver) o;
             return Objects.equals(tableHandle, that.tableHandle) &&
-                    Objects.equals(layoutHandle, that.layoutHandle) &&
                     Objects.equals(columnHandle, that.columnHandle) &&
                     Objects.equals(split, that.split) &&
                     Objects.equals(indexHandle, that.indexHandle) &&
@@ -302,7 +283,7 @@ public final class HandleResolver
         @Override
         public int hashCode()
         {
-            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, tableExecuteHandle, partitioningHandle, transactionHandle);
+            return Objects.hash(tableHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, tableExecuteHandle, partitioningHandle, transactionHandle);
         }
     }
 }
