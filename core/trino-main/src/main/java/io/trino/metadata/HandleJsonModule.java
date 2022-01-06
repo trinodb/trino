@@ -25,7 +25,6 @@ import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
 public class HandleJsonModule
@@ -41,12 +40,6 @@ public class HandleJsonModule
     public static com.fasterxml.jackson.databind.Module tableHandleModule(HandleResolver resolver)
     {
         return new AbstractTypedJacksonModule<>(ConnectorTableHandle.class, resolver::getId, resolver::getTableHandleClass) {};
-    }
-
-    @ProvidesIntoSet
-    public static com.fasterxml.jackson.databind.Module tableLayoutHandleModule(HandleResolver resolver)
-    {
-        return new AbstractTypedJacksonModule<>(ConnectorTableLayoutHandle.class, resolver::getId, resolver::getTableLayoutHandleClass) {};
     }
 
     @ProvidesIntoSet
