@@ -82,19 +82,37 @@ public class TestCreateDropSchema
     {
         String schemaName = "schema_with_nonempty_location_" + randomTableSuffix();
         String schemaDir = warehouseDirectory + "/schema-with-nonempty-location/";
+        // Use subdirectory to make sure file check is recursive
+        String subDir = schemaDir + "subdir/";
+        String externalFile = subDir + "external-file";
 
-        // Create file in schema directory before creating schema
-        String externalFile = schemaDir + "external-file";
-        hdfsClient.createDirectory(schemaDir);
+        // Create file below schema directory before creating schema
+        hdfsClient.createDirectory(subDir);
         hdfsClient.saveFile(externalFile, "");
 
         onTrino().executeQuery(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
-        assertFileExistence(schemaDir, true, "schema directory exists after creating schema");
+        assertFileExistence(externalFile, true, "external file exists after creating schema");
         onTrino().executeQuery("DROP SCHEMA " + schemaName);
-        assertFileExistence(schemaDir, true, "schema directory exists after dropping schema");
         assertFileExistence(externalFile, true, "external file exists after dropping schema");
 
-        hdfsClient.delete(externalFile);
+        hdfsClient.delete(schemaDir);
+    }
+
+    @Test // make sure empty directories are noticed as well
+    public void testDropSchemaFilesWithEmptyExternalSubdir()
+    {
+        String schemaName = "schema_with_empty_subdirectory_" + randomTableSuffix();
+        String schemaDir = format("%s/%s.db/", warehouseDirectory, schemaName);
+        String externalSubdir = schemaDir + "external-subdir/";
+
+        hdfsClient.createDirectory(externalSubdir);
+
+        onTrino().executeQuery("CREATE SCHEMA " + schemaName);
+        assertFileExistence(externalSubdir, true, "external subdirectory exists after creating schema");
+        onTrino().executeQuery("DROP SCHEMA " + schemaName);
+        assertFileExistence(externalSubdir, true, "external subdirectory exists after dropping schema");
+
+        hdfsClient.delete(schemaDir);
     }
 
     // Tests create/drop schema transactions with default schema location
