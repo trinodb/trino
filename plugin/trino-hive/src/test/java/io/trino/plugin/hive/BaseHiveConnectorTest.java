@@ -1819,10 +1819,10 @@ public abstract class BaseHiveConnectorTest
     {
         // We use TEXTFILE in this test because is has a very consistent and predictable size
         @Language("SQL") String createTableSql = "" +
-                "CREATE TABLE test_max_file_size WITH (partitioned_by = ARRAY['returnflag'], format = 'TEXTFILE') AS " +
+                "CREATE TABLE test_max_file_size_partitioned WITH (partitioned_by = ARRAY['returnflag'], format = 'TEXTFILE') AS " +
                 "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, linestatus, shipdate, commitdate, receiptdate, shipinstruct, shipmode, comment, returnflag " +
                 "FROM tpch.sf1.lineitem LIMIT 1000000";
-        @Language("SQL") String selectFileInfo = "SELECT distinct \"$path\", \"$file_size\" FROM test_max_file_size";
+        @Language("SQL") String selectFileInfo = "SELECT distinct \"$path\", \"$file_size\" FROM test_max_file_size_partitioned";
 
         // verify the default behavior is one file per node per partition
         Session session = Session.builder(getSession())
@@ -1830,7 +1830,7 @@ public abstract class BaseHiveConnectorTest
                 .build();
         assertUpdate(session, createTableSql, 1000000);
         assertThat(computeActual(selectFileInfo).getRowCount()).isEqualTo(expectedTableWriters * 3);
-        assertUpdate("DROP TABLE test_max_file_size");
+        assertUpdate("DROP TABLE test_max_file_size_partitioned");
 
         // Write table with small limit and verify we get multiple files per node near the expected size
         // Writer writes chunks of rows that are about 1MB
@@ -1848,7 +1848,7 @@ public abstract class BaseHiveConnectorTest
             assertThat((Long) row.getField(1)).isLessThan(maxSize.toBytes() * 3);
         }
 
-        assertUpdate("DROP TABLE test_max_file_size");
+        assertUpdate("DROP TABLE test_max_file_size_partitioned");
     }
 
     @Test
