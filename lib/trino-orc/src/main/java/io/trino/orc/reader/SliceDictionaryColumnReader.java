@@ -185,7 +185,7 @@ public class SliceDictionaryColumnReader
         if (nonNullValueTemp.length < minNonNullValueSize) {
             nonNullValueTemp = new int[minNonNullValueSize];
             nonNullPositionList = new int[minNonNullValueSize];
-            systemMemoryContext.setBytes(sizeOf(nonNullValueTemp) + sizeOf(nonNullPositionList));
+            systemMemoryContext.setBytes(getRetainedSizeInBytes());
         }
 
         dataStream.next(nonNullValueTemp, nonNullCount);
@@ -219,6 +219,7 @@ public class SliceDictionaryColumnReader
             dictionaryOffsets[positionCount] = dictionaryOffsets[positionCount - 1];
             dictionaryBlock = new VariableWidthBlock(positionCount, wrappedBuffer(dictionaryData), dictionaryOffsets, Optional.of(isNullVector));
             currentDictionaryData = dictionaryData;
+            systemMemoryContext.setBytes(getRetainedSizeInBytes());
         }
     }
 
@@ -363,6 +364,8 @@ public class SliceDictionaryColumnReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE;
+        return INSTANCE_SIZE + sizeOf(nonNullValueTemp) + sizeOf(nonNullPositionList) + sizeOf(dictionaryData)
+                + sizeOf(dictionaryLength) + sizeOf(dictionaryOffsetVector)
+                + (currentDictionaryData == dictionaryData ? 0 : sizeOf(currentDictionaryData));
     }
 }

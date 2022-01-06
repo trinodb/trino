@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.util.HashMap;
 
 import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.orc.OrcTester.Format.ORC_12;
@@ -75,8 +76,8 @@ public class TestOrcReaderMemoryUsage
 
                 // StripeReader memory should increase after reading a block.
                 assertGreaterThan(reader.getCurrentStripeRetainedSizeInBytes(), stripeReaderRetainedSize);
-                // There are no local buffers needed.
-                assertEquals(reader.getStreamReaderRetainedSizeInBytes() - streamReaderRetainedSize, 0L);
+                // There may be some extra local buffers needed for dictionary data.
+                assertGreaterThanOrEqual(reader.getStreamReaderRetainedSizeInBytes(), streamReaderRetainedSize);
                 // The total retained size and system memory usage should be greater than 0 byte because of the instance sizes.
                 assertGreaterThan(reader.getRetainedSizeInBytes() - readerRetainedSize, 0L);
                 assertGreaterThan(reader.getSystemMemoryUsage() - readerSystemMemoryUsage, 0L);
