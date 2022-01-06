@@ -299,7 +299,11 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("varchar(10485760)", "'text_f'", createVarcharType(10485760), "CAST('text_f' AS varchar(10485760))") // too long for a char in Trino
                 .execute(getQueryRunner(), postgresCreateAndInsert("test_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
+    }
 
+    @Test
+    public void testUnboundedVarchar()
+    {
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar", "'text_a'", createUnboundedVarcharType(), "CAST('text_a' AS varchar)")
                 .addRoundTrip("varchar", "'text_b'", createUnboundedVarcharType(), "CAST('text_b' AS varchar)")
