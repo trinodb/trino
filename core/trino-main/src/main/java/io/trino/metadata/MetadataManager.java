@@ -1018,22 +1018,6 @@ public final class MetadataManager
     }
 
     @Override
-    public boolean supportsMetadataDelete(Session session, TableHandle tableHandle)
-    {
-        CatalogName catalogName = tableHandle.getCatalogName();
-        ConnectorMetadata metadata = getMetadata(session, catalogName);
-
-        if (!metadata.usesLegacyTableLayouts()) {
-            return false;
-        }
-
-        return metadata.supportsMetadataDelete(
-                session.toConnectorSession(catalogName),
-                tableHandle.getConnectorHandle(),
-                tableHandle.getLayout().get());
-    }
-
-    @Override
     public Optional<TableHandle> applyDelete(Session session, TableHandle table)
     {
         CatalogName catalogName = table.getCatalogName();
@@ -1055,10 +1039,6 @@ public final class MetadataManager
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
-        if (metadata.usesLegacyTableLayouts()) {
-            checkArgument(table.getLayout().isPresent(), "table layout is missing");
-            return metadata.metadataDelete(session.toConnectorSession(catalogName), table.getConnectorHandle(), table.getLayout().get());
-        }
         checkArgument(table.getLayout().isEmpty(), "table layout should not be present");
 
         return metadata.executeDelete(connectorSession, table.getConnectorHandle());

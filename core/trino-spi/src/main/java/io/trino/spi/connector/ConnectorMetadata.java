@@ -773,24 +773,6 @@ public interface ConnectorMetadata
     }
 
     /**
-     * @return whether delete without table scan is supported
-     */
-    default boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
-    }
-
-    /**
-     * Delete the provided table layout
-     *
-     * @return number of rows deleted, or null for unknown
-     */
-    default OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
-    }
-
-    /**
      * Attempt to push down a delete operation into the connector. If a connector
      * can execute a delete for the table handle on its own, it should return a
      * table handle, which will be passed back to {@link #executeDelete} during
