@@ -211,7 +211,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("real", "nan()", REAL, "CAST(nan() AS real)")
                 .addRoundTrip("real", "-infinity()", REAL, "CAST(-infinity() AS real)")
                 .addRoundTrip("real", "+infinity()", REAL, "CAST(+infinity() AS real)")
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_real"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_real"));
     }
 
     @Test
@@ -233,7 +233,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("double", "nan()", DOUBLE, "nan()")
                 .addRoundTrip("double", "+infinity()", DOUBLE, "+infinity()")
                 .addRoundTrip("double", "-infinity()", DOUBLE, "-infinity()")
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_double"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"));
     }
 
     @Test
@@ -334,7 +334,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("bytea", utf8ByteaLiteral("Bag full of 💰"), VARBINARY, "to_utf8('Bag full of 💰')")
                 .addRoundTrip("bytea", "bytea E'\\\\x0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
                 .addRoundTrip("bytea", "bytea E'\\\\x000000000000'", VARBINARY, "X'000000000000'")
-                .execute(getQueryRunner(), postgresCreateAndInsert("test_varbinary"));
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_bytea"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("varbinary", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
@@ -1515,7 +1515,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("json", "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'", JSON, "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'")
                 .addRoundTrip("json", "JSON '[]'", JSON, "JSON '[]'")
                 .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_json"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_json"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_json"));
     }
 
     @Test
@@ -1562,7 +1562,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("uuid", "UUID '00000000-0000-0000-0000-000000000000'", UUID, "UUID '00000000-0000-0000-0000-000000000000'")
                 .addRoundTrip("uuid", "UUID '123e4567-e89b-12d3-a456-426655440000'", UUID, "UUID '123e4567-e89b-12d3-a456-426655440000'")
                 .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_uuid"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_uuid"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_uuid"));
     }
 
     @Test
