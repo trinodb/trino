@@ -16,19 +16,16 @@ package io.trino.split;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.QueryManagerConfig;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import io.trino.spi.connector.ConnectorSplitSource;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 
 import javax.inject.Inject;
 
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -42,16 +39,10 @@ public class SplitManager
     private final ConcurrentMap<CatalogName, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
     private final int minScheduleSplitBatchSize;
 
-    // NOTE: This only used for filling in the table layout if none is present by the time we
-    // get splits. DO NOT USE IT FOR ANY OTHER PURPOSE, as it will be removed once table layouts
-    // are gone entirely
-    private final Metadata metadata;
-
     @Inject
-    public SplitManager(QueryManagerConfig config, Metadata metadata)
+    public SplitManager(QueryManagerConfig config)
     {
         this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
-        this.metadata = metadata;
     }
 
     public void addConnectorSplitManager(CatalogName catalogName, ConnectorSplitManager connectorSplitManager)
@@ -81,25 +72,13 @@ public class SplitManager
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
-        ConnectorSplitSource source;
-        if (metadata.usesLegacyTableLayouts(session, table)) {
-            ConnectorTableLayoutHandle layout = table.getLayout()
-                    .orElseGet(() -> metadata.getLayout(session, table, Constraint.alwaysTrue(), Optional.empty())
-                            .get()
-                            .getNewTableHandle()
-                            .getLayout().get());
-
-            source = splitManager.getSplits(table.getTransaction(), connectorSession, layout, splitSchedulingStrategy);
-        }
-        else {
-            source = splitManager.getSplits(
-                    table.getTransaction(),
-                    connectorSession,
-                    table.getConnectorHandle(),
-                    splitSchedulingStrategy,
-                    dynamicFilter,
-                    constraint);
-        }
+        ConnectorSplitSource source = splitManager.getSplits(
+                table.getTransaction(),
+                connectorSession,
+                table.getConnectorHandle(),
+                splitSchedulingStrategy,
+                dynamicFilter,
+                constraint);
 
         SplitSource splitSource = new ConnectorAwareSplitSource(catalogName, source);
         if (minScheduleSplitBatchSize > 1) {

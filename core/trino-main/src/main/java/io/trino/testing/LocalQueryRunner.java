@@ -344,7 +344,7 @@ public class LocalQueryRunner
                 blockEncodingSerde,
                 nodeManager.getCurrentNode().getNodeVersion());
         this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager);
-        this.splitManager = new SplitManager(new QueryManagerConfig(), metadata);
+        this.splitManager = new SplitManager(new QueryManagerConfig());
         this.planFragmenter = new PlanFragmenter(metadata, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler, blockTypeOperators);
