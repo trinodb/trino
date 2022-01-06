@@ -1019,10 +1019,6 @@ public final class MetadataManager
         CatalogName catalogName = table.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
 
-        if (metadata.usesLegacyTableLayouts()) {
-            return Optional.empty();
-        }
-
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applyDelete(connectorSession, table.getConnectorHandle())
                 .map(newHandle -> new TableHandle(catalogName, newHandle, table.getTransaction()));
@@ -1552,10 +1548,6 @@ public final class MetadataManager
         CatalogName catalogName = table.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
 
-        if (metadata.usesLegacyTableLayouts()) {
-            return Optional.empty();
-        }
-
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applyLimit(connectorSession, table.getConnectorHandle(), limit)
                 .map(result -> new LimitApplicationResult<>(
@@ -1569,10 +1561,6 @@ public final class MetadataManager
     {
         CatalogName catalogName = table.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
-
-        if (metadata.usesLegacyTableLayouts()) {
-            return Optional.empty();
-        }
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applySample(connectorSession, table.getConnectorHandle(), sampleType, sampleRatio)
@@ -1596,10 +1584,6 @@ public final class MetadataManager
 
         CatalogName catalogName = table.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
-
-        if (metadata.usesLegacyTableLayouts()) {
-            return Optional.empty();
-        }
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applyAggregation(connectorSession, table.getConnectorHandle(), aggregations, assignments, groupingSets)
@@ -1687,10 +1671,6 @@ public final class MetadataManager
         CatalogName catalogName = table.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
 
-        if (metadata.usesLegacyTableLayouts()) {
-            return Optional.empty();
-        }
-
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applyTopN(connectorSession, table.getConnectorHandle(), topNCount, sortItems, assignments)
                 .map(result -> new TopNApplicationResult<>(
@@ -1736,10 +1716,6 @@ public final class MetadataManager
         CatalogName catalogName = table.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
 
-        if (metadata.usesLegacyTableLayouts()) {
-            return Optional.empty();
-        }
-
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applyFilter(connectorSession, table.getConnectorHandle(), constraint)
                 .map(result -> new ConstraintApplicationResult<>(
@@ -1753,10 +1729,6 @@ public final class MetadataManager
     {
         CatalogName catalogName = table.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
-
-        if (metadata.usesLegacyTableLayouts()) {
-            return Optional.empty();
-        }
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applyProjection(connectorSession, table.getConnectorHandle(), projections, assignments)

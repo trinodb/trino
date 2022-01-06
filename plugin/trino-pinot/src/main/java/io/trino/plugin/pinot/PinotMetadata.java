@@ -480,12 +480,6 @@ public class PinotMetadata
         return aggregateColumn;
     }
 
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
-    }
-
     @VisibleForTesting
     public List<PinotColumnHandle> getPinotColumns(String tableName)
     {

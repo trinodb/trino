@@ -325,12 +325,6 @@ public class BigQueryMetadata
     }
 
     @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return false;
-    }
-
-    @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
         log.debug("getTableProperties(session=%s, prefix=%s)", session, table);

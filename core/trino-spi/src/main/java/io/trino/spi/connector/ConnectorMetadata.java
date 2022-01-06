@@ -942,14 +942,6 @@ public interface ConnectorMetadata
         return emptyList();
     }
 
-    /**
-     * Whether the connector uses the legacy Table Layout feature.
-     */
-    default boolean usesLegacyTableLayouts()
-    {
-        return true;
-    }
-
     default ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
         return new ConnectorTableProperties();
