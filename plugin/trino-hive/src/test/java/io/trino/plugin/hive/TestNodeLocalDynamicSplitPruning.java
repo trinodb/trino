@@ -153,8 +153,7 @@ public class TestNodeLocalDynamicSplitPruning
                                 20,
                                 20,
                                 ImmutableList.of()))),
-                transaction,
-                Optional.empty());
+                transaction);
 
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TESTING_TYPE_MANAGER,

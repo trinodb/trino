@@ -102,15 +102,13 @@ public class TestPushPredicateIntoTableScan
         nationTableHandle = new TableHandle(
                 catalogName,
                 nation,
-                TpchTransactionHandle.INSTANCE,
-                Optional.empty());
+                TpchTransactionHandle.INSTANCE);
 
         TpchTableHandle orders = new TpchTableHandle("sf1", "orders", 1.0);
         ordersTableHandle = new TableHandle(
                 catalogName,
                 orders,
-                TpchTransactionHandle.INSTANCE,
-                Optional.empty());
+                TpchTransactionHandle.INSTANCE);
     }
 
     @Test
@@ -407,7 +405,6 @@ public class TestPushPredicateIntoTableScan
         return new TableHandle(
                 new CatalogName(MOCK_CATALOG),
                 connectorTableHandle,
-                TestingTransactionHandle.create(),
-                Optional.empty());
+                TestingTransactionHandle.create());
     }
 }

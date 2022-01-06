@@ -20,11 +20,6 @@ public interface ConnectorHandleResolver
         throw new UnsupportedOperationException();
     }
 
-    default Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
-
     default Class<? extends ColumnHandle> getColumnHandleClass()
     {
         throw new UnsupportedOperationException();

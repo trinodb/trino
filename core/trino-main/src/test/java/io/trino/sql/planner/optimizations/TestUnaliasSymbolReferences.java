@@ -149,8 +149,7 @@ public class TestUnaliasSymbolReferences
         return new TableHandle(
                 new CatalogName(session.getCatalog().get()),
                 new TpchTableHandle(TINY_SCHEMA_NAME, tableName, TINY_SCALE_FACTOR),
-                TestingTransactionHandle.create(),
-                Optional.empty());
+                TestingTransactionHandle.create());
     }
 
     interface PlanCreator

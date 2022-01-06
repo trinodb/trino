@@ -233,8 +233,7 @@ public abstract class BaseDataDefinitionTaskTest
                     .map(tableMetadata -> new TableHandle(
                             new CatalogName(CATALOG_NAME),
                             new TestingTableHandle(tableName.asSchemaTableName()),
-                            TestingConnectorTransactionHandle.INSTANCE,
-                            Optional.empty()));
+                            TestingConnectorTransactionHandle.INSTANCE));
         }
 
         @Override

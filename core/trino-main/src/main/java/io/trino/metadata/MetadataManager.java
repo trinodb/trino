@@ -327,16 +327,14 @@ public final class MetadataManager
                         .map(connectorTableHandle -> new TableHandle(
                                 catalogName,
                                 connectorTableHandle,
-                                catalogMetadata.getTransactionHandleFor(catalogName),
-                                Optional.empty()));
+                                catalogMetadata.getTransactionHandleFor(catalogName)));
             }
 
             return Optional.ofNullable(metadata.getTableHandle(connectorSession, table.asSchemaTableName()))
                     .map(connectorTableHandle -> new TableHandle(
                             catalogName,
                             connectorTableHandle,
-                            catalogMetadata.getTransactionHandleFor(catalogName),
-                            Optional.empty()));
+                            catalogMetadata.getTransactionHandleFor(catalogName)));
         });
     }
 
@@ -356,8 +354,7 @@ public final class MetadataManager
                 return Optional.of(new TableHandle(
                         catalogName,
                         tableHandle,
-                        catalogMetadata.getTransactionHandleFor(catalogName),
-                        Optional.empty()));
+                        catalogMetadata.getTransactionHandleFor(catalogName)));
             }
         }
         return Optional.empty();
@@ -460,12 +457,11 @@ public final class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
         ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(catalogName);
 
-        verify(tableHandle.getLayout().isEmpty(), "layout should not be present");
         ConnectorTableHandle newTableHandle = metadata.makeCompatiblePartitioning(
                 session.toConnectorSession(catalogName),
                 tableHandle.getConnectorHandle(),
                 partitioningHandle.getConnectorHandle());
-        return new TableHandle(catalogName, newTableHandle, transaction, Optional.empty());
+        return new TableHandle(catalogName, newTableHandle, transaction);
     }
 
     @Override
@@ -1029,7 +1025,7 @@ public final class MetadataManager
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applyDelete(connectorSession, table.getConnectorHandle())
-                .map(newHandle -> new TableHandle(catalogName, newHandle, table.getTransaction(), Optional.empty()));
+                .map(newHandle -> new TableHandle(catalogName, newHandle, table.getTransaction()));
     }
 
     @Override
@@ -1038,8 +1034,6 @@ public final class MetadataManager
         CatalogName catalogName = table.getCatalogName();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-
-        checkArgument(table.getLayout().isEmpty(), "table layout should not be present");
 
         return metadata.executeDelete(connectorSession, table.getConnectorHandle());
     }
@@ -1050,7 +1044,7 @@ public final class MetadataManager
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
         ConnectorTableHandle newHandle = metadata.beginDelete(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), getRetryPolicy(session).getRetryMode());
-        return new TableHandle(tableHandle.getCatalogName(), newHandle, tableHandle.getTransaction(), tableHandle.getLayout());
+        return new TableHandle(tableHandle.getCatalogName(), newHandle, tableHandle.getTransaction());
     }
 
     @Override
@@ -1067,7 +1061,7 @@ public final class MetadataManager
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
         ConnectorTableHandle newHandle = metadata.beginUpdate(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), updatedColumns, getRetryPolicy(session).getRetryMode());
-        return new TableHandle(tableHandle.getCatalogName(), newHandle, tableHandle.getTransaction(), tableHandle.getLayout());
+        return new TableHandle(tableHandle.getCatalogName(), newHandle, tableHandle.getTransaction());
     }
 
     @Override
@@ -1565,7 +1559,7 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applyLimit(connectorSession, table.getConnectorHandle(), limit)
                 .map(result -> new LimitApplicationResult<>(
-                        new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
+                        new TableHandle(catalogName, result.getHandle(), table.getTransaction()),
                         result.isLimitGuaranteed(),
                         result.isPrecalculateStatistics()));
     }
@@ -1585,8 +1579,7 @@ public final class MetadataManager
                 .map(result -> new SampleApplicationResult<>(new TableHandle(
                         catalogName,
                         result.getHandle(),
-                        table.getTransaction(),
-                        Optional.empty()),
+                        table.getTransaction()),
                         result.isPrecalculateStatistics()));
     }
 
@@ -1614,7 +1607,7 @@ public final class MetadataManager
                     verifyProjection(table, result.getProjections(), result.getAssignments(), aggregations.size());
 
                     return new AggregationApplicationResult<>(
-                            new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
+                            new TableHandle(catalogName, result.getHandle(), table.getTransaction()),
                             result.getProjections(),
                             result.getAssignments(),
                             result.getGroupingColumnMapping(),
@@ -1676,8 +1669,7 @@ public final class MetadataManager
                     new TableHandle(
                             catalogName,
                             result.getTableHandle(),
-                            transaction,
-                            Optional.empty()),
+                            transaction),
                     result.getLeftColumnHandles(),
                     result.getRightColumnHandles(),
                     result.isPrecalculateStatistics());
@@ -1702,7 +1694,7 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applyTopN(connectorSession, table.getConnectorHandle(), topNCount, sortItems, assignments)
                 .map(result -> new TopNApplicationResult<>(
-                        new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
+                        new TableHandle(catalogName, result.getHandle(), table.getTransaction()),
                         result.isTopNGuaranteed(),
                         result.isPrecalculateStatistics()));
     }
@@ -1751,7 +1743,7 @@ public final class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         return metadata.applyFilter(connectorSession, table.getConnectorHandle(), constraint)
                 .map(result -> new ConstraintApplicationResult<>(
-                        new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
+                        new TableHandle(catalogName, result.getHandle(), table.getTransaction()),
                         result.getRemainingFilter(),
                         result.isPrecalculateStatistics()));
     }
@@ -1772,7 +1764,7 @@ public final class MetadataManager
                     verifyProjection(table, result.getProjections(), result.getAssignments(), projections.size());
 
                     return new ProjectionApplicationResult<>(
-                            new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
+                            new TableHandle(catalogName, result.getHandle(), table.getTransaction()),
                             result.getProjections(),
                             result.getAssignments(),
                             result.isPrecalculateStatistics());
