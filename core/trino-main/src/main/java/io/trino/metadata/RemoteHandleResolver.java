@@ -18,7 +18,6 @@ import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.SystemPartitioningHandle;
@@ -28,12 +27,6 @@ public class RemoteHandleResolver
 {
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
     {
         throw new UnsupportedOperationException();
     }
