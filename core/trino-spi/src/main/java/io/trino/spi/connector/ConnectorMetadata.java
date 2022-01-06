@@ -247,17 +247,6 @@ public interface ConnectorMetadata
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getTableMetadata()");
     }
 
-    /**
-     * Return the connector-specific metadata for the specified table layout. This is the object that is passed to the event listener framework.
-     *
-     * @throws RuntimeException if table handle is no longer valid
-     */
-    @Deprecated
-    default Optional<Object> getInfo(ConnectorTableLayoutHandle layoutHandle)
-    {
-        return Optional.empty();
-    }
-
     default Optional<Object> getInfo(ConnectorTableHandle table)
     {
         return Optional.empty();
@@ -1021,7 +1010,6 @@ public interface ConnectorMetadata
      * connectors are required to implement the following methods:
      * <ul>
      * <li>{@link #getTableProperties(ConnectorSession session, ConnectorTableHandle table)}</li>
-     * <li>{@link #getInfo(ConnectorTableHandle table)} </li>
      * </ul>
      */
     default boolean usesLegacyTableLayouts()

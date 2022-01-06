@@ -540,17 +540,6 @@ public final class MetadataManager
         CatalogName catalogName = handle.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
 
-        if (usesLegacyTableLayouts(session, handle)) {
-            ConnectorTableLayoutHandle layoutHandle = handle.getLayout()
-                    .orElseGet(() -> getLayout(session, handle, Constraint.alwaysTrue(), Optional.empty())
-                            .get()
-                            .getNewTableHandle()
-                            .getLayout()
-                            .get());
-
-            return metadata.getInfo(layoutHandle);
-        }
-
         return metadata.getInfo(handle.getConnectorHandle());
     }
 
