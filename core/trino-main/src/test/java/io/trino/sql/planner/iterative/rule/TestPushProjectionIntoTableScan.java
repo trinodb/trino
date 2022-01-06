@@ -326,8 +326,7 @@ public class TestPushProjectionIntoTableScan
         return new TableHandle(
                 new CatalogName(MOCK_CATALOG),
                 new MockConnectorTableHandle(new SchemaTableName(schemaName, tableName)),
-                new ConnectorTransactionHandle() {},
-                Optional.empty());
+                new ConnectorTransactionHandle() {});
     }
 
     private static SymbolReference symbolReference(String name)

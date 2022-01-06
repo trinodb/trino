@@ -35,8 +35,6 @@ import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -63,15 +61,13 @@ public class TestRemoveRedundantTableScanPredicate
         nationTableHandle = new TableHandle(
                 catalogName,
                 nation,
-                TpchTransactionHandle.INSTANCE,
-                Optional.empty());
+                TpchTransactionHandle.INSTANCE);
 
         TpchTableHandle orders = new TpchTableHandle("sf1", "orders", 1.0);
         ordersTableHandle = new TableHandle(
                 catalogName,
                 orders,
-                TpchTransactionHandle.INSTANCE,
-                Optional.empty());
+                TpchTransactionHandle.INSTANCE);
     }
 
     @Test

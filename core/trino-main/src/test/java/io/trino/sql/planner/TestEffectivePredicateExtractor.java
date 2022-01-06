@@ -1246,8 +1246,7 @@ public class TestEffectivePredicateExtractor
         return new TableHandle(
                 new CatalogName("test"),
                 new PredicatedTableHandle(predicate),
-                TestingTransactionHandle.create(),
-                Optional.empty());
+                TestingTransactionHandle.create());
     }
 
     /**

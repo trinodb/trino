@@ -74,8 +74,7 @@ public class TestPushTopNIntoTableScan
         return new TableHandle(
                 new CatalogName(MOCK_CATALOG),
                 tableHandle,
-                new ConnectorTransactionHandle() {},
-                Optional.empty());
+                new ConnectorTransactionHandle() {});
     }
 
     @Test

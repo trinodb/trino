@@ -276,8 +276,7 @@ public class TestCreateMaterializedViewTask
                         new TableHandle(
                                 new CatalogName(CATALOG_NAME),
                                 new TestingTableHandle(tableName.asSchemaTableName()),
-                                TestingConnectorTransactionHandle.INSTANCE,
-                                Optional.empty()));
+                                TestingConnectorTransactionHandle.INSTANCE));
             }
             return Optional.empty();
         }

@@ -274,7 +274,6 @@ public class TestTableScanNodePartitioning
         return new TableHandle(
                 new CatalogName(MOCK_CATALOG),
                 connectorTableHandle,
-                TestingTransactionHandle.create(),
-                Optional.empty());
+                TestingTransactionHandle.create());
     }
 }
