@@ -86,7 +86,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TypeSignature.mapType;
@@ -162,10 +161,15 @@ public class TestPostgreSqlTypeMapping
     @BeforeClass
     public void setUp()
     {
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
         checkIsGap(jvmZone, timeGapInJvmZone1);
         checkIsGap(jvmZone, timeGapInJvmZone2);
         checkIsDoubled(jvmZone, timeDoubledInJvmZone);
 
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
+        checkIsGap(vilnius, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
+        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
+        checkIsDoubled(vilnius, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
         checkIsGap(vilnius, timeGapInVilnius);
         checkIsDoubled(vilnius, timeDoubledInVilnius);
 
@@ -943,53 +947,40 @@ public class TestPostgreSqlTypeMapping
                         .collect(joining(",", "ARRAY[", "]")));
     }
 
-    @Test
-    public void testDate()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testDate(ZoneId sessionZone)
     {
-        ZoneId jvmZone = ZoneId.systemDefault();
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+        SqlDataTypeTest.create()
+                .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'")
+                .addRoundTrip("date", "DATE '1582-10-04'", DATE, "DATE '1582-10-04'") // before julian->gregorian switch
+                .addRoundTrip("date", "DATE '1582-10-05'", DATE, "DATE '1582-10-05'") // begin julian->gregorian switch
+                .addRoundTrip("date", "DATE '1582-10-14'", DATE, "DATE '1582-10-14'") // end julian->gregorian switch
+                .addRoundTrip("date", "DATE '1952-04-03'", DATE, "DATE '1952-04-03'") // before epoch
+                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
+                .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
+                .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'") // change forward at midnight in JVM
+                .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'") // change forward at midnight in Vilnius
+                .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'") // change backward at midnight in Vilnius
+                .addRoundTrip("date", "DATE '5874897-12-31'", DATE, "DATE '5874897-12-31'") // max value in Trino
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
 
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
-        checkIsGap(someZone, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
-        checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
-
-        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
-                    .build();
-            SqlDataTypeTest.create()
-                    .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'")
-                    .addRoundTrip("date", "DATE '1582-10-04'", DATE, "DATE '1582-10-04'") // before julian->gregorian switch
-                    .addRoundTrip("date", "DATE '1582-10-05'", DATE, "DATE '1582-10-05'") // begin julian->gregorian switch
-                    .addRoundTrip("date", "DATE '1582-10-14'", DATE, "DATE '1582-10-14'") // end julian->gregorian switch
-                    .addRoundTrip("date", "DATE '1952-04-03'", DATE, "DATE '1952-04-03'") // before epoch
-                    .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
-                    .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
-                    .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
-                    .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
-                    .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'") // change forward at midnight in JVM
-                    .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'") // change forward at midnight in Vilnius
-                    .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'") // change backward at midnight in Vilnius
-                    .addRoundTrip("date", "DATE '5874897-12-31'", DATE, "DATE '5874897-12-31'") // max value in Trino
-                    .execute(getQueryRunner(), session, postgresCreateAndInsert("test_date"))
-                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
-                    .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"))
-                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
-
-            // min value
-            SqlDataTypeTest.create()
-                    .addRoundTrip("DATE", "'4713-01-01 BC'", DATE, "DATE '-4712-01-01'")
-                    .execute(getQueryRunner(), postgresCreateAndInsert("test_date_min"));
-            SqlDataTypeTest.create()
-                    .addRoundTrip("DATE", "DATE '-4712-01-01'", DATE, "DATE '-4712-01-01'")
-                    .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date_min"))
-                    .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date_min"))
-                    .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date_min"));
-        }
+        // min value
+        SqlDataTypeTest.create()
+                .addRoundTrip("DATE", "'4713-01-01 BC'", DATE, "DATE '-4712-01-01'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_date_min"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("DATE", "DATE '-4712-01-01'", DATE, "DATE '-4712-01-01'")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date_min"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date_min"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date_min"));
     }
 
     @Test
