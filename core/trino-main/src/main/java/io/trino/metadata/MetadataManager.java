@@ -484,14 +484,6 @@ public final class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
-        if (metadata.usesLegacyTableLayouts()) {
-            return handle.getLayout()
-                    .map(layout -> new TableProperties(catalogName, handle.getTransaction(), new ConnectorTableProperties(metadata.getTableLayout(connectorSession, layout))))
-                    .orElseGet(() -> getLayout(session, handle, Constraint.alwaysTrue(), Optional.empty())
-                            .get()
-                            .getTableProperties());
-        }
-
         return new TableProperties(catalogName, handle.getTransaction(), metadata.getTableProperties(connectorSession, handle.getConnectorHandle()));
     }
 
