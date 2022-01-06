@@ -43,7 +43,6 @@ import java.util.stream.Stream;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -173,16 +172,6 @@ public interface ConnectorMetadata
     {
         if (usesLegacyTableLayouts()) {
             throw new IllegalStateException("Connector uses legacy Table Layout but doesn't implement getTableLayouts()");
-        }
-
-        throw new UnsupportedOperationException("Not yet implemented");
-    }
-
-    @Deprecated
-    default ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        if (usesLegacyTableLayouts()) {
-            throw new IllegalStateException("Connector uses legacy Table Layout but doesn't implement getTableLayout()");
         }
 
         throw new UnsupportedOperationException("Not yet implemented");
@@ -1006,11 +995,7 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Whether the connector uses the legacy Table Layout feature. If this method returns false,
-     * connectors are required to implement the following methods:
-     * <ul>
-     * <li>{@link #getTableProperties(ConnectorSession session, ConnectorTableHandle table)}</li>
-     * </ul>
+     * Whether the connector uses the legacy Table Layout feature.
      */
     default boolean usesLegacyTableLayouts()
     {
@@ -1019,17 +1004,7 @@ public interface ConnectorMetadata
 
     default ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
-        if (!usesLegacyTableLayouts()) {
-            throw new IllegalStateException("getTableProperties() must be implemented if usesLegacyTableLayouts is false");
-        }
-
-        List<ConnectorTableLayoutResult> layouts = getTableLayouts(session, table, Constraint.alwaysTrue(), Optional.empty());
-
-        if (layouts.size() != 1) {
-            throw new TrinoException(NOT_SUPPORTED, format("Connector must return a single layout for table %s, but got %s", table, layouts.size()));
-        }
-
-        return new ConnectorTableProperties(layouts.get(0).getTableLayout());
+        return new ConnectorTableProperties();
     }
 
     /**
