@@ -342,11 +342,6 @@ public interface Metadata
     ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
 
     /**
-     * @return whether delete without table scan is supported
-     */
-    boolean supportsMetadataDelete(Session session, TableHandle tableHandle);
-
-    /**
      * Push delete into connector
      */
     Optional<TableHandle> applyDelete(Session session, TableHandle tableHandle);
