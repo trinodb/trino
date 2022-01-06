@@ -389,7 +389,7 @@ public class SemiTransactionalHiveMetastore
             boolean deleteData = location.map(path -> {
                 HdfsContext context = new HdfsContext(session);
                 try (FileSystem fs = hdfsEnvironment.getFileSystem(context, path)) {
-                    return !fs.listFiles(path, false).hasNext();
+                    return !fs.listLocatedStatus(path).hasNext();
                 }
                 catch (IOException | RuntimeException e) {
                     log.warn(e, "Could not check schema directory '%s'", path);
