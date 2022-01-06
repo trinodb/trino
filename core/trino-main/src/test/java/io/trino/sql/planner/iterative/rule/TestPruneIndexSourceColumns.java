@@ -30,7 +30,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -84,8 +83,7 @@ public class TestPruneIndexSourceColumns
                         new TableHandle(
                                 new CatalogName("local"),
                                 new TpchTableHandle(TINY_SCHEMA_NAME, "orders", TINY_SCALE_FACTOR),
-                                TpchTransactionHandle.INSTANCE,
-                                Optional.empty()),
+                                TpchTransactionHandle.INSTANCE),
                         ImmutableSet.of(orderkey, custkey),
                         ImmutableList.of(orderkey, custkey, totalprice),
                         ImmutableMap.of(
