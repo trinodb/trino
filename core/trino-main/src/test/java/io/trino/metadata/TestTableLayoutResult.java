@@ -21,8 +21,8 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
-import static io.trino.metadata.TableLayoutResult.computeEnforced;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan.computeEnforced;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static org.testng.Assert.fail;
