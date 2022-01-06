@@ -25,7 +25,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
-import io.trino.plugin.tpch.TpchTableLayoutHandle;
 import io.trino.plugin.tpch.TpchTransactionHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
@@ -104,14 +103,14 @@ public class TestPushPredicateIntoTableScan
                 catalogName,
                 nation,
                 TpchTransactionHandle.INSTANCE,
-                Optional.of(new TpchTableLayoutHandle(nation, TupleDomain.all())));
+                Optional.empty());
 
         TpchTableHandle orders = new TpchTableHandle("sf1", "orders", 1.0);
         ordersTableHandle = new TableHandle(
                 catalogName,
                 orders,
                 TpchTransactionHandle.INSTANCE,
-                Optional.of(new TpchTableLayoutHandle(orders, TupleDomain.all())));
+                Optional.empty());
     }
 
     @Test
