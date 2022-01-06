@@ -26,6 +26,8 @@ import static io.trino.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.trino.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static io.trino.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static io.trino.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
+import static io.trino.jdbc.ConnectionProperties.SSL_TRUST_STORE_TYPE;
+import static io.trino.jdbc.ConnectionProperties.SSL_USE_SYSTEM_TRUST_STORE;
 import static io.trino.jdbc.ConnectionProperties.SSL_VERIFICATION;
 import static io.trino.jdbc.ConnectionProperties.SslVerificationMode.CA;
 import static io.trino.jdbc.ConnectionProperties.SslVerificationMode.FULL;
@@ -153,6 +155,9 @@ public class TestTrinoDriverUri
 
         // key store path with ssl verification mode NONE
         assertInvalid("jdbc:trino://localhost:8080?SSLKeyStorePath=keystore.jks", "Connection property 'SSLKeyStorePath' is not allowed");
+
+        // use system trust store with ssl verification mode NONE
+        assertInvalid("jdbc:trino://localhost:8080?SSLUseSystemTrustStore=true", "Connection property 'SSLUseSystemTrustStore' is not allowed");
 
         // kerberos config without service name
         assertInvalid("jdbc:trino://localhost:8080?KerberosCredentialCachePath=/test", "Connection property 'KerberosCredentialCachePath' is not allowed");
@@ -330,6 +335,29 @@ public class TestTrinoDriverUri
 
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(SSL_VERIFICATION.getKey()), NONE.name());
+    }
+
+    @Test
+    public void testUriWithSslEnabledSystemTrustStoreDefault()
+            throws SQLException
+    {
+        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080/blackhole?SSL=true&SSLUseSystemTrustStore=true");
+        assertUriPortScheme(parameters, 8080, "https");
+
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(SSL_USE_SYSTEM_TRUST_STORE.getKey()), "true");
+    }
+
+    @Test
+    public void testUriWithSslEnabledSystemTrustStoreOverride()
+            throws SQLException
+    {
+        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080/blackhole?SSL=true&SSLTrustStoreType=Override&SSLUseSystemTrustStore=true");
+        assertUriPortScheme(parameters, 8080, "https");
+
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(SSL_TRUST_STORE_TYPE.getKey()), "Override");
+        assertEquals(properties.getProperty(SSL_USE_SYSTEM_TRUST_STORE.getKey()), "true");
     }
 
     @Test

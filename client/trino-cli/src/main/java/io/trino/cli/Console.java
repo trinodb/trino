@@ -166,6 +166,7 @@ public class Console
                 clientOptions.truststorePath,
                 clientOptions.truststorePassword,
                 clientOptions.truststoreType,
+                clientOptions.useSystemTruststore,
                 clientOptions.insecure,
                 clientOptions.accessToken,
                 clientOptions.user,

@@ -122,7 +122,7 @@ Use the following CLI arguments to connect to a cluster that uses
    * - ``--keystore-password=<password>``
      - Only required if the keystore has a password.
 
-The three ``--truststore`` related options are independent of client certificate
+The four ``--truststore`` related options are independent of client certificate
 authentication with the CLI; instead, they control the client's trust of the
 server's certificate.
 
