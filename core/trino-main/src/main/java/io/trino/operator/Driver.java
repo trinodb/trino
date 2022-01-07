@@ -362,31 +362,37 @@ public class Driver
         try {
             processNewSources();
 
+            if (activeOperators.isEmpty()) {
+                return NOT_BLOCKED;
+            }
             // If there is only one operator, finish it
             // Some operators (LookupJoinOperator and HashBuildOperator) are broken and requires finish to be called continuously
-            // TODO remove the second part of the if statement, when these operators are fixed
+            // TODO remove the if statement, when these operators are fixed
             // Note: finish should not be called on the natural source of the pipeline as this could cause the task to finish early
-            if (!activeOperators.isEmpty() && activeOperators.size() != allOperators.size()) {
+            if (activeOperators.size() != allOperators.size()) {
                 Operator rootOperator = activeOperators.get(0);
                 rootOperator.finish();
                 rootOperator.getOperatorContext().recordFinish(operationTimer);
             }
 
             boolean movedPage = false;
+            int finishedOperatorCount = 0;
             for (int i = 0; i < activeOperators.size() - 1 && !driverContext.isDone(); i++) {
-                Operator current = activeOperators.get(i);
                 Operator next = activeOperators.get(i + 1);
+                Operator current = activeOperators.get(i);
 
-                // skip blocked operator
                 if (getBlockedFuture(current).isPresent()) {
                     continue;
                 }
 
+                boolean currentIsFinished = current.isFinished();
                 // if the current operator is not finished and next operator isn't blocked and needs input...
-                if (!current.isFinished() && getBlockedFuture(next).isEmpty() && next.needsInput()) {
+                if (!currentIsFinished && getBlockedFuture(next).isEmpty() && next.needsInput()) {
                     // get an output page from current operator
                     Page page = current.getOutput();
                     current.getOperatorContext().recordGetOutput(operationTimer, page);
+                    // update whether the current operator is now finished after calling getOutput()
+                    currentIsFinished = current.isFinished();
 
                     // if we got an output page, add it to the next operator
                     if (page != null && page.getPositionCount() != 0) {
@@ -394,38 +400,39 @@ public class Driver
                         next.getOperatorContext().recordAddInput(operationTimer, page);
                         movedPage = true;
                     }
-
-                    if (current instanceof SourceOperator) {
+                    else if (current instanceof SourceOperator) {
                         movedPage = true;
                     }
                 }
-
                 // if current operator is finished...
-                if (current.isFinished()) {
+                if (currentIsFinished) {
+                    finishedOperatorCount = i;
                     // let next operator know there will be no more data
                     next.finish();
                     next.getOperatorContext().recordFinish(operationTimer);
                 }
             }
 
-            for (int index = activeOperators.size() - 1; index >= 0; index--) {
-                if (activeOperators.get(index).isFinished()) {
-                    // close and remove this operator and all source operators
-                    List<Operator> finishedOperators = this.activeOperators.subList(0, index + 1);
-                    Throwable throwable = closeAndDestroyOperators(finishedOperators);
-                    finishedOperators.clear();
-                    if (throwable != null) {
-                        throwIfUnchecked(throwable);
-                        throw new RuntimeException(throwable);
-                    }
-                    // Finish the next operator, which is now the first operator.
-                    if (!activeOperators.isEmpty()) {
-                        Operator newRootOperator = activeOperators.get(0);
-                        newRootOperator.finish();
-                        newRootOperator.getOperatorContext().recordFinish(operationTimer);
-                    }
-                    break;
-                }
+            // check whether the final operator is finished
+            Throwable throwable = null;
+            if (activeOperators.get(activeOperators.size() - 1).isFinished()) {
+                // all operators can be closed, the final operator is finished
+                throwable = closeAndDestroyOperators(activeOperators);
+                activeOperators.clear();
+            }
+            else if (finishedOperatorCount > 0) {
+                // close and remove the last finished operator and all of its sources
+                List<Operator> finishedOperators = this.activeOperators.subList(0, finishedOperatorCount);
+                throwable = closeAndDestroyOperators(finishedOperators);
+                finishedOperators.clear();
+                // Finish the next operator, which is now the first operator.
+                Operator newRootOperator = activeOperators.get(0);
+                newRootOperator.finish();
+                newRootOperator.getOperatorContext().recordFinish(operationTimer);
+            }
+            if (throwable != null) {
+                throwIfUnchecked(throwable);
+                throw new RuntimeException(throwable);
             }
 
             // if we did not move any pages, check if we are blocked
