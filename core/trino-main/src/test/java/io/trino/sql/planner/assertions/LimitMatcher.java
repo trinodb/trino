@@ -46,7 +46,7 @@ public class LimitMatcher
         this.limit = limit;
         this.tiesResolvers = ImmutableList.copyOf(requireNonNull(tiesResolvers, "tiesResolvers is null"));
         this.partial = partial;
-        this.preSortedInputs = ImmutableList.copyOf(requireNonNull(preSortedInputs, "requiresPreSortedInputs is null"));
+        this.preSortedInputs = ImmutableList.copyOf(requireNonNull(preSortedInputs, "preSortedInputs is null"));
     }
 
     @Override

@@ -55,7 +55,7 @@ public class PostScript
         this.version = ImmutableList.copyOf(requireNonNull(version, "version is null"));
         this.footerLength = footerLength;
         this.metadataLength = metadataLength;
-        this.compression = requireNonNull(compression, "compressionKind is null");
+        this.compression = requireNonNull(compression, "compression is null");
         this.compressionBlockSize = compressionBlockSize;
         this.hiveWriterVersion = requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
     }

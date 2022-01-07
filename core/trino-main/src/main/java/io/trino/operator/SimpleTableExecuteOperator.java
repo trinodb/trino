@@ -46,8 +46,8 @@ public class SimpleTableExecuteOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.metadata = requireNonNull(metadata, "planNodeId is null");
-            this.session = requireNonNull(session, "planNodeId is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.session = requireNonNull(session, "session is null");
             this.executeHandle = requireNonNull(executeHandle, "executeHandle is null");
         }
 

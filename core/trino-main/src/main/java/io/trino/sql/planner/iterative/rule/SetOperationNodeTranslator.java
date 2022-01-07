@@ -67,7 +67,7 @@ public class SetOperationNodeTranslator
 
     public SetOperationNodeTranslator(Session session, Metadata metadata, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        this.symbolAllocator = requireNonNull(symbolAllocator, "SymbolAllocator is null");
+        this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(metadata, "metadata is null");
         this.countFunction = metadata.resolveFunction(session, QualifiedName.of("count"), fromTypes(BOOLEAN));

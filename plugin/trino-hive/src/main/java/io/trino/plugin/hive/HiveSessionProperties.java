@@ -798,7 +798,7 @@ public final class HiveSessionProperties
     public static Set<String> getQueryPartitionFilterRequiredSchemas(ConnectorSession session)
     {
         Set<String> schemas = (Set<String>) session.getProperty(QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS, Set.class);
-        requireNonNull(schemas, "queryPartitionFilterRequiredSchemas is null");
+        requireNonNull(schemas, "schemas is null");
         return schemas;
     }
 

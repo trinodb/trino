@@ -72,7 +72,7 @@ public class EventListenerManager
 
     public void addEventListener(EventListener eventListener)
     {
-        requireNonNull(eventListener, "EventListener is null");
+        requireNonNull(eventListener, "eventListener is null");
 
         providedEventListeners.add(eventListener);
     }

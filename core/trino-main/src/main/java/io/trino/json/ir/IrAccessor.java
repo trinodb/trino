@@ -29,7 +29,7 @@ public abstract class IrAccessor
     IrAccessor(IrPathNode base, Optional<Type> type)
     {
         super(type);
-        this.base = requireNonNull(base, "accessor base is null");
+        this.base = requireNonNull(base, "base of accessor is null");
     }
 
     @Override

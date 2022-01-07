@@ -82,8 +82,8 @@ public class HttpEventListener
             HttpEventListenerConfig config,
             @ForHttpEventListener HttpClient httpClient)
     {
-        requireNonNull(config, "http event listener config is null");
-        this.client = requireNonNull(httpClient, "http event listener http client is null");
+        requireNonNull(config, "config for http event listener is null");
+        this.client = requireNonNull(httpClient, "httpClient for http event listener is null");
 
         this.queryCompletedEventJsonCodec = requireNonNull(queryCompletedEventJsonCodec, "queryCompletedEventJsonCodec is null");
         this.queryCreatedEventJsonCodec = requireNonNull(queryCreatedEventJsonCodec, "queryCreatedEventJsonCodec is null");

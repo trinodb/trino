@@ -56,7 +56,7 @@ public class ActualProperties
             List<? extends LocalProperty<Symbol>> localProperties,
             Map<Symbol, NullableValue> constants)
     {
-        requireNonNull(global, "globalProperties is null");
+        requireNonNull(global, "global is null");
         requireNonNull(localProperties, "localProperties is null");
         requireNonNull(constants, "constants is null");
 

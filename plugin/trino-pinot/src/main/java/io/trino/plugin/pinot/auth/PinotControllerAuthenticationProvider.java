@@ -29,7 +29,7 @@ public class PinotControllerAuthenticationProvider
 
     private PinotControllerAuthenticationProvider(PinotAuthenticationProvider delegate)
     {
-        this.delegate = requireNonNull(delegate, "Delegate controller authentication provider is required");
+        this.delegate = requireNonNull(delegate, "delegate controller authentication provider is required");
     }
 
     @Override

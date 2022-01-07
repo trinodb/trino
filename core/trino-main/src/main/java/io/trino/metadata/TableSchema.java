@@ -30,7 +30,7 @@ public final class TableSchema
     public TableSchema(String catalogName, ConnectorTableSchema tableSchema)
     {
         requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(tableSchema, "metadata is null");
+        requireNonNull(tableSchema, "tableSchema is null");
 
         this.catalogName = catalogName;
         this.tableSchema = tableSchema;

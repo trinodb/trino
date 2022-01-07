@@ -51,7 +51,7 @@ public class QueryAccessRule
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.roleRegex = requireNonNull(roleRegex, "roleRegex is null");
         this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
-        this.queryOwnerRegex = requireNonNull(queryOwnerRegex, "ownerRegex is null");
+        this.queryOwnerRegex = requireNonNull(queryOwnerRegex, "queryOwnerRegex is null");
         checkState(
                 queryOwnerRegex.isEmpty() || !allow.contains(AccessMode.EXECUTE),
                 "A valid query rule cannot combine an queryOwner condition with access mode 'execute'");

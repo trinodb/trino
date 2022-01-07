@@ -37,7 +37,7 @@ public final class Insert
     private Insert(Optional<NodeLocation> location, Table table, Optional<List<Identifier>> columns, Query query)
     {
         super(location);
-        this.table = requireNonNull(table, "target is null");
+        this.table = requireNonNull(table, "table is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.query = requireNonNull(query, "query is null");
     }

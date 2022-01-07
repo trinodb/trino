@@ -228,8 +228,8 @@ public class TestColumnReader
     {
         private ColumnReaderInput(ColumnReaderProvider columnReaderProvider, NullPositionsProvider nullPositionsProvider, boolean dictionaryEncoded)
         {
-            this.columnReaderProvider = requireNonNull(columnReaderProvider, "columnReader is null");
-            this.nullPositionsProvider = requireNonNull(nullPositionsProvider, "nullPositions is null");
+            this.columnReaderProvider = requireNonNull(columnReaderProvider, "columnReaderProvider is null");
+            this.nullPositionsProvider = requireNonNull(nullPositionsProvider, "nullPositionsProvider is null");
             this.dictionaryEncoded = dictionaryEncoded;
         }
 

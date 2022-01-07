@@ -482,7 +482,7 @@ public final class Environment
 
         public Builder addPasswordAuthenticator(String name, MountableFile configFile, String containerPath)
         {
-            requireNonNull(configFile, "catalogConfig is null");
+            requireNonNull(configFile, "configFile is null");
             requireNonNull(containerPath, "containerPath is null");
             configureContainer(COORDINATOR, container -> container.withCopyFileToContainer(configFile, containerPath));
             return addPasswordAuthenticator(name);

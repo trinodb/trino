@@ -59,7 +59,7 @@ public class IcebergAvroFileWriter
             List<Type> types,
             HiveCompressionCodec hiveCompressionCodec)
     {
-        this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction null");
+        this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
         this.icebergSchema = requireNonNull(icebergSchema, "icebergSchema is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
 

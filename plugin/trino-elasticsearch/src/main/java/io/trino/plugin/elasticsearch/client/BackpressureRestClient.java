@@ -51,7 +51,7 @@ public class BackpressureRestClient
 
     public BackpressureRestClient(RestClient delegate, ElasticsearchConfig config, TimeStat backpressureStats)
     {
-        this.delegate = requireNonNull(delegate, "restClient is null");
+        this.delegate = requireNonNull(delegate, "delegate is null");
         this.backpressureStats = requireNonNull(backpressureStats, "backpressureStats is null");
         retryPolicy = new RetryPolicy<Response>()
                 .withMaxAttempts(-1)

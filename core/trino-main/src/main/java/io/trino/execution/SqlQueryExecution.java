@@ -218,7 +218,7 @@ public class SqlQueryExecution
             this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
             this.taskSourceFactory = requireNonNull(taskSourceFactory, "taskSourceFactory is null");
-            this.eventDrivenTaskSourceFactory = requireNonNull(eventDrivenTaskSourceFactory, "taskSourceFactory is null");
+            this.eventDrivenTaskSourceFactory = requireNonNull(eventDrivenTaskSourceFactory, "eventDrivenTaskSourceFactory is null");
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
         }
     }
@@ -602,7 +602,7 @@ public class SqlQueryExecution
     @Override
     public void failTask(TaskId taskId, Exception reason)
     {
-        requireNonNull(taskId, "stageId is null");
+        requireNonNull(taskId, "taskId is null");
 
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             QueryScheduler scheduler = queryScheduler.get();

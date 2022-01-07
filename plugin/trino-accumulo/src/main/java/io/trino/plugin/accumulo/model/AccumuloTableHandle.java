@@ -71,7 +71,7 @@ public final class AccumuloTableHandle
         this.schema = requireNonNull(schema, "schema is null");
         this.serializerClassName = requireNonNull(serializerClassName, "serializerClassName is null");
         this.table = requireNonNull(table, "table is null");
-        this.constraint = requireNonNull(constraint, "constraints is null");
+        this.constraint = requireNonNull(constraint, "constraint is null");
     }
 
     @JsonProperty

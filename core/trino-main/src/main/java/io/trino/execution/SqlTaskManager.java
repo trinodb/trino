@@ -723,7 +723,7 @@ public class SqlTaskManager
             checkArgument(stuckSplitsWarningThreshold.compareTo(interruptStuckSplitTasksTimeout) <= 0, "interruptStuckSplitTasksTimeout cannot be less than stuckSplitsWarningThreshold");
 
             this.interruptStuckSplitTasksTimeout = requireNonNull(interruptStuckSplitTasksTimeout, "interruptStuckSplitTasksTimeout is null");
-            this.stuckSplitsDetectionInterval = requireNonNull(stuckSplitDetectionInterval, "stuckSplitsDetectionInterval is null");
+            this.stuckSplitsDetectionInterval = requireNonNull(stuckSplitDetectionInterval, "stuckSplitDetectionInterval is null");
             this.stuckSplitStackTracePredicate = requireNonNull(stuckSplitStackTracePredicate, "stuckSplitStackTracePredicate is null");
             this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         }

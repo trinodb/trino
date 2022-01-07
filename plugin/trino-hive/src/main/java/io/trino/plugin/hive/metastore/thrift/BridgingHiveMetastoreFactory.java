@@ -31,7 +31,7 @@ public class BridgingHiveMetastoreFactory
     @Inject
     public BridgingHiveMetastoreFactory(ThriftMetastoreFactory thriftMetastoreFactory)
     {
-        this.thriftMetastoreFactory = requireNonNull(thriftMetastoreFactory, "thriftMetastore is null");
+        this.thriftMetastoreFactory = requireNonNull(thriftMetastoreFactory, "thriftMetastoreFactory is null");
     }
 
     @Override

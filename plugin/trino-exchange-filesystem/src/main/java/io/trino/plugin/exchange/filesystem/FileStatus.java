@@ -37,7 +37,7 @@ public class FileStatus
     @JsonCreator
     public FileStatus(@JsonProperty("filePath") String filePath, @JsonProperty("fileSize") long fileSize)
     {
-        this.filePath = requireNonNull(filePath, "path is null");
+        this.filePath = requireNonNull(filePath, "filePath is null");
         this.fileSize = fileSize;
     }
 

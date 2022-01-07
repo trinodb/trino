@@ -91,7 +91,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
             TrinoFileSystemFactory fileSystemFactory)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
-        this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogSupport is null");
+        this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");

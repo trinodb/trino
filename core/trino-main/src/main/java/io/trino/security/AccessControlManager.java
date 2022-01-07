@@ -107,7 +107,7 @@ public class AccessControlManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.configFiles = ImmutableList.copyOf(config.getAccessControlFiles());
-        this.defaultAccessControlName = requireNonNull(defaultAccessControlName, "defaultAccessControl is null");
+        this.defaultAccessControlName = requireNonNull(defaultAccessControlName, "defaultAccessControlName is null");
         addSystemAccessControlFactory(new DefaultSystemAccessControl.Factory());
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
         addSystemAccessControlFactory(new ReadOnlySystemAccessControl.Factory());
@@ -460,7 +460,7 @@ public class AccessControlManager
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
-        requireNonNull(properties, "nonNullProperties is null");
+        requireNonNull(properties, "properties is null");
 
         checkCanAccessCatalog(securityContext, tableName.getCatalogName());
 
@@ -560,7 +560,7 @@ public class AccessControlManager
     public Set<String> filterColumns(SecurityContext securityContext, CatalogSchemaTableName table, Set<String> columns)
     {
         requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(table, "tableName is null");
+        requireNonNull(table, "table is null");
 
         if (filterTables(securityContext, table.getCatalogName(), ImmutableSet.of(table.getSchemaTableName())).isEmpty()) {
             return ImmutableSet.of();
@@ -814,7 +814,7 @@ public class AccessControlManager
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(materializedViewName, "materializedViewName is null");
-        requireNonNull(properties, "nonNullProperties is null");
+        requireNonNull(properties, "properties is null");
 
         checkCanAccessCatalog(securityContext, materializedViewName.getCatalogName());
 

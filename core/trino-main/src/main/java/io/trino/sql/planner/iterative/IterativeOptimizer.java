@@ -89,7 +89,7 @@ public class IterativeOptimizer
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.useLegacyRules = requireNonNull(useLegacyRules, "useLegacyRules is null");
-        this.rules = requireNonNull(newRules, "rules is null");
+        this.rules = requireNonNull(newRules, "newRules is null");
         this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.ruleIndex = RuleIndex.builder()
                 .register(newRules)

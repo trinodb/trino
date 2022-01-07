@@ -37,7 +37,7 @@ public class RemoteSplit
     @JsonCreator
     public RemoteSplit(@JsonProperty("exchangeInput") ExchangeInput exchangeInput)
     {
-        this.exchangeInput = requireNonNull(exchangeInput, "remoteSplitInput is null");
+        this.exchangeInput = requireNonNull(exchangeInput, "exchangeInput is null");
     }
 
     @JsonProperty

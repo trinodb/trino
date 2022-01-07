@@ -755,7 +755,7 @@ public class TestResourceSecurity
         {
             this.state = requireNonNull(state, "state is null");
             this.tokenServer = requireNonNull(tokenServer, "tokenServer is null");
-            this.nonceCookie = requireNonNull(nonceCookie, "nonce is null");
+            this.nonceCookie = requireNonNull(nonceCookie, "nonceCookie is null");
         }
 
         public String getState()

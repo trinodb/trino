@@ -37,7 +37,7 @@ public class AggregationWindowFunctionSupplier
     public AggregationWindowFunctionSupplier(BoundSignature boundSignature, AggregationImplementation aggregationImplementation, FunctionNullability functionNullability)
     {
         requireNonNull(boundSignature, "boundSignature is null");
-        requireNonNull(aggregationImplementation, "aggregationMetadata is null");
+        requireNonNull(aggregationImplementation, "aggregationImplementation is null");
         constructor = generateWindowAccumulatorClass(boundSignature, aggregationImplementation, functionNullability);
         hasRemoveInput = aggregationImplementation.getRemoveInputFunction().isPresent();
         lambdaInterfaces = aggregationImplementation.getLambdaInterfaces();

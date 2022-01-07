@@ -55,7 +55,7 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
             List<T> genericImplementations,
             Signature signature)
     {
-        this.exactImplementations = ImmutableMap.copyOf(requireNonNull(exactImplementations, "exactImplementation cannot be null"));
+        this.exactImplementations = ImmutableMap.copyOf(requireNonNull(exactImplementations, "exactImplementations cannot be null"));
         this.specializedImplementations = ImmutableList.copyOf(requireNonNull(specializedImplementations, "specializedImplementations cannot be null"));
         this.genericImplementations = ImmutableList.copyOf(requireNonNull(genericImplementations, "genericImplementations cannot be null"));
         this.signature = requireNonNull(signature, "signature cannot be null");

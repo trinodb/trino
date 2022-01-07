@@ -127,7 +127,7 @@ public class IcebergTableHandle
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
-        this.tableSchemaJson = requireNonNull(tableSchemaJson, "schemaJson is null");
+        this.tableSchemaJson = requireNonNull(tableSchemaJson, "tableSchemaJson is null");
         this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         this.formatVersion = formatVersion;
         this.unenforcedPredicate = requireNonNull(unenforcedPredicate, "unenforcedPredicate is null");

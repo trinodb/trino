@@ -29,7 +29,7 @@ public class PinotBrokerAuthenticationProvider
 
     private PinotBrokerAuthenticationProvider(PinotAuthenticationProvider delegate)
     {
-        this.delegate = requireNonNull(delegate, "Delegate broker authentication provider is required");
+        this.delegate = requireNonNull(delegate, "delegate broker authentication provider is required");
     }
 
     @Override

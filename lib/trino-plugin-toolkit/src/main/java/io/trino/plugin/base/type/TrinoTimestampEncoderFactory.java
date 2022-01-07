@@ -29,7 +29,7 @@ public final class TrinoTimestampEncoderFactory
     public static TrinoTimestampEncoder<? extends Comparable<?>> createTimestampEncoder(TimestampType type, DateTimeZone timeZone)
     {
         requireNonNull(type, "type is null");
-        requireNonNull(timeZone, "timeZoneKey is null");
+        requireNonNull(timeZone, "timeZone is null");
 
         if (type.isShort()) {
             return new ShortTimestampEncoder(type, timeZone);

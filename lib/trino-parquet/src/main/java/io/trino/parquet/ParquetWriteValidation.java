@@ -79,7 +79,7 @@ public class ParquetWriteValidation
         this.createdBy = requireNonNull(createdBy, "createdBy is null");
         checkArgument(!createdBy.isEmpty(), "createdBy is empty");
         this.timeZoneId = requireNonNull(timeZoneId, "timeZoneId is null");
-        this.columns = requireNonNull(columns, "columnPaths is null");
+        this.columns = requireNonNull(columns, "columns is null");
         this.rowGroups = requireNonNull(rowGroups, "rowGroups is null");
         this.checksum = requireNonNull(checksum, "checksum is null");
         this.types = requireNonNull(types, "types is null");

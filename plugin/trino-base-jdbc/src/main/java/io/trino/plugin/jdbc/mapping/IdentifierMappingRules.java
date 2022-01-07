@@ -31,8 +31,8 @@ public class IdentifierMappingRules
             @JsonProperty("schemas") List<SchemaMappingRule> schemas,
             @JsonProperty("tables") List<TableMappingRule> tables)
     {
-        this.schemas = requireNonNull(schemas, "schemaMappingRules is null");
-        this.tables = requireNonNull(tables, "tableMappingRules is null");
+        this.schemas = requireNonNull(schemas, "schemas is null");
+        this.tables = requireNonNull(tables, "tables is null");
     }
 
     @JsonProperty("schemas")

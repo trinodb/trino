@@ -690,7 +690,7 @@ public class DistributedQueryRunner
         @CanIgnoreReturnValue
         public SELF setAdditionalModule(Module additionalModule)
         {
-            this.additionalModule = requireNonNull(additionalModule, "additionalModules is null");
+            this.additionalModule = requireNonNull(additionalModule, "additionalModule is null");
             return self();
         }
 

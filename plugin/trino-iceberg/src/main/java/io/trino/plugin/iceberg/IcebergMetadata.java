@@ -1230,7 +1230,7 @@ public class IcebergMetadata
                     " as a location provider. Writing to Iceberg tables with custom location provider is not supported.");
         }
 
-        Duration retention = requireNonNull(retentionThreshold, "retention is null");
+        Duration retention = requireNonNull(retentionThreshold, "retentionThreshold is null");
         checkProcedureArgument(retention.compareTo(minRetention) >= 0,
                 "Retention specified (%s) is shorter than the minimum retention configured in the system (%s). " +
                         "Minimum retention can be changed with %s configuration property or iceberg.%s session property",

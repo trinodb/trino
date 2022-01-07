@@ -246,7 +246,7 @@ public class TrackingFileSystemFactory
 
         public TrackingOutputFile(OutputFile delegate, Consumer<OperationType> tracker)
         {
-            this.delegate = requireNonNull(delegate, "delete is null");
+            this.delegate = requireNonNull(delegate, "delegate is null");
             this.tracker = requireNonNull(tracker, "tracker is null");
         }
 

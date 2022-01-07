@@ -200,7 +200,7 @@ public class ParquetTester
     {
         this.compressions = requireNonNull(compressions, "compressions is null");
         this.writerCompressions = requireNonNull(writerCompressions, "writerCompressions is null");
-        this.versions = requireNonNull(versions, "writerCompressions is null");
+        this.versions = requireNonNull(versions, "versions is null");
         this.sessions = requireNonNull(sessions, "sessions is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
     }

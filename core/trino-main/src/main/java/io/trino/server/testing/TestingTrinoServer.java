@@ -273,7 +273,7 @@ public class TestingTrinoServer
                 });
 
         if (discoveryUri.isPresent()) {
-            requireNonNull(environment, "environment required when discoveryUri is present");
+            requireNonNull(environment, "environment is required when discoveryUri is present");
             serverProperties.put("discovery.uri", discoveryUri.get().toString());
             modules.add(new DiscoveryModule());
         }

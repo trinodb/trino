@@ -44,7 +44,7 @@ public class BigQueryReadClientFactory
     public BigQueryReadClientFactory(BigQueryConfig bigQueryConfig, BigQueryCredentialsSupplier bigQueryCredentialsSupplier, HeaderProvider headerProvider)
     {
         requireNonNull(bigQueryConfig, "bigQueryConfig is null");
-        this.credentialsSupplier = requireNonNull(bigQueryCredentialsSupplier, "credentialsSupplier is null");
+        this.credentialsSupplier = requireNonNull(bigQueryCredentialsSupplier, "bigQueryCredentialsSupplier is null");
         this.headerProvider = requireNonNull(headerProvider, "headerProvider is null");
 
         this.channelPoolSettings = ChannelPoolSettings.builder()

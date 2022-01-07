@@ -72,7 +72,7 @@ public final class WorkProcessorUtils
 
         YieldingIterator(WorkProcessor<T> processor)
         {
-            this.processor = requireNonNull(processor, "processorParameter is null");
+            this.processor = requireNonNull(processor, "processor is null");
         }
 
         @Override

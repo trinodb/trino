@@ -316,7 +316,7 @@ public class HashAggregationOperator
             Optional<PartialAggregationController> partialAggregationController)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.partialAggregationController = requireNonNull(partialAggregationController, "partialAggregationControl is null");
+        this.partialAggregationController = requireNonNull(partialAggregationController, "partialAggregationController is null");
         requireNonNull(step, "step is null");
         requireNonNull(aggregatorFactories, "aggregatorFactories is null");
         requireNonNull(operatorContext, "operatorContext is null");

@@ -106,7 +106,7 @@ public class DeltaLakePageSourceProvider
         this.parquetDateTimeZone = deltaLakeConfig.getParquetDateTimeZone();
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "deleteResultJsonCodec is null");
+        this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "updateResultJsonCodec is null");
     }
 
     @Override

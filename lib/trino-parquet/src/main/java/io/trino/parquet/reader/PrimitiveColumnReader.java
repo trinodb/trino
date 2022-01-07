@@ -170,7 +170,7 @@ public abstract class PrimitiveColumnReader
 
     public PrimitiveColumnReader(PrimitiveField field)
     {
-        this.field = requireNonNull(field, "columnDescriptor");
+        this.field = requireNonNull(field, "field is null");
         pageReader = null;
         this.targetRow = 0;
         this.indexIterator = null;

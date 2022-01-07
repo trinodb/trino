@@ -82,7 +82,7 @@ public class JweTokenSerializer
         this.client = requireNonNull(client, "client is null");
         this.issuer = requireNonNull(issuer, "issuer is null");
         this.principalField = requireNonNull(principalField, "principalField is null");
-        this.audience = requireNonNull(audience, "issuer is null");
+        this.audience = requireNonNull(audience, "audience is null");
         this.clock = requireNonNull(clock, "clock is null");
         this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
 

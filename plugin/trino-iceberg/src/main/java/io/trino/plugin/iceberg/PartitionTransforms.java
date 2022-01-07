@@ -747,7 +747,7 @@ public final class PartitionTransforms
             this.type = requireNonNull(type, "type is null");
             this.preservesNonNull = preservesNonNull;
             this.monotonic = monotonic;
-            this.blockTransform = requireNonNull(blockTransform, "transform is null");
+            this.blockTransform = requireNonNull(blockTransform, "blockTransform is null");
             this.valueTransform = requireNonNull(valueTransform, "valueTransform is null");
         }
 

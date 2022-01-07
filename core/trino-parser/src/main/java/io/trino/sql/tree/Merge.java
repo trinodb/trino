@@ -53,7 +53,7 @@ public final class Merge
         this.target = requireNonNull(target, "target is null");
         checkArgument(target instanceof Table || target instanceof AliasedRelation, "target (%s) is neither a Table nor an AliasedRelation");
         this.source = requireNonNull(source, "source is null");
-        this.predicate = requireNonNull(predicate, "expression is null");
+        this.predicate = requireNonNull(predicate, "predicate is null");
         this.mergeCases = ImmutableList.copyOf(requireNonNull(mergeCases, "mergeCases is null"));
     }
 

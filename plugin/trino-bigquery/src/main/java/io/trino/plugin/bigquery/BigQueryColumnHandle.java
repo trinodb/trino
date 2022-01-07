@@ -60,9 +60,9 @@ public class BigQueryColumnHandle
             @JsonProperty("description") String description,
             @JsonProperty("hidden") boolean hidden)
     {
-        this.name = requireNonNull(name, "column name cannot be null");
+        this.name = requireNonNull(name, "name of column cannot be null");
         this.bigQueryType = requireNonNull(bigQueryType, () -> format("column type cannot be null for column [%s]", name));
-        this.mode = requireNonNull(mode, "Field mode cannot be null");
+        this.mode = requireNonNull(mode, "mode of field cannot be null");
         this.precision = precision;
         this.scale = scale;
         this.subColumns = ImmutableList.copyOf(requireNonNull(subColumns, "subColumns is null"));

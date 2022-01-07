@@ -22,7 +22,7 @@ public class TimestampSpec
 
     public TimestampSpec(String column, String format)
     {
-        this.column = requireNonNull(column, "columns is null");
+        this.column = requireNonNull(column, "column is null");
         this.format = requireNonNull(format, "format is null");
     }
 

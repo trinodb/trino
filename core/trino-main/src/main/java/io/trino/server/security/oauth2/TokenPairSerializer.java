@@ -53,7 +53,7 @@ public interface TokenPairSerializer
 
         private TokenPair(String accessToken, Date expiration, Optional<String> refreshToken)
         {
-            this.accessToken = requireNonNull(accessToken, "accessToken is nul");
+            this.accessToken = requireNonNull(accessToken, "accessToken is null");
             this.expiration = requireNonNull(expiration, "expiration is null");
             this.refreshToken = requireNonNull(refreshToken, "refreshToken is null");
         }

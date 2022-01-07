@@ -22,7 +22,7 @@ public abstract class Accessor
 
     Accessor(PathNode base)
     {
-        this.base = requireNonNull(base, "accessor base is null");
+        this.base = requireNonNull(base, "base of accessor is null");
     }
 
     @Override

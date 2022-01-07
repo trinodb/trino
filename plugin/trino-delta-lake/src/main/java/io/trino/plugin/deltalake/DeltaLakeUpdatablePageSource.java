@@ -154,7 +154,7 @@ public class DeltaLakeUpdatablePageSource
         this.parquetDateTimeZone = requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "deleteResultJsonCodec is null");
+        this.updateResultJsonCodec = requireNonNull(updateResultJsonCodec, "updateResultJsonCodec is null");
 
         List<DeltaLakeColumnMetadata> columnMetadata = extractSchema(tableHandle.getMetadataEntry(), typeManager);
         List<DeltaLakeColumnHandle> allColumns = columnMetadata.stream()

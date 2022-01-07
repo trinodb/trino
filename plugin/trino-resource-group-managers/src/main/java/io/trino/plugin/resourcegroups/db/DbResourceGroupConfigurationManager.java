@@ -92,7 +92,7 @@ public class DbResourceGroupConfigurationManager
     public DbResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, DbResourceGroupConfig config, ResourceGroupsDao dao, @ForEnvironment String environment)
     {
         super(memoryPoolManager);
-        requireNonNull(dao, "daoProvider is null");
+        requireNonNull(dao, "dao is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.maxRefreshInterval = config.getMaxRefreshInterval();
         this.exactMatchSelectorEnabled = config.getExactMatchSelectorEnabled();

@@ -31,7 +31,7 @@ public class TypedValue
     public TypedValue(Type type, Object objectValue)
     {
         requireNonNull(type, "type is null");
-        requireNonNull(objectValue, "value is null");
+        requireNonNull(objectValue, "objectValue is null");
         checkArgument(type.getJavaType().isAssignableFrom(objectValue.getClass()), "%s value does not match the type %s", objectValue.getClass(), type);
 
         this.type = type;

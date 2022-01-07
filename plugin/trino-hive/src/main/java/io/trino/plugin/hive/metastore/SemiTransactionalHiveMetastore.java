@@ -3090,7 +3090,7 @@ public class SemiTransactionalHiveMetastore
         {
             super(table, principalPrivileges, currentLocation, Optional.empty(), false, PartitionStatistics.empty(), PartitionStatistics.empty(), false); // retries are not supported for transactional tables
             this.partitionMergeResults = requireNonNull(partitionMergeResults, "partitionMergeResults is null");
-            this.partitions = requireNonNull(partitions, "partitions is nul");
+            this.partitions = requireNonNull(partitions, "partitions is null");
         }
 
         public List<PartitionUpdateAndMergeResults> getPartitionMergeResults()

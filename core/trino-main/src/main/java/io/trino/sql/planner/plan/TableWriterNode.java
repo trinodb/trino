@@ -616,7 +616,7 @@ public class TableWriterNode
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
                 @JsonProperty("reportingWrittenBytesSupported") boolean reportingWrittenBytesSupported)
         {
-            this.executeHandle = requireNonNull(executeHandle, "handle is null");
+            this.executeHandle = requireNonNull(executeHandle, "executeHandle is null");
             this.sourceHandle = requireNonNull(sourceHandle, "sourceHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.reportingWrittenBytesSupported = reportingWrittenBytesSupported;
@@ -682,7 +682,7 @@ public class TableWriterNode
             this.handle = requireNonNull(handle, "handle is null");
             this.mergeHandle = requireNonNull(mergeHandle, "mergeHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-            this.mergeParadigmAndTypes = requireNonNull(mergeParadigmAndTypes, "mergeElements is null");
+            this.mergeParadigmAndTypes = requireNonNull(mergeParadigmAndTypes, "mergeParadigmAndTypes is null");
         }
 
         @JsonProperty

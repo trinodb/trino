@@ -30,7 +30,7 @@ public final class RefreshMaterializedView
     public RefreshMaterializedView(Optional<NodeLocation> location, Table table)
     {
         super(location);
-        this.table = requireNonNull(table, "name is null");
+        this.table = requireNonNull(table, "table is null");
     }
 
     public Table getTable()

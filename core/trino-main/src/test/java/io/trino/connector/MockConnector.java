@@ -212,7 +212,7 @@ public class MockConnector
         this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
         this.applyFilter = requireNonNull(applyFilter, "applyFilter is null");
         this.applyTableFunction = requireNonNull(applyTableFunction, "applyTableFunction is null");
-        this.applyTableScanRedirect = requireNonNull(applyTableScanRedirect, "applyTableScanRedirection is null");
+        this.applyTableScanRedirect = requireNonNull(applyTableScanRedirect, "applyTableScanRedirect is null");
         this.redirectTable = requireNonNull(redirectTable, "redirectTable is null");
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");

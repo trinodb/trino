@@ -35,7 +35,7 @@ public class RuleBasedIdentifierMapping
     public RuleBasedIdentifierMapping(IdentifierMappingRules rules, IdentifierMapping delegate)
     {
         requireNonNull(rules, "rules is null");
-        requireNonNull(delegate, "defaultIdentifierMapping is null");
+        requireNonNull(delegate, "delegate is null");
 
         fromRemoteSchema = rules.getSchemaMapping().stream()
                 .collect(toImmutableMap(SchemaMappingRule::getRemoteSchema, SchemaMappingRule::getMapping));

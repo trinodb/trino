@@ -120,7 +120,7 @@ public class ParametricAggregationImplementation
             List<AggregationParameterKind> inputParameterKinds)
     {
         this.signature = requireNonNull(signature, "signature cannot be null");
-        this.definitionClass = requireNonNull(definitionClass, "definition class cannot be null");
+        this.definitionClass = requireNonNull(definitionClass, "definitionClass cannot be null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction cannot be null");
         this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction cannot be null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction cannot be null");

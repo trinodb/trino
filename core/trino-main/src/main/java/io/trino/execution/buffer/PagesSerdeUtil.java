@@ -156,7 +156,7 @@ public final class PagesSerdeUtil
 
         SerializedPageReader(InputStream input)
         {
-            this.inputStream = requireNonNull(input, "inputStream is null");
+            this.inputStream = requireNonNull(input, "input is null");
         }
 
         @Override

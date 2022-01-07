@@ -120,7 +120,7 @@ public class IcebergPageSource
         this.deletePredicate = requireNonNull(deletePredicate, "deletePredicate is null");
         this.positionDeleteSinkSupplier = requireNonNull(positionDeleteSinkSupplier, "positionDeleteSinkSupplier is null");
         this.updatedRowPageSinkSupplier = requireNonNull(updatedRowPageSinkSupplier, "updatedRowPageSinkSupplier is null");
-        requireNonNull(updatedColumns, "updatedColumnFieldIds is null");
+        requireNonNull(updatedColumns, "updatedColumns is null");
         if (!updatedColumns.isEmpty()) {
             this.icebergIdToUpdatedColumnIndex = mapFieldIdsToIndex(updatedColumns);
         }

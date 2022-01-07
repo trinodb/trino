@@ -61,7 +61,7 @@ public class RowPositionsAppender
 
     private RowPositionsAppender(PositionsAppender[] fieldAppenders, int expectedPositions)
     {
-        this.fieldAppenders = requireNonNull(fieldAppenders, "fields is null");
+        this.fieldAppenders = requireNonNull(fieldAppenders, "fieldAppenders is null");
         this.initialEntryCount = expectedPositions;
         updateRetainedSize();
     }

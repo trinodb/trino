@@ -48,7 +48,7 @@ public class DateProjection
     public DateProjection(String columnName, DateFormat dateFormat, Supplier<Instant> leftBound, Supplier<Instant> rightBound, int interval, ChronoUnit intervalUnit)
     {
         super(columnName);
-        this.dateFormat = requireNonNull(dateFormat, "dateFormatPattern is null");
+        this.dateFormat = requireNonNull(dateFormat, "dateFormat is null");
         this.leftBound = requireNonNull(leftBound, "leftBound is null");
         this.rightBound = requireNonNull(rightBound, "rightBound is null");
         this.interval = interval;

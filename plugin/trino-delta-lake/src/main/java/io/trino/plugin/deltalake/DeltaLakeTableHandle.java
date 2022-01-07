@@ -129,7 +129,7 @@ public class DeltaLakeTableHandle
         checkArgument(updateRowIdColumns.isPresent() == (writeType.isPresent() && writeType.get() == UPDATE));
         this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null");
         this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
-        this.updateRowIdColumns = requireNonNull(updateRowIdColumns, "rowIdColumns is null");
+        this.updateRowIdColumns = requireNonNull(updateRowIdColumns, "updateRowIdColumns is null");
         this.analyzeHandle = requireNonNull(analyzeHandle, "analyzeHandle is null");
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");

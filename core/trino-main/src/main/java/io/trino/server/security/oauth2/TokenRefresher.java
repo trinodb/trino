@@ -32,7 +32,7 @@ public class TokenRefresher
     {
         this.tokenAssembler = requireNonNull(tokenAssembler, "tokenAssembler is null");
         this.tokenHandler = requireNonNull(tokenHandler, "tokenHandler is null");
-        this.client = requireNonNull(client, "oAuth2Client is null");
+        this.client = requireNonNull(client, "client is null");
     }
 
     public Optional<UUID> refreshToken(TokenPair tokenPair)

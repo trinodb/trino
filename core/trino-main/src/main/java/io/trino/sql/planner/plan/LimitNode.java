@@ -58,7 +58,7 @@ public class LimitNode
         requireNonNull(source, "source is null");
         checkArgument(count >= 0, "count must be greater than or equal to zero");
         requireNonNull(tiesResolvingScheme, "tiesResolvingScheme is null");
-        requireNonNull(preSortedInputs, "requiresPreSortedInputs is null");
+        requireNonNull(preSortedInputs, "preSortedInputs is null");
 
         this.source = source;
         this.count = count;

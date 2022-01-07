@@ -31,7 +31,7 @@ public final class OrderByExpression
             @JsonProperty("expression") String expression,
             @JsonProperty("asc") boolean asc)
     {
-        this.expression = requireNonNull(expression, "column is null");
+        this.expression = requireNonNull(expression, "expression is null");
         this.asc = asc;
     }
 
