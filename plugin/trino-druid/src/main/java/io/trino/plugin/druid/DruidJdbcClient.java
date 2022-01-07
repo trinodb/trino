@@ -250,7 +250,7 @@ public class DruidJdbcClient
             case Types.TIMESTAMP:
                 // TODO: use timestampColumnMapping when https://issues.apache.org/jira/browse/CALCITE-1630 gets resolved
                 // As mentioned in https://druid.apache.org/docs/latest/ingestion/ingestion-spec.html#timestampspec
-                // Druid supports `nanosecond` in ingestion, there is no clear document about querying, but we should treat them the same
+                // Druid supports `nanosecond` in ingestion. There is no clear document for querying, so we may treat them the same
                 return Optional.of(timestampColumnMappingUsingSqlTimestampWithRoundingFullPushdown(TIMESTAMP_NANOS));
         }
 
