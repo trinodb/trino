@@ -25,10 +25,12 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.iceberg.procedure.OptimizeTableProcedure;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.procedure.Procedure;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -76,5 +78,8 @@ public class IcebergModule
 
         Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
         procedures.addBinding().toProvider(RollbackToSnapshotProcedure.class).in(Scopes.SINGLETON);
+
+        Multibinder<TableProcedureMetadata> tableProcedures = newSetBinder(binder, TableProcedureMetadata.class);
+        tableProcedures.addBinding().toProvider(OptimizeTableProcedure.class).in(Scopes.SINGLETON);
     }
 }

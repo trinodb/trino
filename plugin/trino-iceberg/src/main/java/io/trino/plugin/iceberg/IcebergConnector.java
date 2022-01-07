@@ -31,6 +31,7 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
@@ -62,6 +63,7 @@ public class IcebergConnector
     private final List<PropertyMetadata<?>> tableProperties;
     private final Optional<ConnectorAccessControl> accessControl;
     private final Set<Procedure> procedures;
+    private final Set<TableProcedureMetadata> tableProcedures;
 
     public IcebergConnector(
             LifeCycleManager lifeCycleManager,
@@ -76,7 +78,8 @@ public class IcebergConnector
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
             Optional<ConnectorAccessControl> accessControl,
-            Set<Procedure> procedures)
+            Set<Procedure> procedures,
+            Set<TableProcedureMetadata> tableProcedures)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -92,7 +95,8 @@ public class IcebergConnector
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.procedures = requireNonNull(procedures, "procedures is null");
+        this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
+        this.tableProcedures = ImmutableSet.copyOf(requireNonNull(tableProcedures, "tableProcedures is null"));
     }
 
     @Override
@@ -148,6 +152,12 @@ public class IcebergConnector
     public Set<Procedure> getProcedures()
     {
         return procedures;
+    }
+
+    @Override
+    public Set<TableProcedureMetadata> getTableProcedures()
+    {
+        return tableProcedures;
     }
 
     @Override
