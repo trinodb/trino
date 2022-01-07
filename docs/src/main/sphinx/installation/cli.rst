@@ -126,6 +126,16 @@ The four ``--truststore`` related options are independent of client certificate
 authentication with the CLI; instead, they control the client's trust of the
 server's certificate.
 
+.. list-table:: CLI options to check server certificate trust
+   :widths: 35 65
+   :header-rows: 1
+
+   * - Option
+     - Description
+   * - ``--truststore-use-system-store``
+     - Instruct the client to use the system TrustStore based on the operating system.
+       The TrustStore specification can be overridden using ``--truststore-type``.
+
 .. _cli-jwt-auth:
 
 JWT authentication
