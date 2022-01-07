@@ -66,6 +66,9 @@ public class IcebergSplitManager
         IcebergTableHandle table = (IcebergTableHandle) handle;
 
         if (table.getSnapshotId().isEmpty()) {
+            if (table.isRecordScannedFiles()) {
+                return new FixedSplitSource(ImmutableList.of(), ImmutableList.of());
+            }
             return new FixedSplitSource(ImmutableList.of());
         }
 
@@ -85,9 +88,11 @@ public class IcebergSplitManager
                 table,
                 identityPartitionColumns,
                 tableScan,
+                table.getMaxScannedFileSize(),
                 dynamicFilter,
                 dynamicFilteringWaitTimeout,
-                constraint);
+                constraint,
+                table.isRecordScannedFiles());
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, Thread.currentThread().getContextClassLoader());
     }

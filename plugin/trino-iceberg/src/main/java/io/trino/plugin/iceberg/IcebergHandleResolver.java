@@ -14,12 +14,14 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.plugin.hive.HiveTransactionHandle;
+import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
@@ -54,6 +56,12 @@ public class IcebergHandleResolver
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
         return IcebergWritableTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTableExecuteHandle> getTableExecuteHandleClass()
+    {
+        return IcebergTableExecuteHandle.class;
     }
 
     @Override

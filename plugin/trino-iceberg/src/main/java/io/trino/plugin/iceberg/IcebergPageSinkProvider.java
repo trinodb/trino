@@ -16,12 +16,15 @@ package io.trino.plugin.iceberg;
 import io.airlift.json.JsonCodec;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
+import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import org.apache.iceberg.PartitionSpec;
@@ -92,5 +95,35 @@ public class IcebergPageSinkProvider
                 session,
                 tableHandle.getFileFormat(),
                 maxOpenPartitions);
+    }
+
+    @Override
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    {
+        IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
+        switch (executeHandle.getProcedureId()) {
+            case OPTIMIZE:
+                HdfsContext hdfsContext = new HdfsContext(session);
+                IcebergOptimizeHandle optimizeHandle = (IcebergOptimizeHandle) executeHandle.getProcedureHandle();
+                Schema schema = SchemaParser.fromJson(optimizeHandle.getSchemaAsJson());
+                PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, optimizeHandle.getPartitionSpecAsJson());
+                LocationProvider locationProvider = getLocationProvider(executeHandle.getSchemaTableName(),
+                        executeHandle.getTableLocation(), optimizeHandle.getTableStorageProperties());
+                return new IcebergPageSink(
+                        schema,
+                        partitionSpec,
+                        locationProvider,
+                        fileWriterFactory,
+                        pageIndexerFactory,
+                        hdfsEnvironment,
+                        hdfsContext,
+                        optimizeHandle.getTableColumns(),
+                        jsonCodec,
+                        session,
+                        optimizeHandle.getFileFormat(),
+                        maxOpenPartitions);
+        }
+
+        throw new IllegalArgumentException("Unknown procedure: " + executeHandle.getProcedureId());
     }
 }
