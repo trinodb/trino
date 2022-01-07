@@ -122,14 +122,16 @@ public class TaskOutputOperator
     @Override
     public boolean isFinished()
     {
-        return finished && isBlocked().isDone();
+        // Once finish() has been called, we no longer need to know if the output buffer is full since no
+        // more data will arrive at this operator in this driver
+        return finished && isBlocked.isDone();
     }
 
     @Override
     public ListenableFuture<Void> isBlocked()
     {
-        // Avoid re-synchronizing on the output buffer when operator is already blocked
-        if (isBlocked.isDone()) {
+        // Avoid re-synchronizing on the output buffer when operator is already blocked or when the operator is finished
+        if (!finished && isBlocked.isDone()) {
             isBlocked = outputBuffer.isFull();
             if (isBlocked.isDone()) {
                 isBlocked = NOT_BLOCKED;
@@ -141,7 +143,9 @@ public class TaskOutputOperator
     @Override
     public boolean needsInput()
     {
-        return !finished && isBlocked().isDone();
+        // we assume the driver loop has called isBlocked() immediately before checking needsInput()
+        // and that we don't want to call isBlocked() again to re-acquire the output buffer lock
+        return !finished && isBlocked.isDone();
     }
 
     @Override
