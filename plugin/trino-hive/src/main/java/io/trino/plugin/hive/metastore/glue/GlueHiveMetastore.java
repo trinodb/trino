@@ -899,6 +899,9 @@ public class GlueHiveMetastore
         ImmutableMap.Builder<String, Optional<Partition>> resultBuilder = ImmutableMap.builder();
         for (Entry<String, List<String>> entry : partitionNameToPartitionValuesMap.entrySet()) {
             Partition partition = partitionValuesToPartitionMap.get(entry.getValue());
+            if (partition == null) {
+                log.warn("There is no partition available corresponding to the partition name '%s'", entry.getKey());
+            }
             resultBuilder.put(entry.getKey(), Optional.ofNullable(partition));
         }
         return resultBuilder.build();
