@@ -57,8 +57,10 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Locale;
@@ -78,6 +80,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
@@ -3253,5 +3256,87 @@ public abstract class BaseIcebergConnectorTest
             assertUpdate("DROP TABLE IF EXISTS table_with_partition_at_beginning");
             assertUpdate("DROP TABLE IF EXISTS table_with_partition_at_end");
         }
+    }
+
+    @Test
+    public void testOptimize()
+            throws Exception
+    {
+        String tableName = "test_optimize_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar)");
+
+        // DistributedQueryRunner sets node-scheduler.include-coordinator by default, so include coordinator
+        int workerCount = getQueryRunner().getNodeCount();
+
+        // optimize an empty table
+        assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertThat(getActiveFiles(tableName)).isEmpty();
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (11, 'eleven')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (12, 'zwölf')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (13, 'trzynaście')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (14, 'quatorze')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (15, 'пʼятнадцять')", 1);
+
+        List<String> initialFiles = getActiveFiles(tableName);
+        assertThat(initialFiles)
+                .hasSize(5)
+                // Verify we have sufficiently many test rows with respect to worker count.
+                .hasSizeGreaterThan(workerCount);
+
+        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
+                .matches("VALUES (BIGINT '65', VARCHAR 'eleven zwölf trzynaście quatorze пʼятнадцять')");
+        List<String> updatedFiles = getActiveFiles(tableName);
+        assertThat(updatedFiles)
+                .hasSizeBetween(1, workerCount)
+                .doesNotContainAnyElementsOf(initialFiles);
+        // No files should be removed (this is VACUUM's job, when it exists)
+        assertThat(getAllDataFilesFromTableDirectory(tableName))
+                .containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
+
+        // optimize with low retention threshold, nothing should change
+        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE (file_size_threshold => '33B')");
+        assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
+                .matches("VALUES (BIGINT '65', VARCHAR 'eleven zwölf trzynaście quatorze пʼятнадцять')");
+        assertThat(getActiveFiles(tableName)).isEqualTo(updatedFiles);
+        assertThat(getAllDataFilesFromTableDirectory(tableName))
+                .containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private List<String> getActiveFiles(String tableName)
+    {
+        return computeActual(format("SELECT file_path FROM \"%s$files\"", tableName)).getOnlyColumn()
+                .map(String.class::cast)
+                .collect(toImmutableList());
+    }
+
+    private List<String> getAllDataFilesFromTableDirectory(String tableName)
+            throws IOException
+    {
+        String schema = getSession().getSchema().orElseThrow();
+        Path tableDataDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve("iceberg_data").resolve(schema).resolve(tableName).resolve("data");
+        try (Stream<Path> list = Files.list(tableDataDir)) {
+            return list
+                    .filter(path -> !path.getFileName().toString().matches("\\..*\\.crc"))
+                    .map(Path::toString)
+                    .collect(toImmutableList());
+        }
+    }
+
+    @Test
+    public void testOptimizeParameterValidation()
+    {
+        assertQueryFails(
+                "ALTER TABLE no_such_table_exists EXECUTE OPTIMIZE",
+                "\\Qline 1:1: Table 'iceberg.tpch.no_such_table_exists' does not exist");
+        assertQueryFails(
+                "ALTER TABLE nation EXECUTE OPTIMIZE (file_size_threshold => '33')",
+                "\\QUnable to set procedure property 'file_size_threshold' to ['33']: size is not a valid data size string: 33");
+        assertQueryFails(
+                "ALTER TABLE nation EXECUTE OPTIMIZE (file_size_threshold => '33s')",
+                "\\QUnable to set procedure property 'file_size_threshold' to ['33s']: Unknown unit: s");
     }
 }
