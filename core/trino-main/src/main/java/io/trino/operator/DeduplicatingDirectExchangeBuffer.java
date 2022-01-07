@@ -172,10 +172,7 @@ public class DeduplicatingDirectExchangeBuffer
         bufferRetainedSizeInBytes += pagesRetainedSizeInBytes;
         if (bufferRetainedSizeInBytes > bufferCapacityInBytes) {
             // TODO: implement disk spilling
-            failure = new TrinoException(NOT_SUPPORTED, "Retries for queries with large result set currently unsupported");
-            pageBuffer.clear();
-            bufferRetainedSizeInBytes = 0;
-            unblock(blocked);
+            fail(new TrinoException(NOT_SUPPORTED, "Retries for queries with large result set currently unsupported"));
             return;
         }
         maxBufferRetainedSizeInBytes = max(maxBufferRetainedSizeInBytes, bufferRetainedSizeInBytes);
@@ -321,10 +318,7 @@ public class DeduplicatingDirectExchangeBuffer
         }
 
         if (failure != null) {
-            pageBuffer.clear();
-            bufferRetainedSizeInBytes = 0;
-            this.failure = failure;
-            unblock(blocked);
+            fail(failure);
         }
     }
 
@@ -402,6 +396,14 @@ public class DeduplicatingDirectExchangeBuffer
             throwIfUnchecked(failure);
             throw new RuntimeException(failure);
         }
+    }
+
+    private synchronized void fail(Throwable failure)
+    {
+        pageBuffer.clear();
+        bufferRetainedSizeInBytes = 0;
+        this.failure = failure;
+        unblock(blocked);
     }
 
     private void unblock(SettableFuture<Void> blocked)
