@@ -60,7 +60,7 @@ public class AllowAllAccessControlManager
     public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner) {}
 
     @Override
-    public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    public Set<String> filterCatalogs(SecurityContext context, Set<String> catalogs)
     {
         return catalogs;
     }

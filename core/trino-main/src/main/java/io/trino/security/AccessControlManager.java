@@ -290,13 +290,13 @@ public class AccessControlManager
     }
 
     @Override
-    public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    public Set<String> filterCatalogs(SecurityContext securityContext, Set<String> catalogs)
     {
-        requireNonNull(identity, "identity is null");
+        requireNonNull(securityContext, "securityContext is null");
         requireNonNull(catalogs, "catalogs is null");
 
         for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
-            catalogs = systemAccessControl.filterCatalogs(new SystemSecurityContext(identity, Optional.empty()), catalogs);
+            catalogs = systemAccessControl.filterCatalogs(securityContext.toSystemSecurityContext(), catalogs);
         }
         return catalogs;
     }
@@ -373,7 +373,7 @@ public class AccessControlManager
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(schemaNames, "schemaNames is null");
 
-        if (filterCatalogs(securityContext.getIdentity(), ImmutableSet.of(catalogName)).isEmpty()) {
+        if (filterCatalogs(securityContext, ImmutableSet.of(catalogName)).isEmpty()) {
             return ImmutableSet.of();
         }
 
@@ -527,7 +527,7 @@ public class AccessControlManager
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(tableNames, "tableNames is null");
 
-        if (filterCatalogs(securityContext.getIdentity(), ImmutableSet.of(catalogName)).isEmpty()) {
+        if (filterCatalogs(securityContext, ImmutableSet.of(catalogName)).isEmpty()) {
             return ImmutableSet.of();
         }
 

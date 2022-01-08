@@ -216,13 +216,13 @@ public class TestFileBasedSystemAccessControl
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    assertEquals(accessControlManager.filterCatalogs(admin, allCatalogs), allCatalogs);
+                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, admin, queryId), allCatalogs), allCatalogs);
                     Set<String> aliceCatalogs = ImmutableSet.of("open-to-all", "alice-catalog", "all-allowed", "staff-catalog");
-                    assertEquals(accessControlManager.filterCatalogs(alice, allCatalogs), aliceCatalogs);
+                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, alice, queryId), allCatalogs), aliceCatalogs);
                     Set<String> bobCatalogs = ImmutableSet.of("open-to-all", "all-allowed", "staff-catalog");
-                    assertEquals(accessControlManager.filterCatalogs(bob, allCatalogs), bobCatalogs);
+                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, bob, queryId), allCatalogs), bobCatalogs);
                     Set<String> nonAsciiUserCatalogs = ImmutableSet.of("open-to-all", "all-allowed", "\u0200\u0200\u0200");
-                    assertEquals(accessControlManager.filterCatalogs(nonAsciiUser, allCatalogs), nonAsciiUserCatalogs);
+                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, nonAsciiUser, queryId), allCatalogs), nonAsciiUserCatalogs);
                 });
     }
 
@@ -234,13 +234,13 @@ public class TestFileBasedSystemAccessControl
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    assertEquals(accessControlManager.filterCatalogs(admin, allCatalogs), allCatalogs);
+                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, admin, queryId), allCatalogs), allCatalogs);
                     Set<String> aliceCatalogs = ImmutableSet.of("open-to-all", "alice-catalog", "all-allowed");
-                    assertEquals(accessControlManager.filterCatalogs(alice, allCatalogs), aliceCatalogs);
+                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, alice, queryId), allCatalogs), aliceCatalogs);
                     Set<String> bobCatalogs = ImmutableSet.of("open-to-all", "all-allowed");
-                    assertEquals(accessControlManager.filterCatalogs(bob, allCatalogs), bobCatalogs);
+                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, bob, queryId), allCatalogs), bobCatalogs);
                     Set<String> nonAsciiUserCatalogs = ImmutableSet.of("open-to-all", "all-allowed", "\u0200\u0200\u0200");
-                    assertEquals(accessControlManager.filterCatalogs(nonAsciiUser, allCatalogs), nonAsciiUserCatalogs);
+                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, nonAsciiUser, queryId), allCatalogs), nonAsciiUserCatalogs);
                 });
     }
 
