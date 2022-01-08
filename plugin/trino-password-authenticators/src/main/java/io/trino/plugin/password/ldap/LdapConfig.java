@@ -40,6 +40,7 @@ public class LdapConfig
     private List<String> userBindSearchPatterns = ImmutableList.of();
     private String groupAuthorizationSearchPattern;
     private String userBaseDistinguishedName;
+    private String groupBaseDistinguishedName;
     private String bindDistinguishedName;
     private String bindPassword;
     private boolean ignoreReferrals;
@@ -139,6 +140,19 @@ public class LdapConfig
     public LdapConfig setUserBaseDistinguishedName(String userBaseDistinguishedName)
     {
         this.userBaseDistinguishedName = userBaseDistinguishedName;
+        return this;
+    }
+
+    public String getGroupBaseDistinguishedName()
+    {
+        return groupBaseDistinguishedName;
+    }
+
+    @Config("ldap.group-base-dn")
+    @ConfigDescription("Base distinguished name of the group. Example: ou=groups,dc=example,dc=com")
+    public LdapConfig setGroupBaseDistinguishedName(String groupBaseDistinguishedName)
+    {
+        this.groupBaseDistinguishedName = groupBaseDistinguishedName;
         return this;
     }
 

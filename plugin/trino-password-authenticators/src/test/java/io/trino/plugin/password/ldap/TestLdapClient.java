@@ -27,7 +27,10 @@ public class TestLdapClient
         implements LdapClient
 {
     static final String BASE_DN = "base-dn";
+    static final String USER_BASE_DN = "user-ou," + BASE_DN;
+    static final String GROUP_BASE_DN = "group-ou," + BASE_DN;
     static final String PATTERN_PREFIX = "pattern::";
+    static final String DEFAULT_GROUP_NAME = "default";
 
     private final Set<Credential> credentials = new HashSet<>();
     private final Set<String> groupMembers = new HashSet<>();
@@ -72,19 +75,44 @@ public class TestLdapClient
             throws NamingException
     {
         validatePassword(contextUserDistinguishedName, contextPassword);
-        return getSearchUser(searchBase, searchFilter)
-                .map(userDNs::get)
-                .orElse(ImmutableSet.of());
+
+        if (searchFilter.startsWith(LdapGroupProvider.GROUP_SEARCH_FILTER_PREFIX)) {
+            return getSearchGroup(searchBase, searchFilter)
+                    .map(ImmutableSet::of)
+                    .orElse(ImmutableSet.of());
+        }
+        else {
+            return getSearchUser(searchBase, searchFilter)
+                    .map(userDNs::get)
+                    .orElse(ImmutableSet.of());
+        }
     }
 
     private static Optional<String> getSearchUser(String searchBase, String groupSearch)
     {
-        if (!searchBase.equals(BASE_DN)) {
+        if (!searchBase.endsWith(BASE_DN)) {
             return Optional.empty();
         }
+
         if (!groupSearch.startsWith(PATTERN_PREFIX)) {
             return Optional.empty();
         }
         return Optional.of(groupSearch.substring(PATTERN_PREFIX.length()));
+    }
+
+    private Optional<String> getSearchGroup(String searchBase, String groupSearch)
+    {
+        if (!searchBase.endsWith(BASE_DN)) {
+            return Optional.empty();
+        }
+
+        String userDn = groupSearch.substring(LdapGroupProvider.GROUP_SEARCH_FILTER_PREFIX.length());
+
+        if (groupMembers.contains(userDn)) {
+            return Optional.of("cn=" + DEFAULT_GROUP_NAME + "," + BASE_DN);
+        }
+        else {
+            return Optional.empty();
+        }
     }
 }
