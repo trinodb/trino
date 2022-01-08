@@ -101,7 +101,7 @@ public interface AccessControl
     /**
      * Filter the list of catalogs to those visible to the identity.
      */
-    Set<String> filterCatalogs(Identity identity, Set<String> catalogs);
+    Set<String> filterCatalogs(SecurityContext context, Set<String> catalogs);
 
     /**
      * Check if identity is allowed to create the specified schema.

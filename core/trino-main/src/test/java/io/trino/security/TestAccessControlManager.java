@@ -126,7 +126,7 @@ public class TestAccessControlManager
                     accessControlManager.checkCanGrantExecuteFunctionPrivilege(context, "function", Identity.ofUser("bob"), false);
                     accessControlManager.checkCanGrantExecuteFunctionPrivilege(context, "function", Identity.ofUser("bob"), true);
                     Set<String> catalogs = ImmutableSet.of("catalog");
-                    assertEquals(accessControlManager.filterCatalogs(identity, catalogs), catalogs);
+                    assertEquals(accessControlManager.filterCatalogs(context, catalogs), catalogs);
                     Set<String> schemas = ImmutableSet.of("schema");
                     assertEquals(accessControlManager.filterSchemas(context, "catalog", schemas), schemas);
                     Set<SchemaTableName> tableNames = ImmutableSet.of(new SchemaTableName("schema", "table"));
