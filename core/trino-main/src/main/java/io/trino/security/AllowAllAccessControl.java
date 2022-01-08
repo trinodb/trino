@@ -72,7 +72,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    public Set<String> filterCatalogs(SecurityContext context, Set<String> catalogs)
     {
         return catalogs;
     }
