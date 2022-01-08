@@ -520,8 +520,8 @@ public final class StandardColumnMappings
     @Deprecated
     public static ColumnMapping timestampColumnMappingUsingSqlTimestampWithRoundingFullPushdown(TimestampType timestampType)
     {
-        // https://druid.apache.org/docs/latest/ingestion/ingestion-spec.html#timestampspec imply Druid support nanosecond precision
-        checkArgument(timestampType.getPrecision() <= TimestampType.TIMESTAMP_NANOS.getPrecision(), "Precision is out of range: %s", timestampType.getPrecision());
+        // TODO: https://druid.apache.org/docs/latest/ingestion/ingestion-spec.html#timestampspec imply Druid support nanosecond precision
+        checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
         return ColumnMapping.longMapping(
                 timestampType,
                 timestampWithRoundingReadFunction(timestampType),

@@ -97,7 +97,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -250,8 +250,8 @@ public class DruidJdbcClient
             case Types.TIMESTAMP:
                 // TODO: use timestampColumnMapping when https://issues.apache.org/jira/browse/CALCITE-1630 gets resolved
                 // As mentioned in https://druid.apache.org/docs/latest/ingestion/ingestion-spec.html#timestampspec
-                // Druid supports `nanosecond` in ingestion. There is no clear document for querying, so we may treat them the same
-                return Optional.of(timestampColumnMappingUsingSqlTimestampWithRoundingFullPushdown(TIMESTAMP_NANOS));
+                // Druid supports `nanosecond` in ingestion. There is no clear document for querying, so for now keep it using MILLISECOND
+                return Optional.of(timestampColumnMappingUsingSqlTimestampWithRoundingFullPushdown(TIMESTAMP_MILLIS));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
