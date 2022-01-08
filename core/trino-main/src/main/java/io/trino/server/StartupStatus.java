@@ -11,16 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.scheduler;
+package io.trino.server;
 
-import java.util.Collection;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-public class AllAtOnceExecutionPolicy
-        implements ExecutionPolicy
+import static com.google.common.base.Preconditions.checkState;
+
+public final class StartupStatus
 {
-    @Override
-    public ExecutionSchedule createExecutionSchedule(Collection<PipelinedStageExecution> stages)
+    private final AtomicBoolean startupComplete = new AtomicBoolean();
+
+    public void startupComplete()
     {
-        return new AllAtOnceExecutionSchedule(stages);
+        checkState(startupComplete.compareAndSet(false, true), "Server startup already marked as complete");
+    }
+
+    public boolean isStartupComplete()
+    {
+        return startupComplete.get();
     }
 }

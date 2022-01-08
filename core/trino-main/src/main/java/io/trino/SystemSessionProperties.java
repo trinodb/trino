@@ -131,6 +131,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_LARGE_DYNAMIC_FILTERS = "enable_large_dynamic_filters";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE = "query_max_total_memory_per_node";
+    public static final String QUERY_MAX_TOTAL_MEMORY_PER_TASK = "query_max_total_memory_per_task";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
     public static final String FILTERING_SEMI_JOIN_TO_INNER = "rewrite_filtering_semi_join_to_inner_join";
     public static final String OPTIMIZE_DUPLICATE_INSENSITIVE_JOINS = "optimize_duplicate_insensitive_joins";
@@ -593,6 +594,11 @@ public final class SystemSessionProperties
                         QUERY_MAX_TOTAL_MEMORY_PER_NODE,
                         "Maximum amount of total memory a query can use per node",
                         nodeMemoryConfig.getMaxQueryTotalMemoryPerNode(),
+                        true),
+                dataSizeProperty(
+                        QUERY_MAX_TOTAL_MEMORY_PER_TASK,
+                        "Maximum amount of memory a single task can use",
+                        nodeMemoryConfig.getMaxQueryTotalMemoryPerTask().orElse(null),
                         true),
                 booleanProperty(
                         IGNORE_DOWNSTREAM_PREFERENCES,
@@ -1158,6 +1164,11 @@ public final class SystemSessionProperties
     public static DataSize getQueryMaxTotalMemoryPerNode(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, DataSize.class);
+    }
+
+    public static Optional<DataSize> getQueryMaxTotalMemoryPerTask(Session session)
+    {
+        return Optional.ofNullable(session.getSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_TASK, DataSize.class));
     }
 
     public static boolean ignoreDownStreamPreferences(Session session)

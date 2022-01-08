@@ -80,7 +80,7 @@ public class AtopSplitManager
                                 true)),
                         false);
                 if (tableHandle.getStartTimeConstraint().overlaps(splitDomain) && tableHandle.getEndTimeConstraint().overlaps(splitDomain)) {
-                    splits.add(new AtopSplit(node.getHostAndPort(), start.toEpochSecond(), start.getZone()));
+                    splits.add(new AtopSplit(node.getHostAndPort(), start.toEpochSecond(), start.getZone().getId()));
                 }
                 start = start.plusDays(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
             }

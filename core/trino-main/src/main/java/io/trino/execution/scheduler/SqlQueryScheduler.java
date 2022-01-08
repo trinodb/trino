@@ -46,6 +46,9 @@ import io.trino.execution.TaskFailureListener;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskManager;
 import io.trino.execution.TaskStatus;
+import io.trino.execution.scheduler.policy.ExecutionPolicy;
+import io.trino.execution.scheduler.policy.ExecutionSchedule;
+import io.trino.execution.scheduler.policy.StagesScheduleResult;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
@@ -118,15 +121,15 @@ import static io.trino.SystemSessionProperties.getWriterMinSize;
 import static io.trino.connector.CatalogName.isInternalSystemConnector;
 import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
 import static io.trino.execution.SqlStage.createSqlStage;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.ABORTED;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.CANCELED;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.FAILED;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.FINISHED;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.FLUSHING;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.RUNNING;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.SCHEDULED;
 import static io.trino.execution.scheduler.PipelinedStageExecution.createPipelinedStageExecution;
 import static io.trino.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
+import static io.trino.execution.scheduler.StageExecution.State.ABORTED;
+import static io.trino.execution.scheduler.StageExecution.State.CANCELED;
+import static io.trino.execution.scheduler.StageExecution.State.FAILED;
+import static io.trino.execution.scheduler.StageExecution.State.FINISHED;
+import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
+import static io.trino.execution.scheduler.StageExecution.State.RUNNING;
+import static io.trino.execution.scheduler.StageExecution.State.SCHEDULED;
 import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.ErrorType.INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
@@ -318,7 +321,7 @@ public class SqlQueryScheduler
                 attempt);
         this.distributedStagesScheduler.set(distributedStagesScheduler);
         distributedStagesScheduler.addStateChangeListener(state -> {
-            if (queryStateMachine.getQueryState() == QueryState.STARTING && state.isRunningOrDone()) {
+            if (queryStateMachine.getQueryState() == QueryState.STARTING && (state == DistributedStagesSchedulerState.RUNNING || state.isDone())) {
                 queryStateMachine.transitionToRunning();
             }
 
@@ -737,7 +740,7 @@ public class SqlQueryScheduler
         private final Map<PlanFragmentId, Optional<int[]>> bucketToPartitionForStagesConsumedByCoordinator;
         private final TaskLifecycleListener taskLifecycleListener;
         private final StageManager stageManager;
-        private final List<PipelinedStageExecution> stageExecutions;
+        private final List<StageExecution> stageExecutions;
         private final AtomicReference<DistributedStagesScheduler> distributedStagesScheduler;
         private final TaskManager coordinatorTaskManager;
 
@@ -757,9 +760,9 @@ public class SqlQueryScheduler
 
             TaskLifecycleListener taskLifecycleListener = new QueryOutputTaskLifecycleListener(queryStateMachine);
             // create executions
-            ImmutableList.Builder<PipelinedStageExecution> stageExecutions = ImmutableList.builder();
+            ImmutableList.Builder<StageExecution> stageExecutions = ImmutableList.builder();
             for (SqlStage stage : stageManager.getCoordinatorStagesInTopologicalOrder()) {
-                PipelinedStageExecution stageExecution = createPipelinedStageExecution(
+                StageExecution stageExecution = createPipelinedStageExecution(
                         stage,
                         outputBuffersForStagesConsumedByCoordinator,
                         taskLifecycleListener,
@@ -834,7 +837,7 @@ public class SqlQueryScheduler
                 Map<PlanFragmentId, Optional<int[]>> bucketToPartitionForStagesConsumedByCoordinator,
                 TaskLifecycleListener taskLifecycleListener,
                 StageManager stageManager,
-                List<PipelinedStageExecution> stageExecutions,
+                List<StageExecution> stageExecutions,
                 AtomicReference<DistributedStagesScheduler> distributedStagesScheduler,
                 TaskManager coordinatorTaskManager)
         {
@@ -851,10 +854,13 @@ public class SqlQueryScheduler
 
         private void initialize()
         {
-            for (PipelinedStageExecution stageExecution : stageExecutions) {
+            for (StageExecution stageExecution : stageExecutions) {
                 stageExecution.addStateChangeListener(state -> {
                     if (queryStateMachine.isDone()) {
                         return;
+                    }
+                    if (queryStateMachine.getQueryState() == QueryState.STARTING && (state == RUNNING || state.isDone())) {
+                        queryStateMachine.transitionToRunning();
                     }
                     // if any coordinator stage failed transition directly to failure
                     if (state == FAILED) {
@@ -876,8 +882,8 @@ public class SqlQueryScheduler
             }
 
             for (int currentIndex = 0, nextIndex = 1; nextIndex < stageExecutions.size(); currentIndex++, nextIndex++) {
-                PipelinedStageExecution stageExecution = stageExecutions.get(currentIndex);
-                PipelinedStageExecution childStageExecution = stageExecutions.get(nextIndex);
+                StageExecution stageExecution = stageExecutions.get(currentIndex);
+                StageExecution childStageExecution = stageExecutions.get(nextIndex);
                 Set<SqlStage> childStages = stageManager.getChildren(stageExecution.getStageId());
                 verify(childStages.size() == 1, "exactly one child stage is expected");
                 SqlStage childStage = getOnlyElement(childStages);
@@ -889,7 +895,7 @@ public class SqlQueryScheduler
                 });
             }
 
-            Optional<PipelinedStageExecution> root = Optional.ofNullable(getFirst(stageExecutions, null));
+            Optional<StageExecution> root = Optional.ofNullable(getFirst(stageExecutions, null));
             root.ifPresent(stageExecution -> stageExecution.addStateChangeListener(state -> {
                 if (state == FINISHED) {
                     queryStateMachine.transitionToFinishing();
@@ -900,7 +906,7 @@ public class SqlQueryScheduler
                 }
             }));
 
-            Optional<PipelinedStageExecution> last = Optional.ofNullable(getLast(stageExecutions, null));
+            Optional<StageExecution> last = Optional.ofNullable(getLast(stageExecutions, null));
             last.ifPresent(stageExecution -> stageExecution.addStateChangeListener(newState -> {
                 if (newState == FLUSHING || newState.isDone()) {
                     DistributedStagesScheduler distributedStagesScheduler = this.distributedStagesScheduler.get();
@@ -948,7 +954,7 @@ public class SqlQueryScheduler
             queryStateMachine.addOutputTaskFailureListener(failureReporter);
 
             InternalNode coordinator = nodeScheduler.createNodeSelector(queryStateMachine.getSession(), Optional.empty()).selectCurrentNode();
-            for (PipelinedStageExecution stageExecution : stageExecutions) {
+            for (StageExecution stageExecution : stageExecutions) {
                 Optional<RemoteTask> remoteTask = stageExecution.scheduleTask(
                         coordinator,
                         0,
@@ -976,7 +982,7 @@ public class SqlQueryScheduler
 
         public void cancelStage(StageId stageId)
         {
-            for (PipelinedStageExecution stageExecution : stageExecutions) {
+            for (StageExecution stageExecution : stageExecutions) {
                 if (stageExecution.getStageId().equals(stageId)) {
                     stageExecution.cancel();
                 }
@@ -985,12 +991,12 @@ public class SqlQueryScheduler
 
         public void cancel()
         {
-            stageExecutions.forEach(PipelinedStageExecution::cancel);
+            stageExecutions.forEach(StageExecution::cancel);
         }
 
         public void abort()
         {
-            stageExecutions.forEach(PipelinedStageExecution::abort);
+            stageExecutions.forEach(StageExecution::abort);
         }
     }
 
@@ -1007,10 +1013,10 @@ public class SqlQueryScheduler
         @Override
         public void onTaskFailed(TaskId taskId, Throwable failure)
         {
-            if (failure instanceof TrinoException && ((TrinoException) failure).getErrorCode() == REMOTE_TASK_FAILED.toErrorCode()) {
+            if (failure instanceof TrinoException && REMOTE_TASK_FAILED.toErrorCode().equals(((TrinoException) failure).getErrorCode())) {
                 // This error indicates that a downstream task was trying to fetch results from an upstream task that is marked as failed
                 // Instead of failing a downstream task let the coordinator handle and report the failure of an upstream task to ensure correct error reporting
-                log.info("Task failure discovered while fetching task results: %s", taskId);
+                log.debug("Task failure discovered while fetching task results: %s", taskId);
                 return;
             }
             log.warn(failure, "Reported task failure: %s", taskId);
@@ -1064,7 +1070,7 @@ public class SqlQueryScheduler
         private final StageManager stageManager;
         private final ExecutionSchedule executionSchedule;
         private final Map<StageId, StageScheduler> stageSchedulers;
-        private final Map<StageId, PipelinedStageExecution> stageExecutions;
+        private final Map<StageId, StageExecution> stageExecutions;
         private final DynamicFilterService dynamicFilterService;
 
         private final AtomicBoolean started = new AtomicBoolean();
@@ -1113,7 +1119,7 @@ public class SqlQueryScheduler
                 });
             }
 
-            Map<StageId, PipelinedStageExecution> stageExecutions = new HashMap<>();
+            Map<StageId, StageExecution> stageExecutions = new HashMap<>();
             for (SqlStage stage : stageManager.getDistributedStagesInTopologicalOrder()) {
                 Optional<SqlStage> parentStage = stageManager.getParent(stage.getStageId());
                 TaskLifecycleListener taskLifecycleListener;
@@ -1123,12 +1129,12 @@ public class SqlQueryScheduler
                 }
                 else {
                     StageId parentStageId = parentStage.get().getStageId();
-                    PipelinedStageExecution parentStageExecution = requireNonNull(stageExecutions.get(parentStageId), () -> "execution is null for stage: " + parentStageId);
+                    StageExecution parentStageExecution = requireNonNull(stageExecutions.get(parentStageId), () -> "execution is null for stage: " + parentStageId);
                     taskLifecycleListener = parentStageExecution.getTaskLifecycleListener();
                 }
 
                 PlanFragment fragment = stage.getFragment();
-                PipelinedStageExecution stageExecution = createPipelinedStageExecution(
+                StageExecution stageExecution = createPipelinedStageExecution(
                         stageManager.get(fragment.getId()),
                         outputBufferManagers,
                         taskLifecycleListener,
@@ -1140,8 +1146,8 @@ public class SqlQueryScheduler
             }
 
             ImmutableMap.Builder<StageId, StageScheduler> stageSchedulers = ImmutableMap.builder();
-            for (PipelinedStageExecution stageExecution : stageExecutions.values()) {
-                List<PipelinedStageExecution> children = stageManager.getChildren(stageExecution.getStageId()).stream()
+            for (StageExecution stageExecution : stageExecutions.values()) {
+                List<StageExecution> children = stageManager.getChildren(stageExecution.getStageId()).stream()
                         .map(stage -> requireNonNull(stageExecutions.get(stage.getStageId()), () -> "stage execution not found for stage: " + stage))
                         .collect(toImmutableList());
                 StageScheduler scheduler = createStageScheduler(
@@ -1250,9 +1256,9 @@ public class SqlQueryScheduler
 
         private static StageScheduler createStageScheduler(
                 QueryStateMachine queryStateMachine,
-                PipelinedStageExecution stageExecution,
+                StageExecution stageExecution,
                 SplitSourceFactory splitSourceFactory,
-                List<PipelinedStageExecution> childStageExecutions,
+                List<StageExecution> childStageExecutions,
                 Function<PartitioningHandle, NodePartitionMap> partitioningCache,
                 NodeScheduler nodeScheduler,
                 NodePartitioningManager nodePartitioningManager,
@@ -1303,11 +1309,11 @@ public class SqlQueryScheduler
                         splitBatchSize,
                         dynamicFilterService,
                         tableExecuteContextManager,
-                        () -> childStageExecutions.stream().anyMatch(PipelinedStageExecution::isAnyTaskBlocked));
+                        () -> childStageExecutions.stream().anyMatch(StageExecution::isAnyTaskBlocked));
             }
             else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
                 Supplier<Collection<TaskStatus>> sourceTasksProvider = () -> childStageExecutions.stream()
-                        .map(PipelinedStageExecution::getTaskStatuses)
+                        .map(StageExecution::getTaskStatuses)
                         .flatMap(List::stream)
                         .collect(toImmutableList());
                 Supplier<Collection<TaskStatus>> writerTasksProvider = stageExecution::getTaskStatuses;
@@ -1320,7 +1326,7 @@ public class SqlQueryScheduler
                         executor,
                         getWriterMinSize(session));
 
-                whenAllStages(childStageExecutions, PipelinedStageExecution.State::isDone)
+                whenAllStages(childStageExecutions, StageExecution.State::isDone)
                         .addListener(scheduler::finish, directExecutor());
 
                 return scheduler;
@@ -1404,15 +1410,15 @@ public class SqlQueryScheduler
             }
         }
 
-        private static ListenableFuture<Void> whenAllStages(Collection<PipelinedStageExecution> stages, Predicate<PipelinedStageExecution.State> predicate)
+        private static ListenableFuture<Void> whenAllStages(Collection<StageExecution> stages, Predicate<StageExecution.State> predicate)
         {
             checkArgument(!stages.isEmpty(), "stages is empty");
             Set<StageId> stageIds = stages.stream()
-                    .map(PipelinedStageExecution::getStageId)
+                    .map(StageExecution::getStageId)
                     .collect(toCollection(Sets::newConcurrentHashSet));
             SettableFuture<Void> future = SettableFuture.create();
 
-            for (PipelinedStageExecution stageExecution : stages) {
+            for (StageExecution stageExecution : stages) {
                 stageExecution.addStateChangeListener(state -> {
                     if (predicate.test(state) && stageIds.remove(stageExecution.getStageId()) && stageIds.isEmpty()) {
                         future.set(null);
@@ -1430,7 +1436,7 @@ public class SqlQueryScheduler
                 StageManager stageManager,
                 ExecutionSchedule executionSchedule,
                 Map<StageId, StageScheduler> stageSchedulers,
-                Map<StageId, PipelinedStageExecution> stageExecutions,
+                Map<StageId, StageExecution> stageExecutions,
                 DynamicFilterService dynamicFilterService)
         {
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
@@ -1445,21 +1451,21 @@ public class SqlQueryScheduler
 
         private void initialize()
         {
-            for (PipelinedStageExecution stageExecution : stageExecutions.values()) {
-                List<PipelinedStageExecution> childStageExecutions = stageManager.getChildren(stageExecution.getStageId()).stream()
+            for (StageExecution stageExecution : stageExecutions.values()) {
+                List<StageExecution> childStageExecutions = stageManager.getChildren(stageExecution.getStageId()).stream()
                         .map(stage -> requireNonNull(stageExecutions.get(stage.getStageId()), () -> "stage execution not found for stage: " + stage))
                         .collect(toImmutableList());
                 if (!childStageExecutions.isEmpty()) {
                     stageExecution.addStateChangeListener(newState -> {
                         if (newState == FLUSHING || newState.isDone()) {
-                            childStageExecutions.forEach(PipelinedStageExecution::cancel);
+                            childStageExecutions.forEach(StageExecution::cancel);
                         }
                     });
                 }
             }
 
             Set<StageId> finishedStages = newConcurrentHashSet();
-            for (PipelinedStageExecution stageExecution : stageExecutions.values()) {
+            for (StageExecution stageExecution : stageExecutions.values()) {
                 stageExecution.addStateChangeListener(state -> {
                     if (stateMachine.getState().isDone()) {
                         return;
@@ -1495,7 +1501,8 @@ public class SqlQueryScheduler
             try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
                 while (!executionSchedule.isFinished()) {
                     List<ListenableFuture<Void>> blockedStages = new ArrayList<>();
-                    for (PipelinedStageExecution stageExecution : executionSchedule.getStagesToSchedule()) {
+                    StagesScheduleResult stagesScheduleResult = executionSchedule.getStagesToSchedule();
+                    for (StageExecution stageExecution : stagesScheduleResult.getStagesToSchedule()) {
                         stageExecution.beginScheduling();
 
                         // perform some scheduling work
@@ -1532,8 +1539,13 @@ public class SqlQueryScheduler
 
                     // wait for a state change and then schedule again
                     if (!blockedStages.isEmpty()) {
+                        ImmutableList.Builder<ListenableFuture<Void>> futures = ImmutableList.builder();
+                        futures.addAll(blockedStages);
+                        // allow for schedule to resume scheduling (e.g. when some active stage completes
+                        // and dependent stages can be started)
+                        stagesScheduleResult.getRescheduleFuture().ifPresent(futures::add);
                         try (TimeStat.BlockTimer timer = schedulerStats.getSleepTime().time()) {
-                            tryGetFutureValue(whenAnyComplete(blockedStages), 1, SECONDS);
+                            tryGetFutureValue(whenAnyComplete(futures.build()), 1, SECONDS);
                         }
                         for (ListenableFuture<Void> blockedStage : blockedStages) {
                             blockedStage.cancel(true);
@@ -1541,8 +1553,8 @@ public class SqlQueryScheduler
                     }
                 }
 
-                for (PipelinedStageExecution stageExecution : stageExecutions.values()) {
-                    PipelinedStageExecution.State state = stageExecution.getState();
+                for (StageExecution stageExecution : stageExecutions.values()) {
+                    StageExecution.State state = stageExecution.getState();
                     if (state != SCHEDULED && state != RUNNING && state != FLUSHING && !state.isDone()) {
                         throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage %s is in state %s", stageExecution.getStageId(), state));
                     }
@@ -1571,7 +1583,7 @@ public class SqlQueryScheduler
         @Override
         public void cancelStage(StageId stageId)
         {
-            PipelinedStageExecution stageExecution = stageExecutions.get(stageId);
+            StageExecution stageExecution = stageExecutions.get(stageId);
             if (stageExecution != null) {
                 stageExecution.cancel();
             }
@@ -1581,26 +1593,26 @@ public class SqlQueryScheduler
         public void cancel()
         {
             stateMachine.transitionToCanceled();
-            stageExecutions.values().forEach(PipelinedStageExecution::cancel);
+            stageExecutions.values().forEach(StageExecution::cancel);
         }
 
         @Override
         public void abort()
         {
             stateMachine.transitionToAborted();
-            stageExecutions.values().forEach(PipelinedStageExecution::abort);
+            stageExecutions.values().forEach(StageExecution::abort);
         }
 
         public void fail(Throwable failureCause, Optional<StageId> failedStageId)
         {
             stateMachine.transitionToFailed(failureCause, failedStageId);
-            stageExecutions.values().forEach(PipelinedStageExecution::abort);
+            stageExecutions.values().forEach(StageExecution::abort);
         }
 
         @Override
         public void reportTaskFailure(TaskId taskId, Throwable failureCause)
         {
-            PipelinedStageExecution stageExecution = stageExecutions.get(taskId.getStageId());
+            StageExecution stageExecution = stageExecutions.get(taskId.getStageId());
             if (stageExecution == null) {
                 return;
             }
@@ -1612,7 +1624,7 @@ public class SqlQueryScheduler
 
             stageExecution.failTask(taskId, failureCause);
             stateMachine.transitionToFailed(failureCause, Optional.of(taskId.getStageId()));
-            stageExecutions.values().forEach(PipelinedStageExecution::abort);
+            stageExecutions.values().forEach(StageExecution::abort);
         }
 
         @Override
@@ -1663,11 +1675,6 @@ public class SqlQueryScheduler
         public boolean isFailure()
         {
             return failureState;
-        }
-
-        public boolean isRunningOrDone()
-        {
-            return this == RUNNING || isDone();
         }
     }
 

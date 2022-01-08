@@ -29,6 +29,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.SqlDate;
@@ -191,7 +192,7 @@ public final class LiteralEncoder
                 string = Decimals.toString((long) object, ((DecimalType) type).getScale());
             }
             else {
-                string = Decimals.toString((Slice) object, ((DecimalType) type).getScale());
+                string = Decimals.toString((Int128) object, ((DecimalType) type).getScale());
             }
             return new Cast(new DecimalLiteral(string), toSqlType(type));
         }

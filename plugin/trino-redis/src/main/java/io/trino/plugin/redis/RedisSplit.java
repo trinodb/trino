@@ -18,10 +18,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -30,6 +32,8 @@ import static java.util.Objects.requireNonNull;
 public final class RedisSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RedisSplit.class).instanceSize();
+
     private final String schemaName;
     private final String tableName;
     private final String keyDataFormat;
@@ -141,6 +145,18 @@ public final class RedisSplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(schemaName)
+                + estimatedSizeOf(tableName)
+                + estimatedSizeOf(keyDataFormat)
+                + estimatedSizeOf(keyName)
+                + estimatedSizeOf(valueDataFormat)
+                + estimatedSizeOf(nodes, HostAddress::getRetainedSizeInBytes);
     }
 
     private static RedisDataType toRedisDataType(String dataFormat)

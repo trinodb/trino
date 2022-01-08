@@ -799,7 +799,7 @@ public class TestPartitionedOutputBuffer
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
         Page page = createPage(1);
-        long serializePageSize = serializePage(page).getRetainedSizeInBytes();
+        long serializePageSize = serializePage(page).getRetainedSize();
         for (int i = 0; i < 5; i++) {
             addPage(buffer, page, 0);
             assertEquals(buffer.getPeakMemoryUsage(), (i + 1) * serializePageSize);

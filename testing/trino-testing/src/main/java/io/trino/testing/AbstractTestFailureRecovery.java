@@ -35,11 +35,13 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -77,9 +79,9 @@ public abstract class AbstractTestFailureRecovery
         extends AbstractTestQueryFramework
 {
     private static final String PARTITIONED_LINEITEM = "partitioned_lineitem";
-    protected static final int INVOCATION_COUNT = 3;
-    private static final Duration MAX_ERROR_DURATION = new Duration(10, SECONDS);
-    private static final Duration REQUEST_TIMEOUT = new Duration(10, SECONDS);
+    protected static final int INVOCATION_COUNT = 1;
+    private static final Duration MAX_ERROR_DURATION = new Duration(5, SECONDS);
+    private static final Duration REQUEST_TIMEOUT = new Duration(5, SECONDS);
 
     @Override
     protected final QueryRunner createQueryRunner()
@@ -115,6 +117,8 @@ public abstract class AbstractTestFailureRecovery
     }
 
     protected abstract void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn);
+
+    protected abstract boolean areWriteRetriesSupported();
 
     @Test(invocationCount = INVOCATION_COUNT)
     public void testSimpleSelect()
@@ -168,25 +172,42 @@ public abstract class AbstractTestFailureRecovery
                 .withSession(session)
                 .experiencing(TASK_MANAGEMENT_REQUEST_FAILURE)
                 .at(leafStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
                 .finishesSuccessfully(queryAssertion);
 
         assertThatQuery(query)
                 .withSession(session)
                 .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
                 .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
                 .finishesSuccessfully(queryAssertion);
 
         assertThatQuery(query)
                 .withSession(session)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(leafStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully(queryAssertion);
 
         assertThatQuery(query)
                 .withSession(session)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.EXTERNAL))
                 .at(intermediateDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully(queryAssertion);
+
+        assertThatQuery(query)
+                .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
+                .at(intermediateDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .finishesSuccessfully();
+
+        assertThatQuery(query)
+                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
+                // using boundary stage so we observe task failures
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer.*3 failures"))
+                .finishesSuccessfully();
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
@@ -198,8 +219,7 @@ public abstract class AbstractTestFailureRecovery
         assertThatQuery("SELECT * FROM nation")
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.USER_ERROR))
                 .at(leafStage())
-                .failsWithErrorThat()
-                .hasMessageContaining(FAILURE_INJECTION_MESSAGE);
+                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
@@ -259,10 +279,12 @@ public abstract class AbstractTestFailureRecovery
     @Test(invocationCount = INVOCATION_COUNT)
     public void testAnalyzeStatistics()
     {
-        testTableModification(
+        testNonSelect(
+                Optional.empty(),
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
                 "ANALYZE <table>",
-                Optional.of("DROP TABLE <table>"));
+                Optional.of("DROP TABLE <table>"),
+                false);
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
@@ -288,34 +310,29 @@ public abstract class AbstractTestFailureRecovery
     @Test(invocationCount = INVOCATION_COUNT)
     public void testRequestTimeouts()
     {
-        assertThatQuery("SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus")
+        // extra test cases not covered by general timeout cases scattered around
+        assertThatQuery("SELECT * FROM nation")
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
-                .at(intermediateDistributedStage())
+                .at(leafStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
                 .finishesSuccessfully();
 
         assertThatQuery("SELECT * FROM nation")
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
                 .finishesSuccessfully();
 
-        assertThatQuery("SELECT * FROM orders o, customer c WHERE o.custkey = c.custkey AND c.nationKey = 1")
-                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
-                .at(boundaryDistributedStage())
-                .finishesSuccessfully();
-
-        assertThatQuery("INSERT INTO <table> SELECT * FROM orders")
-                .withSetupQuery(Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"))
-                .withCleanupQuery(Optional.of("DROP TABLE <table>"))
-                .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
-                .at(boundaryDistributedStage())
-                .finishesSuccessfully();
-
-        assertThatQuery("INSERT INTO <table> SELECT * FROM orders")
-                .withSetupQuery(Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"))
-                .withCleanupQuery(Optional.of("DROP TABLE <table>"))
-                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
-                .at(boundaryDistributedStage())
-                .finishesSuccessfully();
+        if (areWriteRetriesSupported()) {
+            assertThatQuery("INSERT INTO <table> SELECT * FROM orders")
+                    .withSetupQuery(Optional.of("CREATE TABLE <table> AS SELECT * FROM orders WITH NO DATA"))
+                    .withCleanupQuery(Optional.of("DROP TABLE <table>"))
+                    .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
+                    .at(leafStage())
+                    .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                    // get results timeout for leaf stage will not result in accounted task failure if failure recovery is enabled
+                    .finishesSuccessfullyWithoutTaskFailures();
+        }
     }
 
     protected void testTableModification(Optional<String> setupQuery, String query, Optional<String> cleanupQuery)
@@ -325,14 +342,28 @@ public abstract class AbstractTestFailureRecovery
 
     protected void testTableModification(Optional<Session> session, Optional<String> setupQuery, String query, Optional<String> cleanupQuery)
     {
+        testNonSelect(session, setupQuery, query, cleanupQuery, true);
+    }
+
+    protected void testNonSelect(Optional<Session> session, Optional<String> setupQuery, String query, Optional<String> cleanupQuery, boolean writesData)
+    {
+        if (writesData && !areWriteRetriesSupported()) {
+            // if retries are not supported assert on that and skip actual failures simulation
+            assertThatQuery(query)
+                    .withSession(session)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .failsDespiteRetries(failure -> failure.hasMessageMatching("This connector does not support query retries"));
+            return;
+        }
+
         assertThatQuery(query)
                 .withSession(session)
                 .withSetupQuery(setupQuery)
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(boundaryCoordinatorStage())
-                .failsWithErrorThat()
-                .hasMessageContaining(FAILURE_INJECTION_MESSAGE);
+                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
 
         assertThatQuery(query)
                 .withSession(session)
@@ -340,8 +371,7 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(rootStage())
-                .failsWithErrorThat()
-                .hasMessageContaining(FAILURE_INJECTION_MESSAGE);
+                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
 
         assertThatQuery(query)
                 .withSession(session)
@@ -349,6 +379,7 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(leafStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully();
 
         assertThatQuery(query)
@@ -357,6 +388,7 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully();
 
         assertThatQuery(query)
@@ -365,6 +397,7 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(intermediateDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
                 .finishesSuccessfully();
 
         assertThatQuery(query)
@@ -373,6 +406,7 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_MANAGEMENT_REQUEST_FAILURE)
                 .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
                 .finishesSuccessfully();
 
         assertThatQuery(query)
@@ -381,6 +415,23 @@ public abstract class AbstractTestFailureRecovery
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
                 .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
+                .finishesSuccessfully();
+
+        assertThatQuery(query)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
+                .finishesSuccessfully();
+
+        assertThatQuery(query)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
+                .at(boundaryDistributedStage())
+                .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
                 .finishesSuccessfully();
     }
 
@@ -393,7 +444,7 @@ public abstract class AbstractTestFailureRecovery
     {
         private final String query;
         private Session session = getQueryRunner().getDefaultSession();
-        private Function<MaterializedResult, Integer> stageSelector;
+        private Optional<Function<MaterializedResult, Integer>> stageSelector;
         private Optional<InjectedFailureType> failureType = Optional.empty();
         private Optional<ErrorType> errorType = Optional.empty();
         private Optional<String> setup = Optional.empty();
@@ -443,45 +494,52 @@ public abstract class AbstractTestFailureRecovery
 
         public FailureRecoveryAssert at(Function<MaterializedResult, Integer> stageSelector)
         {
-            this.stageSelector = requireNonNull(stageSelector, "stageSelector is null");
+            this.stageSelector = Optional.of(requireNonNull(stageSelector, "stageSelector is null"));
             return this;
         }
 
         private ExecutionResult executeExpected()
         {
-            return execute(query, Optional.empty());
+            return execute(noRetries(session), query, Optional.empty());
         }
 
-        private ExecutionResult executeActual(MaterializedResult expected)
+        private ExecutionResult executeActual(OptionalInt failureStageId)
         {
-            requireNonNull(stageSelector, "stageSelector must be set");
-            int stageId = stageSelector.apply(expected);
-            String token = UUID.randomUUID().toString();
-            failureType.ifPresent(failure -> getQueryRunner().injectTaskFailure(
-                    token,
-                    stageId,
-                    0,
-                    0,
-                    failure,
-                    errorType));
-
-            ExecutionResult actual = execute(query, Optional.of(token));
-            assertEquals(getStageStats(actual.getQueryResult(), stageId).getFailedTasks(), failureType.isPresent() ? 1 : 0);
-            return actual;
+            return executeActual(session, failureStageId);
         }
 
-        private ExecutionResult execute(String query, Optional<String> traceToken)
+        private ExecutionResult executeActualNoRetries(OptionalInt failureStageId)
+        {
+            return executeActual(noRetries(session), failureStageId);
+        }
+
+        private ExecutionResult executeActual(Session session, OptionalInt failureStageId)
+        {
+            String token = UUID.randomUUID().toString();
+            if (failureType.isPresent()) {
+                getQueryRunner().injectTaskFailure(
+                        token,
+                        failureStageId.orElseThrow(() -> new IllegalArgumentException("failure stageId not provided")),
+                        0,
+                        0,
+                        failureType.get(),
+                        errorType);
+
+                return execute(session, query, Optional.of(token));
+            }
+            // no failure injected
+            return execute(session, query, Optional.of(token));
+        }
+
+        private ExecutionResult execute(Session session, String query, Optional<String> traceToken)
         {
             String tableName = "table_" + randomTableSuffix();
-            setup.ifPresent(sql -> getQueryRunner().execute(session, resolveTableName(sql, tableName)));
+            setup.ifPresent(sql -> getQueryRunner().execute(noRetries(session), resolveTableName(sql, tableName)));
 
             ResultWithQueryId<MaterializedResult> resultWithQueryId = null;
             RuntimeException failure = null;
             try {
-                Session sessionWithToken = Session.builder(session)
-                        .setTraceToken(traceToken)
-                        .build();
-                resultWithQueryId = getDistributedQueryRunner().executeWithQueryId(sessionWithToken, resolveTableName(query, tableName));
+                resultWithQueryId = getDistributedQueryRunner().executeWithQueryId(withTraceToken(session, traceToken), resolveTableName(query, tableName));
             }
             catch (RuntimeException e) {
                 failure = e;
@@ -490,16 +548,16 @@ public abstract class AbstractTestFailureRecovery
             MaterializedResult result = resultWithQueryId == null ? null : resultWithQueryId.getResult();
             Optional<MaterializedResult> updatedTableContent = Optional.empty();
             if (result != null && result.getUpdateCount().isPresent()) {
-                updatedTableContent = Optional.of(getQueryRunner().execute(session, "SELECT * FROM " + tableName));
+                updatedTableContent = Optional.of(getQueryRunner().execute(noRetries(session), "SELECT * FROM " + tableName));
             }
 
             Optional<MaterializedResult> updatedTableStatistics = Optional.empty();
             if (result != null && result.getUpdateType().isPresent() && result.getUpdateType().get().equals("ANALYZE")) {
-                updatedTableStatistics = Optional.of(getQueryRunner().execute(session, "SHOW STATS FOR " + tableName));
+                updatedTableStatistics = Optional.of(getQueryRunner().execute(noRetries(session), "SHOW STATS FOR " + tableName));
             }
 
             try {
-                cleanup.ifPresent(sql -> getQueryRunner().execute(session, resolveTableName(sql, tableName)));
+                cleanup.ifPresent(sql -> getQueryRunner().execute(noRetries(session), resolveTableName(sql, tableName)));
             }
             catch (RuntimeException e) {
                 if (failure == null) {
@@ -522,11 +580,24 @@ public abstract class AbstractTestFailureRecovery
             finishesSuccessfully(queryId -> {});
         }
 
-        public void finishesSuccessfully(Consumer<QueryId> queryAssertion)
+        public void finishesSuccessfullyWithoutTaskFailures()
         {
+            finishesSuccessfully(queryId -> {}, false);
+        }
+
+        private void finishesSuccessfully(Consumer<QueryId> queryAssertion)
+        {
+            finishesSuccessfully(queryAssertion, true);
+        }
+
+        public void finishesSuccessfully(Consumer<QueryId> queryAssertion, boolean expectTaskFailures)
+        {
+            verifyFailureTypeAndStageSelector();
             ExecutionResult expected = executeExpected();
             MaterializedResult expectedQueryResult = expected.getQueryResult();
-            ExecutionResult actual = executeActual(expectedQueryResult);
+            OptionalInt failureStageId = getFailureStageId(() -> expectedQueryResult);
+            ExecutionResult actual = executeActual(failureStageId);
+            assertEquals(getStageStats(actual.getQueryResult(), failureStageId.getAsInt()).getFailedTasks(), expectTaskFailures ? 1 : 0);
             MaterializedResult actualQueryResult = actual.getQueryResult();
 
             boolean isAnalyze = expectedQueryResult.getUpdateType().isPresent() && expectedQueryResult.getUpdateType().get().equals("ANALYZE");
@@ -559,15 +630,60 @@ public abstract class AbstractTestFailureRecovery
             queryAssertion.accept(actual.getQueryId());
         }
 
-        public AbstractThrowableAssert<?, ? extends Throwable> failsWithErrorThat()
+        public FailureRecoveryAssert failsAlways(Consumer<AbstractThrowableAssert> failureAssertion)
         {
-            ExecutionResult expected = executeExpected();
-            return assertThatThrownBy(() -> executeActual(expected.getQueryResult()));
+            failsWithoutRetries(failureAssertion);
+            failsDespiteRetries(failureAssertion);
+            return this;
+        }
+
+        public FailureRecoveryAssert failsWithoutRetries(Consumer<AbstractThrowableAssert> failureAssertion)
+        {
+            verifyFailureTypeAndStageSelector();
+            OptionalInt failureStageId = getFailureStageId(() -> executeExpected().getQueryResult());
+            failureAssertion.accept(assertThatThrownBy(() -> executeActualNoRetries(failureStageId)));
+            return this;
+        }
+
+        public FailureRecoveryAssert failsDespiteRetries(Consumer<AbstractThrowableAssert> failureAssertion)
+        {
+            verifyFailureTypeAndStageSelector();
+            OptionalInt failureStageId = getFailureStageId(() -> executeExpected().getQueryResult());
+            failureAssertion.accept(assertThatThrownBy(() -> executeActual(failureStageId)));
+            return this;
+        }
+
+        private void verifyFailureTypeAndStageSelector()
+        {
+            assertThat(failureType.isPresent() == stageSelector.isPresent()).withFailMessage("Either both or none of failureType and stageSelector must be set").isTrue();
+        }
+
+        private OptionalInt getFailureStageId(Supplier<MaterializedResult> expectedQueryResult)
+        {
+            if (stageSelector.isEmpty()) {
+                return OptionalInt.empty();
+            }
+            // only compute MaterializedResult if needed
+            return OptionalInt.of(stageSelector.get().apply(expectedQueryResult.get()));
         }
 
         private String resolveTableName(String query, String tableName)
         {
             return query.replaceAll("<table>", tableName);
+        }
+
+        private Session noRetries(Session session)
+        {
+            return Session.builder(session)
+                    .setSystemProperty("retry_policy", "NONE")
+                    .build();
+        }
+
+        private Session withTraceToken(Session session, Optional<String> traceToken)
+        {
+            return Session.builder(session)
+                    .setTraceToken(traceToken)
+                    .build();
         }
     }
 

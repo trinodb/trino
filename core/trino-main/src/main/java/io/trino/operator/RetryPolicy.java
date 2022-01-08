@@ -13,10 +13,24 @@
  */
 package io.trino.operator;
 
+import io.trino.spi.connector.RetryMode;
+
 public enum RetryPolicy
 {
-    TASK,
-    QUERY,
-    NONE,
+    TASK(RetryMode.RETRIES_ENABLED),
+    QUERY(RetryMode.RETRIES_ENABLED),
+    NONE(RetryMode.NO_RETRIES),
     /**/;
+
+    private final RetryMode retryMode;
+
+    RetryPolicy(RetryMode retryMode)
+    {
+        this.retryMode = retryMode;
+    }
+
+    public RetryMode getRetryMode()
+    {
+        return this.retryMode;
+    }
 }

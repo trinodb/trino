@@ -1010,7 +1010,7 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = serializePage(page).getRetainedSizeInBytes();
+        long pageSize = serializePage(page).getRetainedSize();
 
         // create a buffer that can only hold two pages
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
@@ -1041,7 +1041,7 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = serializePage(page).getRetainedSizeInBytes();
+        long pageSize = serializePage(page).getRetainedSize();
 
         // create a buffer that can only hold two pages
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
@@ -1087,7 +1087,7 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = serializePage(page).getRetainedSizeInBytes();
+        long pageSize = serializePage(page).getRetainedSize();
 
         // create a buffer that can only hold two pages
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());

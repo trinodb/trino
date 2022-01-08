@@ -16,7 +16,7 @@ package io.trino.tests.product.hive.util;
 import io.trino.tempto.query.QueryResult;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 
 public final class CachingTestUtils
 {
@@ -24,7 +24,7 @@ public final class CachingTestUtils
 
     public static CacheStats getCacheStats()
     {
-        QueryResult queryResult = query("SELECT " +
+        QueryResult queryResult = onTrino().executeQuery("SELECT " +
                 "  sum(Cached_rrc_requests) as cachedreads, " +
                 "  sum(Remote_rrc_requests + Direct_rrc_requests) as remotereads, " +
                 "  sum(Nonlocal_rrc_requests) as nonlocalreads " +
@@ -39,7 +39,7 @@ public final class CachingTestUtils
         long nonLocalReads = (Long) getOnlyElement(queryResult.rows())
                 .get(queryResult.tryFindColumnIndex("nonlocalreads").get() - 1);
 
-        long asyncDownloadedMb = (Long) getOnlyElement(query("SELECT sum(Count) FROM " +
+        long asyncDownloadedMb = (Long) getOnlyElement(onTrino().executeQuery("SELECT sum(Count) FROM " +
                 "jmx.current.\"metrics:name=rubix.bookkeeper.count.async_downloaded_mb\"").rows())
                 .get(0);
 

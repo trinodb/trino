@@ -47,6 +47,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingSession;
 import io.trino.util.FinalizerService;
+import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -72,6 +73,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -869,6 +871,8 @@ public class TestNodeScheduler
     private static class TestSplitLocal
             implements ConnectorSplit
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestSplitLocal.class).instanceSize();
+
         private final HostAddress address;
         private final SplitWeight splitWeight;
 
@@ -913,6 +917,14 @@ public class TestNodeScheduler
         }
 
         @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE
+                    + address.getRetainedSizeInBytes()
+                    + splitWeight.getRetainedSizeInBytes();
+        }
+
+        @Override
         public String toString()
         {
             return toStringHelper(this)
@@ -941,11 +953,19 @@ public class TestNodeScheduler
         {
             return this;
         }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return 0;
+        }
     }
 
     private static class TestSplitRemote
             implements ConnectorSplit
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestSplitRemote.class).instanceSize();
+
         private final List<HostAddress> hosts;
         private final SplitWeight splitWeight;
 
@@ -991,6 +1011,14 @@ public class TestNodeScheduler
         public SplitWeight getSplitWeight()
         {
             return splitWeight;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE
+                    + estimatedSizeOf(hosts, HostAddress::getRetainedSizeInBytes)
+                    + splitWeight.getRetainedSizeInBytes();
         }
     }
 

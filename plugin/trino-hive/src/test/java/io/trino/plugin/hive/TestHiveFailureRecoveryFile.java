@@ -11,21 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.thrift.integration;
+package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 
-import static io.trino.plugin.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
+import java.util.List;
+import java.util.Map;
 
-public class TestThriftDistributedQueries
-        extends AbstractTestQueries
+public class TestHiveFailureRecoveryFile
+        extends BaseTestHiveFailureRecovery
 {
     @Override
-    protected QueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
             throws Exception
     {
-        return createThriftQueryRunner(3, false, ImmutableMap.of());
+        return HiveQueryRunner.builder()
+                .setInitialTables(requiredTpchTables)
+                .setCoordinatorProperties(coordinatorProperties)
+                .setExtraProperties(configProperties)
+                .build();
     }
 }

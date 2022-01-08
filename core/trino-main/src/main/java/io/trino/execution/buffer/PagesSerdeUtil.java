@@ -17,7 +17,6 @@ import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -28,6 +27,7 @@ import java.util.List;
 
 import static io.trino.block.BlockSerdeUtil.readBlock;
 import static io.trino.block.BlockSerdeUtil.writeBlock;
+import static io.trino.execution.buffer.PagesSerde.readSerializedPage;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -61,53 +61,11 @@ public final class PagesSerdeUtil
         return new Page(positionCount, blocks);
     }
 
-    public static void writeSerializedPage(SliceOutput output, SerializedPage page)
-    {
-        // Every new field being written here must be added in updateChecksum() too.
-        output.writeInt(page.getPositionCount());
-        output.writeByte(page.getPageCodecMarkers());
-        output.writeInt(page.getUncompressedSizeInBytes());
-        output.writeInt(page.getSizeInBytes());
-        output.writeBytes(page.getSlice());
-    }
-
-    private static void updateChecksum(XxHash64 hash, SerializedPage page)
-    {
-        hash.update(Slices.wrappedIntArray(
-                page.getPositionCount(),
-                page.getPageCodecMarkers(),
-                page.getUncompressedSizeInBytes(),
-                page.getSizeInBytes()));
-        hash.update(page.getSlice());
-    }
-
-    private static SerializedPage readSerializedPage(SliceInput sliceInput)
-    {
-        int positionCount = sliceInput.readInt();
-        PageCodecMarker.MarkerSet markers = PageCodecMarker.MarkerSet.fromByteValue(sliceInput.readByte());
-        int uncompressedSizeInBytes = sliceInput.readInt();
-        int sizeInBytes = sliceInput.readInt();
-        Slice slice = sliceInput.readSlice(sizeInBytes);
-        return new SerializedPage(slice, markers, positionCount, uncompressedSizeInBytes);
-    }
-
-    public static long writeSerializedPages(SliceOutput sliceOutput, Iterable<SerializedPage> pages)
-    {
-        Iterator<SerializedPage> pageIterator = pages.iterator();
-        long size = 0;
-        while (pageIterator.hasNext()) {
-            SerializedPage page = pageIterator.next();
-            writeSerializedPage(sliceOutput, page);
-            size += page.getSizeInBytes();
-        }
-        return size;
-    }
-
-    public static long calculateChecksum(List<SerializedPage> pages)
+    public static long calculateChecksum(List<Slice> pages)
     {
         XxHash64 hash = new XxHash64();
-        for (SerializedPage page : pages) {
-            updateChecksum(hash, page);
+        for (Slice page : pages) {
+            hash.update(page);
         }
         long checksum = hash.hash();
         // Since NO_CHECKSUM is assigned a special meaning, it is not a valid checksum.
@@ -128,7 +86,7 @@ public final class PagesSerdeUtil
         try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
             while (pages.hasNext()) {
                 Page page = pages.next();
-                writeSerializedPage(sliceOutput, serde.serialize(context, page));
+                sliceOutput.writeBytes(serde.serialize(context, page));
                 size += page.getSizeInBytes();
             }
         }
@@ -166,13 +124,13 @@ public final class PagesSerdeUtil
         }
     }
 
-    public static Iterator<SerializedPage> readSerializedPages(SliceInput sliceInput)
+    public static Iterator<Slice> readSerializedPages(SliceInput sliceInput)
     {
         return new SerializedPageReader(sliceInput);
     }
 
     private static class SerializedPageReader
-            extends AbstractIterator<SerializedPage>
+            extends AbstractIterator<Slice>
     {
         private final SliceInput input;
 
@@ -182,7 +140,7 @@ public final class PagesSerdeUtil
         }
 
         @Override
-        protected SerializedPage computeNext()
+        protected Slice computeNext()
         {
             if (!input.isReadable()) {
                 return endOfData();

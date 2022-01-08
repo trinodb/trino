@@ -42,7 +42,7 @@ jobs:
     needs: path-filters
     if: ${{ needs.path-filters.outputs.docs == 'true' && needs.path-filters.outputs.other == 'false' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v2
@@ -55,6 +55,7 @@ jobs:
           echo "::add-matcher::.github/problem-matcher.json"
       - name: Maven Checks
         run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY $MAVEN install -B --strict-checksums -V -T C1 -DskipTests -P ci -am -pl ':trino-docs'
 
   test-docs:

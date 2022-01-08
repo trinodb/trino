@@ -45,7 +45,6 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -55,7 +54,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -87,12 +85,14 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.datatype.DataType.bigintDataType;
 import static io.trino.testing.datatype.DataType.booleanDataType;
@@ -102,10 +102,7 @@ import static io.trino.testing.datatype.DataType.decimalDataType;
 import static io.trino.testing.datatype.DataType.doubleDataType;
 import static io.trino.testing.datatype.DataType.formatStringLiteral;
 import static io.trino.testing.datatype.DataType.integerDataType;
-import static io.trino.testing.datatype.DataType.jsonDataType;
 import static io.trino.testing.datatype.DataType.realDataType;
-import static io.trino.testing.datatype.DataType.smallintDataType;
-import static io.trino.testing.datatype.DataType.timeDataType;
 import static io.trino.testing.datatype.DataType.timestampDataType;
 import static io.trino.testing.datatype.DataType.varcharDataType;
 import static io.trino.type.JsonType.JSON;
@@ -164,10 +161,15 @@ public class TestPostgreSqlTypeMapping
     @BeforeClass
     public void setUp()
     {
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
         checkIsGap(jvmZone, timeGapInJvmZone1);
         checkIsGap(jvmZone, timeGapInJvmZone2);
         checkIsDoubled(jvmZone, timeDoubledInJvmZone);
 
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
+        checkIsGap(vilnius, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
+        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
+        checkIsDoubled(vilnius, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
         checkIsGap(vilnius, timeGapInVilnius);
         checkIsDoubled(vilnius, timeDoubledInVilnius);
 
@@ -209,7 +211,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("real", "nan()", REAL, "CAST(nan() AS real)")
                 .addRoundTrip("real", "-infinity()", REAL, "CAST(-infinity() AS real)")
                 .addRoundTrip("real", "+infinity()", REAL, "CAST(+infinity() AS real)")
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_real"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_real"));
     }
 
     @Test
@@ -231,7 +233,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("double", "nan()", DOUBLE, "nan()")
                 .addRoundTrip("double", "+infinity()", DOUBLE, "+infinity()")
                 .addRoundTrip("double", "-infinity()", DOUBLE, "-infinity()")
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_double"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"));
     }
 
     @Test
@@ -287,46 +289,37 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
-    public void testPostgreSqlCreatedVarchar()
+    public void testVarchar()
     {
-        varcharDataTypeTest(DataType::varcharDataType)
-                .execute(getQueryRunner(), postgresCreateAndInsert("test_varchar"));
-
-        varcharDataTypeTest(length -> varcharDataType())
-                .execute(getQueryRunner(), postgresCreateAndInsert("test_varchar"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(10)", "'text_a'", createVarcharType(10), "CAST('text_a' AS varchar(10))")
+                .addRoundTrip("varchar(255)", "'text_b'", createVarcharType(255), "CAST('text_b' AS varchar(255))")
+                .addRoundTrip("varchar(65535)", "'text_d'", createVarcharType(65535), "CAST('text_d' AS varchar(65535))")
+                .addRoundTrip("varchar(5)", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS varchar(5))")
+                .addRoundTrip("varchar(32)", "'攻殻機動隊'", createVarcharType(32), "CAST('攻殻機動隊' AS varchar(32))")
+                .addRoundTrip("varchar(20000)", "'攻殻機動隊'", createVarcharType(20000), "CAST('攻殻機動隊' AS varchar(20000))")
+                .addRoundTrip("varchar(1)", "'😂'", createVarcharType(1), "CAST('😂' AS varchar(1))")
+                .addRoundTrip("varchar(77)", "'Ну, погоди!'", createVarcharType(77), "CAST('Ну, погоди!' AS varchar(77))")
+                .addRoundTrip("varchar(10485760)", "'text_f'", createVarcharType(10485760), "CAST('text_f' AS varchar(10485760))") // too long for a char in Trino
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_varchar"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
     }
 
     @Test
-    public void testTrinoCreatedVarchar()
+    public void testUnboundedVarchar()
     {
-        varcharDataTypeTest(DataType::varcharDataType)
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar", "'text_a'", createUnboundedVarcharType(), "CAST('text_a' AS varchar)")
+                .addRoundTrip("varchar", "'text_b'", createUnboundedVarcharType(), "CAST('text_b' AS varchar)")
+                .addRoundTrip("varchar", "'text_d'", createUnboundedVarcharType(), "CAST('text_d' AS varchar)")
+                .addRoundTrip("varchar", "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar", "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar", "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar", "'😂'", createUnboundedVarcharType(), "CAST('😂' AS varchar)")
+                .addRoundTrip("varchar", "'Ну, погоди!'", createUnboundedVarcharType(), "CAST('Ну, погоди!' AS varchar)")
+                .addRoundTrip("varchar", "'text_f'", createUnboundedVarcharType(), "CAST('text_f' AS varchar)")
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
-
-        varcharDataTypeTest(length -> varcharDataType())
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
-    }
-
-    private DataTypeTest varcharDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
-    {
-        return characterDataTypeTest(dataTypeFactory)
-                .addRoundTrip(dataTypeFactory.apply(10485760), "text_f"); // too long for a char in Trino
-    }
-
-    private DataTypeTest characterDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
-    {
-        String sampleUnicodeText = "\u653b\u6bbb\u6a5f\u52d5\u968a";
-        String sampleFourByteUnicodeCharacter = "\uD83D\uDE02";
-
-        return DataTypeTest.create()
-                .addRoundTrip(dataTypeFactory.apply(10), "text_a")
-                .addRoundTrip(dataTypeFactory.apply(255), "text_b")
-                .addRoundTrip(dataTypeFactory.apply(65535), "text_d")
-
-                .addRoundTrip(dataTypeFactory.apply(sampleUnicodeText.length()), sampleUnicodeText)
-                .addRoundTrip(dataTypeFactory.apply(32), sampleUnicodeText)
-                .addRoundTrip(dataTypeFactory.apply(20000), sampleUnicodeText)
-                .addRoundTrip(dataTypeFactory.apply(1), sampleFourByteUnicodeCharacter)
-                .addRoundTrip(dataTypeFactory.apply(77), "\u041d\u0443, \u043f\u043e\u0433\u043e\u0434\u0438!");
     }
 
     @Test
@@ -341,7 +334,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("bytea", utf8ByteaLiteral("Bag full of 💰"), VARBINARY, "to_utf8('Bag full of 💰')")
                 .addRoundTrip("bytea", "bytea E'\\\\x0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
                 .addRoundTrip("bytea", "bytea E'\\\\x000000000000'", VARBINARY, "X'000000000000'")
-                .execute(getQueryRunner(), postgresCreateAndInsert("test_varbinary"));
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_bytea"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("varbinary", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
@@ -673,13 +666,13 @@ public class TestPostgreSqlTypeMapping
         Session session = sessionWithArrayAsArray();
 
         // basic types
-        DataTypeTest.create(true)
-                .addRoundTrip(arrayDataType(booleanDataType()), asList(true, false))
-                .addRoundTrip(arrayDataType(bigintDataType()), asList(123_456_789_012L))
-                .addRoundTrip(arrayDataType(integerDataType()), asList(1, 2, 1_234_567_890))
-                .addRoundTrip(arrayDataType(smallintDataType()), asList((short) 32_456))
-                .addRoundTrip(arrayDataType(doubleDataType()), asList(123.45d))
-                .addRoundTrip(arrayDataType(realDataType()), asList(123.45f))
+        SqlDataTypeTest.create()
+                .addRoundTrip("ARRAY(boolean)", "ARRAY[true, false]", new ArrayType(BOOLEAN), "ARRAY[true, false]")
+                .addRoundTrip("ARRAY(bigint)", "ARRAY[123456789012]", new ArrayType(BIGINT), "ARRAY[123456789012]")
+                .addRoundTrip("ARRAY(integer)", "ARRAY[1, 2, 1234567890]", new ArrayType(INTEGER), "ARRAY[1, 2, 1234567890]")
+                .addRoundTrip("ARRAY(smallint)", "ARRAY[32456]", new ArrayType(SMALLINT), "ARRAY[SMALLINT '32456']")
+                .addRoundTrip("ARRAY(double)", "ARRAY[123.45]", new ArrayType(DOUBLE), "ARRAY[DOUBLE '123.45']")
+                .addRoundTrip("ARRAY(real)", "ARRAY[123.45]", new ArrayType(REAL), "ARRAY[REAL '123.45']")
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_basic"));
 
         arrayDateTest(TestPostgreSqlTypeMapping::arrayDataType)
@@ -716,9 +709,9 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testInternalArray()
     {
-        DataTypeTest.create()
-                .addRoundTrip(arrayDataType(integerDataType(), "_int4"), asList(1, 2, 3))
-                .addRoundTrip(arrayDataType(varcharDataType(), "_text"), asList("a", "b"))
+        SqlDataTypeTest.create()
+                .addRoundTrip("_int4", "ARRAY[1, 2, 3]", new ArrayType(INTEGER), "ARRAY[1, 2, 3]")
+                .addRoundTrip("_text", "ARRAY['a', 'b']", new ArrayType(VARCHAR), "ARRAY[CAST('a' AS varchar), CAST('b' AS varchar)]")
                 .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("test_array_with_native_name"));
     }
 
@@ -954,55 +947,40 @@ public class TestPostgreSqlTypeMapping
                         .collect(joining(",", "ARRAY[", "]")));
     }
 
-    @Test
-    public void testDate()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testDate(ZoneId sessionZone)
     {
-        // Note: there is identical test for MySQL
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+        SqlDataTypeTest.create()
+                .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'")
+                .addRoundTrip("date", "DATE '1582-10-04'", DATE, "DATE '1582-10-04'") // before julian->gregorian switch
+                .addRoundTrip("date", "DATE '1582-10-05'", DATE, "DATE '1582-10-05'") // begin julian->gregorian switch
+                .addRoundTrip("date", "DATE '1582-10-14'", DATE, "DATE '1582-10-14'") // end julian->gregorian switch
+                .addRoundTrip("date", "DATE '1952-04-03'", DATE, "DATE '1952-04-03'") // before epoch
+                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
+                .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
+                .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'") // change forward at midnight in JVM
+                .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'") // change forward at midnight in Vilnius
+                .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'") // change backward at midnight in Vilnius
+                .addRoundTrip("date", "DATE '5874897-12-31'", DATE, "DATE '5874897-12-31'") // max value in Trino
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
 
-        ZoneId jvmZone = ZoneId.systemDefault();
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
-
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
-        checkIsGap(someZone, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
-        checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
-
-        DataTypeTest testCases = DataTypeTest.create(true)
-                .addRoundTrip(dateDataType(), LocalDate.of(1, 1, 1))
-                .addRoundTrip(dateDataType(), LocalDate.of(1582, 10, 4)) // before julian->gregorian switch
-                .addRoundTrip(dateDataType(), LocalDate.of(1582, 10, 5)) // begin julian->gregorian switch
-                .addRoundTrip(dateDataType(), LocalDate.of(1582, 10, 14)) // end julian->gregorian switch
-                .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3)) // before epoch
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 7, 1)) // summer on northern hemisphere (possible DST)
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 1, 1)) // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInJvmZone)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInSomeZone)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
-
-        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
-                    .build();
-            testCases.execute(getQueryRunner(), session, postgresCreateAndInsert("test_date"));
-            testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
-            testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"));
-            testCases.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
-        }
-    }
-
-    @Test
-    public void testDateMinMax()
-    {
-        // Merge into 'testDate()' when converting the method to SqlDataTypeTest. Currently, we can't test these values with DataTypeTest.
+        // min value
         SqlDataTypeTest.create()
                 .addRoundTrip("DATE", "'4713-01-01 BC'", DATE, "DATE '-4712-01-01'")
-                .addRoundTrip("DATE", "'5874897-12-31'", DATE, "DATE '5874897-12-31'")
-                .execute(getQueryRunner(), postgresCreateAndInsert("test_date_min_max"));
+                .execute(getQueryRunner(), postgresCreateAndInsert("test_date_min"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("DATE", "DATE '-4712-01-01'", DATE, "DATE '-4712-01-01'")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date_min"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date_min"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date_min"));
     }
 
     @Test
@@ -1028,45 +1006,39 @@ public class TestPostgreSqlTypeMapping
     /**
      * @see #testTimeCoercion
      */
-    @Test(dataProvider = "testTimestampDataProvider")
-    public void testTime(boolean insertWithTrino, ZoneId sessionZone)
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTime(ZoneId sessionZone)
     {
         LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34, 567_000_000);
         checkIsGap(jvmZone, timeGapInJvmZone.atDate(EPOCH_DAY));
-
-        DataTypeTest tests = DataTypeTest.create()
-                .addRoundTrip(timeDataType(0), LocalTime.of(1, 12, 34, 0))
-                .addRoundTrip(timeDataType(1), LocalTime.of(2, 12, 34, 100_000_000))
-                .addRoundTrip(timeDataType(2), LocalTime.of(2, 12, 34, 10_000_000))
-                .addRoundTrip(timeDataType(3), LocalTime.of(2, 12, 34, 1_000_000))
-                .addRoundTrip(timeDataType(3), LocalTime.of(3, 12, 34, 0))
-                .addRoundTrip(timeDataType(4), LocalTime.of(4, 12, 34, 0))
-                .addRoundTrip(timeDataType(5), LocalTime.of(5, 12, 34, 0))
-                .addRoundTrip(timeDataType(5), LocalTime.of(6, 12, 34, 0))
-                .addRoundTrip(timeDataType(6), LocalTime.of(9, 12, 34, 0))
-                .addRoundTrip(timeDataType(6), LocalTime.of(10, 12, 34, 0))
-                .addRoundTrip(timeDataType(6), LocalTime.of(15, 12, 34, 567_000_000))
-                .addRoundTrip(timeDataType(6), LocalTime.of(23, 59, 59, 0))
-                .addRoundTrip(timeDataType(6), LocalTime.of(23, 59, 59, 999_000_000))
-                .addRoundTrip(timeDataType(6), LocalTime.of(23, 59, 59, 999_900_000))
-                .addRoundTrip(timeDataType(6), LocalTime.of(23, 59, 59, 999_990_000))
-                .addRoundTrip(timeDataType(6), LocalTime.of(23, 59, 59, 999_999_000))
-                // epoch is also a gap in JVM zone
-                .addRoundTrip(timeDataType(3), epoch.toLocalTime())
-                .addRoundTrip(timeDataType(3), timeGapInJvmZone);
 
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        if (insertWithTrino) {
-            tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"));
-            tests.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_time"));
-            tests.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"));
-        }
-        else {
-            tests.execute(getQueryRunner(), session, postgresCreateAndInsert("test_time"));
-        }
+        SqlDataTypeTest.create()
+                .addRoundTrip("time(0)", "TIME '01:12:34'", createTimeType(0), "TIME '01:12:34'")
+                .addRoundTrip("time(1)", "TIME '02:12:34.1'", createTimeType(1), "TIME '02:12:34.1'")
+                .addRoundTrip("time(2)", "TIME '02:12:34.01'", createTimeType(2), "TIME '02:12:34.01'")
+                .addRoundTrip("time(3)", "TIME '02:12:34.001'", createTimeType(3), "TIME '02:12:34.001'")
+                .addRoundTrip("time(3)", "TIME '03:12:34.000'", createTimeType(3), "TIME '03:12:34.000'")
+                .addRoundTrip("time(4)", "TIME '04:12:34.0000'", createTimeType(4), "TIME '04:12:34.0000'")
+                .addRoundTrip("time(5)", "TIME '05:12:34.00000'", createTimeType(5), "TIME '05:12:34.00000'")
+                .addRoundTrip("time(5)", "TIME '06:12:34.00000'", createTimeType(5), "TIME '06:12:34.00000'")
+                .addRoundTrip("time(6)", "TIME '09:12:34.000000'", createTimeType(6), "TIME '09:12:34.000000'")
+                .addRoundTrip("time(6)", "TIME '10:12:34.000000'", createTimeType(6), "TIME '10:12:34.000000'")
+                .addRoundTrip("time(6)", "TIME '15:12:34.567000'", createTimeType(6), "TIME '15:12:34.567000'")
+                .addRoundTrip("time(6)", "TIME '23:59:59.000000'", createTimeType(6), "TIME '23:59:59.000000'")
+                .addRoundTrip("time(6)", "TIME '23:59:59.999000'", createTimeType(6), "TIME '23:59:59.999000'")
+                .addRoundTrip("time(6)", "TIME '23:59:59.999900'", createTimeType(6), "TIME '23:59:59.999900'")
+                .addRoundTrip("time(6)", "TIME '23:59:59.999990'", createTimeType(6), "TIME '23:59:59.999990'")
+                .addRoundTrip("time(6)", "TIME '23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'")
+                .addRoundTrip("time(3)", "TIME '00:00:00.000'", createTimeType(3), "TIME '00:00:00.000'")
+                .addRoundTrip("time(3)", "TIME '00:12:34.567'", createTimeType(3), "TIME '00:12:34.567'")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_time"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"))
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("test_time"));
     }
 
     /**
@@ -1205,49 +1177,46 @@ public class TestPostgreSqlTypeMapping
     /**
      * @see #testTimestampCoercion
      */
-    @Test(dataProvider = "testTimestampDataProvider")
-    public void testTimestamp(boolean insertWithTrino, ZoneId sessionZone)
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestamp(ZoneId sessionZone)
     {
-        DataTypeTest tests = DataTypeTest.create(true);
-
         // no need to test gap for multiple precisions as both Trino and PostgreSql JDBC
         // uses same representation for all precisions 1-6
-        DataType<LocalDateTime> timestampDataType = timestampDataType(3);
-        tests.addRoundTrip(timestampDataType, beforeEpoch);
-        tests.addRoundTrip(timestampDataType, afterEpoch);
-        tests.addRoundTrip(timestampDataType, timeDoubledInJvmZone);
-        tests.addRoundTrip(timestampDataType, timeDoubledInVilnius);
-        tests.addRoundTrip(timestampDataType, epoch); // epoch also is a gap in JVM zone
-        tests.addRoundTrip(timestampDataType, timeGapInJvmZone1);
-        tests.addRoundTrip(timestampDataType, timeGapInJvmZone2);
-        tests.addRoundTrip(timestampDataType, timeGapInVilnius);
-        tests.addRoundTrip(timestampDataType, timeGapInKathmandu);
-
-        // test arbitrary time for all supported precisions
-        tests.addRoundTrip(timestampDataType(0), LocalDateTime.of(1970, 1, 1, 0, 0, 0));
-        tests.addRoundTrip(timestampDataType(1), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 100_000_000));
-        tests.addRoundTrip(timestampDataType(2), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 120_000_000));
-        tests.addRoundTrip(timestampDataType(3), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_000_000));
-        tests.addRoundTrip(timestampDataType(4), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_400_000));
-        tests.addRoundTrip(timestampDataType(5), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_450_000));
-        tests.addRoundTrip(timestampDataType(6), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_000));
-
-        // before epoch with second fraction
-        tests.addRoundTrip(timestampDataType(6), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_000_000));
-        tests.addRoundTrip(timestampDataType(6), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_000));
-
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        if (insertWithTrino) {
-            tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"));
-            tests.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_timestamp"));
-            tests.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"));
-        }
-        else {
-            tests.execute(getQueryRunner(), session, postgresCreateAndInsert("test_timestamp"));
-        }
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1958-01-01 13:18:03.123'", createTimestampType(3), "TIMESTAMP '1958-01-01 13:18:03.123'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2019-03-18 10:01:17.987'", createTimestampType(3), "TIMESTAMP '2019-03-18 10:01:17.987'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 01:33:17.456'", createTimestampType(3), "TIMESTAMP '2018-10-28 01:33:17.456'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 03:33:33.333'", createTimestampType(3), "TIMESTAMP '2018-10-28 03:33:33.333'")
+
+                // epoch also is a gap in JVM zone
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:00.000'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:00.000'")
+
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:13:42.000'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:13:42.000'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-04-01 02:13:55.123'", createTimestampType(3), "TIMESTAMP '2018-04-01 02:13:55.123'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-03-25 03:17:17.000'", createTimestampType(3), "TIMESTAMP '2018-03-25 03:17:17.000'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1986-01-01 00:13:07.000'", createTimestampType(3), "TIMESTAMP '1986-01-01 00:13:07.000'")
+
+                // test arbitrary time for all supported precisions
+                .addRoundTrip("timestamp(0)", "TIMESTAMP '1970-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'")
+                .addRoundTrip("timestamp(1)", "TIMESTAMP '1970-01-01 00:00:00.1'", createTimestampType(1), "TIMESTAMP '1970-01-01 00:00:00.1'")
+                .addRoundTrip("timestamp(2)", "TIMESTAMP '1970-01-01 00:00:00.12'", createTimestampType(2), "TIMESTAMP '1970-01-01 00:00:00.12'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:00.123'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:00.123'")
+                .addRoundTrip("timestamp(4)", "TIMESTAMP '1970-01-01 00:00:00.1234'", createTimestampType(4), "TIMESTAMP '1970-01-01 00:00:00.1234'")
+                .addRoundTrip("timestamp(5)", "TIMESTAMP '1970-01-01 00:00:00.12345'", createTimestampType(5), "TIMESTAMP '1970-01-01 00:00:00.12345'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:00.123456'")
+
+                // before epoch with second fraction
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.123000'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.123000'")
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.123456'", createTimestampType(6), "TIMESTAMP '1969-12-31 23:59:59.123456'")
+
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("test_timestamp"));
     }
 
     /**
@@ -1310,72 +1279,66 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_timestamp_coercion"));
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
-    public void testArrayTimestamp(boolean insertWithTrino, ZoneId sessionZone)
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testArrayTimestamp(ZoneId sessionZone)
     {
-        DataTypeTest tests = DataTypeTest.create(true);
         // no need to test gap for multiple precisions as both Trino and PostgreSql JDBC
         // uses same representation for all precisions 1-6
-        DataType<List<LocalDateTime>> dataType = arrayOfTimestampDataType(3, insertWithTrino);
-        tests.addRoundTrip(dataType, asList(beforeEpoch));
-        tests.addRoundTrip(dataType, asList(afterEpoch));
-        tests.addRoundTrip(dataType, asList(timeDoubledInJvmZone));
-        tests.addRoundTrip(dataType, asList(timeDoubledInVilnius));
-        tests.addRoundTrip(dataType, asList(epoch));
-        tests.addRoundTrip(dataType, asList(timeGapInJvmZone1));
-        tests.addRoundTrip(dataType, asList(timeGapInJvmZone2));
-        tests.addRoundTrip(dataType, asList(timeGapInVilnius));
-        tests.addRoundTrip(dataType, asList(timeGapInKathmandu));
-
-        // test arbitrary time for all supported precisions
-        tests.addRoundTrip(arrayOfTimestampDataType(1, insertWithTrino), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 100_000_000)));
-        tests.addRoundTrip(arrayOfTimestampDataType(2, insertWithTrino), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 120_000_000)));
-        tests.addRoundTrip(arrayOfTimestampDataType(3, insertWithTrino), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_000_000)));
-        tests.addRoundTrip(arrayOfTimestampDataType(4, insertWithTrino), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_400_000)));
-        tests.addRoundTrip(arrayOfTimestampDataType(5, insertWithTrino), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_450_000)));
-        tests.addRoundTrip(arrayOfTimestampDataType(6, insertWithTrino), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_456_000)));
-
         Session session = Session.builder(sessionWithArrayAsArray())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        if (insertWithTrino) {
-            tests.execute(getQueryRunner(), session, trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_timestamp"));
-        }
-        else {
-            tests.execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_timestamp"));
-        }
-    }
+        SqlDataTypeTest.create()
+                .addRoundTrip("ARRAY(timestamp(3))", "ARRAY[TIMESTAMP '1958-01-01 13:18:03.123']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '1958-01-01 13:18:03.123']")
+                .addRoundTrip("ARRAY(timestamp(3))", "ARRAY[TIMESTAMP '2019-03-18 10:01:17.987']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '2019-03-18 10:01:17.987']")
+                .addRoundTrip("ARRAY(timestamp(3))", "ARRAY[TIMESTAMP '2018-10-28 01:33:17.456']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '2018-10-28 01:33:17.456']")
+                .addRoundTrip("ARRAY(timestamp(3))", "ARRAY[TIMESTAMP '2018-10-28 03:33:33.333']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '2018-10-28 03:33:33.333']")
+                .addRoundTrip("ARRAY(timestamp(3))", "ARRAY[TIMESTAMP '1970-01-01 00:00:00.000']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '1970-01-01 00:00:00.000']")
+                .addRoundTrip("ARRAY(timestamp(3))", "ARRAY[TIMESTAMP '1970-01-01 00:13:42.000']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '1970-01-01 00:13:42.000']")
+                .addRoundTrip("ARRAY(timestamp(3))", "ARRAY[TIMESTAMP '2018-04-01 02:13:55.123']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '2018-04-01 02:13:55.123']")
+                .addRoundTrip("ARRAY(timestamp(3))", "ARRAY[TIMESTAMP '2018-03-25 03:17:17.000']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '2018-03-25 03:17:17.000']")
+                .addRoundTrip("ARRAY(timestamp(3))", "ARRAY[TIMESTAMP '1986-01-01 00:13:07.000']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '1986-01-01 00:13:07.000']")
 
-    private DataType<List<LocalDateTime>> arrayOfTimestampDataType(int precision, boolean insertWithTrino)
-    {
-        if (insertWithTrino) {
-            return arrayDataType(timestampDataType(precision));
-        }
-        else {
-            return arrayDataType(timestampDataType(precision), format("timestamp(%d)[]", precision));
-        }
+                // test arbitrary time for all supported precisions
+                .addRoundTrip("ARRAY(timestamp(1))", "ARRAY[TIMESTAMP '1970-01-01 01:01:01.1']", new ArrayType(createTimestampType(1)), "ARRAY[TIMESTAMP '1970-01-01 01:01:01.1']")
+                .addRoundTrip("ARRAY(timestamp(2))", "ARRAY[TIMESTAMP '1970-01-01 01:01:01.12']", new ArrayType(createTimestampType(2)), "ARRAY[TIMESTAMP '1970-01-01 01:01:01.12']")
+                .addRoundTrip("ARRAY(timestamp(3))", "ARRAY[TIMESTAMP '1970-01-01 01:01:01.123']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '1970-01-01 01:01:01.123']")
+                .addRoundTrip("ARRAY(timestamp(4))", "ARRAY[TIMESTAMP '1970-01-01 01:01:01.1234']", new ArrayType(createTimestampType(4)), "ARRAY[TIMESTAMP '1970-01-01 01:01:01.1234']")
+                .addRoundTrip("ARRAY(timestamp(5))", "ARRAY[TIMESTAMP '1970-01-01 01:01:01.12345']", new ArrayType(createTimestampType(5)), "ARRAY[TIMESTAMP '1970-01-01 01:01:01.12345']")
+                .addRoundTrip("ARRAY(timestamp(6))", "ARRAY[TIMESTAMP '1970-01-01 01:01:01.123456']", new ArrayType(createTimestampType(6)), "ARRAY[TIMESTAMP '1970-01-01 01:01:01.123456']")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_timestamp"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp(3)[]", "ARRAY[TIMESTAMP '1958-01-01 13:18:03.123']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '1958-01-01 13:18:03.123']")
+                .addRoundTrip("timestamp(3)[]", "ARRAY[TIMESTAMP '2019-03-18 10:01:17.987']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '2019-03-18 10:01:17.987']")
+                .addRoundTrip("timestamp(3)[]", "ARRAY[TIMESTAMP '2018-10-28 01:33:17.456']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '2018-10-28 01:33:17.456']")
+                .addRoundTrip("timestamp(3)[]", "ARRAY[TIMESTAMP '2018-10-28 03:33:33.333']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '2018-10-28 03:33:33.333']")
+                .addRoundTrip("timestamp(3)[]", "ARRAY[TIMESTAMP '1970-01-01 00:00:00.000']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '1970-01-01 00:00:00.000']")
+                .addRoundTrip("timestamp(3)[]", "ARRAY[TIMESTAMP '1970-01-01 00:13:42.000']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '1970-01-01 00:13:42.000']")
+                .addRoundTrip("timestamp(3)[]", "ARRAY[TIMESTAMP '2018-04-01 02:13:55.123']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '2018-04-01 02:13:55.123']")
+                .addRoundTrip("timestamp(3)[]", "ARRAY[TIMESTAMP '2018-03-25 03:17:17.000']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '2018-03-25 03:17:17.000']")
+                .addRoundTrip("timestamp(3)[]", "ARRAY[TIMESTAMP '1986-01-01 00:13:07.000']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '1986-01-01 00:13:07.000']")
+
+                // test arbitrary time for all supported precisions
+                .addRoundTrip("timestamp(1)[]", "ARRAY[TIMESTAMP '1970-01-01 01:01:01.1']", new ArrayType(createTimestampType(1)), "ARRAY[TIMESTAMP '1970-01-01 01:01:01.1']")
+                .addRoundTrip("timestamp(2)[]", "ARRAY[TIMESTAMP '1970-01-01 01:01:01.12']", new ArrayType(createTimestampType(2)), "ARRAY[TIMESTAMP '1970-01-01 01:01:01.12']")
+                .addRoundTrip("timestamp(3)[]", "ARRAY[TIMESTAMP '1970-01-01 01:01:01.123']", new ArrayType(createTimestampType(3)), "ARRAY[TIMESTAMP '1970-01-01 01:01:01.123']")
+                .addRoundTrip("timestamp(4)[]", "ARRAY[TIMESTAMP '1970-01-01 01:01:01.1234']", new ArrayType(createTimestampType(4)), "ARRAY[TIMESTAMP '1970-01-01 01:01:01.1234']")
+                .addRoundTrip("timestamp(5)[]", "ARRAY[TIMESTAMP '1970-01-01 01:01:01.12345']", new ArrayType(createTimestampType(5)), "ARRAY[TIMESTAMP '1970-01-01 01:01:01.12345']")
+                .addRoundTrip("timestamp(6)[]", "ARRAY[TIMESTAMP '1970-01-01 01:01:01.123456']", new ArrayType(createTimestampType(6)), "ARRAY[TIMESTAMP '1970-01-01 01:01:01.123456']")
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("test_array_timestamp"));
     }
 
     @DataProvider
-    public Object[][] testTimestampDataProvider()
+    public Object[][] sessionZonesDataProvider()
     {
         return new Object[][] {
-                {true, UTC},
-                {false, UTC},
-
-                {true, jvmZone},
-                {false, jvmZone},
-
+                {UTC},
+                {jvmZone},
                 // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-                {true, vilnius},
-                {false, vilnius},
-
-                {true, kathmandu},
-                {false, kathmandu},
-
-                {true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {vilnius},
+                {kathmandu},
+                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
         };
     }
 
@@ -1540,33 +1503,36 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testJson()
     {
-        jsonTestCases(jsonDataType())
-                .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_json"));
-
-        jsonTestCases(jsonDataType())
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_json"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("json", "JSON '{}'", JSON, "JSON '{}'")
+                .addRoundTrip("json", "NULL", JSON, "CAST(NULL AS JSON)")
+                .addRoundTrip("json", "JSON 'null'", JSON, "JSON 'null'")
+                .addRoundTrip("json", "JSON '123.4'", JSON, "JSON '123.4'")
+                .addRoundTrip("json", "JSON '\"abc\"'", JSON, "JSON '\"abc\"'")
+                .addRoundTrip("json", "JSON '\"text with '' apostrophes\"'", JSON, "JSON '\"text with '' apostrophes\"'")
+                .addRoundTrip("json", "JSON '\"\"'", JSON, "JSON '\"\"'")
+                .addRoundTrip("json", "JSON '{\"a\":1,\"b\":2}'", JSON, "JSON '{\"a\":1,\"b\":2}'")
+                .addRoundTrip("json", "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'", JSON, "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'")
+                .addRoundTrip("json", "JSON '[]'", JSON, "JSON '[]'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_json"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_json"));
     }
 
     @Test
     public void testJsonb()
     {
-        jsonTestCases(jsonbDataType())
+        SqlDataTypeTest.create()
+                .addRoundTrip("jsonb", "JSON '{}'", JSON, "JSON '{}'")
+                .addRoundTrip("jsonb", "NULL", JSON, "CAST(NULL AS JSON)")
+                .addRoundTrip("jsonb", "JSON 'null'", JSON, "JSON 'null'")
+                .addRoundTrip("jsonb", "JSON '123.4'", JSON, "JSON '123.4'")
+                .addRoundTrip("jsonb", "JSON '\"abc\"'", JSON, "JSON '\"abc\"'")
+                .addRoundTrip("jsonb", "JSON '\"text with '' apostrophes\"'", JSON, "JSON '\"text with '' apostrophes\"'")
+                .addRoundTrip("jsonb", "JSON '\"\"'", JSON, "JSON '\"\"'")
+                .addRoundTrip("jsonb", "JSON '{\"a\":1,\"b\":2}'", JSON, "JSON '{\"a\":1,\"b\":2}'")
+                .addRoundTrip("jsonb", "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'", JSON, "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'")
+                .addRoundTrip("jsonb", "JSON '[]'", JSON, "JSON '[]'")
                 .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_jsonb"));
-    }
-
-    private DataTypeTest jsonTestCases(DataType<String> jsonDataType)
-    {
-        return DataTypeTest.create(true)
-                .addRoundTrip(jsonDataType, "{}")
-                .addRoundTrip(jsonDataType, null)
-                .addRoundTrip(jsonDataType, "null")
-                .addRoundTrip(jsonDataType, "123.4")
-                .addRoundTrip(jsonDataType, "\"abc\"")
-                .addRoundTrip(jsonDataType, "\"text with \\\" quotations and ' apostrophes\"")
-                .addRoundTrip(jsonDataType, "\"\"")
-                .addRoundTrip(jsonDataType, "{\"a\":1,\"b\":2}")
-                .addRoundTrip(jsonDataType, "{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}")
-                .addRoundTrip(jsonDataType, "[]");
     }
 
     @Test
@@ -1574,7 +1540,6 @@ public class TestPostgreSqlTypeMapping
     {
         hstoreTestCases(hstoreDataType())
                 .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_hstore"));
-
         hstoreTestCases(varcharMapDataType())
                 .execute(getQueryRunner(), postgresCreateTrinoInsert("postgresql_test_hstore"));
     }
@@ -1593,28 +1558,21 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testUuid()
     {
-        uuidTestCases(uuidDataType())
-                .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_uuid"));
-
-        uuidTestCases(uuidDataType())
-                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_uuid"));
-    }
-
-    private DataTypeTest uuidTestCases(DataType<java.util.UUID> uuidDataType)
-    {
-        return DataTypeTest.create(true)
-                .addRoundTrip(uuidDataType, java.util.UUID.fromString("00000000-0000-0000-0000-000000000000"))
-                .addRoundTrip(uuidDataType, java.util.UUID.fromString("123e4567-e89b-12d3-a456-426655440000"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("uuid", "UUID '00000000-0000-0000-0000-000000000000'", UUID, "UUID '00000000-0000-0000-0000-000000000000'")
+                .addRoundTrip("uuid", "UUID '123e4567-e89b-12d3-a456-426655440000'", UUID, "UUID '123e4567-e89b-12d3-a456-426655440000'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("postgresql_test_uuid"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_uuid"));
     }
 
     @Test
     public void testMoney()
     {
-        DataTypeTest.create(true)
-                .addRoundTrip(moneyDataType(), null)
-                .addRoundTrip(moneyDataType(), 10.)
-                .addRoundTrip(moneyDataType(), 10.54)
-                .addRoundTrip(moneyDataType(), 10_000_000.42)
+        SqlDataTypeTest.create()
+                .addRoundTrip("money", "NULL", createUnboundedVarcharType(), "CAST(NULL AS VARCHAR)")
+                .addRoundTrip("money", "10.0", createUnboundedVarcharType(), "CAST('$10.00' AS VARCHAR)")
+                .addRoundTrip("money", "10.54", createUnboundedVarcharType(), "CAST('$10.54' AS VARCHAR)")
+                .addRoundTrip("money", "1.000000042E7", createUnboundedVarcharType(), "CAST('$10,000,000.42' AS VARCHAR)")
                 .execute(getQueryRunner(), postgresCreateAndInsert("trino_test_money"));
     }
 
@@ -1735,14 +1693,6 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
-    public static DataType<String> jsonbDataType()
-    {
-        return dataType(
-                "jsonb",
-                JSON,
-                value -> "JSON " + formatStringLiteral(value));
-    }
-
     private DataType<Map<String, String>> hstoreDataType()
     {
         return dataType(
@@ -1781,30 +1731,6 @@ public class TestPostgreSqlTypeMapping
                         values.add(formatted.get(i + 1));
                     }
                     return format("MAP(ARRAY[%s], ARRAY[%s])", Joiner.on(',').join(keys.build()), Joiner.on(',').join(values.build()));
-                });
-    }
-
-    public static DataType<java.util.UUID> uuidDataType()
-    {
-        return dataType(
-                "uuid",
-                UUID,
-                value -> "UUID " + formatStringLiteral(value.toString()));
-    }
-
-    private static DataType<Double> moneyDataType()
-    {
-        return dataType(
-                "money",
-                VARCHAR,
-                String::valueOf,
-                amount -> {
-                    NumberFormat numberFormat = NumberFormat.getCurrencyInstance(Locale.US);
-                    return "'" + numberFormat.format(amount) + "'";
-                },
-                amount -> {
-                    NumberFormat numberFormat = NumberFormat.getCurrencyInstance(Locale.US);
-                    return numberFormat.format(amount);
                 });
     }
 

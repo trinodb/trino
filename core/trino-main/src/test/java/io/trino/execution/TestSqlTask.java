@@ -60,6 +60,7 @@ import static io.trino.execution.TaskTestUtils.createTestingPlanner;
 import static io.trino.execution.TaskTestUtils.updateTask;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -163,7 +164,7 @@ public class TestSqlTask
         BufferResult results = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE)).get();
         assertFalse(results.isBufferComplete());
         assertEquals(results.getSerializedPages().size(), 1);
-        assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
+        assertEquals(getSerializedPagePositionCount(results.getSerializedPages().get(0)), 1);
 
         for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
             results = sqlTask.getTaskResults(OUT, results.getToken() + results.getSerializedPages().size(), DataSize.of(1, MEGABYTE)).get();
@@ -345,6 +346,7 @@ public class TestSqlTask
         QueryContext queryContext = new QueryContext(new QueryId("query"),
                 DataSize.of(1, MEGABYTE),
                 DataSize.of(2, MEGABYTE),
+                Optional.empty(),
                 new MemoryPool(new MemoryPoolId("test"), DataSize.of(1, GIGABYTE)),
                 new TestingGcMonitor(),
                 taskNotificationExecutor,

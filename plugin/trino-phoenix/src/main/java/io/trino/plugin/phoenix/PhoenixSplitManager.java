@@ -93,7 +93,7 @@ public class PhoenixSplitManager
                     .map(PhoenixInputSplit.class::cast)
                     .map(split -> new PhoenixSplit(
                             getSplitAddresses(split),
-                            new WrappedPhoenixInputSplit(split)))
+                            SerializedPhoenixInputSplit.serialize(split)))
                     .collect(toImmutableList());
             return new FixedSplitSource(splits);
         }

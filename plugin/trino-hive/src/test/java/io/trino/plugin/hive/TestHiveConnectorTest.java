@@ -195,6 +195,7 @@ public class TestHiveConnectorTest
                         "hive.writer-sort-buffer-size", "1MB",
                         // Make weighted split scheduling more conservative to avoid OOMs in test
                         "hive.minimum-assigned-split-weight", "0.5"))
+                .addExtraProperty("legacy.allow-set-view-authorization", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
 
@@ -220,6 +221,9 @@ public class TestHiveConnectorTest
                 return false;
 
             case SUPPORTS_DELETE:
+                return true;
+
+            case SUPPORTS_UPDATE:
                 return true;
 
             case SUPPORTS_MULTI_STATEMENT_WRITES:
@@ -256,6 +260,13 @@ public class TestHiveConnectorTest
     {
         assertThatThrownBy(super::testDeleteWithSubquery)
                 .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        assertThatThrownBy(super::testUpdate)
+                .hasMessage("Hive update is only supported for ACID transactional tables");
     }
 
     @Override
@@ -3146,14 +3157,14 @@ public class TestHiveConnectorTest
 
         // verify cannot query more than 1000 partitions
         assertThatThrownBy(() -> query("SELECT count(*) FROM " + tableName + " WHERE part1 IS NULL AND part2 <= 1001"))
-                .hasMessage(format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+                .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
         assertThatThrownBy(() -> query("SELECT count(*) FROM " + tableName))
-                .hasMessage(format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+                .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
 
         // verify we can query with a predicate that is not representable as a TupleDomain
         // TODO this shouldn't fail
         assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // may be translated to Domain.all
-                .hasMessage(format("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName));
+                .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
         assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3 AND part1 IS NOT NULL"))  // may be translated to Domain.all except nulls
                 .matches("VALUES (VARCHAR 'bar', BIGINT '3', BIGINT '3')");
 

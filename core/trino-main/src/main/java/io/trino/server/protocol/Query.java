@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -47,7 +48,6 @@ import io.trino.execution.StageInfo;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.ExchangeClient;
 import io.trino.operator.ExchangeClientSupplier;
@@ -523,7 +523,7 @@ class Query
         try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
             long bytes = 0;
             while (bytes < targetResultBytes) {
-                SerializedPage serializedPage = exchangeClient.pollPage();
+                Slice serializedPage = exchangeClient.pollPage();
                 if (serializedPage == null) {
                     break;
                 }

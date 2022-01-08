@@ -311,6 +311,16 @@ public class TestSimplifyExpressions
         assertSimplifiesNumericTypes("NOT (1 > R2)", "NOT (1 > R2)");
     }
 
+    @Test
+    public void testRewriteOrExpression()
+    {
+        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 ", "I1 IN (1, 2)");
+        // TODO: Implement rule for Merging IN expression
+        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I1 IN (3, 4)", "I1 IN (3, 4) OR I1 IN (1, 2)");
+        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I1 = I2", "I1 IN (1, 2, I2)");
+        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I2 = 3 OR I2 = 4", "I1 IN (1, 2) OR I2 IN (3, 4)");
+    }
+
     private static void assertSimplifiesNumericTypes(String expression, String expected)
     {
         ParsingOptions parsingOptions = new ParsingOptions();

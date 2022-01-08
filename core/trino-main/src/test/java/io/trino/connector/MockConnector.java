@@ -736,5 +736,11 @@ public class MockConnector
         {
             return "mock connector split";
         }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return 0;
+        }
     }
 }

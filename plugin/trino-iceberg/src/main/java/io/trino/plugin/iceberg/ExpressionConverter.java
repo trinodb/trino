@@ -25,6 +25,7 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
@@ -226,7 +227,7 @@ public final class ExpressionConverter
             if (Decimals.isShortDecimal(decimalType)) {
                 return BigDecimal.valueOf((long) trinoNativeValue).movePointLeft(decimalType.getScale());
             }
-            return new BigDecimal(Decimals.decodeUnscaledValue((Slice) trinoNativeValue), decimalType.getScale());
+            return new BigDecimal(((Int128) trinoNativeValue).toBigInteger(), decimalType.getScale());
         }
 
         throw new UnsupportedOperationException("Unsupported type: " + type);
