@@ -493,8 +493,16 @@ public class TestPhoenixTypeMapping
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        // TODO (https://github.com/trinodb/trino/issues/10074) Add more test cases when fixing incorrect date issue
         SqlDataTypeTest.create()
+                .addRoundTrip("date", "DATE '-5877641-06-23'", DATE, "DATE '-5877641-06-23'") // min value in Trino
+                .addRoundTrip("date", "DATE '-0001-01-01'", DATE, "DATE '-0001-01-01'")
+                .addRoundTrip("date", "DATE '0001-01-01'", DATE, "DATE '0001-01-01'")
+                .addRoundTrip("date", "DATE '1582-10-04'", DATE, "DATE '1582-10-04'")
+                .addRoundTrip("date", "DATE '1582-10-05'", DATE, "DATE '1582-10-15'") // begin julian->gregorian switch
+                .addRoundTrip("date", "DATE '1582-10-14'", DATE, "DATE '1582-10-24'") // end julian->gregorian switch
+                .addRoundTrip("date", "DATE '1582-10-15'", DATE, "DATE '1582-10-15'")
+                .addRoundTrip("date", "DATE '1899-12-31'", DATE, "DATE '1899-12-31'")
+                .addRoundTrip("date", "DATE '1900-01-01'", DATE, "DATE '1900-01-01'")
                 .addRoundTrip("date", "DATE '1952-04-04'", DATE, "DATE '1952-04-04'") // before epoch
                 .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
                 .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
@@ -502,12 +510,23 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
                 .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
                 .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
+                .addRoundTrip("date", "DATE '9999-12-31'", DATE, "DATE '9999-12-31'")
+                .addRoundTrip("date", "DATE '5881580-07-11'", DATE, "DATE '5881580-07-11'") // max value in Trino
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
 
         SqlDataTypeTest.create()
+                .addRoundTrip("date", "TO_DATE('5877642-06-23 BC', 'yyyy-MM-dd G', 'local')", DATE, "DATE '-5877641-06-23'") // min value in Trino
+                .addRoundTrip("date", "TO_DATE('0002-01-01 BC', 'yyyy-MM-dd G', 'local')", DATE, "DATE '-0001-01-01'")
+                .addRoundTrip("date", "TO_DATE('0001-01-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '0001-01-01'")
+                .addRoundTrip("date", "TO_DATE('1582-10-04', 'yyyy-MM-dd', 'local')", DATE, "DATE '1582-10-04'")
+                .addRoundTrip("date", "TO_DATE('1582-10-05', 'yyyy-MM-dd', 'local')", DATE, "DATE '1582-10-15'") // begin julian->gregorian switch
+                .addRoundTrip("date", "TO_DATE('1582-10-14', 'yyyy-MM-dd', 'local')", DATE, "DATE '1582-10-24'") // end julian->gregorian switch
+                .addRoundTrip("date", "TO_DATE('1582-10-15', 'yyyy-MM-dd', 'local')", DATE, "DATE '1582-10-15'")
+                .addRoundTrip("date", "TO_DATE('1899-12-31', 'yyyy-MM-dd', 'local')", DATE, "DATE '1899-12-31'")
+                .addRoundTrip("date", "TO_DATE('1900-01-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1900-01-01'")
                 .addRoundTrip("date", "TO_DATE('1952-04-04', 'yyyy-MM-dd', 'local')", DATE, "DATE '1952-04-04'") // before epoch
                 .addRoundTrip("date", "TO_DATE('1970-01-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1970-01-01'")
                 .addRoundTrip("date", "TO_DATE('1970-02-03', 'yyyy-MM-dd', 'local')", DATE, "DATE '1970-02-03'")
@@ -515,6 +534,8 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("date", "TO_DATE('2017-01-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
                 .addRoundTrip("date", "TO_DATE('1983-04-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1983-04-01'")
                 .addRoundTrip("date", "TO_DATE('1983-10-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1983-10-01'")
+                .addRoundTrip("date", "TO_DATE('9999-12-31', 'yyyy-MM-dd', 'local')", DATE, "DATE '9999-12-31'")
+                .addRoundTrip("date", "TO_DATE('5881580-07-11', 'yyyy-MM-dd', 'local')", DATE, "DATE '5881580-07-11'") // max value in Trino
                 .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), session, phoenixCreateAndInsert("tpch.test_date"));
