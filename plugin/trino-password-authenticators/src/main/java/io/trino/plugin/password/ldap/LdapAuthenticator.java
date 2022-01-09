@@ -122,7 +122,7 @@ public class LdapAuthenticator
                     String searchBase = userBaseDistinguishedName.orElseThrow();
                     String groupSearch = replaceUser(groupAuthorizationSearchPattern.get(), user);
                     if (!client.isGroupMember(searchBase, groupSearch, userDistinguishedName, credential.getPassword())) {
-                        String message = format("User [%s] not a member of an authorized group", user);
+                        String message = format("User [%s] not a member of an authorized group or not exist", user);
                         log.debug("%s", message);
                         throw new AccessDeniedException(message);
                     }
