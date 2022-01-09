@@ -76,8 +76,6 @@
            - had forward change at midnight (1970-01-01 00:00:00 clocks turned forward 1 hour)
           -->
         <air.test.timezone>America/Bahia_Banderas</air.test.timezone>
-        <air.test.parallel>methods</air.test.parallel>
-        <air.test.thread-count>2</air.test.thread-count>
         <!-- Be conservative about memory allotment, because tests start background process (e.g. docker containers) -->
         <air.test.jvmsize>3g</air.test.jvmsize>
 
