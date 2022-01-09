@@ -13,14 +13,23 @@
  */
 package io.trino.plugin.password.ldap;
 
+import io.trino.spi.security.AccessDeniedException;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestLdapGroupProvider
 {
+    private static final LdapConfig DEFAULT_LDAP_CONFIG = new LdapConfig()
+            .setBindDistingushedName("server")
+            .setBindPassword("server-pass")
+            .setGroupAuthorizationSearchPattern(TestLdapClient.PATTERN_PREFIX + "${USER}")
+            .setUserBaseDistinguishedName(TestLdapClient.USER_BASE_DN)
+            .setGroupBaseDistinguishedName(TestLdapClient.GROUP_BASE_DN);
+
     @Test
     public void testGetGroups()
     {
@@ -28,12 +37,7 @@ public class TestLdapGroupProvider
         client.addCredentials("server", "server-pass");
         client.addDistinguishedNameForUser("alice", "alice");
 
-        LdapConfig ldapConfig = new LdapConfig()
-                .setBindDistingushedName("server")
-                .setBindPassword("server-pass")
-                .setGroupAuthorizationSearchPattern(TestLdapClient.PATTERN_PREFIX + "${USER}")
-                .setUserBaseDistinguishedName(TestLdapClient.USER_BASE_DN)
-                .setGroupBaseDistinguishedName(TestLdapClient.GROUP_BASE_DN);
+        LdapConfig ldapConfig = DEFAULT_LDAP_CONFIG;
         LdapCommon ldapCommon = new LdapCommon(client, ldapConfig);
 
         LdapGroupProvider ldapGroupProvider = new LdapGroupProvider(client, ldapConfig, ldapCommon);
@@ -43,5 +47,36 @@ public class TestLdapGroupProvider
         assertEquals(ldapGroupProvider.getGroups("alice"), Collections.emptySet());
         ldapGroupProvider.invalidateCache();
         assertEquals(ldapGroupProvider.getGroups("alice"), Collections.singleton(TestLdapClient.DEFAULT_GROUP_NAME));
+    }
+
+    @Test
+    public void testAllowUserNotExistIfDefault()
+    {
+        TestLdapClient client = new TestLdapClient();
+        client.addCredentials("server", "server-pass");
+        client.addDistinguishedNameForUser("alice", "alice");
+
+        LdapConfig ldapConfig = DEFAULT_LDAP_CONFIG;
+        LdapCommon ldapCommon = new LdapCommon(client, ldapConfig);
+
+        LdapGroupProvider ldapGroupProvider = new LdapGroupProvider(client, ldapConfig, ldapCommon);
+
+        assertThatThrownBy(() -> ldapGroupProvider.getGroups("bob")).isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    public void testAllowUserNotExistIfTrue()
+    {
+        TestLdapClient client = new TestLdapClient();
+        client.addCredentials("server", "server-pass");
+        client.addDistinguishedNameForUser("alice", "alice");
+
+        LdapConfig ldapConfig = DEFAULT_LDAP_CONFIG
+                .setAllowUserNotExist(true);
+        LdapCommon ldapCommon = new LdapCommon(client, ldapConfig);
+
+        LdapGroupProvider ldapGroupProvider = new LdapGroupProvider(client, ldapConfig, ldapCommon);
+
+        assertEquals(ldapGroupProvider.getGroups("bob"), Collections.emptySet());
     }
 }

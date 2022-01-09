@@ -44,6 +44,7 @@ public class LdapConfig
     private String bindDistinguishedName;
     private String bindPassword;
     private boolean ignoreReferrals;
+    private boolean allowUserNotExist;
     private Duration ldapCacheTtl = new Duration(1, TimeUnit.HOURS);
 
     @NotNull
@@ -193,6 +194,19 @@ public class LdapConfig
     public LdapConfig setIgnoreReferrals(boolean ignoreReferrals)
     {
         this.ignoreReferrals = ignoreReferrals;
+        return this;
+    }
+
+    public boolean isAllowUserNotExist()
+    {
+        return allowUserNotExist;
+    }
+
+    @Config("ldap.allow-user-not-exist")
+    @ConfigDescription("Didn't throw exception if user didn't exist")
+    public LdapConfig setAllowUserNotExist(boolean allowUserNotExist)
+    {
+        this.allowUserNotExist = allowUserNotExist;
         return this;
     }
 

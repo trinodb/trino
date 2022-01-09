@@ -35,7 +35,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -52,6 +51,7 @@ public class LdapGroupProvider
     private final Optional<String> groupBaseDistinguishedName;
     private final Optional<String> bindDistinguishedName;
     private final Optional<String> bindPassword;
+    private final boolean allowUserNotExist;
 
     private final LoadingCache<String, Set<String>> groupCache;
 
@@ -64,6 +64,7 @@ public class LdapGroupProvider
         this.bindDistinguishedName = Optional.ofNullable(ldapConfig.getBindDistingushedName());
         this.bindPassword = Optional.ofNullable(ldapConfig.getBindPassword());
         this.groupBaseDistinguishedName = Optional.ofNullable(ldapConfig.getGroupBaseDistinguishedName());
+        this.allowUserNotExist = ldapConfig.isAllowUserNotExist();
         Optional<String> userBaseDistinguishedName = Optional.ofNullable(ldapConfig.getUserBaseDistinguishedName());
 
         checkArgument(
@@ -90,8 +91,15 @@ public class LdapGroupProvider
             return groupCache.getUnchecked(user);
         }
         catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), AccessDeniedException.class);
-            return Collections.emptySet();
+            if (e.getCause() instanceof AccessDeniedException) {
+                if (allowUserNotExist) {
+                    return Collections.emptySet();
+                }
+                else {
+                    throw (AccessDeniedException) e.getCause();
+                }
+            }
+            throw e;
         }
     }
 
