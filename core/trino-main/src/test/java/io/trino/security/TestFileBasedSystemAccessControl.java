@@ -80,41 +80,28 @@ public class TestFileBasedSystemAccessControl
 
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "bob");
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "charlie");
-        try {
-            accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "admin");
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "admin"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Access Denied: User alice cannot impersonate user admin");
 
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin"), "alice");
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin"), "bob");
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin"), "anything");
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin-other"), "anything");
-        try {
-            accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin-test"), "alice");
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("admin-test"), "alice"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Access Denied: User admin-test cannot impersonate user alice");
 
-        try {
-            accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid"), "alice");
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid"), "alice"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Access Denied: User invalid cannot impersonate user alice");
 
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("anything"), "test");
-        try {
-            accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid-other"), "test");
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertThatThrownBy(() -> accessControlManager.checkCanImpersonateUser(Identity.ofUser("invalid-other"), "test"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Access Denied: User invalid-other cannot impersonate user test");
 
-        accessControlManager = newAccessControlManager(transactionManager, "catalog_principal.json");
-        accessControlManager.checkCanImpersonateUser(Identity.ofUser("anything"), "anythingElse");
+        newAccessControlManager(transactionManager, "catalog_principal.json").checkCanImpersonateUser(Identity.ofUser("anything"), "anythingElse");
     }
 
     @Test
