@@ -33,7 +33,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DataProviders;
@@ -114,7 +113,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public abstract class BaseIcebergConnectorTest
@@ -2256,22 +2254,6 @@ public abstract class BaseIcebergConnectorTest
         throw new IllegalArgumentException("TableStatistics did not contain column named " + columnName);
     }
 
-    private ColumnStatistics checkColumnStatistics(ColumnStatistics statistics)
-    {
-        assertNotNull(statistics, "statistics is null");
-        // Sadly, statistics.getDataSize().isUnknown() for columns in ORC files. See the TODO
-        // in IcebergOrcFileWriter.
-        if (format == ORC) {
-            assertTrue(statistics.getDataSize().isUnknown());
-        }
-        else {
-            assertFalse(statistics.getDataSize().isUnknown());
-        }
-        assertFalse(statistics.getNullsFraction().isUnknown(), "statistics nulls fraction is unknown");
-        assertFalse(statistics.getRange().isEmpty(), "statistics range is not present");
-        return statistics;
-    }
-
     private TableStatistics getTableStatistics(String tableName, Constraint constraint)
     {
         Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
@@ -3272,17 +3254,5 @@ public abstract class BaseIcebergConnectorTest
             assertUpdate("DROP TABLE IF EXISTS table_with_partition_at_beginning");
             assertUpdate("DROP TABLE IF EXISTS table_with_partition_at_end");
         }
-    }
-
-    private OperatorStats getScanOperatorStats(QueryId queryId)
-    {
-        return getDistributedQueryRunner().getCoordinator()
-                .getQueryManager()
-                .getFullQueryInfo(queryId)
-                .getQueryStats()
-                .getOperatorSummaries()
-                .stream()
-                .filter(summary -> summary.getOperatorType().contains("Scan"))
-                .collect(onlyElement());
     }
 }
