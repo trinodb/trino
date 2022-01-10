@@ -67,6 +67,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -437,19 +438,19 @@ class TranslationMap
 
                 // apply the input functions to the JSON path parameters having FORMAT,
                 // and collect all JSON path parameters in a Row
-                Expression parametersRow = getParametersRow(
+                ParametersRow orderedParameters = getParametersRow(
                         node.getJsonPathInvocation().getPathParameters(),
                         rewritten.getJsonPathInvocation().getPathParameters(),
                         resolvedFunction.getSignature().getArgumentType(2),
                         failOnError);
 
-                IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node));
+                IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
                 Expression pathExpression = new LiteralEncoder(plannerContext).toExpression(session, path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
 
                 ImmutableList.Builder<Expression> arguments = ImmutableList.<Expression>builder()
                         .add(input)
                         .add(pathExpression)
-                        .add(parametersRow)
+                        .add(orderedParameters.getParametersRow())
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())));
 
                 Expression result = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
@@ -479,19 +480,19 @@ class TranslationMap
 
                 // apply the input functions to the JSON path parameters having FORMAT,
                 // and collect all JSON path parameters in a Row
-                Expression parametersRow = getParametersRow(
+                ParametersRow orderedParameters = getParametersRow(
                         node.getJsonPathInvocation().getPathParameters(),
                         rewritten.getJsonPathInvocation().getPathParameters(),
                         resolvedFunction.getSignature().getArgumentType(2),
                         failOnError);
 
-                IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node));
+                IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
                 Expression pathExpression = new LiteralEncoder(plannerContext).toExpression(session, path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
 
                 ImmutableList.Builder<Expression> arguments = ImmutableList.<Expression>builder()
                         .add(input)
                         .add(pathExpression)
-                        .add(parametersRow)
+                        .add(orderedParameters.getParametersRow())
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
                         .add(rewritten.getEmptyDefault().orElse(new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))))
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())))
@@ -524,19 +525,19 @@ class TranslationMap
 
                 // apply the input functions to the JSON path parameters having FORMAT,
                 // and collect all JSON path parameters in a Row
-                Expression parametersRow = getParametersRow(
+                ParametersRow orderedParameters = getParametersRow(
                         node.getJsonPathInvocation().getPathParameters(),
                         rewritten.getJsonPathInvocation().getPathParameters(),
                         resolvedFunction.getSignature().getArgumentType(2),
                         failOnError);
 
-                IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node));
+                IrJsonPath path = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
                 Expression pathExpression = new LiteralEncoder(plannerContext).toExpression(session, path, plannerContext.getTypeManager().getType(TypeId.of(JsonPath2016Type.NAME)));
 
                 ImmutableList.Builder<Expression> arguments = ImmutableList.<Expression>builder()
                         .add(input)
                         .add(pathExpression)
-                        .add(parametersRow)
+                        .add(orderedParameters.getParametersRow())
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getWrapperBehavior().ordinal())))
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())));
@@ -563,12 +564,14 @@ class TranslationMap
                 return coerceIfNecessary(node, result);
             }
 
-            private Expression getParametersRow(
+            private ParametersRow getParametersRow(
                     List<JsonPathParameter> pathParameters,
                     List<JsonPathParameter> rewrittenPathParameters,
                     Type parameterRowType,
                     BooleanLiteral failOnError)
             {
+                Expression parametersRow;
+                List<String> parametersOrder;
                 if (!pathParameters.isEmpty()) {
                     ImmutableList.Builder<Expression> parameters = ImmutableList.builder();
                     for (int i = 0; i < pathParameters.size(); i++) {
@@ -581,11 +584,18 @@ class TranslationMap
                             parameters.add(rewrittenParameter);
                         }
                     }
-                    return new Cast(new Row(parameters.build()), toSqlType(parameterRowType));
+                    parametersRow = new Cast(new Row(parameters.build()), toSqlType(parameterRowType));
+                    parametersOrder = pathParameters.stream()
+                            .map(parameter -> parameter.getName().getCanonicalValue())
+                            .collect(toImmutableList());
+                }
+                else {
+                    checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(parameterRowType), "invalid type of parameters row when no parameters are passed");
+                    parametersRow = new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
+                    parametersOrder = ImmutableList.of();
                 }
 
-                checkState(JSON_NO_PARAMETERS_ROW_TYPE.equals(parameterRowType), "invalid type of parameters row when no parameters are passed");
-                return new Cast(new NullLiteral(), toSqlType(JSON_NO_PARAMETERS_ROW_TYPE));
+                return new ParametersRow(parametersRow, parametersOrder);
             }
 
             private Expression coerceIfNecessary(Expression original, Expression rewritten)
@@ -637,5 +647,27 @@ class TranslationMap
     public Scope getScope()
     {
         return scope;
+    }
+
+    private static class ParametersRow
+    {
+        private final Expression parametersRow;
+        private final List<String> parametersOrder;
+
+        public ParametersRow(Expression parametersRow, List<String> parametersOrder)
+        {
+            this.parametersRow = requireNonNull(parametersRow, "parametersRow is null");
+            this.parametersOrder = requireNonNull(parametersOrder, "parametersOrder is null");
+        }
+
+        public Expression getParametersRow()
+        {
+            return parametersRow;
+        }
+
+        public List<String> getParametersOrder()
+        {
+            return parametersOrder;
+        }
     }
 }
