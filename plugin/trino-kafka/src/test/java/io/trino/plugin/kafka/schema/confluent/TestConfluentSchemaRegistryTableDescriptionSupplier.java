@@ -177,7 +177,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
                                 .build(),
                         new SchemaTableName(DEFAULT_NAME, format("%s&value-subject=%s", topicName, overriddenSubject))))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage("Subject 'ambiguousoverriddensubject' is ambiguous, and may refer to one of the following: ambiguousOverriddenSubject, AMBIGUOUSOVERRIDDENSUBJECT");
+                .hasMessage("Subject 'ambiguousoverriddensubject' is ambiguous, and may refer to one of the following: AMBIGUOUSOVERRIDDENSUBJECT, ambiguousOverriddenSubject");
     }
 
     private KafkaTopicDescription getKafkaTopicDescription(TableDescriptionSupplier tableDescriptionSupplier, SchemaTableName schemaTableName)

@@ -145,16 +145,42 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- used by kafka-protobuf-provider -->
+        <dependency>
+            <groupId>com.google.api.grpc</groupId>
+            <artifactId>proto-google-common-protos</artifactId>
+            <version>2.5.1</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okio</groupId>
+            <artifactId>okio-jvm</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- used by trino-record-decoder -->
         <dependency>
             <groupId>com.squareup.wire</groupId>
-            <artifactId>wire-schema</artifactId>
+            <artifactId>wire-runtime-jvm</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.wire</groupId>
+            <artifactId>wire-schema-jvm</artifactId>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>javax.ws.rs</groupId>
             <artifactId>javax.ws.rs-api</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -295,7 +321,18 @@
                     <groupId>org.apache.kafka</groupId>
                     <artifactId>kafka-clients</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>io.dropwizard.metrics</groupId>
+                    <artifactId>metrics-core</artifactId>
+                </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-protobuf-types</artifactId>
+            <!-- This is under Confluent Community License and it should not be used with compile scope -->
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -326,6 +363,7 @@
                 <configuration>
                     <allowedProvidedDependencies>
                         <id>io.confluent:kafka-protobuf-provider</id>
+                        <id>io.confluent:kafka-protobuf-types</id>
                     </allowedProvidedDependencies>
                 </configuration>
             </plugin>

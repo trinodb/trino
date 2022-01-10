@@ -87,6 +87,15 @@ public class ClassLoaderSafeSchemaRegistryClient
     }
 
     @Override
+    public int register(String subject, ParsedSchema schema, boolean normalize)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.register(subject, schema, normalize);
+        }
+    }
+
+    @Override
     public Schema getByID(int id)
             throws IOException, RestClientException
     {
@@ -101,6 +110,140 @@ public class ClassLoaderSafeSchemaRegistryClient
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getById(id);
+        }
+    }
+
+    @Override
+    public int getId(String subject, ParsedSchema schema, boolean normalize)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getId(subject, schema, normalize);
+        }
+    }
+
+    @Override
+    public Optional<ParsedSchema> parseSchema(io.confluent.kafka.schemaregistry.client.rest.entities.Schema schema)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.parseSchema(schema);
+        }
+    }
+
+    @Override
+    public List<ParsedSchema> getSchemas(String subjectPrefix, boolean lookupDeletedSchema, boolean latestOnly)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSchemas(subjectPrefix, lookupDeletedSchema, latestOnly);
+        }
+    }
+
+    @Override
+    public SchemaMetadata getSchemaMetadata(String subject, int version, boolean lookupDeletedSchema)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getSchemaMetadata(subject, version, lookupDeletedSchema);
+        }
+    }
+
+    @Override
+    public int getVersion(String subject, ParsedSchema schema, boolean normalize)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getVersion(subject, schema, normalize);
+        }
+    }
+
+    @Override
+    public List<Integer> getAllVersions(String subject, boolean lookupDeletedSchema)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getAllVersions(subject, lookupDeletedSchema);
+        }
+    }
+
+    @Override
+    public List<String> testCompatibilityVerbose(String subject, ParsedSchema schema)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.testCompatibilityVerbose(subject, schema);
+        }
+    }
+
+    @Override
+    public void deleteCompatibility(String subject)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.deleteCompatibility(subject);
+        }
+    }
+
+    @Override
+    public void deleteMode(String subject)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.deleteMode(subject);
+        }
+    }
+
+    @Override
+    public Collection<String> getAllSubjects(boolean lookupDeletedSubject)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getAllSubjects(lookupDeletedSubject);
+        }
+    }
+
+    @Override
+    public Collection<String> getAllSubjectsByPrefix(String subjectPrefix)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getAllSubjectsByPrefix(subjectPrefix);
+        }
+    }
+
+    @Override
+    public List<Integer> deleteSubject(String subject, boolean isPermanent)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.deleteSubject(subject, isPermanent);
+        }
+    }
+
+    @Override
+    public List<Integer> deleteSubject(Map<String, String> requestProperties, String subject, boolean isPermanent)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.deleteSubject(requestProperties, subject, isPermanent);
+        }
+    }
+
+    @Override
+    public Integer deleteSchemaVersion(String subject, String version, boolean isPermanent)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.deleteSchemaVersion(subject, version, isPermanent);
+        }
+    }
+
+    @Override
+    public Integer deleteSchemaVersion(Map<String, String> requestProperties, String subject, String version, boolean isPermanent)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.deleteSchemaVersion(requestProperties, subject, version, isPermanent);
         }
     }
 

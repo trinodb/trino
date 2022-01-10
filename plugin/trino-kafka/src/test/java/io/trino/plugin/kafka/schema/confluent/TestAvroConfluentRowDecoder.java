@@ -23,6 +23,7 @@ import io.trino.decoder.RowDecoder;
 import io.trino.decoder.avro.AvroBytesDeserializer;
 import io.trino.decoder.avro.AvroRowDecoderFactory;
 import io.trino.plugin.kafka.KafkaColumnHandle;
+import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -166,13 +167,27 @@ public class TestAvroConfluentRowDecoder
         checkState(decodedRow.isPresent(), "decoded row is not present");
         for (Map.Entry<DecoderColumnHandle, FieldValueProvider> entry : decodedRow.get().entrySet()) {
             String columnName = entry.getKey().getName();
-            if (expected.get(columnName) == null) {
+            if (getValue(expected, columnName) == null) {
                 // The record uses the old schema and does not contain the new field.
                 assertTrue(entry.getValue().isNull());
             }
             else {
                 assertValuesAreEqual(entry.getValue(), expected.get(columnName), expected.getSchema().getField(columnName).schema());
             }
+        }
+    }
+
+    public static Object getValue(GenericRecord record, String columnName)
+    {
+        try {
+            return record.get(columnName);
+        }
+        catch (AvroRuntimeException e) {
+            if (e.getMessage().contains("Not a valid schema field")) {
+                return null;
+            }
+
+            throw e;
         }
     }
 

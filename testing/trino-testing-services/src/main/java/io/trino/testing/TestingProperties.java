@@ -51,4 +51,9 @@ public class TestingProperties
     {
         return requireNonNull(properties.get().getProperty("docker.images.version"), "docker.images.version is null");
     }
+
+    public static String getProjectProperty(String name)
+    {
+        return requireNonNull(properties.get().getProperty(name), name + " is null");
+    }
 }

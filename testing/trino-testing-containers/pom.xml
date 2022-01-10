@@ -54,6 +54,10 @@
                     <groupId>net.jcip</groupId>
                     <artifactId>jcip-annotations</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.osgi</groupId>
+                    <artifactId>org.osgi.core</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 

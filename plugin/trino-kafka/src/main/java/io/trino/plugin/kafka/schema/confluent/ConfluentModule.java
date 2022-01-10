@@ -27,6 +27,7 @@ import io.confluent.kafka.schemaregistry.SchemaProvider;
 import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.rest.entities.Schema;
 import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
 import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchemaProvider;
 import io.trino.decoder.DispatchingRowDecoderFactory;
@@ -175,9 +176,15 @@ public class ConfluentModule
         }
 
         @Override
-        public Optional<ParsedSchema> parseSchema(String schema, List<SchemaReference> references)
+        public Optional<ParsedSchema> parseSchema(String schema, List<SchemaReference> references, boolean isNew)
         {
-            return delegate.get().parseSchema(schema, references);
+            return delegate.get().parseSchema(schema, references, isNew);
+        }
+
+        @Override
+        public ParsedSchema parseSchemaOrElseThrow(Schema schema, boolean isNew)
+        {
+            return delegate.get().parseSchemaOrElseThrow(schema, isNew);
         }
 
         private SchemaProvider create()

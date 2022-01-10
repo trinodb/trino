@@ -27,6 +27,7 @@ import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
+import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericRecord;
@@ -254,7 +255,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     private static void addExpectedColumns(Schema schema, GenericRecord record, ImmutableList.Builder<String> columnsBuilder)
     {
         for (Schema.Field field : schema.getFields()) {
-            Object value = record.get(field.name());
+            Object value = getValue(record, field.name());
             if (value == null && field.schema().getType().equals(Schema.Type.UNION) && field.schema().getTypes().contains(Schema.create(Schema.Type.NULL))) {
                 if (field.schema().getTypes().contains(Schema.create(Schema.Type.DOUBLE))) {
                     columnsBuilder.add("CAST(null AS double)");
@@ -272,6 +273,20 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
             else {
                 throw new IllegalArgumentException("Unsupported field: " + field);
             }
+        }
+    }
+
+    public static Object getValue(GenericRecord record, String columnName)
+    {
+        try {
+            return record.get(columnName);
+        }
+        catch (AvroRuntimeException e) {
+            if (e.getMessage().contains("Not a valid schema field")) {
+                return null;
+            }
+
+            throw e;
         }
     }
 

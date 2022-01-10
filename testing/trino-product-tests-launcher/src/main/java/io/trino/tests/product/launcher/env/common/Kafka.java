@@ -27,6 +27,7 @@ import javax.inject.Inject;
 import java.io.File;
 import java.time.Duration;
 
+import static io.trino.testing.TestingProperties.getProjectProperty;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
@@ -40,7 +41,9 @@ public class Kafka
 {
     private static final String CONFLUENT_VERSION = "5.5.2";
     private static final int SCHEMA_REGISTRY_PORT = 8081;
-    private static final File KAFKA_PROTOBUF_PROVIDER = new File("testing/trino-product-tests-launcher/target/kafka-protobuf-provider-5.5.2.jar");
+    private static final File KAFKA_PROTOBUF_PROVIDER = new File("testing/trino-product-tests-launcher/target/kafka-protobuf-provider-" + getProjectProperty("dep.confluent.version") + ".jar");
+    private static final File KAFKA_PROTOBUF_TYPES = new File("testing/trino-product-tests-launcher/target/kafka-protobuf-types-" + getProjectProperty("dep.confluent.version") + ".jar");
+
     static final String KAFKA = "kafka";
     static final String SCHEMA_REGISTRY = "schema-registry";
     static final String ZOOKEEPER = "zookeeper";
@@ -70,6 +73,7 @@ public class Kafka
                 container
                         .withCopyFileToContainer(logConfigFile, CONTAINER_TRINO_ETC + "/log.properties")
                         .withCopyFileToContainer(forHostPath(KAFKA_PROTOBUF_PROVIDER.getAbsolutePath()), "/docker/kafka-protobuf-provider/kafka-protobuf-provider.jar")
+                        .withCopyFileToContainer(forHostPath(KAFKA_PROTOBUF_TYPES.getAbsolutePath()), "/docker/kafka-protobuf-provider/kafka-protobuf-types.jar")
                         .withCopyFileToContainer(forClasspathResource("install-kafka-protobuf-provider.sh", 0755), "/docker/presto-init.d/install-kafka-protobuf-provider.sh");
             }
         });
