@@ -54,19 +54,7 @@ public class TestCreateDropSchema
     }
 
     @Test
-    public void testDropSchemaWithLocationWithoutExternalFiles()
-    {
-        String schemaName = "schema_with_empty_location_" + randomTableSuffix();
-        String schemaDir = warehouseDirectory + "/schema-with-empty-location/";
-
-        onTrino().executeQuery(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
-        assertFileExistence(schemaDir, true, "schema directory exists after creating schema");
-        onTrino().executeQuery("DROP SCHEMA " + schemaName);
-        assertFileExistence(schemaDir, false, "schema directory exists after dropping schema");
-    }
-
-    @Test
-    public void testDropSchemaFilesWithoutLocation()
+    public void testDropSchemaFiles()
     {
         String schemaName = "schema_without_location_" + randomTableSuffix();
         String schemaDir = format("%s/%s.db/", warehouseDirectory, schemaName);
@@ -78,7 +66,19 @@ public class TestCreateDropSchema
     }
 
     @Test
-    public void testDropSchemaFilesWithLocationWithExternalFile()
+    public void testDropSchemaFilesWithLocation()
+    {
+        String schemaName = "schema_with_empty_location_" + randomTableSuffix();
+        String schemaDir = warehouseDirectory + "/schema-with-empty-location/";
+
+        onTrino().executeQuery(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        assertFileExistence(schemaDir, true, "schema directory exists after creating schema");
+        onTrino().executeQuery("DROP SCHEMA " + schemaName);
+        assertFileExistence(schemaDir, false, "schema directory exists after dropping schema");
+    }
+
+    @Test // specified location, external file in subdir
+    public void testDropWithExternalFilesInSubdirectory()
     {
         String schemaName = "schema_with_nonempty_location_" + randomTableSuffix();
         String schemaDir = warehouseDirectory + "/schema-with-nonempty-location/";
@@ -98,7 +98,7 @@ public class TestCreateDropSchema
         hdfsClient.delete(schemaDir);
     }
 
-    @Test // make sure empty directories are noticed as well
+    @Test // default location, empty external subdir
     public void testDropSchemaFilesWithEmptyExternalSubdir()
     {
         String schemaName = "schema_with_empty_subdirectory_" + randomTableSuffix();
@@ -115,8 +115,7 @@ public class TestCreateDropSchema
         hdfsClient.delete(schemaDir);
     }
 
-    // Tests create/drop schema transactions with default schema location
-    @Test
+    @Test // default location, transactions without external files
     public void testDropSchemaFilesTransactions()
     {
         String schemaName = "schema_directory_transactions_" + randomTableSuffix();
@@ -140,8 +139,8 @@ public class TestCreateDropSchema
         assertFileExistence(schemaDir, false, "schema directory exists after dropping schema");
     }
 
-    @Test
-    public void testDropSchemaFilesTransactionsWithExternalFile()
+    @Test // specified location, transaction with top-level external file
+    public void testDropTransactionsWithExternalFiles()
     {
         String schemaName = "schema_transactions_with_external_files_" + randomTableSuffix();
         String schemaDir = warehouseDirectory + "/schema-transactions-with-external-files/";
