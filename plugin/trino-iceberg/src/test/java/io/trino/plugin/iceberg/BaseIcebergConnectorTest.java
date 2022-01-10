@@ -50,7 +50,6 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -2491,7 +2490,7 @@ public abstract class BaseIcebergConnectorTest
 
         // Replace the file through HDFS client. This is required for correct checksums.
         HdfsEnvironment.HdfsContext context = new HdfsContext(getSession().toConnectorSession());
-        Path manifestFilePath = new Path(manifestFile);
+        org.apache.hadoop.fs.Path manifestFilePath = new org.apache.hadoop.fs.Path(manifestFile);
         FileSystem fs = HDFS_ENVIRONMENT.getFileSystem(context, manifestFilePath);
 
         // Write altered metadata
