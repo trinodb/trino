@@ -14,6 +14,7 @@
 package io.trino.tests.product.launcher.env;
 
 import com.github.dockerjava.api.async.ResultCallback;
+import com.github.dockerjava.api.model.CpuUsageConfig;
 import com.github.dockerjava.api.model.MemoryStatsConfig;
 import com.github.dockerjava.api.model.StatisticNetworksConfig;
 import com.github.dockerjava.api.model.Statistics;
@@ -24,14 +25,20 @@ import org.testcontainers.DockerClientFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.tests.product.launcher.env.StatisticsFetcher.Stats.statisticsAreEmpty;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticsFetcher
@@ -90,8 +97,8 @@ public class StatisticsFetcher
         }
 
         Stats stats = new Stats();
-        stats.systemCpuUsage = statistics.getCpuStats().getSystemCpuUsage();
-        stats.totalCpuUsage = statistics.getCpuStats().getCpuUsage().getTotalUsage();
+        stats.systemCpuUsage = firstNonNull(statistics.getCpuStats().getSystemCpuUsage(), -1L);
+        stats.totalCpuUsage = Optional.ofNullable(statistics.getCpuStats().getCpuUsage()).map(CpuUsageConfig::getTotalUsage).orElse(-1L);
         stats.cpuUsagePerc = 0.0;
 
         if (previousStats.systemCpuUsage != -1 && previousStats.totalCpuUsage != -1) {
@@ -99,21 +106,20 @@ public class StatisticsFetcher
             double systemCpuDelta = stats.systemCpuUsage - previousStats.systemCpuUsage;
 
             if (usageCpuDelta > 0.0 && systemCpuDelta > 0.0) {
-                stats.cpuUsagePerc = usageCpuDelta / systemCpuDelta * statistics.getCpuStats().getCpuUsage().getPercpuUsage().size() * 100;
+                stats.cpuUsagePerc = usageCpuDelta / systemCpuDelta * Optional.ofNullable(statistics.getCpuStats().getCpuUsage().getPercpuUsage()).map(List::size).orElse(1) * 100;
             }
         }
 
         MemoryStatsConfig memoryStats = statistics.getMemoryStats();
-        stats.memoryLimit = DataSize.ofBytes(memoryStats.getLimit()).to(GIGABYTE);
-        stats.memoryUsage = DataSize.ofBytes(memoryStats.getUsage()).to(GIGABYTE);
-        stats.memoryMaxUsage = DataSize.ofBytes(memoryStats.getMaxUsage()).to(GIGABYTE);
-        stats.memoryUsagePerc = 100.0 * memoryStats.getUsage() / memoryStats.getLimit();
+        stats.memoryLimit = DataSize.ofBytes(firstNonNull(memoryStats.getLimit(), 0L)).to(GIGABYTE);
+        stats.memoryUsage = DataSize.ofBytes(firstNonNull(memoryStats.getUsage(), 0L)).to(GIGABYTE);
+        stats.memoryMaxUsage = DataSize.ofBytes(firstNonNull(memoryStats.getMaxUsage(), 0L)).to(GIGABYTE);
+        stats.memoryUsagePerc = 100.0 * firstNonNull(memoryStats.getUsage(), 0L) / firstNonNull(memoryStats.getLimit(), 1L);
+        stats.pids = firstNonNull(statistics.getPidsStats().getCurrent(), -1L);
 
-        stats.pids = statistics.getPidsStats().getCurrent();
-
-        Supplier<Stream<StatisticNetworksConfig>> stream = () -> statistics.getNetworks().values().stream();
-        stats.networkReceived = DataSize.ofBytes(stream.get().map(StatisticNetworksConfig::getRxBytes).reduce(0L, Long::sum)).succinct();
-        stats.networkSent = DataSize.ofBytes(stream.get().map(StatisticNetworksConfig::getTxBytes).reduce(0L, Long::sum)).succinct();
+        Supplier<Stream<StatisticNetworksConfig>> stream = () -> Optional.ofNullable(statistics.getNetworks()).map(Map::values).orElse(emptyList()).stream();
+        stats.networkReceived = DataSize.ofBytes(stream.get().map(StatisticNetworksConfig::getRxBytes).filter(Objects::nonNull).reduce(0L, Long::sum)).succinct();
+        stats.networkSent = DataSize.ofBytes(stream.get().map(StatisticNetworksConfig::getTxBytes).filter(Objects::nonNull).reduce(0L, Long::sum)).succinct();
 
         return stats;
     }
