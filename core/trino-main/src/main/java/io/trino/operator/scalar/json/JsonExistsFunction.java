@@ -37,10 +37,9 @@ import io.trino.type.JsonPath2016Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Map;
 
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
-import static io.trino.operator.scalar.json.JsonQueryFunction.getParametersMap;
+import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -113,8 +112,8 @@ public class JsonExistsFunction
         if (inputExpression.equals(JSON_ERROR)) {
             return handleError(errorBehavior, INPUT_ARGUMENT_ERROR); // ERROR ON ERROR was already handled by the input function
         }
-        Map<String, Object> parameters = getParametersMap(parametersRowType, parametersRow); // TODO refactor
-        for (Object parameter : parameters.values()) {
+        Object[] parameters = getParametersArray(parametersRowType, parametersRow);
+        for (Object parameter : parameters) {
             if (parameter.equals(JSON_ERROR)) {
                 return handleError(errorBehavior, PATH_PARAMETER_ERROR); // ERROR ON ERROR was already handled by the input function
             }

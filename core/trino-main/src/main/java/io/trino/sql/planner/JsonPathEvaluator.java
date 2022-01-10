@@ -88,7 +88,6 @@ import io.trino.type.TypeCoercion;
 import io.trino.type.VarcharOperators;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -142,7 +141,7 @@ import static java.util.Objects.requireNonNull;
 public class JsonPathEvaluator
 {
     private final JsonNode input;
-    private final Map<String, Object> parameters; // TODO refactor to Object[]
+    private final Object[] parameters;
     private final Metadata metadata;
     private final Session session;
     private final ConnectorSession connectorSession;
@@ -151,10 +150,10 @@ public class JsonPathEvaluator
     private final JsonPredicateEvaluator predicateEvaluator;
     private int objectId;
 
-    public JsonPathEvaluator(JsonNode input, Map<String, Object> parameters, FunctionManager functionManager, Metadata metadata, TypeManager typeManager, ConnectorSession connectorSession)
+    public JsonPathEvaluator(JsonNode input, Object[] parameters, FunctionManager functionManager, Metadata metadata, TypeManager typeManager, ConnectorSession connectorSession)
     {
         this.input = requireNonNull(input, "input is null");
-        this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
+        this.parameters = requireNonNull(parameters, "parameters is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.connectorSession = requireNonNull(connectorSession, "connectorSession is null");
         this.session = ((FullConnectorSession) connectorSession).getSession();
@@ -966,8 +965,8 @@ public class JsonPathEvaluator
         @Override
         protected List<Object> visitIrNamedJsonVariable(IrNamedJsonVariable node, Context context)
         {
-            Object value = parameters.get(node.getName());
-            checkState(value != null, "missing value for parameter " + node.getName());
+            Object value = parameters[node.getIndex()];
+            checkState(value != null, "missing value for parameter");
             checkState(value instanceof JsonNode, "expected JSON, got SQL value");
 
             if (value.equals(EMPTY_SEQUENCE)) {
@@ -979,8 +978,8 @@ public class JsonPathEvaluator
         @Override
         protected List<Object> visitIrNamedValueVariable(IrNamedValueVariable node, Context context)
         {
-            Object value = parameters.get(node.getName());
-            checkState(value != null, "missing value for parameter " + node.getName());
+            Object value = parameters[node.getIndex()];
+            checkState(value != null, "missing value for parameter");
             checkState(value instanceof TypedValue || value instanceof NullNode, "expected SQL value or JSON null, got non-null JSON");
 
             return ImmutableList.of(value);

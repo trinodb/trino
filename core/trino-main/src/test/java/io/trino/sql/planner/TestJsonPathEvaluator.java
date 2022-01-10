@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.json.ir.IrJsonPath;
+import io.trino.json.ir.IrPathNode;
 import io.trino.json.ir.IrPredicate;
 import io.trino.json.ir.TypedValue;
 import io.trino.spi.type.Int128;
@@ -78,7 +79,6 @@ import static io.trino.sql.planner.PathNodes.greaterThan;
 import static io.trino.sql.planner.PathNodes.greaterThanOrEqual;
 import static io.trino.sql.planner.PathNodes.isUnknown;
 import static io.trino.sql.planner.PathNodes.jsonNull;
-import static io.trino.sql.planner.PathNodes.jsonVariable;
 import static io.trino.sql.planner.PathNodes.keyValue;
 import static io.trino.sql.planner.PathNodes.last;
 import static io.trino.sql.planner.PathNodes.lessThan;
@@ -100,7 +100,6 @@ import static io.trino.sql.planner.PathNodes.startsWith;
 import static io.trino.sql.planner.PathNodes.subtract;
 import static io.trino.sql.planner.PathNodes.toDouble;
 import static io.trino.sql.planner.PathNodes.type;
-import static io.trino.sql.planner.PathNodes.variable;
 import static io.trino.sql.planner.PathNodes.wildcardArrayAccessor;
 import static io.trino.sql.planner.PathNodes.wildcardMemberAccessor;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -131,6 +130,8 @@ public class TestJsonPathEvaluator
             .put("json_array_parameter", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("element"), DoubleNode.valueOf(7e0), NullNode.instance)))
             .put("json_object_parameter", new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("bound_value"), "key2", NullNode.instance)))
             .buildOrThrow();
+
+    private static final List<String> PARAMETERS_ORDER = ImmutableList.copyOf(PARAMETERS.keySet());
 
     @Test
     public void testLiterals()
@@ -1319,6 +1320,16 @@ public class TestJsonPathEvaluator
                 .hasMessage("path evaluation failed: accessing current filter item with no enclosing filter");
     }
 
+    private static IrPathNode variable(String name)
+    {
+        return PathNodes.variable(PARAMETERS_ORDER.indexOf(name));
+    }
+
+    private static IrPathNode jsonVariable(String name)
+    {
+        return PathNodes.jsonVariable(PARAMETERS_ORDER.indexOf(name));
+    }
+
     private static AssertProvider<? extends RecursiveComparisonAssert<?>> pathResult(JsonNode input, IrJsonPath path)
     {
         return () -> new RecursiveComparisonAssert<>(evaluate(input, path), COMPARISON_CONFIGURATION);
@@ -1328,7 +1339,7 @@ public class TestJsonPathEvaluator
     {
         JsonPathEvaluator evaluator = new JsonPathEvaluator(
                 input,
-                PARAMETERS,
+                PARAMETERS.values().toArray(),
                 createTestingFunctionManager(),
                 createTestMetadataManager(),
                 new TestingTypeManager(),
@@ -1345,7 +1356,7 @@ public class TestJsonPathEvaluator
     {
         JsonPredicateEvaluator evaluator = new JsonPredicateEvaluator(new JsonPathEvaluator(
                 input,
-                PARAMETERS,
+                PARAMETERS.values().toArray(),
                 createTestingFunctionManager(),
                 createTestMetadataManager(),
                 new TestingTypeManager(),

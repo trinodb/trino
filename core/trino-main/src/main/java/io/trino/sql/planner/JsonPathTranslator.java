@@ -115,10 +115,10 @@ class JsonPathTranslator
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
     }
 
-    public IrJsonPath rewriteToIr(JsonPathAnalysis pathAnalysis)
+    public IrJsonPath rewriteToIr(JsonPathAnalysis pathAnalysis, List<String> parametersOrder)
     {
         PathNode root = pathAnalysis.getPath().getRoot();
-        IrPathNode rewritten = new Rewriter(session, plannerContext, pathAnalysis.getTypes(), pathAnalysis.getJsonParameters()).process(root);
+        IrPathNode rewritten = new Rewriter(session, plannerContext, pathAnalysis.getTypes(), pathAnalysis.getJsonParameters(), parametersOrder).process(root);
 
         return new IrJsonPath(pathAnalysis.getPath().isLax(), rewritten);
     }
@@ -129,18 +129,21 @@ class JsonPathTranslator
         private final LiteralInterpreter literalInterpreter;
         private final Map<PathNodeRef<PathNode>, Type> types;
         private final Set<PathNodeRef<PathNode>> jsonParameters;
+        private final List<String> parametersOrder;
 
-        public Rewriter(Session session, PlannerContext plannerContext, Map<PathNodeRef<PathNode>, Type> types, Set<PathNodeRef<PathNode>> jsonParameters)
+        public Rewriter(Session session, PlannerContext plannerContext, Map<PathNodeRef<PathNode>, Type> types, Set<PathNodeRef<PathNode>> jsonParameters, List<String> parametersOrder)
         {
             requireNonNull(session, "session is null");
             requireNonNull(plannerContext, "plannerContext is null");
             requireNonNull(types, "types is null");
             requireNonNull(jsonParameters, "jsonParameters is null");
             requireNonNull(jsonParameters, "jsonParameters is null");
+            requireNonNull(parametersOrder, "parametersOrder is null");
 
             this.literalInterpreter = new LiteralInterpreter(plannerContext, session);
             this.types = types;
             this.jsonParameters = jsonParameters;
+            this.parametersOrder = parametersOrder;
         }
 
         @Override
@@ -288,9 +291,9 @@ class JsonPathTranslator
         protected IrPathNode visitNamedVariable(NamedVariable node, Void context)
         {
             if (jsonParameters.contains(PathNodeRef.of(node))) {
-                return new IrNamedJsonVariable(node.getName(), Optional.ofNullable(types.get(PathNodeRef.of(node))));
+                return new IrNamedJsonVariable(parametersOrder.indexOf(node.getName()), Optional.ofNullable(types.get(PathNodeRef.of(node))));
             }
-            return new IrNamedValueVariable(node.getName(), Optional.ofNullable(types.get(PathNodeRef.of(node))));
+            return new IrNamedValueVariable(parametersOrder.indexOf(node.getName()), Optional.ofNullable(types.get(PathNodeRef.of(node))));
         }
 
         @Override
