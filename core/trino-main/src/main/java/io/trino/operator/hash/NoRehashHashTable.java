@@ -29,6 +29,8 @@ public interface NoRehashHashTable
 
     GroupByHashTableEntries entries();
 
+    GroupByHashTableEntries valuesTable();
+
     int hashTableSize();
 
     int groupToHashPosition(int groupId);

@@ -26,6 +26,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
@@ -233,8 +234,8 @@ public final class HiveQueryRunner
         return testSessionBuilder()
                 .setIdentity(Identity.forUser("hive")
                         .withConnectorRoles(role.map(selectedRole -> ImmutableMap.of(
-                                HIVE_CATALOG, selectedRole,
-                                HIVE_BUCKETED_CATALOG, selectedRole))
+                                        HIVE_CATALOG, selectedRole,
+                                        HIVE_BUCKETED_CATALOG, selectedRole))
                                 .orElse(ImmutableMap.of()))
                         .build())
                 .setCatalog(HIVE_CATALOG)
@@ -247,8 +248,8 @@ public final class HiveQueryRunner
         return testSessionBuilder()
                 .setIdentity(Identity.forUser("hive")
                         .withConnectorRoles(role.map(selectedRole -> ImmutableMap.of(
-                                HIVE_CATALOG, selectedRole,
-                                HIVE_BUCKETED_CATALOG, selectedRole))
+                                        HIVE_CATALOG, selectedRole,
+                                        HIVE_BUCKETED_CATALOG, selectedRole))
                                 .orElse(ImmutableMap.of()))
                         .build())
                 .setCatalog(HIVE_BUCKETED_CATALOG)
@@ -317,12 +318,17 @@ public final class HiveQueryRunner
         }
 
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
-                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080",
+                        "query.max-total-memory-per-node", "8GB",
+                        "query.max-memory-per-node", "8GB"))
                 .setSkipTimezoneSetup(true)
                 .setHiveProperties(ImmutableMap.of())
+                .setNodeCount(1)
                 .setInitialTables(TpchTable.getTables())
                 .setBaseDataDir(baseDataDir)
                 .build();
+        queryRunner.installPlugin(new MemoryPlugin());
+        queryRunner.createCatalog("memory", "memory", ImmutableMap.of("memory.max-data-per-node", "16GB"));
         Thread.sleep(10);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

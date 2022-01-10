@@ -187,13 +187,13 @@ public class FixedOffsetRowExtractor
     @Override
     public GroupByHashTableEntries allocateRowBuffer(int hashChannelsCount, int dataValuesLength)
     {
-        return new FixedOffsetGroupByHashTableEntries(1, FastByteBuffer.allocate(1024), hashChannelsCount, false, dataValuesLength);
+        return FixedOffsetGroupByHashTableEntries.allocate(1, FastByteBuffer.allocate(1024), hashChannelsCount, false, dataValuesLength);
     }
 
     @Override
     public GroupByHashTableEntries allocateHashTableEntries(int hashChannelsCount, int hashCapacity, FastByteBuffer overflow, int dataValuesLength)
     {
-        return new FixedOffsetGroupByHashTableEntries(hashCapacity, overflow, hashChannelsCount, true, dataValuesLength);
+        return FixedOffsetGroupByHashTableEntries.allocate(hashCapacity, overflow, hashChannelsCount, true, dataValuesLength);
     }
 
     @Override

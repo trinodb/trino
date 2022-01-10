@@ -109,10 +109,8 @@ public interface ColumnValueExtractor
         {
             int valueLength = block.getSliceLength(position);
             buffer.putByteUnsigned(offset, valueLength);
-            // TODO lysy: the cast here makes it faster but a lot (e.g. no allocation) but we need to handle this differently
-            VariableWidthBlock varWidthBlock = (VariableWidthBlock) block;
-            Slice rawSlice = varWidthBlock.getRawSlice(position);
-            buffer.putSlice(offset + 1, rawSlice, varWidthBlock.getPositionOffset(position), valueLength);
+            Slice rawSlice = block.getRawSlice(position);
+            buffer.putSlice(offset + 1, rawSlice, block.getPositionOffset(position), valueLength);
         }
 
         @Override
@@ -138,10 +136,8 @@ public interface ColumnValueExtractor
             if (blockLength != length) {
                 return false;
             }
-            // TODO lysy: the cast here makes it faster but a lot (e.g. no allocation) but we need to handle this differently
-            VariableWidthBlock varWidthBlock = (VariableWidthBlock) block;
-            Slice rawSlice = varWidthBlock.getRawSlice(position);
-            int rawSlicePositionOffset = varWidthBlock.getPositionOffset(position);
+            Slice rawSlice = block.getRawSlice(position);
+            int rawSlicePositionOffset = block.getPositionOffset(position);
 
 //            serialized.getSlice(offset + 1, length, buffer, 0);
 //            return rawSlice.equals(rawSlicePositionOffset, length, buffer, 0, length);

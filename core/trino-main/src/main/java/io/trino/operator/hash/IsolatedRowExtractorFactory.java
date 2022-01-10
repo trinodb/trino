@@ -6,6 +6,7 @@ import com.google.common.cache.LoadingCache;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.operator.hash.fixed.FixedOffsetRowExtractor;
 import io.trino.operator.hash.fixed.FixedOffsetRowExtractor2Channels;
+import io.trino.operator.hash.fixed.FixedOffsetRowExtractor4Channels;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.IsolatedClass;
 
@@ -36,9 +37,15 @@ public class IsolatedRowExtractorFactory
     {
         ColumnValueExtractor[] columnValueExtractors = toColumnValueExtractor(hashTypes);
 
-        Class<? extends RowExtractor> rowExtractorClass = columnValueExtractors.length == 2 && USE_DEDICATED_EXTRACTOR ?
-                FixedOffsetRowExtractor2Channels.class :
-                FixedOffsetRowExtractor.class;
+        Class<? extends RowExtractor> rowExtractorClass = FixedOffsetRowExtractor.class;
+        if (USE_DEDICATED_EXTRACTOR) {
+            if (columnValueExtractors.length == 2) {
+                rowExtractorClass = FixedOffsetRowExtractor2Channels.class;
+            }
+            else if (columnValueExtractors.length == 4) {
+                rowExtractorClass = FixedOffsetRowExtractor4Channels.class;
+            }
+        }
 
         Class<? extends RowExtractor> isolatedClass = isolateClass(rowExtractorClass);
 

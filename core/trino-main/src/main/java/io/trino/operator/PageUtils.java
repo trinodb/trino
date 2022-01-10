@@ -26,18 +26,18 @@ public final class PageUtils
 
     public static void recordMaterializedBytes(Page page, LongConsumer sizeInBytesConsumer)
     {
-        // account processed bytes from lazy blocks only when they are loaded
-        long loadedBlocksSizeInBytes = 0;
-
-        for (int i = 0; i < page.getChannelCount(); ++i) {
-            Block block = page.getBlock(i);
-            long initialSize = block.getSizeInBytes();
-            loadedBlocksSizeInBytes += initialSize;
-            listenForLoads(block, loadedBlock -> sizeInBytesConsumer.accept(loadedBlock.getSizeInBytes()));
-        }
-
-        if (loadedBlocksSizeInBytes > 0) {
-            sizeInBytesConsumer.accept(loadedBlocksSizeInBytes);
-        }
+//        // account processed bytes from lazy blocks only when they are loaded
+//        long loadedBlocksSizeInBytes = 0;
+//
+//        for (int i = 0; i < page.getChannelCount(); ++i) {
+//            Block block = page.getBlock(i);
+//            long initialSize = block.getSizeInBytes();
+//            loadedBlocksSizeInBytes += initialSize;
+//            listenForLoads(block, loadedBlock -> sizeInBytesConsumer.accept(loadedBlock.getSizeInBytes()));
+//        }
+//
+//        if (loadedBlocksSizeInBytes > 0) {
+//            sizeInBytesConsumer.accept(loadedBlocksSizeInBytes);
+//        }
     }
 }

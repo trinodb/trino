@@ -435,13 +435,13 @@ public class OrcRecordReader
             return;
         }
 
-        currentBytesPerCell[columnIndex] += block.getSizeInBytes() / currentBatchSize;
-        if (maxBytesPerCell[columnIndex] < currentBytesPerCell[columnIndex]) {
-            long delta = currentBytesPerCell[columnIndex] - maxBytesPerCell[columnIndex];
-            maxCombinedBytesPerRow += delta;
-            maxBytesPerCell[columnIndex] = currentBytesPerCell[columnIndex];
-            maxBatchSize = toIntExact(min(maxBatchSize, max(1, maxBlockBytes / maxCombinedBytesPerRow)));
-        }
+//        currentBytesPerCell[columnIndex] += block.getSizeInBytes() / currentBatchSize;
+//        if (maxBytesPerCell[columnIndex] < currentBytesPerCell[columnIndex]) {
+//            long delta = currentBytesPerCell[columnIndex] - maxBytesPerCell[columnIndex];
+//            maxCombinedBytesPerRow += delta;
+//            maxBytesPerCell[columnIndex] = currentBytesPerCell[columnIndex];
+//            maxBatchSize = toIntExact(min(maxBatchSize, max(1, maxBlockBytes / maxCombinedBytesPerRow)));
+//        }
     }
 
     public Map<String, Slice> getUserMetadata()

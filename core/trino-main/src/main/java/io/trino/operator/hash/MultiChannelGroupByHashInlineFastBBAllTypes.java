@@ -272,10 +272,14 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
 
         expectedHashCollisions += estimateNumberOfHashCollisions(getGroupCount(), hashTable.getCapacity());
 
+//        GroupByHashTableEntries valuesTable = hashTable.valuesTable();
+//        GroupByHashTableEntries newValuesTable = valuesTable.extend(valuesTable.capacity() * 2);
+
         NoRehashHashTable newHashTable = hashTableFactory.create(
                 newCapacity,
                 hashTable.entries().takeOverflow(),
                 Arrays.copyOf(hashTable.groupToHashPosition(), newCapacity),
+                null,
                 hashTable.getHashCollisions());
 
         newHashTable.copyFrom(hashTable);
@@ -417,10 +421,17 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
                     hashCapacity,
                     FastByteBuffer.allocate(128 * 1024),
                     new int[hashCapacity],
+//                    rowExtractor.allocateHashTableEntries(hashChannelsCount, expectedSize, FastByteBuffer.allocate(128 * 1024), dataValuesLength),
+                    null,
                     0);
         }
 
-        public NoRehashHashTable create(int totalEntryCount, FastByteBuffer overflow, int[] groupToHashPosition, long hashCollisions)
+        public NoRehashHashTable create(
+                int totalEntryCount,
+                FastByteBuffer overflow,
+                int[] groupToHashPosition,
+                GroupByHashTableEntries valuesTable,
+                long hashCollisions)
         {
             return new NoRowBufferNoRehashHashTable(
                     hashGenerator,
@@ -428,6 +439,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
                     hashChannelsCount,
                     totalEntryCount,
                     overflow,
+                    valuesTable,
                     groupToHashPosition,
                     hashCollisions,
                     dataValuesLength);
@@ -448,6 +460,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
         private long hashCollisions;
         private final RowExtractor rowExtractor;
         private final GroupByHashTableEntries entries;
+        private final GroupByHashTableEntries valuesTable;
 
         public NoRowBufferNoRehashHashTable(
                 HashGenerator hashGenerator,
@@ -455,6 +468,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
                 int hashChannelsCount,
                 int hashCapacity,
                 FastByteBuffer overflow,
+                GroupByHashTableEntries valuesTable,
                 int[] groupToHashPosition,
                 long hashCollisions,
                 int dataValuesLength)
@@ -467,6 +481,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
             this.maxFill = calculateMaxFill(hashCapacity);
             this.mask = hashCapacity - 1;
             this.entries = rowExtractor.allocateHashTableEntries(hashChannelsCount, hashCapacity, overflow, dataValuesLength);
+            this.valuesTable = valuesTable;
             this.hashCollisions = hashCollisions;
         }
 
@@ -482,6 +497,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
                     // empty slot found
                     int groupId = hashTableSize++;
                     rowExtractor.putEntry(entries, hashPosition, groupId, page, position, rawHash);
+//                    valuesTable.copyEntryFrom(entries, hashPosition, groupId * valuesTable.getEntrySize());
                     groupToHashPosition[groupId] = hashPosition;
 //                System.out.println(hashPosition + ": v=" + value + ", " + hashTableSize);
                     return groupId;
@@ -584,6 +600,12 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
         public GroupByHashTableEntries entries()
         {
             return entries;
+        }
+
+        @Override
+        public GroupByHashTableEntries valuesTable()
+        {
+            return valuesTable;
         }
 
         @Override
@@ -770,6 +792,12 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
         public GroupByHashTableEntries entries()
         {
             return entries;
+        }
+
+        @Override
+        public GroupByHashTableEntries valuesTable()
+        {
+            throw new UnsupportedOperationException();
         }
 
         @Override

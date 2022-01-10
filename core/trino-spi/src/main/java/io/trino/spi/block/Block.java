@@ -327,4 +327,14 @@ public interface Block
     {
         return Collections.emptyList();
     }
+
+    default Slice getRawSlice(int position)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default int getPositionOffset(int position)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

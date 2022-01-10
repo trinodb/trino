@@ -12,25 +12,33 @@ import io.trino.spi.block.BlockBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.type.BigintType.BIGINT;
 
-public class FixedOffsetRowExtractor2Channels
+public class FixedOffsetRowExtractor4Channels
         implements RowExtractor
 {
     private final int maxVarWidthBufferSize;
-    private final ColumnValueExtractor columnValueExtractor0;
     private final ColumnValueExtractor columnValueExtractor1;
+    private final ColumnValueExtractor columnValueExtractor0;
+    private final ColumnValueExtractor columnValueExtractor2;
+    private final ColumnValueExtractor columnValueExtractor3;
     private final int mainBufferOffset1;
+    private final int mainBufferOffset2;
+    private final int mainBufferOffset3;
     private final int mainBufferValuesLength;
 
-    public FixedOffsetRowExtractor2Channels(int maxVarWidthBufferSize, ColumnValueExtractor[] columnValueExtractors)
+    public FixedOffsetRowExtractor4Channels(int maxVarWidthBufferSize, ColumnValueExtractor[] columnValueExtractors)
     {
         this.maxVarWidthBufferSize = maxVarWidthBufferSize;
-        checkArgument(columnValueExtractors.length == 2);
+        checkArgument(columnValueExtractors.length == 4);
         columnValueExtractor0 = columnValueExtractors[0];
         columnValueExtractor1 = columnValueExtractors[1];
+        columnValueExtractor2 = columnValueExtractors[2];
+        columnValueExtractor3 = columnValueExtractors[3];
 
         mainBufferOffset1 = calculateMainBufferSize(columnValueExtractor0);
+        mainBufferOffset2 = mainBufferOffset1 + calculateMainBufferSize(columnValueExtractor1);
+        mainBufferOffset3 = mainBufferOffset2 + calculateMainBufferSize(columnValueExtractor2);
 
-        this.mainBufferValuesLength = mainBufferOffset1 + calculateMainBufferSize(columnValueExtractor1);
+        this.mainBufferValuesLength = mainBufferOffset3 + calculateMainBufferSize(columnValueExtractor3);
     }
 
     public int calculateMainBufferSize(ColumnValueExtractor columnValueExtractor)
@@ -65,6 +73,14 @@ public class FixedOffsetRowExtractor2Channels
         Block block1 = page.getBlock(1);
 
         columnValueExtractor1.putValue(mainBuffer, valuesOffset + mainBufferOffset1, block1, position);
+
+        Block block2 = page.getBlock(2);
+
+        columnValueExtractor1.putValue(mainBuffer, valuesOffset + mainBufferOffset2, block2, position);
+
+        Block block3 = page.getBlock(3);
+
+        columnValueExtractor1.putValue(mainBuffer, valuesOffset + mainBufferOffset3, block3, position);
     }
 
     @Override
@@ -89,6 +105,8 @@ public class FixedOffsetRowExtractor2Channels
     {
         entries.putIsNull(entriesOffset, 0, (byte) (page.getBlock(0).isNull(position) ? 1 : 0));
         entries.putIsNull(entriesOffset, 1, (byte) (page.getBlock(1).isNull(position) ? 1 : 0));
+        entries.putIsNull(entriesOffset, 2, (byte) (page.getBlock(2).isNull(position) ? 1 : 0));
+        entries.putIsNull(entriesOffset, 3, (byte) (page.getBlock(3).isNull(position) ? 1 : 0));
         copyToMainBuffer(page, position, entries, entriesOffset);
     }
 
@@ -144,6 +162,36 @@ public class FixedOffsetRowExtractor2Channels
             return false;
         }
 
+        Block block2 = page.getBlock(2);
+
+        boolean blockValue2Null = block2.isNull(position);
+        byte tableValue2IsNull = table.isNull(hashPosition, 2);
+        if (blockValue2Null) {
+            return tableValue2IsNull == 1;
+        }
+        if (tableValue2IsNull == 1) {
+            return false;
+        }
+
+        if (!columnValueExtractor2.valueEquals(buffer, valuesOffset + mainBufferOffset2, block2, position)) {
+            return false;
+        }
+
+        Block block3 = page.getBlock(3);
+
+        boolean blockValue3Null = block3.isNull(position);
+        byte tableValue3IsNull = table.isNull(hashPosition, 3);
+        if (blockValue3Null) {
+            return tableValue3IsNull == 1;
+        }
+        if (tableValue3IsNull == 1) {
+            return false;
+        }
+
+        if (!columnValueExtractor3.valueEquals(buffer, valuesOffset + mainBufferOffset3, block3, position)) {
+            return false;
+        }
+
         return true;
     }
 
@@ -170,13 +218,27 @@ public class FixedOffsetRowExtractor2Channels
             else {
                 columnValueExtractor1.appendValue(mainBuffer, valuesOffset + mainBufferOffset1, blockBuilder1);
             }
+            BlockBuilder blockBuilder2 = pageBuilder.getBlockBuilder(outputChannelOffset + 2);
+            if (hashTable.isNull(hashPosition, 2) == 1) {
+                blockBuilder2.appendNull();
+            }
+            else {
+                columnValueExtractor2.appendValue(mainBuffer, valuesOffset + mainBufferOffset2, blockBuilder2);
+            }
+            BlockBuilder blockBuilder3 = pageBuilder.getBlockBuilder(outputChannelOffset + 3);
+            if (hashTable.isNull(hashPosition, 3) == 1) {
+                blockBuilder3.appendNull();
+            }
+            else {
+                columnValueExtractor3.appendValue(mainBuffer, valuesOffset + mainBufferOffset3, blockBuilder3);
+            }
         }
         else {
             throw new UnsupportedOperationException();
         }
 
         if (outputHash) {
-            BlockBuilder hashBlockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset + 2);
+            BlockBuilder hashBlockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset + 4);
             BIGINT.writeLong(hashBlockBuilder, hashTable.getHash(hashPosition));
         }
     }

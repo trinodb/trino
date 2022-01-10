@@ -15,10 +15,12 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.sun.xml.bind.v2.TODO;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.trino.array.LongBigArray;
+import io.trino.block.BlockAssertions;
 import io.trino.operator.hash.MultiChannelBigintGroupByHashInline;
 import io.trino.operator.hash.MultiChannelBigintGroupByHashInlineBB;
 import io.trino.operator.hash.MultiChannelBigintGroupByHashInlineBatch;
@@ -36,6 +38,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.Type;
@@ -56,6 +59,7 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.profile.AsyncProfiler;
+import org.openjdk.jmh.profile.DTraceAsmProfiler;
 import org.openjdk.jmh.runner.RunnerException;
 import org.testcontainers.shaded.org.apache.commons.io.FileUtils;
 
@@ -74,12 +78,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.block.BlockAssertions.createRandomDictionaryBlock;
+import static io.trino.block.BlockAssertions.createRandomStringBlock;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.GroupByHash.ISOLATED_ROW_EXTRACTOR_FACTORY;
 import static io.trino.operator.UpdateMemory.NOOP;
 import static io.trino.operator.hash.IsolatedRowExtractorFactory.USE_DEDICATED_EXTRACTOR;
+import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.TypeTestUtils.getHashBlock;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -91,7 +100,7 @@ import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkGroupByHash
 {
-    private static final int POSITIONS = 10_000_000;
+    private static final int POSITIONS = 200000;
     private static final String GROUP_COUNT_STRING = "3000000";
     private static final int GROUP_COUNT = Integer.parseInt(GROUP_COUNT_STRING);
     private static final int EXPECTED_SIZE = 10000;
@@ -400,6 +409,33 @@ public class BenchmarkGroupByHash
         return pages.build();
     }
 
+    private static List<Page> createVarcharDictionaryPages(int positionCount, int groupCount, int channelCount, boolean hashEnabled, int valueLength)
+    {
+        checkArgument(Math.pow(2, valueLength * Byte.SIZE) > groupCount);
+        Block dictionary = createRandomStringBlock(groupCount, 0, valueLength);
+        int estimatedRowSize = channelCount * (Integer.BYTES /* offset */ + Byte.BYTES /* isNull */ + Integer.BYTES /* dictionary id */) * valueLength;
+        int pageSize = DEFAULT_MAX_PAGE_SIZE_IN_BYTES / estimatedRowSize;
+
+        ImmutableList.Builder<Page> pages = ImmutableList.builder();
+        int positionsLeft = positionCount;
+
+        while (positionsLeft > 0) {
+            int currentPagesSize = Math.min(pageSize, positionsLeft);
+            Block[] blocks = new Block[channelCount + (hashEnabled ? 1 : 0)];
+            for (int i = 0; i < channelCount; i++) {
+                DictionaryBlock block = createRandomDictionaryBlock(dictionary, currentPagesSize).compact();
+                blocks[i] = block;
+            }
+            if (hashEnabled) {
+                blocks[channelCount] = getHashBlock(ImmutableList.of(VARCHAR), blocks[0]);
+            }
+
+            pages.add(new Page(currentPagesSize, blocks));
+            positionsLeft -= currentPagesSize;
+        }
+        return pages.build();
+    }
+
     private static List<Page> createVarcharPages(int positionCount, int groupCount, int channelCount, boolean hashEnabled, int valueLength)
     {
         checkArgument(Math.pow(2, valueLength * Byte.SIZE) > groupCount);
@@ -601,6 +637,10 @@ public class BenchmarkGroupByHash
                     types = Collections.nCopies(channelCount, VARCHAR);
                     pages = createVarcharPages(POSITIONS, groupCount, channelCount, hashEnabled, valuesLength);
                     break;
+                case "VARCHAR_DICTIONARY":
+                    types = Collections.nCopies(channelCount, VARCHAR);
+                    pages = createVarcharDictionaryPages(POSITIONS, groupCount, channelCount, hashEnabled, valuesLength);
+                    break;
                 case "BIGINT":
                     types = Collections.nCopies(channelCount, BIGINT);
                     pages = createBigintPages(POSITIONS, groupCount, channelCount, hashEnabled, false);
@@ -646,6 +686,21 @@ public class BenchmarkGroupByHash
         {
             return rehash ? 10_000 : groupCount;
         }
+
+        public void setGroupCount(int groupCount)
+        {
+            this.groupCount = groupCount;
+        }
+
+        public void setChannelCount(int channelCount)
+        {
+            this.channelCount = channelCount;
+        }
+
+        public void setDataType(String dataType)
+        {
+            this.dataType = dataType;
+        }
     }
 
     static {
@@ -656,6 +711,20 @@ public class BenchmarkGroupByHash
         for (int i = 0; i < 5; ++i) {
             hash.bigintGroupByHash(singleChannelBenchmarkData, fakeBlackhole());
         }
+
+        RowWiseBenchmarkData varchar = new RowWiseBenchmarkData();
+        varchar.setGroupCount(8);
+        varchar.setChannelCount(4);
+        varchar.setDataType("VARCHAR");
+        varchar.setup();
+        hash.groupByHashPreComputeInlineAllTypes(varchar, fakeBlackhole());
+
+        RowWiseBenchmarkData varcharDictionary = new RowWiseBenchmarkData();
+        varcharDictionary.setGroupCount(8);
+        varchar.setChannelCount(4);
+        varcharDictionary.setDataType("VARCHAR_DICTIONARY");
+        varcharDictionary.setup();
+        hash.groupByHashPreComputeInlineAllTypes(varcharDictionary, fakeBlackhole());
     }
 
     private static Blackhole fakeBlackhole()
@@ -687,7 +756,7 @@ public class BenchmarkGroupByHash
 //                .includeMethod("bigintGroupByHashMultiChannel")
 //                .includeMethod("bigintGroupByHashBatchGID")
 //                .includeMethod("bigintGroupByHashGIDBigArray")
-                .includeMethod("groupByHashPreCompute")
+//                .includeMethod("groupByHashPreCompute")
 //                .includeMethod("groupByHashPreComputeInline")
                 .includeMethod("groupByHashPreComputeInlineAllTypes")
 //                .includeMethod("groupByHashPreComputeInlineMultiChannelBigInt")
@@ -706,18 +775,18 @@ public class BenchmarkGroupByHash
                         .jvmArgs("-Xmx32g")
                         .param("hashEnabled", "true")
 //                        .param("hashEnabled", "false")
-                        .param("rehash", "false")
+                        .param("rehash", "true")
 //                        .param("expectedSize", "10000")
 //                        .param("groupCount", "3000000")
-                        .param("groupCount", "8")
-                        .param("channelCount", "1", "2", "5", "10")
+                        .param("groupCount", "200000")
+                        .param("channelCount", "4")
 //                        .param("channelCount", "2")
 //                        .param("dataType", "VARCHAR")
-//                        .param("dataType", "VARCHAR")
+                        .param("dataType", "VARCHAR_DICTIONARY")
                         .param("useOffHeap", "false")
                         .param("batchSize", "16")
-                        .param("valuesLength", "4")
-                        .param("useDedicatedExtractor", "false")
+                        .param("valuesLength", "8")
+                        .param("useDedicatedExtractor", "true")
                         .forks(1)
 //                        .jvmArgsAppend("-XX:+UnlockDiagnosticVMOptions", "-XX:+TraceClassLoading", "-XX:+LogCompilation", "-XX:+DebugNonSafepoints", "-XX:+PrintAssembly", "-XX:+PrintInlining")
 //                        .jvmArgsAppend("-XX:MaxInlineSize=300", "-XX:InlineSmallCode=3000")

@@ -163,6 +163,18 @@ public class DictionaryBlock
     }
 
     @Override
+    public Slice getRawSlice(int position)
+    {
+        return dictionary.getRawSlice(position);
+    }
+
+    @Override
+    public int getPositionOffset(int position)
+    {
+        return dictionary.getPositionOffset(getId(position));
+    }
+
+    @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
         return dictionary.getObject(getId(position), clazz);

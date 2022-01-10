@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
@@ -301,7 +302,7 @@ public final class Page
 
     public Page getLoadedPage(int column)
     {
-        return wrapBlocksWithoutCopy(positionCount, new Block[]{this.blocks[column].getLoadedBlock()});
+        return wrapBlocksWithoutCopy(positionCount, new Block[] {this.blocks[column].getLoadedBlock()});
     }
 
     public Page getLoadedPage(int... columns)
@@ -395,6 +396,11 @@ public final class Page
         }
         this.retainedSizeInBytes = retainedSizeInBytes;
         return retainedSizeInBytes;
+    }
+
+    public List<Class<? extends Block>> getStructure()
+    {
+        return Arrays.stream(blocks).map(Block::getClass).collect(Collectors.toList());
     }
 
     private static class DictionaryBlockIndexes
