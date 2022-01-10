@@ -21,6 +21,12 @@
         {
             "original_user": ".*",
             "new_user": "test"
+        },
+        {
+            "original_user": "canImpersonateAnyUser"
+        },
+        {
+            "allow": false
         }
     ]
 }

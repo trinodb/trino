@@ -382,7 +382,7 @@ Each impersonation rule is composed of the following fields:
 
 * ``original_user`` (optional): regex to match against the user requesting the impersonation. Defaults to ``.*``.
 * ``original_role`` (optional): regex to match against role names of the requesting impersonation. Defaults to ``.*``.
-* ``new_user`` (required): regex to match against the user that will be impersonated.
+* ``new_user`` (optional): regex to match against the user that will be impersonated. Defaults to ``.*``.
 * ``allow`` (optional): boolean indicating if the authentication should be allowed. Defaults to ``true``.
 
 The following example allows the ``admin`` role, to impersonate any user, except

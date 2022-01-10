@@ -29,14 +29,14 @@ public class ImpersonationRule
 {
     private final Optional<Pattern> originalUserPattern;
     private final Optional<Pattern> originalRolePattern;
-    private final Pattern newUserPattern;
+    private final Optional<Pattern> newUserPattern;
     private final boolean allow;
 
     @JsonCreator
     public ImpersonationRule(
             @JsonProperty("original_user") @JsonAlias("originalUser") Optional<Pattern> originalUserPattern,
             @JsonProperty("original_role") Optional<Pattern> originalRolePattern,
-            @JsonProperty("new_user") @JsonAlias("newUser") Pattern newUserPattern,
+            @JsonProperty("new_user") @JsonAlias("newUser") Optional<Pattern> newUserPattern,
             @JsonProperty("allow") Boolean allow)
     {
         this.originalUserPattern = requireNonNull(originalUserPattern, "originalUserPattern is null");
@@ -49,7 +49,7 @@ public class ImpersonationRule
     {
         if (originalUserPattern.map(regex -> regex.matcher(originalUser).matches()).orElse(true) &&
                 originalRolePattern.map(regex -> originalRoles.stream().anyMatch(role -> regex.matcher(role).matches())).orElse(true) &&
-                newUserPattern.matcher(newUser).matches()) {
+                newUserPattern.map(regex -> regex.matcher(newUser).matches()).orElse(true)) {
             return Optional.of(allow);
         }
         return Optional.empty();

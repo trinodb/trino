@@ -101,6 +101,9 @@ public class TestFileBasedSystemAccessControl
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Access Denied: User invalid-other cannot impersonate user test");
 
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("canImpersonateAnyUser"), "any");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("canImpersonateAnyUser"), "user");
+
         newAccessControlManager(transactionManager, "catalog_principal.json").checkCanImpersonateUser(Identity.ofUser("anything"), "anythingElse");
     }
 
