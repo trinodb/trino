@@ -525,6 +525,28 @@ by running the following query::
     FROM iceberg.testdb."customer_orders$snapshots"
     ORDER BY committed_at DESC
 
+Time travel queries
+^^^^^^^^^^^^^^^^^^^
+
+The connector offers the ability to query historical data.
+This allows you to query the table as it was when a previous snapshot
+of the table was taken, even if the data has since been modified or deleted.
+
+The historical data of the table can be retrieved by specifying the
+snapshot identifier corresponding to the version of the table that
+needs to be retrieved::
+
+   SELECT *
+   FROM iceberg.testdb.customer_orders FOR VERSION AS OF 8954597067493422955
+
+A different approach of retrieving historical data is to specify
+a point in time in the past, such as a day or week ago. The latest snapshot
+of the table taken before or at the specified timestamp in the query is
+internally used for providing the previous state of the table::
+
+   SELECT *
+   FROM iceberg.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 Europe/Vienna'
+
 Rolling back to a previous snapshot
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
