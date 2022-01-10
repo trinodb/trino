@@ -113,7 +113,6 @@ public class StatisticsFetcher
         MemoryStatsConfig memoryStats = statistics.getMemoryStats();
         stats.memoryLimit = DataSize.ofBytes(firstNonNull(memoryStats.getLimit(), 0L)).to(GIGABYTE);
         stats.memoryUsage = DataSize.ofBytes(firstNonNull(memoryStats.getUsage(), 0L)).to(GIGABYTE);
-        stats.memoryMaxUsage = DataSize.ofBytes(firstNonNull(memoryStats.getMaxUsage(), 0L)).to(GIGABYTE);
         stats.memoryUsagePerc = 100.0 * firstNonNull(memoryStats.getUsage(), 0L) / firstNonNull(memoryStats.getLimit(), 1L);
         stats.pids = firstNonNull(statistics.getPidsStats().getCurrent(), -1L);
 
@@ -190,7 +189,6 @@ public class StatisticsFetcher
                 "mem",
                 "max mem",
                 "mem %",
-                "peak mem",
                 "pids",
                 "net in",
                 "net out"
@@ -202,7 +200,6 @@ public class StatisticsFetcher
         private double memoryUsagePerc;
         private DataSize memoryUsage;
         private DataSize memoryLimit;
-        private DataSize memoryMaxUsage;
         private long pids;
         public DataSize networkReceived;
         public DataSize networkSent;
@@ -224,7 +221,6 @@ public class StatisticsFetcher
                     memoryLimit.toString(),
                     memoryUsage.toString(),
                     format("%.2f%%", memoryUsagePerc),
-                    memoryMaxUsage.toString(),
                     format("%d", pids),
                     format("%s", networkReceived),
                     format("%s", networkSent)
