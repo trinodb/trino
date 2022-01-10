@@ -49,16 +49,16 @@ import static javax.naming.Context.SECURITY_AUTHENTICATION;
 import static javax.naming.Context.SECURITY_CREDENTIALS;
 import static javax.naming.Context.SECURITY_PRINCIPAL;
 
-public class JdkLdapAuthenticatorClient
-        implements LdapAuthenticatorClient
+public class JdkLdapClient
+        implements LdapClient
 {
-    private static final Logger log = Logger.get(JdkLdapAuthenticatorClient.class);
+    private static final Logger log = Logger.get(JdkLdapClient.class);
 
     private final Map<String, String> basicEnvironment;
     private final Optional<SSLContext> sslContext;
 
     @Inject
-    public JdkLdapAuthenticatorClient(LdapConfig ldapConfig)
+    public JdkLdapClient(LdapConfig ldapConfig)
     {
         String ldapUrl = requireNonNull(ldapConfig.getLdapUrl(), "ldapUrl is null");
         if (ldapUrl.startsWith("ldap://")) {
@@ -72,7 +72,7 @@ public class JdkLdapAuthenticatorClient
                 .build();
 
         this.sslContext = Optional.ofNullable(ldapConfig.getTrustCertificate())
-                .map(JdkLdapAuthenticatorClient::createSslContext);
+                .map(JdkLdapClient::createSslContext);
     }
 
     @Override
