@@ -16,10 +16,8 @@ package io.trino.operator.scalar.json;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.TypedValue;
@@ -32,9 +30,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
 import io.trino.operator.scalar.ScalarFunctionImplementation;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -42,25 +38,21 @@ import io.trino.sql.planner.JsonPathEvaluator;
 import io.trino.sql.planner.JsonPathEvaluator.PathEvaluationError;
 import io.trino.sql.tree.JsonQuery.ArrayWrapperBehavior;
 import io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior;
-import io.trino.type.Json2016Type;
 import io.trino.type.JsonPath2016Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.json.JsonEmptySequenceNode.EMPTY_SEQUENCE;
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
+import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.StandardTypes.JSON_2016;
 import static io.trino.spi.type.StandardTypes.TINYINT;
-import static io.trino.spi.type.TypeUtils.readNativeValue;
-import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -140,8 +132,8 @@ public class JsonQueryFunction
         if (inputExpression.equals(JSON_ERROR)) {
             return handleSpecialCase(errorBehavior, INPUT_ARGUMENT_ERROR); // ERROR ON ERROR was already handled by the input function
         }
-        Map<String, Object> parameters = getParametersMap(parametersRowType, parametersRow); // TODO refactor
-        for (Object parameter : parameters.values()) {
+        Object[] parameters = getParametersArray(parametersRowType, parametersRow);
+        for (Object parameter : parameters) {
             if (parameter.equals(JSON_ERROR)) {
                 return handleSpecialCase(errorBehavior, PATH_PARAMETER_ERROR); // ERROR ON ERROR was already handled by the input function
             }
@@ -215,40 +207,5 @@ public class JsonQueryFunction
                 return EMPTY_OBJECT_RESULT;
         }
         throw new IllegalStateException("unexpected behavior");
-    }
-
-    public static Map<String, Object> getParametersMap(Type parametersRowType, Object parametersRow)
-    {
-        if (JSON_NO_PARAMETERS_ROW_TYPE.equals(parametersRowType)) {
-            return ImmutableMap.of();
-        }
-
-        RowType rowType = (RowType) parametersRowType;
-        Block row = (Block) parametersRow;
-        List<Block> parameterBlocks = row.getChildren();
-
-        ImmutableMap.Builder<String, Object> map = ImmutableMap.builder();
-        for (int i = 0; i < rowType.getFields().size(); i++) {
-            RowType.Field field = rowType.getFields().get(i);
-            String name = field.getName().orElseThrow(() -> new IllegalStateException("missing parameter name"));
-            Type type = field.getType();
-            Object value = readNativeValue(type, parameterBlocks.get(i), 0);
-            if (type.equals(Json2016Type.JSON_2016)) {
-                if (value == null) {
-                    map.put(name, EMPTY_SEQUENCE); // null as JSON value shall produce an empty sequence
-                }
-                else {
-                    map.put(name, value);
-                }
-            }
-            else if (value == null) {
-                map.put(name, NullNode.getInstance()); // null as a non-JSON value shall produce a JSON null
-            }
-            else {
-                map.put(name, TypedValue.fromValueAsObject(type, value));
-            }
-        }
-
-        return map.build();
     }
 }
