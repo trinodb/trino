@@ -214,7 +214,8 @@ public class MockConnectorFactory
                 ConnectorTableHandle handle,
                 List<AggregateFunction> aggregates,
                 Map<String, ColumnHandle> assignments,
-                List<List<ColumnHandle>> groupingSets);
+                List<List<ColumnHandle>> groupingSets,
+                Set<String> requiredColumns);
     }
 
     @FunctionalInterface
@@ -271,7 +272,7 @@ public class MockConnectorFactory
         private BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle = defaultGetTableHandle();
         private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
         private ApplyProjection applyProjection = (session, handle, projections, assignments) -> Optional.empty();
-        private ApplyAggregation applyAggregation = (session, handle, aggregates, assignments, groupingSets) -> Optional.empty();
+        private ApplyAggregation applyAggregation = (session, handle, aggregates, assignments, groupingSets, requiredColumns) -> Optional.empty();
         private ApplyJoin applyJoin = (session, joinType, left, right, joinConditions, leftAssignments, rightAssignments) -> Optional.empty();
         private BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout = defaultGetInsertLayout();
         private BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout = defaultGetNewTableLayout();

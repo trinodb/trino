@@ -44,11 +44,15 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
@@ -114,7 +118,10 @@ public class PushAggregationIntoTableScan
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        return pushAggregationIntoTableScan(plannerContext, context, node, captures.get(TABLE_SCAN), node.getAggregations(), node.getGroupingSets().getGroupingKeys())
+        // PruneAggregationColumns fires before this rule and will remove unneeded symbols from the aggregation output
+        // Thus when pushing aggregations into table scans make sure to keep only the needed output symbols
+        Set<String> requiredColumns = node.getOutputSymbols().stream().map(Symbol::getName).collect(Collectors.toSet());
+        return pushAggregationIntoTableScan(plannerContext, context, node, captures.get(TABLE_SCAN), node.getAggregations(), node.getGroupingSets().getGroupingKeys(), requiredColumns)
                 .map(Rule.Result::ofPlanNode)
                 .orElseGet(Rule.Result::empty);
     }
@@ -125,7 +132,8 @@ public class PushAggregationIntoTableScan
             PlanNode aggregationNode,
             TableScanNode tableScan,
             Map<Symbol, AggregationNode.Aggregation> aggregations,
-            List<Symbol> groupingKeys)
+            List<Symbol> groupingKeys,
+            Set<String> requiredColumns)
     {
         Map<String, ColumnHandle> assignments = tableScan.getAssignments()
                 .entrySet().stream()
@@ -153,7 +161,8 @@ public class PushAggregationIntoTableScan
                 tableScan.getTable(),
                 aggregateFunctions,
                 assignments,
-                ImmutableList.of(groupByColumns));
+                ImmutableList.of(groupByColumns),
+                requiredColumns);
 
         if (aggregationPushdownResult.isEmpty()) {
             return Optional.empty();
@@ -190,8 +199,10 @@ public class PushAggregationIntoTableScan
 
         ImmutableBiMap<Symbol, ColumnHandle> scanAssignments = newScanAssignments.build();
         ImmutableBiMap<ColumnHandle, Symbol> columnHandleToSymbol = scanAssignments.inverse();
-        // projections assignmentBuilder should have both agg and group by so we add all the group bys as symbol references
-        groupingKeys
+        // projections assignmentBuilder should have both agg and group by so we add the group bys as symbol references
+        // if they are present in the original aggregation output symbols
+        Set<Symbol> originalOutputSymbols = new HashSet<>(aggregationNode.getOutputSymbols());
+        groupingKeys.stream().filter(originalOutputSymbols::contains)
                 .forEach(groupBySymbol -> {
                     // if the connector returned a new mapping from oldColumnHandle to newColumnHandle, groupBy needs to point to
                     // new columnHandle's symbol reference, otherwise it will continue pointing at oldColumnHandle.

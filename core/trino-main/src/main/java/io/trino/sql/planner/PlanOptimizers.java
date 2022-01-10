@@ -589,6 +589,7 @@ public class PlanOptimizers
                 .add(new PushDistinctLimitIntoTableScan(plannerContext))
                 .add(new PushTopNIntoTableScan(metadata))
                 .build();
+
         IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
                 metadata,
                 ruleStats,

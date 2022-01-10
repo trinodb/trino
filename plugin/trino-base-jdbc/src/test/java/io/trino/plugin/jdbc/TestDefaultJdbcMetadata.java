@@ -248,7 +248,8 @@ public class TestDefaultJdbcMetadata
                 handle,
                 ImmutableList.of(new AggregateFunction("count", BIGINT, List.of(), List.of(), false, Optional.empty())),
                 ImmutableMap.of(),
-                ImmutableList.of(ImmutableList.of(groupByColumn)));
+                ImmutableList.of(ImmutableList.of(groupByColumn)),
+                ImmutableSet.of());
 
         ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"));
         Optional<AggregationApplicationResult<ConnectorTableHandle>> aggregationResult = applyAggregation.apply(baseTableHandle);
@@ -370,7 +371,8 @@ public class TestDefaultJdbcMetadata
                 tableHandle,
                 ImmutableList.of(new AggregateFunction("count", BIGINT, List.of(), List.of(), false, Optional.empty())),
                 ImmutableMap.of(),
-                groupByColumns);
+                groupByColumns,
+                ImmutableSet.of());
         assertThat(aggResult).isPresent();
         return (JdbcTableHandle) aggResult.get().getHandle();
     }

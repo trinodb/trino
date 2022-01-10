@@ -49,6 +49,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -265,7 +266,8 @@ public class PhoenixMetadata
             ConnectorTableHandle table,
             List<AggregateFunction> aggregates,
             Map<String, ColumnHandle> assignments,
-            List<List<ColumnHandle>> groupingSets)
+            List<List<ColumnHandle>> groupingSets,
+            Set<String> requiredColumns)
     {
         // TODO support aggregation pushdown
         return Optional.empty();

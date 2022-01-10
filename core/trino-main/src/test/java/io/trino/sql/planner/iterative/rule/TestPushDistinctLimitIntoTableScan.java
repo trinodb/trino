@@ -73,9 +73,9 @@ public class TestPushDistinctLimitIntoTableScan
                 TEST_CATALOG.getCatalogName(),
                 MockConnectorFactory.builder()
                         .withApplyAggregation(
-                                (session, handle, aggregates, assignments, groupingSets) -> {
+                                (session, handle, aggregates, assignments, groupingSets, requiredColumns) -> {
                                     if (testApplyAggregation != null) {
-                                        return testApplyAggregation.apply(session, handle, aggregates, assignments, groupingSets);
+                                        return testApplyAggregation.apply(session, handle, aggregates, assignments, groupingSets, requiredColumns);
                                     }
                                     return Optional.empty();
                                 })
@@ -115,7 +115,7 @@ public class TestPushDistinctLimitIntoTableScan
     public void testNoEffect()
     {
         AtomicInteger applyCallCounter = new AtomicInteger();
-        testApplyAggregation = (session, handle, aggregates, assignments, groupingSets) -> {
+        testApplyAggregation = (session, handle, aggregates, assignments, groupingSets, requiredColumns) -> {
             applyCallCounter.incrementAndGet();
             return Optional.empty();
         };
@@ -142,7 +142,7 @@ public class TestPushDistinctLimitIntoTableScan
         AtomicReference<Map<String, ColumnHandle>> applyAssignments = new AtomicReference<>();
         AtomicReference<List<List<ColumnHandle>>> applyGroupingSets = new AtomicReference<>();
 
-        testApplyAggregation = (session, handle, aggregates, assignments, groupingSets) -> {
+        testApplyAggregation = (session, handle, aggregates, assignments, groupingSets, requiredColumns) -> {
             applyCallCounter.incrementAndGet();
             applyAggregates.set(List.copyOf(aggregates));
             applyAssignments.set(Map.copyOf(assignments));

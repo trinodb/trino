@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static java.util.Objects.requireNonNull;
 
@@ -55,6 +56,19 @@ public class AggregationNode
     private final Optional<Symbol> groupIdSymbol;
     private final List<Symbol> outputs;
 
+    public AggregationNode(
+            PlanNodeId id,
+            PlanNode source,
+            Map<Symbol, Aggregation> aggregations,
+            GroupingSetDescriptor groupingSets,
+            List<Symbol> preGroupedSymbols,
+            Step step,
+            Optional<Symbol> hashSymbol,
+            Optional<Symbol> groupIdSymbol)
+    {
+        this(id, source, aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol, Optional.empty());
+    }
+
     @JsonCreator
     public AggregationNode(
             @JsonProperty("id") PlanNodeId id,
@@ -64,7 +78,8 @@ public class AggregationNode
             @JsonProperty("preGroupedSymbols") List<Symbol> preGroupedSymbols,
             @JsonProperty("step") Step step,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
-            @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol)
+            @JsonProperty("groupIdSymbol") Optional<Symbol> groupIdSymbol,
+            @JsonProperty("outputs") Optional<List<Symbol>> outputs)
     {
         super(id);
 
@@ -90,12 +105,24 @@ public class AggregationNode
         checkArgument(preGroupedSymbols.isEmpty() || groupingSets.getGroupingKeys().containsAll(preGroupedSymbols), "Pre-grouped symbols must be a subset of the grouping keys");
         this.preGroupedSymbols = ImmutableList.copyOf(preGroupedSymbols);
 
-        ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
-        outputs.addAll(groupingSets.getGroupingKeys());
-        hashSymbol.ifPresent(outputs::add);
-        outputs.addAll(aggregations.keySet());
+        if(outputs.isPresent()){
+            List<Symbol> copiedOutputs =  ImmutableList.copyOf(outputs.get());
+            copiedOutputs.forEach(symbol -> {
+                boolean isValidOutput = groupingSets.getGroupingKeys().contains(symbol) ||
+                        (hashSymbol.isPresent() && hashSymbol.get().equals(symbol)) ||
+                        aggregations.containsKey(symbol);
 
-        this.outputs = outputs.build();
+                verify(isValidOutput, "Symbol %s is not a valid output symbol", symbol);
+            });
+            this.outputs = copiedOutputs;
+        }else{
+            ImmutableList.Builder<Symbol> outputsBuilder = ImmutableList.builder();
+            outputsBuilder.addAll(groupingSets.getGroupingKeys());
+            hashSymbol.ifPresent(outputsBuilder::add);
+            outputsBuilder.addAll(aggregations.keySet());
+
+            this.outputs = outputsBuilder.build();
+        }
     }
 
     public List<Symbol> getGroupingKeys()
@@ -206,7 +233,7 @@ public class AggregationNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol);
+        return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol, Optional.of(outputs));
     }
 
     public boolean producesDistinctRows()

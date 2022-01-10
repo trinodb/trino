@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.RemoteDatabaseEvent;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -578,6 +579,13 @@ public class TestPostgreSqlConnectorTest
                     .matches("VALUES 1")
                     .isFullyPushedDown();
         }
+    }
+
+    @Test
+    public void testPruneUnnecessaryGroupingKeysInPushdown() {
+        assertThat(query("select min(nationkey) from nation group by regionkey")).matches(
+                PlanMatchPattern.output(PlanMatchPattern.node(TableScanNode.class))
+        );
     }
 
     private String getLongInClause(int start, int length)

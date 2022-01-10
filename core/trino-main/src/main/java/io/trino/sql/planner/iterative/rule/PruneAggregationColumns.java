@@ -18,9 +18,11 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.PlanNode;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 
@@ -42,7 +44,7 @@ public class PruneAggregationColumns
                 aggregationNode.getAggregations(),
                 referencedOutputs::contains);
 
-        if (prunedAggregations.size() == aggregationNode.getAggregations().size()) {
+        if (prunedAggregations.size() == aggregationNode.getAggregations().size() && referencedOutputs.size() == aggregationNode.getOutputSymbols().size()) {
             return Optional.empty();
         }
 
@@ -56,6 +58,7 @@ public class PruneAggregationColumns
                         aggregationNode.getPreGroupedSymbols(),
                         aggregationNode.getStep(),
                         aggregationNode.getHashSymbol(),
-                        aggregationNode.getGroupIdSymbol()));
+                        aggregationNode.getGroupIdSymbol(),
+                        Optional.of(new ArrayList<>(referencedOutputs))));
     }
 }

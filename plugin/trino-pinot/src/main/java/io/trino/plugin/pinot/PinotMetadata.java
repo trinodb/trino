@@ -63,6 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -332,7 +333,8 @@ public class PinotMetadata
             ConnectorTableHandle handle,
             List<AggregateFunction> aggregates,
             Map<String, ColumnHandle> assignments,
-            List<List<ColumnHandle>> groupingSets)
+            List<List<ColumnHandle>> groupingSets,
+            Set<String> requiredColumns)
     {
         if (!isAggregationPushdownEnabled(session)) {
             return Optional.empty();

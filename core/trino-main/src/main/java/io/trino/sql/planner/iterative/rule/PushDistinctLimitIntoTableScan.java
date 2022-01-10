@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
@@ -74,7 +75,8 @@ public class PushDistinctLimitIntoTableScan
                 node,
                 captures.get(TABLE_SCAN),
                 ImmutableMap.of(),
-                node.getDistinctSymbols());
+                node.getDistinctSymbols(),
+                ImmutableSet.of());
 
         if (result.isEmpty()) {
             return Result.empty();

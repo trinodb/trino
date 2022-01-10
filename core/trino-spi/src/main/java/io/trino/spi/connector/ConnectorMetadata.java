@@ -1187,7 +1187,7 @@ public interface ConnectorMetadata
      * <p>
      * If the method returns a result, the list of assignments in the result will be merged with existing assignments. The projections
      * returned by the method must have the same order as the given input list of aggregates.
-     * </p>
+     * </p
      * As an example, given the following plan:
      *
      * <pre>
@@ -1253,7 +1253,8 @@ public interface ConnectorMetadata
             ConnectorTableHandle handle,
             List<AggregateFunction> aggregates,
             Map<String, ColumnHandle> assignments,
-            List<List<ColumnHandle>> groupingSets)
+            List<List<ColumnHandle>> groupingSets,
+            Set<String> requiredColumns)
     {
         return Optional.empty();
     }

@@ -256,9 +256,10 @@ public class MockConnector
                 ConnectorTableHandle handle,
                 List<AggregateFunction> aggregates,
                 Map<String, ColumnHandle> assignments,
-                List<List<ColumnHandle>> groupingSets)
+                List<List<ColumnHandle>> groupingSets,
+                Set<String> requiredColumns)
         {
-            return applyAggregation.apply(session, handle, aggregates, assignments, groupingSets);
+            return applyAggregation.apply(session, handle, aggregates, assignments, groupingSets, requiredColumns);
         }
 
         @Override
