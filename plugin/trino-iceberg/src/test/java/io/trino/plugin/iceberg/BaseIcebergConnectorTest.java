@@ -2968,8 +2968,8 @@ public abstract class BaseIcebergConnectorTest
             String tableName = table.getName();
             String values =
                     Stream.concat(
-                                nCopies(100, testSetup.getSampleValueLiteral()).stream(),
-                                nCopies(100, testSetup.getHighValueLiteral()).stream())
+                                    nCopies(100, testSetup.getSampleValueLiteral()).stream(),
+                                    nCopies(100, testSetup.getHighValueLiteral()).stream())
                             .map(value -> "(" + value + ", rand())")
                             .collect(Collectors.joining(", "));
             assertUpdate(withSmallRowGroups(getSession()), "INSERT INTO " + tableName + " VALUES " + values, 200);
