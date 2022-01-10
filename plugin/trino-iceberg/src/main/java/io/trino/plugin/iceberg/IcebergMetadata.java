@@ -107,6 +107,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushd
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
@@ -602,6 +603,10 @@ public class IcebergMetadata
         if (!icebergTable.spec().fields().isEmpty()) {
             properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
         }
+        if (!icebergTable.location().isEmpty()) {
+            properties.put(LOCATION_PROPERTY, icebergTable.location());
+        }
+
 
         if (!icebergTable.location().isEmpty()) {
             properties.put(LOCATION_PROPERTY, icebergTable.location());
@@ -970,6 +975,7 @@ public class IcebergMetadata
                 .map(handle -> (IcebergTableHandle) handle)
                 .filter(handle -> handle.getSnapshotId().isPresent())
                 .map(handle -> handle.getSchemaTableName() + "=" + handle.getSnapshotId().get())
+                .distinct()
                 .collect(joining(","));
 
         // Update the 'dependsOnTables' property that tracks tables on which the materialized view depends and the corresponding snapshot ids of the tables
