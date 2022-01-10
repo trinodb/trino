@@ -1743,6 +1743,16 @@
                     <artifactId>provisio-maven-plugin</artifactId>
                     <version>1.0.18</version>
                 </plugin>
+
+                <plugin>
+                    <groupId>pl.project13.maven</groupId>
+                    <artifactId>git-commit-id-plugin</artifactId>
+                    <configuration>
+                        <runOnlyOnce>true</runOnlyOnce>
+                        <injectAllReactorProjects>true</injectAllReactorProjects>
+                        <offline>true</offline>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
 
