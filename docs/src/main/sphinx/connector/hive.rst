@@ -388,6 +388,13 @@ Property Name                                      Description                  
 ``hive.query-partition-filter-required``           Set to ``true`` to force a query to use a partition filter.   ``false``
                                                    You can use the ``query_partition_filter_required`` catalog
                                                    session property for temporary, catalog specific use.
+
+``hive.statistics_enabled``                        Enables :doc:`/optimizer/statistics`. The equivalent          ``true``
+                                                   :doc:`catalog session property </sql/set-session>` 
+                                                   is ``statistics_enabled`` for session specific use. 
+                                                   Set to ``false`` to disable statistics. Disabling statistics
+                                                   means that :doc:`/optimizer/cost-based-optimizations` can 
+                                                   not make smart decisions about the query plan.
 ================================================== ============================================================ ============
 
 ORC format configuration properties
