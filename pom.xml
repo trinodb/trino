@@ -1858,5 +1858,15 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>quick</id>
+            <properties>
+                <skipTests>true</skipTests>
+                <maven.site.skip>true</maven.site.skip>
+                <maven.source.skip>true</maven.source.skip>
+                <maven.javadoc.skip>true</maven.javadoc.skip>
+                <air.check.skip-all>true</air.check.skip-all>
+            </properties>
+        </profile>
     </profiles>
 </project>
