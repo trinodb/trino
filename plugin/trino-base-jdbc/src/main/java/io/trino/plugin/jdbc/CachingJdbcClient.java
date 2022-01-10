@@ -56,6 +56,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -78,7 +79,12 @@ public class CachingJdbcClient
     private final boolean cacheMissing;
     private final IdentityCacheMapping identityMapping;
 
-    private final Cache<IdentityCacheKey, Set<String>> schemaNamesCache;
+    private final AtomicLong schemaNamesCacheKeyGenerationId = new AtomicLong();
+    private final AtomicLong tablesNamesCacheKeyGenerationId = new AtomicLong();
+    private final AtomicLong tablesHandleCacheKeyGenerationId = new AtomicLong();
+    private final AtomicLong columnsCacheKeyGenerationId = new AtomicLong();
+    private final AtomicLong statisticsCacheKeyGenerationId = new AtomicLong();
+    private final Cache<SchemaNamesCacheKey, Set<String>> schemaNamesCache;
     private final Cache<TableNamesCacheKey, List<SchemaTableName>> tableNamesCache;
     private final Cache<TableHandleCacheKey, Optional<JdbcTableHandle>> tableHandleCache;
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
@@ -138,14 +144,14 @@ public class CachingJdbcClient
     @Override
     public Set<String> getSchemaNames(ConnectorSession session)
     {
-        IdentityCacheKey key = getIdentityKey(session);
+        SchemaNamesCacheKey key = new SchemaNamesCacheKey(schemaNamesCacheKeyGenerationId.get(), getIdentityKey(session));
         return get(schemaNamesCache, key, () -> delegate.getSchemaNames(session));
     }
 
     @Override
     public List<SchemaTableName> getTableNames(ConnectorSession session, Optional<String> schema)
     {
-        TableNamesCacheKey key = new TableNamesCacheKey(getIdentityKey(session), schema);
+        TableNamesCacheKey key = new TableNamesCacheKey(tablesNamesCacheKeyGenerationId.get(), getIdentityKey(session), schema);
         return get(tableNamesCache, key, () -> delegate.getTableNames(session, schema));
     }
 
@@ -155,7 +161,7 @@ public class CachingJdbcClient
         if (tableHandle.getColumns().isPresent()) {
             return tableHandle.getColumns().get();
         }
-        ColumnsCacheKey key = new ColumnsCacheKey(getIdentityKey(session), getSessionProperties(session), tableHandle.getRequiredNamedRelation().getSchemaTableName());
+        ColumnsCacheKey key = new ColumnsCacheKey(columnsCacheKeyGenerationId.get(), getIdentityKey(session), getSessionProperties(session), tableHandle.getRequiredNamedRelation().getSchemaTableName());
         return get(columnsCache, key, () -> delegate.getColumns(session, tableHandle));
     }
 
@@ -268,7 +274,7 @@ public class CachingJdbcClient
     @Override
     public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        TableHandleCacheKey key = new TableHandleCacheKey(getIdentityKey(session), schemaTableName);
+        TableHandleCacheKey key = new TableHandleCacheKey(tablesHandleCacheKeyGenerationId.get(), getIdentityKey(session), schemaTableName);
         Optional<JdbcTableHandle> cachedTableHandle = tableHandleCache.getIfPresent(key);
         //noinspection OptionalAssignedToNull
         if (cachedTableHandle != null) {
@@ -337,7 +343,7 @@ public class CachingJdbcClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        TableStatisticsCacheKey key = new TableStatisticsCacheKey(handle, tupleDomain);
+        TableStatisticsCacheKey key = new TableStatisticsCacheKey(statisticsCacheKeyGenerationId.get(), handle, tupleDomain);
 
         TableStatistics cachedStatistics = statisticsCache.getIfPresent(key);
         if (cachedStatistics != null) {
@@ -485,6 +491,11 @@ public class CachingJdbcClient
     @Managed
     public void flushCache()
     {
+        schemaNamesCacheKeyGenerationId.incrementAndGet();
+        tablesNamesCacheKeyGenerationId.incrementAndGet();
+        tablesHandleCacheKeyGenerationId.incrementAndGet();
+        columnsCacheKeyGenerationId.incrementAndGet();
+        statisticsCacheKeyGenerationId.incrementAndGet();
         schemaNamesCache.invalidateAll();
         tableNamesCache.invalidateAll();
         tableHandleCache.invalidateAll();
@@ -511,6 +522,7 @@ public class CachingJdbcClient
 
     private void invalidateSchemasCache()
     {
+        schemaNamesCacheKeyGenerationId.incrementAndGet();
         schemaNamesCache.invalidateAll();
     }
 
@@ -545,9 +557,9 @@ public class CachingJdbcClient
         return statisticsCache.stats();
     }
 
-    private static <T, V> void invalidateCache(Cache<T, V> cache, Predicate<T> filterFunction)
+    private static <K, V> void invalidateCache(Cache<K, V> cache, Predicate<K> filterFunction)
     {
-        Set<T> cacheKeys = cache.asMap().keySet().stream()
+        Set<K> cacheKeys = cache.asMap().keySet().stream()
                 .filter(filterFunction)
                 .collect(toImmutableSet());
 
@@ -556,12 +568,14 @@ public class CachingJdbcClient
 
     private static final class ColumnsCacheKey
     {
+        private final long generationId;
         private final IdentityCacheKey identity;
         private final SchemaTableName table;
         private final Map<String, Object> sessionProperties;
 
-        private ColumnsCacheKey(IdentityCacheKey identity, Map<String, Object> sessionProperties, SchemaTableName table)
+        private ColumnsCacheKey(long generationId, IdentityCacheKey identity, Map<String, Object> sessionProperties, SchemaTableName table)
         {
+            this.generationId = generationId;
             this.identity = requireNonNull(identity, "identity is null");
             this.sessionProperties = ImmutableMap.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
             this.table = requireNonNull(table, "table is null");
@@ -582,7 +596,8 @@ public class CachingJdbcClient
                 return false;
             }
             ColumnsCacheKey that = (ColumnsCacheKey) o;
-            return Objects.equals(identity, that.identity) &&
+            return generationId == that.generationId &&
+                    Objects.equals(identity, that.identity) &&
                     Objects.equals(sessionProperties, that.sessionProperties) &&
                     Objects.equals(table, that.table);
         }
@@ -590,13 +605,14 @@ public class CachingJdbcClient
         @Override
         public int hashCode()
         {
-            return Objects.hash(identity, sessionProperties, table);
+            return Objects.hash(generationId, identity, sessionProperties, table);
         }
 
         @Override
         public String toString()
         {
             return toStringHelper(this)
+                    .add("generationId", generationId)
                     .add("identity", identity)
                     .add("sessionProperties", sessionProperties)
                     .add("table", table)
@@ -606,11 +622,13 @@ public class CachingJdbcClient
 
     private static final class TableHandleCacheKey
     {
+        private final long generationId;
         private final IdentityCacheKey identity;
         private final SchemaTableName tableName;
 
-        private TableHandleCacheKey(IdentityCacheKey identity, SchemaTableName tableName)
+        private TableHandleCacheKey(long generationId, IdentityCacheKey identity, SchemaTableName tableName)
         {
+            this.generationId = generationId;
             this.identity = requireNonNull(identity, "identity is null");
             this.tableName = requireNonNull(tableName, "tableName is null");
         }
@@ -625,26 +643,27 @@ public class CachingJdbcClient
                 return false;
             }
             TableHandleCacheKey that = (TableHandleCacheKey) o;
-            return Objects.equals(identity, that.identity) &&
+            return generationId == that.generationId &&
+                    Objects.equals(identity, that.identity) &&
                     Objects.equals(tableName, that.tableName);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(identity, tableName);
+            return Objects.hash(generationId, identity, tableName);
         }
     }
 
-    private static final class TableNamesCacheKey
+    private static final class SchemaNamesCacheKey
     {
+        private final long generationId;
         private final IdentityCacheKey identity;
-        private final Optional<String> schemaName;
 
-        private TableNamesCacheKey(IdentityCacheKey identity, Optional<String> schemaName)
+        private SchemaNamesCacheKey(long generationId, IdentityCacheKey identity)
         {
+            this.generationId = generationId;
             this.identity = requireNonNull(identity, "identity is null");
-            this.schemaName = requireNonNull(schemaName, "schemaName is null");
         }
 
         @Override
@@ -656,15 +675,15 @@ public class CachingJdbcClient
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            TableNamesCacheKey that = (TableNamesCacheKey) o;
-            return Objects.equals(identity, that.identity) &&
-                    Objects.equals(schemaName, that.schemaName);
+            SchemaNamesCacheKey that = (SchemaNamesCacheKey) o;
+            return generationId == that.generationId &&
+                    Objects.equals(identity, that.identity);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(identity, schemaName);
+            return Objects.hash(generationId, identity);
         }
     }
 
@@ -683,14 +702,51 @@ public class CachingJdbcClient
         }
     }
 
+    private static final class TableNamesCacheKey
+    {
+        private final long generationId;
+        private final IdentityCacheKey identity;
+        private final Optional<String> schemaName;
+
+        private TableNamesCacheKey(long generationId, IdentityCacheKey identity, Optional<String> schemaName)
+        {
+            this.generationId = generationId;
+            this.identity = requireNonNull(identity, "identity is null");
+            this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TableNamesCacheKey that = (TableNamesCacheKey) o;
+            return generationId == that.generationId &&
+                    Objects.equals(identity, that.identity) &&
+                    Objects.equals(schemaName, that.schemaName);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(generationId, identity, schemaName);
+        }
+    }
+
     private static final class TableStatisticsCacheKey
     {
         // TODO depend on Identity when needed
+        private final long generationId;
         private final JdbcTableHandle tableHandle;
         private final TupleDomain<ColumnHandle> tupleDomain;
 
-        private TableStatisticsCacheKey(JdbcTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
+        private TableStatisticsCacheKey(long generationId, JdbcTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
         {
+            this.generationId = generationId;
             this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
             this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         }
@@ -705,14 +761,15 @@ public class CachingJdbcClient
                 return false;
             }
             TableStatisticsCacheKey that = (TableStatisticsCacheKey) o;
-            return tableHandle.equals(that.tableHandle)
+            return generationId == that.generationId &&
+                    tableHandle.equals(that.tableHandle)
                     && tupleDomain.equals(that.tupleDomain);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(tableHandle, tupleDomain);
+            return Objects.hash(generationId, tableHandle, tupleDomain);
         }
     }
 

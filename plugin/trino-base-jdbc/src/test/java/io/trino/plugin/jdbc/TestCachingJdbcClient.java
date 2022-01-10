@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.credential.ExtraCredentialConfig;
@@ -35,18 +36,27 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.function.Supplier;
 
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingConnectorSession.builder;
+import static java.lang.Character.MAX_RADIX;
+import static java.lang.Math.abs;
+import static java.lang.Math.min;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,6 +65,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Test(singleThreaded = true)
 public class TestCachingJdbcClient
 {
+    private static final SecureRandom random = new SecureRandom();
+    // The suffix needs to be long enough to "prevent" collisions in practice. The length of 5 was proven not to be long enough
+    private static final int RANDOM_SUFFIX_LENGTH = 10;
+
     private static final Duration FOREVER = Duration.succinctDuration(1, DAYS);
     private static final Duration ZERO = Duration.succinctDuration(0, MILLISECONDS);
 
@@ -79,6 +93,7 @@ public class TestCachingJdbcClient
     private CachingJdbcClient cachingJdbcClient;
     private JdbcClient jdbcClient;
     private String schema;
+    private ExecutorService executor;
 
     @BeforeMethod
     public void setUp()
@@ -88,6 +103,7 @@ public class TestCachingJdbcClient
         cachingJdbcClient = createCachingJdbcClient(true, 10000);
         jdbcClient = database.getJdbcClient();
         schema = jdbcClient.getSchemaNames(SESSION).iterator().next();
+        executor = newCachedThreadPool(daemonThreadsNamed("TestCachingJdbcClient-%s"));
     }
 
     private CachingJdbcClient createCachingJdbcClient(Duration cacheTtl, boolean cacheMissing, long cacheMaximumSize)
@@ -104,6 +120,7 @@ public class TestCachingJdbcClient
     public void tearDown()
             throws Exception
     {
+        executor.shutdownNow();
         database.close();
     }
 
@@ -584,6 +601,27 @@ public class TestCachingJdbcClient
         jdbcClient.dropTable(SESSION, first);
     }
 
+    @Test(timeOut = 60_000)
+    public void testConcurrentSchemaCreateAndDrop()
+    {
+        CachingJdbcClient cachingJdbcClient = cachingStatisticsAwareJdbcClient(FOREVER, true, 10000);
+        ConnectorSession session = createSession("asession");
+        List<Future<?>> futures = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            futures.add(executor.submit(() -> {
+                String schemaName = "schema_" + randomSuffix();
+                assertThat(cachingJdbcClient.getSchemaNames(session)).doesNotContain(schemaName);
+                cachingJdbcClient.createSchema(session, schemaName);
+                assertThat(cachingJdbcClient.getSchemaNames(session)).contains(schemaName);
+                cachingJdbcClient.dropSchema(session, schemaName);
+                assertThat(cachingJdbcClient.getSchemaNames(session)).doesNotContain(schemaName);
+                return null;
+            }));
+        }
+
+        futures.forEach(Futures::getUnchecked);
+    }
+
     private JdbcTableHandle getAnyTable(String schema)
     {
         SchemaTableName tableName = jdbcClient.getTableNames(SESSION, Optional.of(schema))
@@ -699,5 +737,11 @@ public class TestCachingJdbcClient
                     .withFailMessage("Expected miss count is %d but actual is %d", expectedMisses, afterStats.missCount())
                     .isEqualTo(expectedMisses);
         }
+    }
+
+    private static String randomSuffix()
+    {
+        String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
+        return randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));
     }
 }
