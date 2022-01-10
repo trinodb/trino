@@ -380,6 +380,318 @@ and a file system location of ``/var/my_tables/test_table``::
         partitioning = ARRAY['c1', 'c2'],
         location = '/var/my_tables/test_table')
 
+.. _iceberg-metadata-tables:
+
+Metadata tables
+---------------
+
+The connector exposes several metadata tables for each Iceberg table.
+These metadata tables contain information about the internal structure
+of the Iceberg table. You can query each metadata table by appending the
+metadata table name to the table name::
+
+   SELECT * FROM "test_table$data"
+
+``$data`` table
+^^^^^^^^^^^^^^^
+
+The ``$data`` table is an alias for the Iceberg table itself.
+
+The statement::
+
+    SELECT * FROM "test_table$data"
+
+is equivalent to::
+
+    SELECT * FROM test_table
+
+``$properties`` table
+^^^^^^^^^^^^^^^^^^^^^
+
+The ``$properties`` table provides access to general information about Iceberg
+table configuration and any additional metadata key/value pairs that the table
+is tagged with.
+
+You can retrieve the properties of the current snapshot of the Iceberg
+table ``test_table`` by using the following query::
+
+    SELECT * FROM "test_table$properties"
+
+.. code-block:: text
+
+     key                   | value    |
+    -----------------------+----------+
+    write.format.default   | PARQUET  |
+    format-version         | 2        |
+
+``$history`` table
+^^^^^^^^^^^^^^^^^^
+
+The ``$history`` table provides a log of the metadata changes performed on
+the Iceberg table.
+
+You can retrieve the changelog of the Iceberg table ``test_table``
+by using the following query::
+
+    SELECT * FROM "test_table$history"
+
+.. code-block:: text
+
+     made_current_at                  | snapshot_id          | parent_id            | is_current_ancestor
+    ----------------------------------+----------------------+----------------------+--------------------
+    2022-01-10 08:11:20 Europe/Vienna | 8667764846443717831  |  <null>              |  true
+    2022-01-10 08:11:34 Europe/Vienna | 7860805980949777961  | 8667764846443717831  |  true
+
+The output of the query has the following columns:
+
+.. list-table:: History columns
+  :widths: 30, 30, 40
+  :header-rows: 1
+
+  * - Name
+    - Type
+    - Description
+  * - ``made_current_at``
+    - ``timestamp(3) with time zone``
+    - The time when the snapshot became active
+  * - ``snapshot_id``
+    - ``bigint``
+    - The identifier of the snapshot
+  * - ``parent_id``
+    - ``bigint``
+    - The identifier of the parent snapshot
+  * - ``is_current_ancestor``
+    - ``boolean``
+    - Whether or not this snapshot is an ancestor of the current snapshot
+
+
+``$snapshots`` table
+^^^^^^^^^^^^^^^^^^^^
+
+The ``$snapshots`` table provides a detailed view of snapshots of the
+Iceberg table. A snapshot consists of one or more file manifests,
+and the complete table contents is represented by the union
+of all the data files in those manifests.
+
+You can retrieve the information about the snapshots of the Iceberg table
+``test_table`` by using the following query::
+
+    SELECT * FROM "test_table$snapshots"
+
+.. code-block:: text
+
+     committed_at                      | snapshot_id          | parent_id            | operation          |  manifest_list                                                                                                                           |   summary
+    ----------------------------------+----------------------+----------------------+--------------------+------------------------------------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    2022-01-10 08:11:20 Europe/Vienna | 8667764846443717831  |  <null>              |  append            |   hdfs://hadoop-master:9000/user/hive/warehouse/test_table/metadata/snap-8667764846443717831-1-100cf97e-6d56-446e-8961-afdaded63bc4.avro | {changed-partition-count=0, total-equality-deletes=0, total-position-deletes=0, total-delete-files=0, total-files-size=0, total-records=0, total-data-files=0}
+    2022-01-10 08:11:34 Europe/Vienna | 7860805980949777961  | 8667764846443717831  |  append            |   hdfs://hadoop-master:9000/user/hive/warehouse/test_table/metadata/snap-7860805980949777961-1-faa19903-1455-4bb8-855a-61a1bbafbaa7.avro | {changed-partition-count=1, added-data-files=1, total-equality-deletes=0, added-records=1, total-position-deletes=0, added-files-size=442, total-delete-files=0, total-files-size=442, total-records=1, total-data-files=1}
+
+
+The output of the query has the following columns:
+
+.. list-table:: Snapshots columns
+  :widths: 20, 30, 50
+  :header-rows: 1
+
+  * - Name
+    - Type
+    - Description
+  * - ``committed_at``
+    - ``timestamp(3) with time zone``
+    - The time when the snapshot became active
+  * - ``snapshot_id``
+    - ``bigint``
+    - The identifier for the snapshot
+  * - ``parent_id``
+    - ``bigint``
+    - The identifier for the parent snapshot
+  * - ``operation``
+    - ``varchar``
+    - The type of operation performed on the Iceberg table.
+      The supported operation types in Iceberg are:
+
+      * ``append`` when new data is appended
+      * ``replace`` when files are removed and replaced without changing the data in the table
+      * ``overwrite`` when new data is added to overwrite existing data
+      * ``delete`` when data is deleted from the table  and no new data is added
+  * - ``manifest_list``
+    - ``varchar``
+    - The list of avro manifest files containing the detailed information about the snapshot changes.
+  * - ``summary``
+    - ``map(varchar, varchar)``
+    - A summary of the changes made from the previous snapshot to the current snapshot
+
+
+``$manifests`` table
+^^^^^^^^^^^^^^^^^^^^
+
+The ``$manifests`` table provides a detailed overview of the manifests
+corresponding to the snapshots performed in the log of the Iceberg table.
+
+You can retrieve the information about the manifests of the Iceberg table
+``test_table`` by using the following query::
+
+    SELECT * FROM "test_table$manifests"
+
+.. code-block:: text
+
+     path                                                                                                           | length          | partition_spec_id    | added_snapshot_id     |  added_data_files_count  | existing_data_files_count   | deleted_data_files_count    | partitions
+    ----------------------------------------------------------------------------------------------------------------+-----------------+----------------------+-----------------------+--------------------------+-----------------------------+-----------------------------+----------------------------------------------------------------------------------------------------------------------------
+     hdfs://hadoop-master:9000/user/hive/warehouse/test_table/metadata/faa19903-1455-4bb8-855a-61a1bbafbaa7-m0.avro |  6277           |   0                  | 7860805980949777961   |  1                       |   0                         |  0                          |{{contains_null=false, lower_bound=1, upper_bound=1},{contains_null=false, lower_bound=2021-01-12, upper_bound=2021-01-12}}
+
+
+The output of the query has the following columns:
+
+.. list-table:: Manifests columns
+  :widths: 30, 30, 40
+  :header-rows: 1
+
+  * - Name
+    - Type
+    - Description
+  * - ``path``
+    - ``varchar``
+    - The manifest file location
+  * - ``length``
+    - ``bigint``
+    - The manifest file length
+  * - ``partition_spec_id``
+    - ``integer``
+    - The identifier for the partition specification used to write the manifest file
+  * - ``added_snapshot_id``
+    - ``bigint``
+    - The identifier of the snapshot during which this manifest entry has been added
+  * - ``added_data_files_count``
+    - ``integer``
+    - The number of data files with status ``ADDED`` in the manifest file
+  * - ``existing_data_files_count``
+    - ``integer``
+    - The number of data files with status ``EXISTING`` in the manifest file
+  * - ``deleted_data_files_count``
+    - ``integer``
+    - The number of data files with status ``DELETED`` in the manifest file
+  * - ``partitions``
+    - ``array(row(contains_null boolean, lower_bound varchar, upper_bound varchar))``
+    - Partition range metadata
+
+
+``$partitions`` table
+^^^^^^^^^^^^^^^^^^^^^
+
+The ``$partitions`` table provides a detailed overview of the partitions
+of the  Iceberg table.
+
+You can retrieve the information about the partitions of the Iceberg table
+``test_table`` by using the following query::
+
+    SELECT * FROM "test_table$partitions"
+
+.. code-block:: text
+
+     partition             | record_count  | file_count    | total_size    |  data
+    -----------------------+---------------+---------------+---------------+--------------------------------------
+    {c1=1, c2=2021-01-12}  |  2            | 2             |  884          | {c3={min=1.0, max=2.0, null_count=0}}
+    {c1=1, c2=2021-01-13}  |  1            | 1             |  442          | {c3={min=1.0, max=1.0, null_count=0}}
+
+
+The output of the query has the following columns:
+
+.. list-table:: Partitions columns
+  :widths: 20, 30, 50
+  :header-rows: 1
+
+  * - Name
+    - Type
+    - Description
+  * - ``partition``
+    - ``row(...)``
+    - A row which contains the mapping of the partition column name(s) to the partition column value(s)
+  * - ``record_count``
+    - ``bigint``
+    - The number of records in the partition
+  * - ``file_count``
+    - ``bigint``
+    - The number of files mapped in the partition
+  * - ``total_size``
+    - ``bigint``
+    - The size of all the files in the partition
+  * - ``data``
+    - ``row(... row (min ..., max ... , null_count bigint))``
+    - Partition range metadata
+
+``$files`` table
+^^^^^^^^^^^^^^^^
+
+The ``$files`` table provides a detailed overview of the data files in current snapshot of the  Iceberg table.
+
+To retrieve the information about the data files of the Iceberg table ``test_table`` use the following query::
+
+    SELECT * FROM "test_table$files"
+
+.. code-block:: text
+
+     content  | file_path                                                                                                                     | record_count    | file_format   | file_size_in_bytes   |  column_sizes        |  value_counts     |  null_value_counts | nan_value_counts  | lower_bounds                |  upper_bounds               |  key_metadata  | split_offsets  |  equality_ids
+    ----------+-------------------------------------------------------------------------------------------------------------------------------+-----------------+---------------+----------------------+----------------------+-------------------+--------------------+-------------------+-----------------------------+-----------------------------+----------------+----------------+---------------
+     0        | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/data/c1=3/c2=2021-01-14/af9872b2-40f3-428f-9c87-186d2750d84e.parquet |  1              |  PARQUET      |  442                 | {1=40, 2=40, 3=44}   |  {1=1, 2=1, 3=1}  |  {1=0, 2=0, 3=0}   | <null>            |  {1=3, 2=2021-01-14, 3=1.3} |  {1=3, 2=2021-01-14, 3=1.3} |  <null>        | <null>         |   <null>
+
+
+
+The output of the query has the following columns:
+
+.. list-table:: Files columns
+  :widths: 25, 30, 45
+  :header-rows: 1
+
+  * - Name
+    - Type
+    - Description
+  * - ``content``
+    - ``integer``
+    - Type of content stored in the file.
+      The supported content types in Iceberg are:
+
+      * ``DATA(0)``
+      * ``POSITION_DELETES(1)``
+      * ``EQUALITY_DELETES(2)``
+  * - ``file_path``
+    - ``varchar``
+    - The data file location
+  * - ``file_format``
+    - ``varchar``
+    - The format of the data file
+  * - ``record_count``
+    - ``bigint``
+    - The number of entries contained in the data file
+  * - ``file_size_in_bytes``
+    - ``bigint``
+    - The data file size
+  * - ``column_sizes``
+    - ``map(integer, bigint)``
+    - Mapping between the Iceberg column ID and its corresponding size in the file
+  * - ``value_counts``
+    - ``map(integer, bigint)``
+    - Mapping between the Iceberg column ID and its corresponding count of entries in the file
+  * - ``null_value_counts``
+    - ``map(integer, bigint)``
+    - Mapping between the Iceberg column ID and its corresponding count of ``NULL`` values in the file
+  * - ``nan_value_counts``
+    - ``map(integer, bigint)``
+    - Mapping between the Iceberg column ID and its corresponding count of non numerical values in the file
+  * - ``lower_bounds``
+    - ``map(integer, bigint)``
+    - Mapping between the Iceberg column ID and its corresponding lower bound in the file
+  * - ``upper_bounds``
+    - ``map(integer, bigint)``
+    - Mapping between the Iceberg column ID and its corresponding upper bound in the file
+  * - ``key_metadata``
+    - ``varbinary``
+    - Metadata about the encryption key used to encrypt this file, if applicable
+  * - ``split_offsets``
+    - ``array(bigint)``
+    - List of recommended split locations
+  * - ``equality_ids``
+    - ``array(integer)``
+    - The set of field IDs used for equality comparison in equality delete files
+
 .. _iceberg-materialized-views:
 
 Materialized views
