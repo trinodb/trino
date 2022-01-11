@@ -323,15 +323,26 @@ public class TestClickHouseTypeMapping
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
         SqlDataTypeTest.create()
-                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", "DATE '1969-12-31'", DATE, "DATE '1970-01-01'") // unsupported date become 1970-01-01
+                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'") // min value in ClickHouse
                 .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
                 .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
                 .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
                 .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
                 .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
                 .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
+                .addRoundTrip("date", "DATE '2106-02-07'", DATE, "DATE '2106-02-07'") // max value in ClickHouse
+                .addRoundTrip("date", "DATE '2106-02-08'", DATE, "DATE '1970-01-01'") // unsupported date become 1970-01-01
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+
+        // Null
+        SqlDataTypeTest.create()
+                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("Nullable(date)", "NULL", DATE, "CAST(NULL AS DATE)")
+                .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"));
     }
 
     @DataProvider
