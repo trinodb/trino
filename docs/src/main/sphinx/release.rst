@@ -10,6 +10,7 @@ Release notes
 .. toctree::
     :maxdepth: 1
 
+    release/release-369
     release/release-368
 
 .. _releases_2021:
