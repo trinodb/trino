@@ -829,9 +829,9 @@ public class HiveMetadata
     }
 
     @Override
-    public void setSchemaAuthorization(ConnectorSession session, String source, TrinoPrincipal principal)
+    public void setSchemaAuthorization(ConnectorSession session, String schemaName, TrinoPrincipal principal)
     {
-        metastore.setDatabaseOwner(new HiveIdentity(session), source, HivePrincipal.from(principal));
+        metastore.setDatabaseOwner(new HiveIdentity(session), schemaName, HivePrincipal.from(principal));
     }
 
     @Override

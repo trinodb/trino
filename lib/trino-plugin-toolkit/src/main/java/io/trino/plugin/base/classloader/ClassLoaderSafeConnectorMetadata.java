@@ -391,10 +391,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void setSchemaAuthorization(ConnectorSession session, String source, TrinoPrincipal principal)
+    public void setSchemaAuthorization(ConnectorSession session, String schemaName, TrinoPrincipal principal)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.setSchemaAuthorization(session, source, principal);
+            delegate.setSchemaAuthorization(session, schemaName, principal);
         }
     }
 

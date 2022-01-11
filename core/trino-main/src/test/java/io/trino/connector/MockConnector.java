@@ -317,7 +317,7 @@ public class MockConnector
         public void renameSchema(ConnectorSession session, String source, String target) {}
 
         @Override
-        public void setSchemaAuthorization(ConnectorSession session, String source, TrinoPrincipal principal) {}
+        public void setSchemaAuthorization(ConnectorSession session, String schemaName, TrinoPrincipal principal) {}
 
         @Override
         public void dropSchema(ConnectorSession session, String schemaName) {}

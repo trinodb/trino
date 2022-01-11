@@ -349,7 +349,7 @@ public interface ConnectorMetadata
     /**
      * Sets the user/role on the specified schema.
      */
-    default void setSchemaAuthorization(ConnectorSession session, String source, TrinoPrincipal principal)
+    default void setSchemaAuthorization(ConnectorSession session, String schemaName, TrinoPrincipal principal)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting an owner on a schema");
     }
