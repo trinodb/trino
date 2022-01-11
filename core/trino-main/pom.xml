@@ -462,6 +462,20 @@
     </dependencies>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.gaul</groupId>
+                    <artifactId>modernizer-maven-plugin</artifactId>
+                    <configuration>
+                        <ignoreClassNamePatterns>
+                            <!-- we require certain org.testng.Assert methods be called via our Assert class, so that class needs to be allowed to call them -->
+                            <ignoreClassNamePattern>io/trino/testing/assertions/Assert</ignoreClassNamePattern>
+                        </ignoreClassNamePatterns>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -479,17 +493,6 @@
                         <version>${dep.plugin.surefire.version}</version>
                     </dependency>
                 </dependencies>
-            </plugin>
-
-            <plugin>
-                <groupId>org.gaul</groupId>
-                <artifactId>modernizer-maven-plugin</artifactId>
-                <configuration>
-                    <ignoreClassNamePatterns>
-                        <!-- we require certain org.testng.Assert methods be called via our Assert class, so that class needs to be allowed to call them -->
-                        <ignoreClassNamePattern>io/trino/testing/assertions/Assert</ignoreClassNamePattern>
-                    </ignoreClassNamePatterns>
-                </configuration>
             </plugin>
         </plugins>
     </build>

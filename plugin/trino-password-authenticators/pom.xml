@@ -120,17 +120,19 @@
     </dependencies>
 
     <build>
-        <plugins>
-            <plugin>
-                <groupId>org.gaul</groupId>
-                <artifactId>modernizer-maven-plugin</artifactId>
-                <configuration>
-                    <ignoreClassNamePatterns>
-                        <!-- To allow usage of java.util.Hashtable -->
-                        <ignoreClassNamePattern>io/trino/plugin/password/jndi/JndiUtils</ignoreClassNamePattern>
-                    </ignoreClassNamePatterns>
-                </configuration>
-            </plugin>
-        </plugins>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.gaul</groupId>
+                    <artifactId>modernizer-maven-plugin</artifactId>
+                    <configuration>
+                        <ignoreClassNamePatterns>
+                            <!-- To allow usage of java.util.Hashtable -->
+                            <ignoreClassNamePattern>io/trino/plugin/password/jndi/JndiUtils</ignoreClassNamePattern>
+                        </ignoreClassNamePatterns>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
 </project>

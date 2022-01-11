@@ -313,27 +313,29 @@
     </dependencies>
 
     <build>
-        <plugins>
-            <plugin>
-                <groupId>org.basepom.maven</groupId>
-                <artifactId>duplicate-finder-maven-plugin</artifactId>
-                <configuration>
-                    <ignoredResourcePatterns>
-                        <ignoredResourcePattern>mrapp-generated-classpath</ignoredResourcePattern>
-                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
-                        <!-- org.apache.commons:commons-math3 french localization file duplicate-->
-                        <ignoredResourcePattern>assets/org/apache/commons/math3/exception/util/LocalizedFormats_fr.properties</ignoredResourcePattern>
-                        <!-- io.airlift:joni and phoenix-client's org.jruby.joni:joni resource duplicates-->
-                        <ignoredResourcePattern>tables/.*\.bin</ignoredResourcePattern>
-                    </ignoredResourcePatterns>
-                    <ignoredDependencies>
-                        <dependency>
-                            <groupId>com.clearspring.analytics</groupId>
-                            <artifactId>stream</artifactId>
-                        </dependency>
-                    </ignoredDependencies>
-                </configuration>
-            </plugin>
-        </plugins>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.basepom.maven</groupId>
+                    <artifactId>duplicate-finder-maven-plugin</artifactId>
+                    <configuration>
+                        <ignoredResourcePatterns>
+                            <ignoredResourcePattern>mrapp-generated-classpath</ignoredResourcePattern>
+                            <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                            <!-- org.apache.commons:commons-math3 french localization file duplicate-->
+                            <ignoredResourcePattern>assets/org/apache/commons/math3/exception/util/LocalizedFormats_fr.properties</ignoredResourcePattern>
+                            <!-- io.airlift:joni and phoenix-client's org.jruby.joni:joni resource duplicates-->
+                            <ignoredResourcePattern>tables/.*\.bin</ignoredResourcePattern>
+                        </ignoredResourcePatterns>
+                        <ignoredDependencies>
+                            <dependency>
+                                <groupId>com.clearspring.analytics</groupId>
+                                <artifactId>stream</artifactId>
+                            </dependency>
+                        </ignoredDependencies>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
 </project>

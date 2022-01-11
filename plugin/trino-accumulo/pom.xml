@@ -320,33 +320,35 @@
     </dependencies>
 
     <build>
-        <plugins>
-            <plugin>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>copy-iterators</id>
-                        <!-- the resource is not needed for compilation -->
-                        <phase>process-test-classes</phase>
-                        <goals>
-                            <goal>copy</goal>
-                        </goals>
-                        <configuration>
-                            <skip>false</skip>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>io.trino</groupId>
-                                    <artifactId>trino-accumulo-iterators</artifactId>
-                                    <version>${project.version}</version>
-                                    <type>jar</type>
-                                </artifactItem>
-                            </artifactItems>
-                            <stripVersion>true</stripVersion>
-                            <outputDirectory>${project.build.testOutputDirectory}</outputDirectory>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <id>copy-iterators</id>
+                            <!-- the resource is not needed for compilation -->
+                            <phase>process-test-classes</phase>
+                            <goals>
+                                <goal>copy</goal>
+                            </goals>
+                            <configuration>
+                                <skip>false</skip>
+                                <artifactItems>
+                                    <artifactItem>
+                                        <groupId>io.trino</groupId>
+                                        <artifactId>trino-accumulo-iterators</artifactId>
+                                        <version>${project.version}</version>
+                                        <type>jar</type>
+                                    </artifactItem>
+                                </artifactItems>
+                                <stripVersion>true</stripVersion>
+                                <outputDirectory>${project.build.testOutputDirectory}</outputDirectory>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
 </project>

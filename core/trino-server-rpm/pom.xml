@@ -79,6 +79,33 @@
                         </mapping>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <id>default</id>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>enforce</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <!-- All Trino modules are imported into this module as "provided" dependencies what makes dependencies from all the modules to be cross checked for compatibility -->
+                        <!-- Override rules to disable dependency checks as dependencies of different connectors don't have to be compatible -->
+                        <rules combine.self="override">
+                            <requireFilesSize>
+                                <!-- Maven Central has a 1GB limit -->
+                                <maxsize>1106000000</maxsize>
+                                <files>
+                                    <file>${project.build.directory}/${project.build.finalName}.noarch.rpm</file>
+                                </files>
+                            </requireFilesSize>
+                        </rules>
+                        <fail>true</fail>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -272,33 +299,6 @@
                             </rules>
                         </package>
                     </packages>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>default</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>enforce</goal>
-                        </goals>
-                    </execution>
-                </executions>
-                <configuration>
-                    <!-- All Trino modules are imported into this module as "provided" dependencies what makes dependencies from all the modules to be cross checked for compatibility -->
-                    <!-- Override rules to disable dependency checks as dependencies of different connectors don't have to be compatible -->
-                    <rules combine.self="override">
-                        <requireFilesSize>
-                            <!-- Maven Central has a 1GB limit -->
-                            <maxsize>1106000000</maxsize>
-                            <files>
-                                <file>${project.build.directory}/${project.build.finalName}.noarch.rpm</file>
-                            </files>
-                        </requireFilesSize>
-                    </rules>
-                    <fail>true</fail>
                 </configuration>
             </plugin>
         </plugins>
