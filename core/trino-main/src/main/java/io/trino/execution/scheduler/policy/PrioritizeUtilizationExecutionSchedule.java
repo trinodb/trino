@@ -64,7 +64,7 @@ import static java.util.function.Function.identity;
  * Schedules stages choosing to order to provide the best resource utilization.
  * This means that stages which output won't be consumed (e.g. join probe side) will
  * not be scheduled until dependent stages finish (e.g. join build source stages).
- * Contrary to {@link PhasedExecutionPolicy}, {@link PrioritizeUtilizationExecutionSchedule} will
+ * Contrary to {@link LegacyPhasedExecutionPolicy}, {@link PrioritizeUtilizationExecutionSchedule} will
  * schedule multiple source stages in order to fully utilize IO.
  */
 public class PrioritizeUtilizationExecutionSchedule
