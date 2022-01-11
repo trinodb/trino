@@ -23,9 +23,9 @@ import static io.trino.spi.block.BlockUtil.checkValidPosition;
 public abstract class AbstractVariableWidthBlock
         implements Block
 {
-    protected abstract Slice getRawSlice(int position);
+    public abstract Slice getRawSlice(int position);
 
-    protected abstract int getPositionOffset(int position);
+    public abstract int getPositionOffset(int position);
 
     protected abstract boolean isEntryNull(int position);
 

@@ -151,6 +151,9 @@ public final class SystemSessionProperties
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
+    public static final String TASK_MAX_PARTIAL_AGGREGATION_MEMORY = "task_max_partial_aggregation_memory";
+    public static final String USE_ENHANCED_GROUP_BY = "use_enhanced_group_by";
+    public static final String ENHANCED_GROUP_BY_MAX_VAR_WIDTH_BUFFER_SIZE = "enhanced_group_by_max_var_width_buffer_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -705,6 +708,21 @@ public final class SystemSessionProperties
                         "When enabled non-accessible columns are silently filtered from results from SELECT * statements",
                         featuresConfig.isHideInaccesibleColumns(),
                         value -> validateHideInaccesibleColumns(value, featuresConfig.isHideInaccesibleColumns()),
+                        false),
+                dataSizeProperty(
+                        TASK_MAX_PARTIAL_AGGREGATION_MEMORY,
+                        "Maximum size of partial aggregation results for distributed aggregations.",
+                        taskManagerConfig.getMaxPartialAggregationMemoryUsage(),
+                        false),
+                booleanProperty(
+                        USE_ENHANCED_GROUP_BY,
+                        "Enable optimization for aggregations",
+                        featuresConfig.isUseEnhancedGroupBy(),
+                        false),
+                integerProperty(
+                        ENHANCED_GROUP_BY_MAX_VAR_WIDTH_BUFFER_SIZE,
+                        "The maximum number of bytes per variable width column value stored in the hash table main buffer",
+                        featuresConfig.getEnhancedGroupByMaxVarWidthBufferSize(),
                         false));
     }
 
@@ -1270,5 +1288,20 @@ public final class SystemSessionProperties
     public static boolean isHideInaccesibleColumns(Session session)
     {
         return session.getSystemProperty(HIDE_INACCESSIBLE_COLUMNS, Boolean.class);
+    }
+
+    public static DataSize getMaxPartialAggregationMemoryUsage(Session session)
+    {
+        return session.getSystemProperty(TASK_MAX_PARTIAL_AGGREGATION_MEMORY, DataSize.class);
+    }
+
+    public static boolean isUseEnhancedGroupByEnabled(Session session)
+    {
+        return session.getSystemProperty(USE_ENHANCED_GROUP_BY, Boolean.class);
+    }
+
+    public static int getEnhancedGroupByMaxVarWidthBufferSize(Session session)
+    {
+        return session.getSystemProperty(ENHANCED_GROUP_BY_MAX_VAR_WIDTH_BUFFER_SIZE, Integer.class);
     }
 }

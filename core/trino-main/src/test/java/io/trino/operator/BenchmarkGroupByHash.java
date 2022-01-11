@@ -19,6 +19,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.trino.array.LongBigArray;
+import io.trino.operator.hash.IsolatedHashTableRowFormatFactory;
+import io.trino.operator.hash.MultiChannelGroupByHashRowWise;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
@@ -42,22 +44,34 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.profile.GCProfiler;
+import org.openjdk.jmh.infra.Blackhole;
 import org.openjdk.jmh.runner.RunnerException;
+import org.testcontainers.shaded.org.apache.commons.io.FileUtils;
 
+import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.block.BlockAssertions.createRandomDictionaryBlock;
+import static io.trino.block.BlockAssertions.createRandomStringBlock;
 import static io.trino.jmh.Benchmarks.benchmark;
+import static io.trino.operator.GroupByHash.ISOLATED_ROW_EXTRACTOR_FACTORY;
 import static io.trino.operator.UpdateMemory.NOOP;
+import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.TypeTestUtils.getHashBlock;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -78,23 +92,36 @@ public class BenchmarkGroupByHash
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
-    public Object groupByHashPreCompute(BenchmarkData data)
+    public void groupByHashPreCompute(BenchmarkData data, Blackhole blackhole)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, getJoinCompiler(), TYPE_OPERATOR_FACTORY, NOOP);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), data.getExpectedSize(), false, data.getJoinCompiler(), TYPE_OPERATOR_FACTORY, NOOP);
         addInputPagesToHash(groupByHash, data.getPages());
 
-        ImmutableList.Builder<Page> pages = ImmutableList.builder();
+        buildPages(groupByHash, blackhole);
+    }
+
+    @Benchmark
+    @OperationsPerInvocation(POSITIONS)
+    public void groupByHashPreComputeRowWise(RowWiseBenchmarkData data, Blackhole blackhole)
+    {
+        GroupByHash groupByHash = new MultiChannelGroupByHashRowWise(ISOLATED_ROW_EXTRACTOR_FACTORY, data.getTypes(), data.getChannels(), data.getHashChannel(), data.getExpectedSize(), NOOP, TYPE_OPERATOR_FACTORY, 16);
+        addInputPagesToHash(groupByHash, data.getPages());
+
+        buildPages(groupByHash, blackhole);
+    }
+
+    private void buildPages(GroupByHash groupByHash, Blackhole blackhole)
+    {
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
         for (int groupId = 0; groupId < groupByHash.getGroupCount(); groupId++) {
             pageBuilder.declarePosition();
             groupByHash.appendValuesTo(groupId, pageBuilder, 0);
             if (pageBuilder.isFull()) {
-                pages.add(pageBuilder.build());
+                blackhole.consume(pageBuilder.build());
                 pageBuilder.reset();
             }
         }
-        pages.add(pageBuilder.build());
-        return pageBuilder.build();
+        blackhole.consume(pageBuilder.build());
     }
 
     @Benchmark
@@ -115,44 +142,26 @@ public class BenchmarkGroupByHash
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
-    public Object addPagePreCompute(BenchmarkData data)
+    public void addPagePreCompute(BenchmarkData data, Blackhole blackhole)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, getJoinCompiler(), TYPE_OPERATOR_FACTORY, NOOP);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, data.getJoinCompiler(), TYPE_OPERATOR_FACTORY, NOOP);
         addInputPagesToHash(groupByHash, data.getPages());
 
-        ImmutableList.Builder<Page> pages = ImmutableList.builder();
-        PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
-        for (int groupId = 0; groupId < groupByHash.getGroupCount(); groupId++) {
-            pageBuilder.declarePosition();
-            groupByHash.appendValuesTo(groupId, pageBuilder, 0);
-            if (pageBuilder.isFull()) {
-                pages.add(pageBuilder.build());
-                pageBuilder.reset();
-            }
-        }
-        pages.add(pageBuilder.build());
-        return pageBuilder.build();
+        buildPages(groupByHash, blackhole);
     }
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
-    public Object bigintGroupByHash(SingleChannelBenchmarkData data)
+    public void bigintGroupByHash(SingleChannelBenchmarkData data, Blackhole blackhole)
     {
-        GroupByHash groupByHash = new BigintGroupByHash(0, data.getHashEnabled(), EXPECTED_SIZE, NOOP);
-        addInputPagesToHash(groupByHash, data.getPages());
+        GroupByHash groupByHash = new BigintGroupByHash(0, data.getHashEnabled(), data.expectedSize, NOOP);
+        benchmarkGroupByHash(data, groupByHash, blackhole);
+    }
 
-        ImmutableList.Builder<Page> pages = ImmutableList.builder();
-        PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
-        for (int groupId = 0; groupId < groupByHash.getGroupCount(); groupId++) {
-            pageBuilder.declarePosition();
-            groupByHash.appendValuesTo(groupId, pageBuilder, 0);
-            if (pageBuilder.isFull()) {
-                pages.add(pageBuilder.build());
-                pageBuilder.reset();
-            }
-        }
-        pages.add(pageBuilder.build());
-        return pageBuilder.build();
+    private void benchmarkGroupByHash(SingleChannelBenchmarkData data, GroupByHash groupByHash, Blackhole blackhole)
+    {
+        addInputPagesToHash(groupByHash, data.getPages());
+        buildPages(groupByHash, blackhole);
     }
 
     @Benchmark
@@ -279,8 +288,36 @@ public class BenchmarkGroupByHash
         return pages.build();
     }
 
-    private static List<Page> createVarcharPages(int positionCount, int groupCount, int channelCount, boolean hashEnabled)
+    private static List<Page> createVarcharDictionaryPages(int positionCount, int groupCount, int channelCount, boolean hashEnabled, int valueLength)
     {
+        checkArgument(Math.pow(2, valueLength * Byte.SIZE) > groupCount);
+        Block dictionary = createRandomStringBlock(groupCount, 0, valueLength);
+        int estimatedRowSize = channelCount * (Integer.BYTES /* offset */ + Byte.BYTES /* isNull */ + Integer.BYTES /* dictionary id */) * valueLength;
+        int pageSize = DEFAULT_MAX_PAGE_SIZE_IN_BYTES / estimatedRowSize;
+
+        ImmutableList.Builder<Page> pages = ImmutableList.builder();
+        int positionsLeft = positionCount;
+
+        while (positionsLeft > 0) {
+            int currentPagesSize = Math.min(pageSize, positionsLeft);
+            Block[] blocks = new Block[channelCount + (hashEnabled ? 1 : 0)];
+            for (int i = 0; i < channelCount; i++) {
+                DictionaryBlock block = createRandomDictionaryBlock(dictionary, currentPagesSize).compact();
+                blocks[i] = block;
+            }
+            if (hashEnabled) {
+                blocks[channelCount] = getHashBlock(ImmutableList.of(VARCHAR), blocks[0]);
+            }
+
+            pages.add(new Page(currentPagesSize, blocks));
+            positionsLeft -= currentPagesSize;
+        }
+        return pages.build();
+    }
+
+    private static List<Page> createVarcharPages(int positionCount, int groupCount, int channelCount, boolean hashEnabled, int valueLength)
+    {
+        checkArgument(Math.pow(2, valueLength * Byte.SIZE) > groupCount);
         List<Type> types = Collections.nCopies(channelCount, VARCHAR);
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         if (hashEnabled) {
@@ -289,8 +326,7 @@ public class BenchmarkGroupByHash
 
         PageBuilder pageBuilder = new PageBuilder(types);
         for (int position = 0; position < positionCount; position++) {
-            int rand = ThreadLocalRandom.current().nextInt(groupCount);
-            Slice value = Slices.wrappedBuffer(ByteBuffer.allocate(4).putInt(rand));
+            Slice value = randomSlice(groupCount, valueLength);
             pageBuilder.declarePosition();
             for (int channel = 0; channel < channelCount; channel++) {
                 VARCHAR.writeSlice(pageBuilder.getBlockBuilder(channel), value);
@@ -305,6 +341,23 @@ public class BenchmarkGroupByHash
         }
         pages.add(pageBuilder.build());
         return pages.build();
+    }
+
+    private static Slice randomSlice(int groupCount, int valueLength)
+    {
+        int rand = ThreadLocalRandom.current().nextInt(groupCount);
+
+        ByteBuffer buffer = ByteBuffer.allocate(valueLength);
+
+        for (int i = 0; i <= valueLength - 4; i += 4) {
+            buffer.putInt(rand);
+        }
+
+        for (int i = 0; buffer.position() < valueLength; i++) {
+            buffer.put((byte) (rand >> (i * 8)));
+        }
+
+        return Slices.wrappedBuffer(buffer.flip());
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -338,6 +391,12 @@ public class BenchmarkGroupByHash
     @State(Scope.Thread)
     public static class SingleChannelBenchmarkData
     {
+        @Param({"1024", "100000", "3000000", "6000000"})
+        public int expectedSize = 1024;
+
+        @Param({"10000000", "3000000", "1000000", "100000", "10000", "1000", "100", "10", "4"})
+        private int groupCount = GROUP_COUNT;
+
         @Param("1")
         private int channelCount = 1;
 
@@ -356,7 +415,7 @@ public class BenchmarkGroupByHash
 
         public void setup(boolean useMixedBlockTypes)
         {
-            pages = createBigintPages(POSITIONS, GROUP_COUNT, channelCount, hashEnabled, useMixedBlockTypes);
+            pages = createBigintPages(POSITIONS, groupCount, channelCount, hashEnabled, useMixedBlockTypes);
             types = Collections.nCopies(1, BIGINT);
             channels = new int[1];
             for (int i = 0; i < 1; i++) {
@@ -380,6 +439,21 @@ public class BenchmarkGroupByHash
         }
     }
 
+    @State(Scope.Thread)
+    public static class RowWiseBenchmarkData
+            extends BenchmarkData
+    {
+        @Param({"true", "false"})
+        private boolean useDedicatedExtractor = true;
+
+        @Override
+        public void setup()
+        {
+            IsolatedHashTableRowFormatFactory.useDedicatedExtractor = useDedicatedExtractor;
+            super.setup();
+        }
+    }
+
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BenchmarkData
@@ -397,10 +471,17 @@ public class BenchmarkGroupByHash
         @Param({"VARCHAR", "BIGINT"})
         private String dataType = "VARCHAR";
 
+        @Param({"true", "false"})
+        private boolean rehash;
+
+        @Param({"1", "2", "4", "12", "15"})
+        private int valuesLength = 4;
+
         private List<Page> pages;
         private Optional<Integer> hashChannel;
         private List<Type> types;
         private int[] channels;
+        private JoinCompiler joinCompiler;
 
         @Setup
         public void setup()
@@ -408,7 +489,11 @@ public class BenchmarkGroupByHash
             switch (dataType) {
                 case "VARCHAR":
                     types = Collections.nCopies(channelCount, VARCHAR);
-                    pages = createVarcharPages(POSITIONS, groupCount, channelCount, hashEnabled);
+                    pages = createVarcharPages(POSITIONS, groupCount, channelCount, hashEnabled, valuesLength);
+                    break;
+                case "VARCHAR_DICTIONARY":
+                    types = Collections.nCopies(channelCount, VARCHAR);
+                    pages = createVarcharDictionaryPages(POSITIONS, groupCount, channelCount, hashEnabled, valuesLength);
                     break;
                 case "BIGINT":
                     types = Collections.nCopies(channelCount, BIGINT);
@@ -422,6 +507,8 @@ public class BenchmarkGroupByHash
             for (int i = 0; i < channelCount; i++) {
                 channels[i] = i;
             }
+
+            this.joinCompiler = new JoinCompiler(TYPE_OPERATORS);
         }
 
         public List<Page> getPages()
@@ -443,11 +530,31 @@ public class BenchmarkGroupByHash
         {
             return channels;
         }
-    }
 
-    private static JoinCompiler getJoinCompiler()
-    {
-        return new JoinCompiler(TYPE_OPERATORS);
+        public JoinCompiler getJoinCompiler()
+        {
+            return joinCompiler;
+        }
+
+        public int getExpectedSize()
+        {
+            return rehash ? 10_000 : groupCount;
+        }
+
+        public void setGroupCount(int groupCount)
+        {
+            this.groupCount = groupCount;
+        }
+
+        public void setChannelCount(int channelCount)
+        {
+            this.channelCount = channelCount;
+        }
+
+        public void setDataType(String dataType)
+        {
+            this.dataType = dataType;
+        }
     }
 
     static {
@@ -456,27 +563,81 @@ public class BenchmarkGroupByHash
         singleChannelBenchmarkData.setup(true);
         BenchmarkGroupByHash hash = new BenchmarkGroupByHash();
         for (int i = 0; i < 5; ++i) {
-            hash.bigintGroupByHash(singleChannelBenchmarkData);
+            hash.bigintGroupByHash(singleChannelBenchmarkData, fakeBlackhole());
         }
+
+        hash.groupByHashPreComputeRowWise(rowWiseBenchmarkData("VARCHAR"), fakeBlackhole());
+        hash.groupByHashPreComputeRowWise(rowWiseBenchmarkData("VARCHAR_DICTIONARY"), fakeBlackhole());
+    }
+
+    private static RowWiseBenchmarkData rowWiseBenchmarkData(String dataType)
+    {
+        RowWiseBenchmarkData varchar = new RowWiseBenchmarkData();
+        varchar.setGroupCount(8);
+        varchar.setChannelCount(4);
+        varchar.setDataType(dataType);
+        varchar.setup();
+        return varchar;
+    }
+
+    private static Blackhole fakeBlackhole()
+    {
+        return new Blackhole("Today's password is swordfish. I understand instantiating Blackholes directly is dangerous.");
     }
 
     public static void main(String[] args)
-            throws RunnerException
+            throws RunnerException, IOException
     {
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();
         data.setup();
-        new BenchmarkGroupByHash().groupByHashPreCompute(data);
-        new BenchmarkGroupByHash().addPagePreCompute(data);
+        new BenchmarkGroupByHash().groupByHashPreCompute(data, fakeBlackhole());
+        new BenchmarkGroupByHash().addPagePreCompute(data, fakeBlackhole());
 
-        SingleChannelBenchmarkData singleChannelBenchmarkData = new SingleChannelBenchmarkData();
-        singleChannelBenchmarkData.setup();
-        new BenchmarkGroupByHash().bigintGroupByHash(singleChannelBenchmarkData);
-
+        String profilerOutputDir = profilerOutputDir();
+        new BenchmarkGroupByHash().groupByHashPreComputeRowWise(rowWiseBenchmarkData("BIGINT"), fakeBlackhole());
         benchmark(BenchmarkGroupByHash.class)
+                .includeMethod("groupByHashPreCompute")
+                .includeMethod("groupByHashPreComputeRowWise")
                 .withOptions(optionsBuilder -> optionsBuilder
-                        .addProfiler(GCProfiler.class)
-                        .jvmArgs("-Xmx10g"))
+//                        .addProfiler(GCProfiler.class)
+//                        .addProfiler(AsyncProfiler.class, String.format("dir=%s;output=text;output=flamegraph", profilerOutputDir))
+//                        .addProfiler(DTraceAsmProfiler.class, String.format("hotThresholdó=0.1;tooBigThreshold=3000;saveLog=true;saveLogTo=%s", profilerOutputDir, profilerOutputDir))
+                        .jvmArgs("-Xmx32g")
+                        .param("hashEnabled", "true")
+                        .param("rehash", "true")
+                        .param("groupCount", "3000000")
+                        .param("channelCount", "4")
+                        .param("dataType", "VARCHAR")
+//                        .param("dataType", "VARCHAR_DICTIONARY", "VARCHAR")
+                        .param("valuesLength", "4")
+                        .param("useDedicatedExtractor", "true")
+                        .forks(1)
+                        .warmupIterations(30)
+                        .measurementIterations(10))
                 .run();
+        File dir = new File(profilerOutputDir);
+        if (dir.list().length == 0) {
+            FileUtils.deleteDirectory(dir);
+        }
+    }
+
+    private static String profilerOutputDir()
+    {
+        try {
+            String jmhDir = "jmh";
+            new File(jmhDir).mkdirs();
+            String outDir = jmhDir + "/" + String.valueOf(Files.list(Paths.get(jmhDir))
+                    .map(path -> path.getFileName().toString())
+                    .filter(path -> path.matches("\\d+"))
+                    .map(path -> Integer.parseInt(path) + 1)
+                    .sorted(Comparator.reverseOrder())
+                    .findFirst().orElse(0));
+            new File(outDir).mkdirs();
+            return outDir;
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

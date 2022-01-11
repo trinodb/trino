@@ -311,6 +311,20 @@ public class RunLengthEncodedBlock
         return new RunLengthEncodedBlock(loadedValueBlock, positionCount);
     }
 
+    @Override
+    public Slice getRawSlice(int position)
+    {
+        checkReadablePosition(position);
+        return value.getRawSlice(0);
+    }
+
+    @Override
+    public int getPositionOffset(int position)
+    {
+        checkReadablePosition(position);
+        return value.getPositionOffset(0);
+    }
+
     private void checkReadablePosition(int position)
     {
         if (position < 0 || position >= positionCount) {

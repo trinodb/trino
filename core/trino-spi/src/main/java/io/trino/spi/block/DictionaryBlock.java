@@ -672,4 +672,16 @@ public class DictionaryBlock
 
         return new DictionaryBlock(dictionary, ids);
     }
+
+    @Override
+    public Slice getRawSlice(int position)
+    {
+        return dictionary.getRawSlice(position);
+    }
+
+    @Override
+    public int getPositionOffset(int position)
+    {
+        return dictionary.getPositionOffset(getId(position));
+    }
 }
