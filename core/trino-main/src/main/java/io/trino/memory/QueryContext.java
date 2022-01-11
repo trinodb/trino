@@ -14,7 +14,9 @@
 package io.trino.memory;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.trino.Session;
@@ -45,6 +47,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
@@ -87,6 +90,9 @@ public class QueryContext
 
     @GuardedBy("this")
     private MemoryPool memoryPool;
+    // TODO: remove after https://github.com/trinodb/trino/issues/6677 is done
+    @GuardedBy("this")
+    private SettableFuture<Void> memoryPoolMoveFuture = SettableFuture.create();
 
     @GuardedBy("this")
     private long spillUsed;
@@ -178,7 +184,12 @@ public class QueryContext
     {
         if (delta >= 0) {
             enforceUserMemoryLimit(queryMemoryContext.getUserMemory(), delta, maxUserMemory);
-            return memoryPool.reserve(queryId, allocationTag, delta);
+            ListenableFuture<Void> future = memoryPool.reserve(queryId, allocationTag, delta);
+            if (future.isDone()) {
+                return NOT_BLOCKED;
+            }
+
+            return whenAnyComplete(ImmutableList.of(future, memoryPoolMoveFuture));
         }
         memoryPool.free(queryId, allocationTag, -delta);
         return NOT_BLOCKED;
@@ -188,7 +199,12 @@ public class QueryContext
     private synchronized ListenableFuture<Void> updateRevocableMemory(String allocationTag, long delta)
     {
         if (delta >= 0) {
-            return memoryPool.reserveRevocable(queryId, delta);
+            ListenableFuture<Void> future = memoryPool.reserveRevocable(queryId, delta);
+            if (future.isDone()) {
+                return NOT_BLOCKED;
+            }
+
+            return whenAnyComplete(ImmutableList.of(future, memoryPoolMoveFuture));
         }
         memoryPool.freeRevocable(queryId, -delta);
         return NOT_BLOCKED;
@@ -216,7 +232,12 @@ public class QueryContext
         long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
         if (delta >= 0) {
             enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory);
-            return memoryPool.reserve(queryId, allocationTag, delta);
+            ListenableFuture<Void> future = memoryPool.reserve(queryId, allocationTag, delta);
+            if (future.isDone()) {
+                return NOT_BLOCKED;
+            }
+
+            return whenAnyComplete(ImmutableList.of(future, memoryPoolMoveFuture));
         }
         memoryPool.free(queryId, allocationTag, -delta);
         return NOT_BLOCKED;
@@ -284,9 +305,14 @@ public class QueryContext
             maxUserMemory = memoryPool.getMaxBytes();
             maxTotalMemory = memoryPool.getMaxBytes();
         }
+
+        // Create a new move future for allocations in new memory pool
+        SettableFuture<Void> oldPoolMoveFuture = this.memoryPoolMoveFuture;
+        this.memoryPoolMoveFuture = SettableFuture.create();
+
         future.addListener(() -> {
-            // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
-            taskContexts.values().forEach(TaskContext::moreMemoryAvailable);
+            // Unblock allocations in old memory pool as all memory is now accounted for in new pool
+            oldPoolMoveFuture.set(null);
         }, directExecutor());
     }
 

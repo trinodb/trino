@@ -261,11 +261,6 @@ public class PipelineContext
         return pipelineMemoryContext.localSystemMemoryContext();
     }
 
-    public void moreMemoryAvailable()
-    {
-        drivers.forEach(DriverContext::moreMemoryAvailable);
-    }
-
     public boolean isPerOperatorCpuTimerEnabled()
     {
         return taskContext.isPerOperatorCpuTimerEnabled();
