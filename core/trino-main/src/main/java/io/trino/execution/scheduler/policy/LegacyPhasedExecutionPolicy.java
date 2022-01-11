@@ -17,12 +17,12 @@ import io.trino.execution.scheduler.StageExecution;
 
 import java.util.Collection;
 
-public class PhasedExecutionPolicy
+public class LegacyPhasedExecutionPolicy
         implements ExecutionPolicy
 {
     @Override
     public ExecutionSchedule createExecutionSchedule(Collection<StageExecution> stages)
     {
-        return PhasedExecutionSchedule.forStages(stages);
+        return new LegacyPhasedExecutionSchedule(stages);
     }
 }

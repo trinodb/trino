@@ -13,117 +13,325 @@
  */
 package io.trino.execution.scheduler.policy;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.execution.ExecutionFailureInfo;
+import io.trino.execution.Lifespan;
+import io.trino.execution.RemoteTask;
+import io.trino.execution.StageId;
+import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.TaskId;
+import io.trino.execution.TaskStatus;
+import io.trino.execution.scheduler.StageExecution;
+import io.trino.execution.scheduler.TaskLifecycleListener;
+import io.trino.execution.scheduler.policy.PhasedExecutionSchedule.FragmentsEdge;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.Split;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
+import io.trino.sql.planner.plan.PlanNodeId;
+import org.jgrapht.DirectedGraph;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.execution.scheduler.StageExecution.State.FINISHED;
+import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
+import static io.trino.execution.scheduler.policy.PlanUtils.createAggregationFragment;
+import static io.trino.execution.scheduler.policy.PlanUtils.createBroadcastAndPartitionedJoinPlanFragment;
 import static io.trino.execution.scheduler.policy.PlanUtils.createBroadcastJoinPlanFragment;
-import static io.trino.execution.scheduler.policy.PlanUtils.createExchangePlanFragment;
 import static io.trino.execution.scheduler.policy.PlanUtils.createJoinPlanFragment;
 import static io.trino.execution.scheduler.policy.PlanUtils.createTableScanPlanFragment;
-import static io.trino.execution.scheduler.policy.PlanUtils.createUnionPlanFragment;
+import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
+import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
-import static org.testng.Assert.assertEquals;
+import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPhasedExecutionSchedule
 {
     @Test
-    public void testExchange()
-    {
-        PlanFragment aFragment = createTableScanPlanFragment("a");
-        PlanFragment bFragment = createTableScanPlanFragment("b");
-        PlanFragment cFragment = createTableScanPlanFragment("c");
-        PlanFragment exchangeFragment = createExchangePlanFragment("exchange", aFragment, bFragment, cFragment);
-
-        List<Set<PlanFragmentId>> phases = PhasedExecutionSchedule.extractPhases(ImmutableList.of(aFragment, bFragment, cFragment, exchangeFragment));
-        assertEquals(phases, ImmutableList.of(
-                ImmutableSet.of(exchangeFragment.getId()),
-                ImmutableSet.of(aFragment.getId()),
-                ImmutableSet.of(bFragment.getId()),
-                ImmutableSet.of(cFragment.getId())));
-    }
-
-    @Test
-    public void testUnion()
-    {
-        PlanFragment aFragment = createTableScanPlanFragment("a");
-        PlanFragment bFragment = createTableScanPlanFragment("b");
-        PlanFragment cFragment = createTableScanPlanFragment("c");
-        PlanFragment unionFragment = createUnionPlanFragment("union", aFragment, bFragment, cFragment);
-
-        List<Set<PlanFragmentId>> phases = PhasedExecutionSchedule.extractPhases(ImmutableList.of(aFragment, bFragment, cFragment, unionFragment));
-        assertEquals(phases, ImmutableList.of(
-                ImmutableSet.of(unionFragment.getId()),
-                ImmutableSet.of(aFragment.getId()),
-                ImmutableSet.of(bFragment.getId()),
-                ImmutableSet.of(cFragment.getId())));
-    }
-
-    @Test
-    public void testJoin()
+    public void testPartitionedJoin()
     {
         PlanFragment buildFragment = createTableScanPlanFragment("build");
         PlanFragment probeFragment = createTableScanPlanFragment("probe");
-        PlanFragment joinFragment = createJoinPlanFragment(INNER, "join", buildFragment, probeFragment);
+        PlanFragment joinFragment = createJoinPlanFragment(INNER, PARTITIONED, "join", buildFragment, probeFragment);
 
-        List<Set<PlanFragmentId>> phases = PhasedExecutionSchedule.extractPhases(ImmutableList.of(joinFragment, buildFragment, probeFragment));
-        assertEquals(phases, ImmutableList.of(ImmutableSet.of(joinFragment.getId()), ImmutableSet.of(buildFragment.getId()), ImmutableSet.of(probeFragment.getId())));
+        TestingStageExecution buildStage = new TestingStageExecution(buildFragment);
+        TestingStageExecution probeStage = new TestingStageExecution(probeFragment);
+        TestingStageExecution joinStage = new TestingStageExecution(joinFragment);
+
+        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(buildStage, probeStage, joinStage));
+        DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
+
+        // single dependency between build and probe stages
+        assertThat(dependencies.edgeSet()).containsExactlyInAnyOrder(new FragmentsEdge(buildFragment.getId(), probeFragment.getId()));
+
+        // build and join stage should start immediately
+        assertThat(getActiveFragments(schedule)).containsExactlyInAnyOrder(joinFragment.getId(), buildFragment.getId());
+
+        // probe stage should start after build stage is completed
+        ListenableFuture<Void> rescheduleFuture = schedule.getRescheduleFuture().orElseThrow();
+        assertThat(rescheduleFuture).isNotDone();
+        buildStage.setState(FLUSHING);
+        assertThat(rescheduleFuture).isDone();
+        schedule.schedule();
+        assertThat(getActiveFragments(schedule)).containsExactlyInAnyOrder(joinFragment.getId(), probeFragment.getId());
+
+        // make sure scheduler finishes
+        rescheduleFuture = schedule.getRescheduleFuture().orElseThrow();
+        assertThat(rescheduleFuture).isNotDone();
+        probeStage.setState(FINISHED);
+        assertThat(rescheduleFuture).isNotDone();
+        joinStage.setState(FINISHED);
+        schedule.schedule();
+        assertThat(getActiveFragments(schedule)).isEmpty();
+        assertThat(schedule.isFinished()).isTrue();
     }
 
     @Test
-    public void testRightJoin()
+    public void testBroadcastSourceJoin()
     {
         PlanFragment buildFragment = createTableScanPlanFragment("build");
+        PlanFragment joinSourceFragment = createBroadcastJoinPlanFragment("probe", buildFragment);
+
+        TestingStageExecution buildStage = new TestingStageExecution(buildFragment);
+        TestingStageExecution joinSourceStage = new TestingStageExecution(joinSourceFragment);
+
+        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(buildStage, joinSourceStage));
+        DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
+
+        // single dependency between build and join stages
+        assertThat(dependencies.edgeSet()).containsExactlyInAnyOrder(new FragmentsEdge(buildFragment.getId(), joinSourceFragment.getId()));
+
+        // build stage should start immediately
+        assertThat(getActiveFragments(schedule)).containsExactly(buildFragment.getId());
+
+        // join stage should start after build stage buffer is full
+        buildStage.setAnyTaskBlocked(true);
+        schedule.schedule();
+        assertThat(getActiveFragments(schedule)).containsExactlyInAnyOrder(joinSourceFragment.getId(), buildFragment.getId());
+    }
+
+    @Test
+    public void testAggregation()
+    {
+        PlanFragment sourceFragment = createTableScanPlanFragment("probe");
+        PlanFragment aggregationFragment = createAggregationFragment("aggregation", sourceFragment);
+        PlanFragment buildFragment = createTableScanPlanFragment("build");
+        PlanFragment joinFragment = createJoinPlanFragment(INNER, REPLICATED, "join", buildFragment, aggregationFragment);
+
+        TestingStageExecution sourceStage = new TestingStageExecution(sourceFragment);
+        TestingStageExecution aggregationStage = new TestingStageExecution(aggregationFragment);
+        TestingStageExecution buildStage = new TestingStageExecution(buildFragment);
+        TestingStageExecution joinStage = new TestingStageExecution(joinFragment);
+
+        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(sourceStage, aggregationStage, buildStage, joinStage));
+        DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
+
+        // aggregation and source stage should start immediately, join stage should wait for build stage to complete
+        assertThat(dependencies.edgeSet()).containsExactly(new FragmentsEdge(buildFragment.getId(), joinFragment.getId()));
+        assertThat(getActiveFragments(schedule)).containsExactlyInAnyOrder(buildFragment.getId(), sourceFragment.getId(), aggregationFragment.getId());
+    }
+
+    @Test
+    public void testStageWithBroadcastAndPartitionedJoin()
+    {
+        PlanFragment broadcastBuildFragment = createTableScanPlanFragment("broadcast_build");
+        PlanFragment partitionedBuildFragment = createTableScanPlanFragment("partitioned_build");
         PlanFragment probeFragment = createTableScanPlanFragment("probe");
-        PlanFragment joinFragment = createJoinPlanFragment(RIGHT, "join", buildFragment, probeFragment);
+        PlanFragment joinFragment = createBroadcastAndPartitionedJoinPlanFragment("join", broadcastBuildFragment, partitionedBuildFragment, probeFragment);
 
-        List<Set<PlanFragmentId>> phases = PhasedExecutionSchedule.extractPhases(ImmutableList.of(joinFragment, buildFragment, probeFragment));
-        assertEquals(phases, ImmutableList.of(ImmutableSet.of(joinFragment.getId()), ImmutableSet.of(buildFragment.getId()), ImmutableSet.of(probeFragment.getId())));
+        TestingStageExecution broadcastBuildStage = new TestingStageExecution(broadcastBuildFragment);
+        TestingStageExecution partitionedBuildStage = new TestingStageExecution(partitionedBuildFragment);
+        TestingStageExecution probeStage = new TestingStageExecution(probeFragment);
+        TestingStageExecution joinStage = new TestingStageExecution(joinFragment);
+
+        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(
+                broadcastBuildStage, partitionedBuildStage, probeStage, joinStage));
+        DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
+
+        // join stage should start immediately because partitioned join forces that
+        assertThat(dependencies.edgeSet()).containsExactlyInAnyOrder(
+                new FragmentsEdge(broadcastBuildFragment.getId(), probeFragment.getId()),
+                new FragmentsEdge(partitionedBuildFragment.getId(), probeFragment.getId()),
+                new FragmentsEdge(broadcastBuildFragment.getId(), joinFragment.getId()));
+        assertThat(getActiveFragments(schedule)).containsExactlyInAnyOrder(
+                broadcastBuildFragment.getId(),
+                partitionedBuildFragment.getId(),
+                joinFragment.getId());
+
+        // completing single build dependency shouldn't cause probe stage to start
+        broadcastBuildStage.setState(FLUSHING);
+        schedule.schedule();
+        assertThat(getActiveFragments(schedule)).containsExactlyInAnyOrder(
+                partitionedBuildFragment.getId(),
+                joinFragment.getId());
+
+        // completing all build dependencies should cause probe stage to start
+        partitionedBuildStage.setState(FLUSHING);
+        schedule.schedule();
+        assertThat(getActiveFragments(schedule)).containsExactlyInAnyOrder(
+                probeFragment.getId(),
+                joinFragment.getId());
     }
 
-    @Test
-    public void testBroadcastJoin()
+    private Set<PlanFragmentId> getActiveFragments(PhasedExecutionSchedule schedule)
     {
-        PlanFragment buildFragment = createTableScanPlanFragment("build");
-        PlanFragment joinFragment = createBroadcastJoinPlanFragment("join", buildFragment);
-
-        List<Set<PlanFragmentId>> phases = PhasedExecutionSchedule.extractPhases(ImmutableList.of(joinFragment, buildFragment));
-        assertEquals(phases, ImmutableList.of(ImmutableSet.of(joinFragment.getId(), buildFragment.getId())));
+        return schedule.getActiveStages().stream()
+                .map(stage -> stage.getFragment().getId())
+                .collect(toImmutableSet());
     }
 
-    @Test
-    public void testJoinWithDeepSources()
+    private static class TestingStageExecution
+            implements StageExecution
     {
-        PlanFragment buildSourceFragment = createTableScanPlanFragment("buildSource");
-        PlanFragment buildMiddleFragment = createExchangePlanFragment("buildMiddle", buildSourceFragment);
-        PlanFragment buildTopFragment = createExchangePlanFragment("buildTop", buildMiddleFragment);
-        PlanFragment probeSourceFragment = createTableScanPlanFragment("probeSource");
-        PlanFragment probeMiddleFragment = createExchangePlanFragment("probeMiddle", probeSourceFragment);
-        PlanFragment probeTopFragment = createExchangePlanFragment("probeTop", probeMiddleFragment);
-        PlanFragment joinFragment = createJoinPlanFragment(INNER, "join", buildTopFragment, probeTopFragment);
+        private final PlanFragment fragment;
+        private StateChangeListener<State> stateChangeListener;
+        private boolean anyTaskBlocked;
+        private State state = State.SCHEDULING;
 
-        List<Set<PlanFragmentId>> phases = PhasedExecutionSchedule.extractPhases(ImmutableList.of(
-                joinFragment,
-                buildTopFragment,
-                buildMiddleFragment,
-                buildSourceFragment,
-                probeTopFragment,
-                probeMiddleFragment,
-                probeSourceFragment));
+        public TestingStageExecution(PlanFragment fragment)
+        {
+            this.fragment = requireNonNull(fragment, "fragment is null");
+        }
 
-        assertEquals(phases, ImmutableList.of(
-                ImmutableSet.of(joinFragment.getId()),
-                ImmutableSet.of(buildTopFragment.getId()),
-                ImmutableSet.of(buildMiddleFragment.getId()),
-                ImmutableSet.of(buildSourceFragment.getId()),
-                ImmutableSet.of(probeTopFragment.getId()),
-                ImmutableSet.of(probeMiddleFragment.getId()),
-                ImmutableSet.of(probeSourceFragment.getId())));
+        @Override
+        public PlanFragment getFragment()
+        {
+            return fragment;
+        }
+
+        @Override
+        public boolean isAnyTaskBlocked()
+        {
+            return anyTaskBlocked;
+        }
+
+        public void setAnyTaskBlocked(boolean anyTaskBlocked)
+        {
+            this.anyTaskBlocked = anyTaskBlocked;
+        }
+
+        public void setState(State state)
+        {
+            this.state = state;
+            if (stateChangeListener != null) {
+                stateChangeListener.stateChanged(state);
+            }
+        }
+
+        @Override
+        public State getState()
+        {
+            return state;
+        }
+
+        @Override
+        public void addStateChangeListener(StateChangeListener<State> stateChangeListener)
+        {
+            this.stateChangeListener = requireNonNull(stateChangeListener, "stateChangeListener is null");
+        }
+
+        @Override
+        public StageId getStageId()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int getAttemptId()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void beginScheduling()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void transitionToSchedulingSplits()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void addCompletedDriverGroupsChangedListener(Consumer<Set<Lifespan>> newlyCompletedDriverGroupConsumer)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public TaskLifecycleListener getTaskLifecycleListener()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void schedulingComplete()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void schedulingComplete(PlanNodeId partitionedSource)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void cancel()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void abort()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void recordGetSplitTime(long start)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<RemoteTask> scheduleTask(InternalNode node, int partition, Multimap<PlanNodeId, Split> initialSplits, Multimap<PlanNodeId, Lifespan> noMoreSplitsForLifespan)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void failTask(TaskId taskId, Throwable failureCause)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<RemoteTask> getAllTasks()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<TaskStatus> getTaskStatuses()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<ExecutionFailureInfo> getFailureCause()
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 }

@@ -14,10 +14,13 @@
 package io.trino.execution.scheduler.policy;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.trino.execution.scheduler.StageExecution;
+import io.trino.execution.scheduler.StageExecution.State;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
@@ -27,304 +30,532 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
-import io.trino.sql.planner.plan.UnionNode;
 import org.jgrapht.DirectedGraph;
+import org.jgrapht.EdgeFactory;
 import org.jgrapht.alg.StrongConnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
-import org.jgrapht.graph.DefaultEdge;
-import org.jgrapht.traverse.TopologicalOrderIterator;
+import oshi.annotation.concurrent.GuardedBy;
 
-import javax.annotation.concurrent.NotThreadSafe;
-
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
 import static io.trino.execution.scheduler.StageExecution.State.RUNNING;
 import static io.trino.execution.scheduler.StageExecution.State.SCHEDULED;
+import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
-@NotThreadSafe
+/**
+ * Schedules stages choosing to order to provide the best resource utilization.
+ * This means that stages which output won't be consumed (e.g. join probe side) will
+ * not be scheduled until dependent stages finish (e.g. join build source stages).
+ * Contrary to {@link LegacyPhasedExecutionPolicy}, {@link PhasedExecutionSchedule} will
+ * schedule multiple source stages in order to fully utilize IO.
+ */
 public class PhasedExecutionSchedule
         implements ExecutionSchedule
 {
-    private final List<Set<StageExecution>> schedulePhases;
-    private final Set<StageExecution> activeSources = new HashSet<>();
+    /**
+     * Graph representing a before -> after relationship between fragments.
+     * Destination fragment should be started only when source stage is completed.
+     */
+    private final DirectedGraph<PlanFragmentId, FragmentsEdge> fragmentDependency;
+    /**
+     * Graph representing topology between fragments (e.g. child -> parent relationship).
+     */
+    private final DirectedGraph<PlanFragmentId, FragmentsEdge> fragmentTopology;
+    private final Map<PlanFragmentId, StageExecution> stagesByFragmentId;
+    private final Set<StageExecution> activeStages = new HashSet<>();
 
-    public PhasedExecutionSchedule(Collection<StageExecution> stages)
+    @GuardedBy("this")
+    private SettableFuture<Void> rescheduleFuture = SettableFuture.create();
+
+    public static PhasedExecutionSchedule forStages(Collection<StageExecution> stages)
     {
-        List<Set<PlanFragmentId>> phases = extractPhases(stages.stream().map(StageExecution::getFragment).collect(toImmutableList()));
+        PhasedExecutionSchedule schedule = new PhasedExecutionSchedule(stages);
+        schedule.init(stages);
+        return schedule;
+    }
 
-        Map<PlanFragmentId, StageExecution> stagesByFragmentId = stages.stream().collect(toImmutableMap(stage -> stage.getFragment().getId(), identity()));
+    private PhasedExecutionSchedule(Collection<StageExecution> stages)
+    {
+        fragmentDependency = new DefaultDirectedGraph<>(new FragmentsEdgeFactory());
+        fragmentTopology = new DefaultDirectedGraph<>(new FragmentsEdgeFactory());
+        stagesByFragmentId = stages.stream()
+                .collect(toImmutableMap(stage -> stage.getFragment().getId(), identity()));
+    }
 
-        // create a mutable list of mutable sets of stages, so we can remove completed stages
-        schedulePhases = new ArrayList<>();
-        for (Set<PlanFragmentId> phase : phases) {
-            schedulePhases.add(phase.stream()
-                    .map(stagesByFragmentId::get)
-                    .collect(Collectors.toCollection(HashSet::new)));
-        }
+    private void init(Collection<StageExecution> stages)
+    {
+        extractDependenciesAndReturnNonLazyFragments(
+                stages.stream()
+                        .map(StageExecution::getFragment)
+                        .collect(toImmutableList())).stream()
+                // start non-lazy stages
+                .map(stagesByFragmentId::get)
+                .forEach(this::selectForExecution);
+        // start stages without any dependencies
+        fragmentDependency.vertexSet().stream()
+                .filter(fragmentId -> fragmentDependency.inDegreeOf(fragmentId) == 0)
+                .map(stagesByFragmentId::get)
+                .forEach(this::selectForExecution);
     }
 
     @Override
     public StagesScheduleResult getStagesToSchedule()
     {
-        removeCompletedStages();
-        addPhasesIfNecessary();
-        if (isFinished()) {
-            return new StagesScheduleResult(ImmutableSet.of());
-        }
-        return new StagesScheduleResult(activeSources);
-    }
-
-    private void removeCompletedStages()
-    {
-        for (Iterator<StageExecution> stageIterator = activeSources.iterator(); stageIterator.hasNext(); ) {
-            StageExecution.State state = stageIterator.next().getState();
-            if (state == SCHEDULED || state == RUNNING || state == FLUSHING || state.isDone()) {
-                stageIterator.remove();
-            }
-        }
-    }
-
-    private void addPhasesIfNecessary()
-    {
-        // we want at least one source distributed phase in the active sources
-        if (hasSourceDistributedStage(activeSources)) {
-            return;
-        }
-
-        while (!schedulePhases.isEmpty()) {
-            Set<StageExecution> phase = schedulePhases.remove(0);
-            activeSources.addAll(phase);
-            if (hasSourceDistributedStage(phase)) {
-                return;
-            }
-        }
-    }
-
-    private static boolean hasSourceDistributedStage(Set<StageExecution> phase)
-    {
-        return phase.stream().anyMatch(stage -> !stage.getFragment().getPartitionedSources().isEmpty());
+        // obtain reschedule future before actual scheduling, so that state change
+        // notifications from previously started stages are not lost
+        Optional<ListenableFuture<Void>> rescheduleFuture = getRescheduleFuture();
+        schedule();
+        return new StagesScheduleResult(activeStages, rescheduleFuture);
     }
 
     @Override
     public boolean isFinished()
     {
-        return activeSources.isEmpty() && schedulePhases.isEmpty();
+        // dependency graph contains both running and not started fragments
+        return fragmentDependency.vertexSet().isEmpty();
     }
 
     @VisibleForTesting
-    static List<Set<PlanFragmentId>> extractPhases(Collection<PlanFragment> fragments)
+    synchronized Optional<ListenableFuture<Void>> getRescheduleFuture()
     {
-        // Build a graph where the plan fragments are vertexes and the edges represent
-        // a before -> after relationship.  For example, a join hash build has an edge
-        // to the join probe.
-        DirectedGraph<PlanFragmentId, DefaultEdge> graph = new DefaultDirectedGraph<>(DefaultEdge.class);
-        fragments.forEach(fragment -> graph.addVertex(fragment.getId()));
-
-        Visitor visitor = new Visitor(fragments, graph);
-        for (PlanFragment fragment : fragments) {
-            visitor.processFragment(fragment.getId());
-        }
-
-        // Computes all the strongly connected components of the directed graph.
-        // These are the "phases" which hold the set of fragments that must be started
-        // at the same time to avoid deadlock.
-        List<Set<PlanFragmentId>> components = new StrongConnectivityInspector<>(graph).stronglyConnectedSets();
-
-        Map<PlanFragmentId, Set<PlanFragmentId>> componentMembership = new HashMap<>();
-        for (Set<PlanFragmentId> component : components) {
-            for (PlanFragmentId planFragmentId : component) {
-                componentMembership.put(planFragmentId, component);
-            }
-        }
-
-        // build graph of components (phases)
-        DirectedGraph<Set<PlanFragmentId>, DefaultEdge> componentGraph = new DefaultDirectedGraph<>(DefaultEdge.class);
-        components.forEach(componentGraph::addVertex);
-        for (DefaultEdge edge : graph.edgeSet()) {
-            PlanFragmentId source = graph.getEdgeSource(edge);
-            PlanFragmentId target = graph.getEdgeTarget(edge);
-
-            Set<PlanFragmentId> from = componentMembership.get(source);
-            Set<PlanFragmentId> to = componentMembership.get(target);
-            if (!from.equals(to)) { // the topological order iterator below doesn't include vertices that have self-edges, so don't add them
-                componentGraph.addEdge(from, to);
-            }
-        }
-
-        List<Set<PlanFragmentId>> schedulePhases = ImmutableList.copyOf(new TopologicalOrderIterator<>(componentGraph));
-        return schedulePhases;
+        return Optional.of(rescheduleFuture);
     }
 
-    private static class Visitor
-            extends PlanVisitor<Set<PlanFragmentId>, PlanFragmentId>
+    @VisibleForTesting
+    void schedule()
+    {
+        removeCompletedStages();
+        unblockStagesWithFullOutputBuffer();
+    }
+
+    @VisibleForTesting
+    DirectedGraph<PlanFragmentId, FragmentsEdge> getFragmentDependency()
+    {
+        return fragmentDependency;
+    }
+
+    @VisibleForTesting
+    Set<StageExecution> getActiveStages()
+    {
+        return activeStages;
+    }
+
+    private void removeCompletedStages()
+    {
+        Set<StageExecution> completedStages = activeStages.stream()
+                .filter(this::isStageCompleted)
+                .collect(toImmutableSet());
+        // remove completed stages outside of Java stream to prevent concurrent modification
+        completedStages.forEach(this::removeCompletedStage);
+    }
+
+    private void removeCompletedStage(StageExecution stage)
+    {
+        // start all stages that depend on completed stage
+        PlanFragmentId fragmentId = stage.getFragment().getId();
+        fragmentDependency.outgoingEdgesOf(fragmentId).stream()
+                .map(FragmentsEdge::getTarget)
+                // filter stages that depend on completed stage only
+                .filter(dependentFragmentId -> fragmentDependency.inDegreeOf(dependentFragmentId) == 1)
+                .map(stagesByFragmentId::get)
+                .forEach(this::selectForExecution);
+        fragmentDependency.removeVertex(fragmentId);
+        fragmentTopology.removeVertex(fragmentId);
+        activeStages.remove(stage);
+    }
+
+    private void unblockStagesWithFullOutputBuffer()
+    {
+        // find stages that are blocked on full task output buffer
+        Set<PlanFragmentId> blockedFragments = activeStages.stream()
+                .filter(StageExecution::isAnyTaskBlocked)
+                .map(stage -> stage.getFragment().getId())
+                .collect(toImmutableSet());
+        // start immediate downstream stages so that data can be consumed
+        blockedFragments.stream()
+                .flatMap(fragmentId -> fragmentTopology.outgoingEdgesOf(fragmentId).stream())
+                .map(FragmentsEdge::getTarget)
+                .map(stagesByFragmentId::get)
+                .forEach(this::selectForExecution);
+    }
+
+    private void selectForExecution(StageExecution stage)
+    {
+        if (fragmentDependency.outDegreeOf(stage.getFragment().getId()) > 0) {
+            // if there are any dependent stages then reschedule when stage is completed
+            stage.addStateChangeListener(state -> {
+                if (isStageCompleted(stage)) {
+                    notifyReschedule();
+                }
+            });
+        }
+        activeStages.add(stage);
+    }
+
+    private void notifyReschedule()
+    {
+        SettableFuture<Void> rescheduleFuture;
+        synchronized (this) {
+            rescheduleFuture = this.rescheduleFuture;
+            this.rescheduleFuture = SettableFuture.create();
+        }
+        // notify listeners outside of the critical section
+        rescheduleFuture.set(null);
+    }
+
+    private boolean isStageCompleted(StageExecution stage)
+    {
+        State state = stage.getState();
+        return state == SCHEDULED || state == RUNNING || state == FLUSHING || state.isDone();
+    }
+
+    private Set<PlanFragmentId> extractDependenciesAndReturnNonLazyFragments(Collection<PlanFragment> fragments)
+    {
+        // Build a graph where the plan fragments are vertexes and the edges represent
+        // a before -> after relationship. Destination fragment should be started only
+        // when source fragment is completed. For example, a join hash build has an edge
+        // to the join probe.
+        Visitor visitor = new Visitor(fragments);
+        visitor.processAllFragments();
+
+        // Make sure there are no strongly connected components as it would mean circular dependency between stages
+        List<Set<PlanFragmentId>> components = new StrongConnectivityInspector<>(fragmentDependency).stronglyConnectedSets();
+        verify(components.size() == fragmentDependency.vertexSet().size(), "circular dependency between stages");
+
+        return visitor.getNonLazyFragments();
+    }
+
+    private class Visitor
+            extends PlanVisitor<FragmentSubGraph, PlanFragmentId>
     {
         private final Map<PlanFragmentId, PlanFragment> fragments;
-        private final DirectedGraph<PlanFragmentId, DefaultEdge> graph;
-        private final Map<PlanFragmentId, Set<PlanFragmentId>> fragmentSources = new HashMap<>();
+        private final ImmutableSet.Builder<PlanFragmentId> nonLazyFragments = ImmutableSet.builder();
+        private final Map<PlanFragmentId, FragmentSubGraph> fragmentSubGraphs = new HashMap<>();
 
-        public Visitor(Collection<PlanFragment> fragments, DirectedGraph<PlanFragmentId, DefaultEdge> graph)
+        public Visitor(Collection<PlanFragment> fragments)
         {
-            this.fragments = fragments.stream()
+            this.fragments = requireNonNull(fragments, "fragments is null").stream()
                     .collect(toImmutableMap(PlanFragment::getId, identity()));
-            this.graph = graph;
         }
 
-        public Set<PlanFragmentId> processFragment(PlanFragmentId planFragmentId)
+        public Set<PlanFragmentId> getNonLazyFragments()
         {
-            if (fragmentSources.containsKey(planFragmentId)) {
-                return fragmentSources.get(planFragmentId);
+            return nonLazyFragments.build();
+        }
+
+        public void processAllFragments()
+        {
+            fragments.forEach((fragmentId, fragment) -> {
+                fragmentDependency.addVertex(fragmentId);
+                fragmentTopology.addVertex(fragmentId);
+            });
+            fragments.forEach((fragmentId, fragment) -> processFragment(fragmentId));
+        }
+
+        public FragmentSubGraph processFragment(PlanFragmentId planFragmentId)
+        {
+            if (fragmentSubGraphs.containsKey(planFragmentId)) {
+                return fragmentSubGraphs.get(planFragmentId);
             }
 
-            Set<PlanFragmentId> fragment = processFragment(fragments.get(planFragmentId));
-            fragmentSources.put(planFragmentId, fragment);
-            return fragment;
+            FragmentSubGraph subGraph = processFragment(fragments.get(planFragmentId));
+            verify(fragmentSubGraphs.put(planFragmentId, subGraph) == null, "fragment %s was already processed", planFragmentId);
+            return subGraph;
         }
 
-        private Set<PlanFragmentId> processFragment(PlanFragment fragment)
+        private FragmentSubGraph processFragment(PlanFragment fragment)
         {
-            Set<PlanFragmentId> sources = fragment.getRoot().accept(this, fragment.getId());
-            return ImmutableSet.<PlanFragmentId>builder().add(fragment.getId()).addAll(sources).build();
-        }
-
-        @Override
-        public Set<PlanFragmentId> visitJoin(JoinNode node, PlanFragmentId currentFragmentId)
-        {
-            return processJoin(node.getRight(), node.getLeft(), currentFragmentId);
-        }
-
-        @Override
-        public Set<PlanFragmentId> visitSpatialJoin(SpatialJoinNode node, PlanFragmentId currentFragmentId)
-        {
-            return processJoin(node.getRight(), node.getLeft(), currentFragmentId);
-        }
-
-        @Override
-        public Set<PlanFragmentId> visitSemiJoin(SemiJoinNode node, PlanFragmentId currentFragmentId)
-        {
-            return processJoin(node.getFilteringSource(), node.getSource(), currentFragmentId);
-        }
-
-        @Override
-        public Set<PlanFragmentId> visitIndexJoin(IndexJoinNode node, PlanFragmentId currentFragmentId)
-        {
-            return processJoin(node.getIndexSource(), node.getProbeSource(), currentFragmentId);
-        }
-
-        private Set<PlanFragmentId> processJoin(PlanNode build, PlanNode probe, PlanFragmentId currentFragmentId)
-        {
-            Set<PlanFragmentId> buildSources = build.accept(this, currentFragmentId);
-            Set<PlanFragmentId> probeSources = probe.accept(this, currentFragmentId);
-
-            for (PlanFragmentId buildSource : buildSources) {
-                for (PlanFragmentId probeSource : probeSources) {
-                    graph.addEdge(buildSource, probeSource);
-                }
-            }
-
-            return ImmutableSet.<PlanFragmentId>builder()
-                    .addAll(buildSources)
-                    .addAll(probeSources)
+            FragmentSubGraph subGraph = fragment.getRoot().accept(this, fragment.getId());
+            // append current fragment to set of upstream fragments as it is no longer being visited
+            Set<PlanFragmentId> upstreamFragments = ImmutableSet.<PlanFragmentId>builder()
+                    .addAll(subGraph.getUpstreamFragments())
+                    .add(fragment.getId())
                     .build();
+            Set<PlanFragmentId> lazyUpstreamFragments;
+            if (subGraph.isCurrentFragmentLazy()) {
+                // append current fragment as a lazy fragment as it is no longer being visited
+                lazyUpstreamFragments = ImmutableSet.<PlanFragmentId>builder()
+                        .addAll(subGraph.getLazyUpstreamFragments())
+                        .add(fragment.getId())
+                        .build();
+            }
+            else {
+                lazyUpstreamFragments = subGraph.getLazyUpstreamFragments();
+                nonLazyFragments.add(fragment.getId());
+            }
+            return new FragmentSubGraph(
+                    upstreamFragments,
+                    lazyUpstreamFragments,
+                    // no longer relevant as we have finished visiting given fragment
+                    false);
         }
 
         @Override
-        public Set<PlanFragmentId> visitRemoteSource(RemoteSourceNode node, PlanFragmentId currentFragmentId)
+        public FragmentSubGraph visitJoin(JoinNode node, PlanFragmentId currentFragmentId)
         {
-            ImmutableSet.Builder<PlanFragmentId> sources = ImmutableSet.builder();
+            return processJoin(
+                    node.getDistributionType().orElseThrow() == JoinNode.DistributionType.REPLICATED,
+                    node.getLeft(),
+                    node.getRight(),
+                    currentFragmentId);
+        }
 
-            Set<PlanFragmentId> previousFragmentSources = ImmutableSet.of();
-            for (PlanFragmentId remoteFragment : node.getSourceFragmentIds()) {
-                // this current fragment depends on the remote fragment
-                graph.addEdge(currentFragmentId, remoteFragment);
+        @Override
+        public FragmentSubGraph visitSpatialJoin(SpatialJoinNode node, PlanFragmentId currentFragmentId)
+        {
+            return processJoin(
+                    node.getDistributionType() == SpatialJoinNode.DistributionType.REPLICATED,
+                    node.getLeft(),
+                    node.getRight(),
+                    currentFragmentId);
+        }
 
-                // get all sources for the remote fragment
-                Set<PlanFragmentId> remoteFragmentSources = processFragment(remoteFragment);
-                sources.addAll(remoteFragmentSources);
+        @Override
+        public FragmentSubGraph visitSemiJoin(SemiJoinNode node, PlanFragmentId currentFragmentId)
+        {
+            return processJoin(
+                    node.getDistributionType().orElseThrow() == SemiJoinNode.DistributionType.REPLICATED,
+                    node.getSource(),
+                    node.getFilteringSource(),
+                    currentFragmentId);
+        }
 
-                // For UNION there can be multiple sources.
-                // Link the previous source to the current source, so we only
-                // schedule one at a time.
-                addEdges(previousFragmentSources, remoteFragmentSources);
+        @Override
+        public FragmentSubGraph visitIndexJoin(IndexJoinNode node, PlanFragmentId currentFragmentId)
+        {
+            return processJoin(
+                    true,
+                    node.getProbeSource(),
+                    node.getIndexSource(),
+                    currentFragmentId);
+        }
 
-                previousFragmentSources = remoteFragmentSources;
+        private FragmentSubGraph processJoin(boolean replicated, PlanNode probe, PlanNode build, PlanFragmentId currentFragmentId)
+        {
+            FragmentSubGraph probeSubGraph = probe.accept(this, currentFragmentId);
+            FragmentSubGraph buildSubGraph = build.accept(this, currentFragmentId);
+
+            // start probe source stages after all build source stages finish
+            addDependencyEdges(buildSubGraph.getUpstreamFragments(), probeSubGraph.getLazyUpstreamFragments());
+
+            boolean currentFragmentLazy = probeSubGraph.isCurrentFragmentLazy() && buildSubGraph.isCurrentFragmentLazy();
+            if (replicated && currentFragmentLazy) {
+                // Do not start join stage (which can also be a source stage with table scans)
+                // for replicated join until build source stage enters FLUSHING state.
+                // Broadcast join limit for CBO is set in such a way that build source data should
+                // fit into task output buffer.
+                // In case build source stage is blocked on full task buffer then join stage
+                // will be started automatically regardless od dependency. This is handled by
+                // unblockStagesWithFullOutputBuffer method.
+                addDependencyEdges(buildSubGraph.getUpstreamFragments(), ImmutableSet.of(currentFragmentId));
+            }
+            else {
+                // start current fragment immediately since for partitioned join
+                // build source data won't be able to fit into task output buffer.
+                currentFragmentLazy = false;
             }
 
-            return sources.build();
+            return new FragmentSubGraph(
+                    ImmutableSet.<PlanFragmentId>builder()
+                            .addAll(probeSubGraph.getUpstreamFragments())
+                            .addAll(buildSubGraph.getUpstreamFragments())
+                            .build(),
+                    // only probe source fragments can be considered lazy
+                    // since build source stages should be started immediately
+                    probeSubGraph.getLazyUpstreamFragments(),
+                    currentFragmentLazy);
         }
 
         @Override
-        public Set<PlanFragmentId> visitExchange(ExchangeNode node, PlanFragmentId currentFragmentId)
+        public FragmentSubGraph visitAggregation(AggregationNode node, PlanFragmentId currentFragmentId)
+        {
+            FragmentSubGraph subGraph = node.getSource().accept(this, currentFragmentId);
+            if (node.getStep() != FINAL && node.getStep() != SINGLE) {
+                return subGraph;
+            }
+
+            // start current fragment immediately since final/single aggregation will fully
+            // consume input before producing output data (aggregation shouldn't get blocked)
+            return new FragmentSubGraph(
+                    subGraph.getUpstreamFragments(),
+                    ImmutableSet.of(),
+                    false);
+        }
+
+        @Override
+        public FragmentSubGraph visitRemoteSource(RemoteSourceNode node, PlanFragmentId currentFragmentId)
+        {
+            List<FragmentSubGraph> subGraphs = node.getSourceFragmentIds().stream()
+                    .map(this::processFragment)
+                    .collect(toImmutableList());
+            node.getSourceFragmentIds()
+                    .forEach(sourceFragmentId -> fragmentTopology.addEdge(sourceFragmentId, currentFragmentId));
+            return new FragmentSubGraph(
+                    subGraphs.stream()
+                            .flatMap(source -> source.getUpstreamFragments().stream())
+                            .collect(toImmutableSet()),
+                    subGraphs.stream()
+                            .flatMap(source -> source.getLazyUpstreamFragments().stream())
+                            .collect(toImmutableSet()),
+                    // initially current fragment is considered to be lazy unless there exist
+                    // an operator that can fully consume input data without producing any output
+                    // (e.g. final aggregation)
+                    true);
+        }
+
+        @Override
+        public FragmentSubGraph visitExchange(ExchangeNode node, PlanFragmentId currentFragmentId)
         {
             checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the phased execution scheduler");
-            ImmutableSet.Builder<PlanFragmentId> allSources = ImmutableSet.builder();
-
-            // Link the source fragments together, so we only schedule one at a time.
-            Set<PlanFragmentId> previousSources = ImmutableSet.of();
-            for (PlanNode subPlanNode : node.getSources()) {
-                Set<PlanFragmentId> currentSources = subPlanNode.accept(this, currentFragmentId);
-                allSources.addAll(currentSources);
-
-                addEdges(previousSources, currentSources);
-
-                previousSources = currentSources;
-            }
-
-            return allSources.build();
+            return visitPlan(node, currentFragmentId);
         }
 
         @Override
-        public Set<PlanFragmentId> visitUnion(UnionNode node, PlanFragmentId currentFragmentId)
+        protected FragmentSubGraph visitPlan(PlanNode node, PlanFragmentId currentFragmentId)
         {
-            ImmutableSet.Builder<PlanFragmentId> allSources = ImmutableSet.builder();
+            List<FragmentSubGraph> sourceSubGraphs = node.getSources().stream()
+                    .map(subPlanNode -> subPlanNode.accept(this, currentFragmentId))
+                    .collect(toImmutableList());
 
-            // Link the source fragments together, so we only schedule one at a time.
-            Set<PlanFragmentId> previousSources = ImmutableSet.of();
-            for (PlanNode subPlanNode : node.getSources()) {
-                Set<PlanFragmentId> currentSources = subPlanNode.accept(this, currentFragmentId);
-                allSources.addAll(currentSources);
-
-                addEdges(previousSources, currentSources);
-
-                previousSources = currentSources;
-            }
-
-            return allSources.build();
+            return new FragmentSubGraph(
+                    sourceSubGraphs.stream()
+                            .flatMap(source -> source.getUpstreamFragments().stream())
+                            .collect(toImmutableSet()),
+                    sourceSubGraphs.stream()
+                            .flatMap(source -> source.getLazyUpstreamFragments().stream())
+                            .collect(toImmutableSet()),
+                    sourceSubGraphs.stream()
+                            .allMatch(FragmentSubGraph::isCurrentFragmentLazy));
         }
 
-        @Override
-        protected Set<PlanFragmentId> visitPlan(PlanNode node, PlanFragmentId currentFragmentId)
-        {
-            List<PlanNode> sources = node.getSources();
-            if (sources.isEmpty()) {
-                return ImmutableSet.of(currentFragmentId);
-            }
-            if (sources.size() == 1) {
-                return sources.get(0).accept(this, currentFragmentId);
-            }
-            throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
-        }
-
-        private void addEdges(Set<PlanFragmentId> sourceFragments, Set<PlanFragmentId> targetFragments)
+        private void addDependencyEdges(Set<PlanFragmentId> sourceFragments, Set<PlanFragmentId> targetFragments)
         {
             for (PlanFragmentId targetFragment : targetFragments) {
                 for (PlanFragmentId sourceFragment : sourceFragments) {
-                    graph.addEdge(sourceFragment, targetFragment);
+                    fragmentDependency.addEdge(sourceFragment, targetFragment);
                 }
             }
+        }
+    }
+
+    private static class FragmentSubGraph
+    {
+        /**
+         * All upstream fragments (excluding currently visited fragment)
+         */
+        private final Set<PlanFragmentId> upstreamFragments;
+        /**
+         * All upstream lazy fragments (excluding currently visited fragment).
+         * Lazy fragments don't have to be started immediately.
+         */
+        private final Set<PlanFragmentId> lazyUpstreamFragments;
+        /**
+         * Is currently visited fragment lazy?
+         */
+        private final boolean currentFragmentLazy;
+
+        public FragmentSubGraph(
+                Set<PlanFragmentId> upstreamFragments,
+                Set<PlanFragmentId> lazyUpstreamFragments,
+                boolean currentFragmentLazy)
+        {
+            this.upstreamFragments = requireNonNull(upstreamFragments, "upstreamFragments is null");
+            this.lazyUpstreamFragments = requireNonNull(lazyUpstreamFragments, "lazyUpstreamFragments is null");
+            this.currentFragmentLazy = currentFragmentLazy;
+        }
+
+        public Set<PlanFragmentId> getUpstreamFragments()
+        {
+            return upstreamFragments;
+        }
+
+        public Set<PlanFragmentId> getLazyUpstreamFragments()
+        {
+            return lazyUpstreamFragments;
+        }
+
+        public boolean isCurrentFragmentLazy()
+        {
+            return currentFragmentLazy;
+        }
+    }
+
+    private static class FragmentsEdgeFactory
+            implements EdgeFactory<PlanFragmentId, FragmentsEdge>
+    {
+        @Override
+        public FragmentsEdge createEdge(PlanFragmentId sourceVertex, PlanFragmentId targetVertex)
+        {
+            return new FragmentsEdge(sourceVertex, targetVertex);
+        }
+    }
+
+    @VisibleForTesting
+    static class FragmentsEdge
+    {
+        private final PlanFragmentId source;
+        private final PlanFragmentId target;
+
+        public FragmentsEdge(PlanFragmentId source, PlanFragmentId target)
+        {
+            this.source = requireNonNull(source, "source is null");
+            this.target = requireNonNull(target, "target is null");
+        }
+
+        public PlanFragmentId getSource()
+        {
+            return source;
+        }
+
+        public PlanFragmentId getTarget()
+        {
+            return target;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("source", source)
+                    .add("target", target)
+                    .toString();
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            FragmentsEdge that = (FragmentsEdge) o;
+            return source.equals(that.source) && target.equals(that.target);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(source, target);
         }
     }
 }

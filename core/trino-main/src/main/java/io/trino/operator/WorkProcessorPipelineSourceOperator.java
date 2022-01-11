@@ -50,6 +50,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static io.trino.operator.OperatorContext.getConnectorMetrics;
 import static io.trino.operator.OperatorContext.getOperatorMetrics;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.ProcessState.Type.BLOCKED;
@@ -319,8 +320,7 @@ public class WorkProcessorPipelineSourceOperator
 
                         // WorkProcessorOperator doesn't have addInput call
                         0,
-                        // source operators report read time though
-                        new Duration(context.readTimeNanos.get(), NANOSECONDS),
+                        new Duration(0, NANOSECONDS),
                         ZERO_DURATION,
 
                         succinctBytes(context.physicalInputDataSize.get()),
@@ -344,7 +344,7 @@ public class WorkProcessorPipelineSourceOperator
 
                         context.dynamicFilterSplitsProcessed.get(),
                         getOperatorMetrics(context.metrics.get(), context.inputPositions.get()),
-                        context.connectorMetrics.get(),
+                        getConnectorMetrics(context.connectorMetrics.get(), context.readTimeNanos.get()),
 
                         DataSize.ofBytes(0),
 
