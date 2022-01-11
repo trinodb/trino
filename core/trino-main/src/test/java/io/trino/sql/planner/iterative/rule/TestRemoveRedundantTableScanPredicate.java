@@ -219,6 +219,20 @@ public class TestRemoveRedundantTableScanPredicate
     }
 
     @Test
+    public void doesNotFireOnNoTableScanPredicate()
+    {
+        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
+        tester().assertThat(removeRedundantTableScanPredicate)
+                .on(p -> p.filter(expression("(nationkey > 3 OR nationkey > 0) AND (nationkey > 3 OR nationkey < 1)"),
+                        p.tableScan(
+                                nationTableHandle,
+                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
+                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
+                                TupleDomain.all())))
+                .doesNotFire();
+    }
+
+    @Test
     public void doesNotFireIfRuleNotChangePlan()
     {
         tester().assertThat(removeRedundantTableScanPredicate)

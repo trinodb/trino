@@ -57,7 +57,7 @@ public class RemoveRedundantTableScanPredicate
 
     private static final Pattern<FilterNode> PATTERN =
             filter().with(source().matching(
-                    tableScan().capturedAs(TABLE_SCAN)));
+                    tableScan().capturedAs(TABLE_SCAN).matching(node -> !node.getEnforcedConstraint().isAll())));
 
     private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
