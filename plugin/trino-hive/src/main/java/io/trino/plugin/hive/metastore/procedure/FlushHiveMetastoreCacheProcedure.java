@@ -60,14 +60,12 @@ public class FlushHiveMetastoreCacheProcedure
 
     static {
         try {
-            FLUSH_HIVE_METASTORE_CACHE = lookup().unreflect(FlushHiveMetastoreCacheProcedure.class.getMethod("flushMetadataCache", String.class, String.class, String.class, List.class, List.class));
+            FLUSH_HIVE_METASTORE_CACHE = lookup().unreflect(FlushHiveMetastoreCacheProcedure.class.getMethod("flushMetadataCache", String.class, String.class, List.class, List.class));
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
         }
     }
-
-    private static final String FAKE_PARAM_DEFAULT_VALUE = "procedure should only be invoked with named parameters";
 
     private final Optional<CachingHiveMetastore> cachingHiveMetastore;
 
@@ -84,17 +82,16 @@ public class FlushHiveMetastoreCacheProcedure
                 "system",
                 PROCEDURE_NAME,
                 ImmutableList.of(
-                        new Procedure.Argument("$FAKE_FIRST_PARAMETER", VARCHAR, false, FAKE_PARAM_DEFAULT_VALUE),
                         new Procedure.Argument(PARAM_SCHEMA_NAME, VARCHAR, false, null),
                         new Procedure.Argument(PARAM_TABLE_NAME, VARCHAR, false, null),
                         new Procedure.Argument(PARAM_PARTITION_COLUMN, new ArrayType(VARCHAR), false, null),
                         new Procedure.Argument(PARAM_PARTITION_VALUE, new ArrayType(VARCHAR), false, null)),
-                FLUSH_HIVE_METASTORE_CACHE.bindTo(this));
+                FLUSH_HIVE_METASTORE_CACHE.bindTo(this),
+                true);
     }
 
-    public void flushMetadataCache(String fakeParam, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValue)
+    public void flushMetadataCache(String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValue)
     {
-        checkState(FAKE_PARAM_DEFAULT_VALUE.equals(fakeParam), "Procedure should only be invoked with named parameters. " + PROCEDURE_USAGE_EXAMPLES);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doFlushMetadataCache(
                     Optional.ofNullable(schemaName),
