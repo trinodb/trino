@@ -323,11 +323,6 @@ public class TaskContext
         return taskMemoryContext.localSystemMemoryContext();
     }
 
-    public void moreMemoryAvailable()
-    {
-        pipelineContexts.forEach(PipelineContext::moreMemoryAvailable);
-    }
-
     public boolean isPerOperatorCpuTimerEnabled()
     {
         return perOperatorCpuTimerEnabled;
