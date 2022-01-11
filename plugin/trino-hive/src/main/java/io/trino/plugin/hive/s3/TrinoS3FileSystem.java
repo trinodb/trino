@@ -64,6 +64,7 @@ import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.amazonaws.services.s3.transfer.Upload;
+import com.amazonaws.services.securitytoken.model.AWSSecurityTokenServiceException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractSequentialIterator;
@@ -761,6 +762,13 @@ public class TrinoS3FileSystem
                         }
                         catch (RuntimeException e) {
                             STATS.newGetMetadataError();
+                            // Retry AWS STS Throttling error code specifically since it uses HTTP_BAD_REQUEST status code
+                            // For example: "Caused by: com.amazonaws.services.securitytoken.model.AWSSecurityTokenServiceException: Rate exceeded (Service: AWSSecurityTokenService; Status Code: 400; Error Code: Throttling; ...)
+                            if (e instanceof AWSSecurityTokenServiceException
+                                    && ((AWSSecurityTokenServiceException) e).getStatusCode() == HTTP_BAD_REQUEST
+                                    && ((AWSSecurityTokenServiceException) e).getErrorCode().equals("Throttling")) {
+                                throw e;
+                            }
                             if (e instanceof AmazonServiceException) {
                                 switch (((AmazonServiceException) e).getStatusCode()) {
                                     case HTTP_FORBIDDEN:
@@ -1105,6 +1113,13 @@ public class TrinoS3FileSystem
                             }
                             catch (RuntimeException e) {
                                 STATS.newGetObjectError();
+                                // Retry AWS STS Throttling error code specifically since it uses HTTP_BAD_REQUEST status code
+                                // For example: "Caused by: com.amazonaws.services.securitytoken.model.AWSSecurityTokenServiceException: Rate exceeded (Service: AWSSecurityTokenService; Status Code: 400; Error Code: Throttling; ...)
+                                if (e instanceof AWSSecurityTokenServiceException
+                                        && ((AWSSecurityTokenServiceException) e).getStatusCode() == HTTP_BAD_REQUEST
+                                        && ((AWSSecurityTokenServiceException) e).getErrorCode().equals("Throttling")) {
+                                    throw e;
+                                }
                                 if (e instanceof AmazonServiceException) {
                                     switch (((AmazonServiceException) e).getStatusCode()) {
                                         case HTTP_FORBIDDEN:
@@ -1279,6 +1294,13 @@ public class TrinoS3FileSystem
                             }
                             catch (RuntimeException e) {
                                 STATS.newGetObjectError();
+                                // Retry AWS STS Throttling error code specifically since it uses HTTP_BAD_REQUEST status code
+                                // For example: "Caused by: com.amazonaws.services.securitytoken.model.AWSSecurityTokenServiceException: Rate exceeded (Service: AWSSecurityTokenService; Status Code: 400; Error Code: Throttling; ...)
+                                if (e instanceof AWSSecurityTokenServiceException
+                                        && ((AWSSecurityTokenServiceException) e).getStatusCode() == HTTP_BAD_REQUEST
+                                        && ((AWSSecurityTokenServiceException) e).getErrorCode().equals("Throttling")) {
+                                    throw e;
+                                }
                                 if (e instanceof AmazonServiceException) {
                                     switch (((AmazonServiceException) e).getStatusCode()) {
                                         case HTTP_FORBIDDEN:
