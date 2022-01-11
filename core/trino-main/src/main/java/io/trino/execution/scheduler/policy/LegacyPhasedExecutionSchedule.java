@@ -56,13 +56,13 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static java.util.function.Function.identity;
 
 @NotThreadSafe
-public class PhasedExecutionSchedule
+public class LegacyPhasedExecutionSchedule
         implements ExecutionSchedule
 {
     private final List<Set<StageExecution>> schedulePhases;
     private final Set<StageExecution> activeSources = new HashSet<>();
 
-    public PhasedExecutionSchedule(Collection<StageExecution> stages)
+    public LegacyPhasedExecutionSchedule(Collection<StageExecution> stages)
     {
         List<Set<PlanFragmentId>> phases = extractPhases(stages.stream().map(StageExecution::getFragment).collect(toImmutableList()));
 

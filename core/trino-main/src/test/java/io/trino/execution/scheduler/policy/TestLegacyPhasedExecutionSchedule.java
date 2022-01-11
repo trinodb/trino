@@ -31,7 +31,7 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static org.testng.Assert.assertEquals;
 
-public class TestPhasedExecutionSchedule
+public class TestLegacyPhasedExecutionSchedule
 {
     @Test
     public void testExchange()
@@ -41,7 +41,7 @@ public class TestPhasedExecutionSchedule
         PlanFragment cFragment = createTableScanPlanFragment("c");
         PlanFragment exchangeFragment = createExchangePlanFragment("exchange", aFragment, bFragment, cFragment);
 
-        List<Set<PlanFragmentId>> phases = PhasedExecutionSchedule.extractPhases(ImmutableList.of(aFragment, bFragment, cFragment, exchangeFragment));
+        List<Set<PlanFragmentId>> phases = LegacyPhasedExecutionSchedule.extractPhases(ImmutableList.of(aFragment, bFragment, cFragment, exchangeFragment));
         assertEquals(phases, ImmutableList.of(
                 ImmutableSet.of(exchangeFragment.getId()),
                 ImmutableSet.of(aFragment.getId()),
@@ -57,7 +57,7 @@ public class TestPhasedExecutionSchedule
         PlanFragment cFragment = createTableScanPlanFragment("c");
         PlanFragment unionFragment = createUnionPlanFragment("union", aFragment, bFragment, cFragment);
 
-        List<Set<PlanFragmentId>> phases = PhasedExecutionSchedule.extractPhases(ImmutableList.of(aFragment, bFragment, cFragment, unionFragment));
+        List<Set<PlanFragmentId>> phases = LegacyPhasedExecutionSchedule.extractPhases(ImmutableList.of(aFragment, bFragment, cFragment, unionFragment));
         assertEquals(phases, ImmutableList.of(
                 ImmutableSet.of(unionFragment.getId()),
                 ImmutableSet.of(aFragment.getId()),
@@ -72,7 +72,7 @@ public class TestPhasedExecutionSchedule
         PlanFragment probeFragment = createTableScanPlanFragment("probe");
         PlanFragment joinFragment = createJoinPlanFragment(INNER, "join", buildFragment, probeFragment);
 
-        List<Set<PlanFragmentId>> phases = PhasedExecutionSchedule.extractPhases(ImmutableList.of(joinFragment, buildFragment, probeFragment));
+        List<Set<PlanFragmentId>> phases = LegacyPhasedExecutionSchedule.extractPhases(ImmutableList.of(joinFragment, buildFragment, probeFragment));
         assertEquals(phases, ImmutableList.of(ImmutableSet.of(joinFragment.getId()), ImmutableSet.of(buildFragment.getId()), ImmutableSet.of(probeFragment.getId())));
     }
 
@@ -83,7 +83,7 @@ public class TestPhasedExecutionSchedule
         PlanFragment probeFragment = createTableScanPlanFragment("probe");
         PlanFragment joinFragment = createJoinPlanFragment(RIGHT, "join", buildFragment, probeFragment);
 
-        List<Set<PlanFragmentId>> phases = PhasedExecutionSchedule.extractPhases(ImmutableList.of(joinFragment, buildFragment, probeFragment));
+        List<Set<PlanFragmentId>> phases = LegacyPhasedExecutionSchedule.extractPhases(ImmutableList.of(joinFragment, buildFragment, probeFragment));
         assertEquals(phases, ImmutableList.of(ImmutableSet.of(joinFragment.getId()), ImmutableSet.of(buildFragment.getId()), ImmutableSet.of(probeFragment.getId())));
     }
 
@@ -93,7 +93,7 @@ public class TestPhasedExecutionSchedule
         PlanFragment buildFragment = createTableScanPlanFragment("build");
         PlanFragment joinFragment = createBroadcastJoinPlanFragment("join", buildFragment);
 
-        List<Set<PlanFragmentId>> phases = PhasedExecutionSchedule.extractPhases(ImmutableList.of(joinFragment, buildFragment));
+        List<Set<PlanFragmentId>> phases = LegacyPhasedExecutionSchedule.extractPhases(ImmutableList.of(joinFragment, buildFragment));
         assertEquals(phases, ImmutableList.of(ImmutableSet.of(joinFragment.getId(), buildFragment.getId())));
     }
 
@@ -108,7 +108,7 @@ public class TestPhasedExecutionSchedule
         PlanFragment probeTopFragment = createExchangePlanFragment("probeTop", probeMiddleFragment);
         PlanFragment joinFragment = createJoinPlanFragment(INNER, "join", buildTopFragment, probeTopFragment);
 
-        List<Set<PlanFragmentId>> phases = PhasedExecutionSchedule.extractPhases(ImmutableList.of(
+        List<Set<PlanFragmentId>> phases = LegacyPhasedExecutionSchedule.extractPhases(ImmutableList.of(
                 joinFragment,
                 buildTopFragment,
                 buildMiddleFragment,
