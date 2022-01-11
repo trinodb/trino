@@ -272,6 +272,7 @@ import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
+import static io.trino.SystemSessionProperties.getMaxPartialAggregationMemoryUsage;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.getTaskWriterCount;
 import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
@@ -3674,7 +3675,7 @@ public class LocalExecutionPlanner
                     0,
                     mappings,
                     10_000,
-                    Optional.of(maxPartialAggregationMemorySize),
+                    Optional.of(getMaxPartialAggregationMemoryUsage(context.taskContext.getSession())),
                     node.getStep().isOutputPartial());
             return new PhysicalOperation(operatorFactory, mappings.build(), context, source);
         }

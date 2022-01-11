@@ -19,7 +19,7 @@ public class FixedOffsetGroupByHashTableEntries
 
     private final FastByteBuffer mainBuffer;
     private final FastByteBuffer overflowBuffer;
-    private boolean closeOverflow = true;
+    private final int maxEntryCount;
     private final int overflowLengthOffset;
     private final int overflowPositionOffset;
     private final int hashOffset;
@@ -32,10 +32,11 @@ public class FixedOffsetGroupByHashTableEntries
     private final int channelCount;
     private final int keyOffset; // 4 for hash table (first 4 bytes are for group id), 0 for the row buffer
 
+    private boolean closeOverflow = true;
     private int overflowSize;
 
     public static FixedOffsetGroupByHashTableEntries allocate(
-            int entryCount,
+            int maxEntryCount,
             FastByteBuffer overflowBuffer,
             int channelCount,
             boolean includeGroupId,
@@ -49,10 +50,11 @@ public class FixedOffsetGroupByHashTableEntries
         int entrySize = valuesOffset + dataValuesLength;
         int keyLength = valuesOffset + dataValuesLength - keyOffset;
         int contentLength = entrySize - hashOffset;
-        FastByteBuffer mainBuffer = createMainBuffer(entryCount, entrySize, includeGroupId);
+        FastByteBuffer mainBuffer = createMainBuffer(maxEntryCount, entrySize, includeGroupId);
         return new FixedOffsetGroupByHashTableEntries(
                 mainBuffer,
                 overflowBuffer,
+                maxEntryCount,
                 keyOffset,
                 overflowPositionOffset,
                 hashOffset,
@@ -69,6 +71,7 @@ public class FixedOffsetGroupByHashTableEntries
     public FixedOffsetGroupByHashTableEntries(
             FastByteBuffer mainBuffer,
             FastByteBuffer overflowBuffer,
+            int maxEntryCount,
             int overflowLengthOffset,
             int overflowPositionOffset,
             int hashOffset,
@@ -83,6 +86,7 @@ public class FixedOffsetGroupByHashTableEntries
     {
         this.mainBuffer = mainBuffer;
         this.overflowBuffer = overflowBuffer;
+        this.maxEntryCount = maxEntryCount;
         this.overflowLengthOffset = overflowLengthOffset;
         this.overflowPositionOffset = overflowPositionOffset;
         this.hashOffset = hashOffset;
@@ -141,7 +145,7 @@ public class FixedOffsetGroupByHashTableEntries
         FixedOffsetGroupByHashTableEntries src = (FixedOffsetGroupByHashTableEntries) srcEntries;
         mainBuffer.copyFrom(src.mainBuffer, srcPosition, toPosition, src.getEntrySize());
         // overflow is shared
-        verify(src.overflowBuffer == overflowBuffer);
+//        verify(src.overflowBuffer == overflowBuffer);
     }
 
     private int getOverflowPosition(int position)
@@ -159,7 +163,13 @@ public class FixedOffsetGroupByHashTableEntries
     {
         FastByteBuffer newMainBuffer = FastByteBuffer.allocate(newCapacity * entrySize);
         newMainBuffer.copyFrom(mainBuffer, 0, 0, mainBuffer.capacity());
-        return new FixedOffsetGroupByHashTableEntries(newMainBuffer, takeOverflow(), overflowLengthOffset, overflowPositionOffset, hashOffset, isNullOffset, contentLength, keyLength, valuesOffset, valuesLength, entrySize, channelCount, keyOffset);
+        return new FixedOffsetGroupByHashTableEntries(newMainBuffer, takeOverflow(), newCapacity, overflowLengthOffset, overflowPositionOffset, hashOffset, isNullOffset, contentLength, keyLength, valuesOffset, valuesLength, entrySize, channelCount, keyOffset);
+    }
+
+    @Override
+    public int maxEntryCount()
+    {
+        return maxEntryCount;
     }
 
     private int keyLength()

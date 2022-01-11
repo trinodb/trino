@@ -234,7 +234,7 @@ public class FixedOffsetRowExtractor4Channels
             }
         }
         else {
-            throw new UnsupportedOperationException();
+            throw new RuntimeException("not implemented! " + hashPosition);
         }
 
         if (outputHash) {

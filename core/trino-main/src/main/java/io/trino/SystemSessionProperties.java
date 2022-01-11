@@ -145,6 +145,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_CATALOG_ROLES = "legacy_catalog_roles";
     public static final String INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED = "incremental_hash_array_load_factor_enabled";
     public static final String MAX_PARTIAL_TOP_N_MEMORY = "max_partial_top_n_memory";
+    private static final String TASK_MAX_PARTIAL_AGGREGATION_MEMORY = "task_max_partial_aggregation_memory";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -677,6 +678,11 @@ public final class SystemSessionProperties
                         MAX_PARTIAL_TOP_N_MEMORY,
                         "Max memory size for partial Top N aggregations. This can be turned off by setting it with '0'.",
                         taskManagerConfig.getMaxPartialTopNMemory(),
+                        false),
+                dataSizeProperty(
+                        TASK_MAX_PARTIAL_AGGREGATION_MEMORY,
+                        "Maximum size of partial aggregation results for distributed aggregations.",
+                        taskManagerConfig.getMaxPartialAggregationMemoryUsage(),
                         false));
     }
 
@@ -923,6 +929,11 @@ public final class SystemSessionProperties
         DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
         checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be positive", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
         return memoryLimitForMerge;
+    }
+
+    public static DataSize getMaxPartialAggregationMemoryUsage(Session session)
+    {
+        return session.getSystemProperty(TASK_MAX_PARTIAL_AGGREGATION_MEMORY, DataSize.class);
     }
 
     public static boolean isOptimizeDistinctAggregationEnabled(Session session)

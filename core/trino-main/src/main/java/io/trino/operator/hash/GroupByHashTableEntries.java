@@ -38,4 +38,6 @@ public interface GroupByHashTableEntries
     int getOverflowLength(int position);
 
     GroupByHashTableEntries extend(int newCapacity);
+
+    int maxEntryCount();
 }

@@ -59,6 +59,7 @@ public class InMemoryHashAggregationBuilder
 
     private boolean full;
     private int processedPositions;
+    private int processPages;
 
     public InMemoryHashAggregationBuilder(
             List<AccumulatorFactory> accumulatorFactories,
@@ -138,6 +139,7 @@ public class InMemoryHashAggregationBuilder
     public Work<?> processPage(Page page)
     {
         processedPositions += page.getPositionCount();
+        processPages++;
         if (aggregators.isEmpty()) {
             return groupByHash.addPage(page);
         }
@@ -246,7 +248,10 @@ public class InMemoryHashAggregationBuilder
         for (Aggregator aggregator : aggregators) {
             aggregator.prepareFinal();
         }
-        System.err.println("buildResult processedPositions: " + processedPositions + ", groups: " + getGroupCount());
+        System.err.println(
+                "buildResult processedPositions: " + processedPositions +
+                        ", processedPages: " + processPages +
+                        ", groups: " + getGroupCount());
         return buildResult(groupByHash.consecutiveGroups());
     }
 

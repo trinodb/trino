@@ -52,7 +52,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.TypeTestUtils.getHashBlock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestGroupByHash

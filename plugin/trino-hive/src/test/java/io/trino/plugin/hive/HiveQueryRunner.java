@@ -320,7 +320,8 @@ public final class HiveQueryRunner
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080",
                         "query.max-total-memory-per-node", "8GB",
-                        "query.max-memory-per-node", "8GB"))
+                        "query.max-memory-per-node", "8GB",
+                        "task.max-partial-aggregation-memory", "512MB"))
                 .setSkipTimezoneSetup(true)
                 .setHiveProperties(ImmutableMap.of())
                 .setNodeCount(1)

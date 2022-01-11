@@ -14,6 +14,7 @@
 package io.trino.operator.hash;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.trino.operator.GroupByHash;
@@ -181,7 +182,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
             @Override
             public void appendValuesTo(PageBuilder pageBuilder, int outputChannelOffset)
             {
-                MultiChannelGroupByHashInlineFastBBAllTypes.this.appendValuesTo(hashTable, hashTable.groupToHashPosition(currentGroupId), pageBuilder, outputChannelOffset);
+                MultiChannelGroupByHashInlineFastBBAllTypes.this.appendValuesTo(hashTable, currentGroupId, pageBuilder, outputChannelOffset);
             }
 
             @Override
@@ -216,9 +217,9 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
         throw new UnsupportedOperationException();
     }
 
-    public void appendValuesTo(NoRehashHashTable hashTable, int hashPosition, PageBuilder pageBuilder, int outputChannelOffset)
+    public void appendValuesTo(NoRehashHashTable hashTable, int groupId, PageBuilder pageBuilder, int outputChannelOffset)
     {
-        hashTable.appendValuesTo(hashPosition, pageBuilder, outputChannelOffset, inputHashChannel.isPresent());
+        hashTable.appendValuesTo(groupId, pageBuilder, outputChannelOffset, inputHashChannel.isPresent());
     }
 
     @Override
@@ -272,14 +273,14 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
 
         expectedHashCollisions += estimateNumberOfHashCollisions(getGroupCount(), hashTable.getCapacity());
 
-//        GroupByHashTableEntries valuesTable = hashTable.valuesTable();
-//        GroupByHashTableEntries newValuesTable = valuesTable.extend(valuesTable.capacity() * 2);
+        GroupByHashTableEntries valuesTable = hashTable.valuesTable();
+        GroupByHashTableEntries newValuesTable = valuesTable.extend(calculateMaxFill(newCapacity));
 
         NoRehashHashTable newHashTable = hashTableFactory.create(
                 newCapacity,
                 hashTable.entries().takeOverflow(),
                 Arrays.copyOf(hashTable.groupToHashPosition(), newCapacity),
-                null,
+                newValuesTable,
                 hashTable.getHashCollisions());
 
         newHashTable.copyFrom(hashTable);
@@ -421,8 +422,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
                     hashCapacity,
                     FastByteBuffer.allocate(128 * 1024),
                     new int[hashCapacity],
-//                    rowExtractor.allocateHashTableEntries(hashChannelsCount, expectedSize, FastByteBuffer.allocate(128 * 1024), dataValuesLength),
-                    null,
+                    rowExtractor.allocateHashTableEntries(hashChannelsCount, calculateMaxFill(hashCapacity), FastByteBuffer.allocate(128 * 1024), dataValuesLength),
                     0);
         }
 
@@ -479,6 +479,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
             this.groupToHashPosition = groupToHashPosition;
 
             this.maxFill = calculateMaxFill(hashCapacity);
+            Preconditions.checkArgument(maxFill <= valuesTable.maxEntryCount());
             this.mask = hashCapacity - 1;
             this.entries = rowExtractor.allocateHashTableEntries(hashChannelsCount, hashCapacity, overflow, dataValuesLength);
             this.valuesTable = valuesTable;
@@ -497,7 +498,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
                     // empty slot found
                     int groupId = hashTableSize++;
                     rowExtractor.putEntry(entries, hashPosition, groupId, page, position, rawHash);
-//                    valuesTable.copyEntryFrom(entries, hashPosition, groupId * valuesTable.getEntrySize());
+                    valuesTable.copyEntryFrom(entries, hashPosition, groupId * valuesTable.getEntrySize());
                     groupToHashPosition[groupId] = hashPosition;
 //                System.out.println(hashPosition + ": v=" + value + ", " + hashTableSize);
                     return groupId;
@@ -573,7 +574,7 @@ public class MultiChannelGroupByHashInlineFastBBAllTypes
 
         public void appendValuesTo(int hashPosition, PageBuilder pageBuilder, int outputChannelOffset, boolean outputHash)
         {
-            rowExtractor.appendValuesTo(entries, hashPosition, pageBuilder, outputChannelOffset, outputHash);
+            rowExtractor.appendValuesTo(valuesTable, hashPosition * valuesTable.getEntrySize(), pageBuilder, outputChannelOffset, outputHash);
         }
 
         private int getHashPosition(long rawHash)
