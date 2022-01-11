@@ -64,10 +64,10 @@ import static java.util.function.Function.identity;
  * Schedules stages choosing to order to provide the best resource utilization.
  * This means that stages which output won't be consumed (e.g. join probe side) will
  * not be scheduled until dependent stages finish (e.g. join build source stages).
- * Contrary to {@link LegacyPhasedExecutionPolicy}, {@link PrioritizeUtilizationExecutionSchedule} will
+ * Contrary to {@link LegacyPhasedExecutionPolicy}, {@link PhasedExecutionSchedule} will
  * schedule multiple source stages in order to fully utilize IO.
  */
-public class PrioritizeUtilizationExecutionSchedule
+public class PhasedExecutionSchedule
         implements ExecutionSchedule
 {
     /**
@@ -85,14 +85,14 @@ public class PrioritizeUtilizationExecutionSchedule
     @GuardedBy("this")
     private SettableFuture<Void> rescheduleFuture = SettableFuture.create();
 
-    public static PrioritizeUtilizationExecutionSchedule forStages(Collection<StageExecution> stages)
+    public static PhasedExecutionSchedule forStages(Collection<StageExecution> stages)
     {
-        PrioritizeUtilizationExecutionSchedule schedule = new PrioritizeUtilizationExecutionSchedule(stages);
+        PhasedExecutionSchedule schedule = new PhasedExecutionSchedule(stages);
         schedule.init(stages);
         return schedule;
     }
 
-    private PrioritizeUtilizationExecutionSchedule(Collection<StageExecution> stages)
+    private PhasedExecutionSchedule(Collection<StageExecution> stages)
     {
         fragmentDependency = new DefaultDirectedGraph<>(new FragmentsEdgeFactory());
         fragmentTopology = new DefaultDirectedGraph<>(new FragmentsEdgeFactory());
@@ -424,7 +424,7 @@ public class PrioritizeUtilizationExecutionSchedule
         @Override
         public FragmentSubGraph visitExchange(ExchangeNode node, PlanFragmentId currentFragmentId)
         {
-            checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the prioritize utilization scheduler");
+            checkArgument(node.getScope() == LOCAL, "Only local exchanges are supported in the phased execution scheduler");
             return visitPlan(node, currentFragmentId);
         }
 
