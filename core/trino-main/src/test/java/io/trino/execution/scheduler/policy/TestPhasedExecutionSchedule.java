@@ -25,7 +25,7 @@ import io.trino.execution.TaskId;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.scheduler.StageExecution;
 import io.trino.execution.scheduler.TaskLifecycleListener;
-import io.trino.execution.scheduler.policy.PrioritizeUtilizationExecutionSchedule.FragmentsEdge;
+import io.trino.execution.scheduler.policy.PhasedExecutionSchedule.FragmentsEdge;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.sql.planner.PlanFragment;
@@ -53,7 +53,7 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestPrioritizeUtilizationExecutionSchedule
+public class TestPhasedExecutionSchedule
 {
     @Test
     public void testPartitionedJoin()
@@ -66,7 +66,7 @@ public class TestPrioritizeUtilizationExecutionSchedule
         TestingStageExecution probeStage = new TestingStageExecution(probeFragment);
         TestingStageExecution joinStage = new TestingStageExecution(joinFragment);
 
-        PrioritizeUtilizationExecutionSchedule schedule = PrioritizeUtilizationExecutionSchedule.forStages(ImmutableSet.of(buildStage, probeStage, joinStage));
+        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(buildStage, probeStage, joinStage));
         DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
 
         // single dependency between build and probe stages
@@ -103,7 +103,7 @@ public class TestPrioritizeUtilizationExecutionSchedule
         TestingStageExecution buildStage = new TestingStageExecution(buildFragment);
         TestingStageExecution joinSourceStage = new TestingStageExecution(joinSourceFragment);
 
-        PrioritizeUtilizationExecutionSchedule schedule = PrioritizeUtilizationExecutionSchedule.forStages(ImmutableSet.of(buildStage, joinSourceStage));
+        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(buildStage, joinSourceStage));
         DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
 
         // single dependency between build and join stages
@@ -131,7 +131,7 @@ public class TestPrioritizeUtilizationExecutionSchedule
         TestingStageExecution buildStage = new TestingStageExecution(buildFragment);
         TestingStageExecution joinStage = new TestingStageExecution(joinFragment);
 
-        PrioritizeUtilizationExecutionSchedule schedule = PrioritizeUtilizationExecutionSchedule.forStages(ImmutableSet.of(sourceStage, aggregationStage, buildStage, joinStage));
+        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(sourceStage, aggregationStage, buildStage, joinStage));
         DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
 
         // aggregation and source stage should start immediately, join stage should wait for build stage to complete
@@ -152,7 +152,7 @@ public class TestPrioritizeUtilizationExecutionSchedule
         TestingStageExecution probeStage = new TestingStageExecution(probeFragment);
         TestingStageExecution joinStage = new TestingStageExecution(joinFragment);
 
-        PrioritizeUtilizationExecutionSchedule schedule = PrioritizeUtilizationExecutionSchedule.forStages(ImmutableSet.of(
+        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(
                 broadcastBuildStage, partitionedBuildStage, probeStage, joinStage));
         DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
 
@@ -181,7 +181,7 @@ public class TestPrioritizeUtilizationExecutionSchedule
                 joinFragment.getId());
     }
 
-    private Set<PlanFragmentId> getActiveFragments(PrioritizeUtilizationExecutionSchedule schedule)
+    private Set<PlanFragmentId> getActiveFragments(PhasedExecutionSchedule schedule)
     {
         return schedule.getActiveStages().stream()
                 .map(stage -> stage.getFragment().getId())
