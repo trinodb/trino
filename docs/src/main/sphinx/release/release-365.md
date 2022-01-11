@@ -73,7 +73,6 @@
 * Fix reporting of number of read bytes for tables using `ORC` file format. ({issue}`10048`)
 * Account for memory used for deleted row information when reading from ACID tables. ({issue}`9914`, {issue}`10070`)
 * Fix `REVOKE GRANT OPTION` to revoke only the grant option instead of revoking the entire privilege. ({issue}`10094`)
-* Fix issue that prevented writing bloom filters for ORC files. ({issue}`9792`)
 * Fix bug where incorrect rows were deleted when deleting from a transactional table that has original files (before the first major compaction). ({issue}`10095`)
 * Fix delete and update failure when changing a table after a major compaction. ({issue}`10120`)
 * Fix incorrect results when decoding decimal values in Parquet reader. ({issue}`9971`)
