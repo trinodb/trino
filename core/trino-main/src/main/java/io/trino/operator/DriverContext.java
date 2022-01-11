@@ -228,11 +228,6 @@ public class DriverContext
         return driverMemoryContext.getRevocableMemory();
     }
 
-    public void moreMemoryAvailable()
-    {
-        operatorContexts.forEach(OperatorContext::moreMemoryAvailable);
-    }
-
     public boolean isPerOperatorCpuTimerEnabled()
     {
         return pipelineContext.isPerOperatorCpuTimerEnabled();

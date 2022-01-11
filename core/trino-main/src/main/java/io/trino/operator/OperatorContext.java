@@ -412,11 +412,6 @@ public class OperatorContext
         return spillContext;
     }
 
-    public void moreMemoryAvailable()
-    {
-        memoryFuture.get().set(null);
-    }
-
     public synchronized boolean isMemoryRevokingRequested()
     {
         return memoryRevokingRequested;
