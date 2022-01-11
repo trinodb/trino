@@ -510,15 +510,25 @@ Row level deletion
 Tables using v2 of the Iceberg specification support deletion of individual rows
 by writing position delete files.
 
-Rolling back to a previous snapshot
------------------------------------
+Snapshots
+---------
 
 Iceberg supports a "snapshot" model of data, where table snapshots are
-identified by an snapshot IDs.
+identified by a snapshot ID.
 
-The connector provides a system snapshots table for each Iceberg table.  Snapshots are
-identified by BIGINT snapshot IDs.  You can find the latest snapshot ID for table
-``customer_orders`` by running the following command::
+The connector provides a system table exposing snapshot information for every
+Iceberg table. Snapshots are identified by ``BIGINT`` snapshot IDs.
+For example, you could find the snapshot IDs for the ``customer_orders`` table
+by running the following query::
+
+    SELECT snapshot_id
+    FROM iceberg.testdb."customer_orders$snapshots"
+    ORDER BY committed_at DESC
+
+Rolling back to a previous snapshot
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use the ``$snapshots`` metadata table to determine the latest snapshot ID of the table like in the following query::
 
     SELECT snapshot_id
     FROM iceberg.testdb."customer_orders$snapshots"
