@@ -19,9 +19,12 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergPlugin
@@ -156,6 +159,27 @@ public class TestIcebergPlugin
                 new TestingConnectorContext());
         assertThatThrownBy(connector::getAccessControl).isInstanceOf(UnsupportedOperationException.class);
         connector.shutdown();
+    }
+
+    @Test
+    public void testFileBasedAccessControl()
+            throws Exception
+    {
+        ConnectorFactory connectorFactory = getConnectorFactory();
+        File tempFile = File.createTempFile("test-iceberg-plugin-access-control", ".json");
+        tempFile.deleteOnExit();
+        Files.write(tempFile.toPath(), "{}".getBytes(UTF_8));
+
+        connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("iceberg.catalog.type", "HIVE_METASTORE")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("iceberg.security", "file")
+                        .put("security.config-file", tempFile.getAbsolutePath())
+                        .build(),
+                new TestingConnectorContext())
+                .shutdown();
     }
 
     private static ConnectorFactory getConnectorFactory()

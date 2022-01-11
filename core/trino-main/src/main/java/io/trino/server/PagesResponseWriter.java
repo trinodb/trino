@@ -15,10 +15,10 @@ package io.trino.server;
 
 import com.google.common.reflect.TypeToken;
 import io.airlift.slice.OutputStreamSliceOutput;
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
-import io.trino.execution.buffer.SerializedPage;
 
 import javax.inject.Inject;
 import javax.ws.rs.Produces;
@@ -39,13 +39,12 @@ import java.util.List;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.PagesSerdeUtil.NO_CHECKSUM;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
-import static io.trino.execution.buffer.PagesSerdeUtil.writeSerializedPages;
 import static java.util.Objects.requireNonNull;
 
 @Provider
 @Produces(TRINO_PAGES)
 public class PagesResponseWriter
-        implements MessageBodyWriter<List<SerializedPage>>
+        implements MessageBodyWriter<List<Slice>>
 {
     public static final int SERIALIZED_PAGES_MAGIC = 0xfea4f001;
 
@@ -74,18 +73,19 @@ public class PagesResponseWriter
     public boolean isWriteable(Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType)
     {
         return List.class.isAssignableFrom(type) &&
-                TypeToken.of(genericType).resolveType(LIST_GENERIC_TOKEN).getRawType().equals(SerializedPage.class) &&
+                TypeToken.of(genericType).resolveType(LIST_GENERIC_TOKEN).getRawType().equals(Slice.class) &&
                 mediaType.isCompatible(TRINO_PAGES_TYPE);
     }
 
     @Override
-    public long getSize(List<SerializedPage> serializedPages, Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType)
+    public long getSize(List<Slice> serializedPages, Class<?> type, Type genericType, Annotation[] annotations, MediaType mediaType)
     {
         return -1;
     }
 
     @Override
-    public void writeTo(List<SerializedPage> serializedPages,
+    public void writeTo(
+            List<Slice> serializedPages,
             Class<?> type,
             Type genericType,
             Annotation[] annotations,
@@ -99,7 +99,9 @@ public class PagesResponseWriter
             sliceOutput.writeInt(SERIALIZED_PAGES_MAGIC);
             sliceOutput.writeLong(dataIntegrityVerificationEnabled ? calculateChecksum(serializedPages) : NO_CHECKSUM);
             sliceOutput.writeInt(serializedPages.size());
-            writeSerializedPages(sliceOutput, serializedPages);
+            for (Slice page : serializedPages) {
+                sliceOutput.writeBytes(page);
+            }
             // We use flush instead of close, because the underlying stream would be closed and that is not allowed.
             sliceOutput.flush();
         }

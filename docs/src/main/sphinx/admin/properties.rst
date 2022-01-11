@@ -87,6 +87,10 @@ The ``duration`` type supports the following units:
 A duration of ``0`` is treated as zero regardless of the unit that follows.
 For example, ``0s`` and ``0m`` both mean the same thing.
 
+Properties of type ``duration`` also support decimal values, such as ``2.25d``.
+These are handled as a fractional value of the specified unit. For example, the
+value ``1.5m`` equals one and a half minutes, or 90 seconds.
+
 .. _prop-type-integer:
 
 ``integer``

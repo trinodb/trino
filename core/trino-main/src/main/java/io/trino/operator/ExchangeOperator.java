@@ -14,10 +14,10 @@
 package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 import io.trino.connector.CatalogName;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
@@ -182,15 +182,14 @@ public class ExchangeOperator
     @Override
     public Page getOutput()
     {
-        SerializedPage page = exchangeClient.pollPage();
+        Slice page = exchangeClient.pollPage();
         if (page == null) {
             return null;
         }
 
-        operatorContext.recordNetworkInput(page.getSizeInBytes(), page.getPositionCount());
-
         Page deserializedPage = serde.deserialize(page);
-        operatorContext.recordProcessedInput(deserializedPage.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordNetworkInput(page.length(), deserializedPage.getPositionCount());
+        operatorContext.recordProcessedInput(deserializedPage.getSizeInBytes(), deserializedPage.getPositionCount());
 
         return deserializedPage;
     }

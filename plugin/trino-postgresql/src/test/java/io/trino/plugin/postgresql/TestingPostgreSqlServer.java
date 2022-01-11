@@ -41,6 +41,7 @@ public class TestingPostgreSqlServer
     private static final String PASSWORD = "test";
     private static final String DATABASE = "tpch";
 
+    private static final String LOG_PREFIX_REGEXP = "^([-:0-9. ]+UTC \\[[0-9]+\\] )";
     private static final String LOG_RUNNING_STATEMENT_PREFIX = "LOG:  execute <unnamed>: ";
     private static final String LOG_CANCELLATION_EVENT = "ERROR:  canceling statement due to user request";
     private static final String LOG_CANCELLED_STATEMENT_PREFIX = "STATEMENT:  ";
@@ -50,7 +51,7 @@ public class TestingPostgreSqlServer
     public TestingPostgreSqlServer()
     {
         // Use the oldest supported PostgreSQL version
-        dockerContainer = new PostgreSQLContainer<>("postgres:9.6")
+        dockerContainer = new PostgreSQLContainer<>("postgres:10")
                 .withDatabaseName(DATABASE)
                 .withUsername(USER)
                 .withPassword(PASSWORD)
@@ -82,13 +83,13 @@ public class TestingPostgreSqlServer
         Iterator<String> logsIterator = logs.iterator();
         ImmutableList.Builder<RemoteDatabaseEvent> events = ImmutableList.builder();
         while (logsIterator.hasNext()) {
-            String logLine = logsIterator.next();
+            String logLine = logsIterator.next().replaceAll(LOG_PREFIX_REGEXP, "");
             if (logLine.startsWith(LOG_RUNNING_STATEMENT_PREFIX)) {
                 events.add(new RemoteDatabaseEvent(logLine.substring(LOG_RUNNING_STATEMENT_PREFIX.length()), RUNNING));
             }
             if (logLine.equals(LOG_CANCELLATION_EVENT)) {
                 // next line must be present
-                String cancelledStatementLogLine = logsIterator.next();
+                String cancelledStatementLogLine = logsIterator.next().replaceAll(LOG_PREFIX_REGEXP, "");
                 if (cancelledStatementLogLine.startsWith(LOG_CANCELLED_STATEMENT_PREFIX)) {
                     events.add(new RemoteDatabaseEvent(cancelledStatementLogLine.substring(LOG_CANCELLED_STATEMENT_PREFIX.length()), CANCELLED));
                 }

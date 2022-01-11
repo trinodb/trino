@@ -14,6 +14,7 @@
 package io.trino.operator.output;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.StateMachine;
@@ -21,7 +22,6 @@ import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PartitionedOutputBuffer;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.jmh.Benchmarks;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
@@ -489,7 +489,7 @@ public class BenchmarkPartitionedOutputOperator
 
             // Use a dummy enqueue method to avoid OutOfMemory error
             @Override
-            public void enqueue(int partitionNumber, List<SerializedPage> pages)
+            public void enqueue(int partitionNumber, List<Slice> pages)
             {
                 // The blackhole will be null only for not benchmark runs (test and profile pollution).
                 // For the benchmarks, the instance will be provided by jmh infra via setup method.

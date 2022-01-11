@@ -386,7 +386,7 @@ public final class IcebergUtil
         Schema schema = toIcebergSchema(tableMetadata.getColumns());
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
         String targetPath = getTableLocation(tableMetadata.getProperties())
-                .orElse(catalog.defaultTableLocation(session, schemaTableName));
+                .orElseGet(() -> catalog.defaultTableLocation(session, schemaTableName));
 
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(2);
         FileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());

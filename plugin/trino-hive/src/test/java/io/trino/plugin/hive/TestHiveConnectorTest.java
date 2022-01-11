@@ -223,6 +223,9 @@ public class TestHiveConnectorTest
             case SUPPORTS_DELETE:
                 return true;
 
+            case SUPPORTS_UPDATE:
+                return true;
+
             case SUPPORTS_MULTI_STATEMENT_WRITES:
                 return true;
 
@@ -257,6 +260,24 @@ public class TestHiveConnectorTest
     {
         assertThatThrownBy(super::testDeleteWithSubquery)
                 .hasStackTraceContaining("Deletes must match whole partitions for non-transactional tables");
+    }
+
+    @Override
+    public void testUpdate()
+    {
+        assertThatThrownBy(super::testUpdate)
+                .hasMessage("Hive update is only supported for ACID transactional tables");
+    }
+
+    @Override
+    public void testUpdateRowConcurrently()
+            throws Exception
+    {
+        // TODO (https://github.com/trinodb/trino/issues/10518) test this with a TestHiveConnectorTest version that creates ACID tables by default, or in some other way
+        assertThatThrownBy(super::testUpdateRowConcurrently)
+                .hasMessage("Unexpected concurrent update failure")
+                .getCause()
+                .hasMessage("Hive update is only supported for ACID transactional tables");
     }
 
     @Override
@@ -3842,6 +3863,17 @@ public class TestHiveConnectorTest
                 "test_create_external_with_field_separator",
                 "helloXworld\nbyeXworld",
                 "VALUES ('hello', 'world'), ('bye', 'world')",
+                ImmutableList.of("textfile_field_separator = 'X'"));
+    }
+
+    @Test
+    public void testCreateExternalTableWithFieldSeparatorUnescaped()
+            throws Exception
+    {
+        testCreateExternalTable(
+                "test_create_external_with_field_separator_unescaped",
+                "heXlloXworld\nbyeXworld", // the first line contains an unescaped separator character which leads to inconsistent reading of its content
+                "VALUES ('he', 'llo'), ('bye', 'world')",
                 ImmutableList.of("textfile_field_separator = 'X'"));
     }
 

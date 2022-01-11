@@ -19,9 +19,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.TaskId;
-import io.trino.execution.buffer.SerializedPage;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -38,7 +38,7 @@ public class TestingExchangeClientBuffer
 {
     private ListenableFuture<Void> blocked = immediateVoidFuture();
     private final Set<TaskId> allTasks = new HashSet<>();
-    private final ListMultimap<TaskId, SerializedPage> pages = ArrayListMultimap.create();
+    private final ListMultimap<TaskId, Slice> pages = ArrayListMultimap.create();
     private final Set<TaskId> finishedTasks = new HashSet<>();
     private final ListMultimap<TaskId, Throwable> failedTasks = ArrayListMultimap.create();
     private boolean noMoreTasks;
@@ -65,7 +65,7 @@ public class TestingExchangeClientBuffer
     }
 
     @Override
-    public synchronized SerializedPage pollPage()
+    public synchronized Slice pollPage()
     {
         return null;
     }
@@ -82,13 +82,13 @@ public class TestingExchangeClientBuffer
     }
 
     @Override
-    public synchronized void addPages(TaskId taskId, List<SerializedPage> pages)
+    public synchronized void addPages(TaskId taskId, List<Slice> pages)
     {
         checkState(allTasks.contains(taskId), "task is expected to be present: %s", taskId);
         this.pages.putAll(taskId, pages);
     }
 
-    public synchronized ListMultimap<TaskId, SerializedPage> getPages()
+    public synchronized ListMultimap<TaskId, Slice> getPages()
     {
         return ImmutableListMultimap.copyOf(pages);
     }

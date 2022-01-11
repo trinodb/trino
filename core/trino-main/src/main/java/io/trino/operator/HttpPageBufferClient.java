@@ -28,12 +28,13 @@ import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.ResponseTooLargeException;
 import io.airlift.log.Logger;
 import io.airlift.slice.InputStreamSliceInput;
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.execution.TaskId;
-import io.trino.execution.buffer.SerializedPage;
+import io.trino.execution.buffer.PagesSerde;
 import io.trino.server.remotetask.Backoff;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
@@ -110,7 +111,7 @@ public final class HttpPageBufferClient
      */
     public interface ClientCallback
     {
-        boolean addPages(HttpPageBufferClient client, List<SerializedPage> pages);
+        boolean addPages(HttpPageBufferClient client, List<Slice> pages);
 
         void requestComplete(HttpPageBufferClient client);
 
@@ -352,7 +353,7 @@ public final class HttpPageBufferClient
 
                 backoff.success();
 
-                List<SerializedPage> pages;
+                List<Slice> pages;
                 try {
                     if (result.isTaskFailed()) {
                         throw new TrinoException(REMOTE_TASK_FAILED, format("Remote task failed: %s", remoteTaskId));
@@ -414,11 +415,11 @@ public final class HttpPageBufferClient
                     // frequency or buffer size.
                     if (clientCallback.addPages(HttpPageBufferClient.this, pages)) {
                         pagesReceived.addAndGet(pages.size());
-                        rowsReceived.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+                        rowsReceived.addAndGet(pages.stream().mapToLong(PagesSerde::getSerializedPagePositionCount).sum());
                     }
                     else {
                         pagesRejected.addAndGet(pages.size());
-                        rowsRejected.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
+                        rowsRejected.addAndGet(pages.stream().mapToLong(PagesSerde::getSerializedPagePositionCount).sum());
                     }
                 }
                 catch (TrinoException e) {
@@ -682,7 +683,7 @@ public final class HttpPageBufferClient
                     }
                     long checksum = input.readLong();
                     int pagesCount = input.readInt();
-                    List<SerializedPage> pages = ImmutableList.copyOf(readSerializedPages(input));
+                    List<Slice> pages = ImmutableList.copyOf(readSerializedPages(input));
                     verifyChecksum(checksum, pages);
                     checkState(pages.size() == pagesCount, "Wrong number of pages, expected %s, but read %s", pagesCount, pages.size());
                     return createPagesResponse(taskInstanceId, token, nextToken, pages, complete, remoteTaskFailed);
@@ -696,7 +697,7 @@ public final class HttpPageBufferClient
             }
         }
 
-        private void verifyChecksum(long readChecksum, List<SerializedPage> pages)
+        private void verifyChecksum(long readChecksum, List<Slice> pages)
         {
             if (dataIntegrityVerificationEnabled) {
                 long calculatedChecksum = calculateChecksum(pages);
@@ -769,7 +770,7 @@ public final class HttpPageBufferClient
 
     public static class PagesResponse
     {
-        public static PagesResponse createPagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean complete, boolean taskFailed)
+        public static PagesResponse createPagesResponse(String taskInstanceId, long token, long nextToken, Iterable<Slice> pages, boolean complete, boolean taskFailed)
         {
             return new PagesResponse(taskInstanceId, token, nextToken, pages, complete, taskFailed);
         }
@@ -782,11 +783,11 @@ public final class HttpPageBufferClient
         private final String taskInstanceId;
         private final long token;
         private final long nextToken;
-        private final List<SerializedPage> pages;
+        private final List<Slice> pages;
         private final boolean clientComplete;
         private final boolean taskFailed;
 
-        private PagesResponse(String taskInstanceId, long token, long nextToken, Iterable<SerializedPage> pages, boolean clientComplete, boolean taskFailed)
+        private PagesResponse(String taskInstanceId, long token, long nextToken, Iterable<Slice> pages, boolean clientComplete, boolean taskFailed)
         {
             this.taskInstanceId = taskInstanceId;
             this.token = token;
@@ -806,7 +807,7 @@ public final class HttpPageBufferClient
             return nextToken;
         }
 
-        public List<SerializedPage> getPages()
+        public List<Slice> getPages()
         {
             return pages;
         }

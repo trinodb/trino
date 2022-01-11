@@ -176,7 +176,7 @@ public class BenchmarkBlockSerde
         return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
     }
 
-    private static List<SerializedPage> serializePages(BenchmarkData data)
+    private static List<Slice> serializePages(BenchmarkData data)
     {
         PagesSerdeContext context = new PagesSerdeContext();
         return data.getPages().stream()

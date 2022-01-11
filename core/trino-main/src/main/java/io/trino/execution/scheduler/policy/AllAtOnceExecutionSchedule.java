@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.scheduler;
+package io.trino.execution.scheduler.policy;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
+import io.trino.execution.scheduler.StageExecution;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
@@ -40,40 +41,40 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.FLUSHING;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.RUNNING;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.SCHEDULED;
+import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
+import static io.trino.execution.scheduler.StageExecution.State.RUNNING;
+import static io.trino.execution.scheduler.StageExecution.State.SCHEDULED;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 public class AllAtOnceExecutionSchedule
         implements ExecutionSchedule
 {
-    private final Set<PipelinedStageExecution> schedulingStages;
+    private final Set<StageExecution> schedulingStages;
 
-    public AllAtOnceExecutionSchedule(Collection<PipelinedStageExecution> stages)
+    public AllAtOnceExecutionSchedule(Collection<StageExecution> stages)
     {
         requireNonNull(stages, "stages is null");
         List<PlanFragmentId> preferredScheduleOrder = getPreferredScheduleOrder(stages.stream()
-                .map(PipelinedStageExecution::getFragment)
+                .map(StageExecution::getFragment)
                 .collect(toImmutableList()));
 
-        Ordering<PipelinedStageExecution> ordering = Ordering.explicit(preferredScheduleOrder)
+        Ordering<StageExecution> ordering = Ordering.explicit(preferredScheduleOrder)
                 .onResultOf(PlanFragment::getId)
-                .onResultOf(PipelinedStageExecution::getFragment);
+                .onResultOf(StageExecution::getFragment);
         schedulingStages = new LinkedHashSet<>(ordering.sortedCopy(stages));
     }
 
     @Override
-    public Set<PipelinedStageExecution> getStagesToSchedule()
+    public StagesScheduleResult getStagesToSchedule()
     {
-        for (Iterator<PipelinedStageExecution> iterator = schedulingStages.iterator(); iterator.hasNext(); ) {
-            PipelinedStageExecution.State state = iterator.next().getState();
+        for (Iterator<StageExecution> iterator = schedulingStages.iterator(); iterator.hasNext(); ) {
+            StageExecution.State state = iterator.next().getState();
             if (state == SCHEDULED || state == RUNNING || state == FLUSHING || state.isDone()) {
                 iterator.remove();
             }
         }
-        return schedulingStages;
+        return new StagesScheduleResult(schedulingStages);
     }
 
     @Override

@@ -57,6 +57,7 @@ import static io.trino.execution.TaskTestUtils.createTestSplitMonitor;
 import static io.trino.execution.TaskTestUtils.createTestingPlanner;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -124,7 +125,7 @@ public class TestSqlTaskManager
             BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, DataSize.of(1, Unit.MEGABYTE)).get();
             assertFalse(results.isBufferComplete());
             assertEquals(results.getSerializedPages().size(), 1);
-            assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
+            assertEquals(getSerializedPagePositionCount(results.getSerializedPages().get(0)), 1);
 
             for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
                 results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getSerializedPages().size(), DataSize.of(1, Unit.MEGABYTE)).get();

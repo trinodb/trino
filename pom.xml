@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>116</version>
+        <version>119</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -981,7 +981,7 @@
             <dependency>
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
-                <version>3.0.3</version>
+                <version>3.0.5</version>
             </dependency>
 
             <dependency>
@@ -1093,7 +1093,7 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>9.2.1.jre8</version>
+                <version>9.4.1.jre11</version>
             </dependency>
 
             <dependency>
@@ -1437,7 +1437,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.18.0</version>
+                <version>3.19.0</version>
             </dependency>
 
             <dependency>
@@ -1742,6 +1742,16 @@
                     <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
                     <artifactId>provisio-maven-plugin</artifactId>
                     <version>1.0.18</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>pl.project13.maven</groupId>
+                    <artifactId>git-commit-id-plugin</artifactId>
+                    <configuration>
+                        <runOnlyOnce>true</runOnlyOnce>
+                        <injectAllReactorProjects>true</injectAllReactorProjects>
+                        <offline>true</offline>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>

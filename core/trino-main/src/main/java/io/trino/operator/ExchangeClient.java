@@ -16,12 +16,12 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.http.client.HttpClient;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.execution.TaskFailureListener;
 import io.trino.execution.TaskId;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.HttpPageBufferClient.ClientCallback;
 import io.trino.operator.WorkProcessor.ProcessState;
@@ -175,10 +175,10 @@ public class ExchangeClient
         scheduleRequestIfNecessary();
     }
 
-    public WorkProcessor<SerializedPage> pages()
+    public WorkProcessor<Slice> pages()
     {
         return WorkProcessor.create(() -> {
-            SerializedPage page = pollPage();
+            Slice page = pollPage();
             if (page == null) {
                 if (isFinished()) {
                     return ProcessState.finished();
@@ -203,7 +203,7 @@ public class ExchangeClient
     }
 
     @Nullable
-    public SerializedPage pollPage()
+    public Slice pollPage()
     {
         assertNotHoldsLock();
 
@@ -211,7 +211,7 @@ public class ExchangeClient
             return null;
         }
 
-        SerializedPage page = buffer.pollPage();
+        Slice page = buffer.pollPage();
 
         if (page == null) {
             return null;
@@ -274,13 +274,13 @@ public class ExchangeClient
         return buffer.isBlocked();
     }
 
-    private boolean addPages(HttpPageBufferClient client, List<SerializedPage> pages)
+    private boolean addPages(HttpPageBufferClient client, List<Slice> pages)
     {
         checkState(!completedClients.contains(client), "client is already marked as completed");
         // Compute stats before acquiring the lock
         long responseSize = 0;
-        for (SerializedPage page : pages) {
-            responseSize += page.getSizeInBytes();
+        for (Slice page : pages) {
+            responseSize += page.length();
         }
 
         synchronized (this) {
@@ -334,7 +334,7 @@ public class ExchangeClient
             implements ClientCallback
     {
         @Override
-        public boolean addPages(HttpPageBufferClient client, List<SerializedPage> pages)
+        public boolean addPages(HttpPageBufferClient client, List<Slice> pages)
         {
             requireNonNull(client, "client is null");
             requireNonNull(pages, "pages is null");

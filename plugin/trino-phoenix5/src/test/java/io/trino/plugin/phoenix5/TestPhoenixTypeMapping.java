@@ -18,9 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.CharType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
@@ -30,16 +31,15 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -52,39 +52,64 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_ROUND
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.phoenix5.PhoenixQueryRunner.createPhoenixQueryRunner;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.testing.datatype.DataType.bigintDataType;
-import static io.trino.testing.datatype.DataType.booleanDataType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.datatype.DataType.dataType;
-import static io.trino.testing.datatype.DataType.dateDataType;
-import static io.trino.testing.datatype.DataType.doubleDataType;
-import static io.trino.testing.datatype.DataType.integerDataType;
-import static io.trino.testing.datatype.DataType.realDataType;
-import static io.trino.testing.datatype.DataType.smallintDataType;
-import static io.trino.testing.datatype.DataType.tinyintDataType;
-import static io.trino.testing.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * @see <a href="https://phoenix.apache.org/language/datatypes.html">Phoenix data types</a>
+ */
 public class TestPhoenixTypeMapping
         extends AbstractTestQueryFramework
 {
     private TestingPhoenixServer phoenixServer;
+
+    private final ZoneId jvmZone = ZoneId.systemDefault();
+    // no DST in 1970, but has DST in later years (e.g. 2018)
+    private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
+    // minutes offset change since 1970-01-01, no DST
+    private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
+
+    @BeforeClass
+    public void setUp()
+    {
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
+
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
+        checkIsGap(vilnius, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
+        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
+        checkIsDoubled(vilnius, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
+
+        checkIsGap(kathmandu, LocalDate.of(1986, 1, 1).atStartOfDay());
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         phoenixServer = TestingPhoenixServer.getInstance();
-        return createPhoenixQueryRunner(phoenixServer, ImmutableMap.of());
+        return createPhoenixQueryRunner(phoenixServer, ImmutableMap.of(), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)
@@ -96,49 +121,46 @@ public class TestPhoenixTypeMapping
     @Test
     public void testBasicTypes()
     {
-        DataTypeTest.create()
-                .addRoundTrip(booleanDataType(), true)
-                .addRoundTrip(booleanDataType(), false)
-                .addRoundTrip(bigintDataType(), 123_456_789_012L)
-                .addRoundTrip(integerDataType(), 1_234_567_890)
-                .addRoundTrip(smallintDataType(), (short) 32_456)
-                .addRoundTrip(tinyintDataType(), (byte) 5)
-                .addRoundTrip(doubleDataType(), 123.45d)
-                .addRoundTrip(realDataType(), 123.45f)
+        SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "true", BOOLEAN, "true")
+                .addRoundTrip("boolean", "false", BOOLEAN, "false")
+                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
+                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
+                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
+                .addRoundTrip("double", "123.45", DOUBLE, "DOUBLE '123.45'")
+                .addRoundTrip("real", "123.45", REAL, "REAL '123.45'")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
     }
 
     @Test
     public void testVarchar()
     {
-        DataTypeTest varcharTypeTest = stringDataTypeTest(DataType::varcharDataType)
-                .addRoundTrip(varcharDataType(10485760), "text_f")
-                .addRoundTrip(varcharDataType(), "unbounded");
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(10)", "'text_a'", createVarcharType(10), "CAST('text_a' AS VARCHAR(10))")
+                .addRoundTrip("varchar(255)", "'text_b'", createVarcharType(255), "CAST('text_b' AS VARCHAR(255))")
+                .addRoundTrip("varchar(65535)", "'text_d'", createVarcharType(65535), "CAST('text_d' AS VARCHAR(65535))")
+                .addRoundTrip("varchar(10485760)", "'text_f'", createVarcharType(10485760), "CAST('text_f' AS VARCHAR(10485760))")
+                .addRoundTrip("varchar", "'unbounded'", VARCHAR, "VARCHAR 'unbounded'")
+                .addRoundTrip("varchar(10)", "NULL", createVarcharType(10), "CAST(NULL AS VARCHAR(10))")
+                .addRoundTrip("varchar", "NULL", VARCHAR, "CAST(NULL AS VARCHAR)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"))
 
-        varcharTypeTest
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
-
-        varcharTypeTest
-                .addRoundTrip(primaryKey(), 1)
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_varchar"));
-    }
-
-    private DataTypeTest stringDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(dataTypeFactory.apply(10), "text_a")
-                .addRoundTrip(dataTypeFactory.apply(255), "text_b")
-                .addRoundTrip(dataTypeFactory.apply(65535), "text_d");
     }
 
     @Test
     public void testChar()
     {
-        stringDataTypeTest(DataType::charDataType)
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_char"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(10)", "'text_a'", createCharType(10), "CAST('text_a' AS CHAR(10))")
+                .addRoundTrip("char(255)", "'text_b'", createCharType(255), "CAST('text_b' AS CHAR(255))")
+                .addRoundTrip("char(65536)", "'text_e'", createCharType(CharType.MAX_LENGTH), "CAST('text_e' AS CHAR(65536))")
+                .addRoundTrip("char(10)", "NULL", createCharType(10), "CAST(NULL AS CHAR(10))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_char"))
 
-        stringDataTypeTest(DataType::charDataType)
-                .addRoundTrip(primaryKey(), 1)
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_char"));
     }
 
@@ -170,45 +192,52 @@ public class TestPhoenixTypeMapping
     @Test
     public void testDecimal()
     {
-        decimalTests(DataType::decimalDataType)
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "CAST('193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('193' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('19' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('19' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('-193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('-193' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.0' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.0' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.1' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST('-10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('-10.1' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 2)", "CAST('3.14' AS decimal(3, 2))", createDecimalType(3, 2), "CAST('3.14' AS decimal(3, 2))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2' AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2' AS decimal(4, 2))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2.3' AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2.3' AS decimal(4, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST('2' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('2' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST('2.3' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('2.3' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST('123456789.3' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('123456789.3' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 4)", "CAST('12345678901234567890.31' AS decimal(24, 4))", createDecimalType(24, 4), "CAST('12345678901234567890.31' AS decimal(24, 4))")
+                .addRoundTrip("decimal(24, 23)", "CAST('3.12345678901234567890123' AS decimal(24, 23))", createDecimalType(24, 23), "CAST('3.12345678901234567890123' AS decimal(24, 23))")
+                .addRoundTrip("decimal(30, 5)", "CAST('3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('3141592653589793238462643.38327' AS decimal(30, 5))")
+                .addRoundTrip("decimal(30, 5)", "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
+                .addRoundTrip("decimal(38, 0)", "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))")
+                .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 0)", "NULL", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
+                .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
 
-        decimalTests(TestPhoenixTypeMapping::phoenixDecimalDataType)
-                .addRoundTrip(primaryKey(), 1)
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "CAST(193 AS decimal(3, 0))", createDecimalType(3, 0), "CAST('193' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST(19 AS decimal(3, 0))", createDecimalType(3, 0), "CAST('19' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST(-193 AS decimal(3, 0))", createDecimalType(3, 0), "CAST('-193' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST(10.0 AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.0' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST(10.1 AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.1' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST(-10.1 AS decimal(3, 1))", createDecimalType(3, 1), "CAST('-10.1' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 2)", "CAST(3.14 AS decimal(3, 2))", createDecimalType(3, 2), "CAST('3.14' AS decimal(3, 2))")
+                .addRoundTrip("decimal(4, 2)", "CAST(2 AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2' AS decimal(4, 2))")
+                .addRoundTrip("decimal(4, 2)", "CAST(2.3 AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2.3' AS decimal(4, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST(2 AS decimal(24, 2))", createDecimalType(24, 2), "CAST('2' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST(2.3 AS decimal(24, 2))", createDecimalType(24, 2), "CAST('2.3' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST(123456789.3 AS decimal(24, 2))", createDecimalType(24, 2), "CAST('123456789.3' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 4)", "CAST(12345678901234567890.31 AS decimal(24, 4))", createDecimalType(24, 4), "CAST('12345678901234567890.31' AS decimal(24, 4))")
+                .addRoundTrip("decimal(24, 23)", "CAST(3.12345678901234567890123 AS decimal(24, 23))", createDecimalType(24, 23), "CAST('3.12345678901234567890123' AS decimal(24, 23))")
+                .addRoundTrip("decimal(30, 5)", "CAST(3141592653589793238462643.38327 AS decimal(30, 5))", createDecimalType(30, 5), "CAST('3141592653589793238462643.38327' AS decimal(30, 5))")
+                .addRoundTrip("decimal(30, 5)", "CAST(-3141592653589793238462643.38327 AS decimal(30, 5))", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
+                .addRoundTrip("decimal(38, 0)", "CAST(27182818284590452353602874713526624977 AS decimal(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))")
+                .addRoundTrip("decimal(38, 0)", "CAST(-27182818284590452353602874713526624977 AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST(NULL AS decimal(3, 0))", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
+                .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_decimal"));
-    }
-
-    private DataTypeTest decimalTests(BiFunction<Integer, Integer, DataType<BigDecimal>> dataTypeFactory)
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(dataTypeFactory.apply(3, 0), new BigDecimal("193"))
-                .addRoundTrip(dataTypeFactory.apply(3, 0), new BigDecimal("19"))
-                .addRoundTrip(dataTypeFactory.apply(3, 0), new BigDecimal("-193"))
-                .addRoundTrip(dataTypeFactory.apply(3, 1), new BigDecimal("10.0"))
-                .addRoundTrip(dataTypeFactory.apply(3, 1), new BigDecimal("10.1"))
-                .addRoundTrip(dataTypeFactory.apply(3, 1), new BigDecimal("-10.1"))
-                .addRoundTrip(dataTypeFactory.apply(3, 2), new BigDecimal("3.14"))
-                .addRoundTrip(dataTypeFactory.apply(4, 2), new BigDecimal("2"))
-                .addRoundTrip(dataTypeFactory.apply(4, 2), new BigDecimal("2.3"))
-                .addRoundTrip(dataTypeFactory.apply(24, 2), new BigDecimal("2"))
-                .addRoundTrip(dataTypeFactory.apply(24, 2), new BigDecimal("2.3"))
-                .addRoundTrip(dataTypeFactory.apply(24, 2), new BigDecimal("123456789.3"))
-                .addRoundTrip(dataTypeFactory.apply(24, 4), new BigDecimal("12345678901234567890.31"))
-                .addRoundTrip(dataTypeFactory.apply(24, 23), new BigDecimal("3.12345678901234567890123"))
-                .addRoundTrip(dataTypeFactory.apply(30, 5), new BigDecimal("3141592653589793238462643.38327"))
-                .addRoundTrip(dataTypeFactory.apply(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
-                .addRoundTrip(dataTypeFactory.apply(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
-                .addRoundTrip(dataTypeFactory.apply(38, 0), new BigDecimal("-27182818284590452353602874713526624977"));
-    }
-
-    private static DataType<BigDecimal> phoenixDecimalDataType(int precision, int scale)
-    {
-        String databaseType = format("decimal(%s, %s)", precision, scale);
-        return dataType(
-                databaseType,
-                createDecimalType(precision, scale),
-                bigDecimal -> format("CAST(%s AS %s)", bigDecimal, databaseType),
-                bigDecimal -> bigDecimal.setScale(scale, UNNECESSARY));
     }
 
     @Test
@@ -255,110 +284,129 @@ public class TestPhoenixTypeMapping
         }
     }
 
-    @Test
-    public void testDate()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testDate(ZoneId sessionZone)
     {
-        // Note: there is identical test for MySQL
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
+                .build();
 
-        ZoneId jvmZone = ZoneId.systemDefault();
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
+        // TODO (https://github.com/trinodb/trino/issues/10074) Add more test cases when fixing incorrect date issue
+        SqlDataTypeTest.create()
+                .addRoundTrip("date", "DATE '1952-04-04'", DATE, "DATE '1952-04-04'") // before epoch
+                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
+                .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
+                .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
+                .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
+                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
 
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
-        checkIsGap(someZone, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
-        checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
-
-        DataTypeTest trinoTestCases = dateTests(
-                dateOfLocalTimeChangeForwardAtMidnightInJvmZone,
-                dateOfLocalTimeChangeForwardAtMidnightInSomeZone,
-                dateOfLocalTimeChangeBackwardAtMidnightInSomeZone,
-                dateDataType());
-
-        DataTypeTest phoenixTestCases = dateTests(
-                dateOfLocalTimeChangeForwardAtMidnightInJvmZone,
-                dateOfLocalTimeChangeForwardAtMidnightInSomeZone,
-                dateOfLocalTimeChangeBackwardAtMidnightInSomeZone,
-                phoenixDateDataType())
-                .addRoundTrip(primaryKey(), 1);
-
-        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
-                    .build();
-            trinoTestCases.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
-            trinoTestCases.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"));
-            trinoTestCases.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
-            phoenixTestCases.execute(getQueryRunner(), session, phoenixCreateAndInsert("tpch.test_date"));
-        }
+        SqlDataTypeTest.create()
+                .addRoundTrip("date", "TO_DATE('1952-04-04', 'yyyy-MM-dd', 'local')", DATE, "DATE '1952-04-04'") // before epoch
+                .addRoundTrip("date", "TO_DATE('1970-01-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", "TO_DATE('1970-02-03', 'yyyy-MM-dd', 'local')", DATE, "DATE '1970-02-03'")
+                .addRoundTrip("date", "TO_DATE('2017-07-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
+                .addRoundTrip("date", "TO_DATE('2017-01-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("date", "TO_DATE('1983-04-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1983-04-01'")
+                .addRoundTrip("date", "TO_DATE('1983-10-01', 'yyyy-MM-dd', 'local')", DATE, "DATE '1983-10-01'")
+                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
+                .execute(getQueryRunner(), session, phoenixCreateAndInsert("tpch.test_date"));
     }
 
     @Test
     public void testArray()
     {
         // basic types
-        DataTypeTest.create()
-                .addRoundTrip(arrayDataType(booleanDataType()), asList(true, false))
-                .addRoundTrip(arrayDataType(bigintDataType()), asList(123_456_789_012L))
-                .addRoundTrip(arrayDataType(integerDataType()), asList(1, 2, 1_234_567_890))
-                .addRoundTrip(arrayDataType(smallintDataType()), asList((short) 32_456))
-                .addRoundTrip(arrayDataType(doubleDataType()), asList(123.45d))
-                .addRoundTrip(arrayDataType(realDataType()), asList(123.45f))
+        SqlDataTypeTest.create()
+                .addRoundTrip("ARRAY(boolean)", "ARRAY[true, false]", new ArrayType(BOOLEAN), "ARRAY[true, false]")
+                .addRoundTrip("ARRAY(bigint)", "ARRAY[123456789012]", new ArrayType(BIGINT), "ARRAY[123456789012]")
+                .addRoundTrip("ARRAY(integer)", "ARRAY[1, 2, 1234567890]", new ArrayType(INTEGER), "ARRAY[1, 2, 1234567890]")
+                .addRoundTrip("ARRAY(smallint)", "ARRAY[32456]", new ArrayType(SMALLINT), "ARRAY[SMALLINT '32456']")
+                .addRoundTrip("ARRAY(double)", "ARRAY[123.45]", new ArrayType(DOUBLE), "ARRAY[DOUBLE '123.45']")
+                .addRoundTrip("ARRAY(real)", "ARRAY[123.45]", new ArrayType(REAL), "ARRAY[REAL '123.45']")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_array_basic"));
 
-        arrayDateTest(TestPhoenixTypeMapping::arrayDataType, dateDataType())
+        SqlDataTypeTest.create()
+                .addRoundTrip("ARRAY(date)", "ARRAY[DATE '1952-04-03']", new ArrayType(DATE), "ARRAY[DATE '1952-04-03']") // before epoch
+                .addRoundTrip("ARRAY(date)", "ARRAY[DATE '1970-01-01']", new ArrayType(DATE), "ARRAY[DATE '1970-01-01']")
+                .addRoundTrip("ARRAY(date)", "ARRAY[DATE '1970-02-03']", new ArrayType(DATE), "ARRAY[DATE '1970-02-03']")
+                .addRoundTrip("ARRAY(date)", "ARRAY[DATE '2017-07-01']", new ArrayType(DATE), "ARRAY[DATE '2017-07-01']") // summer on northern hemisphere (possible DST)
+                .addRoundTrip("ARRAY(date)", "ARRAY[DATE '2017-01-01']", new ArrayType(DATE), "ARRAY[DATE '2017-01-01']") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("ARRAY(date)", "ARRAY[DATE '1983-04-01']", new ArrayType(DATE), "ARRAY[DATE '1983-04-01']")
+                .addRoundTrip("ARRAY(date)", "ARRAY[DATE '1983-10-01']", new ArrayType(DATE), "ARRAY[DATE '1983-10-01']")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_array_date"));
-        arrayDateTest(TestPhoenixTypeMapping::phoenixArrayDataType, phoenixDateDataType())
-                .addRoundTrip(primaryKey(), 1)
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("date ARRAY", "ARRAY[TO_DATE('1952-04-03', 'yyyy-MM-dd', 'local')]", new ArrayType(DATE), "ARRAY[DATE '1952-04-03']") // before epoch
+                .addRoundTrip("date ARRAY", "ARRAY[TO_DATE('1970-01-01', 'yyyy-MM-dd', 'local')]", new ArrayType(DATE), "ARRAY[DATE '1970-01-01']")
+                .addRoundTrip("date ARRAY", "ARRAY[TO_DATE('1970-02-03', 'yyyy-MM-dd', 'local')]", new ArrayType(DATE), "ARRAY[DATE '1970-02-03']")
+                .addRoundTrip("date ARRAY", "ARRAY[TO_DATE('2017-07-01', 'yyyy-MM-dd', 'local')]", new ArrayType(DATE), "ARRAY[DATE '2017-07-01']") // summer on northern hemisphere (possible DST)
+                .addRoundTrip("date ARRAY", "ARRAY[TO_DATE('2017-01-01', 'yyyy-MM-dd', 'local')]", new ArrayType(DATE), "ARRAY[DATE '2017-01-01']") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("date ARRAY", "ARRAY[TO_DATE('1983-04-01', 'yyyy-MM-dd', 'local')]", new ArrayType(DATE), "ARRAY[DATE '1983-04-01']")
+                .addRoundTrip("date ARRAY", "ARRAY[TO_DATE('1983-10-01', 'yyyy-MM-dd', 'local')]", new ArrayType(DATE), "ARRAY[DATE '1983-10-01']")
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_array_date"));
 
-        arrayDecimalTest(TestPhoenixTypeMapping::arrayDataType, DataType::decimalDataType)
+        SqlDataTypeTest.create()
+                .addRoundTrip("ARRAY(decimal(3, 0))", "ARRAY[CAST('193' AS decimal(3, 0)), CAST('19' AS decimal(3, 0)), CAST('-193' AS decimal(3, 0))]", new ArrayType(createDecimalType(3, 0)), "ARRAY[CAST('193' AS decimal(3, 0)), CAST('19' AS decimal(3, 0)), CAST('-193' AS decimal(3, 0))]")
+                .addRoundTrip("ARRAY(decimal(3, 1))", "ARRAY[CAST('10.0' AS decimal(3, 1)), CAST('10.1' AS decimal(3, 1)), CAST('-10.1' AS decimal(3, 1))]", new ArrayType(createDecimalType(3, 1)), "ARRAY[CAST('10.0' AS decimal(3, 1)), CAST('10.1' AS decimal(3, 1)), CAST('-10.1' AS decimal(3, 1))]")
+                .addRoundTrip("ARRAY(decimal(4, 2))", "ARRAY[CAST('2' AS decimal(4, 2)), CAST('2.3' AS decimal(4, 2))]", new ArrayType(createDecimalType(4, 2)), "ARRAY[CAST('2' AS decimal(4, 2)), CAST('2.3' AS decimal(4, 2))]")
+                .addRoundTrip("ARRAY(decimal(24, 2))", "ARRAY[CAST('2' AS decimal(24, 2)), CAST('2.3' AS decimal(24, 2)), CAST('123456789.3' AS decimal(24, 2))]", new ArrayType(createDecimalType(24, 2)), "ARRAY[CAST('2' AS decimal(24, 2)), CAST('2.3' AS decimal(24, 2)), CAST('123456789.3' AS decimal(24, 2))]")
+                .addRoundTrip("ARRAY(decimal(24, 4))", "ARRAY[CAST('12345678901234567890.31' AS decimal(24, 4))]", new ArrayType(createDecimalType(24, 4)), "ARRAY[CAST('12345678901234567890.31' AS decimal(24, 4))]")
+                .addRoundTrip("ARRAY(decimal(30, 5))", "ARRAY[CAST('3141592653589793238462643.38327' AS decimal(30, 5)), CAST('-3141592653589793238462643.38327' AS decimal(30, 5))]", new ArrayType(createDecimalType(30, 5)), "ARRAY[CAST('3141592653589793238462643.38327' AS decimal(30, 5)), CAST('-3141592653589793238462643.38327' AS decimal(30, 5))]")
+                .addRoundTrip("ARRAY(decimal(38, 0))", "ARRAY[CAST('27182818284590452353602874713526624977' AS decimal(38, 0)), CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))]", new ArrayType(createDecimalType(38, 0)), "ARRAY[CAST('27182818284590452353602874713526624977' AS decimal(38, 0)), CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))]")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_array_decimal"));
-        arrayDecimalTest(TestPhoenixTypeMapping::phoenixArrayDataType, TestPhoenixTypeMapping::phoenixDecimalDataType)
-                .addRoundTrip(primaryKey(), 1)
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0) ARRAY", "ARRAY[CAST(193 AS decimal(3, 0)), CAST(19 AS decimal(3, 0)), CAST(-193 AS decimal(3, 0))]", new ArrayType(createDecimalType(3, 0)), "ARRAY[CAST(193 AS decimal(3, 0)), CAST(19 AS decimal(3, 0)), CAST(-193 AS decimal(3, 0))]")
+                .addRoundTrip("decimal(3, 1) ARRAY", "ARRAY[CAST(10.0 AS decimal(3, 1)), CAST(10.1 AS decimal(3, 1)), CAST(-10.1 AS decimal(3, 1))]", new ArrayType(createDecimalType(3, 1)), "ARRAY[CAST(10.0 AS decimal(3, 1)), CAST(10.1 AS decimal(3, 1)), CAST(-10.1 AS decimal(3, 1))]")
+                .addRoundTrip("decimal(4, 2) ARRAY", "ARRAY[CAST(2 AS decimal(4, 2)), CAST(2.3 AS decimal(4, 2))]", new ArrayType(createDecimalType(4, 2)), "ARRAY[CAST(2 AS decimal(4, 2)), CAST(2.3 AS decimal(4, 2))]")
+                .addRoundTrip("decimal(24, 2) ARRAY", "ARRAY[CAST(2 AS decimal(24, 2)), CAST(2.3 AS decimal(24, 2)), CAST(123456789.3 AS decimal(24, 2))]", new ArrayType(createDecimalType(24, 2)), "ARRAY[CAST(2 AS decimal(24, 2)), CAST(2.3 AS decimal(24, 2)), CAST(123456789.3 AS decimal(24, 2))]")
+                .addRoundTrip("decimal(24, 4) ARRAY", "ARRAY[CAST(12345678901234567890.31 AS decimal(24, 4))]", new ArrayType(createDecimalType(24, 4)), "ARRAY[CAST(12345678901234567890.31 AS decimal(24, 4))]")
+                .addRoundTrip("decimal(30, 5) ARRAY", "ARRAY[CAST(3141592653589793238462643.38327 AS decimal(30, 5)), CAST(-3141592653589793238462643.38327 AS decimal(30, 5))]", new ArrayType(createDecimalType(30, 5)), "ARRAY[CAST(3141592653589793238462643.38327 AS decimal(30, 5)), CAST(-3141592653589793238462643.38327 AS decimal(30, 5))]")
+                .addRoundTrip("decimal(38, 0) ARRAY", "ARRAY[CAST(27182818284590452353602874713526624977 AS decimal(38, 0)), CAST(-27182818284590452353602874713526624977 AS decimal(38, 0))]", new ArrayType(createDecimalType(38, 0)), "ARRAY[CAST('27182818284590452353602874713526624977' AS decimal(38, 0)), CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))]")
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_array_decimal"));
 
+        // TODO (https://github.com/trinodb/trino/issues/10451) Migrate to SqlDataTypeTest after fixing predicate pushdown failure on array(char) type
         arrayStringDataTypeTest(TestPhoenixTypeMapping::arrayDataType, DataType::charDataType)
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_array_char"));
         arrayStringDataTypeTest(TestPhoenixTypeMapping::phoenixArrayDataType, DataType::charDataType)
                 .addRoundTrip(primaryKey(), 1)
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_array_char"));
 
-        arrayStringDataTypeTest(TestPhoenixTypeMapping::arrayDataType, DataType::varcharDataType)
-                .addRoundTrip(arrayDataType(varcharDataType(10485760)), asList("text_f"))
-                .addRoundTrip(arrayDataType(varcharDataType()), asList("unbounded"))
+        SqlDataTypeTest.create()
+                .addRoundTrip("ARRAY(varchar(10))", "ARRAY['text_a']", new ArrayType(createVarcharType(10)), "ARRAY[CAST('text_a' AS varchar(10))]")
+                .addRoundTrip("ARRAY(varchar(255))", "ARRAY['text_b']", new ArrayType(createVarcharType(255)), "ARRAY[CAST('text_b' AS varchar(255))]")
+                .addRoundTrip("ARRAY(varchar(65535))", "ARRAY['text_d']", new ArrayType(createVarcharType(65535)), "ARRAY[CAST('text_d' AS varchar(65535))]")
+                .addRoundTrip("ARRAY(varchar(10485760))", "ARRAY['text_f']", new ArrayType(createVarcharType(10485760)), "ARRAY[CAST('text_f' AS varchar(10485760))]")
+                .addRoundTrip("ARRAY(varchar)", "ARRAY['unbounded']", new ArrayType(VARCHAR), "ARRAY[CAST('unbounded' AS varchar)]")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_array_varchar"));
-        arrayStringDataTypeTest(TestPhoenixTypeMapping::phoenixArrayDataType, DataType::varcharDataType)
-                .addRoundTrip(phoenixArrayDataType(varcharDataType(10485760)), asList("text_f"))
-                .addRoundTrip(phoenixArrayDataType(varcharDataType()), asList("unbounded"))
-                .addRoundTrip(primaryKey(), 1)
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(10) ARRAY", "ARRAY['text_a']", new ArrayType(createVarcharType(10)), "ARRAY[CAST('text_a' AS varchar(10))]")
+                .addRoundTrip("varchar(255) ARRAY", "ARRAY['text_b']", new ArrayType(createVarcharType(255)), "ARRAY[CAST('text_b' AS varchar(255))]")
+                .addRoundTrip("varchar(65535) ARRAY", "ARRAY['text_d']", new ArrayType(createVarcharType(65535)), "ARRAY[CAST('text_d' AS varchar(65535))]")
+                .addRoundTrip("varchar(10485760) ARRAY", "ARRAY['text_f']", new ArrayType(createVarcharType(10485760)), "ARRAY[CAST('text_f' AS varchar(10485760))]")
+                .addRoundTrip("varchar ARRAY", "ARRAY['unbounded']", new ArrayType(VARCHAR), "ARRAY[CAST('unbounded' AS varchar)]")
+                .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_array_varchar"));
     }
 
     @Test
     public void testArrayNulls()
     {
-        DataTypeTest.create()
-                .addRoundTrip(arrayDataType(booleanDataType()), null)
-                .addRoundTrip(arrayDataType(varcharDataType()), singletonList(null))
-                .addRoundTrip(arrayDataType(varcharDataType()), asList("foo", null, "bar", null))
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_nulls"));
-    }
-
-    private DataTypeTest arrayDecimalTest(Function<DataType<BigDecimal>, DataType<List<BigDecimal>>> arrayTypeFactory, BiFunction<Integer, Integer, DataType<BigDecimal>> decimalTypeFactory)
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(arrayTypeFactory.apply(decimalTypeFactory.apply(3, 0)), asList(new BigDecimal("193"), new BigDecimal("19"), new BigDecimal("-193")))
-                .addRoundTrip(arrayTypeFactory.apply(decimalTypeFactory.apply(3, 1)), asList(new BigDecimal("10.0"), new BigDecimal("10.1"), new BigDecimal("-10.1")))
-                .addRoundTrip(arrayTypeFactory.apply(decimalTypeFactory.apply(4, 2)), asList(new BigDecimal("2"), new BigDecimal("2.3")))
-                .addRoundTrip(arrayTypeFactory.apply(decimalTypeFactory.apply(24, 2)), asList(new BigDecimal("2"), new BigDecimal("2.3"), new BigDecimal("123456789.3")))
-                .addRoundTrip(arrayTypeFactory.apply(decimalTypeFactory.apply(24, 4)), asList(new BigDecimal("12345678901234567890.31")))
-                .addRoundTrip(arrayTypeFactory.apply(decimalTypeFactory.apply(30, 5)), asList(new BigDecimal("3141592653589793238462643.38327"), new BigDecimal("-3141592653589793238462643.38327")))
-                .addRoundTrip(arrayTypeFactory.apply(decimalTypeFactory.apply(38, 0)), asList(
-                        new BigDecimal("27182818284590452353602874713526624977"),
-                        new BigDecimal("-27182818284590452353602874713526624977")));
+        // Verify only SELECT instead of using SqlDataTypeTest because array comparison not supported for arrays with null elements
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_array_nulls", "(c1 ARRAY(boolean), c2 ARRAY(varchar), c3 ARRAY(varchar))", ImmutableList.of("(NULL, ARRAY[NULL], ARRAY['foo', NULL, 'bar', NULL])"))) {
+            assertThat(query("SELECT c1 FROM " + table.getName())).matches("VALUES CAST(NULL AS ARRAY(boolean))");
+            assertThat(query("SELECT c2 FROM " + table.getName())).matches("VALUES CAST(ARRAY[NULL] AS ARRAY(varchar))");
+            assertThat(query("SELECT c3 FROM " + table.getName())).matches("VALUES CAST(ARRAY['foo', NULL, 'bar', NULL] AS ARRAY(varchar))");
+        }
     }
 
     private DataTypeTest arrayStringDataTypeTest(Function<DataType<String>, DataType<List<String>>> arrayTypeFactory, Function<Integer, DataType<String>> dataTypeFactory)
@@ -367,47 +415,6 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(10)), asList("text_a"))
                 .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(255)), asList("text_b"))
                 .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(65535)), asList("text_d"));
-    }
-
-    private DataTypeTest arrayDateTest(Function<DataType<LocalDate>, DataType<List<LocalDate>>> arrayTypeFactory, DataType<LocalDate> dateDataType)
-    {
-        ZoneId jvmZone = ZoneId.systemDefault();
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
-
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
-        checkIsGap(someZone, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
-        checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
-
-        return DataTypeTest.create()
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType), asList(LocalDate.of(1952, 4, 3))) // before epoch
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType), asList(LocalDate.of(1970, 1, 1)))
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType), asList(LocalDate.of(1970, 2, 3)))
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType), asList(LocalDate.of(2017, 7, 1))) // summer on northern hemisphere (possible DST)
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType), asList(LocalDate.of(2017, 1, 1))) // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType), asList(dateOfLocalTimeChangeForwardAtMidnightInJvmZone))
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType), asList(dateOfLocalTimeChangeForwardAtMidnightInSomeZone))
-                .addRoundTrip(arrayTypeFactory.apply(dateDataType), asList(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone));
-    }
-
-    private DataTypeTest dateTests(
-            LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone,
-            LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone,
-            LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone,
-            DataType<LocalDate> dateDataType)
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(dateDataType, LocalDate.of(1952, 4, 3)) // before epoch
-                .addRoundTrip(dateDataType, LocalDate.of(1970, 1, 1))
-                .addRoundTrip(dateDataType, LocalDate.of(1970, 2, 3))
-                .addRoundTrip(dateDataType, LocalDate.of(2017, 7, 1)) // summer on northern hemisphere (possible DST)
-                .addRoundTrip(dateDataType, LocalDate.of(2017, 1, 1)) // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip(dateDataType, dateOfLocalTimeChangeForwardAtMidnightInJvmZone)
-                .addRoundTrip(dateDataType, dateOfLocalTimeChangeForwardAtMidnightInSomeZone)
-                .addRoundTrip(dateDataType, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
     }
 
     private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType)
@@ -429,12 +436,17 @@ public class TestPhoenixTypeMapping
                 valuesList -> valuesList == null ? null : valuesList.stream().map(elementType::toTrinoQueryResult).collect(toList()));
     }
 
-    public static DataType<LocalDate> phoenixDateDataType()
+    @DataProvider
+    public Object[][] sessionZonesDataProvider()
     {
-        return dataType(
-                "date",
-                DATE,
-                value -> format("TO_DATE('%s', 'yyyy-MM-dd', 'local')", DateTimeFormatter.ofPattern("uuuu-MM-dd").format(value)));
+        return new Object[][] {
+                {UTC},
+                {jvmZone},
+                // using two non-JVM zones so that we don't need to worry what Phoenix system zone is
+                {vilnius},
+                {kathmandu},
+                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+        };
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)

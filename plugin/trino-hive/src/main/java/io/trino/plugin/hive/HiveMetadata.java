@@ -425,13 +425,16 @@ public class HiveMetadata
         if (isHiveSystemSchema(tableName.getSchemaName())) {
             return null;
         }
-        Optional<Table> table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName());
-        if (table.isEmpty()) {
+        Table table = metastore
+                .getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
+                .orElse(null);
+
+        if (table == null) {
             return null;
         }
 
-        if (isDeltaLakeTable(table.get())) {
-            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Cannot query Delta Lake table");
+        if (isDeltaLakeTable(table)) {
+            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Cannot query Delta Lake table '%s'", tableName));
         }
 
         // we must not allow system tables due to how permissions are checked in SystemTableAwareAccessControl
@@ -439,15 +442,15 @@ public class HiveMetadata
             throw new TrinoException(HIVE_INVALID_METADATA, "Unexpected table present in Hive metastore: " + tableName);
         }
 
-        verifyOnline(tableName, Optional.empty(), getProtectMode(table.get()), table.get().getParameters());
+        verifyOnline(tableName, Optional.empty(), getProtectMode(table), table.getParameters());
 
         return new HiveTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
-                table.get().getParameters(),
-                getPartitionKeyColumnHandles(table.get(), typeManager),
-                getRegularColumnHandles(table.get(), typeManager, getTimestampPrecision(session)),
-                getHiveBucketHandle(session, table.get(), typeManager));
+                table.getParameters(),
+                getPartitionKeyColumnHandles(table, typeManager),
+                getRegularColumnHandles(table, typeManager, getTimestampPrecision(session)),
+                getHiveBucketHandle(session, table, typeManager));
     }
 
     @Override

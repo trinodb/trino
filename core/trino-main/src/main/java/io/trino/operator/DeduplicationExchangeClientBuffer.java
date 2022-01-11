@@ -17,9 +17,10 @@ import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.TaskId;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.spi.TrinoException;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -35,18 +36,20 @@ import java.util.concurrent.Executor;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.trino.operator.RetryPolicy.QUERY;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
 public class DeduplicationExchangeClientBuffer
         implements ExchangeClientBuffer
 {
+    private static final Logger log = Logger.get(DeduplicationExchangeClientBuffer.class);
+
     private final Executor executor;
     private final long bufferCapacityInBytes;
     private final RetryPolicy retryPolicy;
@@ -66,9 +69,9 @@ public class DeduplicationExchangeClientBuffer
     private Throwable failure;
 
     @GuardedBy("this")
-    private final ListMultimap<TaskId, SerializedPage> pageBuffer = LinkedListMultimap.create();
+    private final ListMultimap<TaskId, Slice> pageBuffer = LinkedListMultimap.create();
     @GuardedBy("this")
-    private Iterator<SerializedPage> pagesIterator;
+    private Iterator<Slice> pagesIterator;
     @GuardedBy("this")
     private volatile long bufferRetainedSizeInBytes;
     @GuardedBy("this")
@@ -95,7 +98,7 @@ public class DeduplicationExchangeClientBuffer
     }
 
     @Override
-    public synchronized SerializedPage pollPage()
+    public synchronized Slice pollPage()
     {
         throwIfFailed();
 
@@ -115,9 +118,9 @@ public class DeduplicationExchangeClientBuffer
             return null;
         }
 
-        SerializedPage page = pagesIterator.next();
+        Slice page = pagesIterator.next();
         pagesIterator.remove();
-        bufferRetainedSizeInBytes -= page.getRetainedSizeInBytes();
+        bufferRetainedSizeInBytes -= page.getRetainedSize();
 
         return page;
     }
@@ -142,7 +145,7 @@ public class DeduplicationExchangeClientBuffer
     }
 
     @Override
-    public synchronized void addPages(TaskId taskId, List<SerializedPage> pages)
+    public synchronized void addPages(TaskId taskId, List<Slice> pages)
     {
         if (closed) {
             return;
@@ -161,8 +164,8 @@ public class DeduplicationExchangeClientBuffer
         }
 
         long pagesRetainedSizeInBytes = 0;
-        for (SerializedPage page : pages) {
-            pagesRetainedSizeInBytes += page.getRetainedSizeInBytes();
+        for (Slice page : pages) {
+            pagesRetainedSizeInBytes += page.getRetainedSize();
         }
         bufferRetainedSizeInBytes += pagesRetainedSizeInBytes;
         if (bufferRetainedSizeInBytes > bufferCapacityInBytes) {
@@ -255,21 +258,32 @@ public class DeduplicationExchangeClientBuffer
                     return;
                 }
 
-                List<Throwable> failures = failedTasks.entrySet().stream()
-                        .filter(entry -> entry.getKey().getAttemptId() == maxAttemptId)
-                        .map(Map.Entry::getValue)
-                        .collect(toImmutableList());
+                Throwable failure = null;
+                for (Map.Entry<TaskId, Throwable> entry : failedTasks.entrySet()) {
+                    TaskId taskId = entry.getKey();
+                    Throwable taskFailure = entry.getValue();
 
-                if (!failures.isEmpty()) {
-                    Throwable failure = null;
-                    for (Throwable taskFailure : failures) {
-                        if (failure == null) {
-                            failure = taskFailure;
-                        }
-                        else if (failure != taskFailure) {
-                            failure.addSuppressed(taskFailure);
-                        }
+                    if (taskId.getAttemptId() != maxAttemptId) {
+                        // ignore failures from previous attempts
+                        continue;
                     }
+
+                    if (taskFailure instanceof TrinoException && REMOTE_TASK_FAILED.toErrorCode().equals(((TrinoException) taskFailure).getErrorCode())) {
+                        // This error indicates that a downstream task was trying to fetch results from an upstream task that is marked as failed
+                        // Instead of failing a downstream task let the coordinator handle and report the failure of an upstream task to ensure correct error reporting
+                        log.debug("Task failure discovered while fetching task results: %s", taskId);
+                        continue;
+                    }
+
+                    if (failure == null) {
+                        failure = taskFailure;
+                    }
+                    else if (failure != taskFailure) {
+                        failure.addSuppressed(taskFailure);
+                    }
+                }
+
+                if (failure != null) {
                     pageBuffer.clear();
                     bufferRetainedSizeInBytes = 0;
                     this.failure = failure;
@@ -286,11 +300,11 @@ public class DeduplicationExchangeClientBuffer
     {
         // wipe previous attempt pages
         long pagesRetainedSizeInBytes = 0;
-        Iterator<Map.Entry<TaskId, SerializedPage>> iterator = pageBuffer.entries().iterator();
+        Iterator<Map.Entry<TaskId, Slice>> iterator = pageBuffer.entries().iterator();
         while (iterator.hasNext()) {
-            Map.Entry<TaskId, SerializedPage> entry = iterator.next();
+            Map.Entry<TaskId, Slice> entry = iterator.next();
             if (entry.getKey().getAttemptId() < currentAttemptId) {
-                pagesRetainedSizeInBytes += entry.getValue().getRetainedSizeInBytes();
+                pagesRetainedSizeInBytes += entry.getValue().getRetainedSize();
                 iterator.remove();
             }
         }

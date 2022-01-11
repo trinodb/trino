@@ -283,7 +283,7 @@ public class PostgreSqlClient
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
         ImmutableList.Builder<String> tableTypes = ImmutableList.builder();
-        tableTypes.add("TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
+        tableTypes.add("TABLE", "PARTITIONED TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
         if (postgreSqlConfig.isIncludeSystemTables()) {
             tableTypes.add("SYSTEM TABLE", "SYSTEM VIEW");
         }

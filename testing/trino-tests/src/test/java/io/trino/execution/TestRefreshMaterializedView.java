@@ -43,9 +43,12 @@ import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
@@ -124,6 +127,15 @@ public class TestRefreshMaterializedView
 
         // wait for connector to start refreshing MV
         getFutureValue(startRefreshMaterializedView);
+
+        // verify that the query eventually transitions to the RUNNING state
+        QueryManager queryManager = getDistributedQueryRunner().getCoordinator().getQueryManager();
+        assertEventually(() ->
+                assertThat(
+                        queryManager.getQueries().stream()
+                                .allMatch(basicQueryInfo -> basicQueryInfo.getState() == RUNNING))
+                        .isTrue());
+
         // finish MV refresh
         finishRefreshMaterializedView.set(null);
 
