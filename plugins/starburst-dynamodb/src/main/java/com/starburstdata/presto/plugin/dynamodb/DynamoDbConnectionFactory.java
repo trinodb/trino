@@ -83,6 +83,7 @@ public class DynamoDbConnectionFactory
                 .append("AWS Region=\"").append(AWS_REGION_TO_CDATA_REGION.get(dynamoDbConfig.getAwsRegion())).append("\";")
                 .append("IgnoreTypes=\"Datetime,Time\";") // Change default of IgnoreTypes to support date types
                 .append("UseBatchWriteItemOperation=\"True\";") // Enable BatchWriteItemOperation to support varbinary types
+                .append("ReportMetadataExceptions=\"True\";") // Throw exceptions on failing metadata operations
                 .append("OEMKey=\"").append(CDATA_OEM_KEY).append("\";");
 
         // Both of these settings are validated in DynamoDbConfig
