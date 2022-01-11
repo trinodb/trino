@@ -66,7 +66,7 @@ public class TestIterativeOptimizer
         }
     }
 
-    @Test(timeOut = 1000)
+    @Test(timeOut = 10_000)
     public void optimizerTimeoutsOnNonConvergingPlan()
     {
         PlanOptimizer optimizer = new IterativeOptimizer(
