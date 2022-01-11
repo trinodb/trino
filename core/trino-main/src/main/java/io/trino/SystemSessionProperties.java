@@ -78,8 +78,6 @@ public final class SystemSessionProperties
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
-    public static final String USE_ENHANCED_GROUP_BY = "use_enhanced_group_by";
-    public static final String ENHANCED_GROUP_BY_MAX_VAR_WIDTH_BUFFER_SIZE = "enhanced_group_by_max_var_width_buffer_size";
     public static final String USE_TABLE_SCAN_NODE_PARTITIONING = "use_table_scan_node_partitioning";
     public static final String TABLE_SCAN_NODE_PARTITIONING_MIN_BUCKET_TO_TASK_RATIO = "table_scan_node_partitioning_min_bucket_to_task_ratio";
     public static final String SPATIAL_JOIN = "spatial_join";
@@ -146,6 +144,8 @@ public final class SystemSessionProperties
     public static final String INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED = "incremental_hash_array_load_factor_enabled";
     public static final String MAX_PARTIAL_TOP_N_MEMORY = "max_partial_top_n_memory";
     private static final String TASK_MAX_PARTIAL_AGGREGATION_MEMORY = "task_max_partial_aggregation_memory";
+    public static final String USE_ENHANCED_GROUP_BY = "use_enhanced_group_by";
+    public static final String ENHANCED_GROUP_BY_MAX_VAR_WIDTH_BUFFER_SIZE = "enhanced_group_by_max_var_width_buffer_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -312,16 +312,6 @@ public final class SystemSessionProperties
                         DICTIONARY_AGGREGATION,
                         "Enable optimization for aggregations on dictionaries",
                         featuresConfig.isDictionaryAggregation(),
-                        false),
-                booleanProperty(
-                        USE_ENHANCED_GROUP_BY,
-                        "Enable optimization for aggregations",
-                        featuresConfig.isUseEnhancedGroupBy(),
-                        false),
-                integerProperty(
-                        ENHANCED_GROUP_BY_MAX_VAR_WIDTH_BUFFER_SIZE,
-                        "The maximum number of bytes per variable width column value stored in the hash table main buffer",
-                        featuresConfig.getEnhancedGroupByMaxVarWidthBufferSize(),
                         false),
                 integerProperty(
                         INITIAL_SPLITS_PER_NODE,
@@ -683,6 +673,16 @@ public final class SystemSessionProperties
                         TASK_MAX_PARTIAL_AGGREGATION_MEMORY,
                         "Maximum size of partial aggregation results for distributed aggregations.",
                         taskManagerConfig.getMaxPartialAggregationMemoryUsage(),
+                        false),
+                booleanProperty(
+                        USE_ENHANCED_GROUP_BY,
+                        "Enable optimization for aggregations",
+                        featuresConfig.isUseEnhancedGroupBy(),
+                        false),
+                integerProperty(
+                        ENHANCED_GROUP_BY_MAX_VAR_WIDTH_BUFFER_SIZE,
+                        "The maximum number of bytes per variable width column value stored in the hash table main buffer",
+                        featuresConfig.getEnhancedGroupByMaxVarWidthBufferSize(),
                         false));
     }
 
@@ -785,16 +785,6 @@ public final class SystemSessionProperties
     public static boolean isDictionaryAggregationEnabled(Session session)
     {
         return session.getSystemProperty(DICTIONARY_AGGREGATION, Boolean.class);
-    }
-
-    public static boolean isUseEnhancedGroupByEnabled(Session session)
-    {
-        return session.getSystemProperty(USE_ENHANCED_GROUP_BY, Boolean.class);
-    }
-
-    public static int getEnhancedGroupByMaxVarWidthBufferSize(Session session)
-    {
-        return session.getSystemProperty(ENHANCED_GROUP_BY_MAX_VAR_WIDTH_BUFFER_SIZE, Integer.class);
     }
 
     public static boolean isOptimizeMetadataQueries(Session session)
@@ -929,11 +919,6 @@ public final class SystemSessionProperties
         DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
         checkArgument(memoryLimitForMerge.toBytes() >= 0, "%s must be positive", AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT);
         return memoryLimitForMerge;
-    }
-
-    public static DataSize getMaxPartialAggregationMemoryUsage(Session session)
-    {
-        return session.getSystemProperty(TASK_MAX_PARTIAL_AGGREGATION_MEMORY, DataSize.class);
     }
 
     public static boolean isOptimizeDistinctAggregationEnabled(Session session)
@@ -1215,5 +1200,20 @@ public final class SystemSessionProperties
     public static DataSize getMaxPartialTopNMemory(Session session)
     {
         return session.getSystemProperty(MAX_PARTIAL_TOP_N_MEMORY, DataSize.class);
+    }
+
+    public static DataSize getMaxPartialAggregationMemoryUsage(Session session)
+    {
+        return session.getSystemProperty(TASK_MAX_PARTIAL_AGGREGATION_MEMORY, DataSize.class);
+    }
+
+    public static boolean isUseEnhancedGroupByEnabled(Session session)
+    {
+        return session.getSystemProperty(USE_ENHANCED_GROUP_BY, Boolean.class);
+    }
+
+    public static int getEnhancedGroupByMaxVarWidthBufferSize(Session session)
+    {
+        return session.getSystemProperty(ENHANCED_GROUP_BY_MAX_VAR_WIDTH_BUFFER_SIZE, Integer.class);
     }
 }
