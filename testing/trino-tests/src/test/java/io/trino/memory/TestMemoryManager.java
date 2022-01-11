@@ -44,6 +44,7 @@ import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -272,8 +273,8 @@ public class TestMemoryManager
             ClusterMemoryPool generalPool = memoryManager.getPools().get(GENERAL_POOL);
             assertNotNull(generalPool);
 
-            // Wait for the queries to start running and get assigned to the expected pools
-            while (generalPool.getAssignedQueries() != 1 || reservedPool.getAssignedQueries() != 1 || generalPool.getBlockedNodes() != 2 || reservedPool.getBlockedNodes() != 2) {
+            // Wait for the pools to become blocked
+            while (generalPool.getBlockedNodes() != 2 || reservedPool.getBlockedNodes() != 2) {
                 MILLISECONDS.sleep(10);
             }
 
@@ -285,6 +286,10 @@ public class TestMemoryManager
             assertEquals(currentQueryInfos.size(), 2);
             // Check that the pool information propagated to the query objects
             assertNotEquals(currentQueryInfos.get(0).getMemoryPool(), currentQueryInfos.get(1).getMemoryPool());
+
+            // Check that queries are assigned to expected pools
+            assertThat(currentQueryInfos.get(0).getMemoryPool()).isIn(GENERAL_POOL, RESERVED_POOL);
+            assertThat(currentQueryInfos.get(1).getMemoryPool()).isIn(GENERAL_POOL, RESERVED_POOL);
 
             while (!currentQueryInfos.stream().allMatch(TestMemoryManager::isBlockedWaitingForMemory)) {
                 MILLISECONDS.sleep(10);
