@@ -409,9 +409,9 @@ public class IcebergMetadata
     }
 
     @Override
-    public void setSchemaAuthorization(ConnectorSession session, String source, TrinoPrincipal principal)
+    public void setSchemaAuthorization(ConnectorSession session, String schemaName, TrinoPrincipal principal)
     {
-        catalog.setNamespacePrincipal(session, source, principal);
+        catalog.setNamespacePrincipal(session, schemaName, principal);
     }
 
     @Override
