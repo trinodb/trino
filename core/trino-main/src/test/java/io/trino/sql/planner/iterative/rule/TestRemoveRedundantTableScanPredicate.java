@@ -29,9 +29,12 @@ import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LogicalExpression;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -46,7 +49,11 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.tree.LogicalExpression.Operator.AND;
+import static io.trino.sql.tree.LogicalExpression.Operator.OR;
+import static org.testng.Assert.assertTrue;
 
 public class TestRemoveRedundantTableScanPredicate
         extends BaseRuleTest
@@ -241,5 +248,64 @@ public class TestRemoveRedundantTableScanPredicate
                                 ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
                                 ImmutableMap.of(p.symbol("orderstatus", createVarcharType(1)), new TpchColumnHandle("orderstatus", createVarcharType(1))))))
                 .doesNotFire();
+    }
+
+    @Test
+    public void testLogicalEquals()
+    {
+        Expression expression1 = new LogicalExpression(
+                AND,
+                ImmutableList.of(
+                        new LogicalExpression(
+                                OR,
+                                ImmutableList.of(
+                                        new ComparisonExpression(
+                                                GREATER_THAN,
+                                                new StringLiteral("uid"),
+                                                new LongLiteral("0")),
+                                        new ComparisonExpression(
+                                                GREATER_THAN,
+                                                new StringLiteral("uid"),
+                                                new LongLiteral("3")))),
+                        new LogicalExpression(
+                                OR,
+                                ImmutableList.of(
+                                        new ComparisonExpression(
+                                                GREATER_THAN,
+                                                new StringLiteral("uid"),
+                                                new LongLiteral("1")),
+                                        new ComparisonExpression(
+                                                LESS_THAN,
+                                                new StringLiteral("uid"),
+                                                new LongLiteral("3"))))));
+        Expression expression2 = new LogicalExpression(
+                AND,
+                ImmutableList.of(
+                        new LogicalExpression(
+                                OR,
+                                ImmutableList.of(
+                                        new ComparisonExpression(
+                                                GREATER_THAN,
+                                                new StringLiteral("uid"),
+                                                new LongLiteral("3")),
+                                        new ComparisonExpression(
+                                                GREATER_THAN,
+                                                new StringLiteral("uid"),
+                                                new LongLiteral("0")))),
+                        new LogicalExpression(
+                                OR,
+                                ImmutableList.of(
+                                        new ComparisonExpression(
+                                                LESS_THAN,
+                                                new StringLiteral("uid"),
+                                                new LongLiteral("3")),
+                                        new ComparisonExpression(
+                                                GREATER_THAN,
+                                                new StringLiteral("uid"),
+                                                new LongLiteral("1"))))));
+        RemoveRedundantTableScanPredicate removeRedundantTableScanPredicate =
+                RemoveRedundantTableScanPredicate.createRemoveRedundantTableScanPredicateForTest();
+        assertTrue(
+                removeRedundantTableScanPredicate.logicalEquals(expression1, expression2));
     }
 }

@@ -35,6 +35,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.LogicalExpression;
 
 import java.util.Map;
 import java.util.Objects;
@@ -68,6 +69,17 @@ public class RemoveRedundantTableScanPredicate
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
+    public static RemoveRedundantTableScanPredicate createRemoveRedundantTableScanPredicateForTest()
+    {
+        return new RemoveRedundantTableScanPredicate();
+    }
+
+    private RemoveRedundantTableScanPredicate()
+    {
+        plannerContext = null;
+        typeAnalyzer = null;
+    }
+
     @Override
     public Pattern<FilterNode> getPattern()
     {
@@ -87,11 +99,49 @@ public class RemoveRedundantTableScanPredicate
                 context.getIdAllocator());
 
         if (rewritten instanceof FilterNode
-                && Objects.equals(((FilterNode) rewritten).getPredicate(), filterNode.getPredicate())) {
+                && logicalEquals(((FilterNode) rewritten).getPredicate(), filterNode.getPredicate())) {
             return Result.empty();
         }
 
         return Result.ofPlanNode(rewritten);
+    }
+
+    public boolean logicalEquals(Expression expression, Expression expression1)
+    {
+        if (!(expression instanceof LogicalExpression && expression1 instanceof LogicalExpression)) {
+            return Objects.equals(expression, expression1);
+        }
+        LogicalExpression logicalExpression = (LogicalExpression) expression;
+        LogicalExpression logicalExpression1 = (LogicalExpression) expression1;
+
+        if (logicalExpression.getOperator() != logicalExpression1.getOperator()) {
+            return false;
+        }
+        if (logicalExpression.getTerms() == logicalExpression1.getTerms()) {
+            return true;
+        }
+
+        if (logicalExpression.getTerms() == null || logicalExpression1.getTerms() == null) {
+            return false;
+        }
+
+        if (logicalExpression.getTerms().size() != logicalExpression1.getTerms().size()) {
+            return false;
+        }
+
+        for (Expression expression2 : logicalExpression.getTerms()) {
+            boolean equals = false;
+            for (Expression expression3 : logicalExpression1.getTerms()) {
+                if (logicalEquals(expression2, expression3)) {
+                    equals = true;
+                    break;
+                }
+            }
+            if (!equals) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private PlanNode removeRedundantTableScanPredicate(
