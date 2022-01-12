@@ -294,7 +294,7 @@ public final class OkHttpUtil
         Optional<String> systemTrustStoreType = trustStoreType;
         if (!systemTrustStoreType.isPresent()) {
             if (isWindows(osName)) {
-                systemTrustStoreType = Optional.of("Windows-MY");
+                systemTrustStoreType = Optional.of("Windows-ROOT");
             }
             else if (isMacOs(osName)) {
                 systemTrustStoreType = Optional.of("KeychainStore");
