@@ -52,10 +52,8 @@ public class TaskStats
     private final int completedDrivers;
 
     private final double cumulativeUserMemory;
-    private final double cumulativeSystemMemory;
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
-    private final DataSize systemMemoryReservation;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
@@ -105,8 +103,6 @@ public class TaskStats
                 0,
                 0,
                 0.0,
-                0.0,
-                DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 new Duration(0, MILLISECONDS),
@@ -152,10 +148,8 @@ public class TaskStats
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
-            @JsonProperty("cumulativeSystemMemory") double cumulativeSystemMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
-            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
@@ -217,10 +211,8 @@ public class TaskStats
         this.completedDrivers = completedDrivers;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
-        this.cumulativeSystemMemory = cumulativeSystemMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
-        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -341,12 +333,6 @@ public class TaskStats
     }
 
     @JsonProperty
-    public double getCumulativeSystemMemory()
-    {
-        return cumulativeSystemMemory;
-    }
-
-    @JsonProperty
     public DataSize getUserMemoryReservation()
     {
         return userMemoryReservation;
@@ -356,12 +342,6 @@ public class TaskStats
     public DataSize getRevocableMemoryReservation()
     {
         return revocableMemoryReservation;
-    }
-
-    @JsonProperty
-    public DataSize getSystemMemoryReservation()
-    {
-        return systemMemoryReservation;
     }
 
     @JsonProperty
@@ -528,10 +508,8 @@ public class TaskStats
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory,
-                cumulativeSystemMemory,
                 userMemoryReservation,
                 revocableMemoryReservation,
-                systemMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,
                 totalBlockedTime,
@@ -574,10 +552,8 @@ public class TaskStats
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory,
-                cumulativeSystemMemory,
                 userMemoryReservation,
                 revocableMemoryReservation,
-                systemMemoryReservation,
                 totalScheduledTime,
                 totalCpuTime,
                 totalBlockedTime,

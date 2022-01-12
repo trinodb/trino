@@ -301,7 +301,6 @@ public abstract class AbstractOperatorBenchmark
         TaskContext taskContext = new QueryContext(
                 new QueryId("test"),
                 DataSize.of(256, MEGABYTE),
-                DataSize.of(512, MEGABYTE),
                 Optional.empty(),
                 memoryPool,
                 new TestingGcMonitor(),

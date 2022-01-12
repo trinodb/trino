@@ -91,7 +91,7 @@ public class TestExchangeOperator
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), scheduler);
 
-        directExchangeClientSupplier = (systemMemoryUsageListener, taskFailureListener, retryPolicy) -> new DirectExchangeClient(
+        directExchangeClientSupplier = (memoryContext, taskFailureListener, retryPolicy) -> new DirectExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
                 new StreamingDirectExchangeBuffer(scheduler, DataSize.of(32, MEGABYTE)),
@@ -101,7 +101,7 @@ public class TestExchangeOperator
                 true,
                 httpClient,
                 scheduler,
-                systemMemoryUsageListener,
+                memoryContext,
                 pageBufferClientCallbackExecutor,
                 taskFailureListener);
     }
@@ -266,7 +266,7 @@ public class TestExchangeOperator
                 .addDriverContext();
 
         SourceOperator operator = operatorFactory.createOperator(driverContext);
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getSystemMemoryReservation().toBytes(), 0);
+        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
         return operator;
     }
 
@@ -283,7 +283,7 @@ public class TestExchangeOperator
                 break;
             }
 
-            if (operator.getOperatorContext().getDriverContext().getPipelineContext().getPipelineStats().getSystemMemoryReservation().toBytes() > 0) {
+            if (operator.getOperatorContext().getDriverContext().getPipelineContext().getPipelineStats().getUserMemoryReservation().toBytes() > 0) {
                 greaterThanZero = true;
                 break;
             }
@@ -321,7 +321,7 @@ public class TestExchangeOperator
             assertPageEquals(TYPES, page, PAGE);
         }
 
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getSystemMemoryReservation().toBytes(), 0);
+        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
 
         return outputPages;
     }
@@ -344,6 +344,6 @@ public class TestExchangeOperator
         assertEquals(operator.isFinished(), true);
         assertEquals(operator.needsInput(), false);
         assertNull(operator.getOutput());
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getSystemMemoryReservation().toBytes(), 0);
+        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
     }
 }

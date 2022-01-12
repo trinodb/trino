@@ -196,7 +196,7 @@ public class InformationSchemaPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return memoryUsageBytes + pageBuilder.getRetainedSizeInBytes();
     }

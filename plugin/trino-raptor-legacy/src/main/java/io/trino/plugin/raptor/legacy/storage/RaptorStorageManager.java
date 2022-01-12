@@ -240,7 +240,7 @@ public class RaptorStorageManager
         orcReaderOptions = orcReaderOptions.withMaxReadBlockSize(HUGE_MAX_READ_BLOCK_SIZE);
         OrcDataSource dataSource = openShard(shardUuid, orcReaderOptions);
 
-        AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
+        AggregatedMemoryContext memoryUsage = newSimpleAggregatedMemoryContext();
 
         try {
             OrcReader reader = OrcReader.createOrcReader(dataSource, orcReaderOptions)
@@ -278,7 +278,7 @@ public class RaptorStorageManager
                     fileReadTypes,
                     predicate,
                     UTC,
-                    systemMemoryUsage,
+                    memoryUsage,
                     INITIAL_BATCH_SIZE,
                     RaptorPageSource::handleException);
 
@@ -287,7 +287,7 @@ public class RaptorStorageManager
                 shardRewriter = Optional.of(createShardRewriter(transactionId.getAsLong(), bucketNumber, shardUuid));
             }
 
-            return new RaptorPageSource(shardRewriter, recordReader, columnAdaptations, dataSource, systemMemoryUsage);
+            return new RaptorPageSource(shardRewriter, recordReader, columnAdaptations, dataSource, memoryUsage);
         }
         catch (IOException | RuntimeException e) {
             closeQuietly(dataSource);

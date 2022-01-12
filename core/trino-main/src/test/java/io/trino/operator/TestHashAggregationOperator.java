@@ -193,8 +193,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
-                blockTypeOperators,
-                false);
+                blockTypeOperators);
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
 
@@ -247,8 +246,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
-                blockTypeOperators,
-                false);
+                blockTypeOperators);
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
@@ -272,7 +270,7 @@ public class TestHashAggregationOperator
                 .addSequencePage(10, 300, 0)
                 .build();
 
-        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.of(10, Unit.MEGABYTE))
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.of(11, Unit.MEGABYTE))
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
@@ -294,18 +292,16 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
-                blockTypeOperators,
-                false);
+                blockTypeOperators);
 
         Operator operator = operatorFactory.createOperator(driverContext);
         toPages(operator, input.iterator(), revokeMemoryWhenAddingPages);
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getRevocableMemoryReservation().toBytes(), 0);
         // TODO (https://github.com/trinodb/trino/issues/10596): it should be 0, since operator is finished
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getSystemMemoryReservation().toBytes(), spillEnabled && revokeMemoryWhenAddingPages ? 5_350_968 : 0);
+        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), spillEnabled && revokeMemoryWhenAddingPages ? 5_350_968 : 0);
+        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getRevocableMemoryReservation().toBytes(), 0);
     }
 
-    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 10B.*")
+    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node memory limit of 10B.*")
     public void testMemoryLimit(boolean hashEnabled)
     {
         TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("max"), fromTypes(VARCHAR));
@@ -338,8 +334,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
-                blockTypeOperators,
-                false);
+                blockTypeOperators);
 
         toPages(operatorFactory, driverContext, input);
     }
@@ -379,8 +374,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
-                blockTypeOperators,
-                false);
+                blockTypeOperators);
 
         toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
     }
@@ -402,8 +396,7 @@ public class TestHashAggregationOperator
                 1,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
-                blockTypeOperators,
-                false);
+                blockTypeOperators);
 
         // get result with yield; pick a relatively small buffer for aggregator's memory usage
         GroupByHashYieldResult result;
@@ -423,7 +416,7 @@ public class TestHashAggregationOperator
         assertEquals(count, 6_000 * 600);
     }
 
-    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 3MB.*")
+    @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node memory limit of 3MB.*")
     public void testHashBuilderResizeLimit(boolean hashEnabled)
     {
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, MAX_BLOCK_SIZE_IN_BYTES);
@@ -455,8 +448,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
-                blockTypeOperators,
-                false);
+                blockTypeOperators);
 
         toPages(operatorFactory, driverContext, input);
     }
@@ -490,8 +482,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
-                blockTypeOperators,
-                false);
+                blockTypeOperators);
 
         assertEquals(toPages(operatorFactory, createDriverContext(), input).size(), 2);
     }
@@ -522,8 +513,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(1, KILOBYTE)),
                 joinCompiler,
-                blockTypeOperators,
-                true);
+                blockTypeOperators);
 
         DriverContext driverContext = createDriverContext(1024);
 
@@ -542,8 +532,7 @@ public class TestHashAggregationOperator
                 operator.addInput(inputIterator.next());
             }
 
-            assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
-            assertEquals(driverContext.getMemoryUsage(), 0);
+            assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
 
             // Drain the output (partial flush)
             List<Page> outputPages = new ArrayList<>();
@@ -575,7 +564,6 @@ public class TestHashAggregationOperator
             assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
         }
 
-        assertEquals(driverContext.getSystemMemoryUsage(), 0);
         assertEquals(driverContext.getMemoryUsage(), 0);
         assertEquals(driverContext.getRevocableMemoryUsage(), 0);
     }
@@ -610,8 +598,7 @@ public class TestHashAggregationOperator
                 succinctBytes(Integer.MAX_VALUE),
                 spillerFactory,
                 joinCompiler,
-                blockTypeOperators,
-                false);
+                blockTypeOperators);
 
         DriverContext driverContext = createDriverContext(smallPagesSpillThresholdSize);
 
@@ -665,8 +652,7 @@ public class TestHashAggregationOperator
                 succinctBytes(Integer.MAX_VALUE),
                 new FailingSpillerFactory(),
                 joinCompiler,
-                blockTypeOperators,
-                false);
+                blockTypeOperators);
 
         assertThatThrownBy(() -> toPages(operatorFactory, driverContext, input))
                 .isInstanceOf(RuntimeException.class)
@@ -676,13 +662,6 @@ public class TestHashAggregationOperator
 
     @Test
     public void testMemoryTracking()
-            throws Exception
-    {
-        testMemoryTracking(false);
-        testMemoryTracking(true);
-    }
-
-    private void testMemoryTracking(boolean useSystemMemory)
             throws Exception
     {
         List<Integer> hashChannels = Ints.asList(0);
@@ -702,8 +681,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
-                blockTypeOperators,
-                useSystemMemory);
+                blockTypeOperators);
 
         DriverContext driverContext = createDriverContext(1024);
 
@@ -711,19 +689,11 @@ public class TestHashAggregationOperator
             assertTrue(operator.needsInput());
             operator.addInput(input);
 
-            if (useSystemMemory) {
-                assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
-                assertEquals(driverContext.getMemoryUsage(), 0);
-            }
-            else {
-                assertEquals(driverContext.getSystemMemoryUsage(), 0);
-                assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
-            }
+            assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
 
             toPages(operator, emptyIterator());
         }
 
-        assertEquals(driverContext.getSystemMemoryUsage(), 0);
         assertEquals(driverContext.getMemoryUsage(), 0);
         assertEquals(driverContext.getRevocableMemoryUsage(), 0);
     }

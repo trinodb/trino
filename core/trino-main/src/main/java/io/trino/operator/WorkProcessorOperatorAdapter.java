@@ -145,8 +145,7 @@ public class WorkProcessorOperatorAdapter
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         MemoryTrackingContext memoryTrackingContext = new MemoryTrackingContext(
                 operatorContext.aggregateUserMemoryContext(),
-                operatorContext.aggregateRevocableMemoryContext(),
-                operatorContext.aggregateSystemMemoryContext());
+                operatorContext.aggregateRevocableMemoryContext());
         memoryTrackingContext.initializeLocalMemoryContexts(workProcessorOperatorFactory.getOperatorType());
         this.workProcessorOperator = requireNonNull(workProcessorOperatorFactory, "workProcessorOperatorFactory is null")
                 .createAdapterOperator(new ProcessorContext(operatorContext.getSession(), memoryTrackingContext, operatorContext));

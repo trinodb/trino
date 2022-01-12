@@ -77,7 +77,7 @@ public class DirectExchangeClient
 
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
     private final Executor pageBufferClientCallbackExecutor;
     private final TaskFailureListener taskFailureListener;
 
@@ -93,7 +93,7 @@ public class DirectExchangeClient
             boolean acknowledgePages,
             HttpClient httpClient,
             ScheduledExecutorService scheduledExecutor,
-            LocalMemoryContext systemMemoryContext,
+            LocalMemoryContext memoryContext,
             Executor pageBufferClientCallbackExecutor,
             TaskFailureListener taskFailureListener)
     {
@@ -106,7 +106,7 @@ public class DirectExchangeClient
         this.acknowledgePages = acknowledgePages;
         this.httpClient = httpClient;
         this.scheduledExecutor = scheduledExecutor;
-        this.systemMemoryContext = systemMemoryContext;
+        this.memoryContext = memoryContext;
         this.pageBufferClientCallbackExecutor = requireNonNull(pageBufferClientCallbackExecutor, "pageBufferClientCallbackExecutor is null");
         this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
     }
@@ -217,7 +217,7 @@ public class DirectExchangeClient
             return null;
         }
 
-        systemMemoryContext.setBytes(buffer.getRetainedSizeInBytes());
+        memoryContext.setBytes(buffer.getRetainedSizeInBytes());
         scheduleRequestIfNecessary();
 
         return page;
@@ -239,7 +239,7 @@ public class DirectExchangeClient
             closeQuietly(client);
         }
         buffer.close();
-        systemMemoryContext.setBytes(0);
+        memoryContext.setBytes(0);
     }
 
     private synchronized void scheduleRequestIfNecessary()
@@ -296,7 +296,7 @@ public class DirectExchangeClient
         // add pages outside of the lock
         if (!pages.isEmpty()) {
             buffer.addPages(client.getRemoteTaskId(), pages);
-            systemMemoryContext.setBytes(buffer.getRetainedSizeInBytes());
+            memoryContext.setBytes(buffer.getRetainedSizeInBytes());
         }
 
         return true;

@@ -69,11 +69,12 @@ public class EnvSinglenodeCompatibility
 
     private void configureCompatibilityTestContainer(Environment.Builder builder, Config config)
     {
-        String containerConfigDir = getConfigurationDirectory(config.getCompatibilityTestDockerImage());
-        DockerContainer container = new DockerContainer(config.getCompatibilityTestDockerImage(), COMPATIBILTY_TEST_CONTAINER_NAME)
+        String dockerImage = config.getCompatibilityTestDockerImage();
+        String containerConfigDir = getConfigurationDirectory(dockerImage);
+        DockerContainer container = new DockerContainer(dockerImage, COMPATIBILTY_TEST_CONTAINER_NAME)
                 .withExposedLogPaths("/var/trino/var/log", "/var/log/container-health.log")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), containerConfigDir + "jvm.config")
-                .withCopyFileToContainer(forHostPath(configDir.getPath("config.properties")), containerConfigDir + "config.properties")
+                .withCopyFileToContainer(forHostPath(configDir.getPath(getConfigFileFor(dockerImage))), containerConfigDir + "config.properties")
                 .withCopyFileToContainer(forHostPath(configDir.getPath("hive.properties")), containerConfigDir + "catalog/hive.properties")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
@@ -83,10 +84,10 @@ public class EnvSinglenodeCompatibility
         portBinder.exposePort(container, SERVER_PORT);
     }
 
-    protected String getConfigurationDirectory(String dockerImageName)
+    protected String getConfigurationDirectory(String dockerImage)
     {
         try {
-            int version = getVersionFromDockerImageName(dockerImageName);
+            int version = getVersionFromDockerImageName(dockerImage);
             if (version <= 350) {
                 return "/usr/lib/presto/default/etc/";
             }
@@ -97,8 +98,16 @@ public class EnvSinglenodeCompatibility
             return "/etc/trino/";
         }
         catch (NumberFormatException e) {
-            throw new RuntimeException("Failed to parse version from docker image name " + dockerImageName);
+            throw new RuntimeException("Failed to parse version from docker image name " + dockerImage);
         }
+    }
+
+    private String getConfigFileFor(String dockerImage)
+    {
+        if (getVersionFromDockerImageName(dockerImage) < 369) {
+            return "config-with-system-memory.properties";
+        }
+        return "config.properties";
     }
 
     private void configureTestsContainer(Environment.Builder builder, Config config)

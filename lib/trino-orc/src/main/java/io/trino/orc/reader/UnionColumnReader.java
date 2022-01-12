@@ -82,7 +82,7 @@ public class UnionColumnReader
 
     private boolean rowGroupOpen;
 
-    UnionColumnReader(Type type, OrcColumn column, AggregatedMemoryContext systemMemoryContext, OrcBlockFactory blockFactory, FieldMapperFactory fieldMapperFactory)
+    UnionColumnReader(Type type, OrcColumn column, AggregatedMemoryContext memoryContext, OrcBlockFactory blockFactory, FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -99,7 +99,7 @@ public class UnionColumnReader
                     type.getTypeParameters().get(i + 1),
                     fields.get(i),
                     fullyProjectedLayout(),
-                    systemMemoryContext,
+                    memoryContext,
                     blockFactory,
                     fieldMapperFactory));
         }

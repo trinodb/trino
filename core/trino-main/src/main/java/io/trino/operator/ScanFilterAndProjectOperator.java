@@ -111,7 +111,7 @@ public class ScanFilterAndProjectOperator
                         columns,
                         dynamicFilter,
                         types,
-                        requireNonNull(memoryTrackingContext, "memoryTrackingContext is null").aggregateSystemMemoryContext(),
+                        requireNonNull(memoryTrackingContext, "memoryTrackingContext is null").aggregateUserMemoryContext(),
                         minOutputPageSize,
                         minOutputPageRowCount,
                         avoidPageMaterialization));
@@ -336,7 +336,7 @@ public class ScanFilterAndProjectOperator
         {
             if (!finished) {
                 CursorProcessorOutput output = cursorProcessor.process(session, yieldSignal, cursor, pageBuilder);
-                pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
+                pageSourceMemoryContext.setBytes(cursor.getMemoryUsage());
 
                 processedPositions += output.getProcessedRows();
                 // TODO: derive better values for cursors
@@ -390,7 +390,7 @@ public class ScanFilterAndProjectOperator
             }
 
             Page page = pageSource.getNextPage();
-            pageSourceMemoryContext.setBytes(pageSource.getSystemMemoryUsage());
+            pageSourceMemoryContext.setBytes(pageSource.getMemoryUsage());
 
             if (page == null) {
                 if (pageSource.isFinished()) {

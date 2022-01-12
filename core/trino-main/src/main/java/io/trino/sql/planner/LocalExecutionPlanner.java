@@ -3130,8 +3130,7 @@ public class LocalExecutionPlanner
                             STATS_START_CHANNEL,
                             outputMapping,
                             source,
-                            context,
-                            true);
+                            context);
                 }
                 return createHashAggregationOperatorFactory(
                         node.getId(),
@@ -3155,8 +3154,7 @@ public class LocalExecutionPlanner
                         // is not possible, as it doesn't accept raw input data.
                         // Disabling partial pre-aggregation memory limit effectively
                         // turns PARTIAL aggregation into INTERMEDIATE.
-                        Optional.empty(),
-                        true);
+                        Optional.empty());
             }).orElse(new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
 
             List<Integer> inputChannels = node.getColumns().stream()
@@ -3214,8 +3212,7 @@ public class LocalExecutionPlanner
                             0,
                             outputMapping,
                             source,
-                            context,
-                            true);
+                            context);
                 }
                 return createHashAggregationOperatorFactory(
                         node.getId(),
@@ -3235,8 +3232,7 @@ public class LocalExecutionPlanner
                         outputMapping,
                         200,
                         // final aggregation ignores partial pre-aggregation memory limit
-                        Optional.empty(),
-                        true);
+                        Optional.empty());
             }).orElse(new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
 
             Map<Symbol, Integer> aggregationOutput = outputMapping.buildOrThrow();
@@ -3689,8 +3685,7 @@ public class LocalExecutionPlanner
                     0,
                     outputMappings,
                     source,
-                    context,
-                    node.getStep().isOutputPartial());
+                    context);
             return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), context, source);
         }
 
@@ -3701,8 +3696,7 @@ public class LocalExecutionPlanner
                 int startOutputChannel,
                 ImmutableMap.Builder<Symbol, Integer> outputMappings,
                 PhysicalOperation source,
-                LocalExecutionPlanContext context,
-                boolean useSystemMemory)
+                LocalExecutionPlanContext context)
         {
             int outputChannel = startOutputChannel;
             ImmutableList.Builder<AggregatorFactory> aggregatorFactories = ImmutableList.builder();
@@ -3713,7 +3707,7 @@ public class LocalExecutionPlanner
                 outputMappings.put(symbol, outputChannel); // one aggregation per channel
                 outputChannel++;
             }
-            return new AggregationOperatorFactory(context.getNextOperatorId(), planNodeId, aggregatorFactories.build(), useSystemMemory);
+            return new AggregationOperatorFactory(context.getNextOperatorId(), planNodeId, aggregatorFactories.build());
         }
 
         private PhysicalOperation planGroupByAggregation(
@@ -3741,8 +3735,7 @@ public class LocalExecutionPlanner
                     0,
                     mappings,
                     10_000,
-                    Optional.of(maxPartialAggregationMemorySize),
-                    node.getStep().isOutputPartial());
+                    Optional.of(maxPartialAggregationMemorySize));
             return new PhysicalOperation(operatorFactory, mappings.buildOrThrow(), context, source);
         }
 
@@ -3763,8 +3756,7 @@ public class LocalExecutionPlanner
                 int startOutputChannel,
                 ImmutableMap.Builder<Symbol, Integer> outputMappings,
                 int expectedGroups,
-                Optional<DataSize> maxPartialAggregationMemorySize,
-                boolean useSystemMemory)
+                Optional<DataSize> maxPartialAggregationMemorySize)
         {
             List<Symbol> aggregationOutputSymbols = new ArrayList<>();
             List<AggregatorFactory> aggregatorFactories = new ArrayList<>();
@@ -3810,7 +3802,6 @@ public class LocalExecutionPlanner
                         source.getTypes(),
                         groupByTypes,
                         groupByChannels,
-                        step,
                         aggregatorFactories,
                         joinCompiler);
             }
@@ -3833,8 +3824,7 @@ public class LocalExecutionPlanner
                         unspillMemoryLimit,
                         spillerFactory,
                         joinCompiler,
-                        blockTypeOperators,
-                        useSystemMemory);
+                        blockTypeOperators);
             }
         }
     }

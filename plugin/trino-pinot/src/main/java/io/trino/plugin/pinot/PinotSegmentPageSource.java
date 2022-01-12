@@ -122,7 +122,7 @@ public class PinotSegmentPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return estimatedMemoryUsageInBytes;
     }

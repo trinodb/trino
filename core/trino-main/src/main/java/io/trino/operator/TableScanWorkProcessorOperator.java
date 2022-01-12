@@ -72,7 +72,7 @@ public class TableScanWorkProcessorOperator
                 table,
                 columns,
                 dynamicFilter,
-                memoryTrackingContext.aggregateSystemMemoryContext());
+                memoryTrackingContext.aggregateUserMemoryContext());
         this.pages = splits.flatTransform(splitToPages);
     }
 
@@ -196,7 +196,7 @@ public class TableScanWorkProcessorOperator
                                 recordMaterializedBytes(page, sizeInBytes -> processedBytes += sizeInBytes);
                                 return page;
                             })
-                            .blocking(() -> memoryContext.setBytes(source.getSystemMemoryUsage())));
+                            .blocking(() -> memoryContext.setBytes(source.getMemoryUsage())));
         }
 
         Supplier<Optional<UpdatablePageSource>> getUpdatablePageSourceSupplier()

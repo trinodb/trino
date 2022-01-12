@@ -139,7 +139,7 @@ public class ScanQueryPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return 0;
     }

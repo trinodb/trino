@@ -76,7 +76,6 @@ public class TestQueryContext
             QueryContext queryContext = new QueryContext(
                     new QueryId("query"),
                     DataSize.ofBytes(10),
-                    DataSize.ofBytes(20),
                     Optional.empty(),
                     new MemoryPool(GENERAL_POOL, DataSize.ofBytes(10)),
                     new TestingGcMonitor(),
@@ -141,7 +140,6 @@ public class TestQueryContext
     private static QueryContext createQueryContext(QueryId queryId, MemoryPool generalPool)
     {
         return new QueryContext(queryId,
-                DataSize.ofBytes(10_000),
                 DataSize.ofBytes(10_000),
                 Optional.empty(),
                 generalPool,

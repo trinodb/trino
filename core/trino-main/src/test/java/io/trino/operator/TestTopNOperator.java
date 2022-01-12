@@ -201,7 +201,7 @@ public class TestTopNOperator
         Operator operator = operatorFactory.createOperator(smallDiverContext);
         assertThatThrownBy(() -> operator.addInput(input.get(0)))
                 .isInstanceOf(ExceededMemoryLimitException.class)
-                .hasMessageStartingWith("Query exceeded per-node user memory limit of ");
+                .hasMessageStartingWith("Query exceeded per-node memory limit of ");
     }
 
     private OperatorFactory topNOperatorFactory(

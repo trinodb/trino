@@ -268,7 +268,7 @@ public class OrcPageSourceFactory
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
-        AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
+        AggregatedMemoryContext memoryUsage = newSimpleAggregatedMemoryContext();
         try {
             Optional<OrcReader> optionalOrcReader = OrcReader.createOrcReader(orcDataSource, options);
             if (optionalOrcReader.isEmpty()) {
@@ -388,7 +388,7 @@ public class OrcPageSourceFactory
                     start,
                     length,
                     legacyFileTimeZone,
-                    systemMemoryUsage,
+                    memoryUsage,
                     INITIAL_BATCH_SIZE,
                     exception -> handleException(orcDataSource.getId(), exception),
                     NameBasedFieldMapper::create);
@@ -402,7 +402,7 @@ public class OrcPageSourceFactory
                             hdfsEnvironment,
                             info,
                             bucketNumber,
-                            systemMemoryUsage));
+                            memoryUsage));
 
             Optional<Long> originalFileRowId = acidInfo
                     .filter(OrcPageSourceFactory::hasOriginalFiles)
@@ -447,7 +447,7 @@ public class OrcPageSourceFactory
                     orcDataSource,
                     deletedRows,
                     originalFileRowId,
-                    systemMemoryUsage,
+                    memoryUsage,
                     stats);
         }
         catch (Exception e) {
