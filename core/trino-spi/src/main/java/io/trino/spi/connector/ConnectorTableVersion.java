@@ -26,7 +26,7 @@ public class ConnectorTableVersion
 
     public ConnectorTableVersion(PointerType pointerType, Type versionType, Object version)
     {
-        requireNonNull(pointerType, "travelType is null");
+        requireNonNull(pointerType, "pointerType is null");
         requireNonNull(versionType, "versionType is null");
         requireNonNull(version, "version is null");
         this.pointerType = pointerType;
@@ -53,7 +53,7 @@ public class ConnectorTableVersion
     public String toString()
     {
         return new StringBuilder("ConnectorTableVersion{")
-                .append("travelType=").append(pointerType)
+                .append("pointerType=").append(pointerType)
                 .append(", versionType=").append(versionType)
                 .append(", version=").append(version)
                 .append('}')
