@@ -120,7 +120,7 @@ public class Int128
     public static Int128 valueOf(BigInteger value)
     {
         long low = value.longValue();
-        long high = 0;
+        long high;
         try {
             high = value.shiftRight(64).longValueExact();
         }
