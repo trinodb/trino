@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
@@ -28,6 +29,7 @@ import io.trino.plugin.hive.AbstractTestHive.HiveTransaction;
 import io.trino.plugin.hive.AbstractTestHive.Transaction;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
+import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
 import io.trino.plugin.hive.fs.HiveFileIterator;
 import io.trino.plugin.hive.metastore.Column;
@@ -60,6 +62,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
@@ -213,7 +216,8 @@ public abstract class AbstractTestHiveFileSystem
                         new PropertiesSystemTableProvider()),
                 new DefaultHiveMaterializedViewMetadataFactory(),
                 SqlStandardAccessControlMetadata::new,
-                new FileSystemDirectoryLister());
+                new FileSystemDirectoryLister(),
+                new PartitionProjectionService(config, ImmutableMap.of(), new TestingTypeManager()));
         transactionManager = new HiveTransactionManager(metadataFactory);
         splitManager = new HiveSplitManager(
                 transactionManager,

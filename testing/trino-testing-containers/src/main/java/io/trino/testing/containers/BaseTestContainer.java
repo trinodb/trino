@@ -134,7 +134,7 @@ public abstract class BaseTestContainer
         container.stop();
     }
 
-    public void executeInContainerFailOnError(String... commandAndArgs)
+    public String executeInContainerFailOnError(String... commandAndArgs)
     {
         Container.ExecResult execResult = executeInContainer(commandAndArgs);
         if (execResult.getExitCode() != 0) {
@@ -144,6 +144,7 @@ public abstract class BaseTestContainer
             log.error("stdout: %s", execResult.getStdout());
             throw new RuntimeException(message);
         }
+        return execResult.getStdout();
     }
 
     public Container.ExecResult executeInContainer(String... commandAndArgs)

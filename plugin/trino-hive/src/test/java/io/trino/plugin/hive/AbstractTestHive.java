@@ -30,6 +30,7 @@ import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
+import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -115,6 +116,7 @@ import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.SqlVarbinary;
+import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeOperators;
@@ -860,7 +862,8 @@ public abstract class AbstractTestHive
                 },
                 SqlStandardAccessControlMetadata::new,
                 countingDirectoryLister,
-                1000);
+                1000,
+                new PartitionProjectionService(hiveConfig, ImmutableMap.of(), new TestingTypeManager()));
         transactionManager = new HiveTransactionManager(metadataFactory);
         splitManager = new HiveSplitManager(
                 transactionManager,

@@ -11,16 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.trino.plugin.hive.aws.athena.projection;
 
-package io.trino.plugin.hive.metastore;
+import io.trino.spi.type.Type;
 
-public interface HiveMetastoreDecorator
+import java.util.Map;
+
+public interface ProjectionFactory
 {
-    int PRIORITY_INTIAL = 0;
-    int PRIORITY_PARTITION_PROJECTION = 50;
-    int PRIORITY_RECORDING = 100;
+    boolean isSupportedColumnType(Type columnType);
 
-    int getPriority();
-
-    HiveMetastore decorate(HiveMetastore hiveMetastore);
+    Projection create(String columnName, Type columnType, Map<String, Object> columnProperties);
 }
