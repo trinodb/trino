@@ -37,7 +37,6 @@ public class KinesisShardCheckpointer
             KinesisSplit kinesisSplit,
             String logicalProcessName,
             int currentIterationNumber,
-            long checkpointIntervalMS,
             long dynamoReadCapacity,
             long dynamoWriteCapacity)
     {
@@ -45,7 +44,6 @@ public class KinesisShardCheckpointer
                 kinesisSplit,
                 logicalProcessName,
                 currentIterationNumber,
-                checkpointIntervalMS,
                 dynamoReadCapacity,
                 dynamoWriteCapacity);
     }
@@ -55,7 +53,6 @@ public class KinesisShardCheckpointer
             KinesisSplit kinesisSplit,
             String logicalProcessName,
             int currentIterationNumber,
-            long checkpointIntervalMS,
             long dynamoReadCapacity,
             long dynamoWriteCapacity)
     {
