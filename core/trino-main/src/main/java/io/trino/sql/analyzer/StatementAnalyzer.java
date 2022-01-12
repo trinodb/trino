@@ -4341,18 +4341,13 @@ class StatementAnalyzer
 
         private PointerType toPointerType(QueryPeriod.RangeType type)
         {
-            PointerType pointerType = null;
             switch (type) {
                 case TIMESTAMP:
-                    pointerType = PointerType.TEMPORAL;
-                    break;
+                    return PointerType.TEMPORAL;
                 case VERSION:
-                    pointerType = PointerType.TARGET_ID;
-                    break;
-                default:
-                    throw new TrinoException(NOT_SUPPORTED, format("No TravelType maps from RangeType %s.", type.name()));
+                    return PointerType.TARGET_ID;
             }
-            return pointerType;
+            throw new UnsupportedOperationException("Unsupported range type: " + type);
         }
     }
 
