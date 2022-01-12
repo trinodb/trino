@@ -402,7 +402,7 @@ public final class StreamPropertyDerivations
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
 
             // Only grouped symbols projected symbols are passed through
-            return properties.translate(symbol -> node.getGroupingKeys().contains(symbol) ? Optional.of(symbol) : Optional.empty());
+            return properties.translate(symbol -> node.getGroupingKeys().contains(symbol) && node.getOutputSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
         }
 
         @Override

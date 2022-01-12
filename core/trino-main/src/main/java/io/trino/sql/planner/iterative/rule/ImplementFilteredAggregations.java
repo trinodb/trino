@@ -154,6 +154,7 @@ public class ImplementFilteredAggregations
                         ImmutableList.of(),
                         aggregationNode.getStep(),
                         aggregationNode.getHashSymbol(),
-                        aggregationNode.getGroupIdSymbol()));
+                        aggregationNode.getGroupIdSymbol(),
+                        Optional.of(aggregationNode.getOutputSymbols())));
     }
 }
