@@ -128,25 +128,8 @@ Property                                                  Description
                                                           operation and usage of valid DNS host names.
 ========================================================= ======================================================
 
-.. note::
-
-    Monitor the CPU usage on the Trino coordinator after enabling HTTPS. Java
-    prefers the more CPU-intensive cipher suites, if you allow it to choose from
-    a big list. If the CPU usage is unacceptably high after enabling HTTPS,
-    you can configure Java to use specific cipher suites by setting
-    the ``http-server.https.included-cipher`` property to only allow
-    cheap ciphers. Non forward secrecy (FS) ciphers are disabled by default.
-    As a result, if you want to choose non FS ciphers, you need to set the
-    ``http-server.https.excluded-cipher`` property to an empty list in order to
-    override the default exclusions.
-
-    .. code-block:: text
-
-        http-server.https.included-cipher=TLS_RSA_WITH_AES_128_CBC_SHA,TLS_RSA_WITH_AES_128_CBC_SHA256
-        http-server.https.excluded-cipher=
-
-    The Java documentation lists the `supported cipher suites
-    <https://docs.oracle.com/en/java/javase/11/security/oracle-providers.html#GUID-7093246A-31A3-4304-AC5F-5FB6400405E2__SUNJSSE_CIPHER_SUITES>`_.
+See :ref:`Standards supported <tls-version-and-ciphers>` for a discussion of the
+supported TLS versions and cipher suites.
 
 access-controls.properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
