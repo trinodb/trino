@@ -143,9 +143,9 @@ public class TestIcebergMaterializedViews
     @Test
     public void testCreateWithDuplicateSourceTableSucceeds()
     {
-        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_with_duplicate_source AS" +
+        assertUpdate("CREATE MATERIALIZED VIEW materialized_view_with_duplicate_source AS " +
                 "SELECT _bigint, _date FROM base_table1 " +
-                "UNION ALL" +
+                "UNION ALL " +
                 "SELECT _bigint, _date FROM base_table1 ");
     }
 
