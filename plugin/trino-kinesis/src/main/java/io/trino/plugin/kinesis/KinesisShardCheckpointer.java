@@ -111,8 +111,8 @@ public class KinesisShardCheckpointer
     public String getLastReadSeqNumber()
     {
         String lastReadSeqNumber = null;
-        KinesisClientLease oldLease = null;
         if (currentIterationNumber > 0) {
+            KinesisClientLease oldLease;
             try {
                 oldLease = leaseManager.getLease(createCheckpointKey(currentIterationNumber - 1));
             }

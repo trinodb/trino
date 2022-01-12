@@ -77,7 +77,7 @@ public class OrcPageSource
     private final FileFormatDataSourceStats stats;
 
     // Row ID relative to all the original files of the same bucket ID before this file in lexicographic order
-    private Optional<Long> originalFileRowId = Optional.empty();
+    private final Optional<Long> originalFileRowId;
 
     private long completedPositions;
 

@@ -1029,7 +1029,6 @@ public class CachingHiveMetastore
             delegate.alterTransactionalTable(identity, table, transactionId, writeId, principalPrivileges);
         }
         finally {
-            identity = updateIdentity(identity);
             invalidateTable(table.getDatabaseName(), table.getTableName());
         }
     }
