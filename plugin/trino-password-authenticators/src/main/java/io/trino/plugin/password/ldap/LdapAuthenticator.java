@@ -92,6 +92,8 @@ public class LdapAuthenticator
     @VisibleForTesting
     void invalidateCache()
     {
+        // Note: this may not invalidate ongoing loads (https://github.com/trinodb/trino/issues/10512, https://github.com/google/guava/issues/1881)
+        // This is acceptable, since this operation is invoked in tests only, and not relied upon for correctness.
         authenticationCache.invalidateAll();
     }
 

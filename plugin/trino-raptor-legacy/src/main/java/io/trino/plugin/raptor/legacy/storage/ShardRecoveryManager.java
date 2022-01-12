@@ -427,6 +427,8 @@ public class ShardRecoveryManager
                             missingShard.getShardXxhash64(),
                             missingShard.isActive());
                     ListenableFuture<Void> future = shardRecoveryExecutor.submit(task);
+                    // TODO this may not invalidate ongoing loads (https://github.com/trinodb/trino/issues/10512, https://github.com/google/guava/issues/1881).
+                    //   Determine whether this is OK here.
                     future.addListener(() -> queuedMissingShards.invalidate(missingShard), directExecutor());
                     return future;
                 }
