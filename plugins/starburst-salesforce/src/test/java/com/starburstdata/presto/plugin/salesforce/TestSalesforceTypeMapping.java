@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.salesforce;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Resources;
 import com.starburstdata.presto.plugin.salesforce.testing.datatype.SalesforceCreateAndInsertDataSetup;
 import com.starburstdata.presto.plugin.salesforce.testing.datatype.SqlDataTypeTest;
 import io.trino.Session;
@@ -32,6 +33,7 @@ import java.time.ZoneId;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.starburstdata.presto.plugin.salesforce.SalesforceConfig.SalesforceAuthenticationType.OAUTH_JWT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static java.lang.String.format;
@@ -60,17 +62,22 @@ public class TestSalesforceTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        SalesforceOAuthJwtConfig oAuthConfig = new SalesforceOAuthJwtConfig()
+                .setPkcs12CertificateSubject("*")
+                .setPkcs12Path(Resources.getResource("salesforce-ca.p12").getPath())
+                .setPkcs12Password(requireNonNull(System.getProperty("salesforce.test.user1.pkcs12.password"), "salesforce.test.user1.pkcs12.password is not set"))
+                .setJwtIssuer("3MVG9OI03ecbG2Vr3NBmmhtNrcBp3Ywy2y0XHbRN_uGz_zYWqKozppyAOX27EWcrOH5HAib9Cd2i8E8g.rYD.")
+                .setJwtSubject(requireNonNull(System.getProperty("salesforce.test.user1.jwt.subject"), "salesforce.test.user1.jwt.subject is not set"));
+
+        SalesforceConfig config = new SalesforceConfig()
+                .setAuthenticationType(OAUTH_JWT)
+                .setSandboxEnabled(true);
+
         // Create a SalesforceConfig to get the JDBC URL that we can forward to the testing classes
         // to reset the metadata cache between runs
         // Note that if the JDBC connection properties are different than what is used by the
         // QueryRunner than we may have issues with the metadata cache
-        SalesforceConfig salesforceConfig = new SalesforceConfig()
-                .setUser(requireNonNull(System.getProperty("salesforce.test.user1.username"), "salesforce.test.user1.username is not set"))
-                .setPassword(requireNonNull(System.getProperty("salesforce.test.user1.password"), "salesforce.test.user1.password is not set"))
-                .setSecurityToken(requireNonNull(System.getProperty("salesforce.test.user1.security-token"), "salesforce.test.user1.security-token is not set"))
-                .setSandboxEnabled(true);
-
-        this.jdbcUrl = SalesforceConnectionFactory.getConnectionUrl(salesforceConfig);
+        this.jdbcUrl = new SalesforceModule.OAuthJwtConnectionUrlProvider(config, oAuthConfig).get();
         return SalesforceQueryRunner.builder()
                 .enableWrites() // Enable writes so we can create tables and write data to them
                 .setTables(ImmutableList.of()) // No tables needed for type mapping tests

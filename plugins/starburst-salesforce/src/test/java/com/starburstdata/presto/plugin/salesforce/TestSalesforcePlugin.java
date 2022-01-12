@@ -16,7 +16,6 @@ import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSalesforcePlugin
@@ -39,9 +38,9 @@ public class TestSalesforcePlugin
         factory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
-                        .put("salesforce.user", requireNonNull(System.getProperty("salesforce.test.user1.username"), "salesforce.test.user1.username is not set"))
-                        .put("salesforce.password", requireNonNull(System.getProperty("salesforce.test.user1.password"), "salesforce.test.user1.password is not set"))
-                        .put("salesforce.security-token", requireNonNull(System.getProperty("salesforce.test.user1.security-token"), "salesforce.test.user1.security-token is not set"))
+                        .put("salesforce.user", "user")
+                        .put("salesforce.password", "password")
+                        .put("salesforce.security-token", "token")
                         .put("salesforce.enable-sandbox", "true")
                         .build(),
                 new TestingConnectorContext());

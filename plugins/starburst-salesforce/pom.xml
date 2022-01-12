@@ -61,7 +61,7 @@
         <dependency>
             <groupId>com.cdata</groupId>
             <artifactId>salesforce-jdbc</artifactId>
-            <version>2021-1</version>
+            <version>2021-2</version>
         </dependency>
 
         <dependency>

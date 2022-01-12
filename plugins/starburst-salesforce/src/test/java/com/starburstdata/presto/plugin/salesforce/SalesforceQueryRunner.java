@@ -10,6 +10,8 @@
 package com.starburstdata.presto.plugin.salesforce;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
+import com.starburstdata.presto.plugin.salesforce.SalesforceModule.OAuthJwtConnectionUrlProvider;
 import com.starburstdata.presto.testing.StarburstDistributedQueryRunner;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -33,6 +35,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.starburstdata.presto.plugin.salesforce.SalesforceConfig.SalesforceAuthenticationType.OAUTH_JWT;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -103,16 +106,21 @@ public final class SalesforceQueryRunner
 
     private static void truncateTable(String tableName)
     {
+        SalesforceOAuthJwtConfig oAuthConfig = new SalesforceOAuthJwtConfig()
+                .setPkcs12CertificateSubject("*")
+                .setPkcs12Path(Resources.getResource("salesforce-ca.p12").getPath())
+                .setPkcs12Password(requireNonNull(System.getProperty("salesforce.test.user1.pkcs12.password"), "salesforce.test.user1.pkcs12.password is not set"))
+                .setJwtIssuer("3MVG9OI03ecbG2Vr3NBmmhtNrcBp3Ywy2y0XHbRN_uGz_zYWqKozppyAOX27EWcrOH5HAib9Cd2i8E8g.rYD.")
+                .setJwtSubject(requireNonNull(System.getProperty("salesforce.test.user1.jwt.subject"), "salesforce.test.user1.jwt.subject is not set"));
+
         SalesforceConfig config = new SalesforceConfig()
-                .setUser(requireNonNull(System.getProperty("salesforce.test.user1.username"), "salesforce.test.user1.username is not set"))
-                .setPassword(requireNonNull(System.getProperty("salesforce.test.user1.password"), "salesforce.test.user1.password is not set"))
-                .setSecurityToken(requireNonNull(System.getProperty("salesforce.test.user1.security-token"), "salesforce.test.user1.security-token is not set"))
+                .setAuthenticationType(OAUTH_JWT)
                 .setSandboxEnabled(true);
 
         // Query Salesforce to get all of the Id columns for the rows and insert them into a temp table
         // which stores the data in-memory in the driver
         // Then use DELETE FROM the temp table to issue batched deletes to Salesforce
-        String jdbcUrl = SalesforceConnectionFactory.getConnectionUrl(config);
+        String jdbcUrl = new OAuthJwtConnectionUrlProvider(config, oAuthConfig).get();
         try (Connection connection = DriverManager.getConnection(jdbcUrl);
                 Statement statement = connection.createStatement();
                 PreparedStatement preparedStatement = connection.prepareStatement(format("INSERT INTO %s__c#TEMP (Id) VALUES (?)", tableName));
@@ -239,9 +247,11 @@ public final class SalesforceQueryRunner
         public Builder()
         {
             connectorProperties = ImmutableMap.<String, String>builder()
-                    .put("salesforce.user", requireNonNull(System.getProperty("salesforce.test.user1.username"), "salesforce.test.user1.username is not set"))
-                    .put("salesforce.password", requireNonNull(System.getProperty("salesforce.test.user1.password"), "salesforce.test.user1.password is not set"))
-                    .put("salesforce.security-token", requireNonNull(System.getProperty("salesforce.test.user1.security-token"), "salesforce.test.user1.security-token is not set"))
+                    .put("salesforce.authentication.type", "OAUTH_JWT")
+                    .put("salesforce.oauth.pkcs12-path", Resources.getResource("salesforce-ca.p12").getPath())
+                    .put("salesforce.oauth.pkcs12-password", requireNonNull(System.getProperty("salesforce.test.user1.pkcs12.password"), "salesforce.test.user1.pkcs12.password is not set"))
+                    .put("salesforce.oauth.jwt-issuer", "3MVG9OI03ecbG2Vr3NBmmhtNrcBp3Ywy2y0XHbRN_uGz_zYWqKozppyAOX27EWcrOH5HAib9Cd2i8E8g.rYD.")
+                    .put("salesforce.oauth.jwt-subject", requireNonNull(System.getProperty("salesforce.test.user1.jwt.subject"), "salesforce.test.user1.jwt.subject is not set"))
                     .put("salesforce.enable-sandbox", "true")
                     .build();
             extraProperties = ImmutableMap.of();

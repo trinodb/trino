@@ -14,6 +14,8 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.starburstdata.presto.plugin.salesforce.SalesforceConfig.SalesforceAuthenticationType.OAUTH_JWT;
+import static com.starburstdata.presto.plugin.salesforce.SalesforceConfig.SalesforceAuthenticationType.PASSWORD;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -24,9 +26,7 @@ public class TestSalesforceConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SalesforceConfig.class)
-                .setUser(null)
-                .setPassword(null)
-                .setSecurityToken(null)
+                .setAuthenticationType(PASSWORD)
                 .setSandboxEnabled(false)
                 .setDriverLoggingEnabled(false)
                 .setDriverLoggingLocation(System.getProperty("java.io.tmpdir") + "/salesforce.log")
@@ -38,9 +38,7 @@ public class TestSalesforceConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("salesforce.user", "user")
-                .put("salesforce.password", "password")
-                .put("salesforce.security-token", "foobar")
+                .put("salesforce.authentication.type", "OAUTH_JWT")
                 .put("salesforce.enable-sandbox", "true")
                 .put("salesforce.driver-logging.enabled", "true")
                 .put("salesforce.driver-logging.location", "/tmp/foo")
@@ -49,9 +47,7 @@ public class TestSalesforceConfig
                 .build();
 
         SalesforceConfig expected = new SalesforceConfig()
-                .setUser("user")
-                .setPassword("password")
-                .setSecurityToken("foobar")
+                .setAuthenticationType(OAUTH_JWT)
                 .setSandboxEnabled(true)
                 .setDriverLoggingEnabled(true)
                 .setDriverLoggingLocation("/tmp/foo")

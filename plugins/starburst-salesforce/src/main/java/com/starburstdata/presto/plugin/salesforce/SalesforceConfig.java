@@ -11,7 +11,6 @@ package com.starburstdata.presto.plugin.salesforce;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.ConfigSecuritySensitive;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
@@ -19,11 +18,17 @@ import javax.validation.constraints.NotNull;
 
 import java.util.Optional;
 
+import static com.starburstdata.presto.plugin.salesforce.SalesforceConfig.SalesforceAuthenticationType.PASSWORD;
+
 public class SalesforceConfig
 {
-    private String user;
-    private String password;
-    private String securityToken;
+    public enum SalesforceAuthenticationType
+    {
+        PASSWORD,
+        OAUTH_JWT,
+    }
+
+    private SalesforceAuthenticationType authenticationType = PASSWORD;
     private boolean isSandboxEnabled;
     private boolean isDriverLoggingEnabled;
     private String driverLoggingLocation = System.getProperty("java.io.tmpdir") + "/salesforce.log";
@@ -31,45 +36,16 @@ public class SalesforceConfig
     private Optional<String> extraJdbcProperties = Optional.empty();
 
     @NotNull
-    public String getUser()
+    public SalesforceAuthenticationType getAuthenticationType()
     {
-        return user;
+        return authenticationType;
     }
 
-    @Config("salesforce.user")
-    @ConfigDescription("Username used to log in to Salesforce")
-    public SalesforceConfig setUser(String user)
+    @Config("salesforce.authentication.type")
+    @ConfigDescription("Method of authenticating with Salesforce. Default is PASSWORD")
+    public SalesforceConfig setAuthenticationType(SalesforceAuthenticationType authenticationType)
     {
-        this.user = user;
-        return this;
-    }
-
-    @NotNull
-    public String getPassword()
-    {
-        return password;
-    }
-
-    @Config("salesforce.password")
-    @ConfigDescription("Password used to log in to Salesforce")
-    @ConfigSecuritySensitive
-    public SalesforceConfig setPassword(String password)
-    {
-        this.password = password;
-        return this;
-    }
-
-    public Optional<String> getSecurityToken()
-    {
-        return Optional.ofNullable(securityToken);
-    }
-
-    @Config("salesforce.security-token")
-    @ConfigDescription("Salesforce Security Token for the configured username for programmatic access")
-    @ConfigSecuritySensitive
-    public SalesforceConfig setSecurityToken(String securityToken)
-    {
-        this.securityToken = securityToken;
+        this.authenticationType = authenticationType;
         return this;
     }
 

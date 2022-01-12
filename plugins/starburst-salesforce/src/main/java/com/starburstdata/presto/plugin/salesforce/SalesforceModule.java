@@ -30,10 +30,18 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
+import javax.inject.Inject;
+import javax.inject.Provider;
+
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule.noImpersonationModuleWithCredentialProvider;
+import static com.starburstdata.presto.plugin.salesforce.SalesforceConfig.SalesforceAuthenticationType.OAUTH_JWT;
+import static com.starburstdata.presto.plugin.salesforce.SalesforceConfig.SalesforceAuthenticationType.PASSWORD;
+import static com.starburstdata.presto.plugin.salesforce.SalesforceConnectionFactory.CDATA_OEM_KEY;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 
 public class SalesforceModule
         extends AbstractConfigurationAwareModule
@@ -51,6 +59,23 @@ public class SalesforceModule
 
         install(new CredentialProviderModule());
         install(noImpersonationModuleWithCredentialProvider());
+
+        install(conditionalModule(
+                SalesforceConfig.class,
+                config -> config.getAuthenticationType() == PASSWORD,
+                authenticationBinder -> {
+                    configBinder(authenticationBinder).bindConfig(SalesforcePasswordConfig.class);
+                    binder.bind(ConnectionUrlProvider.class).to(PasswordConnectionUrlProvider.class).in(Scopes.SINGLETON);
+                }));
+
+        install(conditionalModule(
+                SalesforceConfig.class,
+                config -> config.getAuthenticationType() == OAUTH_JWT,
+                authenticationBinder -> {
+                    configBinder(authenticationBinder).bindConfig(SalesforceOAuthJwtConfig.class);
+                    binder.bind(ConnectionUrlProvider.class).to(OAuthJwtConnectionUrlProvider.class).in(Scopes.SINGLETON);
+                }));
+
         install(new JdbcTableScanRedirectionModule());
 
         // Set the connection URL to some value as it is a required property in the JdbcModule
@@ -64,11 +89,85 @@ public class SalesforceModule
         configBinder(binder).bindConfigDefaults(JdbcWriteConfig.class, config -> config.setNonTransactionalInsert(true));
     }
 
+    public interface ConnectionUrlProvider
+            extends Provider<String> {}
+
+    public static class PasswordConnectionUrlProvider
+            implements ConnectionUrlProvider
+    {
+        private final SalesforceConfig salesforceConfig;
+        private final SalesforcePasswordConfig passwordConfig;
+
+        @Inject
+        public PasswordConnectionUrlProvider(SalesforceConfig salesforceConfig, SalesforcePasswordConfig passwordConfig)
+        {
+            this.salesforceConfig = requireNonNull(salesforceConfig, "salesforceConfig is null");
+            this.passwordConfig = requireNonNull(passwordConfig, "passwordConfig is null");
+        }
+
+        @Override
+        public String get()
+        {
+            StringBuilder builder = new StringBuilder("jdbc:salesforce:")
+                    .append("User=\"").append(passwordConfig.getUser()).append("\";")
+                    .append("Password=\"").append(passwordConfig.getPassword()).append("\";")
+                    .append("UseSandbox=\"").append(salesforceConfig.isSandboxEnabled()).append("\";")
+                    .append("OEMKey=\"").append(CDATA_OEM_KEY).append("\";");
+
+            passwordConfig.getSecurityToken().ifPresent(token -> builder.append("SecurityToken=\"").append(token).append("\";"));
+
+            if (salesforceConfig.isDriverLoggingEnabled()) {
+                builder.append("LogFile=\"").append(salesforceConfig.getDriverLoggingLocation()).append("\";")
+                        .append("Verbosity=\"").append(salesforceConfig.getDriverLoggingVerbosity()).append("\";");
+            }
+
+            salesforceConfig.getExtraJdbcProperties().ifPresent(builder::append);
+            return builder.toString();
+        }
+    }
+
+    public static class OAuthJwtConnectionUrlProvider
+            implements ConnectionUrlProvider
+    {
+        private final SalesforceConfig salesforceConfig;
+        private final SalesforceOAuthJwtConfig oAuthJwtConfig;
+
+        @Inject
+        public OAuthJwtConnectionUrlProvider(SalesforceConfig salesforceConfig, SalesforceOAuthJwtConfig oAuthJwtConfig)
+        {
+            this.salesforceConfig = requireNonNull(salesforceConfig, "salesforceConfig is null");
+            this.oAuthJwtConfig = requireNonNull(oAuthJwtConfig, "oAuthJwtConfig is null");
+        }
+
+        @Override
+        public String get()
+        {
+            StringBuilder builder = new StringBuilder("jdbc:salesforce:")
+                    .append("AuthScheme=\"OAuthJWT\";")
+                    .append("OAuthJWTCertSubject=\"").append(oAuthJwtConfig.getPkcs12CertificateSubject()).append("\";")
+                    .append("OAuthJWTCertPassword=\"").append(oAuthJwtConfig.getPkcs12Password()).append("\";")
+                    .append("OAuthJWTCert=\"").append(oAuthJwtConfig.getPkcs12Path()).append("\";")
+                    .append("OAuthJWTCertType=\"PFXFILE\";")
+                    .append("OAuthJWTIssuer=\"").append(oAuthJwtConfig.getJwtIssuer()).append("\";")
+                    .append("OAuthJWTSubject=\"").append(oAuthJwtConfig.getJwtSubject()).append("\";")
+                    .append("UseSandbox=\"").append(salesforceConfig.isSandboxEnabled()).append("\";")
+                    .append("OEMKey=\"").append(CDATA_OEM_KEY).append("\";");
+
+            if (salesforceConfig.isDriverLoggingEnabled()) {
+                builder.append("LogFile=\"").append(salesforceConfig.getDriverLoggingLocation()).append("\";")
+                        .append("Verbosity=\"").append(salesforceConfig.getDriverLoggingVerbosity()).append("\";");
+            }
+
+            salesforceConfig.getExtraJdbcProperties().ifPresent(builder::append);
+            return builder.toString();
+        }
+    }
+
     @Provides
     @Singleton
     @ForImpersonation
-    public ConnectionFactory getConnectionFactory(SalesforceConfig salesforceConfig, CredentialProvider credentialProvider)
+    public ConnectionFactory getConnectionFactory(CredentialProvider credentialProvider, ConnectionUrlProvider connectionUrlProvider)
     {
-        return new SalesforceConnectionFactory(salesforceConfig, credentialProvider);
+        return new SalesforceConnectionFactory(credentialProvider, connectionUrlProvider);
     }
 }
