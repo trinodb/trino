@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.plugin.hive.HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
 import static io.trino.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
@@ -113,7 +114,8 @@ public class TestHiveConfig
                 .setSizeBasedSplitWeightsEnabled(true)
                 .setMinimumAssignedSplitWeight(0.05)
                 .setDeltaLakeCatalogName(null)
-                .setAutoPurge(false));
+                .setAutoPurge(false)
+                .setPartitionProjectionEnabled(false));
     }
 
     @Test
@@ -198,6 +200,7 @@ public class TestHiveConfig
                 .put("hive.minimum-assigned-split-weight", "1.0")
                 .put("hive.delta-lake-catalog-name", "delta")
                 .put("hive.auto-purge", "true")
+                .put(CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED, "true")
                 .buildOrThrow();
 
         HiveConfig expected = new HiveConfig()
@@ -278,7 +281,8 @@ public class TestHiveConfig
                 .setSizeBasedSplitWeightsEnabled(false)
                 .setMinimumAssignedSplitWeight(1.0)
                 .setDeltaLakeCatalogName("delta")
-                .setAutoPurge(true);
+                .setAutoPurge(true)
+                .setPartitionProjectionEnabled(true);
 
         assertFullMapping(properties, expected);
     }

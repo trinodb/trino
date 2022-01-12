@@ -35,6 +35,7 @@ import io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavi
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
@@ -363,6 +364,7 @@ public class HiveMetadata
     private final HiveMaterializedViewMetadata hiveMaterializedViewMetadata;
     private final AccessControlMetadata accessControlMetadata;
     private final DirectoryLister directoryLister;
+    private final PartitionProjectionService partitionProjectionService;
 
     public HiveMetadata(
             CatalogName catalogName,
@@ -385,7 +387,8 @@ public class HiveMetadata
             Set<SystemTableProvider> systemTableProviders,
             HiveMaterializedViewMetadata hiveMaterializedViewMetadata,
             AccessControlMetadata accessControlMetadata,
-            DirectoryLister directoryLister)
+            DirectoryLister directoryLister,
+            PartitionProjectionService partitionProjectionService)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -408,6 +411,7 @@ public class HiveMetadata
         this.hiveMaterializedViewMetadata = requireNonNull(hiveMaterializedViewMetadata, "hiveMaterializedViewMetadata is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
+        this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
     }
 
     @Override
@@ -656,6 +660,9 @@ public class HiveMetadata
         if (parseBoolean(autoPurgeProperty)) {
             properties.put(AUTO_PURGE, true);
         }
+
+        // Partition Projection specific properties
+        properties.putAll(partitionProjectionService.getPartitionProjectionTrinoTableProperties(table));
 
         return new ConnectorTableMetadata(tableName, columns.build(), properties.buildOrThrow(), comment);
     }
@@ -1049,6 +1056,9 @@ public class HiveMetadata
 
         // Table comment property
         tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));
+
+        // Partition Projection specific properties
+        tableProperties.putAll(partitionProjectionService.getPartitionProjectionHiveTableProperties(tableMetadata));
 
         return tableProperties.buildOrThrow();
     }
@@ -3421,7 +3431,7 @@ public class HiveMetadata
         }
     }
 
-    private static Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table)
+    private Function<HiveColumnHandle, ColumnMetadata> columnMetadataGetter(Table table)
     {
         ImmutableList.Builder<String> columnNames = ImmutableList.builder();
         table.getPartitionColumns().stream().map(Column::getName).forEach(columnNames::add);
@@ -3451,6 +3461,7 @@ public class HiveMetadata
                 .setComment(handle.isHidden() ? Optional.empty() : columnComment.get(handle.getName()))
                 .setExtraInfo(Optional.ofNullable(columnExtraInfo(handle.isPartitionKey())))
                 .setHidden(handle.isHidden())
+                .setProperties(partitionProjectionService.getPartitionProjectionTrinoColumnProperties(table, handle.getName()))
                 .build();
     }
 
