@@ -58,7 +58,7 @@ public class RaptorPageSource
 
     private final BitSet rowsToDelete;
 
-    private final AggregatedMemoryContext systemMemoryContext;
+    private final AggregatedMemoryContext memoryContext;
 
     private boolean closed;
 
@@ -67,7 +67,7 @@ public class RaptorPageSource
             OrcRecordReader recordReader,
             List<ColumnAdaptation> columnAdaptations,
             OrcDataSource orcDataSource,
-            AggregatedMemoryContext systemMemoryContext)
+            AggregatedMemoryContext memoryContext)
     {
         this.shardRewriter = requireNonNull(shardRewriter, "shardRewriter is null");
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
@@ -76,7 +76,7 @@ public class RaptorPageSource
 
         this.rowsToDelete = new BitSet(toIntExact(recordReader.getFileRowCount()));
 
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     @Override
@@ -171,9 +171,9 @@ public class RaptorPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return systemMemoryContext.getBytes();
+        return memoryContext.getBytes();
     }
 
     public interface ColumnAdaptation

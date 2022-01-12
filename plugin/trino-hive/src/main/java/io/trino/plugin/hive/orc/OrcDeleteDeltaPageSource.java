@@ -71,7 +71,7 @@ public class OrcDeleteDeltaPageSource
     private final OrcRecordReader recordReader;
     private final OrcDataSource orcDataSource;
     private final FileFormatDataSourceStats stats;
-    private final AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
+    private final AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
 
     private boolean closed;
 
@@ -156,7 +156,7 @@ public class OrcDeleteDeltaPageSource
                 0,
                 fileSize,
                 UTC,
-                systemMemoryContext,
+                memoryContext,
                 MAX_BATCH_SIZE,
                 exception -> handleException(orcDataSource.getId(), exception),
                 NameBasedFieldMapper::create);
@@ -223,9 +223,9 @@ public class OrcDeleteDeltaPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return systemMemoryContext.getBytes();
+        return memoryContext.getBytes();
     }
 
     private static String openError(Throwable t, Path path)

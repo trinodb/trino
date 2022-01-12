@@ -88,7 +88,6 @@ public final class TestingTaskContext
         private QueryId queryId = new QueryId("test_query");
         private TaskStateMachine taskStateMachine;
         private DataSize queryMaxMemory = DataSize.of(256, MEGABYTE);
-        private final DataSize queryMaxTotalMemory = DataSize.of(512, MEGABYTE);
         private DataSize memoryPoolSize = DataSize.of(1, GIGABYTE);
         private DataSize maxSpillSize = DataSize.of(1, GIGABYTE);
         private DataSize queryMaxSpillSize = DataSize.of(1, GIGABYTE);
@@ -144,9 +143,9 @@ public final class TestingTaskContext
             QueryContext queryContext = new QueryContext(
                     queryId,
                     queryMaxMemory,
-                    queryMaxTotalMemory,
                     Optional.empty(),
                     memoryPool,
+                    0L,
                     GC_MONITOR,
                     notificationExecutor,
                     yieldExecutor,

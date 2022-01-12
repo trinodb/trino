@@ -65,13 +65,11 @@ public class QueryStats
     private final int completedDrivers;
 
     private final double cumulativeUserMemory;
-    private final double cumulativeSystemMemory;
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
     private final DataSize peakRevocableMemoryReservation;
-    private final DataSize peakNonRevocableMemoryReservation;
     private final DataSize peakTotalMemoryReservation;
     private final DataSize peakTaskUserMemory;
     private final DataSize peakTaskRevocableMemory;
@@ -135,13 +133,11 @@ public class QueryStats
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
-            @JsonProperty("cumulativeSystemMemory") double cumulativeSystemMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("peakRevocableMemoryReservation") DataSize peakRevocableMemoryReservation,
-            @JsonProperty("peakNonRevocableMemoryReservation") DataSize peakNonRevocableMemoryReservation,
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
             @JsonProperty("peakTaskUserMemory") DataSize peakTaskUserMemory,
             @JsonProperty("peakTaskRevocableMemory") DataSize peakTaskRevocableMemory,
@@ -211,14 +207,11 @@ public class QueryStats
         this.completedDrivers = completedDrivers;
         checkArgument(cumulativeUserMemory >= 0, "cumulativeUserMemory is negative");
         this.cumulativeUserMemory = cumulativeUserMemory;
-        checkArgument(cumulativeSystemMemory >= 0, "cumulativeSystemMemory is negative");
-        this.cumulativeSystemMemory = cumulativeSystemMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.peakRevocableMemoryReservation = requireNonNull(peakRevocableMemoryReservation, "peakRevocableMemoryReservation is null");
-        this.peakNonRevocableMemoryReservation = requireNonNull(peakNonRevocableMemoryReservation, "peakNonRevocableMemoryReservation is null");
         this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
         this.peakTaskUserMemory = requireNonNull(peakTaskUserMemory, "peakTaskUserMemory is null");
         this.peakTaskRevocableMemory = requireNonNull(peakTaskRevocableMemory, "peakTaskRevocableMemory is null");
@@ -388,12 +381,6 @@ public class QueryStats
     }
 
     @JsonProperty
-    public double getCumulativeSystemMemory()
-    {
-        return cumulativeSystemMemory;
-    }
-
-    @JsonProperty
     public DataSize getUserMemoryReservation()
     {
         return userMemoryReservation;
@@ -421,12 +408,6 @@ public class QueryStats
     public DataSize getPeakRevocableMemoryReservation()
     {
         return peakRevocableMemoryReservation;
-    }
-
-    @JsonProperty
-    public DataSize getPeakNonRevocableMemoryReservation()
-    {
-        return peakNonRevocableMemoryReservation;
     }
 
     @JsonProperty

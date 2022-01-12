@@ -123,7 +123,7 @@ public class DirectExchangeClientFactory
     }
 
     @Override
-    public DirectExchangeClient get(LocalMemoryContext systemMemoryContext, TaskFailureListener taskFailureListener, RetryPolicy retryPolicy)
+    public DirectExchangeClient get(LocalMemoryContext memoryContext, TaskFailureListener taskFailureListener, RetryPolicy retryPolicy)
     {
         DirectExchangeBuffer buffer;
         switch (retryPolicy) {
@@ -148,7 +148,7 @@ public class DirectExchangeClientFactory
                 acknowledgePages,
                 httpClient,
                 scheduler,
-                systemMemoryContext,
+                memoryContext,
                 pageBufferClientCallbackExecutor,
                 taskFailureListener);
     }

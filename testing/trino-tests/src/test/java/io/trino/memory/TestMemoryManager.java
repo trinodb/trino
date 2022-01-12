@@ -27,6 +27,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -87,14 +88,13 @@ public class TestMemoryManager
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.max-memory-per-node", "1kB")
-                .put("query.max-total-memory-per-node", "1kB")
                 .put("query.max-memory", "1kB")
                 .buildOrThrow();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             assertThatThrownBy(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk"))
                     .isInstanceOf(RuntimeException.class)
-                    .hasMessageStartingWith("Query exceeded per-node total memory limit of ");
+                    .hasMessageStartingWith("Query exceeded per-node memory limit of ");
             Session session = testSessionBuilder()
                     .setCatalog("tpch")
                     .setSchema("tiny")
@@ -359,20 +359,26 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded distributed total memory limit of 2kB.*")
+    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded distributed total memory limit of 120MB.*")
     public void testQueryTotalMemoryLimit()
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("query.max-memory", "1kB")
-                .put("query.max-total-memory", "2kB")
+                // Relatively high memory limit is required, so that the table scan memory usage alone does not cause the query to fail.
+                .put("query.max-memory", "120MB")
+                .put("query.max-total-memory", "120MB")
+                // The user memory enforcement is tested in testQueryTotalMemoryLimit().
+                // Total memory = user memory + revocable memory.
+                .put("spill-enabled", "true")
+                .put("spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "trino", "spills").toString())
+                .put("spiller-max-used-space-threshold", "1.0")
                 .buildOrThrow();
         try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
-            queryRunner.execute(SESSION, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
+            queryRunner.execute(SESSION, "SELECT * FROM tpch.sf10.orders ORDER BY orderkey");
         }
     }
 
-    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded per-node user memory limit of 1kB.*")
+    @Test(timeOut = 60_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded per-node memory limit of 1kB.*")
     public void testQueryMemoryPerNodeLimit()
             throws Exception
     {

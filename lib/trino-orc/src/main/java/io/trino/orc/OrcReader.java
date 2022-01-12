@@ -253,7 +253,7 @@ public class OrcReader
             List<Type> readTypes,
             OrcPredicate predicate,
             DateTimeZone legacyFileTimeZone,
-            AggregatedMemoryContext systemMemoryUsage,
+            AggregatedMemoryContext memoryUsage,
             int initialBatchSize,
             Function<Exception, RuntimeException> exceptionTransform)
             throws OrcCorruptionException
@@ -266,7 +266,7 @@ public class OrcReader
                 0,
                 orcDataSource.getEstimatedSize(),
                 legacyFileTimeZone,
-                systemMemoryUsage,
+                memoryUsage,
                 initialBatchSize,
                 exceptionTransform,
                 NameBasedFieldMapper::create);
@@ -280,7 +280,7 @@ public class OrcReader
             long offset,
             long length,
             DateTimeZone legacyFileTimeZone,
-            AggregatedMemoryContext systemMemoryUsage,
+            AggregatedMemoryContext memoryUsage,
             int initialBatchSize,
             Function<Exception, RuntimeException> exceptionTransform,
             FieldMapperFactory fieldMapperFactory)
@@ -306,7 +306,7 @@ public class OrcReader
                 metadataReader,
                 options,
                 footer.getUserMetadata(),
-                systemMemoryUsage,
+                memoryUsage,
                 writeValidation,
                 initialBatchSize,
                 exceptionTransform,

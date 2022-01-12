@@ -373,7 +373,7 @@ public class IcebergPageSourceProvider
                 }
             }
 
-            AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
+            AggregatedMemoryContext memoryUsage = newSimpleAggregatedMemoryContext();
             OrcDataSourceId orcDataSourceId = orcDataSource.getId();
             OrcRecordReader recordReader = reader.createRecordReader(
                     fileReadColumns,
@@ -383,7 +383,7 @@ public class IcebergPageSourceProvider
                     start,
                     length,
                     UTC,
-                    systemMemoryUsage,
+                    memoryUsage,
                     INITIAL_BATCH_SIZE,
                     exception -> handleException(orcDataSourceId, exception),
                     new IdBasedFieldMapperFactory(readColumns));
@@ -395,7 +395,7 @@ public class IcebergPageSourceProvider
                             orcDataSource,
                             Optional.empty(),
                             Optional.empty(),
-                            systemMemoryUsage,
+                            memoryUsage,
                             stats),
                     columnProjections);
         }
@@ -611,7 +611,7 @@ public class IcebergPageSourceProvider
             FileFormatDataSourceStats fileFormatDataSourceStats,
             Optional<NameMapping> nameMapping)
     {
-        AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
 
         ParquetDataSource dataSource = null;
         try {
@@ -663,7 +663,7 @@ public class IcebergPageSourceProvider
                     Optional.empty(),
                     dataSource,
                     UTC,
-                    systemMemoryContext,
+                    memoryContext,
                     options);
 
             ImmutableList.Builder<Type> trinoTypes = ImmutableList.builder();

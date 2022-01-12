@@ -96,7 +96,6 @@ public class TestMemoryPools
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
         QueryContext queryContext = new QueryContext(new QueryId("query"),
                 TEN_MEGABYTES,
-                DataSize.of(20, MEGABYTE),
                 Optional.empty(),
                 userPool,
                 new TestingGcMonitor(),

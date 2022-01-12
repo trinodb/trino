@@ -298,8 +298,7 @@ public class WorkProcessorPipelineSourceOperator
     {
         return new MemoryTrackingContext(
                 new InternalAggregatedMemoryContext(operatorContext.newAggregateUserMemoryContext(), () -> updatePeakMemoryReservations(operatorIndex)),
-                new InternalAggregatedMemoryContext(operatorContext.newAggregateRevocableMemoryContext(), () -> updatePeakMemoryReservations(operatorIndex)),
-                new InternalAggregatedMemoryContext(operatorContext.newAggregateSystemMemoryContext(), () -> updatePeakMemoryReservations(operatorIndex)));
+                new InternalAggregatedMemoryContext(operatorContext.newAggregateRevocableMemoryContext(), () -> updatePeakMemoryReservations(operatorIndex)));
     }
 
     private void updatePeakMemoryReservations(int operatorIndex)
@@ -357,9 +356,7 @@ public class WorkProcessorPipelineSourceOperator
 
                         succinctBytes(context.memoryTrackingContext.getUserMemory()),
                         succinctBytes(context.memoryTrackingContext.getRevocableMemory()),
-                        succinctBytes(context.memoryTrackingContext.getSystemMemory()),
                         succinctBytes(context.peakUserMemoryReservation.get()),
-                        succinctBytes(context.peakSystemMemoryReservation.get()),
                         succinctBytes(context.peakRevocableMemoryReservation.get()),
                         succinctBytes(context.peakTotalMemoryReservation.get()),
                         DataSize.ofBytes(0),
@@ -694,7 +691,6 @@ public class WorkProcessorPipelineSourceOperator
         final AtomicReference<Metrics> connectorMetrics = new AtomicReference<>(Metrics.EMPTY);
 
         final AtomicLong peakUserMemoryReservation = new AtomicLong();
-        final AtomicLong peakSystemMemoryReservation = new AtomicLong();
         final AtomicLong peakRevocableMemoryReservation = new AtomicLong();
         final AtomicLong peakTotalMemoryReservation = new AtomicLong();
 
@@ -720,11 +716,9 @@ public class WorkProcessorPipelineSourceOperator
         void updatePeakMemoryReservations()
         {
             long userMemory = memoryTrackingContext.getUserMemory();
-            long systemMemory = memoryTrackingContext.getSystemMemory();
             long revocableMemory = memoryTrackingContext.getRevocableMemory();
-            long totalMemory = userMemory + systemMemory;
+            long totalMemory = userMemory;
             peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
-            peakSystemMemoryReservation.accumulateAndGet(systemMemory, Math::max);
             peakRevocableMemoryReservation.accumulateAndGet(revocableMemory, Math::max);
             peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
         }

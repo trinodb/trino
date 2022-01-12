@@ -97,7 +97,7 @@ public class OrcRecordReader
     private final List<StripeInformation> stripes;
     private final StripeReader stripeReader;
     private int currentStripe = -1;
-    private AggregatedMemoryContext currentStripeSystemMemoryContext;
+    private AggregatedMemoryContext currentStripeMemoryContext;
 
     private final long fileRowCount;
     private final List<Long> stripeFilePositions;
@@ -110,7 +110,7 @@ public class OrcRecordReader
 
     private final Map<String, Slice> userMetadata;
 
-    private final AggregatedMemoryContext systemMemoryUsage;
+    private final AggregatedMemoryContext memoryUsage;
     private final LocalMemoryContext orcDataSourceMemoryUsage;
 
     private final OrcBlockFactory blockFactory;
@@ -141,7 +141,7 @@ public class OrcRecordReader
             MetadataReader metadataReader,
             OrcReaderOptions options,
             Map<String, Slice> userMetadata,
-            AggregatedMemoryContext systemMemoryUsage,
+            AggregatedMemoryContext memoryUsage,
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize,
             Function<Exception, RuntimeException> exceptionTransform,
@@ -162,7 +162,7 @@ public class OrcRecordReader
         requireNonNull(decompressor, "decompressor is null");
         requireNonNull(legacyFileTimeZone, "legacyFileTimeZone is null");
         requireNonNull(userMetadata, "userMetadata is null");
-        requireNonNull(systemMemoryUsage, "systemMemoryUsage is null");
+        requireNonNull(memoryUsage, "memoryUsage is null");
         requireNonNull(exceptionTransform, "exceptionTransform is null");
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
@@ -170,7 +170,7 @@ public class OrcRecordReader
         this.rowGroupStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
         this.stripeStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
         this.fileStatisticsValidation = writeValidation.map(validation -> validation.createWriteStatisticsBuilder(orcTypes, readTypes));
-        this.systemMemoryUsage = systemMemoryUsage.newAggregatedMemoryContext();
+        this.memoryUsage = memoryUsage.newAggregatedMemoryContext();
         this.blockFactory = new OrcBlockFactory(exceptionTransform, options.isNestedLazy());
 
         requireNonNull(options, "options is null");
@@ -210,7 +210,7 @@ public class OrcRecordReader
 
         orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, options.getMaxMergeDistance(), options.getTinyStripeThreshold());
         this.orcDataSource = orcDataSource;
-        this.orcDataSourceMemoryUsage = systemMemoryUsage.newLocalMemoryContext(OrcDataSource.class.getSimpleName());
+        this.orcDataSourceMemoryUsage = memoryUsage.newLocalMemoryContext(OrcDataSource.class.getSimpleName());
         this.orcDataSourceMemoryUsage.setBytes(orcDataSource.getRetainedSize());
         this.splitLength = splitLength;
 
@@ -221,13 +221,13 @@ public class OrcRecordReader
 
         this.userMetadata = ImmutableMap.copyOf(Maps.transformValues(userMetadata, Slices::copyOf));
 
-        this.currentStripeSystemMemoryContext = this.systemMemoryUsage.newAggregatedMemoryContext();
-        // The streamReadersSystemMemoryContext covers the StreamReader local buffer sizes, plus leaf node StreamReaders'
+        this.currentStripeMemoryContext = this.memoryUsage.newAggregatedMemoryContext();
+        // The streamReadersMemoryContext covers the StreamReader local buffer sizes, plus leaf node StreamReaders'
         // instance sizes who use local buffers. SliceDirectStreamReader's instance size is not counted, because it
         // doesn't have a local buffer. All non-leaf level StreamReaders' (e.g. MapStreamReader, LongStreamReader,
         // ListStreamReader and StructStreamReader) instance sizes were not counted, because calling setBytes() in
         // their constructors is confusing.
-        AggregatedMemoryContext streamReadersSystemMemoryContext = this.systemMemoryUsage.newAggregatedMemoryContext();
+        AggregatedMemoryContext streamReadersMemoryContext = this.memoryUsage.newAggregatedMemoryContext();
 
         stripeReader = new StripeReader(
                 orcDataSource,
@@ -245,7 +245,7 @@ public class OrcRecordReader
                 readColumns,
                 readTypes,
                 readLayouts,
-                streamReadersSystemMemoryContext,
+                streamReadersMemoryContext,
                 blockFactory,
                 fieldMapperFactory);
 
@@ -496,8 +496,8 @@ public class OrcRecordReader
     private void advanceToNextStripe()
             throws IOException
     {
-        currentStripeSystemMemoryContext.close();
-        currentStripeSystemMemoryContext = systemMemoryUsage.newAggregatedMemoryContext();
+        currentStripeMemoryContext.close();
+        currentStripeMemoryContext = memoryUsage.newAggregatedMemoryContext();
         rowGroups = ImmutableList.<RowGroup>of().iterator();
 
         if (currentStripe >= 0) {
@@ -521,7 +521,7 @@ public class OrcRecordReader
         StripeInformation stripeInformation = stripes.get(currentStripe);
         validateWriteStripe(stripeInformation.getNumberOfRows());
 
-        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeSystemMemoryContext);
+        Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeMemoryContext);
         if (stripe != null) {
             // Give readers access to dictionary streams
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
@@ -566,7 +566,7 @@ public class OrcRecordReader
             List<OrcColumn> columns,
             List<Type> readTypes,
             List<OrcReader.ProjectedLayout> readLayouts,
-            AggregatedMemoryContext systemMemoryContext,
+            AggregatedMemoryContext memoryContext,
             OrcBlockFactory blockFactory,
             FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
@@ -576,7 +576,7 @@ public class OrcRecordReader
             Type readType = readTypes.get(columnIndex);
             OrcColumn column = columns.get(columnIndex);
             OrcReader.ProjectedLayout projectedLayout = readLayouts.get(columnIndex);
-            columnReaders[columnIndex] = createColumnReader(readType, column, projectedLayout, systemMemoryContext, blockFactory, fieldMapperFactory);
+            columnReaders[columnIndex] = createColumnReader(readType, column, projectedLayout, memoryContext, blockFactory, fieldMapperFactory);
         }
         return columnReaders;
     }
@@ -602,7 +602,7 @@ public class OrcRecordReader
     @VisibleForTesting
     long getCurrentStripeRetainedSizeInBytes()
     {
-        return currentStripeSystemMemoryContext.getBytes();
+        return currentStripeMemoryContext.getBytes();
     }
 
     /**
@@ -615,13 +615,13 @@ public class OrcRecordReader
     }
 
     /**
-     * @return The system memory reserved by this OrcRecordReader. It does not include non-leaf level StreamReaders'
+     * @return The memory reserved by this OrcRecordReader. It does not include non-leaf level StreamReaders'
      * instance sizes.
      */
     @VisibleForTesting
-    long getSystemMemoryUsage()
+    long getMemoryUsage()
     {
-        return systemMemoryUsage.getBytes();
+        return memoryUsage.getBytes();
     }
 
     private static class StripeInfo

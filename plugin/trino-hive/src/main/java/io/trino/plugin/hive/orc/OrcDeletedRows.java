@@ -65,7 +65,7 @@ public class OrcDeletedRows
     private static final int BUCKET_ID_INDEX = 1;
     private static final int ROW_ID_INDEX = 2;
 
-    private static final long DELETED_ROWS_SYSTEM_MEMORY_INCREASE_YIELD_THREHOLD = 32 * 1204 * 1024;
+    private static final long DELETED_ROWS_MEMORY_INCREASE_YIELD_THREHOLD = 32 * 1204 * 1024;
 
     private final String sourceFileName;
     private final OrcDeleteDeltaPageSourceFactory pageSourceFactory;
@@ -74,7 +74,7 @@ public class OrcDeletedRows
     private final HdfsEnvironment hdfsEnvironment;
     private final AcidInfo acidInfo;
     private final OptionalInt bucketNumber;
-    private final LocalMemoryContext systemMemoryUsage;
+    private final LocalMemoryContext memoryUsage;
 
     private State state = State.NOT_LOADED;
     @Nullable
@@ -97,7 +97,7 @@ public class OrcDeletedRows
             HdfsEnvironment hdfsEnvironment,
             AcidInfo acidInfo,
             OptionalInt bucketNumber,
-            AggregatedMemoryContext systemMemoryContext)
+            AggregatedMemoryContext memoryContext)
     {
         this.sourceFileName = requireNonNull(sourceFileName, "sourceFileName is null");
         this.pageSourceFactory = requireNonNull(pageSourceFactory, "pageSourceFactory is null");
@@ -106,7 +106,7 @@ public class OrcDeletedRows
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.acidInfo = requireNonNull(acidInfo, "acidInfo is null");
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
-        this.systemMemoryUsage = requireNonNull(systemMemoryContext, "systemMemoryContext is null").newLocalMemoryContext(OrcDeletedRows.class.getSimpleName());
+        this.memoryUsage = requireNonNull(memoryContext, "memoryContext is null").newLocalMemoryContext(OrcDeletedRows.class.getSimpleName());
     }
 
     public MaskDeletedRowsFunction getMaskDeletedRowsFunction(Page sourcePage, OptionalLong startRowId)
@@ -353,8 +353,8 @@ public class OrcDeletedRows
 
                             if (deletedRowsBuilderSize % 1000 == 0) {
                                 long currentMemorySize = retainedMemorySize(deletedRowsBuilderSize, currentPage);
-                                if (currentMemorySize - initialMemorySize >= DELETED_ROWS_SYSTEM_MEMORY_INCREASE_YIELD_THREHOLD) {
-                                    systemMemoryUsage.setBytes(currentMemorySize);
+                                if (currentMemorySize - initialMemorySize >= DELETED_ROWS_MEMORY_INCREASE_YIELD_THREHOLD) {
+                                    memoryUsage.setBytes(currentMemorySize);
                                     return Optional.empty();
                                 }
                             }
@@ -379,7 +379,7 @@ public class OrcDeletedRows
             }
 
             Set<RowId> builtDeletedRows = deletedRowsBuilder.build();
-            systemMemoryUsage.setBytes(retainedMemorySize(builtDeletedRows.size(), null));
+            memoryUsage.setBytes(retainedMemorySize(builtDeletedRows.size(), null));
             return Optional.of(builtDeletedRows);
         }
 

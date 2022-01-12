@@ -124,9 +124,9 @@ public class ParquetPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return parquetReader.getSystemMemoryContext().getBytes();
+        return parquetReader.getMemoryContext().getBytes();
     }
 
     @Override

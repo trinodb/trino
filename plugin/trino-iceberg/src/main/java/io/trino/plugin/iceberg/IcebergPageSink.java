@@ -102,7 +102,7 @@ public class IcebergPageSink
     private final List<WriteContext> writers = new ArrayList<>();
 
     private long writtenBytes;
-    private long systemMemoryUsage;
+    private long memoryUsage;
     private long validationCpuNanos;
 
     public IcebergPageSink(
@@ -143,9 +143,9 @@ public class IcebergPageSink
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return systemMemoryUsage;
+        return memoryUsage;
     }
 
     @Override
@@ -264,12 +264,12 @@ public class IcebergPageSink
             IcebergFileWriter writer = writers.get(index).getWriter();
 
             long currentWritten = writer.getWrittenBytes();
-            long currentMemory = writer.getSystemMemoryUsage();
+            long currentMemory = writer.getMemoryUsage();
 
             writer.appendRows(pageForWriter);
 
             writtenBytes += (writer.getWrittenBytes() - currentWritten);
-            systemMemoryUsage += (writer.getSystemMemoryUsage() - currentMemory);
+            memoryUsage += (writer.getMemoryUsage() - currentMemory);
         }
     }
 

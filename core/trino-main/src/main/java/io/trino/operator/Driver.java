@@ -519,9 +519,6 @@ public class Driver
             if (driverContext.getMemoryUsage() > 0) {
                 log.error("Driver still has memory reserved after freeing all operator memory.");
             }
-            if (driverContext.getSystemMemoryUsage() > 0) {
-                log.error("Driver still has system memory reserved after freeing all operator memory.");
-            }
             if (driverContext.getRevocableMemoryUsage() > 0) {
                 log.error("Driver still has revocable memory reserved after freeing all operator memory. Freeing it.");
             }

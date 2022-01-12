@@ -292,20 +292,17 @@ public final class SqlStage
             implements StateChangeListener<TaskStatus>
     {
         private long previousUserMemory;
-        private long previousSystemMemory;
         private long previousRevocableMemory;
 
         @Override
         public synchronized void stateChanged(TaskStatus taskStatus)
         {
             long currentUserMemory = taskStatus.getMemoryReservation().toBytes();
-            long currentSystemMemory = taskStatus.getSystemMemoryReservation().toBytes();
             long currentRevocableMemory = taskStatus.getRevocableMemoryReservation().toBytes();
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
             long deltaRevocableMemoryInBytes = currentRevocableMemory - previousRevocableMemory;
-            long deltaTotalMemoryInBytes = (currentUserMemory + currentSystemMemory + currentRevocableMemory) - (previousUserMemory + previousSystemMemory + previousRevocableMemory);
+            long deltaTotalMemoryInBytes = (currentUserMemory + currentRevocableMemory) - (previousUserMemory + previousRevocableMemory);
             previousUserMemory = currentUserMemory;
-            previousSystemMemory = currentSystemMemory;
             previousRevocableMemory = currentRevocableMemory;
             stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaRevocableMemoryInBytes, deltaTotalMemoryInBytes);
         }

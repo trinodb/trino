@@ -790,7 +790,7 @@ public class WindowOperator
                 spiller = Optional.of(spillerFactory.create(
                         sourceTypes,
                         operatorContext.getSpillContext(),
-                        operatorContext.newAggregateSystemMemoryContext()));
+                        operatorContext.newAggregateUserMemoryContext()));
             }
 
             verify(inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() > 0);

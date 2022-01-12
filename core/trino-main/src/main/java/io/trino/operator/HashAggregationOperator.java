@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder.toTypes;
 import static io.trino.sql.planner.optimizations.HashGenerationOptimizer.INITIAL_HASH_VALUE;
@@ -71,7 +70,6 @@ public class HashAggregationOperator
         private final SpillerFactory spillerFactory;
         private final JoinCompiler joinCompiler;
         private final BlockTypeOperators blockTypeOperators;
-        private final boolean useSystemMemory;
 
         private boolean closed;
 
@@ -89,8 +87,7 @@ public class HashAggregationOperator
                 int expectedGroups,
                 Optional<DataSize> maxPartialMemory,
                 JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators,
-                boolean useSystemMemory)
+                BlockTypeOperators blockTypeOperators)
         {
             this(operatorId,
                     planNodeId,
@@ -111,8 +108,7 @@ public class HashAggregationOperator
                         throw new UnsupportedOperationException();
                     },
                     joinCompiler,
-                    blockTypeOperators,
-                    useSystemMemory);
+                    blockTypeOperators);
         }
 
         public HashAggregationOperatorFactory(
@@ -132,8 +128,7 @@ public class HashAggregationOperator
                 DataSize unspillMemoryLimit,
                 SpillerFactory spillerFactory,
                 JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators,
-                boolean useSystemMemory)
+                BlockTypeOperators blockTypeOperators)
         {
             this(operatorId,
                     planNodeId,
@@ -152,8 +147,7 @@ public class HashAggregationOperator
                     DataSize.succinctBytes((long) (unspillMemoryLimit.toBytes() * MERGE_WITH_MEMORY_RATIO)),
                     spillerFactory,
                     joinCompiler,
-                    blockTypeOperators,
-                    useSystemMemory);
+                    blockTypeOperators);
         }
 
         @VisibleForTesting
@@ -175,8 +169,7 @@ public class HashAggregationOperator
                 DataSize memoryLimitForMergeWithMemory,
                 SpillerFactory spillerFactory,
                 JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators,
-                boolean useSystemMemory)
+                BlockTypeOperators blockTypeOperators)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -196,7 +189,6 @@ public class HashAggregationOperator
             this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
             this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
-            this.useSystemMemory = useSystemMemory;
         }
 
         @Override
@@ -222,8 +214,7 @@ public class HashAggregationOperator
                     memoryLimitForMergeWithMemory,
                     spillerFactory,
                     joinCompiler,
-                    blockTypeOperators,
-                    useSystemMemory);
+                    blockTypeOperators);
             return hashAggregationOperator;
         }
 
@@ -254,8 +245,7 @@ public class HashAggregationOperator
                     memoryLimitForMergeWithMemory,
                     spillerFactory,
                     joinCompiler,
-                    blockTypeOperators,
-                    useSystemMemory);
+                    blockTypeOperators);
         }
     }
 
@@ -276,13 +266,12 @@ public class HashAggregationOperator
     private final SpillerFactory spillerFactory;
     private final JoinCompiler joinCompiler;
     private final BlockTypeOperators blockTypeOperators;
-    private final boolean useSystemMemory;
 
     private final List<Type> types;
     private final HashCollisionsCounter hashCollisionsCounter;
 
     private HashAggregationBuilder aggregationBuilder;
-    private LocalMemoryContext memoryContext;
+    private final LocalMemoryContext memoryContext;
     private WorkProcessor<Page> outputPages;
     private boolean inputProcessed;
     private boolean finishing;
@@ -308,8 +297,7 @@ public class HashAggregationOperator
             DataSize memoryLimitForMergeWithMemory,
             SpillerFactory spillerFactory,
             JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators,
-            boolean useSystemMemory)
+            BlockTypeOperators blockTypeOperators)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         requireNonNull(step, "step is null");
@@ -335,12 +323,8 @@ public class HashAggregationOperator
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         this.hashCollisionsCounter = new HashCollisionsCounter(operatorContext);
         operatorContext.setInfoSupplier(hashCollisionsCounter);
-        this.useSystemMemory = useSystemMemory;
 
         this.memoryContext = operatorContext.localUserMemoryContext();
-        if (useSystemMemory) {
-            this.memoryContext = operatorContext.localSystemMemoryContext();
-        }
     }
 
     @Override
@@ -407,7 +391,6 @@ public class HashAggregationOperator
                         });
             }
             else {
-                verify(!useSystemMemory, "using system memory in spillable aggregations is not supported");
                 aggregationBuilder = new SpillableHashAggregationBuilder(
                         aggregatorFactories,
                         step,

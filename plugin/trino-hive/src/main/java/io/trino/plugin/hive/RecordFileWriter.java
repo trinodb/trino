@@ -72,7 +72,7 @@ public class RecordFileWriter
     private final List<StructField> structFields;
     private final Object row;
     private final FieldSetter[] setters;
-    private final long estimatedWriterSystemMemoryUsage;
+    private final long estimatedWriterMemoryUsage;
 
     private boolean committed;
     private long finalWrittenBytes = -1;
@@ -82,7 +82,7 @@ public class RecordFileWriter
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             Properties schema,
-            DataSize estimatedWriterSystemMemoryUsage,
+            DataSize estimatedWriterMemoryUsage,
             JobConf conf,
             TypeManager typeManager,
             DateTimeZone parquetTimeZone,
@@ -128,7 +128,7 @@ public class RecordFileWriter
             setters[i] = fieldSetterFactory.create(tableInspector, row, structFields.get(i), fileColumnTypes.get(structFields.get(i).getFieldID()));
         }
 
-        this.estimatedWriterSystemMemoryUsage = estimatedWriterSystemMemoryUsage.toBytes();
+        this.estimatedWriterMemoryUsage = estimatedWriterMemoryUsage.toBytes();
     }
 
     @Override
@@ -157,9 +157,9 @@ public class RecordFileWriter
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return INSTANCE_SIZE + estimatedWriterSystemMemoryUsage;
+        return INSTANCE_SIZE + estimatedWriterMemoryUsage;
     }
 
     @Override

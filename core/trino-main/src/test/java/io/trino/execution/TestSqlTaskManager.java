@@ -51,7 +51,6 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
-import static io.trino.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
 import static io.trino.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static io.trino.execution.TaskTestUtils.SPLIT;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
@@ -242,8 +241,7 @@ public class TestSqlTaskManager
     public void testSessionPropertyMemoryLimitOverride()
     {
         NodeMemoryConfig memoryConfig = new NodeMemoryConfig()
-                .setMaxQueryMemoryPerNode(DataSize.ofBytes(3))
-                .setMaxQueryTotalMemoryPerNode(DataSize.ofBytes(4));
+                .setMaxQueryMemoryPerNode(DataSize.ofBytes(3));
 
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig(), memoryConfig)) {
             TaskId reduceLimitsId = new TaskId(new StageId("q1", 0), 1, 0);
@@ -255,17 +253,14 @@ public class TestSqlTaskManager
             // not initialized with a task update yet
             assertFalse(reducesLimitsContext.isMemoryLimitsInitialized());
             assertEquals(reducesLimitsContext.getMaxUserMemory(), memoryConfig.getMaxQueryMemoryPerNode().toBytes());
-            assertEquals(reducesLimitsContext.getMaxTotalMemory(), memoryConfig.getMaxQueryTotalMemoryPerNode().toBytes());
 
             assertFalse(attemptsIncreaseContext.isMemoryLimitsInitialized());
             assertEquals(attemptsIncreaseContext.getMaxUserMemory(), memoryConfig.getMaxQueryMemoryPerNode().toBytes());
-            assertEquals(attemptsIncreaseContext.getMaxTotalMemory(), memoryConfig.getMaxQueryTotalMemoryPerNode().toBytes());
 
             // memory limits reduced by session properties
             sqlTaskManager.updateTask(
                     testSessionBuilder()
                             .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "1B")
-                            .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "2B")
                             .build(),
                     reduceLimitsId,
                     Optional.of(PLAN_FRAGMENT),
@@ -274,13 +269,11 @@ public class TestSqlTaskManager
                     ImmutableMap.of());
             assertTrue(reducesLimitsContext.isMemoryLimitsInitialized());
             assertEquals(reducesLimitsContext.getMaxUserMemory(), 1);
-            assertEquals(reducesLimitsContext.getMaxTotalMemory(), 2);
 
             // memory limits not increased by session properties
             sqlTaskManager.updateTask(
                     testSessionBuilder()
                             .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "10B")
-                            .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "10B")
                             .build(),
                     increaseLimitsId,
                     Optional.of(PLAN_FRAGMENT),
@@ -289,7 +282,6 @@ public class TestSqlTaskManager
                     ImmutableMap.of());
             assertTrue(attemptsIncreaseContext.isMemoryLimitsInitialized());
             assertEquals(attemptsIncreaseContext.getMaxUserMemory(), memoryConfig.getMaxQueryMemoryPerNode().toBytes());
-            assertEquals(attemptsIncreaseContext.getMaxTotalMemory(), memoryConfig.getMaxQueryTotalMemoryPerNode().toBytes());
         }
     }
 
@@ -343,7 +335,7 @@ public class TestSqlTaskManager
             implements DirectExchangeClientSupplier
     {
         @Override
-        public DirectExchangeClient get(LocalMemoryContext systemMemoryContext, TaskFailureListener taskFailureListener, RetryPolicy retryPolicy)
+        public DirectExchangeClient get(LocalMemoryContext memoryContext, TaskFailureListener taskFailureListener, RetryPolicy retryPolicy)
         {
             throw new UnsupportedOperationException();
         }

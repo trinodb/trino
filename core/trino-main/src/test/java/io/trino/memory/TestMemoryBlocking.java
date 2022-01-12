@@ -59,7 +59,7 @@ import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class TestSystemMemoryBlocking
+public class TestMemoryBlocking
 {
     private static final QueryId QUERY_ID = new QueryId("test_query");
 
@@ -92,7 +92,7 @@ public class TestSystemMemoryBlocking
     }
 
     @Test
-    public void testTableScanSystemMemoryBlocking()
+    public void testTableScanMemoryBlocking()
     {
         PlanNodeId sourceId = new PlanNodeId("source");
         List<Type> types = ImmutableList.of(VARCHAR);

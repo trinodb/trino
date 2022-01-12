@@ -56,24 +56,24 @@ class OutputBufferMemoryManager
 
     private final AtomicBoolean blockOnFull = new AtomicBoolean(true);
 
-    private final Supplier<LocalMemoryContext> systemMemoryContextSupplier;
+    private final Supplier<LocalMemoryContext> memoryContextSupplier;
     private final Executor notificationExecutor;
 
-    public OutputBufferMemoryManager(long maxBufferedBytes, Supplier<LocalMemoryContext> systemMemoryContextSupplier, Executor notificationExecutor)
+    public OutputBufferMemoryManager(long maxBufferedBytes, Supplier<LocalMemoryContext> memoryContextSupplier, Executor notificationExecutor)
     {
-        requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null");
+        requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
         checkArgument(maxBufferedBytes > 0, "maxBufferedBytes must be > 0");
         this.maxBufferedBytes = maxBufferedBytes;
-        this.systemMemoryContextSupplier = Suppliers.memoize(systemMemoryContextSupplier::get);
+        this.memoryContextSupplier = Suppliers.memoize(memoryContextSupplier::get);
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
     }
 
     public void updateMemoryUsage(long bytesAdded)
     {
-        // If the systemMemoryContext doesn't exist, the task is probably already
-        // aborted, so we can just return (see the comment in getSystemMemoryContextOrNull()).
-        LocalMemoryContext systemMemoryContext = getSystemMemoryContextOrNull();
-        if (systemMemoryContext == null) {
+        // If the memoryContext doesn't exist, the task is probably already
+        // aborted, so we can just return (see the comment in getMemoryContextOrNull()).
+        LocalMemoryContext memoryContext = getMemoryContextOrNull();
+        if (memoryContext == null) {
             return;
         }
 
@@ -93,7 +93,7 @@ class OutputBufferMemoryManager
                 checkArgument(result >= 0, "bufferedBytes (%s) plus delta (%s) would be negative", bytes, bytesAdded);
                 return result;
             });
-            ListenableFuture<Void> blockedOnMemory = systemMemoryContext.setBytes(currentBufferedBytes);
+            ListenableFuture<Void> blockedOnMemory = memoryContext.setBytes(currentBufferedBytes);
             if (!blockedOnMemory.isDone()) {
                 if (this.blockedOnMemory != blockedOnMemory) {
                     this.blockedOnMemory = blockedOnMemory;
@@ -194,7 +194,7 @@ class OutputBufferMemoryManager
     public synchronized void close()
     {
         updateMemoryUsage(-bufferedBytes.get());
-        LocalMemoryContext memoryContext = getSystemMemoryContextOrNull();
+        LocalMemoryContext memoryContext = getMemoryContextOrNull();
         if (memoryContext != null) {
             memoryContext.close();
         }
@@ -209,10 +209,10 @@ class OutputBufferMemoryManager
     }
 
     @Nullable
-    private LocalMemoryContext getSystemMemoryContextOrNull()
+    private LocalMemoryContext getMemoryContextOrNull()
     {
         try {
-            return systemMemoryContextSupplier.get();
+            return memoryContextSupplier.get();
         }
         catch (RuntimeException ignored) {
             // This is possible with races, e.g., a task is created and then immediately aborted,
