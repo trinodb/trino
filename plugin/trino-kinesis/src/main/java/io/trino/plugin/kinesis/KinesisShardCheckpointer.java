@@ -30,8 +30,6 @@ public class KinesisShardCheckpointer
     private String logicalProcessName;
     private int currentIterationNumber;
     private KinesisClientLease kinesisClientLease;
-    private long checkpointIntervalMillis;
-    private long nextCheckpointTimeMillis;
 
     public KinesisShardCheckpointer(
             AmazonDynamoDB dynamoDBClient,
@@ -65,7 +63,6 @@ public class KinesisShardCheckpointer
         this.kinesisSplit = kinesisSplit;
         this.logicalProcessName = logicalProcessName;
         this.currentIterationNumber = currentIterationNumber;
-        this.checkpointIntervalMillis = checkpointIntervalMS;
 
         try {
             this.leaseManager.createLeaseTableIfNotExists(dynamoReadCapacity, dynamoWriteCapacity);
@@ -82,12 +79,6 @@ public class KinesisShardCheckpointer
         catch (ProvisionedThroughputException | InvalidStateException | DependencyException e) {
             throw new RuntimeException(e);
         }
-        resetNextCheckpointTime();
-    }
-
-    private void resetNextCheckpointTime()
-    {
-        nextCheckpointTimeMillis = System.nanoTime() + checkpointIntervalMillis * 1_000_000;
     }
 
     private String createCheckpointKey(int iterationNo)
@@ -117,7 +108,6 @@ public class KinesisShardCheckpointer
         catch (DependencyException | InvalidStateException | ProvisionedThroughputException e) {
             throw new RuntimeException(e);
         }
-        resetNextCheckpointTime();
     }
 
     //return checkpoint of previous iteration if found
@@ -144,12 +134,5 @@ public class KinesisShardCheckpointer
             log.info("Resuming from %s", lastReadSeqNumber);
         }
         return lastReadSeqNumber;
-    }
-
-    public void checkpointIfTimeUp(String lastReadSeqNo)
-    {
-        if (System.nanoTime() >= nextCheckpointTimeMillis) {
-            checkpoint(lastReadSeqNo);
-        }
     }
 }

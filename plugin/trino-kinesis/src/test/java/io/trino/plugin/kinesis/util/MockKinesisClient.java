@@ -174,11 +174,6 @@ public class MockKinesisClient
             }
         }
 
-        public void activate()
-        {
-            this.streamStatus = "ACTIVE";
-        }
-
         public PutRecordResult putRecord(ByteBuffer data, String partitionKey)
         {
             // Create record and insert into the shards.  Initially just do it
@@ -202,13 +197,6 @@ public class MockKinesisClient
             sequenceNo++;
 
             return result;
-        }
-
-        public void clearRecords()
-        {
-            for (InternalShard shard : this.shards) {
-                shard.clearRecords();
-            }
         }
     }
 
