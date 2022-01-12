@@ -98,11 +98,10 @@ statements, the connector supports the following features:
 * :doc:`/sql/insert`
 * :doc:`/sql/delete`
 * :doc:`/sql/truncate`
-* :doc:`/sql/create-table`
-* :doc:`/sql/create-table-as`
-* :doc:`/sql/drop-table`
-* :doc:`/sql/create-schema`
-* :doc:`/sql/drop-schema`
-* :doc:`/sql/comment`
+* :ref:`sql-schema-table-management`
 
 .. include:: sql-delete-limitation.fragment
+
+.. include:: alter-table-limitation.fragment
+
+.. include:: alter-schema-limitation.fragment
