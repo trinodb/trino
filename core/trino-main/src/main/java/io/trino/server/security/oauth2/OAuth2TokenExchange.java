@@ -91,6 +91,8 @@ public class OAuth2TokenExchange
 
     public void dropToken(UUID authId)
     {
+        // TODO this may not invalidate ongoing loads (https://github.com/trinodb/trino/issues/10512, https://github.com/google/guava/issues/1881).
+        //   Determine whether this is OK here.
         cache.invalidate(hashAuthId(authId));
     }
 

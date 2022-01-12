@@ -73,6 +73,8 @@ public final class CachingIdentifierMapping
 
     public void flushCache()
     {
+        // Note: this may not invalidate ongoing loads (https://github.com/trinodb/trino/issues/10512, https://github.com/google/guava/issues/1881)
+        // This is acceptable, since this operation is invoked manually, and not relied upon for correctness.
         remoteSchemaNames.invalidateAll();
         remoteTableNames.invalidateAll();
     }
