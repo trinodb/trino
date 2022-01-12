@@ -3039,12 +3039,12 @@ public abstract class BaseIcebergConnectorTest
         OperatorStats operatorStats = getOperatorStats(queryId);
         if (expectedSplitCount > 0) {
             assertThat(operatorStats.getTotalDrivers()).isEqualTo(expectedSplitCount);
-            assertThat(operatorStats.getAddInputCalls()).isGreaterThan(0);
+            assertThat(operatorStats.getPhysicalInputPositions()).isGreaterThan(0);
         }
         else {
             // expectedSplitCount == 0
             assertThat(operatorStats.getTotalDrivers()).isEqualTo(1);
-            assertThat(operatorStats.getAddInputCalls()).isEqualTo(0);
+            assertThat(operatorStats.getPhysicalInputPositions()).isEqualTo(0);
         }
     }
 
