@@ -330,13 +330,12 @@ public class TestHiveRedirectionToIceberg
 
         onTrino().executeQuery("ALTER TABLE " + hiveTableName + " ADD COLUMN some_new_column double");
 
-        // TODO: ALTER TABLE succeeded, but new column was not added
         Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
-                .containsOnly("nationkey", "name", "regionkey", "comment");
+                .containsOnly("nationkey", "name", "regionkey", "comment", "some_new_column");
 
         assertResultsEqual(
                 onTrino().executeQuery("TABLE " + icebergTableName),
-                onTrino().executeQuery("SELECT * /*, NULL*/ FROM tpch.tiny.nation"));
+                onTrino().executeQuery("SELECT * , NULL FROM tpch.tiny.nation"));
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }
@@ -353,11 +352,11 @@ public class TestHiveRedirectionToIceberg
         assertTableComment("hive", "default", tableName).isNull();
         assertTableComment("iceberg", "default", tableName).isNull();
 
-        onTrino().executeQuery("COMMENT ON TABLE " + hiveTableName + " IS 'This is my table, there are many like it but this one is mine'");
+        String tableComment = "This is my table, there are many like it but this one is mine";
+        onTrino().executeQuery(format("COMMENT ON TABLE " + hiveTableName + " IS '%s'", tableComment));
 
-        // TODO: COMMENT ON TABLE succeeded, but comment was not preserved
-        assertTableComment("hive", "default", tableName).isNull();
-        assertTableComment("iceberg", "default", tableName).isNull();
+        assertTableComment("hive", "default", tableName).isEqualTo(tableComment);
+        assertTableComment("iceberg", "default", tableName).isEqualTo(tableComment);
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }

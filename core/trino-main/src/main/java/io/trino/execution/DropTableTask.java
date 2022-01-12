@@ -83,7 +83,7 @@ public class DropTableTask
             return immediateVoidFuture();
         }
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle = metadata.getRedirectionAwareTableHandle(session, tableName).getTableHandle();
         if (tableHandle.isEmpty()) {
             if (!statement.isExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);

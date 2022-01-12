@@ -83,7 +83,7 @@ public class AddColumnTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
-        Optional<TableHandle> tableHandle = plannerContext.getMetadata().getTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle = plannerContext.getMetadata().getRedirectionAwareTableHandle(session, tableName).getTableHandle();
         if (tableHandle.isEmpty()) {
             if (!statement.isTableExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);

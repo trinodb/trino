@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
 import io.trino.sql.tree.Expression;
@@ -86,7 +87,8 @@ public class RenameTableTask
             return immediateVoidFuture();
         }
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        RedirectionAwareTableHandle redirectionAwareTableHandle = metadata.getRedirectionAwareTableHandle(session, tableName);
+        Optional<TableHandle> tableHandle = redirectionAwareTableHandle.getTableHandle();
         if (tableHandle.isEmpty()) {
             if (!statement.isExists()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
@@ -95,13 +97,16 @@ public class RenameTableTask
         }
 
         QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
+        if (redirectionAwareTableHandle.getRedirectedTableName().isPresent()) {
+            target = new QualifiedObjectName(tableHandle.get().getCatalogName().getCatalogName(), target.getSchemaName(), target.getObjectName());
+        }
         if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }
         if (metadata.getTableHandle(session, target).isPresent()) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target table '%s' already exists", target);
         }
-        if (!tableName.getCatalogName().equals(target.getCatalogName())) {
+        if (!tableHandle.get().getCatalogName().getCatalogName().equals(target.getCatalogName())) {
             throw semanticException(NOT_SUPPORTED, statement, "Table rename across catalogs is not supported");
         }
         accessControl.checkCanRenameTable(session.toSecurityContext(), tableName, target);
