@@ -100,8 +100,7 @@ public class TestAggregationOperator
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.of(1))),
-                false);
+                ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.of(1))));
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
@@ -126,8 +125,7 @@ public class TestAggregationOperator
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                ImmutableList.of(distinctFactory),
-                false);
+                ImmutableList.of(distinctFactory));
 
         ByteArrayBlock trueMaskAllNull = new ByteArrayBlock(
                 4,
@@ -168,8 +166,7 @@ public class TestAggregationOperator
                         LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(3), OptionalInt.empty()),
                         REAL_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(4), OptionalInt.empty()),
                         DOUBLE_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(5), OptionalInt.empty()),
-                        maxVarcharColumn.createAggregatorFactory(SINGLE, ImmutableList.of(6), OptionalInt.empty())),
-                false);
+                        maxVarcharColumn.createAggregatorFactory(SINGLE, ImmutableList.of(6), OptionalInt.empty())));
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
@@ -180,7 +177,6 @@ public class TestAggregationOperator
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
-        assertEquals(driverContext.getSystemMemoryUsage(), 0);
         assertEquals(driverContext.getMemoryUsage(), 0);
     }
 
@@ -188,20 +184,12 @@ public class TestAggregationOperator
     public void testMemoryTracking()
             throws Exception
     {
-        testMemoryTracking(false);
-        testMemoryTracking(true);
-    }
-
-    private void testMemoryTracking(boolean useSystemMemory)
-            throws Exception
-    {
         Page input = getOnlyElement(rowPagesBuilder(BIGINT).addSequencePage(100, 0).build());
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                ImmutableList.of(LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())),
-                useSystemMemory);
+                ImmutableList.of(LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())));
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
@@ -211,19 +199,11 @@ public class TestAggregationOperator
             assertTrue(operator.needsInput());
             operator.addInput(input);
 
-            if (useSystemMemory) {
-                assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
-                assertEquals(driverContext.getMemoryUsage(), 0);
-            }
-            else {
-                assertEquals(driverContext.getSystemMemoryUsage(), 0);
-                assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
-            }
+            assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
 
             toPages(operator, emptyIterator());
         }
 
-        assertEquals(driverContext.getSystemMemoryUsage(), 0);
         assertEquals(driverContext.getMemoryUsage(), 0);
     }
 }

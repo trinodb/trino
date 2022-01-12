@@ -175,7 +175,7 @@ public class RcFilePageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
         return GUESSED_MEMORY_USAGE;
     }

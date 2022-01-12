@@ -197,7 +197,6 @@ public class MockRemoteTaskFactory
             SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(DataSize.of(1, GIGABYTE));
             QueryContext queryContext = new QueryContext(taskId.getQueryId(),
                     DataSize.of(1, MEGABYTE),
-                    DataSize.of(2, MEGABYTE),
                     Optional.empty(),
                     memoryPool,
                     new TestingGcMonitor(),
@@ -264,7 +263,6 @@ public class MockRemoteTaskFactory
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
-                            DataSize.ofBytes(0),
                             0,
                             new Duration(0, MILLISECONDS),
                             INITIAL_DYNAMIC_FILTERS_VERSION,
@@ -296,7 +294,6 @@ public class MockRemoteTaskFactory
                     isOutputBufferOverUtilized,
                     stats.getPhysicalWrittenDataSize(),
                     stats.getUserMemoryReservation(),
-                    stats.getSystemMemoryReservation(),
                     stats.getRevocableMemoryReservation(),
                     0,
                     new Duration(0, MILLISECONDS),

@@ -94,7 +94,7 @@ public class ExchangeOperator
             checkState(!closed, "Factory is already closed");
             TaskContext taskContext = driverContext.getPipelineContext().getTaskContext();
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, ExchangeOperator.class.getSimpleName());
-            LocalMemoryContext memoryContext = driverContext.getPipelineContext().localSystemMemoryContext();
+            LocalMemoryContext memoryContext = driverContext.getPipelineContext().localMemoryContext();
             if (exchangeDataSource == null) {
                 // The decision of what exchange to use (streaming vs external) is currently made at the scheduling phase. It is more convenient to deliver it as part of a RemoteSplit.
                 // Postponing this decision until scheduling allows to dynamically change the exchange type as part of an adaptive query re-planning.

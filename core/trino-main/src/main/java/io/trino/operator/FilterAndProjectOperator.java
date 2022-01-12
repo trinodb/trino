@@ -63,7 +63,7 @@ public class FilterAndProjectOperator
                         page,
                         avoidPageMaterialization))
                 .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
-                .blocking(() -> memoryTrackingContext.localSystemMemoryContext().setBytes(localAggregatedMemoryContext.getBytes()));
+                .blocking(() -> memoryTrackingContext.localUserMemoryContext().setBytes(localAggregatedMemoryContext.getBytes()));
     }
 
     @Override

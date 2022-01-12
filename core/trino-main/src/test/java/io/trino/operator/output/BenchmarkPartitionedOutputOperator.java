@@ -479,11 +479,11 @@ public class BenchmarkPartitionedOutputOperator
                     StateMachine<BufferState> state,
                     OutputBuffers outputBuffers,
                     DataSize maxBufferSize,
-                    Supplier<LocalMemoryContext> systemMemoryContextSupplier,
+                    Supplier<LocalMemoryContext> memoryContextSupplier,
                     Executor notificationExecutor,
                     Blackhole blackhole)
             {
-                super(taskInstanceId, state, outputBuffers, maxBufferSize, systemMemoryContextSupplier, notificationExecutor);
+                super(taskInstanceId, state, outputBuffers, maxBufferSize, memoryContextSupplier, notificationExecutor);
                 this.blackhole = blackhole;
             }
 

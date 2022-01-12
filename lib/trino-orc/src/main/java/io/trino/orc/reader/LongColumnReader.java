@@ -80,9 +80,9 @@ public class LongColumnReader
     private int[] intNonNullValueTemp = new int[0];
     private long[] longNonNullValueTemp = new long[0];
 
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
 
-    public LongColumnReader(Type type, OrcColumn column, LocalMemoryContext systemMemoryContext)
+    public LongColumnReader(Type type, OrcColumn column, LocalMemoryContext memoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -90,7 +90,7 @@ public class LongColumnReader
         this.type = type;
 
         this.column = requireNonNull(column, "column is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     @Override
@@ -205,7 +205,7 @@ public class LongColumnReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (longNonNullValueTemp.length < minNonNullValueSize) {
             longNonNullValueTemp = new long[minNonNullValueSize];
-            systemMemoryContext.setBytes(sizeOf(longNonNullValueTemp));
+            memoryContext.setBytes(sizeOf(longNonNullValueTemp));
         }
 
         dataStream.next(longNonNullValueTemp, nonNullCount);
@@ -222,7 +222,7 @@ public class LongColumnReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (intNonNullValueTemp.length < minNonNullValueSize) {
             intNonNullValueTemp = new int[minNonNullValueSize];
-            systemMemoryContext.setBytes(sizeOf(intNonNullValueTemp));
+            memoryContext.setBytes(sizeOf(intNonNullValueTemp));
         }
 
         dataStream.next(intNonNullValueTemp, nonNullCount);
@@ -239,7 +239,7 @@ public class LongColumnReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (shortNonNullValueTemp.length < minNonNullValueSize) {
             shortNonNullValueTemp = new short[minNonNullValueSize];
-            systemMemoryContext.setBytes(sizeOf(shortNonNullValueTemp));
+            memoryContext.setBytes(sizeOf(shortNonNullValueTemp));
         }
 
         dataStream.next(shortNonNullValueTemp, nonNullCount);
@@ -299,7 +299,7 @@ public class LongColumnReader
     @Override
     public void close()
     {
-        systemMemoryContext.close();
+        memoryContext.close();
     }
 
     @Override

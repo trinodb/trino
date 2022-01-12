@@ -196,8 +196,7 @@ public class TopNRankingOperator
     {
         requireNonNull(maxPartialMemory, "maxPartialMemory is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        // when the operator is final or maxPartialMemory is not set, use user memory instead of system memory
-        this.localMemoryContext = maxPartialMemory.isPresent() ? operatorContext.localSystemMemoryContext() : operatorContext.localUserMemoryContext();
+        this.localMemoryContext = operatorContext.localUserMemoryContext();
 
         ImmutableList.Builder<Integer> outputChannelsBuilder = ImmutableList.builder();
         for (int channel : requireNonNull(outputChannels, "outputChannels is null")) {

@@ -56,7 +56,7 @@ public class LazyOutputBuffer
     private final String taskInstanceId;
     private final DataSize maxBufferSize;
     private final DataSize maxBroadcastBufferSize;
-    private final Supplier<LocalMemoryContext> systemMemoryContextSupplier;
+    private final Supplier<LocalMemoryContext> memoryContextSupplier;
     private final Executor executor;
     private final Runnable notifyStatusChanged;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
@@ -78,7 +78,7 @@ public class LazyOutputBuffer
             Executor executor,
             DataSize maxBufferSize,
             DataSize maxBroadcastBufferSize,
-            Supplier<LocalMemoryContext> systemMemoryContextSupplier,
+            Supplier<LocalMemoryContext> memoryContextSupplier,
             Runnable notifyStatusChanged,
             ExchangeManagerRegistry exchangeManagerRegistry)
     {
@@ -88,7 +88,7 @@ public class LazyOutputBuffer
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
         this.maxBroadcastBufferSize = requireNonNull(maxBroadcastBufferSize, "maxBroadcastBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
-        this.systemMemoryContextSupplier = requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null");
+        this.memoryContextSupplier = requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
         this.notifyStatusChanged = requireNonNull(notifyStatusChanged, "notifyStatusChanged is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
     }
@@ -167,20 +167,20 @@ public class LazyOutputBuffer
                     }
                     switch (newOutputBuffers.getType()) {
                         case PARTITIONED:
-                            outputBuffer = new PartitionedOutputBuffer(taskInstanceId, state, newOutputBuffers, maxBufferSize, systemMemoryContextSupplier, executor);
+                            outputBuffer = new PartitionedOutputBuffer(taskInstanceId, state, newOutputBuffers, maxBufferSize, memoryContextSupplier, executor);
                             break;
                         case BROADCAST:
-                            outputBuffer = new BroadcastOutputBuffer(taskInstanceId, state, maxBroadcastBufferSize, systemMemoryContextSupplier, executor, notifyStatusChanged);
+                            outputBuffer = new BroadcastOutputBuffer(taskInstanceId, state, maxBroadcastBufferSize, memoryContextSupplier, executor, notifyStatusChanged);
                             break;
                         case ARBITRARY:
-                            outputBuffer = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
+                            outputBuffer = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, memoryContextSupplier, executor);
                             break;
                         case SPOOL:
                             ExchangeSinkInstanceHandle exchangeSinkInstanceHandle = newOutputBuffers.getExchangeSinkInstanceHandle()
                                     .orElseThrow(() -> new IllegalArgumentException("exchange sink handle is expected to be present for buffer type EXTERNAL"));
                             ExchangeManager exchangeManager = exchangeManagerRegistry.getExchangeManager();
                             ExchangeSink exchangeSink = exchangeManager.createSink(exchangeSinkInstanceHandle);
-                            outputBuffer = new SpoolingExchangeOutputBuffer(state, newOutputBuffers, exchangeSink, systemMemoryContextSupplier);
+                            outputBuffer = new SpoolingExchangeOutputBuffer(state, newOutputBuffers, exchangeSink, memoryContextSupplier);
                             break;
                         default:
                             throw new IllegalArgumentException("Unexpected output buffer type: " + newOutputBuffers.getType());

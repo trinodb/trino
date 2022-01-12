@@ -81,7 +81,7 @@ public class BroadcastOutputBuffer
             String taskInstanceId,
             StateMachine<BufferState> state,
             DataSize maxBufferSize,
-            Supplier<LocalMemoryContext> systemMemoryContextSupplier,
+            Supplier<LocalMemoryContext> memoryContextSupplier,
             Executor notificationExecutor,
             Runnable notifyStatusChanged)
     {
@@ -89,7 +89,7 @@ public class BroadcastOutputBuffer
         this.state = requireNonNull(state, "state is null");
         this.memoryManager = new OutputBufferMemoryManager(
                 requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
-                requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
+                requireNonNull(memoryContextSupplier, "memoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
         this.onPagesReleased = (releasedPageCount, releasedMemorySizeInBytes) -> {
             checkState(totalBufferedPages.addAndGet(-releasedPageCount) >= 0);

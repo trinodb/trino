@@ -147,9 +147,9 @@ public class IcebergPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return delegate.getSystemMemoryUsage();
+        return delegate.getMemoryUsage();
     }
 
     protected void closeWithSuppression(Throwable throwable)

@@ -94,14 +94,14 @@ public class SliceDictionaryColumnReader
     private int[] nonNullValueTemp = new int[0];
     private int[] nonNullPositionList = new int[0];
 
-    private final LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext memoryContext;
 
-    public SliceDictionaryColumnReader(OrcColumn column, LocalMemoryContext systemMemoryContext, int maxCodePointCount, boolean isCharType)
+    public SliceDictionaryColumnReader(OrcColumn column, LocalMemoryContext memoryContext, int maxCodePointCount, boolean isCharType)
     {
         this.maxCodePointCount = maxCodePointCount;
         this.isCharType = isCharType;
         this.column = requireNonNull(column, "column is null");
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
     @Override
@@ -185,7 +185,7 @@ public class SliceDictionaryColumnReader
         if (nonNullValueTemp.length < minNonNullValueSize) {
             nonNullValueTemp = new int[minNonNullValueSize];
             nonNullPositionList = new int[minNonNullValueSize];
-            systemMemoryContext.setBytes(getRetainedSizeInBytes());
+            memoryContext.setBytes(getRetainedSizeInBytes());
         }
 
         dataStream.next(nonNullValueTemp, nonNullCount);
@@ -219,7 +219,7 @@ public class SliceDictionaryColumnReader
             dictionaryOffsets[positionCount] = dictionaryOffsets[positionCount - 1];
             dictionaryBlock = new VariableWidthBlock(positionCount, wrappedBuffer(dictionaryData), dictionaryOffsets, Optional.of(isNullVector));
             currentDictionaryData = dictionaryData;
-            systemMemoryContext.setBytes(getRetainedSizeInBytes());
+            memoryContext.setBytes(getRetainedSizeInBytes());
         }
     }
 
@@ -358,7 +358,7 @@ public class SliceDictionaryColumnReader
     @Override
     public void close()
     {
-        systemMemoryContext.close();
+        memoryContext.close();
     }
 
     @Override

@@ -97,13 +97,9 @@ public class TaskContext
 
     private final Object cumulativeMemoryLock = new Object();
     private final AtomicDouble cumulativeUserMemory = new AtomicDouble(0.0);
-    private final AtomicDouble cumulativeSystemMemory = new AtomicDouble(0.0);
 
     @GuardedBy("cumulativeMemoryLock")
     private long lastUserMemoryReservation;
-
-    @GuardedBy("cumulativeMemoryLock")
-    private long lastSystemMemoryReservation;
 
     @GuardedBy("cumulativeMemoryLock")
     private long lastTaskStatCallNanos;
@@ -170,8 +166,7 @@ public class TaskContext
             MemoryAllocationValidator memoryValidator = new TaskAllocationValidator(maxMemory.get());
             this.taskMemoryContext = new MemoryTrackingContext(
                     new ValidatingAggregateContext(taskMemoryContext.aggregateUserMemoryContext(), memoryValidator),
-                    taskMemoryContext.aggregateRevocableMemoryContext(),
-                    new ValidatingAggregateContext(taskMemoryContext.aggregateSystemMemoryContext(), memoryValidator));
+                    taskMemoryContext.aggregateRevocableMemoryContext());
         }
         else {
             this.taskMemoryContext = taskMemoryContext;
@@ -275,11 +270,6 @@ public class TaskContext
         return DataSize.ofBytes(taskMemoryContext.getUserMemory());
     }
 
-    public DataSize getSystemMemoryReservation()
-    {
-        return DataSize.ofBytes(taskMemoryContext.getSystemMemory());
-    }
-
     public DataSize getRevocableMemoryReservation()
     {
         return DataSize.ofBytes(taskMemoryContext.getRevocableMemory());
@@ -318,9 +308,9 @@ public class TaskContext
         queryContext.freeSpill(bytes);
     }
 
-    public LocalMemoryContext localSystemMemoryContext()
+    public LocalMemoryContext localMemoryContext()
     {
-        return taskMemoryContext.localSystemMemoryContext();
+        return taskMemoryContext.localUserMemoryContext();
     }
 
     public boolean isPerOperatorCpuTimerEnabled()
@@ -532,19 +522,15 @@ public class TaskContext
         Duration fullGcTime = getFullGcTime();
 
         long userMemory = taskMemoryContext.getUserMemory();
-        long systemMemory = taskMemoryContext.getSystemMemory();
 
         synchronized (cumulativeMemoryLock) {
             long currentTimeNanos = System.nanoTime();
             double sinceLastPeriodMillis = (currentTimeNanos - lastTaskStatCallNanos) / 1_000_000.0;
             long averageUserMemoryForLastPeriod = (userMemory + lastUserMemoryReservation) / 2;
             cumulativeUserMemory.addAndGet(averageUserMemoryForLastPeriod * sinceLastPeriodMillis);
-            long averageSystemMemoryForLastPeriod = (systemMemory + lastSystemMemoryReservation) / 2;
-            cumulativeSystemMemory.addAndGet(averageSystemMemoryForLastPeriod * sinceLastPeriodMillis);
 
             lastTaskStatCallNanos = currentTimeNanos;
             lastUserMemoryReservation = userMemory;
-            lastSystemMemoryReservation = systemMemory;
         }
 
         boolean fullyBlocked = hasRunningPipelines && runningPipelinesFullyBlocked;
@@ -567,10 +553,8 @@ public class TaskContext
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory.get(),
-                cumulativeSystemMemory.get(),
                 succinctBytes(userMemory),
                 succinctBytes(taskMemoryContext.getRevocableMemory()),
-                succinctBytes(systemMemory),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),

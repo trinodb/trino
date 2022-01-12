@@ -93,7 +93,7 @@ public class HivePageSink
     private final List<Callable<Object>> verificationTasks = new ArrayList<>();
 
     private long writtenBytes;
-    private long systemMemoryUsage;
+    private long memoryUsage;
     private long validationCpuNanos;
 
     public HivePageSink(
@@ -174,9 +174,9 @@ public class HivePageSink
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return systemMemoryUsage;
+        return memoryUsage;
     }
 
     @Override
@@ -318,22 +318,22 @@ public class HivePageSink
             HiveWriter writer = writers.get(index);
 
             long currentWritten = writer.getWrittenBytes();
-            long currentMemory = writer.getSystemMemoryUsage();
+            long currentMemory = writer.getMemoryUsage();
 
             writer.append(pageForWriter);
 
             writtenBytes += (writer.getWrittenBytes() - currentWritten);
-            systemMemoryUsage += (writer.getSystemMemoryUsage() - currentMemory);
+            memoryUsage += (writer.getMemoryUsage() - currentMemory);
         }
     }
 
     private void closeWriter(HiveWriter writer)
     {
         long currentWritten = writer.getWrittenBytes();
-        long currentMemory = writer.getSystemMemoryUsage();
+        long currentMemory = writer.getMemoryUsage();
         writer.commit();
         writtenBytes += (writer.getWrittenBytes() - currentWritten);
-        systemMemoryUsage += (writer.getSystemMemoryUsage() - currentMemory);
+        memoryUsage += (writer.getMemoryUsage() - currentMemory);
 
         closedWriters.add(writer);
 

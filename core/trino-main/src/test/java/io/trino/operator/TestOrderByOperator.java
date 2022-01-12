@@ -263,7 +263,7 @@ public class TestOrderByOperator
 
         assertThatThrownBy(() -> toPages(operatorFactory, driverContext, input))
                 .isInstanceOf(ExceededMemoryLimitException.class)
-                .hasMessageMatching("Query exceeded per-node user memory limit of 10B.*");
+                .hasMessageMatching("Query exceeded per-node memory limit of 10B.*");
     }
 
     private DriverContext createDriverContext(long memoryLimit)

@@ -153,8 +153,6 @@ public class TestHttpQueryListener
                 0L,
                 0L,
                 0L,
-                0L,
-                0.0f,
                 0.0f,
                 Collections.emptyList(),
                 0,

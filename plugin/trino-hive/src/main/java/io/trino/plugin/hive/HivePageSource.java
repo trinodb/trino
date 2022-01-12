@@ -271,9 +271,9 @@ public class HivePageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return delegate.getSystemMemoryUsage();
+        return delegate.getMemoryUsage();
     }
 
     @Override

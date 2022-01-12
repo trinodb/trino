@@ -119,7 +119,6 @@ public class QueryStateMachine
 
     private final AtomicLong currentRevocableMemory = new AtomicLong();
     private final AtomicLong peakRevocableMemory = new AtomicLong();
-    private final AtomicLong peakNonRevocableMemory = new AtomicLong();
 
     // peak of the user + system + revocable memory reservation
     private final AtomicLong currentTotalMemory = new AtomicLong();
@@ -289,11 +288,6 @@ public class QueryStateMachine
         return peakRevocableMemory.get();
     }
 
-    public long getPeakNonRevocableMemoryInBytes()
-    {
-        return peakNonRevocableMemory.get();
-    }
-
     public long getPeakTotalMemoryInBytes()
     {
         return peakTotalMemory.get();
@@ -332,7 +326,6 @@ public class QueryStateMachine
         currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
         peakUserMemory.updateAndGet(currentPeakValue -> Math.max(currentUserMemory.get(), currentPeakValue));
         peakRevocableMemory.updateAndGet(currentPeakValue -> Math.max(currentRevocableMemory.get(), currentPeakValue));
-        peakNonRevocableMemory.updateAndGet(currentPeakValue -> Math.max(currentTotalMemory.get() - currentRevocableMemory.get(), currentPeakValue));
         peakTotalMemory.updateAndGet(currentPeakValue -> Math.max(currentTotalMemory.get(), currentPeakValue));
         peakTaskUserMemory.accumulateAndGet(taskUserMemoryInBytes, Math::max);
         peakTaskRevocableMemory.accumulateAndGet(taskRevocableMemoryInBytes, Math::max);
@@ -373,7 +366,6 @@ public class QueryStateMachine
                 stageStats.getPhysicalInputDataSize(),
 
                 stageStats.getCumulativeUserMemory(),
-                stageStats.getCumulativeSystemMemory(),
                 stageStats.getUserMemoryReservation(),
                 stageStats.getTotalMemoryReservation(),
                 succinctBytes(getPeakUserMemoryInBytes()),
@@ -472,7 +464,6 @@ public class QueryStateMachine
         int completedDrivers = 0;
 
         long cumulativeUserMemory = 0;
-        long cumulativeSystemMemory = 0;
         long userMemoryReservation = 0;
         long revocableMemoryReservation = 0;
         long totalMemoryReservation = 0;
@@ -519,7 +510,6 @@ public class QueryStateMachine
             completedDrivers += stageStats.getCompletedDrivers();
 
             cumulativeUserMemory += stageStats.getCumulativeUserMemory();
-            cumulativeSystemMemory += stageStats.getCumulativeSystemMemory();
             userMemoryReservation += stageStats.getUserMemoryReservation().toBytes();
             revocableMemoryReservation += stageStats.getRevocableMemoryReservation().toBytes();
             totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
@@ -589,13 +579,11 @@ public class QueryStateMachine
                 completedDrivers,
 
                 cumulativeUserMemory,
-                cumulativeSystemMemory,
                 succinctBytes(userMemoryReservation),
                 succinctBytes(revocableMemoryReservation),
                 succinctBytes(totalMemoryReservation),
                 succinctBytes(getPeakUserMemoryInBytes()),
                 succinctBytes(getPeakRevocableMemoryInBytes()),
-                succinctBytes(getPeakNonRevocableMemoryInBytes()),
                 succinctBytes(getPeakTotalMemoryInBytes()),
                 succinctBytes(getPeakTaskUserMemory()),
                 succinctBytes(getPeakTaskRevocableMemory()),
@@ -1153,13 +1141,11 @@ public class QueryStateMachine
                 queryStats.getBlockedDrivers(),
                 queryStats.getCompletedDrivers(),
                 queryStats.getCumulativeUserMemory(),
-                queryStats.getCumulativeSystemMemory(),
                 queryStats.getUserMemoryReservation(),
                 queryStats.getRevocableMemoryReservation(),
                 queryStats.getTotalMemoryReservation(),
                 queryStats.getPeakUserMemoryReservation(),
                 queryStats.getPeakRevocableMemoryReservation(),
-                queryStats.getPeakNonRevocableMemoryReservation(),
                 queryStats.getPeakTotalMemoryReservation(),
                 queryStats.getPeakTaskUserMemory(),
                 queryStats.getPeakTaskRevocableMemory(),
