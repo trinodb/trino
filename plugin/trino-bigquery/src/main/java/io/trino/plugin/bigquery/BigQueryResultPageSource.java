@@ -27,6 +27,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -190,7 +191,7 @@ public class BigQueryResultPageSource
             else if (javaType == double.class) {
                 type.writeDouble(output, ((Number) value).doubleValue());
             }
-            else if (javaType == Slice.class) {
+            else if (javaType == Slice.class || type.getJavaType() == Int128.class) {
                 writeSlice(output, type, value);
             }
             else if (javaType == LongTimestampWithTimeZone.class) {
