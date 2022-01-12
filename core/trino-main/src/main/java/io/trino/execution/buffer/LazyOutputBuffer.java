@@ -16,7 +16,7 @@ package io.trino.execution.buffer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.concurrent.ExtendedSettableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine;
@@ -351,7 +351,7 @@ public class LazyOutputBuffer
         private final long startingSequenceId;
         private final DataSize maxSize;
 
-        private final ExtendedSettableFuture<BufferResult> futureResult = ExtendedSettableFuture.create();
+        private final SettableFuture<BufferResult> futureResult = SettableFuture.create();
 
         public PendingRead(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
         {
@@ -360,7 +360,7 @@ public class LazyOutputBuffer
             this.maxSize = requireNonNull(maxSize, "maxSize is null");
         }
 
-        public ExtendedSettableFuture<BufferResult> getFutureResult()
+        public SettableFuture<BufferResult> getFutureResult()
         {
             return futureResult;
         }
@@ -373,7 +373,7 @@ public class LazyOutputBuffer
 
             try {
                 ListenableFuture<BufferResult> result = delegate.get(bufferId, startingSequenceId, maxSize);
-                futureResult.setAsync(result);
+                futureResult.setFuture(result);
             }
             catch (Exception e) {
                 futureResult.setException(e);
