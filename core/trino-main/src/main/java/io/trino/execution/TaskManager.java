@@ -16,8 +16,8 @@ package io.trino.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.VersionedSummaryInfoCollector.VersionedSummaryInfo;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
@@ -80,7 +80,7 @@ public interface TaskManager
      */
     ListenableFuture<TaskStatus> getTaskStatus(TaskId taskId, long currentVersion);
 
-    VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(TaskId taskId, long currentDynamicFiltersVersion);
+    VersionedSummaryInfo acknowledgeAndGetNewSummaryInfo(TaskId taskId, long callersSummaryVersion);
 
     void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments);
 

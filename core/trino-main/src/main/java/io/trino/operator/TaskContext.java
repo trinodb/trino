@@ -23,12 +23,12 @@ import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.execution.DynamicFiltersCollector;
-import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.trino.execution.DynamicFilterSummary;
 import io.trino.execution.Lifespan;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStateMachine;
+import io.trino.execution.VersionedSummaryInfoCollector;
 import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.memory.QueryContext;
 import io.trino.memory.QueryContextVisitor;
@@ -58,6 +58,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.trino.execution.VersionedSummaryInfoCollector.VersionedSummaryInfo;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -105,7 +106,7 @@ public class TaskContext
     private long lastTaskStatCallNanos;
 
     private final MemoryTrackingContext taskMemoryContext;
-    private final DynamicFiltersCollector dynamicFiltersCollector;
+    private final VersionedSummaryInfoCollector versionedSummaryInfoCollector;
 
     // The collector is shared for dynamic filters collected from coordinator
     // as well as from local build-side of replicated joins. It is also shared with
@@ -174,7 +175,7 @@ public class TaskContext
 
         // Initialize the local memory contexts with the LazyOutputBuffer tag as LazyOutputBuffer will do the local memory allocations
         this.taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
-        this.dynamicFiltersCollector = new DynamicFiltersCollector(notifyStatusChanged);
+        this.versionedSummaryInfoCollector = new VersionedSummaryInfoCollector(notifyStatusChanged);
         this.localDynamicFiltersCollector = new LocalDynamicFiltersCollector(session);
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
         this.cpuTimerEnabled = cpuTimerEnabled;
@@ -397,17 +398,22 @@ public class TaskContext
 
     public void updateDomains(Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
-        dynamicFiltersCollector.updateDomains(dynamicFilterDomains);
+        versionedSummaryInfoCollector.updateSummary(new DynamicFilterSummary(dynamicFilterDomains));
     }
 
-    public long getDynamicFiltersVersion()
+    public long getCurrentSummaryVersion()
     {
-        return dynamicFiltersCollector.getDynamicFiltersVersion();
+        return versionedSummaryInfoCollector.getCurrentSummaryVersion();
     }
 
-    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersCurrentVersion)
+    public VersionedSummaryInfo acknowledgeAndGetNewSummaryInfo(long callersCurrentVersion)
     {
-        return dynamicFiltersCollector.acknowledgeAndGetNewDomains(callersCurrentVersion);
+        return versionedSummaryInfoCollector.acknowledgeAndGetNewSummaryInfo(callersCurrentVersion);
+    }
+
+    public VersionedSummaryInfo getCurrentSummaryInfo()
+    {
+        return versionedSummaryInfoCollector.getCurrentSummaryInfo();
     }
 
     public TaskStats getTaskStats()

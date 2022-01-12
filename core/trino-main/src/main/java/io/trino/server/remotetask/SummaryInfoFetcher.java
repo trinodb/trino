@@ -20,8 +20,9 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
-import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.trino.execution.DynamicFilterSummary;
 import io.trino.execution.TaskId;
+import io.trino.execution.VersionedSummaryInfoCollector.VersionedSummaryInfo;
 import io.trino.server.DynamicFilterService;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -39,18 +40,20 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
-import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
+import static io.trino.execution.SummaryInfo.Type.DYNAMIC_FILTER;
+import static io.trino.execution.VersionedSummaryInfoCollector.INITIAL_SUMMARY_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
 import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-class DynamicFiltersFetcher
-        implements SimpleHttpResponseCallback<VersionedDynamicFilterDomains>
+class SummaryInfoFetcher
+        implements SimpleHttpResponseCallback<VersionedSummaryInfo>
 {
     private final TaskId taskId;
     private final URI taskUri;
     private final Consumer<Throwable> onFail;
-    private final JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec;
+    private final JsonCodec<VersionedSummaryInfo> versionedSummaryInfoCodec;
     private final Duration refreshMaxWait;
     private final Executor executor;
     private final HttpClient httpClient;
@@ -60,20 +63,20 @@ class DynamicFiltersFetcher
     private final AtomicLong currentRequestStartNanos = new AtomicLong();
 
     @GuardedBy("this")
-    private long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
+    private long summaryVersion = INITIAL_SUMMARY_VERSION;
     @GuardedBy("this")
-    private long localDynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
+    private long localSummaryInfoVersion = INITIAL_SUMMARY_VERSION;
     @GuardedBy("this")
     private boolean running;
     @GuardedBy("this")
-    private ListenableFuture<JsonResponse<VersionedDynamicFilterDomains>> future;
+    private ListenableFuture<JsonResponse<VersionedSummaryInfo>> future;
 
-    public DynamicFiltersFetcher(
+    public SummaryInfoFetcher(
             Consumer<Throwable> onFail,
             TaskId taskId,
             URI taskUri,
             Duration refreshMaxWait,
-            JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
+            JsonCodec<VersionedSummaryInfo> versionedSummaryInfoCodec,
             Executor executor,
             HttpClient httpClient,
             Duration maxErrorDuration,
@@ -86,7 +89,7 @@ class DynamicFiltersFetcher
         this.onFail = requireNonNull(onFail, "onFail is null");
 
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
-        this.dynamicFilterDomainsCodec = requireNonNull(dynamicFilterDomainsCodec, "dynamicFilterDomainsCodec is null");
+        this.versionedSummaryInfoCodec = requireNonNull(versionedSummaryInfoCodec, "versionedSummaryInfoCodec is null");
 
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -103,7 +106,7 @@ class DynamicFiltersFetcher
             return;
         }
         running = true;
-        fetchDynamicFiltersIfNecessary();
+        fetchNewSummariesIfNecessary();
     }
 
     public synchronized void stop()
@@ -115,25 +118,25 @@ class DynamicFiltersFetcher
         }
     }
 
-    public synchronized void updateDynamicFiltersVersion(long newDynamicFiltersVersion)
+    public synchronized void updateSummaryInfoVersion(long newSummaryVersion)
     {
-        if (dynamicFiltersVersion >= newDynamicFiltersVersion) {
+        if (summaryVersion >= newSummaryVersion) {
             return;
         }
 
-        dynamicFiltersVersion = newDynamicFiltersVersion;
-        fetchDynamicFiltersIfNecessary();
+        summaryVersion = newSummaryVersion;
+        fetchNewSummariesIfNecessary();
     }
 
-    private synchronized void fetchDynamicFiltersIfNecessary()
+    private synchronized void fetchNewSummariesIfNecessary()
     {
         // stopped?
         if (!running) {
             return;
         }
 
-        // local dynamic filters are up to date
-        if (localDynamicFiltersVersion >= dynamicFiltersVersion) {
+        // local summary info are up-to-date
+        if (localSummaryInfoVersion >= summaryVersion) {
             return;
         }
 
@@ -145,34 +148,34 @@ class DynamicFiltersFetcher
         // if throttled due to error, asynchronously wait for timeout and try again
         ListenableFuture<Void> errorRateLimit = errorTracker.acquireRequestPermit();
         if (!errorRateLimit.isDone()) {
-            errorRateLimit.addListener(this::fetchDynamicFiltersIfNecessary, executor);
+            errorRateLimit.addListener(this::fetchNewSummariesIfNecessary, executor);
             return;
         }
 
         Request request = prepareGet()
-                .setUri(uriBuilderFrom(taskUri).appendPath("dynamicfilters").build())
+                .setUri(uriBuilderFrom(taskUri).appendPath("summaries").build())
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
-                .setHeader(TRINO_CURRENT_VERSION, Long.toString(localDynamicFiltersVersion))
+                .setHeader(TRINO_CURRENT_VERSION, Long.toString(localSummaryInfoVersion))
                 .setHeader(TRINO_MAX_WAIT, refreshMaxWait.toString())
                 .build();
 
         errorTracker.startRequest();
-        future = httpClient.executeAsync(request, createFullJsonResponseHandler(dynamicFilterDomainsCodec));
+        future = httpClient.executeAsync(request, createFullJsonResponseHandler(versionedSummaryInfoCodec));
         currentRequestStartNanos.set(System.nanoTime());
         addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri(), stats), executor);
     }
 
     @Override
-    public void success(VersionedDynamicFilterDomains newDynamicFilterDomains)
+    public void success(VersionedSummaryInfo newDynamicFilterDomains)
     {
-        try (SetThreadName ignored = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("SummaryInfoFetcher-%s", taskId)) {
             updateStats(currentRequestStartNanos.get());
             try {
-                updateDynamicFilterDomains(newDynamicFilterDomains);
+                updateSummaryInfo(newDynamicFilterDomains);
                 errorTracker.requestSucceeded();
             }
             finally {
-                fetchDynamicFiltersIfNecessary();
+                fetchNewSummariesIfNecessary();
             }
         }
     }
@@ -180,7 +183,7 @@ class DynamicFiltersFetcher
     @Override
     public void failed(Throwable cause)
     {
-        try (SetThreadName ignored = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("SummaryInfoFetcher-%s", taskId)) {
             updateStats(currentRequestStartNanos.get());
             try {
                 errorTracker.requestFailed(cause);
@@ -193,7 +196,7 @@ class DynamicFiltersFetcher
                 onFail.accept(e);
             }
             finally {
-                fetchDynamicFiltersIfNecessary();
+                fetchNewSummariesIfNecessary();
             }
         }
     }
@@ -201,27 +204,37 @@ class DynamicFiltersFetcher
     @Override
     public void fatal(Throwable cause)
     {
-        try (SetThreadName ignored = new SetThreadName("DynamicFiltersFetcher-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("SummaryInfoFetcher-%s", taskId)) {
             updateStats(currentRequestStartNanos.get());
             onFail.accept(cause);
         }
     }
 
-    private void updateDynamicFilterDomains(VersionedDynamicFilterDomains newDynamicFilterDomains)
+    private void updateSummaryInfo(VersionedSummaryInfo newSummaryStats)
     {
         synchronized (this) {
-            if (localDynamicFiltersVersion >= newDynamicFilterDomains.getVersion()) {
-                // newer dynamic filters were already received
+            if (localSummaryInfoVersion >= newSummaryStats.getVersion()) {
+                // newer summary stats were already received
                 return;
             }
 
-            localDynamicFiltersVersion = newDynamicFilterDomains.getVersion();
-            updateDynamicFiltersVersion(localDynamicFiltersVersion);
+            localSummaryInfoVersion = newSummaryStats.getVersion();
+            updateSummaryInfoVersion(localSummaryInfoVersion);
         }
 
-        // Subsequent DF versions can be narrowing down only. Therefore order in which they are intersected
-        // (and passed to dynamic filter service) doesn't matter.
-        dynamicFilterService.addTaskDynamicFilters(taskId, newDynamicFilterDomains.getDynamicFilterDomains());
+        newSummaryStats.getSummaryInfo().stream()
+                .filter(summaryInfo -> !summaryInfo.isEmpty())
+                .forEach(summaryInfo -> {
+                    if (summaryInfo.getType() == DYNAMIC_FILTER) {
+                        DynamicFilterSummary newDynamicFilterSummary = ((DynamicFilterSummary) summaryInfo);
+                        // Subsequent DF versions can be narrowing down only. Therefore, order in which they are intersected
+                        // (and passed to dynamic filter service) doesn't matter.
+                        dynamicFilterService.addTaskDynamicFilters(taskId, newDynamicFilterSummary.getDynamicFilterDomains());
+                    }
+                    else {
+                        throw new IllegalArgumentException(format("Summary info of type %s is not supported", summaryInfo.getType()));
+                    }
+                });
     }
 
     private void updateStats(long currentRequestStartNanos)

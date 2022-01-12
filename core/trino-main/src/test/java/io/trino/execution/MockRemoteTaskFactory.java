@@ -77,8 +77,8 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.StateMachine.StateChangeListener;
+import static io.trino.execution.VersionedSummaryInfoCollector.INITIAL_SUMMARY_VERSION;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.BROADCAST;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -265,7 +265,7 @@ public class MockRemoteTaskFactory
                             DataSize.ofBytes(0),
                             0,
                             new Duration(0, MILLISECONDS),
-                            INITIAL_DYNAMIC_FILTERS_VERSION,
+                            INITIAL_SUMMARY_VERSION,
                             0L,
                             0L),
                     DateTime.now(),
@@ -297,7 +297,7 @@ public class MockRemoteTaskFactory
                     stats.getRevocableMemoryReservation(),
                     0,
                     new Duration(0, MILLISECONDS),
-                    INITIAL_DYNAMIC_FILTERS_VERSION,
+                    INITIAL_SUMMARY_VERSION,
                     queuedSplitsInfo.getWeightSum(),
                     combinedSplitsInfo.getWeightSum() - queuedSplitsInfo.getWeightSum());
         }

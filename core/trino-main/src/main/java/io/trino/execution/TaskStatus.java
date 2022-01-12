@@ -27,8 +27,8 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.TaskState.PLANNED;
+import static io.trino.execution.VersionedSummaryInfoCollector.INITIAL_SUMMARY_VERSION;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -68,7 +68,7 @@ public class TaskStatus
 
     private final List<ExecutionFailureInfo> failures;
 
-    private final long dynamicFiltersVersion;
+    private final long currentSummaryVersion;
 
     @JsonCreator
     public TaskStatus(
@@ -88,7 +88,7 @@ public class TaskStatus
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("fullGcCount") long fullGcCount,
             @JsonProperty("fullGcTime") Duration fullGcTime,
-            @JsonProperty("dynamicFiltersVersion") long dynamicFiltersVersion,
+            @JsonProperty("currentSummaryVersion") long currentSummaryVersion,
             @JsonProperty("queuedPartitionedSplitsWeight") long queuedPartitionedSplitsWeight,
             @JsonProperty("runningPartitionedSplitsWeight") long runningPartitionedSplitsWeight)
     {
@@ -123,8 +123,8 @@ public class TaskStatus
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
         this.fullGcCount = fullGcCount;
         this.fullGcTime = requireNonNull(fullGcTime, "fullGcTime is null");
-        checkArgument(dynamicFiltersVersion >= INITIAL_DYNAMIC_FILTERS_VERSION, "dynamicFiltersVersion must be >= INITIAL_DYNAMIC_FILTERS_VERSION");
-        this.dynamicFiltersVersion = dynamicFiltersVersion;
+        checkArgument(currentSummaryVersion >= INITIAL_SUMMARY_VERSION, "currentSummaryVersion must be >= INITIAL_SUMMARY_VERSION");
+        this.currentSummaryVersion = currentSummaryVersion;
     }
 
     @JsonProperty
@@ -224,9 +224,9 @@ public class TaskStatus
     }
 
     @JsonProperty
-    public long getDynamicFiltersVersion()
+    public long getCurrentSummaryVersion()
     {
-        return dynamicFiltersVersion;
+        return currentSummaryVersion;
     }
 
     @JsonProperty
@@ -269,7 +269,7 @@ public class TaskStatus
                 DataSize.ofBytes(0),
                 0,
                 new Duration(0, MILLISECONDS),
-                INITIAL_DYNAMIC_FILTERS_VERSION,
+                INITIAL_SUMMARY_VERSION,
                 0L,
                 0L);
     }
@@ -293,7 +293,7 @@ public class TaskStatus
                 taskStatus.getRevocableMemoryReservation(),
                 taskStatus.getFullGcCount(),
                 taskStatus.getFullGcTime(),
-                taskStatus.getDynamicFiltersVersion(),
+                taskStatus.getCurrentSummaryVersion(),
                 taskStatus.getQueuedPartitionedSplitsWeight(),
                 taskStatus.getRunningPartitionedSplitsWeight());
     }

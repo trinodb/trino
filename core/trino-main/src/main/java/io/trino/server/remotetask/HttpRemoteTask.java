@@ -31,8 +31,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.execution.DynamicFiltersCollector;
-import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.trino.execution.DynamicFilterSummary;
 import io.trino.execution.FutureStateChange;
 import io.trino.execution.Lifespan;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
@@ -45,6 +44,8 @@ import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
+import io.trino.execution.VersionedSummaryInfoCollector;
+import io.trino.execution.VersionedSummaryInfoCollector.VersionedSummaryInfo;
 import io.trino.execution.buffer.BufferInfo;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PageBufferInfo;
@@ -85,6 +86,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -92,11 +94,12 @@ import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
-import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
+import static io.trino.execution.SummaryInfo.Type.DYNAMIC_FILTER;
 import static io.trino.execution.TaskInfo.createInitialTask;
 import static io.trino.execution.TaskState.ABORTED;
 import static io.trino.execution.TaskState.FAILED;
 import static io.trino.execution.TaskStatus.failWith;
+import static io.trino.execution.VersionedSummaryInfoCollector.INITIAL_SUMMARY_VERSION;
 import static io.trino.server.remotetask.RequestErrorTracker.logError;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.addExact;
@@ -119,12 +122,12 @@ public final class HttpRemoteTask
     private final RemoteTaskStats stats;
     private final TaskInfoFetcher taskInfoFetcher;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
-    private final DynamicFiltersFetcher dynamicFiltersFetcher;
+    private final SummaryInfoFetcher summaryInfoFetcher;
 
-    private final DynamicFiltersCollector outboundDynamicFiltersCollector;
+    private final VersionedSummaryInfoCollector outboundSummaryInfoCollector;
     @GuardedBy("this")
-    // The version of dynamic filters that has been successfully sent to the worker
-    private long sentDynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
+    // The version of summary stats that has been successfully sent to the worker
+    private long sentSummaryStatsVersion = INITIAL_SUMMARY_VERSION;
 
     @GuardedBy("this")
     private Future<?> currentRequest;
@@ -189,7 +192,7 @@ public final class HttpRemoteTask
             Duration taskInfoUpdateInterval,
             boolean summarizeTaskInfo,
             JsonCodec<TaskStatus> taskStatusCodec,
-            JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
+            JsonCodec<VersionedSummaryInfo> versionedSummaryStatsJsonCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
@@ -254,12 +257,12 @@ public final class HttpRemoteTask
 
             TaskInfo initialTask = createInitialTask(taskId, location, nodeId, bufferStates, new TaskStats(DateTime.now(), null));
 
-            this.dynamicFiltersFetcher = new DynamicFiltersFetcher(
+            this.summaryInfoFetcher = new SummaryInfoFetcher(
                     this::fail,
                     taskId,
                     location,
                     taskStatusRefreshMaxWait,
-                    dynamicFilterDomainsCodec,
+                    versionedSummaryStatsJsonCodec,
                     executor,
                     httpClient,
                     maxErrorDuration,
@@ -272,7 +275,7 @@ public final class HttpRemoteTask
                     initialTask.getTaskStatus(),
                     taskStatusRefreshMaxWait,
                     taskStatusCodec,
-                    dynamicFiltersFetcher,
+                    summaryInfoFetcher,
                     executor,
                     httpClient,
                     maxErrorDuration,
@@ -304,12 +307,12 @@ public final class HttpRemoteTask
                 }
             });
 
-            this.outboundDynamicFiltersCollector = new DynamicFiltersCollector(this::triggerUpdate);
+            this.outboundSummaryInfoCollector = new VersionedSummaryInfoCollector(this::triggerUpdate);
             dynamicFilterService.registerDynamicFilterConsumer(
                     taskId.getQueryId(),
                     taskId.getAttemptId(),
                     outboundDynamicFilterIds,
-                    outboundDynamicFiltersCollector::updateDomains);
+                    dynamicFilterDomains -> outboundSummaryInfoCollector.updateSummary(new DynamicFilterSummary(dynamicFilterDomains)));
 
             partitionedSplitCountTracker.setPartitionedSplits(getPartitionedSplitsInfo());
             updateSplitQueueSpace();
@@ -348,7 +351,7 @@ public final class HttpRemoteTask
             started.set(true);
             scheduleUpdate();
 
-            dynamicFiltersFetcher.start();
+            summaryInfoFetcher.start();
             taskStatusFetcher.start();
             taskInfoFetcher.start();
         }
@@ -603,7 +606,10 @@ public final class HttpRemoteTask
         }
 
         List<SplitAssignment> splitAssignments = getSplitAssignments();
-        VersionedDynamicFilterDomains dynamicFilterDomains = outboundDynamicFiltersCollector.acknowledgeAndGetNewDomains(sentDynamicFiltersVersion);
+        VersionedSummaryInfo versionedSummaryInfo = outboundSummaryInfoCollector.acknowledgeAndGetNewSummaryInfo(sentSummaryStatsVersion);
+        DynamicFilterSummary dynamicFilterSummary = (DynamicFilterSummary) versionedSummaryInfo.getSummaryInfo().stream()
+                .filter(summaryInfo -> summaryInfo.getType() == DYNAMIC_FILTER)
+                .collect(onlyElement());
 
         // Workers don't need the embedded JSON representation when the fragment is sent
         Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment.withoutEmbeddedJsonRepresentation()) : Optional.empty();
@@ -613,12 +619,12 @@ public final class HttpRemoteTask
                 fragment,
                 splitAssignments,
                 outputBuffers.get(),
-                dynamicFilterDomains.getDynamicFilterDomains());
+                dynamicFilterSummary.getDynamicFilterDomains());
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toJsonBytes(updateRequest);
         if (fragment.isPresent()) {
             stats.updateWithPlanBytes(taskUpdateRequestJson.length);
         }
-        if (!dynamicFilterDomains.getDynamicFilterDomains().isEmpty()) {
+        if (!dynamicFilterSummary.isEmpty()) {
             stats.updateWithDynamicFilterBytes(taskUpdateRequestJson.length);
         }
 
@@ -641,7 +647,7 @@ public final class HttpRemoteTask
 
         Futures.addCallback(
                 future,
-                new SimpleHttpResponseHandler<>(new UpdateResponseHandler(splitAssignments, dynamicFilterDomains.getVersion()), request.getUri(), stats),
+                new SimpleHttpResponseHandler<>(new UpdateResponseHandler(splitAssignments, versionedSummaryInfo.getVersion()), request.getUri(), stats),
                 executor);
     }
 
@@ -695,8 +701,8 @@ public final class HttpRemoteTask
         splitQueueHasSpace = true;
         whenSplitQueueHasSpace.complete(null, executor);
 
-        // clear pending outbound dynamic filters to free memory
-        outboundDynamicFiltersCollector.acknowledge(Long.MAX_VALUE);
+        // clear pending outbound summary stats to free memory
+        outboundSummaryInfoCollector.acknowledge(Long.MAX_VALUE);
 
         // cancel pending request
         if (currentRequest != null) {
@@ -706,7 +712,7 @@ public final class HttpRemoteTask
         }
 
         taskStatusFetcher.stop();
-        dynamicFiltersFetcher.stop();
+        summaryInfoFetcher.stop();
 
         // The remote task is likely to get a delete from the PageBufferClient first.
         // We send an additional delete anyway to get the final TaskInfo
@@ -879,10 +885,10 @@ public final class HttpRemoteTask
                         currentRequest = null;
                         sendPlan.set(value.isNeedsPlan());
                         currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
-                        sentDynamicFiltersVersion = currentRequestDynamicFiltersVersion;
+                        sentSummaryStatsVersion = currentRequestDynamicFiltersVersion;
                     }
-                    // Remove dynamic filters which were successfully sent to free up memory
-                    outboundDynamicFiltersCollector.acknowledge(currentRequestDynamicFiltersVersion);
+                    // Remove summary stats which were successfully sent to free up memory
+                    outboundSummaryInfoCollector.acknowledge(currentRequestDynamicFiltersVersion);
                     updateStats(currentRequestStartNanos);
                     processTaskUpdate(value, splitAssignments);
                     updateErrorTracker.requestSucceeded();

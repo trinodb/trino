@@ -51,7 +51,7 @@ import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
+import static io.trino.execution.VersionedSummaryInfoCollector.INITIAL_SUMMARY_VERSION;
 import static io.trino.util.Failures.toFailures;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -175,7 +175,7 @@ public class TestingRemoteTaskFactory
                     DataSize.of(0, BYTE),
                     0,
                     new Duration(0, MILLISECONDS),
-                    INITIAL_DYNAMIC_FILTERS_VERSION,
+                    INITIAL_SUMMARY_VERSION,
                     0,
                     0);
         }

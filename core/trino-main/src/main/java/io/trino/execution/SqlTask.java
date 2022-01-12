@@ -24,7 +24,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.exchange.ExchangeManagerRegistry;
-import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.LazyOutputBuffer;
@@ -62,11 +61,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
-import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTER_DOMAINS;
 import static io.trino.execution.TaskState.ABORTED;
 import static io.trino.execution.TaskState.FAILED;
 import static io.trino.execution.TaskState.RUNNING;
+import static io.trino.execution.VersionedSummaryInfoCollector.INITIAL_SUMMARY_VERSION;
+import static io.trino.execution.VersionedSummaryInfoCollector.INITIAL_VERSIONED_SUMMARY;
+import static io.trino.execution.VersionedSummaryInfoCollector.VersionedSummaryInfo;
 import static io.trino.util.Failures.toFailures;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -173,7 +173,7 @@ public class SqlTask
                     return;
                 }
 
-                if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
+                if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats(), taskHolder.getCurrentSummaryInfo()))) {
                     break;
                 }
             }
@@ -249,20 +249,9 @@ public class SqlTask
         }
     }
 
-    public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersDynamicFiltersVersion)
+    public VersionedSummaryInfo acknowledgeAndGetNewSummaryInfo(long callersSummaryVersion)
     {
-        TaskHolder taskHolder = taskHolderReference.get();
-        if (taskHolder.getTaskExecution() == null) {
-            // Dynamic filters are only available during task execution.
-            // Dynamic filters are collected by same tasks that run corresponding
-            // join operators. When task (and implicitly join operator) is done it
-            // means that all potential consumers (that belong to probe side of join)
-            // of dynamic filters are either finished or cancelled. Therefore dynamic
-            // filters are no longer required.
-            return INITIAL_DYNAMIC_FILTER_DOMAINS;
-        }
-
-        return taskHolder.getTaskExecution().getTaskContext().acknowledgeAndGetNewDynamicFilterDomains(callersDynamicFiltersVersion);
+        return taskHolderReference.get().acknowledgeAndGetNewSummaryInfo(callersSummaryVersion);
     }
 
     private synchronized void notifyStatusChanged()
@@ -295,7 +284,7 @@ public class SqlTask
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
         Duration fullGcTime = new Duration(0, MILLISECONDS);
-        long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
+        long currentSummaryVersion = INITIAL_SUMMARY_VERSION;
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
             TaskStats taskStats = taskInfo.getStats();
@@ -308,6 +297,7 @@ public class SqlTask
             revocableMemoryReservation = taskStats.getRevocableMemoryReservation();
             fullGcCount = taskStats.getFullGcCount();
             fullGcTime = taskStats.getFullGcTime();
+            currentSummaryVersion = taskHolder.getCurrentSummaryInfo().getVersion();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -326,7 +316,7 @@ public class SqlTask
             completedDriverGroups = taskContext.getCompletedDriverGroups();
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
-            dynamicFiltersVersion = taskContext.getDynamicFiltersVersion();
+            currentSummaryVersion = taskContext.getCurrentSummaryVersion();
         }
 
         return new TaskStatus(taskStateMachine.getTaskId(),
@@ -345,7 +335,7 @@ public class SqlTask
                 revocableMemoryReservation,
                 fullGcCount,
                 fullGcTime,
-                dynamicFiltersVersion,
+                currentSummaryVersion,
                 queuedPartitionedSplitsWeight,
                 runningPartitionedSplitsWeight);
     }
@@ -529,12 +519,14 @@ public class SqlTask
         private final SqlTaskExecution taskExecution;
         private final TaskInfo finalTaskInfo;
         private final SqlTaskIoStats finalIoStats;
+        private final VersionedSummaryInfo finalSummaryInfo;
 
         private TaskHolder()
         {
             this.taskExecution = null;
             this.finalTaskInfo = null;
             this.finalIoStats = null;
+            this.finalSummaryInfo = null;
         }
 
         private TaskHolder(SqlTaskExecution taskExecution)
@@ -542,13 +534,15 @@ public class SqlTask
             this.taskExecution = requireNonNull(taskExecution, "taskExecution is null");
             this.finalTaskInfo = null;
             this.finalIoStats = null;
+            this.finalSummaryInfo = null;
         }
 
-        private TaskHolder(TaskInfo finalTaskInfo, SqlTaskIoStats finalIoStats)
+        private TaskHolder(TaskInfo finalTaskInfo, SqlTaskIoStats finalIoStats, VersionedSummaryInfo finalSummaryInfo)
         {
             this.taskExecution = null;
             this.finalTaskInfo = requireNonNull(finalTaskInfo, "finalTaskInfo is null");
             this.finalIoStats = requireNonNull(finalIoStats, "finalIoStats is null");
+            this.finalSummaryInfo = requireNonNull(finalSummaryInfo, "finalSummaryInfo is null");
         }
 
         public boolean isFinished()
@@ -581,6 +575,31 @@ public class SqlTask
             // get IoStats from the current task execution
             TaskContext taskContext = taskExecution.getTaskContext();
             return new SqlTaskIoStats(taskContext.getProcessedInputDataSize(), taskContext.getInputPositions(), taskContext.getOutputDataSize(), taskContext.getOutputPositions());
+        }
+
+        public VersionedSummaryInfo acknowledgeAndGetNewSummaryInfo(long callersSummaryVersion)
+        {
+            // if we are finished, return the final SummaryInfo
+            if (finalSummaryInfo != null) {
+                return finalSummaryInfo;
+            }
+            // if we haven't started yet, return an empty SummaryInfo
+            if (taskExecution == null) {
+                return new VersionedSummaryInfo(INITIAL_SUMMARY_VERSION, INITIAL_VERSIONED_SUMMARY);
+            }
+            // get SummaryInfo from the current task execution
+            TaskContext taskContext = taskExecution.getTaskContext();
+            return taskContext.acknowledgeAndGetNewSummaryInfo(callersSummaryVersion);
+        }
+
+        public VersionedSummaryInfo getCurrentSummaryInfo()
+        {
+            // if we are finished, return the final SummaryInfo
+            if (finalSummaryInfo != null) {
+                return finalSummaryInfo;
+            }
+            requireNonNull(taskExecution, "taskExecution is null");
+            return taskExecution.getTaskContext().getCurrentSummaryInfo();
         }
     }
 

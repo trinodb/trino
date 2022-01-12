@@ -246,22 +246,22 @@ public class TaskResource
 
     @ResourceSecurity(INTERNAL_ONLY)
     @GET
-    @Path("{taskId}/dynamicfilters")
+    @Path("{taskId}/summaries")
     @Produces(MediaType.APPLICATION_JSON)
     public void acknowledgeAndGetNewDynamicFilterDomains(
             @PathParam("taskId") TaskId taskId,
-            @HeaderParam(TRINO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
+            @HeaderParam(TRINO_CURRENT_VERSION) Long callersSummaryVersion,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
-        requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
+        requireNonNull(callersSummaryVersion, "callersSummaryVersion is null");
 
-        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.ACKNOWLEDGE_AND_GET_NEW_DYNAMIC_FILTER_DOMAINS, asyncResponse)) {
+        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.ACKNOWLEDGE_AND_GET_NEW_SUMMARIES, asyncResponse)) {
             return;
         }
 
-        asyncResponse.resume(taskManager.acknowledgeAndGetNewDynamicFilterDomains(taskId, currentDynamicFiltersVersion));
+        asyncResponse.resume(taskManager.acknowledgeAndGetNewSummaryInfo(taskId, callersSummaryVersion));
     }
 
     @ResourceSecurity(INTERNAL_ONLY)
@@ -459,7 +459,7 @@ public class TaskResource
         CREATE_OR_UPDATE_TASK(true),
         GET_TASK_INFO(true),
         GET_TASK_STATUS(true),
-        ACKNOWLEDGE_AND_GET_NEW_DYNAMIC_FILTER_DOMAINS(true),
+        ACKNOWLEDGE_AND_GET_NEW_SUMMARIES(true),
         GET_RESULTS(false),
         ABORT_RESULTS(false);
 

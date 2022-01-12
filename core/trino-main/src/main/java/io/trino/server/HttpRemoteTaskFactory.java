@@ -20,7 +20,6 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.QueryManagerConfig;
@@ -30,6 +29,7 @@ import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskStatus;
+import io.trino.execution.VersionedSummaryInfoCollector.VersionedSummaryInfo;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
@@ -62,7 +62,7 @@ public class HttpRemoteTaskFactory
     private final HttpClient httpClient;
     private final LocationFactory locationFactory;
     private final JsonCodec<TaskStatus> taskStatusCodec;
-    private final JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec;
+    private final JsonCodec<VersionedSummaryInfo> versionedSummaryInfoCodec;
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final Duration maxErrorDuration;
@@ -83,7 +83,7 @@ public class HttpRemoteTaskFactory
             @ForScheduler HttpClient httpClient,
             LocationFactory locationFactory,
             JsonCodec<TaskStatus> taskStatusCodec,
-            JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
+            JsonCodec<VersionedSummaryInfo> versionedSummaryInfoCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             RemoteTaskStats stats,
@@ -92,7 +92,7 @@ public class HttpRemoteTaskFactory
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
         this.taskStatusCodec = taskStatusCodec;
-        this.dynamicFilterDomainsCodec = dynamicFilterDomainsCodec;
+        this.versionedSummaryInfoCodec = versionedSummaryInfoCodec;
         this.taskInfoCodec = taskInfoCodec;
         this.taskUpdateRequestCodec = taskUpdateRequestCodec;
         this.maxErrorDuration = config.getRemoteTaskMaxErrorDuration();
@@ -151,7 +151,7 @@ public class HttpRemoteTaskFactory
                 taskInfoUpdateInterval,
                 summarizeTaskInfo,
                 taskStatusCodec,
-                dynamicFilterDomainsCodec,
+                versionedSummaryInfoCodec,
                 taskInfoCodec,
                 taskUpdateRequestCodec,
                 partitionedSplitCountTracker,
