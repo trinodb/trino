@@ -191,7 +191,10 @@ public class BigQueryResultPageSource
             else if (javaType == double.class) {
                 type.writeDouble(output, ((Number) value).doubleValue());
             }
-            else if (javaType == Slice.class || type.getJavaType() == Int128.class) {
+            else if (type.getJavaType() == Int128.class) {
+                writeObject(output, type, value);
+            }
+            else if (javaType == Slice.class) {
                 writeSlice(output, type, value);
             }
             else if (javaType == LongTimestampWithTimeZone.class) {
@@ -218,12 +221,6 @@ public class BigQueryResultPageSource
         if (type instanceof VarcharType) {
             type.writeSlice(output, utf8Slice(((Utf8) value).toString()));
         }
-        else if (type instanceof DecimalType) {
-            verify(isLongDecimal(type), "The type should be long decimal");
-            DecimalType decimalType = (DecimalType) type;
-            BigDecimal decimal = DECIMAL_CONVERTER.convert(decimalType.getPrecision(), decimalType.getScale(), value);
-            type.writeObject(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
-        }
         else if (type instanceof VarbinaryType) {
             if (value instanceof ByteBuffer) {
                 type.writeSlice(output, Slices.wrappedBuffer((ByteBuffer) value));
@@ -234,6 +231,19 @@ public class BigQueryResultPageSource
         }
         else {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
+        }
+    }
+
+    private static void writeObject(BlockBuilder output, Type type, Object value)
+    {
+        if (type instanceof DecimalType) {
+            verify(isLongDecimal(type), "The type should be long decimal");
+            DecimalType decimalType = (DecimalType) type;
+            BigDecimal decimal = DECIMAL_CONVERTER.convert(decimalType.getPrecision(), decimalType.getScale(), value);
+            type.writeObject(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
+        }
+        else {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Object: " + type.getTypeSignature());
         }
     }
 
