@@ -970,6 +970,7 @@ public class IcebergMetadata
                 .map(handle -> (IcebergTableHandle) handle)
                 .filter(handle -> handle.getSnapshotId().isPresent())
                 .map(handle -> handle.getSchemaTableName() + "=" + handle.getSnapshotId().get())
+                .distinct()
                 .collect(joining(","));
 
         // Update the 'dependsOnTables' property that tracks tables on which the materialized view depends and the corresponding snapshot ids of the tables
