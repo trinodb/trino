@@ -120,8 +120,7 @@ public class PushAggregationIntoTableScan
     {
         // PruneAggregationColumns fires before this rule and will remove unneeded symbols from the aggregation output
         // Thus when pushing aggregations into table scans make sure to keep only the needed output symbols
-        Set<String> requiredColumns = node.getOutputSymbols().stream().map(Symbol::getName).collect(Collectors.toSet());
-        return pushAggregationIntoTableScan(plannerContext, context, node, captures.get(TABLE_SCAN), node.getAggregations(), node.getGroupingSets().getGroupingKeys(), requiredColumns)
+        return pushAggregationIntoTableScan(plannerContext, context, node, captures.get(TABLE_SCAN), node.getAggregations(), node.getGroupingSets().getGroupingKeys())
                 .map(Rule.Result::ofPlanNode)
                 .orElseGet(Rule.Result::empty);
     }
@@ -132,8 +131,7 @@ public class PushAggregationIntoTableScan
             PlanNode aggregationNode,
             TableScanNode tableScan,
             Map<Symbol, AggregationNode.Aggregation> aggregations,
-            List<Symbol> groupingKeys,
-            Set<String> requiredColumns)
+            List<Symbol> groupingKeys)
     {
         Map<String, ColumnHandle> assignments = tableScan.getAssignments()
                 .entrySet().stream()
@@ -156,13 +154,17 @@ public class PushAggregationIntoTableScan
                 .map(groupByColumn -> assignments.get(groupByColumn.getName()))
                 .collect(toImmutableList());
 
+        Set<Symbol> requiredSymbols = new HashSet<>(aggregationNode.getOutputSymbols());
+        Set<ColumnHandle> outputGroupByColumns = groupingKeys.stream().filter(requiredSymbols::contains).map(groupingKey ->
+                assignments.get(groupingKey.getName())
+        ).collect(Collectors.toSet());
         Optional<AggregationApplicationResult<TableHandle>> aggregationPushdownResult = plannerContext.getMetadata().applyAggregation(
                 context.getSession(),
                 tableScan.getTable(),
                 aggregateFunctions,
                 assignments,
                 ImmutableList.of(groupByColumns),
-                requiredColumns);
+                outputGroupByColumns);
 
         if (aggregationPushdownResult.isEmpty()) {
             return Optional.empty();
@@ -170,12 +172,15 @@ public class PushAggregationIntoTableScan
 
         AggregationApplicationResult<TableHandle> result = aggregationPushdownResult.get();
 
-        // The new scan outputs should be the symbols associated with grouping columns plus the symbols associated with aggregations.
+        // The new scan outputs should be the symbols associated with grouping columns (if they are present in the original aggregation output symbols)
+        // plus the symbols associated with aggregations
         ImmutableList.Builder<Symbol> newScanOutputs = new ImmutableList.Builder<>();
-        newScanOutputs.addAll(tableScan.getOutputSymbols());
+        newScanOutputs.addAll(tableScan.getOutputSymbols().stream().filter(requiredSymbols::contains).collect(Collectors.toList()));
 
         ImmutableBiMap.Builder<Symbol, ColumnHandle> newScanAssignments = new ImmutableBiMap.Builder<>();
-        newScanAssignments.putAll(tableScan.getAssignments());
+        newScanAssignments.putAll(tableScan.getAssignments().entrySet().stream().filter(entry ->
+                requiredSymbols.contains(entry.getKey())
+        ).collect(Collectors.toMap(Entry::getKey, Entry::getValue)));
 
         Map<String, Symbol> variableMappings = new HashMap<>();
 
@@ -201,8 +206,7 @@ public class PushAggregationIntoTableScan
         ImmutableBiMap<ColumnHandle, Symbol> columnHandleToSymbol = scanAssignments.inverse();
         // projections assignmentBuilder should have both agg and group by so we add the group bys as symbol references
         // if they are present in the original aggregation output symbols
-        Set<Symbol> originalOutputSymbols = new HashSet<>(aggregationNode.getOutputSymbols());
-        groupingKeys.stream().filter(originalOutputSymbols::contains)
+        groupingKeys.stream().filter(requiredSymbols::contains)
                 .forEach(groupBySymbol -> {
                     // if the connector returned a new mapping from oldColumnHandle to newColumnHandle, groupBy needs to point to
                     // new columnHandle's symbol reference, otherwise it will continue pointing at oldColumnHandle.

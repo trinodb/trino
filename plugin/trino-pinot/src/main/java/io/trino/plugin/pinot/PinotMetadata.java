@@ -334,7 +334,7 @@ public class PinotMetadata
             List<AggregateFunction> aggregates,
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets,
-            Set<String> requiredColumns)
+            Set<ColumnHandle> requiredColumns)
     {
         if (!isAggregationPushdownEnabled(session)) {
             return Optional.empty();

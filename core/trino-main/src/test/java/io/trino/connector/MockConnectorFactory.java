@@ -215,7 +215,7 @@ public class MockConnectorFactory
                 List<AggregateFunction> aggregates,
                 Map<String, ColumnHandle> assignments,
                 List<List<ColumnHandle>> groupingSets,
-                Set<String> requiredColumns);
+                Set<ColumnHandle> requiredColumns);
     }
 
     @FunctionalInterface

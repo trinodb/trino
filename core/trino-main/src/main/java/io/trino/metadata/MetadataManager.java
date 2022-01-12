@@ -1682,7 +1682,7 @@ public final class MetadataManager
             List<AggregateFunction> aggregations,
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets,
-            Set<String> requiredColumns)
+            Set<ColumnHandle> requiredColumns)
     {
         // Global aggregation is represented by [[]]
         checkArgument(!groupingSets.isEmpty(), "No grouping sets provided");

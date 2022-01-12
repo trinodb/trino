@@ -75,8 +75,7 @@ public class PushDistinctLimitIntoTableScan
                 node,
                 captures.get(TABLE_SCAN),
                 ImmutableMap.of(),
-                node.getDistinctSymbols(),
-                ImmutableSet.of());
+                node.getDistinctSymbols());
 
         if (result.isEmpty()) {
             return Result.empty();

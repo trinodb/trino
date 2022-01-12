@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -116,13 +117,19 @@ public class AggregationNode
             });
             this.outputs = copiedOutputs;
         }else{
-            ImmutableList.Builder<Symbol> outputsBuilder = ImmutableList.builder();
-            outputsBuilder.addAll(groupingSets.getGroupingKeys());
-            hashSymbol.ifPresent(outputsBuilder::add);
-            outputsBuilder.addAll(aggregations.keySet());
-
-            this.outputs = outputsBuilder.build();
+            this.outputs = buildOutputSymbols(groupingSets.getGroupingKeys(), hashSymbol, aggregations, Optional.empty());
         }
+    }
+
+    public static List<Symbol> buildOutputSymbols(List<Symbol> groupingKeys, Optional<Symbol> hashSymbol, Map<Symbol, AggregationNode.Aggregation> aggregations, Optional<List<Symbol>> referencedSymbols)
+    {
+        ImmutableList.Builder<Symbol> outputsBuilder = ImmutableList.builder();
+        outputsBuilder.addAll(groupingKeys);
+        hashSymbol.ifPresent(outputsBuilder::add);
+        outputsBuilder.addAll(aggregations.keySet());
+        return outputsBuilder.build().stream().filter(symbol ->
+                referencedSymbols.map(referenced -> referenced.contains(symbol)).orElse(true)
+        ).collect(Collectors.toList());
     }
 
     public List<Symbol> getGroupingKeys()

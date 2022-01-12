@@ -137,7 +137,10 @@ public class SingleDistinctAggregationToGroupBy
                                 SINGLE,
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.of(aggregation.getOutputSymbols())),
+                                Optional.of(ImmutableList.<Symbol>builder()
+                                        .addAll(aggregation.getGroupingKeys())
+                                        .addAll(symbols)
+                                        .build())),
                         // remove DISTINCT flag from function calls
                         aggregation.getAggregations()
                                 .entrySet().stream()

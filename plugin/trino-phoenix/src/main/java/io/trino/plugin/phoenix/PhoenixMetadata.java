@@ -246,7 +246,7 @@ public class PhoenixMetadata
             List<AggregateFunction> aggregates,
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets,
-            Set<String> requiredColumns)
+            Set<ColumnHandle> requiredColumns)
     {
         // TODO support aggregation pushdown
         return Optional.empty();

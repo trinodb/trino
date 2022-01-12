@@ -466,7 +466,7 @@ public interface Metadata
             List<AggregateFunction> aggregations,
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets,
-            Set<String> requiredColumns);
+            Set<ColumnHandle> requiredColumns);
 
     Optional<JoinApplicationResult<TableHandle>> applyJoin(
             Session session,

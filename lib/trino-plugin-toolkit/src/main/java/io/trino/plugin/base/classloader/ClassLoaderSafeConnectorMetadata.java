@@ -939,7 +939,7 @@ public class ClassLoaderSafeConnectorMetadata
             List<AggregateFunction> aggregates,
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets,
-            Set<String> requiredColumns)
+            Set<ColumnHandle> requiredColumns)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.applyAggregation(session, table, aggregates, assignments, groupingSets, requiredColumns);

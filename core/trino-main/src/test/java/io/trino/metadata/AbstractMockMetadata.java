@@ -579,7 +579,7 @@ public abstract class AbstractMockMetadata
             List<AggregateFunction> aggregations,
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets,
-            Set<String> requiredColumns)
+            Set<ColumnHandle> requiredColumns)
     {
         return Optional.empty();
     }
