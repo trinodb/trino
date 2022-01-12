@@ -65,7 +65,7 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcReader
 {
-    public static final int MAX_BATCH_SIZE = 1024;
+    public static final int MAX_BATCH_SIZE = 8196;
     public static final int INITIAL_BATCH_SIZE = 1;
     public static final int BATCH_SIZE_GROWTH_FACTOR = 2;
 
