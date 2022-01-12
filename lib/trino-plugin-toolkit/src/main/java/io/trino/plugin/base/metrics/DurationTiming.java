@@ -54,7 +54,7 @@ public class DurationTiming
     {
         long durationNanos = duration.roundTo(NANOSECONDS);
         long otherDurationNanos = other.getAirliftDuration().roundTo(NANOSECONDS);
-        return new DurationTiming(new Duration(durationNanos + otherDurationNanos, NANOSECONDS).convertToMostSuccinctTimeUnit());
+        return new DurationTiming(new Duration(durationNanos + otherDurationNanos, NANOSECONDS));
     }
 
     @Override
@@ -80,7 +80,7 @@ public class DurationTiming
     public String toString()
     {
         return toStringHelper("")
-                .add("duration", duration)
+                .add("duration", duration.convertToMostSuccinctTimeUnit())
                 .toString();
     }
 }

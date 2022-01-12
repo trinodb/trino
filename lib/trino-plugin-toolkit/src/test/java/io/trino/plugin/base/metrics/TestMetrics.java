@@ -70,16 +70,19 @@ public class TestMetrics
     @Test
     public void testDurationTiming()
     {
-        DurationTiming d1 = new DurationTiming(new Duration(123, NANOSECONDS));
+        DurationTiming d1 = new DurationTiming(new Duration(1234, NANOSECONDS));
         DurationTiming d2 = new DurationTiming(new Duration(1, NANOSECONDS));
+
+        assertThat(d1.toString()).matches("\\{duration=1.23us\\}");
 
         Metrics m1 = new Metrics(ImmutableMap.of("a", d1));
         Metrics m2 = new Metrics(ImmutableMap.of("a", d2));
 
         DurationTiming merged = (DurationTiming) merge(m1, m2).getMetrics().get("a");
 
-        assertThat(merged.getAirliftDuration().roundTo(NANOSECONDS)).isEqualTo(124);
-        assertThat(merged.getDuration().toNanos()).isEqualTo(124);
+        assertThat(merged.getAirliftDuration().roundTo(NANOSECONDS)).isEqualTo(1235);
+        assertThat(merged.getDuration().toNanos()).isEqualTo(1235);
+        assertThat(merged.toString()).matches("\\{duration=1.24us\\}");
     }
 
     @Test
