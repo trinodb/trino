@@ -1,0 +1,19 @@
+name: "Pull Request Labeler"
+
+on:
+  pull_request_target:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# NOTE: Do not check out/execute code from the PR since a read-write token is present due to pull_request_target
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v3
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          sync-labels: true
+          configuration-path: .github/config/labeler-config.yml
