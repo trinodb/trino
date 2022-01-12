@@ -1980,9 +1980,8 @@ abstract class AbstractTrinoResultSet
         Optional<String> timezone = Optional.ofNullable(matcher.group("timezone"));
 
         long picosOfSecond = 0;
-        int precision = 0;
         if (fraction != null) {
-            precision = fraction.length();
+            int precision = fraction.length();
             verify(precision <= 12, "Unsupported timestamp precision %s: %s", precision, value);
             long fractionValue = Long.parseLong(fraction);
             picosOfSecond = rescale(fractionValue, precision, 12);

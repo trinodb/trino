@@ -49,7 +49,7 @@ public class TimestampDecoder
     public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
         DocumentField documentField = hit.getFields().get(path);
-        Object value = null;
+        Object value;
 
         if (documentField != null) {
             if (documentField.getValues().size() > 1) {

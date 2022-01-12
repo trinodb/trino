@@ -1746,10 +1746,8 @@ public class TestHiveTransactionalTable
         if (transactional) {
             ensureTransactionalHive();
         }
-        String tableName = null;
         try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(tableName(rootName, isPartitioned, bucketingType))) {
-            tableName = table.getName();
-            testRunner.accept(tableName);
+            testRunner.accept(table.getName());
         }
     }
 
