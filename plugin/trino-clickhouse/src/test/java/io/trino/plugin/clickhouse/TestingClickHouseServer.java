@@ -22,6 +22,7 @@ import java.sql.Statement;
 
 import static java.lang.String.format;
 import static org.testcontainers.containers.ClickHouseContainer.HTTP_PORT;
+import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public class TestingClickHouseServer
         implements Closeable
@@ -33,6 +34,7 @@ public class TestingClickHouseServer
     {
         // Use 2nd stable version
         dockerContainer = (ClickHouseContainer) new ClickHouseContainer(CLICKHOUSE_IMAGE)
+                .withCopyFileToContainer(forClasspathResource("custom.xml"), "/etc/clickhouse-server/config.d/custom.xml")
                 .withStartupAttempts(10);
 
         dockerContainer.start();
