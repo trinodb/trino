@@ -62,6 +62,8 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 })
 public class HiveConfig
 {
+    public static final String CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED = "hive.partition-projection-enabled";
+
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     public static final String HIVE_VIEWS_ENABLED = "hive.hive-views.enabled";
 
@@ -171,6 +173,8 @@ public class HiveConfig
     private boolean sizeBasedSplitWeightsEnabled = true;
     private double minimumAssignedSplitWeight = 0.05;
     private boolean autoPurge;
+
+    private boolean partitionProjectionEnabled;
 
     public boolean isSingleStatementWritesOnly()
     {
@@ -1222,6 +1226,19 @@ public class HiveConfig
     public HiveConfig setAutoPurge(boolean autoPurge)
     {
         this.autoPurge = autoPurge;
+        return this;
+    }
+
+    public boolean isPartitionProjectionEnabled()
+    {
+        return partitionProjectionEnabled;
+    }
+
+    @Config(CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED)
+    @ConfigDescription("Enables AWS Athena partition projection")
+    public HiveConfig setPartitionProjectionEnabled(boolean enabledAthenaPartitionProjection)
+    {
+        this.partitionProjectionEnabled = enabledAthenaPartitionProjection;
         return this;
     }
 }
