@@ -300,6 +300,9 @@ public class TestHashAggregationOperator
         Operator operator = operatorFactory.createOperator(driverContext);
         toPages(operator, input.iterator(), revokeMemoryWhenAddingPages);
         assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
+        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getRevocableMemoryReservation().toBytes(), 0);
+        // TODO (https://github.com/trinodb/trino/issues/10596): it should be 0, since operator is finished
+        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getSystemMemoryReservation().toBytes(), spillEnabled && revokeMemoryWhenAddingPages ? 5_350_968 : 0);
     }
 
     @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 10B.*")
@@ -574,6 +577,7 @@ public class TestHashAggregationOperator
 
         assertEquals(driverContext.getSystemMemoryUsage(), 0);
         assertEquals(driverContext.getMemoryUsage(), 0);
+        assertEquals(driverContext.getRevocableMemoryUsage(), 0);
     }
 
     @Test
@@ -721,6 +725,7 @@ public class TestHashAggregationOperator
 
         assertEquals(driverContext.getSystemMemoryUsage(), 0);
         assertEquals(driverContext.getMemoryUsage(), 0);
+        assertEquals(driverContext.getRevocableMemoryUsage(), 0);
     }
 
     private DriverContext createDriverContext()
