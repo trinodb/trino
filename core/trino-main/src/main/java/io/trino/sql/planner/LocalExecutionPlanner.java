@@ -285,8 +285,6 @@ import static io.trino.SystemSessionProperties.isEnableLargeDynamicFilters;
 import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.trino.SystemSessionProperties.isLateMaterializationEnabled;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
-import static io.trino.SystemSessionProperties.isSpillOrderBy;
-import static io.trino.SystemSessionProperties.isSpillWindowOperator;
 import static io.trino.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
 import static io.trino.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
@@ -1146,7 +1144,7 @@ public class LocalExecutionPlanner
                     node.getPreSortedOrderPrefix(),
                     10_000,
                     pagesIndexFactory,
-                    isSpillEnabled(session) && isSpillWindowOperator(session),
+                    isSpillEnabled(session),
                     spillerFactory,
                     orderingCompiler,
                     ImmutableList.of(),
@@ -1402,7 +1400,7 @@ public class LocalExecutionPlanner
                     node.getPreSortedOrderPrefix(),
                     10_000,
                     pagesIndexFactory,
-                    isSpillEnabled(session) && isSpillWindowOperator(session),
+                    isSpillEnabled(session),
                     spillerFactory,
                     orderingCompiler,
                     node.getMeasures().values().stream()
@@ -1654,7 +1652,7 @@ public class LocalExecutionPlanner
                 outputChannels.add(i);
             }
 
-            boolean spillEnabled = isSpillEnabled(session) && isSpillOrderBy(session);
+            boolean spillEnabled = isSpillEnabled(session);
 
             OperatorFactory operator = new OrderByOperatorFactory(
                     context.getNextOperatorId(),

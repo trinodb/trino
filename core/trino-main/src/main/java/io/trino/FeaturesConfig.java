@@ -60,6 +60,10 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "optimizer.iterative-rule-based-column-pruning",
         "optimizer.processing-optimization",
         "resource-group-manager",
+        "spill-order-by",
+        "experimental.spill-order-by",
+        "spill-window-operator",
+        "experimental.spill-window-operator",
 })
 public class FeaturesConfig
 {
@@ -105,8 +109,6 @@ public class FeaturesConfig
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
     private boolean spillEnabled;
-    private boolean spillOrderBy = true;
-    private boolean spillWindowOperator = true;
     private DataSize aggregationOperatorUnspillMemoryLimit = DataSize.of(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
@@ -570,32 +572,6 @@ public class FeaturesConfig
     public FeaturesConfig setSpillEnabled(boolean spillEnabled)
     {
         this.spillEnabled = spillEnabled;
-        return this;
-    }
-
-    public boolean isSpillOrderBy()
-    {
-        return spillOrderBy;
-    }
-
-    @Config("spill-order-by")
-    @LegacyConfig("experimental.spill-order-by")
-    public FeaturesConfig setSpillOrderBy(boolean spillOrderBy)
-    {
-        this.spillOrderBy = spillOrderBy;
-        return this;
-    }
-
-    public boolean isSpillWindowOperator()
-    {
-        return spillWindowOperator;
-    }
-
-    @Config("spill-window-operator")
-    @LegacyConfig("experimental.spill-window-operator")
-    public FeaturesConfig setSpillWindowOperator(boolean spillWindowOperator)
-    {
-        this.spillWindowOperator = spillWindowOperator;
         return this;
     }
 
