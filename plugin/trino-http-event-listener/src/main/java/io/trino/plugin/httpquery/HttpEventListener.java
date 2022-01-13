@@ -124,22 +124,15 @@ public class HttpEventListener
                             {
                                 verify(result != null);
 
-                                if (result.getStatusCode() >= 500 && attempt < config.getRetryCount()) {
+                                if (!(result.getStatusCode() >= 200 && result.getStatusCode() < 300) && attempt < config.getRetryCount()) {
                                     Duration nextDelay = nextDelay(delay);
-                                    int nextAttepmt = attempt + 1;
+                                    int nextAttempt = attempt + 1;
 
                                     log.warn("QueryId = \"%s\", attempt = %d/%d, URL = %s | Ingest server responded with code %d, will retry after approximately %d seconds",
                                             queryId, attempt + 1, config.getRetryCount() + 1, request.getUri().toString(),
                                             result.getStatusCode(), nextDelay.roundTo(TimeUnit.SECONDS));
 
-                                    attemptToSend(request, nextAttepmt, nextDelay, queryId);
-                                    return;
-                                }
-
-                                if (!(result.getStatusCode() >= 200 && result.getStatusCode() < 300)) {
-                                    log.warn("QueryId = \"%s\", attempt = %d/%d, URL = %s | Received status code %d from ingest server; expecting status 200",
-                                            queryId, attempt + 1, config.getRetryCount(), request.getUri().toString(),
-                                            result.getStatusCode(), request.getUri().toString());
+                                    attemptToSend(request, nextAttempt, nextDelay, queryId);
                                     return;
                                 }
 
