@@ -70,7 +70,6 @@ import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
@@ -83,6 +82,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -5293,7 +5293,7 @@ public abstract class AbstractTestHive
                 ConnectorMetadata metadata = transaction.getMetadata();
                 ConnectorSession session = newSession();
                 ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-                Optional<ConnectorNewTableLayout> insertLayout = metadata.getInsertLayout(session, tableHandle);
+                Optional<ConnectorTableLayout> insertLayout = metadata.getInsertLayout(session, tableHandle);
                 assertTrue(insertLayout.isPresent());
                 assertFalse(insertLayout.get().getPartitioning().isPresent());
                 assertEquals(insertLayout.get().getPartitionColumns(), ImmutableList.of(partitioningColumn.getName()));
@@ -5333,7 +5333,7 @@ public abstract class AbstractTestHive
                 ConnectorMetadata metadata = transaction.getMetadata();
                 ConnectorSession session = newSession();
                 ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-                Optional<ConnectorNewTableLayout> insertLayout = metadata.getInsertLayout(session, tableHandle);
+                Optional<ConnectorTableLayout> insertLayout = metadata.getInsertLayout(session, tableHandle);
                 assertTrue(insertLayout.isPresent());
                 ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
                         bucketProperty.getBucketingVersion(),
@@ -5383,7 +5383,7 @@ public abstract class AbstractTestHive
                 ConnectorMetadata metadata = transaction.getMetadata();
                 ConnectorSession session = newSession();
                 ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-                Optional<ConnectorNewTableLayout> insertLayout = metadata.getInsertLayout(session, tableHandle);
+                Optional<ConnectorTableLayout> insertLayout = metadata.getInsertLayout(session, tableHandle);
                 assertTrue(insertLayout.isPresent());
                 ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
                         bucketProperty.getBucketingVersion(),
@@ -5410,7 +5410,7 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorSession session = newSession();
-            Optional<ConnectorNewTableLayout> newTableLayout = metadata.getNewTableLayout(
+            Optional<ConnectorTableLayout> newTableLayout = metadata.getNewTableLayout(
                     session,
                     new ConnectorTableMetadata(
                             new SchemaTableName("schema", "table"),
@@ -5434,7 +5434,7 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorSession session = newSession();
-            Optional<ConnectorNewTableLayout> newTableLayout = metadata.getNewTableLayout(
+            Optional<ConnectorTableLayout> newTableLayout = metadata.getNewTableLayout(
                     session,
                     new ConnectorTableMetadata(
                             new SchemaTableName("schema", "table"),
@@ -5467,7 +5467,7 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorSession session = newSession();
-            Optional<ConnectorNewTableLayout> newTableLayout = metadata.getNewTableLayout(
+            Optional<ConnectorTableLayout> newTableLayout = metadata.getNewTableLayout(
                     session,
                     new ConnectorTableMetadata(
                             new SchemaTableName("schema", "table"),

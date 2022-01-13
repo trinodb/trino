@@ -16,7 +16,7 @@ package io.trino.metadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.connector.CatalogName;
-import io.trino.spi.connector.ConnectorNewTableLayout;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.sql.planner.PartitioningHandle;
 
@@ -27,17 +27,17 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class NewTableLayout
+public class TableLayout
 {
     private final CatalogName catalogName;
     private final ConnectorTransactionHandle transactionHandle;
-    private final ConnectorNewTableLayout layout;
+    private final ConnectorTableLayout layout;
 
     @JsonCreator
-    public NewTableLayout(
+    public TableLayout(
             @JsonProperty("catalogName") CatalogName catalogName,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
-            @JsonProperty("layout") ConnectorNewTableLayout layout)
+            @JsonProperty("layout") ConnectorTableLayout layout)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
@@ -51,7 +51,7 @@ public class NewTableLayout
     }
 
     @JsonProperty
-    public ConnectorNewTableLayout getLayout()
+    public ConnectorTableLayout getLayout()
     {
         return layout;
     }
@@ -77,7 +77,7 @@ public class NewTableLayout
             return false;
         }
 
-        NewTableLayout that = (NewTableLayout) o;
+        TableLayout that = (TableLayout) o;
         return Objects.equals(catalogName, that.catalogName) &&
                 Objects.equals(transactionHandle, that.transactionHandle) &&
                 Objects.equals(layout, that.layout);

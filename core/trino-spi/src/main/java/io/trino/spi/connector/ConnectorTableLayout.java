@@ -18,13 +18,12 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-// TODO ConnectorNewTableLayout is used not only for "new" tables. Rename to be less specific. Preferably to ConnectorTableLayout after https://github.com/trinodb/trino/issues/781
-public class ConnectorNewTableLayout
+public class ConnectorTableLayout
 {
     private final Optional<ConnectorPartitioningHandle> partitioning;
     private final List<String> partitionColumns;
 
-    public ConnectorNewTableLayout(ConnectorPartitioningHandle partitioning, List<String> partitionColumns)
+    public ConnectorTableLayout(ConnectorPartitioningHandle partitioning, List<String> partitionColumns)
     {
         this.partitioning = Optional.of(requireNonNull(partitioning, "partitioning is null"));
         this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
@@ -34,7 +33,7 @@ public class ConnectorNewTableLayout
      * Creates a preferred table layout that is evenly partitioned on given columns by the engine.
      * Such layout might be ignored by Trino planner.
      */
-    public ConnectorNewTableLayout(List<String> partitionColumns)
+    public ConnectorTableLayout(List<String> partitionColumns)
     {
         this.partitioning = Optional.empty();
         this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
