@@ -366,10 +366,10 @@ public final class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            ActualProperties translated = properties.translate(symbol -> node.getGroupingKeys().contains(symbol) ? Optional.of(symbol) : Optional.empty());
+            ActualProperties translated = properties.translate(symbol -> node.getGroupingKeys().contains(symbol) && node.getOutputSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
 
             return ActualProperties.builderFrom(translated)
-                    .local(LocalProperties.grouped(node.getGroupingKeys()))
+                    .local(LocalProperties.grouped(node.getGroupingKeys().stream().filter(node.getOutputSymbols()::contains).collect(Collectors.toSet())))
                     .build();
         }
 

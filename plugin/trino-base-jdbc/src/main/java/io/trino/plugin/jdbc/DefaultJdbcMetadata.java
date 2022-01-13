@@ -246,7 +246,7 @@ public class DefaultJdbcMetadata
             List<AggregateFunction> aggregates,
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets,
-            Set<ColumnHandle> requiredColumns)
+            Set<ColumnHandle> outputGroupingColumns)
     {
         if (!isAggregationPushdownEnabled(session)) {
             return Optional.empty();
@@ -288,7 +288,7 @@ public class DefaultJdbcMetadata
                                 groupKey,
                                 tableColumns))
                         .orElse(groupKey -> {}))
-                .filter(column -> requiredColumns.isEmpty() || requiredColumns.contains(column))
+                .filter(outputGroupingColumns::contains)
                 .forEach(newColumns::add);
 
         for (AggregateFunction aggregate : aggregates) {

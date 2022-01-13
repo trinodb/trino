@@ -44,7 +44,15 @@ public class PruneAggregationColumns
                 aggregationNode.getAggregations(),
                 referencedOutputs::contains);
 
-        if (prunedAggregations.size() == aggregationNode.getAggregations().size() && referencedOutputs.size() == aggregationNode.getOutputSymbols().size()) {
+
+        boolean pruneAggregations = prunedAggregations.size() != aggregationNode.getAggregations().size();
+        // TODO: prune output symbols for aggregation nodes with multiple grouping sets
+        // The special `groupid` symbol will never be referenced but if we prune it then other optimizer rules break
+        // for example: PushPartialAggregationThroughExchange
+        boolean canPruneOutputSymbols = aggregationNode.getGroupingSetCount() <= 1;
+        boolean pruneOutputSymbols = canPruneOutputSymbols && (referencedOutputs.size() != aggregationNode.getOutputSymbols().size());
+
+        if (!pruneAggregations && !pruneOutputSymbols) {
             return Optional.empty();
         }
 
@@ -59,6 +67,6 @@ public class PruneAggregationColumns
                         aggregationNode.getStep(),
                         aggregationNode.getHashSymbol(),
                         aggregationNode.getGroupIdSymbol(),
-                        Optional.of(new ArrayList<>(referencedOutputs))));
+                        pruneOutputSymbols ? Optional.of(new ArrayList<>(referencedOutputs)): Optional.empty()));
     }
 }

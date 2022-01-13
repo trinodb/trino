@@ -155,7 +155,7 @@ public class PushAggregationIntoTableScan
                 .collect(toImmutableList());
 
         Set<Symbol> requiredSymbols = new HashSet<>(aggregationNode.getOutputSymbols());
-        Set<ColumnHandle> outputGroupByColumns = groupingKeys.stream().filter(requiredSymbols::contains).map(groupingKey ->
+        Set<ColumnHandle> outputGroupingColumns = groupingKeys.stream().filter(requiredSymbols::contains).map(groupingKey ->
                 assignments.get(groupingKey.getName())
         ).collect(Collectors.toSet());
         Optional<AggregationApplicationResult<TableHandle>> aggregationPushdownResult = plannerContext.getMetadata().applyAggregation(
@@ -164,7 +164,7 @@ public class PushAggregationIntoTableScan
                 aggregateFunctions,
                 assignments,
                 ImmutableList.of(groupByColumns),
-                outputGroupByColumns);
+                outputGroupingColumns);
 
         if (aggregationPushdownResult.isEmpty()) {
             return Optional.empty();

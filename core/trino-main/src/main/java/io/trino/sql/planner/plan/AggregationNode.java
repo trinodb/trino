@@ -124,12 +124,13 @@ public class AggregationNode
     public static List<Symbol> buildOutputSymbols(List<Symbol> groupingKeys, Optional<Symbol> hashSymbol, Map<Symbol, AggregationNode.Aggregation> aggregations, Optional<List<Symbol>> referencedSymbols)
     {
         ImmutableList.Builder<Symbol> outputsBuilder = ImmutableList.builder();
-        outputsBuilder.addAll(groupingKeys);
         hashSymbol.ifPresent(outputsBuilder::add);
         outputsBuilder.addAll(aggregations.keySet());
-        return outputsBuilder.build().stream().filter(symbol ->
+
+        outputsBuilder.addAll(groupingKeys.stream().filter(symbol ->
                 referencedSymbols.map(referenced -> referenced.contains(symbol)).orElse(true)
-        ).collect(Collectors.toList());
+        ).collect(Collectors.toList()));
+        return outputsBuilder.build();
     }
 
     public List<Symbol> getGroupingKeys()
