@@ -33,6 +33,7 @@ import io.trino.execution.TaskId;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.scheduler.PartitionMemoryEstimator.MemoryRequirements;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.Split;
 import io.trino.spi.ErrorCode;
@@ -93,6 +94,7 @@ public class FaultTolerantStageScheduler
     private final TaskSourceFactory taskSourceFactory;
     private final NodeAllocator nodeAllocator;
     private final TaskDescriptorStorage taskDescriptorStorage;
+    private final PartitionMemoryEstimator partitionMemoryEstimator;
 
     private final TaskLifecycleListener taskLifecycleListener;
     // empty when the results are consumed via a direct exchange
@@ -129,6 +131,8 @@ public class FaultTolerantStageScheduler
     private final Set<Integer> finishedPartitions = new HashSet<>();
     @GuardedBy("this")
     private int remainingRetryAttempts;
+    @GuardedBy("this")
+    private Map<Integer, MemoryRequirements> partitionMemoryRequirements = new HashMap<>();
 
     @GuardedBy("this")
     private Throwable failure;
@@ -142,6 +146,7 @@ public class FaultTolerantStageScheduler
             TaskSourceFactory taskSourceFactory,
             NodeAllocator nodeAllocator,
             TaskDescriptorStorage taskDescriptorStorage,
+            PartitionMemoryEstimator partitionMemoryEstimator,
             TaskLifecycleListener taskLifecycleListener,
             Optional<Exchange> sinkExchange,
             Optional<int[]> sinkBucketToPartitionMap,
@@ -158,6 +163,7 @@ public class FaultTolerantStageScheduler
         this.taskSourceFactory = requireNonNull(taskSourceFactory, "taskSourceFactory is null");
         this.nodeAllocator = requireNonNull(nodeAllocator, "nodeAllocator is null");
         this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
+        this.partitionMemoryEstimator = requireNonNull(partitionMemoryEstimator, "partitionMemoryEstimator is null");
         this.taskLifecycleListener = requireNonNull(taskLifecycleListener, "taskLifecycleListener is null");
         this.sinkExchange = requireNonNull(sinkExchange, "sinkExchange is null");
         this.sinkBucketToPartitionMap = requireNonNull(sinkBucketToPartitionMap, "sinkBucketToPartitionMap is null");
@@ -253,8 +259,11 @@ public class FaultTolerantStageScheduler
             }
             TaskDescriptor taskDescriptor = taskDescriptorOptional.get();
 
+            MemoryRequirements memoryRequirements = partitionMemoryRequirements.computeIfAbsent(partition, ignored -> partitionMemoryEstimator.getInitialMemoryRequirements(session, taskDescriptor.getNodeRequirements().getMemory()));
             if (nodeLease == null) {
-                nodeLease = nodeAllocator.acquire(taskDescriptor.getNodeRequirements());
+                NodeRequirements nodeRequirements = taskDescriptor.getNodeRequirements();
+                nodeRequirements = nodeRequirements.withMemory(memoryRequirements.getRequiredMemory());
+                nodeLease = nodeAllocator.acquire(nodeRequirements);
             }
             if (!nodeLease.getNode().isDone()) {
                 blocked = asVoid(nodeLease.getNode());
@@ -524,6 +533,14 @@ public class FaultTolerantStageScheduler
                             ErrorCode errorCode = failureInfo.getErrorCode();
                             if (remainingRetryAttempts > 0 && (errorCode == null || errorCode.getType() != USER_ERROR)) {
                                 remainingRetryAttempts--;
+
+                                // update memory limits for next attempt
+                                MemoryRequirements memoryLimits = partitionMemoryRequirements.get(partitionId);
+                                verify(memoryLimits != null);
+                                MemoryRequirements newMemoryLimits = partitionMemoryEstimator.getNextRetryMemoryRequirements(session, memoryLimits, errorCode);
+                                partitionMemoryRequirements.put(partitionId, newMemoryLimits);
+
+                                // reschedule
                                 queuedPartitions.add(partitionId);
                                 log.debug("Retrying partition %s for stage %s", partitionId, stage.getStageId());
                             }
