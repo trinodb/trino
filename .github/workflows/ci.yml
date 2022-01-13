@@ -614,11 +614,9 @@ jobs:
           mkdir -p testing/trino-product-tests-launcher/target/trino-jacoco/reports
           mkdir -p "core/trino-server/target/trino-server-${TRINO_VERSION}-trino-jars"
           # copy only trino JARs, since we don't care about coverage of external dependencies
-          find "core/trino-server/target/trino-server-${TRINO_VERSION}-hardlinks" -name 'trino-*.jar' -print0 | xargs --null cp --link --no-clobber -t "core/trino-server/target/trino-server-${TRINO_VERSION}-trino-jars"
+          find . -name "trino-*-${TRINO_VERSION}.jar" -print0 | xargs --null cp --link --no-clobber -t "core/trino-server/target/trino-server-${TRINO_VERSION}-trino-jars"
           java -jar testing/trino-product-tests-launcher/target/org.jacoco.cli-0.8.6-nodeps.jar \
-            report testing/trino-product-tests-launcher/target/trino-jacoco/presto-master/*.exec \
-                   testing/trino-product-tests-launcher/target/trino-jacoco/tests/*.exec \
-                   testing/trino-product-tests-launcher/target/trino-jacoco/launcher/*.exec \
+            report testing/trino-product-tests-launcher/target/trino-jacoco/*/*.exec \
             --classfiles "core/trino-server/target/trino-server-${TRINO_VERSION}-trino-jars" \
             --name "coverage pt (${{ matrix.config }}, ${{ matrix.suite }})" \
             --csv testing/trino-product-tests-launcher/target/trino-jacoco/reports/jacoco-report.csv
