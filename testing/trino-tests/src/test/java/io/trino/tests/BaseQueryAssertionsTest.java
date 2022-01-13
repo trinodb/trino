@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.JdbcPlugin;
 import io.trino.plugin.jdbc.TestingH2JdbcModule;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
@@ -328,5 +329,36 @@ public abstract class BaseQueryAssertionsTest
                                 "] but found [\n" +
                                 "\n" +
                                 "Output[name]\n");
+    }
+
+    @Test
+    public void testCustomMessages()
+    {
+        QueryAssert query = assertThat(query("VALUES 1"));
+
+        assertThatThrownBy(() -> query
+                .as("Custom message for result mismatch")
+                .matches("VALUES 2"))
+                .hasMessageStartingWith("[Custom message for result mismatch]");
+
+        assertThatThrownBy(() -> query
+                .as("Custom message for plan mismatch")
+                .matches(PlanMatchPattern.values("1")))
+                .hasMessageStartingWith("Custom message for plan mismatch: Plan does not match");
+
+        assertThatThrownBy(() -> query
+                .as("containsAll custom message")
+                .containsAll("VALUES 2"))
+                .hasMessageStartingWith("[containsAll custom message]");
+
+        assertThatThrownBy(() -> query
+                .as("Mismatched type custom message")
+                .matches("VALUES 'abc'"))
+                .hasMessageStartingWith("[Mismatched type custom message [Output types]]");
+
+        assertThatThrownBy(() -> query
+                .as("returnsEmptyResult custom message")
+                .returnsEmptyResult())
+                .hasMessageStartingWith("[returnsEmptyResult custom message]");
     }
 }

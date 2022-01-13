@@ -335,7 +335,7 @@ public class QueryAssertions
                 }
 
                 ListAssert<MaterializedRow> assertion = assertThat(actual.getMaterializedRows())
-                        .as("Rows for query [%s]", query)
+                        .as(defaultDescription("Rows for query [%s]", query))
                         .withRepresentation(ROWS_REPRESENTATION);
 
                 if (ordered) {
@@ -367,7 +367,7 @@ public class QueryAssertions
                 }
 
                 assertThat(actual.getMaterializedRows())
-                        .as("Rows for query [%s]", query)
+                        .as(defaultDescription("Rows for query [%s]", query))
                         .withRepresentation(ROWS_REPRESENTATION)
                         .containsAll(expected.getMaterializedRows());
             });
@@ -382,14 +382,16 @@ public class QueryAssertions
         {
             return satisfies(actual ->
                     assertThat(actual.getTypes())
-                            .as("Output types for query [%s]", query)
+                            .as(descriptionText().isEmpty()
+                                    ? format("Output types for query [%s]", query)
+                                    : descriptionText() + " [Output types]")
                             .element(index).isEqualTo(expectedType));
         }
 
-        private static void assertTypes(String query, MaterializedResult actual, List<Type> expectedTypes)
+        private void assertTypes(String query, MaterializedResult actual, List<Type> expectedTypes)
         {
             assertThat(actual.getTypes())
-                    .as("Output types for query [%s]", query)
+                    .as(defaultDescription("Output types for query [%s]", query))
                     .isEqualTo(expectedTypes);
         }
 
@@ -397,7 +399,7 @@ public class QueryAssertions
         {
             return satisfies(actual ->
                     assertThat(actual.getMaterializedRows())
-                            .as("Rows for query [%s]", query)
+                            .as(defaultDescription("Rows for query [%s]", query))
                             .isEmpty());
         }
 
@@ -464,17 +466,33 @@ public class QueryAssertions
 
         private void assertPlan(PlanMatchPattern expectedPlan)
         {
-            transaction(runner.getTransactionManager(), runner.getAccessControl())
-                    .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
-                        PlanAssert.assertPlan(
-                                session,
-                                runner.getMetadata(),
-                                runner.getFunctionManager(),
-                                noopStatsCalculator(),
-                                plan,
-                                expectedPlan);
-                    });
+            try {
+                transaction(runner.getTransactionManager(), runner.getAccessControl())
+                        .execute(session, session -> {
+                            Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
+                            PlanAssert.assertPlan(
+                                    session,
+                                    runner.getMetadata(),
+                                    runner.getFunctionManager(),
+                                    noopStatsCalculator(),
+                                    plan,
+                                    expectedPlan);
+                        });
+            }
+            catch (AssertionError e) {
+                // Catch the plan assertion error to add our description to it
+                throw descriptionText().isEmpty()
+                        ? e
+                        : new AssertionError(format("%s: %s", descriptionText(), e.getMessage()), e.getCause());
+            }
+        }
+
+        /**
+         * Get this assertion's description if it exists, or the provided description otherwise.
+         */
+        private String defaultDescription(String fallbackFormat, Object... args)
+        {
+            return descriptionText().isEmpty() ? format(fallbackFormat, args) : descriptionText();
         }
     }
 
@@ -555,10 +573,12 @@ public class QueryAssertions
             Object expectedValue = result.getOnlyColumnAsSet().iterator().next();
 
             return satisfies(actual -> {
-                assertThat(actualType).as("Type")
+                assertThat(actualType)
+                        .as(descriptionText().isEmpty() ? "Type" : (descriptionText() + " [Type]"))
                         .isEqualTo(expectedType);
 
                 assertThat(actual)
+                        .as(descriptionText())
                         .withRepresentation(TYPE_RENDERER)
                         .isEqualTo(expectedValue);
             });
