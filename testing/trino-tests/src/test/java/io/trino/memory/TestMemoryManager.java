@@ -48,7 +48,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -278,14 +277,17 @@ public class TestMemoryManager
                 MILLISECONDS.sleep(10);
             }
 
-            // Make sure the queries are blocked
+            // Make sure the queries are assigned to different memory pools
             List<BasicQueryInfo> currentQueryInfos = queryRunner.getCoordinator().getQueryManager().getQueries();
+            while (currentQueryInfos.size() != 2 || currentQueryInfos.get(0).getMemoryPool().equals(currentQueryInfos.get(1).getMemoryPool())) {
+                MILLISECONDS.sleep(10);
+                currentQueryInfos = queryRunner.getCoordinator().getQueryManager().getQueries();
+            }
+
+            // Make sure the queries are blocked
             for (BasicQueryInfo info : currentQueryInfos) {
                 assertFalse(info.getState().isDone());
             }
-            assertEquals(currentQueryInfos.size(), 2);
-            // Check that the pool information propagated to the query objects
-            assertNotEquals(currentQueryInfos.get(0).getMemoryPool(), currentQueryInfos.get(1).getMemoryPool());
 
             // Check that queries are assigned to expected pools
             assertThat(currentQueryInfos.get(0).getMemoryPool()).isIn(GENERAL_POOL, RESERVED_POOL);
