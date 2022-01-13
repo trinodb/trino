@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 
@@ -44,13 +43,12 @@ public class PruneAggregationColumns
                 aggregationNode.getAggregations(),
                 referencedOutputs::contains);
 
-
         boolean pruneAggregations = prunedAggregations.size() != aggregationNode.getAggregations().size();
         // TODO: prune output symbols for aggregation nodes with multiple grouping sets
         // The special `groupid` symbol will never be referenced but if we prune it then other optimizer rules break
         // for example: PushPartialAggregationThroughExchange
-        boolean canPruneOutputSymbols = aggregationNode.getGroupingSetCount() <= 1;
-        boolean pruneOutputSymbols = canPruneOutputSymbols && (referencedOutputs.size() != aggregationNode.getOutputSymbols().size());
+        boolean pruneOutputSymbols = aggregationNode.getGroupingSetCount() <= 1 &&
+                (referencedOutputs.size() != aggregationNode.getOutputSymbols().size());
 
         if (!pruneAggregations && !pruneOutputSymbols) {
             return Optional.empty();
@@ -67,6 +65,6 @@ public class PruneAggregationColumns
                         aggregationNode.getStep(),
                         aggregationNode.getHashSymbol(),
                         aggregationNode.getGroupIdSymbol(),
-                        pruneOutputSymbols ? Optional.of(new ArrayList<>(referencedOutputs)): Optional.empty()));
+                        pruneOutputSymbols ? Optional.of(new ArrayList<>(referencedOutputs)) : Optional.empty()));
     }
 }

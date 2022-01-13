@@ -106,8 +106,8 @@ public class AggregationNode
         checkArgument(preGroupedSymbols.isEmpty() || groupingSets.getGroupingKeys().containsAll(preGroupedSymbols), "Pre-grouped symbols must be a subset of the grouping keys");
         this.preGroupedSymbols = ImmutableList.copyOf(preGroupedSymbols);
 
-        if(outputs.isPresent()){
-            List<Symbol> copiedOutputs =  ImmutableList.copyOf(outputs.get());
+        if (outputs.isPresent()) {
+            List<Symbol> copiedOutputs = ImmutableList.copyOf(outputs.get());
             copiedOutputs.forEach(symbol -> {
                 boolean isValidOutput = groupingSets.getGroupingKeys().contains(symbol) ||
                         (hashSymbol.isPresent() && hashSymbol.get().equals(symbol)) ||
@@ -116,7 +116,8 @@ public class AggregationNode
                 verify(isValidOutput, "Symbol %s is not a valid output symbol", symbol);
             });
             this.outputs = copiedOutputs;
-        }else{
+        }
+        else {
             this.outputs = buildOutputSymbols(groupingSets.getGroupingKeys(), hashSymbol, aggregations, Optional.empty());
         }
     }

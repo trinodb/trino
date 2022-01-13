@@ -582,10 +582,9 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Test
-    public void testPruneUnnecessaryGroupingKeysInPushdown() {
-        assertThat(query("select min(nationkey) from nation group by regionkey")).matches(
-                PlanMatchPattern.output(PlanMatchPattern.node(TableScanNode.class))
-        );
+    public void testPruneUnnecessaryGroupingKeysInPushdown()
+    {
+        assertThat(query("select min(nationkey) from nation group by regionkey")).matches(PlanMatchPattern.output(PlanMatchPattern.node(TableScanNode.class)));
     }
 
     private String getLongInClause(int start, int length)

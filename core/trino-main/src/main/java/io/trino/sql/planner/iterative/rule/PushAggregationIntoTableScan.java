@@ -44,7 +44,6 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
