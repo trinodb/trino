@@ -68,7 +68,7 @@ public final class Standard
 
     public static final String CONTAINER_HEALTH_D = "/etc/health.d/";
     public static final String CONTAINER_CONF_ROOT = "/docker/presto-product-tests/";
-    public static final String JACOCO_LOGS_LOCATION = "/tmp/trino-jacoco";
+    public static final String JACOCO_LOGS_LOCATION = "testing/trino-product-tests-launcher/target/trino-jacoco";
     public static final String CONTAINER_PRESTO_ETC = CONTAINER_CONF_ROOT + "conf/presto/etc";
     public static final String CONTAINER_PRESTO_JVM_CONFIG = CONTAINER_PRESTO_ETC + "/jvm.config";
     public static final String CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES = CONTAINER_PRESTO_ETC + "/access-control.properties";
