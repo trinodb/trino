@@ -23,6 +23,6 @@ public class PhasedExecutionPolicy
     @Override
     public ExecutionSchedule createExecutionSchedule(Collection<StageExecution> stages)
     {
-        return new PhasedExecutionSchedule(stages);
+        return PhasedExecutionSchedule.forStages(stages);
     }
 }

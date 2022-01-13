@@ -270,6 +270,17 @@ public class TestHiveConnectorTest
     }
 
     @Override
+    public void testUpdateRowConcurrently()
+            throws Exception
+    {
+        // TODO (https://github.com/trinodb/trino/issues/10518) test this with a TestHiveConnectorTest version that creates ACID tables by default, or in some other way
+        assertThatThrownBy(super::testUpdateRowConcurrently)
+                .hasMessage("Unexpected concurrent update failure")
+                .getCause()
+                .hasMessage("Hive update is only supported for ACID transactional tables");
+    }
+
+    @Override
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
         assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
@@ -3852,6 +3863,17 @@ public class TestHiveConnectorTest
                 "test_create_external_with_field_separator",
                 "helloXworld\nbyeXworld",
                 "VALUES ('hello', 'world'), ('bye', 'world')",
+                ImmutableList.of("textfile_field_separator = 'X'"));
+    }
+
+    @Test
+    public void testCreateExternalTableWithFieldSeparatorUnescaped()
+            throws Exception
+    {
+        testCreateExternalTable(
+                "test_create_external_with_field_separator_unescaped",
+                "heXlloXworld\nbyeXworld", // the first line contains an unescaped separator character which leads to inconsistent reading of its content
+                "VALUES ('he', 'llo'), ('bye', 'world')",
                 ImmutableList.of("textfile_field_separator = 'X'"));
     }
 
@@ -8287,6 +8309,14 @@ public class TestHiveConnectorTest
         assertEquals(tableMetadataWithPurge.getMetadata().getProperties().get(AUTO_PURGE), true);
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testExplainAnalyzePhysicalReadWallTime()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
+                "'Physical input read time' = \\{duration=.*}");
     }
 
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);

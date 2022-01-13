@@ -720,8 +720,7 @@ public class TrinoS3FileSystem
      * This exception is for stopping retries for S3 calls that shouldn't be retried.
      * For example, "Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: Forbidden (Service: Amazon S3; Status Code: 403 ..."
      */
-    @VisibleForTesting
-    static class UnrecoverableS3OperationException
+    public static class UnrecoverableS3OperationException
             extends IOException
     {
         public UnrecoverableS3OperationException(Path path, Throwable cause)

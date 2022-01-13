@@ -11,18 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.scheduler.policy;
+package io.trino.spi.metrics;
 
-import io.trino.execution.scheduler.StageExecution;
+import java.time.Duration;
 
-import java.util.Collection;
-
-public class PrioritizeUtilizationExecutionPolicy
-        implements ExecutionPolicy
+public interface Timing<T>
+        extends Metric<T>
 {
-    @Override
-    public ExecutionSchedule createExecutionSchedule(Collection<StageExecution> stages)
-    {
-        return PrioritizeUtilizationExecutionSchedule.forStages(stages);
-    }
+    Duration getDuration();
 }

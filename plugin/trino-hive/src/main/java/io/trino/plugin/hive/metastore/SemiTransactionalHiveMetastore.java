@@ -389,7 +389,7 @@ public class SemiTransactionalHiveMetastore
             boolean deleteData = location.map(path -> {
                 HdfsContext context = new HdfsContext(session);
                 try (FileSystem fs = hdfsEnvironment.getFileSystem(context, path)) {
-                    return !fs.listFiles(path, false).hasNext();
+                    return !fs.listLocatedStatus(path).hasNext();
                 }
                 catch (IOException | RuntimeException e) {
                     log.warn(e, "Could not check schema directory '%s'", path);
@@ -2518,8 +2518,11 @@ public class SemiTransactionalHiveMetastore
                     return;
                 }
                 try {
-                    if (fileSystem.exists(target) || !fileSystem.rename(source, target)) {
-                        throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files from %s to final location %s", source, target));
+                    if (fileSystem.exists(target)) {
+                        throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files from %s to final location %s: target location already exists", source, target));
+                    }
+                    if (!fileSystem.rename(source, target)) {
+                        throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files from %s to final location %s: rename not successful", source, target));
                     }
                 }
                 catch (IOException e) {

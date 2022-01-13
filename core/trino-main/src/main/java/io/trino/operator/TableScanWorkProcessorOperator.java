@@ -144,7 +144,7 @@ public class TableScanWorkProcessorOperator
         final TableHandle table;
         final List<ColumnHandle> columns;
         final DynamicFilter dynamicFilter;
-        final AggregatedMemoryContext aggregatedMemoryContext;
+        final LocalMemoryContext memoryContext;
 
         long processedBytes;
         long processedPositions;
@@ -166,13 +166,15 @@ public class TableScanWorkProcessorOperator
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
-            this.aggregatedMemoryContext = requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext is null");
+            this.memoryContext = requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext is null")
+                    .newLocalMemoryContext(TableScanWorkProcessorOperator.class.getSimpleName());
         }
 
         @Override
         public TransformationState<WorkProcessor<Page>> process(Split split)
         {
             if (split == null) {
+                memoryContext.close();
                 return TransformationState.finished();
             }
 
@@ -188,12 +190,13 @@ public class TableScanWorkProcessorOperator
             }
 
             return TransformationState.ofResult(
-                    WorkProcessor.create(new ConnectorPageSourceToPages(aggregatedMemoryContext, source))
+                    WorkProcessor.create(new ConnectorPageSourceToPages(source))
                             .map(page -> {
                                 processedPositions += page.getPositionCount();
                                 recordMaterializedBytes(page, sizeInBytes -> processedBytes += sizeInBytes);
                                 return page;
-                            }));
+                            })
+                            .blocking(() -> memoryContext.setBytes(source.getSystemMemoryUsage())));
         }
 
         Supplier<Optional<UpdatablePageSource>> getUpdatablePageSourceSupplier()
@@ -264,20 +267,16 @@ public class TableScanWorkProcessorOperator
             implements WorkProcessor.Process<Page>
     {
         final ConnectorPageSource pageSource;
-        final LocalMemoryContext memoryContext;
 
-        ConnectorPageSourceToPages(AggregatedMemoryContext aggregatedMemoryContext, ConnectorPageSource pageSource)
+        ConnectorPageSourceToPages(ConnectorPageSource pageSource)
         {
             this.pageSource = pageSource;
-            this.memoryContext = aggregatedMemoryContext
-                    .newLocalMemoryContext(TableScanWorkProcessorOperator.class.getSimpleName());
         }
 
         @Override
         public ProcessState<Page> process()
         {
             if (pageSource.isFinished()) {
-                memoryContext.close();
                 return ProcessState.finished();
             }
 
@@ -287,11 +286,9 @@ public class TableScanWorkProcessorOperator
             }
 
             Page page = pageSource.getNextPage();
-            memoryContext.setBytes(pageSource.getSystemMemoryUsage());
 
             if (page == null) {
                 if (pageSource.isFinished()) {
-                    memoryContext.close();
                     return ProcessState.finished();
                 }
                 else {
