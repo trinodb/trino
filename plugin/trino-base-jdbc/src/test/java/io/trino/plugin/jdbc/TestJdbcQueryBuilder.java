@@ -615,6 +615,45 @@ public class TestJdbcQueryBuilder
         }
     }
 
+    @Test
+    public void testAggregationWithoutGroupingProjection()
+            throws SQLException
+    {
+        List<JdbcColumnHandle> projectedColumns = ImmutableList.of(
+                new JdbcColumnHandle(
+                        "s",
+                        JDBC_BIGINT,
+                        BIGINT,
+                        true,
+                        Optional.empty()));
+
+        Connection connection = database.getConnection();
+        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+        PreparedQuery preparedQuery = queryBuilder.prepareQuery(
+                SESSION,
+                connection,
+                TEST_TABLE,
+                Optional.of(ImmutableList.of(ImmutableList.of(this.columns.get(2)))),
+                projectedColumns,
+                Map.of("s", "sum(\"col_0\")"),
+                TupleDomain.all(),
+                Optional.empty());
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+                    "SELECT sum(\"col_0\") AS \"s\" " +
+                    "FROM \"test_table\" " +
+                    "GROUP BY \"col_2\"");
+
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                Multiset<List<Object>> actual = read(resultSet);
+                assertThat(actual)
+                        .isEqualTo(ImmutableMultiset.of(
+                                ImmutableList.of(BigDecimal.valueOf(250000)),
+                                ImmutableList.of(BigDecimal.valueOf(249500))));
+            }
+        }
+    }
+
     private static long toPrestoTimestamp(int year, int month, int day, int hour, int minute, int second)
     {
         return sqlTimestampOf(3, year, month, day, hour, minute, second, 0).getMillis() * MICROSECONDS_PER_MILLISECOND;
