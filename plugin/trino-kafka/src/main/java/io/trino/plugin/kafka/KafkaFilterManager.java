@@ -59,7 +59,7 @@ import static java.util.Objects.requireNonNull;
 
 public class KafkaFilterManager
 {
-    private static final long INVALID_KAFKA_RANGE_INDEX = -1;
+    private static final long INVALID_KAFKA_RANGE_INDEX = 0L;
     private static final String TOPIC_CONFIG_TIMESTAMP_KEY = "message.timestamp.type";
     private static final String TOPIC_CONFIG_TIMESTAMP_VALUE_LOG_APPEND_TIME = "LogAppendTime";
 
@@ -225,7 +225,7 @@ public class KafkaFilterManager
                 else {
                     io.trino.spi.predicate.Range span = ranges.getSpan();
                     low = getLowIncludedValue(span).orElse(low);
-                    high = getHighIncludedValue(span).orElse(high);
+                    high = getHighIncludedValue(span).orElse(Long.MAX_VALUE - 1);
                 }
             }
         }

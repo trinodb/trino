@@ -23,6 +23,7 @@ import java.util.Set;
 
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -68,5 +69,19 @@ public class TestKafkaFilterManager
         assertTrue(KafkaFilterManager.filterRangeByDomain(testDomain).isPresent());
         assertEquals(KafkaFilterManager.filterRangeByDomain(testDomain).get().getBegin(), 2L);
         assertEquals(KafkaFilterManager.filterRangeByDomain(testDomain).get().getEnd(), 5L);
+
+        testDomain = Domain.create(SortedRangeSet.copyOf(TIMESTAMP_MILLIS,
+                ImmutableList.of(Range.greaterThan(TIMESTAMP_MILLIS, 1642054805000000L))), false);
+        assertEquals(testDomain.getValues().getRanges().getSpan().toString(), "(2022-01-13 06:20:05.000, <max>)");
+        assertTrue(KafkaFilterManager.filterRangeByDomain(testDomain).isPresent());
+        assertEquals(KafkaFilterManager.filterRangeByDomain(testDomain).get().getBegin(), 1642054805001000L);
+        assertEquals(KafkaFilterManager.filterRangeByDomain(testDomain).get().getEnd(), Long.MAX_VALUE);
+
+        testDomain = Domain.create(SortedRangeSet.copyOf(TIMESTAMP_MILLIS,
+                ImmutableList.of(Range.lessThan(TIMESTAMP_MILLIS, 1642054805000000L))), false);
+        assertEquals(testDomain.getValues().getRanges().getSpan().toString(), "(<min>, 2022-01-13 06:20:05.000)");
+        assertTrue(KafkaFilterManager.filterRangeByDomain(testDomain).isPresent());
+        assertEquals(KafkaFilterManager.filterRangeByDomain(testDomain).get().getBegin(), 0L);
+        assertEquals(KafkaFilterManager.filterRangeByDomain(testDomain).get().getEnd(), 1642054804999001L);
     }
 }
