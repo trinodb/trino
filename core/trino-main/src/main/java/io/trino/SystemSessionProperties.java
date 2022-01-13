@@ -93,8 +93,6 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_METADATA_QUERIES = "optimize_metadata_queries";
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
-    public static final String SPILL_ORDER_BY = "spill_order_by";
-    public static final String SPILL_WINDOW_OPERATOR = "spill_window_operator";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
@@ -393,16 +391,6 @@ public final class SystemSessionProperties
                         SPILL_ENABLED,
                         "Enable spilling",
                         featuresConfig.isSpillEnabled(),
-                        false),
-                booleanProperty(
-                        SPILL_ORDER_BY,
-                        "Spill in OrderBy if spill_enabled is also set",
-                        featuresConfig.isSpillOrderBy(),
-                        false),
-                booleanProperty(
-                        SPILL_WINDOW_OPERATOR,
-                        "Spill in WindowOperator if spill_enabled is also set",
-                        featuresConfig.isSpillWindowOperator(),
                         false),
                 dataSizeProperty(
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
@@ -924,16 +912,6 @@ public final class SystemSessionProperties
     public static boolean isSpillEnabled(Session session)
     {
         return session.getSystemProperty(SPILL_ENABLED, Boolean.class);
-    }
-
-    public static boolean isSpillOrderBy(Session session)
-    {
-        return session.getSystemProperty(SPILL_ORDER_BY, Boolean.class);
-    }
-
-    public static boolean isSpillWindowOperator(Session session)
-    {
-        return session.getSystemProperty(SPILL_WINDOW_OPERATOR, Boolean.class);
     }
 
     public static DataSize getAggregationOperatorUnspillMemoryLimit(Session session)
