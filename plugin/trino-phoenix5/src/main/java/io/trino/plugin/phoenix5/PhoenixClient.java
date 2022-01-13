@@ -415,6 +415,7 @@ public class PhoenixClient
                 }
                 return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
 
+            case Types.BINARY:
             case Types.VARBINARY:
                 return Optional.of(varbinaryColumnMapping());
 
@@ -483,7 +484,7 @@ public class PhoenixClient
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
-            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType));
+            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
 
         if (type instanceof CharType) {

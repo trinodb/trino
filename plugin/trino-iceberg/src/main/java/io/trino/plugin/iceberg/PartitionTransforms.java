@@ -22,6 +22,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.FixedWidthType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -547,12 +548,12 @@ public final class PartitionTransforms
                 builder.appendNull();
                 continue;
             }
-            type.writeSlice(builder, truncateLongDecimal(type, block, position, unscaledWidth));
+            type.writeObject(builder, truncateLongDecimal(type, block, position, unscaledWidth));
         }
         return builder.build();
     }
 
-    private static Slice truncateLongDecimal(DecimalType type, Block block, int position, BigInteger unscaledWidth)
+    private static Int128 truncateLongDecimal(DecimalType type, Block block, int position, BigInteger unscaledWidth)
     {
         // TODO: write optimized implementation
         BigDecimal value = readBigDecimal(type, block, position);

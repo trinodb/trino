@@ -11,11 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.scheduler;
+package io.trino.execution.scheduler.policy;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.execution.scheduler.StageExecution;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
@@ -48,24 +49,24 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.FLUSHING;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.RUNNING;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.SCHEDULED;
+import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
+import static io.trino.execution.scheduler.StageExecution.State.RUNNING;
+import static io.trino.execution.scheduler.StageExecution.State.SCHEDULED;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static java.util.function.Function.identity;
 
 @NotThreadSafe
-public class PhasedExecutionSchedule
+public class LegacyPhasedExecutionSchedule
         implements ExecutionSchedule
 {
-    private final List<Set<PipelinedStageExecution>> schedulePhases;
-    private final Set<PipelinedStageExecution> activeSources = new HashSet<>();
+    private final List<Set<StageExecution>> schedulePhases;
+    private final Set<StageExecution> activeSources = new HashSet<>();
 
-    public PhasedExecutionSchedule(Collection<PipelinedStageExecution> stages)
+    public LegacyPhasedExecutionSchedule(Collection<StageExecution> stages)
     {
-        List<Set<PlanFragmentId>> phases = extractPhases(stages.stream().map(PipelinedStageExecution::getFragment).collect(toImmutableList()));
+        List<Set<PlanFragmentId>> phases = extractPhases(stages.stream().map(StageExecution::getFragment).collect(toImmutableList()));
 
-        Map<PlanFragmentId, PipelinedStageExecution> stagesByFragmentId = stages.stream().collect(toImmutableMap(stage -> stage.getFragment().getId(), identity()));
+        Map<PlanFragmentId, StageExecution> stagesByFragmentId = stages.stream().collect(toImmutableMap(stage -> stage.getFragment().getId(), identity()));
 
         // create a mutable list of mutable sets of stages, so we can remove completed stages
         schedulePhases = new ArrayList<>();
@@ -77,20 +78,20 @@ public class PhasedExecutionSchedule
     }
 
     @Override
-    public Set<PipelinedStageExecution> getStagesToSchedule()
+    public StagesScheduleResult getStagesToSchedule()
     {
         removeCompletedStages();
         addPhasesIfNecessary();
         if (isFinished()) {
-            return ImmutableSet.of();
+            return new StagesScheduleResult(ImmutableSet.of());
         }
-        return activeSources;
+        return new StagesScheduleResult(activeSources);
     }
 
     private void removeCompletedStages()
     {
-        for (Iterator<PipelinedStageExecution> stageIterator = activeSources.iterator(); stageIterator.hasNext(); ) {
-            PipelinedStageExecution.State state = stageIterator.next().getState();
+        for (Iterator<StageExecution> stageIterator = activeSources.iterator(); stageIterator.hasNext(); ) {
+            StageExecution.State state = stageIterator.next().getState();
             if (state == SCHEDULED || state == RUNNING || state == FLUSHING || state.isDone()) {
                 stageIterator.remove();
             }
@@ -105,7 +106,7 @@ public class PhasedExecutionSchedule
         }
 
         while (!schedulePhases.isEmpty()) {
-            Set<PipelinedStageExecution> phase = schedulePhases.remove(0);
+            Set<StageExecution> phase = schedulePhases.remove(0);
             activeSources.addAll(phase);
             if (hasSourceDistributedStage(phase)) {
                 return;
@@ -113,7 +114,7 @@ public class PhasedExecutionSchedule
         }
     }
 
-    private static boolean hasSourceDistributedStage(Set<PipelinedStageExecution> phase)
+    private static boolean hasSourceDistributedStage(Set<StageExecution> phase)
     {
         return phase.stream().anyMatch(stage -> !stage.getFragment().getPartitionedSources().isEmpty());
     }

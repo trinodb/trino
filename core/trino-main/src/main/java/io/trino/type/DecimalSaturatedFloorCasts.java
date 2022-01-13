@@ -14,11 +14,11 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.PolymorphicScalarFunctionBuilder;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -28,8 +28,6 @@ import java.math.BigInteger;
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.Decimals.bigIntegerTenToNth;
-import static io.trino.spi.type.Decimals.decodeUnscaledValue;
-import static io.trino.spi.type.Decimals.encodeUnscaledValue;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -68,21 +66,21 @@ public final class DecimalSaturatedFloorCasts
     }
 
     @UsedByGeneratedCode
-    public static Slice shortDecimalToLongDecimal(long value, int sourcePrecision, int sourceScale, int resultPrecision, int resultScale)
+    public static Int128 shortDecimalToLongDecimal(long value, int sourcePrecision, int sourceScale, int resultPrecision, int resultScale)
     {
-        return encodeUnscaledValue(bigintToBigintFloorSaturatedCast(BigInteger.valueOf(value), sourceScale, resultPrecision, resultScale));
+        return Int128.valueOf(bigintToBigintFloorSaturatedCast(BigInteger.valueOf(value), sourceScale, resultPrecision, resultScale));
     }
 
     @UsedByGeneratedCode
-    public static long longDecimalToShortDecimal(Slice value, int sourcePrecision, int sourceScale, int resultPrecision, int resultScale)
+    public static long longDecimalToShortDecimal(Int128 value, int sourcePrecision, int sourceScale, int resultPrecision, int resultScale)
     {
-        return bigintToBigintFloorSaturatedCast(decodeUnscaledValue(value), sourceScale, resultPrecision, resultScale).longValueExact();
+        return bigintToBigintFloorSaturatedCast(value.toBigInteger(), sourceScale, resultPrecision, resultScale).longValueExact();
     }
 
     @UsedByGeneratedCode
-    public static Slice longDecimalToLongDecimal(Slice value, int sourcePrecision, int sourceScale, int resultPrecision, int resultScale)
+    public static Int128 longDecimalToLongDecimal(Int128 value, int sourcePrecision, int sourceScale, int resultPrecision, int resultScale)
     {
-        return encodeUnscaledValue(bigintToBigintFloorSaturatedCast(decodeUnscaledValue(value), sourceScale, resultPrecision, resultScale));
+        return Int128.valueOf(bigintToBigintFloorSaturatedCast(value.toBigInteger(), sourceScale, resultPrecision, resultScale));
     }
 
     private static BigInteger bigintToBigintFloorSaturatedCast(BigInteger value, int sourceScale, int resultPrecision, int resultScale)
@@ -136,9 +134,9 @@ public final class DecimalSaturatedFloorCasts
     }
 
     @UsedByGeneratedCode
-    public static long longDecimalToGenericIntegerType(Slice value, int sourceScale, long minValue, long maxValue)
+    public static long longDecimalToGenericIntegerType(Int128 value, int sourceScale, long minValue, long maxValue)
     {
-        return bigIntegerDecimalToGenericIntegerType(decodeUnscaledValue(value), sourceScale, minValue, maxValue);
+        return bigIntegerDecimalToGenericIntegerType(value.toBigInteger(), sourceScale, minValue, maxValue);
     }
 
     private static long bigIntegerDecimalToGenericIntegerType(BigInteger bigInteger, int sourceScale, long minValue, long maxValue)
@@ -186,8 +184,8 @@ public final class DecimalSaturatedFloorCasts
     }
 
     @UsedByGeneratedCode
-    public static Slice genericIntegerTypeToLongDecimal(long value, int resultPrecision, int resultScale)
+    public static Int128 genericIntegerTypeToLongDecimal(long value, int resultPrecision, int resultScale)
     {
-        return encodeUnscaledValue(bigDecimalToBigintFloorSaturatedCast(BigDecimal.valueOf(value), resultPrecision, resultScale));
+        return Int128.valueOf(bigDecimalToBigintFloorSaturatedCast(BigDecimal.valueOf(value), resultPrecision, resultScale));
     }
 }

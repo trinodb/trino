@@ -18,7 +18,7 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
@@ -90,6 +90,9 @@ public class Row
             else if (type.getJavaType() == Block.class) {
                 size = ((Block) value).getSizeInBytes();
             }
+            else if (type.getJavaType() == Int128.class) {
+                size = Int128.SIZE;
+            }
             else {
                 throw new AssertionError("Unimplemented type: " + type);
             }
@@ -120,6 +123,9 @@ public class Row
         else if (type.getJavaType() == Block.class) {
             return type.getObject(block, position);
         }
+        else if (type.getJavaType() == Int128.class) {
+            return type.getObject(block, position);
+        }
         else {
             throw new AssertionError("Unimplemented type: " + type);
         }
@@ -137,7 +143,7 @@ public class Row
                 unscaledValue = BigInteger.valueOf((long) nativeValue);
             }
             else {
-                unscaledValue = Decimals.decodeUnscaledValue((Slice) nativeValue);
+                unscaledValue = ((Int128) nativeValue).toBigInteger();
             }
             return HiveDecimal.create(unscaledValue, decimalType.getScale());
         }

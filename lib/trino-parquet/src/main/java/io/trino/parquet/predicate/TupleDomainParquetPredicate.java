@@ -29,6 +29,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -58,7 +59,6 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt64Timestamp;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
-import static io.trino.parquet.ParquetTypeUtils.getLongDecimalValue;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
@@ -296,8 +296,8 @@ public class TupleDomainParquetPredicate
             }
             else {
                 for (int i = 0; i < minimums.size(); i++) {
-                    Slice min = getLongDecimalValue(((Binary) minimums.get(i)).getBytes());
-                    Slice max = getLongDecimalValue(((Binary) maximums.get(i)).getBytes());
+                    Int128 min = Int128.fromBigEndian(((Binary) minimums.get(i)).getBytes());
+                    Int128 max = Int128.fromBigEndian(((Binary) maximums.get(i)).getBytes());
 
                     ranges.add(Range.range(type, min, true, max, true));
                 }

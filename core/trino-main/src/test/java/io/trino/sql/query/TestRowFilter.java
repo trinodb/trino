@@ -28,9 +28,11 @@ import io.trino.spi.type.BigintType;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 
@@ -43,8 +45,11 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestRowFilter
 {
     private static final String CATALOG = "local";
@@ -72,7 +77,7 @@ public class TestRowFilter
     private TestingAccessControlManager accessControl;
     private TestingAccessControlManager accessControlMissingColumns;
 
-    @BeforeClass
+    @BeforeAll
     public void init()
     {
         LocalQueryRunner runner = LocalQueryRunner.builder(SESSION).build();
@@ -150,7 +155,7 @@ public class TestRowFilter
         accessControlMissingColumns = assertionsMissingColumns.getQueryRunner().getAccessControl();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();

@@ -275,6 +275,7 @@ public class TestHivePageSink
                 "test",
                 ImmutableMap.of(),
                 NO_ACID_TRANSACTION,
+                false,
                 false);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         TypeOperators typeOperators = new TypeOperators();

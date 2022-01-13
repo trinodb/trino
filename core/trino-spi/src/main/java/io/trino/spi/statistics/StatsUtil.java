@@ -13,8 +13,8 @@
  */
 package io.trino.spi.statistics;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
@@ -65,7 +65,7 @@ public final class StatsUtil
             if (decimalType.isShort()) {
                 return OptionalDouble.of(shortDecimalToDouble((long) value, longTenToNth(decimalType.getScale())));
             }
-            return OptionalDouble.of(longDecimalToDouble((Slice) value, decimalType.getScale()));
+            return OptionalDouble.of(longDecimalToDouble((Int128) value, decimalType.getScale()));
         }
         if (type == DATE) {
             return OptionalDouble.of((long) value);

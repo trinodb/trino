@@ -52,11 +52,11 @@ import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tempto.fulfillment.table.TableHandle.tableHandle;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_COERCION;
 import static io.trino.tests.product.TestGroups.JDBC;
 import static io.trino.tests.product.hive.TestHiveCoercion.ColumnContext.columnContext;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;
@@ -260,12 +260,12 @@ public class TestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_bigint int_to_bigint bigint", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double", tableName));
 
-        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
+        assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                 row("int_to_bigint", "bigint"),
                 row("float_to_double", "double"),
                 row("id", "bigint"));
 
-        QueryResult queryResult = query("SELECT * FROM " + tableName);
+        QueryResult queryResult = onTrino().executeQuery("SELECT * FROM " + tableName);
         assertThat(queryResult).hasColumns(BIGINT, DOUBLE, BIGINT);
 
         assertThat(queryResult).containsOnly(
@@ -326,7 +326,7 @@ public class TestHiveCoercion
 
     protected void insertTableRows(String tableName, String floatToDoubleType)
     {
-        query(format(
+        onTrino().executeQuery(format(
                 "INSERT INTO %1$s VALUES " +
                         "(" +
                         "  CAST(ROW ('as is', -1, 100, 2323, 12345) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT)), " +
@@ -617,7 +617,7 @@ public class TestHiveCoercion
     {
         String floatType = tableName.toLowerCase(ENGLISH).contains("parquet") ? "double" : "real";
 
-        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
+        assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                 row("row_to_row", "row(keep varchar, ti2si smallint, si2int integer, int2bi bigint, bi2vc varchar)"),
                 row("list_to_list", "array(row(ti2int integer, si2bi bigint, bi2vc varchar))"),
                 row("map_to_map", "map(integer, row(ti2bi bigint, int2bi bigint, float2double double, add tinyint))"),

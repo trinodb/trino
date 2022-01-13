@@ -18,15 +18,15 @@ import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.UnscaledDecimal128Arithmetic;
 
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 
 public class LongDecimalWithOverflowAndLongStateSerializer
         implements AccumulatorStateSerializer<LongDecimalWithOverflowAndLongState>
 {
-    private static final int SERIALIZED_SIZE = (Long.BYTES * 2) + UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
+    private static final int SERIALIZED_SIZE = (Long.BYTES * 2) + Int128.SIZE;
 
     @Override
     public Type getSerializedType()

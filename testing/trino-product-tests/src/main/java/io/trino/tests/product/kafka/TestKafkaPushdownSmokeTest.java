@@ -31,9 +31,9 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.fulfillment.table.kafka.KafkaMessageContentsBuilder.contentsBuilder;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.KAFKA;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public class TestKafkaPushdownSmokeTest
@@ -84,7 +84,7 @@ public class TestKafkaPushdownSmokeTest
     @Requires(PushdownPartitionTable.class)
     public void testPartitionPushdown()
     {
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_id = 1",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
@@ -119,42 +119,42 @@ public class TestKafkaPushdownSmokeTest
     @Requires(PushdownOffsetTable.class)
     public void testOffsetPushdown()
     {
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset BETWEEN 6 AND 10",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
                 .containsExactlyInOrder(row(10));
 
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset > 5 AND _partition_offset < 10",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
                 .containsExactlyInOrder(row(8));
 
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset >= 5 AND _partition_offset <= 10",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
                 .containsExactlyInOrder(row(12));
 
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset >= 5 AND _partition_offset < 10",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
                 .containsExactlyInOrder(row(10));
 
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset > 5 AND _partition_offset <= 10",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
                 .containsExactlyInOrder(row(10));
 
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset = 5",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
@@ -168,14 +168,14 @@ public class TestKafkaPushdownSmokeTest
     {
         // Ensure a spread of at-least TIMESTAMP_NUM_MESSAGES * 100 milliseconds
         for (int i = 1; i <= TIMESTAMP_NUM_MESSAGES; i++) {
-            query(format("INSERT INTO %s.%s.%s (bigint_key, bigint_value) VALUES (%s, %s)",
+            onTrino().executeQuery(format("INSERT INTO %s.%s.%s (bigint_key, bigint_value) VALUES (%s, %s)",
                     KAFKA_CATALOG, SCHEMA_NAME, PUSHDOWN_CREATE_TIME_TABLE_NAME, i, i));
             Thread.sleep(100);
         }
 
         long startKey = 4;
         long endKey = 6;
-        List<List<?>> rows = query(format(
+        List<List<?>> rows = onTrino().executeQuery(format(
                 "SELECT CAST(_timestamp AS VARCHAR) FROM %s.%s.%s WHERE bigint_key IN (" + startKey + ", " + endKey + ") ORDER BY bigint_key",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
@@ -184,7 +184,7 @@ public class TestKafkaPushdownSmokeTest
         String startTime = (String) rows.get(0).get(0);
         String endTime = (String) rows.get(1).get(0);
 
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _timestamp >= TIMESTAMP '%s' AND _timestamp < TIMESTAMP '%s'",
                 KAFKA_CATALOG, SCHEMA_NAME, PUSHDOWN_CREATE_TIME_TABLE_NAME, startTime, endTime)))
                 .containsExactlyInOrder(row(endKey - startKey));

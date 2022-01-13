@@ -168,5 +168,11 @@ public class TestSystemMemoryBlocking
         {
             return null;
         }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return 0;
+        }
     }
 }

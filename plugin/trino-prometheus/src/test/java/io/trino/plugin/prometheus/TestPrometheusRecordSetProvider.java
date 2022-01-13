@@ -24,7 +24,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -42,14 +41,14 @@ import static org.testng.Assert.assertNotNull;
 public class TestPrometheusRecordSetProvider
 {
     private PrometheusHttpServer prometheusHttpServer;
-    private URI dataUri;
+    private String dataUri;
     private PrometheusClient client;
 
     @BeforeClass
     public void setUp()
     {
         prometheusHttpServer = new PrometheusHttpServer();
-        dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json");
+        dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json").toString();
         client = new PrometheusClient(new PrometheusConnectorConfig(), METRIC_CODEC, TESTING_TYPE_MANAGER);
     }
 

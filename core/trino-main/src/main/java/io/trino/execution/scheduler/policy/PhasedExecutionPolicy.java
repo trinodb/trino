@@ -11,11 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.scheduler;
+package io.trino.execution.scheduler.policy;
+
+import io.trino.execution.scheduler.StageExecution;
 
 import java.util.Collection;
 
-public interface ExecutionPolicy
+public class PhasedExecutionPolicy
+        implements ExecutionPolicy
 {
-    ExecutionSchedule createExecutionSchedule(Collection<PipelinedStageExecution> stages);
+    @Override
+    public ExecutionSchedule createExecutionSchedule(Collection<StageExecution> stages)
+    {
+        return PhasedExecutionSchedule.forStages(stages);
+    }
 }

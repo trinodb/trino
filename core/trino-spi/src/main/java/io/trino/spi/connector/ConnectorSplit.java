@@ -30,4 +30,9 @@ public interface ConnectorSplit
     {
         return SplitWeight.standard();
     }
+
+    default long getRetainedSizeInBytes()
+    {
+        throw new UnsupportedOperationException("This connector does not provide memory accounting capabilities for ConnectorSplit");
+    }
 }

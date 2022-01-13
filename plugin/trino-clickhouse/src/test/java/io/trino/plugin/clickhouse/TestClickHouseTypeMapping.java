@@ -20,13 +20,15 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.UuidType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
-import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
@@ -36,23 +38,48 @@ import java.time.ZoneId;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.testing.datatype.DataType.bigintDataType;
-import static io.trino.testing.datatype.DataType.dateDataType;
-import static io.trino.testing.datatype.DataType.doubleDataType;
-import static io.trino.testing.datatype.DataType.integerDataType;
-import static io.trino.testing.datatype.DataType.realDataType;
-import static io.trino.testing.datatype.DataType.smallintDataType;
-import static io.trino.testing.datatype.DataType.tinyintDataType;
+import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 
 public class TestClickHouseTypeMapping
         extends AbstractTestQueryFramework
 {
+    private final ZoneId jvmZone = ZoneId.systemDefault();
+
+    // no DST in 1970, but has DST in later years (e.g. 2018)
+    private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
+
+    // minutes offset change since 1970-01-01, no DST
+    private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
+
     private TestingClickHouseServer clickhouseServer;
+
+    @BeforeClass
+    public void setUp()
+    {
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
+
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
+        checkIsGap(vilnius, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
+        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
+        checkIsDoubled(vilnius, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
+
+        LocalDate timeGapInKathmandu = LocalDate.of(1986, 1, 1);
+        checkIsGap(kathmandu, timeGapInKathmandu.atStartOfDay());
+    }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
     {
@@ -92,26 +119,33 @@ public class TestClickHouseTypeMapping
     @Test
     public void testBasicTypes()
     {
-        // TODO SqlDataTypeTest
-        DataTypeTest.create()
-                .addRoundTrip(bigintDataType(), 123_456_789_012L)
-                .addRoundTrip(integerDataType(), 1_234_567_890)
-                .addRoundTrip(smallintDataType(), (short) 32_456)
-                .addRoundTrip(tinyintDataType(), (byte) 5)
-                .addRoundTrip(doubleDataType(), 123.45d)
-                .addRoundTrip(realDataType(), 123.45f)
+        SqlDataTypeTest.create()
+                .addRoundTrip("bigint", "123456789012", BIGINT, "123456789012")
+                .addRoundTrip("integer", "1234567890", INTEGER, "1234567890")
+                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("tinyint", "5", TINYINT, "TINYINT '5'")
+                .addRoundTrip("double", "123.45", DOUBLE, "DOUBLE '123.45'")
+                .addRoundTrip("real", "123.45", REAL, "REAL '123.45'")
 
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_basic_types"))
 
-                // TODO test ClickHouse Nullable(...)
-                .addRoundTrip(bigintDataType(), null)
-                .addRoundTrip(integerDataType(), null)
-                .addRoundTrip(smallintDataType(), null)
-                .addRoundTrip(tinyintDataType(), null)
-                .addRoundTrip(doubleDataType(), null)
-                .addRoundTrip(realDataType(), null)
+                .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS REAL)")
 
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("Nullable(bigint)", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
+                .addRoundTrip("Nullable(integer)", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
+                .addRoundTrip("Nullable(smallint)", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
+                .addRoundTrip("Nullable(tinyint)", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
+                .addRoundTrip("Nullable(double)", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .addRoundTrip("Nullable(real)", "NULL", REAL, "CAST(NULL AS REAL)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_nullable_types"));
     }
 
     @Test
@@ -137,18 +171,20 @@ public class TestClickHouseTypeMapping
     @Test
     public void testDouble()
     {
-        // TODO SqlDataTypeTest
-        DataTypeTest.create()
-                .addRoundTrip(doubleDataType(), 3.1415926835)
-                .addRoundTrip(doubleDataType(), 1.79769E+308)
-                .addRoundTrip(doubleDataType(), 2.225E-307)
+        SqlDataTypeTest.create()
+                .addRoundTrip("double", "3.1415926835", DOUBLE, "DOUBLE '3.1415926835'")
+                .addRoundTrip("double", "1.79769E308", DOUBLE, "DOUBLE '1.79769E308'")
+                .addRoundTrip("double", "2.225E-307", DOUBLE, "DOUBLE '2.225E-307'")
 
-                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_decimal"))
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_double"))
 
-                // TODO test ClickHouse Nullable(...)
-                .addRoundTrip(doubleDataType(), null)
+                .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
 
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("Nullable(double)", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.trino_test_nullable_double"));
     }
 
     @Test
@@ -174,11 +210,15 @@ public class TestClickHouseTypeMapping
 
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_decimal"))
 
-                // TODO test ClickHouse Nullable(decimal(....))
                 .addRoundTrip("decimal(3, 1)", "NULL", createDecimalType(3, 1), "CAST(NULL AS decimal(3,1))")
                 .addRoundTrip("decimal(30, 5)", "NULL", createDecimalType(30, 5), "CAST(NULL AS decimal(30,5))")
 
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("Nullable(decimal(3, 1))", "NULL", createDecimalType(3, 1), "CAST(NULL AS decimal(3,1))")
+                .addRoundTrip("Nullable(decimal(30, 5))", "NULL", createDecimalType(30, 5), "CAST(NULL AS decimal(30,5))")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_nullable_decimal"));
     }
 
     @Test
@@ -278,37 +318,74 @@ public class TestClickHouseTypeMapping
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
     }
 
-    @Test
-    public void testDate()
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testDate(ZoneId sessionZone)
     {
-        ZoneId jvmZone = ZoneId.systemDefault();
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+        SqlDataTypeTest.create()
+                .addRoundTrip("date", "DATE '1969-12-31'", DATE, "DATE '1970-01-01'") // unsupported date become 1970-01-01
+                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'") // min value in ClickHouse
+                .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
+                .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
+                .addRoundTrip("date", "DATE '2017-01-01'", DATE, "DATE '2017-01-01'") // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'")
+                .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
+                .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
+                .addRoundTrip("date", "DATE '2106-02-07'", DATE, "DATE '2106-02-07'") // max value in ClickHouse
+                .addRoundTrip("date", "DATE '2106-02-08'", DATE, "DATE '1970-01-01'") // unsupported date become 1970-01-01
+                .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
 
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
-        checkIsGap(someZone, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
-        checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
+        // Null
+        SqlDataTypeTest.create()
+                .addRoundTrip("date", "NULL", DATE, "CAST(NULL AS DATE)")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("Nullable(date)", "NULL", DATE, "CAST(NULL AS DATE)")
+                .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"));
+    }
 
-        // TODO SqlDataTypeTest
-        DataTypeTest testCases = DataTypeTest.create(true)
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 7, 1)) // summer on northern hemisphere (possible DST)
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 1, 1)) // winter on northern hemisphere (possible DST on southern hemisphere)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInJvmZone)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInSomeZone)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestamp(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
 
-        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
-                    .build();
-            testCases.execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"));
-            testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
-        }
+        // TODO (https://github.com/trinodb/trino/issues/10538) Support writing timestamp and datetime types in ClickHouse connector
+        addTimestampRoundTrips("timestamp")
+                .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_timestamp"));
+        addTimestampRoundTrips("datetime")
+                .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_datetime"));
+    }
+
+    private SqlDataTypeTest addTimestampRoundTrips(String inputType)
+    {
+        return SqlDataTypeTest.create()
+                .addRoundTrip(inputType, "'1969-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '1970-01-01 23:59:59'") // unsupported timestamp become 1970-01-01 23:59:59
+                .addRoundTrip(inputType, "'1970-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'") // min value in ClickHouse
+                .addRoundTrip(inputType, "'1986-01-01 00:13:07'", createTimestampType(0), "TIMESTAMP '1986-01-01 00:13:07'") // time gap in Kathmandu
+                .addRoundTrip(inputType, "'2018-03-25 03:17:17'", createTimestampType(0), "TIMESTAMP '2018-03-25 03:17:17'") // time gap in Vilnius
+                .addRoundTrip(inputType, "'2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'") // time doubled in JVM zone
+                .addRoundTrip(inputType, "'2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'") // time double in Vilnius
+                .addRoundTrip(inputType, "'2105-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '2105-12-31 23:59:59'") // max value in ClickHouse
+                .addRoundTrip(inputType, "'2106-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '2106-01-01 00:00:00'") // unsupported timestamp become 1970-01-01 23:59:59
+                .addRoundTrip(format("Nullable(%s)", inputType), "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))");
+    }
+
+    @DataProvider
+    public Object[][] sessionZonesDataProvider()
+    {
+        return new Object[][] {
+                {UTC},
+                {jvmZone},
+                // using two non-JVM zones so that we don't need to worry what ClickHouse system zone is
+                {vilnius},
+                {kathmandu},
+                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+        };
     }
 
     @Test

@@ -27,6 +27,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spiller.SpillSpaceTracker;
 
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -144,6 +145,7 @@ public final class TestingTaskContext
                     queryId,
                     queryMaxMemory,
                     queryMaxTotalMemory,
+                    Optional.empty(),
                     memoryPool,
                     GC_MONITOR,
                     notificationExecutor,

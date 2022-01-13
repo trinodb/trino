@@ -194,10 +194,10 @@ public class TestIcebergBucketing
     public void testUnsupportedTypes(Type type)
     {
         assertThatThrownBy(() -> computeIcebergBucket(type, null, 1))
-                .hasMessage(format("Cannot bucket by type: %s", type));
+                .hasMessage("Cannot bucket by type: %s", type);
 
         assertThatThrownBy(() -> computeTrinoBucket(type, null, 1))
-                .hasMessage(format("Unsupported type for 'bucket': %s", toTrinoType(type, TYPE_MANAGER)));
+                .hasMessage("Unsupported type for 'bucket': %s", toTrinoType(type, TYPE_MANAGER));
     }
 
     @DataProvider

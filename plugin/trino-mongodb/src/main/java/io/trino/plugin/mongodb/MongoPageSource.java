@@ -259,7 +259,7 @@ public class MongoPageSource
             }
         }
         else if (type instanceof DecimalType) {
-            type.writeSlice(output, encodeScaledValue(((Decimal128) value).bigDecimalValue(), ((DecimalType) type).getScale()));
+            type.writeObject(output, encodeScaledValue(((Decimal128) value).bigDecimalValue(), ((DecimalType) type).getScale()));
         }
         else if (isJsonType(type)) {
             type.writeSlice(output, jsonParse(utf8Slice(toVarcharValue(value))));

@@ -159,4 +159,6 @@ public interface ValueSet
     String toString(ConnectorSession session);
 
     String toString(ConnectorSession session, int limit);
+
+    long getRetainedSizeInBytes();
 }

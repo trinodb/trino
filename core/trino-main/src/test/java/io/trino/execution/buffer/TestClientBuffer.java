@@ -427,7 +427,7 @@ public class TestClientBuffer
 
     private static void addPage(ClientBuffer buffer, Page page, PagesReleasedListener onPagesReleased)
     {
-        SerializedPageReference serializedPageReference = new SerializedPageReference(serializePage(page), 1);
+        SerializedPageReference serializedPageReference = new SerializedPageReference(serializePage(page), page.getPositionCount(), 1);
         buffer.enqueuePages(ImmutableList.of(serializedPageReference));
         dereferencePages(ImmutableList.of(serializedPageReference), onPagesReleased);
     }
@@ -499,7 +499,7 @@ public class TestClientBuffer
         {
             requireNonNull(page, "page is null");
             checkState(!noMorePages);
-            buffer.add(new SerializedPageReference(serializePage(page), 1));
+            buffer.add(new SerializedPageReference(serializePage(page), page.getPositionCount(), 1));
         }
 
         @Override

@@ -277,7 +277,7 @@ public class PostgreSqlClient
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
         ImmutableList.Builder<String> tableTypes = ImmutableList.builder();
-        tableTypes.add("TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
+        tableTypes.add("TABLE", "PARTITIONED TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
         if (postgreSqlConfig.isIncludeSystemTables()) {
             tableTypes.add("SYSTEM TABLE", "SYSTEM VIEW");
         }
@@ -637,7 +637,7 @@ public class PostgreSqlClient
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
-            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType));
+            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
 
         if (type instanceof CharType) {

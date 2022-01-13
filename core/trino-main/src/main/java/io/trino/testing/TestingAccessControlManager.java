@@ -712,20 +712,25 @@ public class TestingAccessControlManager
     public static class TestingPrivilege
     {
         private final Optional<String> actorName;
-        private final String entityName;
+        private final Predicate<String> entityPredicate;
         private final TestingPrivilegeType type;
 
-        private TestingPrivilege(Optional<String> actorName, String entityName, TestingPrivilegeType type)
+        public TestingPrivilege(Optional<String> actorName, String entityName, TestingPrivilegeType type)
+        {
+            this(actorName, requireNonNull(entityName, "entitName is null")::equals, type);
+        }
+
+        public TestingPrivilege(Optional<String> actorName, Predicate<String> entityPredicate, TestingPrivilegeType type)
         {
             this.actorName = requireNonNull(actorName, "actorName is null");
-            this.entityName = requireNonNull(entityName, "entityName is null");
+            this.entityPredicate = requireNonNull(entityPredicate, "entityPredicate is null");
             this.type = requireNonNull(type, "type is null");
         }
 
         public boolean matches(Optional<String> actorName, String entityName, TestingPrivilegeType type)
         {
             return (this.actorName.isEmpty() || this.actorName.equals(actorName)) &&
-                    this.entityName.equals(entityName) &&
+                    this.entityPredicate.test(entityName) &&
                     this.type == type;
         }
 
@@ -740,14 +745,14 @@ public class TestingAccessControlManager
             }
             TestingPrivilege that = (TestingPrivilege) o;
             return Objects.equals(actorName, that.actorName) &&
-                    Objects.equals(entityName, that.entityName) &&
+                    Objects.equals(entityPredicate, that.entityPredicate) &&
                     type == that.type;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(actorName, entityName, type);
+            return Objects.hash(actorName, entityPredicate, type);
         }
 
         @Override
@@ -755,7 +760,6 @@ public class TestingAccessControlManager
         {
             return toStringHelper(this)
                     .add("actorName", actorName)
-                    .add("entityName", entityName)
                     .add("type", type)
                     .toString();
         }

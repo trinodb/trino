@@ -25,9 +25,9 @@ import java.time.LocalTime;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.KAFKA;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public class TestKafkaWritesSmokeTest
@@ -41,7 +41,7 @@ public class TestKafkaWritesSmokeTest
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     public void testInsertSimpleKeyAndValue()
     {
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "INSERT INTO %s.%s.%s VALUES " +
                         "('jasio', 1, 'ania', 2), " +
                         "('piotr', 3, 'kasia', 4)",
@@ -50,7 +50,7 @@ public class TestKafkaWritesSmokeTest
                 SIMPLE_KEY_AND_VALUE_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(2);
 
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "SELECT * FROM %s.%s.%s",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
@@ -69,7 +69,7 @@ public class TestKafkaWritesSmokeTest
         //  BIGINT with dataFormat = BYTE takes up 8 bytes during write (as opposed to 1 byte
         //  during read) and hence a buffer overflow is possible before we are able to reach
         //  the end of row.
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "INSERT INTO %s.%s.%s VALUES " +
                         "('jasio', 9223372036854775807, 2147483647, 32767, 127, 1234567890.123456789, true), " +
                         "('piotr', -9223372036854775808, -2147483648, -32768, -128, -1234567890.123456789, false), " +
@@ -80,7 +80,7 @@ public class TestKafkaWritesSmokeTest
                 ALL_DATATYPES_RAW_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(4);
 
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "SELECT * FROM %s.%s.%s",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
@@ -97,7 +97,7 @@ public class TestKafkaWritesSmokeTest
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     public void testInsertCsvTable()
     {
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "INSERT INTO %s.%s.%s VALUES " +
                         "('jasio', 9223372036854775807, 2147483647, 32767, 127, 1234567890.123456789, true), " +
                         "('stasio', -9223372036854775808, -2147483648, -32768, -128, -1234567890.123456789, false), " +
@@ -109,7 +109,7 @@ public class TestKafkaWritesSmokeTest
                 ALL_DATATYPES_CSV_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(5);
 
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "SELECT * FROM %s.%s.%s",
                 KAFKA_CATALOG,
                 SCHEMA_NAME,
@@ -127,7 +127,7 @@ public class TestKafkaWritesSmokeTest
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     public void testInsertJsonTable()
     {
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "INSERT INTO %s.%s.%s VALUES (" +
                         "'ala ma kota'," +
                         "9223372036854775807," +
@@ -159,7 +159,7 @@ public class TestKafkaWritesSmokeTest
                 ALL_DATATYPES_JSON_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(1);
 
-        assertThat(query(format(
+        assertThat(onTrino().executeQuery(format(
                 "SELECT c_varchar, " +
                         "c_bigint, " +
                         "c_integer, " +

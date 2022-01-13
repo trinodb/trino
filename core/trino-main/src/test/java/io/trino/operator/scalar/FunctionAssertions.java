@@ -57,6 +57,8 @@ import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
@@ -120,7 +122,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -764,7 +765,7 @@ public final class FunctionAssertions
             else if (javaType == Slice.class) {
                 return type.getSlice(block, position);
             }
-            else if (javaType == Block.class) {
+            else if (javaType == Block.class || javaType == Int128.class) {
                 return type.getObject(block, position);
             }
             else {
@@ -921,7 +922,7 @@ public final class FunctionAssertions
                                 1234,
                                 TEST_ROW_DATA.getObject(0, Block.class),
                                 new BigDecimal("1234").unscaledValue().longValue(),
-                                encodeScaledValue(new BigDecimal("1234")))
+                                Decimals.valueOf(new BigDecimal("1234")))
                         .build();
                 return new RecordPageSource(records);
             }
@@ -983,6 +984,8 @@ public final class FunctionAssertions
     private static class TestSplit
             implements ConnectorSplit
     {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(TestSplit.class).instanceSize();
+
         private final boolean recordSet;
 
         private TestSplit(boolean recordSet)
@@ -1011,6 +1014,12 @@ public final class FunctionAssertions
         public Object getInfo()
         {
             return this;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE;
         }
     }
 }

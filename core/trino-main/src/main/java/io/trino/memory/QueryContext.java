@@ -14,7 +14,9 @@
 package io.trino.memory;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.trino.Session;
@@ -33,6 +35,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -44,6 +47,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
@@ -51,6 +55,7 @@ import static io.trino.ExceededMemoryLimitException.exceededLocalUserMemoryLimit
 import static io.trino.ExceededSpillLimitException.exceededPerQueryLocalLimit;
 import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.trino.operator.Operator.NOT_BLOCKED;
+import static io.trino.operator.TaskContext.createTaskContext;
 import static java.lang.String.format;
 import static java.util.Map.Entry.comparingByValue;
 import static java.util.Objects.requireNonNull;
@@ -78,11 +83,16 @@ public class QueryContext
     private long maxUserMemory;
     @GuardedBy("this")
     private long maxTotalMemory;
+    @GuardedBy("this")
+    private Optional<DataSize> maxTaskMemory;
 
     private final MemoryTrackingContext queryMemoryContext;
 
     @GuardedBy("this")
     private MemoryPool memoryPool;
+    // TODO: remove after https://github.com/trinodb/trino/issues/6677 is done
+    @GuardedBy("this")
+    private SettableFuture<Void> memoryPoolMoveFuture = SettableFuture.create();
 
     @GuardedBy("this")
     private long spillUsed;
@@ -91,6 +101,7 @@ public class QueryContext
             QueryId queryId,
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
+            Optional<DataSize> maxTaskMemory,
             MemoryPool memoryPool,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
@@ -101,6 +112,7 @@ public class QueryContext
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null").toBytes();
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null").toBytes();
+        this.maxTaskMemory = requireNonNull(maxTaskMemory, "maxTaskMemory is null");
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
@@ -119,7 +131,7 @@ public class QueryContext
     }
 
     // TODO: This method should be removed, and the correct limit set in the constructor. However, due to the way QueryContext is constructed the memory limit is not known in advance
-    public synchronized void initializeMemoryLimits(boolean resourceOverCommit, long maxUserMemory, long maxTotalMemory)
+    public synchronized void initializeMemoryLimits(boolean resourceOverCommit, long maxUserMemory, long maxTotalMemory, Optional<DataSize> maxTaskMemory)
     {
         checkArgument(maxUserMemory >= 0, "maxUserMemory must be >= 0, found: %s", maxUserMemory);
         checkArgument(maxTotalMemory >= 0, "maxTotalMemory must be >= 0, found: %s", maxTotalMemory);
@@ -129,10 +141,12 @@ public class QueryContext
             // The coordinator will kill the query if the cluster runs out of memory.
             this.maxUserMemory = memoryPool.getMaxBytes();
             this.maxTotalMemory = memoryPool.getMaxBytes();
+            this.maxTaskMemory = Optional.empty(); // disabled
         }
         else {
             this.maxUserMemory = maxUserMemory;
             this.maxTotalMemory = maxTotalMemory;
+            this.maxTaskMemory = maxTaskMemory;
         }
         memoryLimitsInitialized = true;
     }
@@ -170,7 +184,12 @@ public class QueryContext
     {
         if (delta >= 0) {
             enforceUserMemoryLimit(queryMemoryContext.getUserMemory(), delta, maxUserMemory);
-            return memoryPool.reserve(queryId, allocationTag, delta);
+            ListenableFuture<Void> future = memoryPool.reserve(queryId, allocationTag, delta);
+            if (future.isDone()) {
+                return NOT_BLOCKED;
+            }
+
+            return whenAnyComplete(ImmutableList.of(future, memoryPoolMoveFuture));
         }
         memoryPool.free(queryId, allocationTag, -delta);
         return NOT_BLOCKED;
@@ -180,7 +199,12 @@ public class QueryContext
     private synchronized ListenableFuture<Void> updateRevocableMemory(String allocationTag, long delta)
     {
         if (delta >= 0) {
-            return memoryPool.reserveRevocable(queryId, delta);
+            ListenableFuture<Void> future = memoryPool.reserveRevocable(queryId, delta);
+            if (future.isDone()) {
+                return NOT_BLOCKED;
+            }
+
+            return whenAnyComplete(ImmutableList.of(future, memoryPoolMoveFuture));
         }
         memoryPool.freeRevocable(queryId, -delta);
         return NOT_BLOCKED;
@@ -208,7 +232,12 @@ public class QueryContext
         long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
         if (delta >= 0) {
             enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory);
-            return memoryPool.reserve(queryId, allocationTag, delta);
+            ListenableFuture<Void> future = memoryPool.reserve(queryId, allocationTag, delta);
+            if (future.isDone()) {
+                return NOT_BLOCKED;
+            }
+
+            return whenAnyComplete(ImmutableList.of(future, memoryPoolMoveFuture));
         }
         memoryPool.free(queryId, allocationTag, -delta);
         return NOT_BLOCKED;
@@ -276,9 +305,14 @@ public class QueryContext
             maxUserMemory = memoryPool.getMaxBytes();
             maxTotalMemory = memoryPool.getMaxBytes();
         }
+
+        // Create a new move future for allocations in new memory pool
+        SettableFuture<Void> oldPoolMoveFuture = this.memoryPoolMoveFuture;
+        this.memoryPoolMoveFuture = SettableFuture.create();
+
         future.addListener(() -> {
-            // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
-            taskContexts.values().forEach(TaskContext::moreMemoryAvailable);
+            // Unblock allocations in old memory pool as all memory is now accounted for in new pool
+            oldPoolMoveFuture.set(null);
         }, directExecutor());
     }
 
@@ -294,7 +328,7 @@ public class QueryContext
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled)
     {
-        TaskContext taskContext = TaskContext.createTaskContext(
+        TaskContext taskContext = createTaskContext(
                 this,
                 taskStateMachine,
                 gcMonitor,
@@ -304,7 +338,8 @@ public class QueryContext
                 queryMemoryContext.newMemoryTrackingContext(),
                 notifyStatusChanged,
                 perOperatorCpuTimerEnabled,
-                cpuTimerEnabled);
+                cpuTimerEnabled,
+                maxTaskMemory);
         taskContexts.put(taskStateMachine.getTaskId(), taskContext);
         return taskContext;
     }

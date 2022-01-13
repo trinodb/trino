@@ -413,13 +413,13 @@ public class TestEventListenerBasic
     public void testReferencedTablesInCreateView()
             throws Exception
     {
-        runQueryAndWaitForEvents("CREATE VIEW mock.default.test_view AS SELECT * FROM nation", 2);
+        runQueryAndWaitForEvents("CREATE VIEW mock.default.create_another_test_view AS SELECT * FROM nation", 2);
 
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
 
         assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("mock");
         assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
-        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_view");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_another_test_view");
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly(
                         new OutputColumnMetadata("nationkey", BIGINT_TYPE, ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),

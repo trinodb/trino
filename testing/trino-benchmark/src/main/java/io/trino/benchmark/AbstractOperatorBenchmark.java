@@ -302,6 +302,7 @@ public abstract class AbstractOperatorBenchmark
                 new QueryId("test"),
                 DataSize.of(256, MEGABYTE),
                 DataSize.of(512, MEGABYTE),
+                Optional.empty(),
                 memoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),

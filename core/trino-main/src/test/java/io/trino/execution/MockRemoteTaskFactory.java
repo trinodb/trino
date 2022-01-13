@@ -196,6 +196,7 @@ public class MockRemoteTaskFactory
             QueryContext queryContext = new QueryContext(taskId.getQueryId(),
                     DataSize.of(1, MEGABYTE),
                     DataSize.of(2, MEGABYTE),
+                    Optional.empty(),
                     memoryPool,
                     new TestingGcMonitor(),
                     executor,

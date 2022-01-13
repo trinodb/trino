@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
@@ -43,7 +43,6 @@ import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;
 import org.testng.annotations.Test;
 
-import java.math.BigInteger;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -144,7 +143,7 @@ public class TestExpressionInterpreter
             case "bound_decimal_short":
                 return 12345L;
             case "bound_decimal_long":
-                return Decimals.encodeUnscaledValue(new BigInteger("12345678901234567890123"));
+                return Int128.valueOf("12345678901234567890123");
         }
 
         return symbol.toSymbolReference();

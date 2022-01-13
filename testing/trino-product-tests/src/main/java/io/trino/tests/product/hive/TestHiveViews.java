@@ -24,7 +24,6 @@ import java.math.BigDecimal;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -55,26 +54,26 @@ public class TestHiveViews
         String withSchemaFilter = "SELECT table_name FROM information_schema.views WHERE table_schema = 'test_list_failing_views'";
         String withNoFilter = "SELECT table_name FROM information_schema.views";
         if (getHiveVersionMajor() == 3) {
-            assertThat(query(withSchemaFilter)).containsOnly(row("correct_view"));
-            assertThat(query(withNoFilter)).contains(row("correct_view"));
+            assertThat(onTrino().executeQuery(withSchemaFilter)).containsOnly(row("correct_view"));
+            assertThat(onTrino().executeQuery(withNoFilter)).contains(row("correct_view"));
         }
         else {
-            assertThat(query(withSchemaFilter)).hasNoRows();
-            Assertions.assertThat(query(withNoFilter).rows()).doesNotContain(ImmutableList.of("correct_view"));
+            assertThat(onTrino().executeQuery(withSchemaFilter)).hasNoRows();
+            Assertions.assertThat(onTrino().executeQuery(withNoFilter).rows()).doesNotContain(ImmutableList.of("correct_view"));
         }
 
         // Queries with filters on table_schema and table_name are optimized to only fetch the specified table and uses
         // a different API. so the Hive version does not matter here.
-        assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = 'test_list_failing_views' AND table_name = 'correct_view'"))
+        assertThat(onTrino().executeQuery("SELECT table_name FROM information_schema.views WHERE table_schema = 'test_list_failing_views' AND table_name = 'correct_view'"))
                 .containsOnly(row("correct_view"));
 
         // Listing fails when metadata for the problematic view is queried specifically
-        assertThatThrownBy(() -> query("SELECT table_name FROM information_schema.views WHERE table_schema = 'test_list_failing_views' AND table_name = 'failing_view'"))
+        assertThatThrownBy(() -> onTrino().executeQuery("SELECT table_name FROM information_schema.views WHERE table_schema = 'test_list_failing_views' AND table_name = 'failing_view'"))
                 .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
 
         // Queries on information_schema.columns also trigger ConnectorMetadata#getViews. Columns from failing_view are
         // listed too since HiveMetadata#listTableColumns does not ignore views.
-        assertThat(query("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'test_list_failing_views'"))
+        assertThat(onTrino().executeQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'test_list_failing_views'"))
                 .containsOnly(
                         row("correct_view", "n_nationkey"),
                         row("correct_view", "n_name"),
@@ -82,7 +81,7 @@ public class TestHiveViews
                         row("correct_view", "n_comment"),
                         row("failing_view", "col0"));
 
-        assertThatThrownBy(() -> query("SELECT * FROM information_schema.columns WHERE table_schema = 'test_list_failing_views' AND table_name = 'failing_view'"))
+        assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM information_schema.columns WHERE table_schema = 'test_list_failing_views' AND table_name = 'failing_view'"))
                 .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
     }
 
@@ -97,17 +96,17 @@ public class TestHiveViews
                 "table_type = 'VIEW'";
         String withNoFilter = "SELECT table_name FROM system.jdbc.tables WHERE table_cat = 'hive' AND table_type = 'VIEW'";
         if (getHiveVersionMajor() == 3) {
-            assertThat(query(withSchemaFilter)).containsOnly(row("correct_view"), row("failing_view"));
-            assertThat(query(withNoFilter)).contains(row("correct_view"), row("failing_view"));
+            assertThat(onTrino().executeQuery(withSchemaFilter)).containsOnly(row("correct_view"), row("failing_view"));
+            assertThat(onTrino().executeQuery(withNoFilter)).contains(row("correct_view"), row("failing_view"));
         }
         else {
-            assertThat(query(withSchemaFilter)).hasNoRows();
-            Assertions.assertThat(query(withNoFilter).rows()).doesNotContain(ImmutableList.of("correct_view"));
+            assertThat(onTrino().executeQuery(withSchemaFilter)).hasNoRows();
+            Assertions.assertThat(onTrino().executeQuery(withNoFilter).rows()).doesNotContain(ImmutableList.of("correct_view"));
         }
 
         // Queries with filters on table_schema and table_name are optimized to only fetch the specified table and uses
         // a different API. so the Hive version does not matter here.
-        assertThat(query(
+        assertThat(onTrino().executeQuery(
                 "SELECT table_name FROM system.jdbc.tables WHERE " +
                         "table_cat = 'hive' AND " +
                         "table_schem = 'test_list_failing_views' AND " +
@@ -115,7 +114,7 @@ public class TestHiveViews
                 .containsOnly(row("correct_view"));
 
         // Listing fails when metadata for the problematic view is queried specifically
-        assertThatThrownBy(() -> query(
+        assertThatThrownBy(() -> onTrino().executeQuery(
                 "SELECT table_name FROM system.jdbc.tables WHERE " +
                         "table_cat = 'hive' AND " +
                         "table_schem = 'test_list_failing_views' AND " +
@@ -124,7 +123,7 @@ public class TestHiveViews
 
         // Queries on system.jdbc.columns also trigger ConnectorMetadata#getViews. Columns from failing_view are
         // listed too since HiveMetadata#listTableColumns does not ignore views.
-        assertThat(query("SELECT table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'test_list_failing_views'"))
+        assertThat(onTrino().executeQuery("SELECT table_name, column_name FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'test_list_failing_views'"))
                 .containsOnly(
                         row("correct_view", "n_nationkey"),
                         row("correct_view", "n_name"),
@@ -132,7 +131,7 @@ public class TestHiveViews
                         row("correct_view", "n_comment"),
                         row("failing_view", "col0"));
 
-        assertThatThrownBy(() -> query("SELECT * FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'test_list_failing_views' AND table_name = 'failing_view'"))
+        assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM system.jdbc.columns WHERE table_cat = 'hive' AND table_schem = 'test_list_failing_views' AND table_name = 'failing_view'"))
                 .hasMessageContaining("Failed to translate Hive view 'test_list_failing_views.failing_view'");
     }
 
@@ -286,7 +285,7 @@ public class TestHiveViews
                 "FROM test_from_utc_timestamp_source");
 
         // check result on Trino
-        assertThat(query("SELECT * FROM test_from_utc_timestamp_view"))
+        assertThat(onTrino().executeQuery("SELECT * FROM test_from_utc_timestamp_view"))
                 .containsOnly(row(
                         "1969-12-31 16:00:00.123",
                         "1969-12-31 16:00:10.123",
@@ -354,7 +353,7 @@ public class TestHiveViews
                 "FROM test_from_utc_timestamp_corner_cases_source");
 
         // check result on Trino
-        assertThat(query("SELECT * FROM test_from_utc_timestamp_corner_cases_view"))
+        assertThat(onTrino().executeQuery("SELECT * FROM test_from_utc_timestamp_corner_cases_view"))
                 .containsOnly(
                         row("1811-07-23 07:13:41.999"),
                         row("1938-04-24 14:13:19.999"),

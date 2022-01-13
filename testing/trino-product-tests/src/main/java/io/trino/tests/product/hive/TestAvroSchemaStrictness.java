@@ -26,7 +26,6 @@ import java.nio.file.Path;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.param;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.AVRO;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -83,7 +82,7 @@ public class TestAvroSchemaStrictness
                 param(VARCHAR, schemaPath),
                 param(VARCHAR, tablePath));
 
-        assertThat(query("SELECT valid, invalid FROM " + tableName))
+        assertThat(onTrino().executeQuery("SELECT valid, invalid FROM " + tableName))
                 .containsOnly(row("valid", "invalid"), row(null, null));
     }
 

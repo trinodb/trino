@@ -19,9 +19,9 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.COMPARISON;
 import static io.trino.tests.product.TestGroups.QUERY_ENGINE;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public class TestComparison
@@ -45,42 +45,42 @@ public class TestComparison
     @Test(groups = {COMPARISON, QUERY_ENGINE}, dataProvider = "operands")
     public void testLessThanOperatorExists(String leftOperand, String rightOperand, String typeName)
     {
-        assertThat(query(format("select cast(%s as %s) < cast(%s as %s)", leftOperand, typeName, rightOperand, typeName)))
+        assertThat(onTrino().executeQuery(format("select cast(%s as %s) < cast(%s as %s)", leftOperand, typeName, rightOperand, typeName)))
                 .containsExactlyInOrder(row(true));
     }
 
     @Test(groups = {COMPARISON, QUERY_ENGINE}, dataProvider = "operands")
     public void testGreaterThanOperatorExists(String leftOperand, String rightOperand, String typeName)
     {
-        assertThat(query(format("select cast(%s as %s) > cast(%s as %s)", leftOperand, typeName, rightOperand, typeName)))
+        assertThat(onTrino().executeQuery(format("select cast(%s as %s) > cast(%s as %s)", leftOperand, typeName, rightOperand, typeName)))
                 .containsExactlyInOrder(row(false));
     }
 
     @Test(groups = {COMPARISON, QUERY_ENGINE}, dataProvider = "operands")
     public void testLessThanOrEqualOperatorExists(String leftOperand, String rightOperand, String typeName)
     {
-        assertThat(query(format("select cast(%s as %s) <= cast(%s as %s)", leftOperand, typeName, rightOperand, typeName)))
+        assertThat(onTrino().executeQuery(format("select cast(%s as %s) <= cast(%s as %s)", leftOperand, typeName, rightOperand, typeName)))
                 .containsExactlyInOrder(row(true));
     }
 
     @Test(groups = {COMPARISON, QUERY_ENGINE}, dataProvider = "operands")
     public void testGreaterThanOrEqualOperatorExists(String leftOperand, String rightOperand, String typeName)
     {
-        assertThat(query(format("select cast(%s as %s) >= cast(%s as %s)", leftOperand, typeName, rightOperand, typeName)))
+        assertThat(onTrino().executeQuery(format("select cast(%s as %s) >= cast(%s as %s)", leftOperand, typeName, rightOperand, typeName)))
                 .containsExactlyInOrder(row(false));
     }
 
     @Test(groups = {COMPARISON, QUERY_ENGINE}, dataProvider = "operands")
     public void testEqualOperatorExists(String leftOperand, String rightOperand, String typeName)
     {
-        assertThat(query(format("select cast(%s as %s) = cast(%s as %s)", leftOperand, typeName, rightOperand, typeName)))
+        assertThat(onTrino().executeQuery(format("select cast(%s as %s) = cast(%s as %s)", leftOperand, typeName, rightOperand, typeName)))
                 .containsExactlyInOrder(row(false));
     }
 
     @Test(groups = {COMPARISON, QUERY_ENGINE}, dataProvider = "operands")
     public void testBetweenOperatorExists(String leftOperand, String rightOperand, String typeName)
     {
-        assertThat(query(format("select cast(%s as %s) BETWEEN cast(%s as %s) AND cast(%s as %s)", leftOperand, typeName, leftOperand, typeName, rightOperand, typeName)))
+        assertThat(onTrino().executeQuery(format("select cast(%s as %s) BETWEEN cast(%s as %s) AND cast(%s as %s)", leftOperand, typeName, leftOperand, typeName, rightOperand, typeName)))
                 .containsExactlyInOrder(row(true));
     }
 }

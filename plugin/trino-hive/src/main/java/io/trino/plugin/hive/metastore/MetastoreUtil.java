@@ -35,6 +35,7 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
@@ -393,8 +394,7 @@ public final class MetastoreUtil
             return slice.toStringUtf8();
         }
         else if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
-            Slice slice = (Slice) value;
-            return Decimals.toString(slice, ((DecimalType) type).getScale());
+            return Decimals.toString((Int128) value, ((DecimalType) type).getScale());
         }
         else if (type instanceof DecimalType && ((DecimalType) type).isShort()) {
             return Decimals.toString((long) value, ((DecimalType) type).getScale());

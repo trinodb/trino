@@ -34,7 +34,6 @@ import io.trino.operator.aggregation.state.NullableState;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
-import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.util.MinMaxCompare;
@@ -83,9 +82,7 @@ public abstract class AbstractMinMaxBy
                 new AggregationFunctionMetadata(
                         false,
                         new TypeSignature("K"),
-                        BooleanType.BOOLEAN.getTypeSignature(),
-                        new TypeSignature("V"),
-                        BooleanType.BOOLEAN.getTypeSignature()));
+                        new TypeSignature("V")));
         this.min = min;
     }
 

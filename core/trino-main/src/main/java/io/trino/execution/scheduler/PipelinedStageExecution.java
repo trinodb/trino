@@ -65,16 +65,16 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.ABORTED;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.CANCELED;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.FAILED;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.FINISHED;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.FLUSHING;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.PLANNED;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.RUNNING;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.SCHEDULED;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.SCHEDULING;
-import static io.trino.execution.scheduler.PipelinedStageExecution.State.SCHEDULING_SPLITS;
+import static io.trino.execution.scheduler.StageExecution.State.ABORTED;
+import static io.trino.execution.scheduler.StageExecution.State.CANCELED;
+import static io.trino.execution.scheduler.StageExecution.State.FAILED;
+import static io.trino.execution.scheduler.StageExecution.State.FINISHED;
+import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
+import static io.trino.execution.scheduler.StageExecution.State.PLANNED;
+import static io.trino.execution.scheduler.StageExecution.State.RUNNING;
+import static io.trino.execution.scheduler.StageExecution.State.SCHEDULED;
+import static io.trino.execution.scheduler.StageExecution.State.SCHEDULING;
+import static io.trino.execution.scheduler.StageExecution.State.SCHEDULING_SPLITS;
 import static io.trino.failuredetector.FailureDetector.State.GONE;
 import static io.trino.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -102,6 +102,7 @@ import static java.util.Objects.requireNonNull;
  * scheduler about a successful completion of a given stage.
  */
 public class PipelinedStageExecution
+        implements StageExecution
 {
     private static final Logger log = Logger.get(PipelinedStageExecution.class);
 
@@ -199,6 +200,7 @@ public class PipelinedStageExecution
         });
     }
 
+    @Override
     public State getState()
     {
         return stateMachine.getState();
@@ -208,26 +210,31 @@ public class PipelinedStageExecution
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
      * be taken to avoid leaking {@code this} when adding a listener in a constructor.
      */
+    @Override
     public void addStateChangeListener(StateChangeListener<State> stateChangeListener)
     {
         stateMachine.addStateChangeListener(stateChangeListener);
     }
 
+    @Override
     public void addCompletedDriverGroupsChangedListener(Consumer<Set<Lifespan>> newlyCompletedDriverGroupConsumer)
     {
         completedLifespansChangeListeners.addListener(newlyCompletedDriverGroupConsumer);
     }
 
+    @Override
     public synchronized void beginScheduling()
     {
         stateMachine.transitionToScheduling();
     }
 
+    @Override
     public synchronized void transitionToSchedulingSplits()
     {
         stateMachine.transitionToSchedulingSplits();
     }
 
+    @Override
     public synchronized void schedulingComplete()
     {
         if (!stateMachine.transitionToScheduled()) {
@@ -253,6 +260,7 @@ public class PipelinedStageExecution
                 && allTasks.stream().allMatch(taskId -> finishedTasks.contains(taskId) || flushingTasks.contains(taskId));
     }
 
+    @Override
     public synchronized void schedulingComplete(PlanNodeId partitionedSource)
     {
         for (RemoteTask task : getAllTasks()) {
@@ -261,12 +269,14 @@ public class PipelinedStageExecution
         completeSources.add(partitionedSource);
     }
 
+    @Override
     public synchronized void cancel()
     {
         stateMachine.transitionToCanceled();
         getAllTasks().forEach(RemoteTask::cancel);
     }
 
+    @Override
     public synchronized void abort()
     {
         stateMachine.transitionToAborted();
@@ -279,6 +289,7 @@ public class PipelinedStageExecution
         tasks.values().forEach(RemoteTask::abort);
     }
 
+    @Override
     public synchronized void failTask(TaskId taskId, Throwable failureCause)
     {
         RemoteTask task = requireNonNull(tasks.get(taskId.getPartitionId()), () -> "task not found: " + taskId);
@@ -286,6 +297,7 @@ public class PipelinedStageExecution
         fail(failureCause);
     }
 
+    @Override
     public synchronized Optional<RemoteTask> scheduleTask(
             InternalNode node,
             int partition,
@@ -430,6 +442,7 @@ public class PipelinedStageExecution
                 executionFailureInfo.getRemoteHost());
     }
 
+    @Override
     public TaskLifecycleListener getTaskLifecycleListener()
     {
         return new TaskLifecycleListener()
@@ -492,11 +505,13 @@ public class PipelinedStageExecution
         }
     }
 
+    @Override
     public List<RemoteTask> getAllTasks()
     {
         return ImmutableList.copyOf(tasks.values());
     }
 
+    @Override
     public List<TaskStatus> getTaskStatuses()
     {
         return getAllTasks().stream()
@@ -504,31 +519,37 @@ public class PipelinedStageExecution
                 .collect(toImmutableList());
     }
 
+    @Override
     public boolean isAnyTaskBlocked()
     {
         return getTaskStatuses().stream().anyMatch(TaskStatus::isOutputBufferOverutilized);
     }
 
+    @Override
     public void recordGetSplitTime(long start)
     {
         stage.recordGetSplitTime(start);
     }
 
+    @Override
     public StageId getStageId()
     {
         return stage.getStageId();
     }
 
+    @Override
     public int getAttemptId()
     {
         return attempt;
     }
 
+    @Override
     public PlanFragment getFragment()
     {
         return stage.getFragment();
     }
 
+    @Override
     public Optional<ExecutionFailureInfo> getFailureCause()
     {
         return stateMachine.getFailureCause();
@@ -539,106 +560,7 @@ public class PipelinedStageExecution
         // Fetch the results from the buffer assigned to the task based on id
         URI exchangeLocation = sourceTask.getTaskStatus().getSelf();
         URI splitLocation = uriBuilderFrom(exchangeLocation).appendPath("results").appendPath(String.valueOf(destinationTask.getTaskId().getPartitionId())).build();
-        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(sourceTask.getTaskId(), splitLocation), Lifespan.taskWide());
-    }
-
-    public enum State
-    {
-        /**
-         * Stage is planned but has not been scheduled yet.  A stage will
-         * be in the planned state until, the dependencies of the stage
-         * have begun producing output.
-         */
-        PLANNED(false, false),
-        /**
-         * Stage tasks are being scheduled on nodes.
-         */
-        SCHEDULING(false, false),
-        /**
-         * All stage tasks have been scheduled, but splits are still being scheduled.
-         */
-        SCHEDULING_SPLITS(false, false),
-        /**
-         * Stage has been scheduled on nodes and ready to execute, but all tasks are still queued.
-         */
-        SCHEDULED(false, false),
-        /**
-         * Stage is running.
-         */
-        RUNNING(false, false),
-        /**
-         * Stage has finished executing and output being consumed.
-         * In this state, at-least one of the tasks is flushing and the non-flushing tasks are finished
-         */
-        FLUSHING(false, false),
-        /**
-         * Stage has finished executing and all output has been consumed.
-         */
-        FINISHED(true, false),
-        /**
-         * Stage was canceled by a user.
-         */
-        CANCELED(true, false),
-        /**
-         * Stage was aborted due to a failure in the query.  The failure
-         * was not in this stage.
-         */
-        ABORTED(true, true),
-        /**
-         * Stage execution failed.
-         */
-        FAILED(true, true);
-
-        private final boolean doneState;
-        private final boolean failureState;
-
-        State(boolean doneState, boolean failureState)
-        {
-            checkArgument(!failureState || doneState, "%s is a non-done failure state", name());
-            this.doneState = doneState;
-            this.failureState = failureState;
-        }
-
-        /**
-         * Is this a terminal state.
-         */
-        public boolean isDone()
-        {
-            return doneState;
-        }
-
-        /**
-         * Is this a non-success terminal state.
-         */
-        public boolean isFailure()
-        {
-            return failureState;
-        }
-
-        public boolean canScheduleMoreTasks()
-        {
-            switch (this) {
-                case PLANNED:
-                case SCHEDULING:
-                    // workers are still being added to the query
-                    return true;
-                case SCHEDULING_SPLITS:
-                case SCHEDULED:
-                case RUNNING:
-                case FLUSHING:
-                case FINISHED:
-                case CANCELED:
-                    // no more workers will be added to the query
-                    return false;
-                case ABORTED:
-                case FAILED:
-                    // DO NOT complete a FAILED or ABORTED stage.  This will cause the
-                    // stage above to finish normally, which will result in a query
-                    // completing successfully when it should fail..
-                    return true;
-            }
-            throw new IllegalStateException("Unhandled state: " + this);
-        }
+        return new Split(REMOTE_CONNECTOR_ID, new RemoteSplit(sourceTask.getTaskId(), splitLocation.toString()), Lifespan.taskWide());
     }
 
     private static class PipelinedStageStateMachine

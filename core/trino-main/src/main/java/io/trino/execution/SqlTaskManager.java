@@ -75,6 +75,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
+import static io.trino.SystemSessionProperties.getQueryMaxTotalMemoryPerTask;
 import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.execution.SqlTask.createSqlTask;
 import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
@@ -111,6 +112,7 @@ public class SqlTaskManager
 
     private final long queryMaxMemoryPerNode;
     private final long queryMaxTotalMemoryPerNode;
+    private final Optional<DataSize> queryMaxMemoryPerTask;
 
     @GuardedBy("this")
     private long currentMemoryPoolAssignmentVersion;
@@ -155,13 +157,14 @@ public class SqlTaskManager
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
         DataSize maxQueryMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
         DataSize maxQueryTotalMemoryPerNode = nodeMemoryConfig.getMaxQueryTotalMemoryPerNode();
+        queryMaxMemoryPerTask = nodeMemoryConfig.getMaxQueryTotalMemoryPerTask();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
 
         queryMaxMemoryPerNode = maxQueryMemoryPerNode.toBytes();
         queryMaxTotalMemoryPerNode = maxQueryTotalMemoryPerNode.toBytes();
 
         queryContexts = CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(
-                queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryMemoryPerNode, maxQueryTotalMemoryPerNode, maxQuerySpillPerNode)));
+                queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryMemoryPerNode, maxQueryTotalMemoryPerNode, queryMaxMemoryPerTask, maxQuerySpillPerNode)));
 
         tasks = CacheBuilder.newBuilder().build(CacheLoader.from(
                 taskId -> createSqlTask(
@@ -184,12 +187,14 @@ public class SqlTaskManager
             GcMonitor gcMonitor,
             DataSize maxQueryUserMemoryPerNode,
             DataSize maxQueryTotalMemoryPerNode,
+            Optional<DataSize> maxQueryMemoryPerTask,
             DataSize maxQuerySpillPerNode)
     {
         return new QueryContext(
                 queryId,
                 maxQueryUserMemoryPerNode,
                 maxQueryTotalMemoryPerNode,
+                maxQueryMemoryPerTask,
                 localMemoryManager.getGeneralPool(),
                 gcMonitor,
                 taskNotificationExecutor,
@@ -406,11 +411,19 @@ public class SqlTaskManager
         if (!queryContext.isMemoryLimitsInitialized()) {
             long sessionQueryMaxMemoryPerNode = getQueryMaxMemoryPerNode(session).toBytes();
             long sessionQueryTotalMaxMemoryPerNode = getQueryMaxTotalMemoryPerNode(session).toBytes();
+
+            Optional<DataSize> effectiveQueryMaxMemoryPerTask = getQueryMaxTotalMemoryPerTask(session);
+            if (queryMaxMemoryPerTask.isPresent() &&
+                    (effectiveQueryMaxMemoryPerTask.isEmpty() || effectiveQueryMaxMemoryPerTask.get().toBytes() > queryMaxMemoryPerTask.get().toBytes())) {
+                effectiveQueryMaxMemoryPerTask = queryMaxMemoryPerTask;
+            }
+
             // Session properties are only allowed to decrease memory limits, not increase them
             queryContext.initializeMemoryLimits(
                     resourceOvercommit(session),
                     min(sessionQueryMaxMemoryPerNode, queryMaxMemoryPerNode),
-                    min(sessionQueryTotalMaxMemoryPerNode, queryMaxTotalMemoryPerNode));
+                    min(sessionQueryTotalMaxMemoryPerNode, queryMaxTotalMemoryPerNode),
+                    effectiveQueryMaxMemoryPerTask);
         }
 
         sqlTask.recordHeartbeat();

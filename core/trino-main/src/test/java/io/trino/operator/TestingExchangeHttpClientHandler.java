@@ -23,14 +23,13 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerde;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.spi.Page;
 
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
-import static io.trino.execution.buffer.PagesSerdeUtil.writeSerializedPage;
 import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
@@ -78,7 +77,7 @@ public class TestingExchangeHttpClientHandler
         if (page != null) {
             headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
             headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(false));
-            SerializedPage serializedPage;
+            Slice serializedPage;
             try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
                 serializedPage = PAGES_SERDE.serialize(context, page);
             }
@@ -86,7 +85,7 @@ public class TestingExchangeHttpClientHandler
             output.writeInt(SERIALIZED_PAGES_MAGIC);
             output.writeLong(calculateChecksum(ImmutableList.of(serializedPage)));
             output.writeInt(1);
-            writeSerializedPage(output, serializedPage);
+            output.writeBytes(serializedPage);
             return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
         }
         else if (taskBuffer.isFinished()) {

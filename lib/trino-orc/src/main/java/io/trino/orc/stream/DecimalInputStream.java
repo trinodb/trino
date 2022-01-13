@@ -27,7 +27,6 @@ import static io.trino.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOf
 public class DecimalInputStream
         implements ValueInputStream<DecimalStreamCheckpoint>
 {
-    private static final long SIGN_LONG_MASK = 1L << 63;
     private static final long LONG_MASK = 0x80_80_80_80_80_80_80_80L;
     private static final int INT_MASK = 0x80_80_80_80;
 
@@ -230,17 +229,29 @@ public class DecimalInputStream
         long upper = (middle >>> 9) | (high << 47);
 
         if (negative) {
-            if (lower == 0xFFFFFFFFFFFFFFFFL) {
-                lower = 0;
-                upper += 1;
-            }
-            else {
-                lower += 1;
-            }
+            // ORC encodes decimals using a zig-zag vint strategy
+            // For negative values, the encoded value is given by:
+            //     encoded = -value * 2 - 1
+            //
+            // Therefore,
+            //     value = -(encoded + 1) / 2
+            //           = -encoded / 2 - 1/2
+            //
+            // Given the identity -v = ~v + 1 for negating a value using
+            // two's complement representation,
+            //
+            //     value = (~encoded + 1) / 2 - 1/2
+            //           = ~encoded / 2 + 1/2 - 1/2
+            //           = ~encoded / 2
+            //
+            // The shift is performed above as the bits are assembled. The negation
+            // is performed here.
+            lower = ~lower;
+            upper = ~upper;
         }
 
-        result[2 * offset] = lower;
-        result[2 * offset + 1] = upper | (negative ? SIGN_LONG_MASK : 0);
+        result[2 * offset] = upper;
+        result[2 * offset + 1] = lower;
     }
 
     @SuppressWarnings("PointlessBitwiseExpression")
@@ -377,8 +388,7 @@ public class DecimalInputStream
         long value = (low >>> 1) | (high << 55); // drop the sign bit from low
 
         if (negative) {
-            value += 1;
-            value = -value;
+            value = ~value;
         }
 
         result[offset] = value;

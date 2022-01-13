@@ -19,6 +19,8 @@ import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
@@ -55,8 +57,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.decodeUnscaledValue;
-import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -177,7 +177,7 @@ public final class StandardColumnMappings
                     shortDecimalReadFunction(decimalType),
                     shortDecimalWriteFunction(decimalType));
         }
-        return ColumnMapping.sliceMapping(
+        return ColumnMapping.objectMapping(
                 decimalType,
                 longDecimalReadFunction(decimalType, roundingMode),
                 longDecimalWriteFunction(decimalType));
@@ -207,28 +207,32 @@ public final class StandardColumnMappings
         };
     }
 
-    public static SliceReadFunction longDecimalReadFunction(DecimalType decimalType)
+    public static ObjectReadFunction longDecimalReadFunction(DecimalType decimalType)
     {
         return longDecimalReadFunction(decimalType, UNNECESSARY);
     }
 
-    public static SliceReadFunction longDecimalReadFunction(DecimalType decimalType, RoundingMode roundingMode)
+    public static ObjectReadFunction longDecimalReadFunction(DecimalType decimalType, RoundingMode roundingMode)
     {
         // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
         int scale = requireNonNull(decimalType, "decimalType is null").getScale();
         requireNonNull(roundingMode, "roundingMode is null");
-        return (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex).setScale(scale, roundingMode));
+        return ObjectReadFunction.of(
+                Int128.class,
+                (resultSet, columnIndex) -> Decimals.valueOf(resultSet.getBigDecimal(columnIndex).setScale(scale, roundingMode)));
     }
 
-    public static SliceWriteFunction longDecimalWriteFunction(DecimalType decimalType)
+    public static ObjectWriteFunction longDecimalWriteFunction(DecimalType decimalType)
     {
         requireNonNull(decimalType, "decimalType is null");
         checkArgument(!decimalType.isShort());
-        return (statement, index, value) -> {
-            BigInteger unscaledValue = decodeUnscaledValue(value);
-            BigDecimal bigDecimal = new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
-            statement.setBigDecimal(index, bigDecimal);
-        };
+        return ObjectWriteFunction.of(
+                Int128.class,
+                (statement, index, value) -> {
+                    BigInteger unscaledValue = value.toBigInteger();
+                    BigDecimal bigDecimal = new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
+                    statement.setBigDecimal(index, bigDecimal);
+                });
     }
 
     public static ColumnMapping defaultCharColumnMapping(int columnSize, boolean isRemoteCaseSensitive)

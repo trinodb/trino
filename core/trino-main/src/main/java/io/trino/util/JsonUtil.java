@@ -37,6 +37,7 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.MapType;
@@ -81,8 +82,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.decodeUnscaledValue;
-import static io.trino.spi.type.Decimals.encodeUnscaledValue;
 import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -238,7 +237,7 @@ public final class JsonUtil
                     return (block, position) -> Decimals.toString(decimalType.getLong(block, position), decimalType.getScale());
                 }
                 return (block, position) -> Decimals.toString(
-                        decodeUnscaledValue(type.getSlice(block, position)),
+                        ((Int128) type.getObject(block, position)).toBigInteger(),
                         decimalType.getScale());
             }
             if (type instanceof VarcharType) {
@@ -446,7 +445,7 @@ public final class JsonUtil
             }
             else {
                 BigDecimal value = new BigDecimal(
-                        decodeUnscaledValue(type.getSlice(block, position)),
+                        ((Int128) type.getObject(block, position)).toBigInteger(),
                         type.getScale());
                 jsonGenerator.writeNumber(value);
             }
@@ -851,14 +850,14 @@ public final class JsonUtil
         return bigDecimal != null ? bigDecimal.unscaledValue().longValue() : null;
     }
 
-    public static Slice currentTokenAsLongDecimal(JsonParser parser, int precision, int scale)
+    public static Int128 currentTokenAsLongDecimal(JsonParser parser, int precision, int scale)
             throws IOException
     {
         BigDecimal bigDecimal = currentTokenAsJavaDecimal(parser, precision, scale);
         if (bigDecimal == null) {
             return null;
         }
-        return encodeUnscaledValue(bigDecimal.unscaledValue());
+        return Int128.valueOf(bigDecimal.unscaledValue());
     }
 
     // TODO: Instead of having BigDecimal as an intermediate step,
@@ -1126,13 +1125,13 @@ public final class JsonUtil
         public void append(JsonParser parser, BlockBuilder blockBuilder)
                 throws IOException
         {
-            Slice result = currentTokenAsLongDecimal(parser, type.getPrecision(), type.getScale());
+            Int128 result = currentTokenAsLongDecimal(parser, type.getPrecision(), type.getScale());
 
             if (result == null) {
                 blockBuilder.appendNull();
             }
             else {
-                type.writeSlice(blockBuilder, result);
+                type.writeObject(blockBuilder, result);
             }
         }
     }

@@ -18,31 +18,34 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.net.URI;
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class ExampleSplit
         implements ConnectorSplit
 {
-    private final URI uri;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ExampleSplit.class).instanceSize();
+
+    private final String uri;
     private final boolean remotelyAccessible;
     private final List<HostAddress> addresses;
 
     @JsonCreator
-    public ExampleSplit(
-            @JsonProperty("uri") URI uri)
+    public ExampleSplit(@JsonProperty("uri") String uri)
     {
         this.uri = requireNonNull(uri, "uri is null");
 
         remotelyAccessible = true;
-        addresses = ImmutableList.of(HostAddress.fromUri(uri));
+        addresses = ImmutableList.of(HostAddress.fromUri(URI.create(uri)));
     }
 
     @JsonProperty
-    public URI getUri()
+    public String getUri()
     {
         return uri;
     }
@@ -64,5 +67,13 @@ public class ExampleSplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(uri)
+                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes);
     }
 }

@@ -19,7 +19,6 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.TablePropertyManager;
-import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -45,14 +44,12 @@ public class TypeAnalyzer
 {
     private final PlannerContext plannerContext;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
-    private final AccessControl accessControl;
 
     @Inject
-    public TypeAnalyzer(PlannerContext plannerContext, StatementAnalyzerFactory statementAnalyzerFactory, AccessControl accessControl)
+    public TypeAnalyzer(PlannerContext plannerContext, StatementAnalyzerFactory statementAnalyzerFactory)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
-        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     public Map<NodeRef<Expression>, Type> getTypes(Session session, TypeProvider inputTypes, Iterable<Expression> expressions)
@@ -61,7 +58,7 @@ public class TypeAnalyzer
                 session,
                 plannerContext,
                 statementAnalyzerFactory,
-                accessControl,
+                new AllowAllAccessControl(),
                 inputTypes,
                 expressions,
                 ImmutableMap.of(),
@@ -88,7 +85,6 @@ public class TypeAnalyzer
                         plannerContext,
                         new AllowAllAccessControl(),
                         new TablePropertyManager(),
-                        new AnalyzePropertyManager()),
-                new AllowAllAccessControl());
+                        new AnalyzePropertyManager()));
     }
 }

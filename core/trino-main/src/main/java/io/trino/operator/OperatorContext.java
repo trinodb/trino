@@ -29,6 +29,7 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.OperationTimer.OperationTiming;
+import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -74,6 +75,7 @@ public class OperatorContext
 
     private final CounterStat physicalInputDataSize = new CounterStat();
     private final CounterStat physicalInputPositions = new CounterStat();
+    private final AtomicLong physicalInputReadTimeNanos = new AtomicLong();
 
     private final CounterStat internalNetworkInputDataSize = new CounterStat();
     private final CounterStat internalNetworkPositions = new CounterStat();
@@ -182,7 +184,7 @@ public class OperatorContext
     {
         physicalInputDataSize.update(sizeInBytes);
         physicalInputPositions.update(positions);
-        addInputTiming.record(readNanos, 0);
+        physicalInputReadTimeNanos.getAndAdd(readNanos);
     }
 
     /**
@@ -412,11 +414,6 @@ public class OperatorContext
         return spillContext;
     }
 
-    public void moreMemoryAvailable()
-    {
-        memoryFuture.get().set(null);
-    }
-
     public synchronized boolean isMemoryRevokingRequested()
     {
         return memoryRevokingRequested;
@@ -532,6 +529,16 @@ public class OperatorContext
         return operatorMetrics.mergeWith(new Metrics(ImmutableMap.of("Input distribution", new TDigestHistogram(digest))));
     }
 
+    public static Metrics getConnectorMetrics(Metrics connectorMetrics, long physicalInputReadTimeNanos)
+    {
+        if (physicalInputReadTimeNanos == 0) {
+            return connectorMetrics;
+        }
+
+        return connectorMetrics.mergeWith(new Metrics(ImmutableMap.of(
+                "Physical input read time", new DurationTiming(new Duration(physicalInputReadTimeNanos, NANOSECONDS)))));
+    }
+
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
     {
         return visitor.visitOperatorContext(this, context);
@@ -573,7 +580,7 @@ public class OperatorContext
 
                 dynamicFilterSplitsProcessed.get(),
                 getOperatorMetrics(metrics.get(), inputPositionsCount),
-                connectorMetrics.get(),
+                getConnectorMetrics(connectorMetrics.get(), physicalInputReadTimeNanos.get()),
 
                 DataSize.ofBytes(physicalWrittenDataSize.get()),
 

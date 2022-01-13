@@ -150,7 +150,7 @@ public class TestSourcePartitionedScheduler
     {
         PlanFragment plan = createFragment();
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
-        PipelinedStageExecution stage = createStageExecution(plan, nodeTaskMap);
+        StageExecution stage = createStageExecution(plan, nodeTaskMap);
 
         StageScheduler scheduler = getSourcePartitionedScheduler(createFixedSplitSource(0, TestingSplit::createRemoteSplit), stage, nodeManager, nodeTaskMap, 1);
 
@@ -167,7 +167,7 @@ public class TestSourcePartitionedScheduler
     {
         PlanFragment plan = createFragment();
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
-        PipelinedStageExecution stage = createStageExecution(plan, nodeTaskMap);
+        StageExecution stage = createStageExecution(plan, nodeTaskMap);
 
         StageScheduler scheduler = getSourcePartitionedScheduler(createFixedSplitSource(60, TestingSplit::createRemoteSplit), stage, nodeManager, nodeTaskMap, 1);
 
@@ -205,7 +205,7 @@ public class TestSourcePartitionedScheduler
     {
         PlanFragment plan = createFragment();
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
-        PipelinedStageExecution stage = createStageExecution(plan, nodeTaskMap);
+        StageExecution stage = createStageExecution(plan, nodeTaskMap);
 
         StageScheduler scheduler = getSourcePartitionedScheduler(createFixedSplitSource(60, TestingSplit::createRemoteSplit), stage, nodeManager, nodeTaskMap, 7);
 
@@ -243,7 +243,7 @@ public class TestSourcePartitionedScheduler
     {
         PlanFragment plan = createFragment();
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
-        PipelinedStageExecution stage = createStageExecution(plan, nodeTaskMap);
+        StageExecution stage = createStageExecution(plan, nodeTaskMap);
 
         StageScheduler scheduler = getSourcePartitionedScheduler(createFixedSplitSource(80, TestingSplit::createRemoteSplit), stage, nodeManager, nodeTaskMap, 1);
 
@@ -310,7 +310,7 @@ public class TestSourcePartitionedScheduler
         QueuedSplitSource queuedSplitSource = new QueuedSplitSource(TestingSplit::createRemoteSplit);
         PlanFragment plan = createFragment();
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
-        PipelinedStageExecution stage = createStageExecution(plan, nodeTaskMap);
+        StageExecution stage = createStageExecution(plan, nodeTaskMap);
 
         StageScheduler scheduler = getSourcePartitionedScheduler(queuedSplitSource, stage, nodeManager, nodeTaskMap, 1);
 
@@ -334,7 +334,7 @@ public class TestSourcePartitionedScheduler
             NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap));
 
             PlanFragment plan = createFragment();
-            PipelinedStageExecution stage = createStageExecution(plan, nodeTaskMap);
+            StageExecution stage = createStageExecution(plan, nodeTaskMap);
 
             StageScheduler scheduler = newSourcePartitionedSchedulerAsStageScheduler(
                     stage,
@@ -362,7 +362,7 @@ public class TestSourcePartitionedScheduler
 
         // Schedule 15 splits - there are 3 nodes, each node should get 5 splits
         PlanFragment firstPlan = createFragment();
-        PipelinedStageExecution firstStage = createStageExecution(firstPlan, nodeTaskMap);
+        StageExecution firstStage = createStageExecution(firstPlan, nodeTaskMap);
         StageScheduler firstScheduler = getSourcePartitionedScheduler(createFixedSplitSource(15, TestingSplit::createRemoteSplit), firstStage, nodeManager, nodeTaskMap, 200);
 
         ScheduleResult scheduleResult = firstScheduler.schedule();
@@ -381,7 +381,7 @@ public class TestSourcePartitionedScheduler
 
         // Schedule 5 splits in another query. Since the new node does not have any splits, all 5 splits are assigned to the new node
         PlanFragment secondPlan = createFragment();
-        PipelinedStageExecution secondStage = createStageExecution(secondPlan, nodeTaskMap);
+        StageExecution secondStage = createStageExecution(secondPlan, nodeTaskMap);
         StageScheduler secondScheduler = getSourcePartitionedScheduler(createFixedSplitSource(5, TestingSplit::createRemoteSplit), secondStage, nodeManager, nodeTaskMap, 200);
 
         scheduleResult = secondScheduler.schedule();
@@ -409,7 +409,7 @@ public class TestSourcePartitionedScheduler
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new Duration(0, SECONDS)));
 
         PlanFragment plan = createFragment();
-        PipelinedStageExecution stage = createStageExecution(plan, nodeTaskMap);
+        StageExecution stage = createStageExecution(plan, nodeTaskMap);
 
         // setting under utilized child output buffer
         StageScheduler scheduler = newSourcePartitionedSchedulerAsStageScheduler(
@@ -453,7 +453,7 @@ public class TestSourcePartitionedScheduler
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new Duration(0, SECONDS)));
 
         PlanFragment plan = createFragment();
-        PipelinedStageExecution stage = createStageExecution(plan, nodeTaskMap);
+        StageExecution stage = createStageExecution(plan, nodeTaskMap);
 
         // setting over utilized child output buffer
         StageScheduler scheduler = newSourcePartitionedSchedulerAsStageScheduler(
@@ -489,7 +489,7 @@ public class TestSourcePartitionedScheduler
     {
         PlanFragment plan = createFragment();
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
-        PipelinedStageExecution stage = createStageExecution(plan, nodeTaskMap);
+        StageExecution stage = createStageExecution(plan, nodeTaskMap);
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap));
         DynamicFilterService dynamicFilterService = new DynamicFilterService(metadata, typeOperators, new DynamicFilterConfig());
         dynamicFilterService.registerQuery(
@@ -528,7 +528,7 @@ public class TestSourcePartitionedScheduler
         assertEquals(scheduleResult.getSplitsScheduled(), 0);
     }
 
-    private static void assertPartitionedSplitCount(PipelinedStageExecution stage, int expectedPartitionedSplitCount)
+    private static void assertPartitionedSplitCount(StageExecution stage, int expectedPartitionedSplitCount)
     {
         assertEquals(stage.getAllTasks().stream().mapToInt(remoteTask -> remoteTask.getPartitionedSplitsInfo().getCount()).sum(), expectedPartitionedSplitCount);
     }
@@ -550,7 +550,7 @@ public class TestSourcePartitionedScheduler
 
     private StageScheduler getSourcePartitionedScheduler(
             ConnectorSplitSource splitSource,
-            PipelinedStageExecution stage,
+            StageExecution stage,
             InternalNodeManager nodeManager,
             NodeTaskMap nodeTaskMap,
             int splitBatchSize)
@@ -651,7 +651,7 @@ public class TestSourcePartitionedScheduler
         return new FixedSplitSource(splits.build());
     }
 
-    private PipelinedStageExecution createStageExecution(PlanFragment fragment, NodeTaskMap nodeTaskMap)
+    private StageExecution createStageExecution(PlanFragment fragment, NodeTaskMap nodeTaskMap)
     {
         StageId stageId = new StageId(QUERY_ID, 0);
         SqlStage stage = SqlStage.createSqlStage(stageId,

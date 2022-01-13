@@ -13,20 +13,19 @@
  */
 package io.trino.spi.type;
 
-import com.google.common.primitives.UnsignedBytes;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.Objects;
 
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
+import static io.trino.spi.type.Decimals.overflows;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestDecimals
@@ -78,21 +77,21 @@ public class TestDecimals
         assertParseResult("000.12345678901234567", 12345678901234567L, 17, 17);
         assertParseResult("+000.12345678901234567", 12345678901234567L, 17, 17);
         assertParseResult("-000.12345678901234567", -12345678901234567L, 17, 17);
-        assertParseResult("12345678901234567890.123456789012345678", encodeUnscaledValue("12345678901234567890123456789012345678"), 38, 18);
-        assertParseResult("+12345678901234567890.123456789012345678", encodeUnscaledValue("12345678901234567890123456789012345678"), 38, 18);
-        assertParseResult("-12345678901234567890.123456789012345678", encodeUnscaledValue("-12345678901234567890123456789012345678"), 38, 18);
-        assertParseResult("00012345678901234567890.123456789012345678", encodeUnscaledValue("12345678901234567890123456789012345678"), 38, 18);
-        assertParseResult("+00012345678901234567890.123456789012345678", encodeUnscaledValue("12345678901234567890123456789012345678"), 38, 18);
-        assertParseResult("-00012345678901234567890.123456789012345678", encodeUnscaledValue("-12345678901234567890123456789012345678"), 38, 18);
-        assertParseResult("0.12345678901234567890123456789012345678", encodeUnscaledValue("12345678901234567890123456789012345678"), 38, 38);
-        assertParseResult("+0.12345678901234567890123456789012345678", encodeUnscaledValue("12345678901234567890123456789012345678"), 38, 38);
-        assertParseResult("-0.12345678901234567890123456789012345678", encodeUnscaledValue("-12345678901234567890123456789012345678"), 38, 38);
-        assertParseResult(".12345678901234567890123456789012345678", encodeUnscaledValue("12345678901234567890123456789012345678"), 38, 38);
-        assertParseResult("+.12345678901234567890123456789012345678", encodeUnscaledValue("12345678901234567890123456789012345678"), 38, 38);
-        assertParseResult("-.12345678901234567890123456789012345678", encodeUnscaledValue("-12345678901234567890123456789012345678"), 38, 38);
-        assertParseResult("0000.12345678901234567890123456789012345678", encodeUnscaledValue("12345678901234567890123456789012345678"), 38, 38);
-        assertParseResult("+0000.12345678901234567890123456789012345678", encodeUnscaledValue("12345678901234567890123456789012345678"), 38, 38);
-        assertParseResult("-0000.12345678901234567890123456789012345678", encodeUnscaledValue("-12345678901234567890123456789012345678"), 38, 38);
+        assertParseResult("12345678901234567890.123456789012345678", Int128.valueOf("12345678901234567890123456789012345678"), 38, 18);
+        assertParseResult("+12345678901234567890.123456789012345678", Int128.valueOf("12345678901234567890123456789012345678"), 38, 18);
+        assertParseResult("-12345678901234567890.123456789012345678", Int128.valueOf("-12345678901234567890123456789012345678"), 38, 18);
+        assertParseResult("00012345678901234567890.123456789012345678", Int128.valueOf("12345678901234567890123456789012345678"), 38, 18);
+        assertParseResult("+00012345678901234567890.123456789012345678", Int128.valueOf("12345678901234567890123456789012345678"), 38, 18);
+        assertParseResult("-00012345678901234567890.123456789012345678", Int128.valueOf("-12345678901234567890123456789012345678"), 38, 18);
+        assertParseResult("0.12345678901234567890123456789012345678", Int128.valueOf("12345678901234567890123456789012345678"), 38, 38);
+        assertParseResult("+0.12345678901234567890123456789012345678", Int128.valueOf("12345678901234567890123456789012345678"), 38, 38);
+        assertParseResult("-0.12345678901234567890123456789012345678", Int128.valueOf("-12345678901234567890123456789012345678"), 38, 38);
+        assertParseResult(".12345678901234567890123456789012345678", Int128.valueOf("12345678901234567890123456789012345678"), 38, 38);
+        assertParseResult("+.12345678901234567890123456789012345678", Int128.valueOf("12345678901234567890123456789012345678"), 38, 38);
+        assertParseResult("-.12345678901234567890123456789012345678", Int128.valueOf("-12345678901234567890123456789012345678"), 38, 38);
+        assertParseResult("0000.12345678901234567890123456789012345678", Int128.valueOf("12345678901234567890123456789012345678"), 38, 38);
+        assertParseResult("+0000.12345678901234567890123456789012345678", Int128.valueOf("12345678901234567890123456789012345678"), 38, 38);
+        assertParseResult("-0000.12345678901234567890123456789012345678", Int128.valueOf("-12345678901234567890123456789012345678"), 38, 38);
     }
 
     @Test
@@ -119,9 +118,9 @@ public class TestDecimals
         assertParseResultIncludeLeadingZerosInPrecision("000000000000000000", 0L, 18, 0);
         assertParseResultIncludeLeadingZerosInPrecision("+000000000000000000", 0L, 18, 0);
         assertParseResultIncludeLeadingZerosInPrecision("-000000000000000000", 0L, 18, 0);
-        assertParseResultIncludeLeadingZerosInPrecision("000000000000000000.123", encodeUnscaledValue("123"), 21, 3);
-        assertParseResultIncludeLeadingZerosInPrecision("+000000000000000000.123", encodeUnscaledValue("123"), 21, 3);
-        assertParseResultIncludeLeadingZerosInPrecision("-000000000000000000.123", encodeUnscaledValue("-123"), 21, 3);
+        assertParseResultIncludeLeadingZerosInPrecision("000000000000000000.123", Int128.valueOf("123"), 21, 3);
+        assertParseResultIncludeLeadingZerosInPrecision("+000000000000000000.123", Int128.valueOf("123"), 21, 3);
+        assertParseResultIncludeLeadingZerosInPrecision("-000000000000000000.123", Int128.valueOf("-123"), 21, 3);
     }
 
     @Test
@@ -149,26 +148,25 @@ public class TestDecimals
     @Test
     public void testEncodeScaledValue()
     {
-        assertEquals(encodeScaledValue(new BigDecimal("2.00"), 2), sliceFromBytes(200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
-        assertEquals(encodeScaledValue(new BigDecimal("2.13"), 2), sliceFromBytes(213, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
-        assertEquals(encodeScaledValue(new BigDecimal("172.60"), 2), sliceFromBytes(108, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
-        assertEquals(encodeScaledValue(new BigDecimal("2"), 2), sliceFromBytes(200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
-        assertEquals(encodeScaledValue(new BigDecimal("172.6"), 2), sliceFromBytes(108, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+        assertEquals(encodeScaledValue(new BigDecimal("2.00"), 2), Int128.valueOf(200));
+        assertEquals(encodeScaledValue(new BigDecimal("2.13"), 2), Int128.valueOf(213));
+        assertEquals(encodeScaledValue(new BigDecimal("172.60"), 2), Int128.valueOf(17260));
+        assertEquals(encodeScaledValue(new BigDecimal("2"), 2), Int128.valueOf(200));
+        assertEquals(encodeScaledValue(new BigDecimal("172.6"), 2), Int128.valueOf(17260));
 
-        int minus = 0x80;
-        assertEquals(encodeScaledValue(new BigDecimal("-2.00"), 2), sliceFromBytes(200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, minus));
-        assertEquals(encodeScaledValue(new BigDecimal("-2.13"), 2), sliceFromBytes(213, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, minus));
-        assertEquals(encodeScaledValue(new BigDecimal("-2"), 2), sliceFromBytes(200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, minus));
-        assertEquals(encodeScaledValue(new BigDecimal("-172.60"), 2), sliceFromBytes(108, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, minus));
+        assertEquals(encodeScaledValue(new BigDecimal("-2.00"), 2), Int128.valueOf(-200));
+        assertEquals(encodeScaledValue(new BigDecimal("-2.13"), 2), Int128.valueOf(-213));
+        assertEquals(encodeScaledValue(new BigDecimal("-2"), 2), Int128.valueOf(-200));
+        assertEquals(encodeScaledValue(new BigDecimal("-172.60"), 2), Int128.valueOf(-17260));
     }
 
-    private static Slice sliceFromBytes(int... bytes)
+    @Test
+    public void testOverflows()
     {
-        byte[] buffer = new byte[bytes.length];
-        for (int i = 0; i < bytes.length; i++) {
-            buffer[i] = UnsignedBytes.checkedCast(bytes[i]);
-        }
-        return Slices.wrappedBuffer(buffer);
+        assertTrue(overflows(Int128.valueOf("100"), 2));
+        assertTrue(overflows(Int128.valueOf("-100"), 2));
+        assertFalse(overflows(Int128.valueOf("99"), 2));
+        assertFalse(overflows(Int128.valueOf("-99"), 2));
     }
 
     private void assertParseResult(String value, Object expectedObject, int expectedPrecision, int expectedScale)
@@ -200,10 +198,5 @@ public class TestDecimals
             return;
         }
         fail("Parse failure was expected");
-    }
-
-    private static Slice encodeUnscaledValue(String unscaledValue)
-    {
-        return Decimals.encodeUnscaledValue(new BigInteger(unscaledValue));
     }
 }

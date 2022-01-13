@@ -31,6 +31,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -76,6 +77,7 @@ public class TestQueryContext
                     new QueryId("query"),
                     DataSize.ofBytes(10),
                     DataSize.ofBytes(20),
+                    Optional.empty(),
                     new MemoryPool(GENERAL_POOL, DataSize.ofBytes(10)),
                     new TestingGcMonitor(),
                     localQueryRunner.getExecutor(),
@@ -141,6 +143,7 @@ public class TestQueryContext
         return new QueryContext(queryId,
                 DataSize.ofBytes(10_000),
                 DataSize.ofBytes(10_000),
+                Optional.empty(),
                 generalPool,
                 new TestingGcMonitor(),
                 TEST_EXECUTOR,

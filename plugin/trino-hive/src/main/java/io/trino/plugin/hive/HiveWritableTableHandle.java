@@ -36,6 +36,7 @@ public class HiveWritableTableHandle
     private final HiveStorageFormat tableStorageFormat;
     private final HiveStorageFormat partitionStorageFormat;
     private final AcidTransaction transaction;
+    private final boolean retriesEnabled;
 
     public HiveWritableTableHandle(
             String schemaName,
@@ -46,7 +47,8 @@ public class HiveWritableTableHandle
             Optional<HiveBucketProperty> bucketProperty,
             HiveStorageFormat tableStorageFormat,
             HiveStorageFormat partitionStorageFormat,
-            AcidTransaction transaction)
+            AcidTransaction transaction,
+            boolean retriesEnabled)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -57,6 +59,7 @@ public class HiveWritableTableHandle
         this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
+        this.retriesEnabled = retriesEnabled;
     }
 
     @JsonProperty
@@ -123,6 +126,12 @@ public class HiveWritableTableHandle
     public boolean isTransactional()
     {
         return transaction.isTransactional();
+    }
+
+    @JsonProperty
+    public boolean isRetriesEnabled()
+    {
+        return retriesEnabled;
     }
 
     @Override

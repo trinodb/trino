@@ -33,7 +33,9 @@ import io.trino.execution.buffer.LazyOutputBuffer;
 import io.trino.memory.QueryContext;
 import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.memory.context.MemoryAllocationValidator;
 import io.trino.memory.context.MemoryTrackingContext;
+import io.trino.memory.context.ValidatingAggregateContext;
 import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.LocalDynamicFiltersCollector;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -44,6 +46,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -123,7 +126,8 @@ public class TaskContext
             MemoryTrackingContext taskMemoryContext,
             Runnable notifyStatusChanged,
             boolean perOperatorCpuTimerEnabled,
-            boolean cpuTimerEnabled)
+            boolean cpuTimerEnabled,
+            Optional<DataSize> maxMemory)
     {
         TaskContext taskContext = new TaskContext(
                 queryContext,
@@ -135,7 +139,8 @@ public class TaskContext
                 taskMemoryContext,
                 notifyStatusChanged,
                 perOperatorCpuTimerEnabled,
-                cpuTimerEnabled);
+                cpuTimerEnabled,
+                maxMemory);
         taskContext.initialize();
         return taskContext;
     }
@@ -150,7 +155,8 @@ public class TaskContext
             MemoryTrackingContext taskMemoryContext,
             Runnable notifyStatusChanged,
             boolean perOperatorCpuTimerEnabled,
-            boolean cpuTimerEnabled)
+            boolean cpuTimerEnabled,
+            Optional<DataSize> maxMemory)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
@@ -158,9 +164,21 @@ public class TaskContext
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.session = session;
-        this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
+
+        requireNonNull(taskMemoryContext, "taskMemoryContext is null");
+        if (maxMemory.isPresent()) {
+            MemoryAllocationValidator memoryValidator = new TaskAllocationValidator(maxMemory.get());
+            this.taskMemoryContext = new MemoryTrackingContext(
+                    new ValidatingAggregateContext(taskMemoryContext.aggregateUserMemoryContext(), memoryValidator),
+                    taskMemoryContext.aggregateRevocableMemoryContext(),
+                    new ValidatingAggregateContext(taskMemoryContext.aggregateSystemMemoryContext(), memoryValidator));
+        }
+        else {
+            this.taskMemoryContext = taskMemoryContext;
+        }
+
         // Initialize the local memory contexts with the LazyOutputBuffer tag as LazyOutputBuffer will do the local memory allocations
-        taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
+        this.taskMemoryContext.initializeLocalMemoryContexts(LazyOutputBuffer.class.getSimpleName());
         this.dynamicFiltersCollector = new DynamicFiltersCollector(notifyStatusChanged);
         this.localDynamicFiltersCollector = new LocalDynamicFiltersCollector(session);
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
@@ -303,11 +321,6 @@ public class TaskContext
     public LocalMemoryContext localSystemMemoryContext()
     {
         return taskMemoryContext.localSystemMemoryContext();
-    }
-
-    public void moreMemoryAvailable()
-    {
-        pipelineContexts.forEach(PipelineContext::moreMemoryAvailable);
     }
 
     public boolean isPerOperatorCpuTimerEnabled()

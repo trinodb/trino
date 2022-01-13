@@ -603,7 +603,7 @@ public class KuduClientSession
     {
         try {
             byte[] serializedScanToken = token.serialize();
-            return new KuduSplit(tableHandle, primaryKeyColumnCount, serializedScanToken, bucketNumber);
+            return new KuduSplit(tableHandle.getSchemaTableName(), primaryKeyColumnCount, serializedScanToken, bucketNumber);
         }
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, e);

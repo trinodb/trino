@@ -19,9 +19,9 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.JDBC;
 import static io.trino.tests.product.TestGroups.SYSTEM_CONNECTOR;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.TIMESTAMP_WITH_TIMEZONE;
@@ -34,7 +34,7 @@ public class TestSystemConnector
     public void selectRuntimeNodes()
     {
         String sql = "SELECT node_id, http_uri, node_version, state FROM system.runtime.nodes";
-        assertThat(query(sql))
+        assertThat(onTrino().executeQuery(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .hasAnyRows();
     }
@@ -42,7 +42,7 @@ public class TestSystemConnector
     @Test(groups = {SYSTEM_CONNECTOR, JDBC})
     public void testRuleStats()
     {
-        assertThat(query("SELECT rule_name, invocations, matches, failures FROM system.runtime.optimizer_rule_stats"))
+        assertThat(onTrino().executeQuery("SELECT rule_name, invocations, matches, failures FROM system.runtime.optimizer_rule_stats"))
                 .hasColumns(VARCHAR, BIGINT, BIGINT, BIGINT)
                 .hasAnyRows();
     }
@@ -66,7 +66,7 @@ public class TestSystemConnector
                 "  error_type," +
                 "  error_code " +
                 "FROM system.runtime.queries";
-        assertThat(query(sql))
+        assertThat(onTrino().executeQuery(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, ARRAY,
                         BIGINT, BIGINT, BIGINT, TIMESTAMP_WITH_TIMEZONE, TIMESTAMP_WITH_TIMEZONE,
                         TIMESTAMP_WITH_TIMEZONE, TIMESTAMP_WITH_TIMEZONE, VARCHAR, VARCHAR)
@@ -102,7 +102,7 @@ public class TestSystemConnector
                 "  last_heartbeat," +
                 "  \"end\" " +
                 "FROM SYSTEM.runtime.tasks";
-        assertThat(query(sql))
+        assertThat(onTrino().executeQuery(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR,
                         BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT,
                         BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT,
@@ -114,7 +114,7 @@ public class TestSystemConnector
     public void selectMetadataCatalogs()
     {
         String sql = "select catalog_name, connector_id, connector_name from system.metadata.catalogs";
-        assertThat(query(sql))
+        assertThat(onTrino().executeQuery(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR)
                 .contains(
                         ImmutableList.of(

@@ -13,16 +13,13 @@
  */
 package io.trino.parquet.reader;
 
-import io.airlift.slice.Slice;
 import io.trino.parquet.RichColumnDescriptor;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.api.Binary;
-
-import java.math.BigInteger;
 
 import static io.trino.spi.type.DecimalConversions.longToLongCast;
 import static io.trino.spi.type.DecimalConversions.longToShortCast;
@@ -50,7 +47,7 @@ public class LongDecimalColumnReader
         DecimalType trinoDecimalType = (DecimalType) trinoType;
 
         Binary binary = valuesReader.readBytes();
-        Slice value = Decimals.encodeUnscaledValue(new BigInteger(binary.getBytes()));
+        Int128 value = Int128.fromBigEndian(binary.getBytes());
 
         if (trinoDecimalType.isShort()) {
             trinoType.writeLong(blockBuilder, longToShortCast(
@@ -61,7 +58,7 @@ public class LongDecimalColumnReader
                     trinoDecimalType.getScale()));
         }
         else {
-            trinoType.writeSlice(blockBuilder, longToLongCast(
+            trinoType.writeObject(blockBuilder, longToLongCast(
                     value,
                     parquetDecimalType.getPrecision(),
                     parquetDecimalType.getScale(),

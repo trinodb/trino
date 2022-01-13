@@ -144,6 +144,7 @@ public class FeaturesConfig
     private boolean legacyCatalogRoles;
     private boolean disableSetPropertiesSecurityCheckForCreateDdl;
     private boolean incrementalHashArrayLoadFactorEnabled = true;
+    private boolean allowSetViewAuthorization;
 
     private boolean hideInaccesibleColumns;
 
@@ -1121,6 +1122,20 @@ public class FeaturesConfig
     public FeaturesConfig setHideInaccesibleColumns(boolean hideInaccesibleColumns)
     {
         this.hideInaccesibleColumns = hideInaccesibleColumns;
+        return this;
+    }
+
+    public boolean isAllowSetViewAuthorization()
+    {
+        return allowSetViewAuthorization;
+    }
+
+    @Config("legacy.allow-set-view-authorization")
+    @ConfigDescription("For security reasons ALTER VIEW SET AUTHORIZATION is disabled for SECURITY DEFINER; " +
+            "setting this option to true will re-enable this functionality")
+    public FeaturesConfig setAllowSetViewAuthorization(boolean allowSetViewAuthorization)
+    {
+        this.allowSetViewAuthorization = allowSetViewAuthorization;
         return this;
     }
 }

@@ -29,7 +29,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
@@ -728,7 +728,7 @@ public abstract class AbstractTestHiveFileFormats
                 return BigInteger.valueOf(cursor.getLong(field));
             }
             else {
-                return Decimals.decodeUnscaledValue(cursor.getSlice(field));
+                return ((Int128) cursor.getObject(field)).toBigInteger();
             }
         }
         throw new RuntimeException("unknown type");

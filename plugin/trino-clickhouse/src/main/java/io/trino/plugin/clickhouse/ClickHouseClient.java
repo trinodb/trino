@@ -68,6 +68,7 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
@@ -78,8 +79,8 @@ import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingSqlDate;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingSqlDate;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingLocalDate;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingLocalDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
@@ -90,6 +91,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRounding;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
@@ -108,6 +110,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
@@ -401,6 +404,7 @@ public class ClickHouseClient
                 return Optional.of(bigintColumnMapping());
 
             case Types.FLOAT:
+            case Types.REAL:
                 return Optional.of(ColumnMapping.longMapping(
                         REAL,
                         (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
@@ -430,11 +434,14 @@ public class ClickHouseClient
                         DISABLE_PUSHDOWN));
 
             case Types.DATE:
-                return Optional.of(dateColumnMappingUsingSqlDate());
+                return Optional.of(dateColumnMappingUsingLocalDate());
 
             case Types.TIMESTAMP:
-                // clickhouse not implemented for type=class java.time.LocalDateTime
-                // TODO replace it using timestamp relative function after clickhouse adds support for LocalDateTime, or use UTC Calendar
+                if (jdbcTypeName.equals("DateTime")) {
+                    verify(typeHandle.getRequiredDecimalDigits() == 0, "Expected 0 as timestamp precision, but got %s", typeHandle.getRequiredDecimalDigits());
+                    return Optional.of(timestampColumnMapping(TIMESTAMP_SECONDS));
+                }
+                // TODO (https://github.com/trinodb/trino/issues/10537) Add support for Datetime64 type
                 return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
         }
 
@@ -472,7 +479,7 @@ public class ClickHouseClient
             if (decimalType.isShort()) {
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
-            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType));
+            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
         if (type instanceof CharType || type instanceof VarcharType) {
             // The String type replaces the types VARCHAR, BLOB, CLOB, and others from other DBMSs.
@@ -483,7 +490,8 @@ public class ClickHouseClient
             return WriteMapping.sliceMapping("String", varbinaryWriteFunction());
         }
         if (type == DATE) {
-            return WriteMapping.longMapping("Date", dateWriteFunctionUsingSqlDate());
+            // TODO (https://github.com/trinodb/trino/issues/10055) Deny unsupported dates to prevent inserting wrong values. 2106-02-07 is max value in version 20.8
+            return WriteMapping.longMapping("Date", dateWriteFunctionUsingLocalDate());
         }
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("UUID", uuidWriteFunction());

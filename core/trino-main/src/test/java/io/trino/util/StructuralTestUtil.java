@@ -20,6 +20,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDecimal;
@@ -121,18 +122,20 @@ public final class StructuralTestUtil
             else if (element instanceof byte[]) {
                 type.writeSlice(blockBuilder, Slices.wrappedBuffer((byte[]) element));
             }
-            else if (element instanceof SqlDecimal) {
-                type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(((SqlDecimal) element).getUnscaledValue()));
-            }
-            else if (element instanceof BigDecimal) {
-                type.writeSlice(blockBuilder, Decimals.encodeScaledValue((BigDecimal) element));
-            }
             else {
                 type.writeSlice(blockBuilder, (Slice) element);
             }
         }
         else {
-            type.writeObject(blockBuilder, element);
+            if (element instanceof SqlDecimal) {
+                type.writeObject(blockBuilder, Int128.valueOf(((SqlDecimal) element).getUnscaledValue()));
+            }
+            else if (element instanceof BigDecimal) {
+                type.writeObject(blockBuilder, Decimals.valueOf((BigDecimal) element));
+            }
+            else {
+                type.writeObject(blockBuilder, element);
+            }
         }
     }
 }

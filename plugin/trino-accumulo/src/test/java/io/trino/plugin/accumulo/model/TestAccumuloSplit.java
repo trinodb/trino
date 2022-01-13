@@ -31,7 +31,7 @@ public class TestAccumuloSplit
     public void testJsonRoundTrip()
     {
         AccumuloSplit expected = new AccumuloSplit(
-                ImmutableList.of(new Range(), new Range("bar", "foo"), new Range("bar", false, "baz", false)).stream().map(WrappedRange::new).collect(Collectors.toList()),
+                ImmutableList.of(new Range(), new Range("bar", "foo"), new Range("bar", false, "baz", false)).stream().map(SerializedRange::serialize).collect(Collectors.toList()),
                 Optional.of("localhost:9000"));
 
         String json = codec.toJson(expected);

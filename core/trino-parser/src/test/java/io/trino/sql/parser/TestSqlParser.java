@@ -196,7 +196,8 @@ import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
 import io.trino.sql.tree.ZeroOrMoreQuantifier;
 import io.trino.sql.tree.ZeroOrOneQuantifier;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -251,12 +252,12 @@ import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class TestSqlParser
 {
@@ -282,7 +283,8 @@ public class TestSqlParser
         createExpression("(((((((((((((((((((((((((((true)))))))))))))))))))))))))))");
     }
 
-    @Test(timeOut = 2_000)
+    @Test
+    @Timeout(value = 2, unit = SECONDS)
     public void testPotentialUnboundedLookahead()
     {
         createExpression("(\n" +
@@ -304,13 +306,16 @@ public class TestSqlParser
     @Test
     public void testQualifiedName()
     {
-        assertEquals(QualifiedName.of("a", "b", "c", "d").toString(), "a.b.c.d");
-        assertEquals(QualifiedName.of("A", "b", "C", "d").toString(), "a.b.c.d");
+        assertThat(QualifiedName.of("a", "b", "c", "d").toString())
+                .isEqualTo("a.b.c.d");
+        assertThat(QualifiedName.of("A", "b", "C", "d").toString())
+                .isEqualTo("a.b.c.d");
         assertTrue(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("b", "c", "d")));
         assertTrue(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "b", "c", "d")));
         assertFalse(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "c", "d")));
         assertFalse(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("z", "a", "b", "c", "d")));
-        assertEquals(QualifiedName.of("a", "b", "c", "d"), QualifiedName.of("a", "b", "c", "d"));
+        assertThat(QualifiedName.of("a", "b", "c", "d"))
+                .isEqualTo(QualifiedName.of("a", "b", "c", "d"));
     }
 
     @Test
@@ -2557,7 +2562,8 @@ public class TestSqlParser
     public void testBinaryLiteralToHex()
     {
         // note that toHexString() always outputs in upper case
-        assertEquals(new BinaryLiteral("ab 01").toHexString(), "AB01");
+        assertThat(new BinaryLiteral("ab 01").toHexString())
+                .isEqualTo("AB01");
     }
 
     @Test

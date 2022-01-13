@@ -40,7 +40,7 @@ public class TestPhoenixSplit
         PhoenixInputSplit phoenixInputSplit = new PhoenixInputSplit(scans);
         PhoenixSplit expected = new PhoenixSplit(
                 addresses,
-                new WrappedPhoenixInputSplit(phoenixInputSplit));
+                SerializedPhoenixInputSplit.serialize(phoenixInputSplit));
 
         assertTrue(objectMapper.canSerialize(PhoenixSplit.class));
 

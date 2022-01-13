@@ -27,7 +27,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.UuidType;
@@ -304,7 +304,7 @@ public final class IcebergUtil
                     throw new IllegalArgumentException();
                 }
                 BigInteger unscaledValue = decimal.unscaledValue();
-                return isShortDecimal(type) ? unscaledValue.longValue() : Decimals.encodeUnscaledValue(unscaledValue);
+                return isShortDecimal(type) ? unscaledValue.longValue() : Int128.valueOf(unscaledValue);
             }
         }
         catch (IllegalArgumentException e) {
@@ -386,7 +386,7 @@ public final class IcebergUtil
         Schema schema = toIcebergSchema(tableMetadata.getColumns());
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
         String targetPath = getTableLocation(tableMetadata.getProperties())
-                .orElse(catalog.defaultTableLocation(session, schemaTableName));
+                .orElseGet(() -> catalog.defaultTableLocation(session, schemaTableName));
 
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(2);
         FileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());

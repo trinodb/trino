@@ -23,6 +23,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
@@ -89,7 +90,7 @@ public class TestPolymorphicScalarFunction
                         .argumentProperties(BLOCK_POSITION, BLOCK_POSITION)
                         .implementation(methodsGroup -> methodsGroup
                                 .methodWithExplicitJavaTypes("blockPositionLongLong",
-                                        asList(Optional.of(Slice.class), Optional.of(Slice.class)))
+                                        asList(Optional.of(Int128.class), Optional.of(Int128.class)))
                                 .methodWithExplicitJavaTypes("blockPositionShortShort",
                                         asList(Optional.of(long.class), Optional.of(long.class)))))
                 .build();
@@ -325,7 +326,7 @@ public class TestPolymorphicScalarFunction
             return false;
         }
 
-        public static boolean longLong(Slice left, boolean leftNull, Slice right, boolean rightNull)
+        public static boolean longLong(Int128 left, boolean leftNull, Int128 right, boolean rightNull)
         {
             return false;
         }

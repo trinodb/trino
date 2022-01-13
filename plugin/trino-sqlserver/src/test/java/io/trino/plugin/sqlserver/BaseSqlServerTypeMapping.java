@@ -481,7 +481,7 @@ public abstract class BaseSqlServerTypeMapping
                 .execute(getQueryRunner(), trinoCreateAsSelect(getSession(), "test_time"));
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
+    @Test(dataProvider = "sessionZonesDataProvider")
     public void testTimestamp(ZoneId sessionZone)
     {
         SqlDataTypeTest tests = SqlDataTypeTest.create()
@@ -621,7 +621,7 @@ public abstract class BaseSqlServerTypeMapping
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("test_sqlserver_timestamp"));
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
+    @Test(dataProvider = "sessionZonesDataProvider")
     public void testSqlServerDatetimeOffset(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
@@ -707,7 +707,7 @@ public abstract class BaseSqlServerTypeMapping
     }
 
     @DataProvider
-    public Object[][] testTimestampDataProvider()
+    public Object[][] sessionZonesDataProvider()
     {
         return new Object[][] {
                 {UTC},

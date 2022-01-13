@@ -15,7 +15,6 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
@@ -42,6 +41,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowType;
@@ -63,7 +64,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
 public final class HiveTestUtils
@@ -215,9 +215,9 @@ public final class HiveTestUtils
         return new BigDecimal(value).unscaledValue().longValueExact();
     }
 
-    public static Slice longDecimal(String value)
+    public static Int128 longDecimal(String value)
     {
-        return encodeScaledValue(new BigDecimal(value));
+        return Decimals.valueOf(new BigDecimal(value));
     }
 
     public static MethodHandle distinctFromOperator(Type type)

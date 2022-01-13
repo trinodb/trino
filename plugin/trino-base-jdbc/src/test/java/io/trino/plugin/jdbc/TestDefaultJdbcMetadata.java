@@ -49,7 +49,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -114,7 +113,7 @@ public class TestDefaultJdbcMetadata
     {
         assertThatThrownBy(() -> metadata.getColumnHandles(SESSION, tableHandle))
                 .isInstanceOf(TableNotFoundException.class)
-                .hasMessage(format("Table '%s' has no supported columns (all 0 columns are not supported)", tableHandle.getSchemaTableName()));
+                .hasMessage("Table '%s' has no supported columns (all 0 columns are not supported)", tableHandle.getSchemaTableName());
     }
 
     @Test
@@ -146,7 +145,7 @@ public class TestDefaultJdbcMetadata
     {
         assertThatThrownBy(() -> metadata.getTableMetadata(SESSION, tableHandle))
                 .isInstanceOf(TableNotFoundException.class)
-                .hasMessage(format("Table '%s' has no supported columns (all 0 columns are not supported)", tableHandle.getSchemaTableName()));
+                .hasMessage("Table '%s' has no supported columns (all 0 columns are not supported)", tableHandle.getSchemaTableName());
     }
 
     @Test

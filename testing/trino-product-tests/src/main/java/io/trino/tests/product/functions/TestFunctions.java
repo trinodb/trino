@@ -18,8 +18,8 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.JSON_FUNCTIONS;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 
 public class TestFunctions
         extends ProductTest
@@ -27,12 +27,12 @@ public class TestFunctions
     @Test(groups = JSON_FUNCTIONS)
     public void testScalarFunction()
     {
-        assertThat(query("SELECT upper('value')")).containsExactlyInOrder(row("VALUE"));
+        assertThat(onTrino().executeQuery("SELECT upper('value')")).containsExactlyInOrder(row("VALUE"));
     }
 
     @Test(groups = JSON_FUNCTIONS)
     public void testAggregate()
     {
-        assertThat(query("SELECT min(x) FROM (VALUES 1,2,3,4) t(x)")).containsExactlyInOrder(row(1));
+        assertThat(onTrino().executeQuery("SELECT min(x) FROM (VALUES 1,2,3,4) t(x)")).containsExactlyInOrder(row(1));
     }
 }

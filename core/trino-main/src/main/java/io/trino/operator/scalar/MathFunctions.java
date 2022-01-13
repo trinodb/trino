@@ -32,8 +32,8 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.UnscaledDecimal128Arithmetic;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.Constraint;
@@ -54,17 +54,13 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.type.Decimals.longTenToNth;
+import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.add;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.isNegative;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.isZero;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.negate;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.rescale;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.rescaleTruncate;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.subtract;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
+import static io.trino.spi.type.Int128Math.add;
+import static io.trino.spi.type.Int128Math.negate;
+import static io.trino.spi.type.Int128Math.rescale;
+import static io.trino.spi.type.Int128Math.rescaleTruncate;
+import static io.trino.spi.type.Int128Math.subtract;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.DecimalOperators.modulusScalarFunction;
 import static io.trino.type.DecimalOperators.modulusSignatureBuilder;
@@ -80,20 +76,20 @@ public final class MathFunctions
 {
     public static final SqlScalarFunction DECIMAL_MOD_FUNCTION = decimalModFunction();
 
-    private static final Slice[] DECIMAL_HALF_UNSCALED_FOR_SCALE;
-    private static final Slice[] DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE;
+    private static final Int128[] DECIMAL_HALF_UNSCALED_FOR_SCALE;
+    private static final Int128[] DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE;
 
     static {
-        DECIMAL_HALF_UNSCALED_FOR_SCALE = new Slice[Decimals.MAX_PRECISION];
-        DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE = new Slice[Decimals.MAX_PRECISION];
-        DECIMAL_HALF_UNSCALED_FOR_SCALE[0] = UnscaledDecimal128Arithmetic.unscaledDecimal(0);
-        DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[0] = UnscaledDecimal128Arithmetic.unscaledDecimal(0);
+        DECIMAL_HALF_UNSCALED_FOR_SCALE = new Int128[Decimals.MAX_PRECISION];
+        DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE = new Int128[Decimals.MAX_PRECISION];
+        DECIMAL_HALF_UNSCALED_FOR_SCALE[0] = Int128.ZERO;
+        DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[0] = Int128.ZERO;
         for (int scale = 1; scale < Decimals.MAX_PRECISION; ++scale) {
-            DECIMAL_HALF_UNSCALED_FOR_SCALE[scale] = UnscaledDecimal128Arithmetic.unscaledDecimal(
+            DECIMAL_HALF_UNSCALED_FOR_SCALE[scale] = Int128.valueOf(
                     BigInteger.TEN
                             .pow(scale)
                             .divide(BigInteger.valueOf(2)));
-            DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[scale] = UnscaledDecimal128Arithmetic.unscaledDecimal(
+            DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[scale] = Int128.valueOf(
                     BigInteger.TEN
                             .pow(scale)
                             .divide(BigInteger.valueOf(2))
@@ -162,16 +158,12 @@ public final class MathFunctions
 
         @LiteralParameters({"p", "s"})
         @SqlType("decimal(p, s)")
-        public static Slice absLong(@SqlType("decimal(p, s)") Slice arg)
+        public static Int128 absLong(@SqlType("decimal(p, s)") Int128 value)
         {
-            if (isNegative(arg)) {
-                Slice result = unscaledDecimal(arg);
-                negate(result);
-                return result;
+            if (value.isNegative()) {
+                return negate(value);
             }
-            else {
-                return arg;
-            }
+            return value;
         }
     }
 
@@ -290,24 +282,32 @@ public final class MathFunctions
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
-        public static Slice ceilingLong(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Slice num)
+        public static Int128 ceilingLong(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
         {
-            Slice tmp;
-            if (isNegative(num)) {
-                tmp = add(num, DECIMAL_HALF_UNSCALED_FOR_SCALE[(int) numScale]);
+            if (num.isZero()) {
+                return num;
+            }
+
+            Int128 other;
+            if (num.isNegative()) {
+                other = DECIMAL_HALF_UNSCALED_FOR_SCALE[(int) numScale];
             }
             else {
-                tmp = add(num, DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[(int) numScale]);
+                other = DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[(int) numScale];
             }
-            return rescale(tmp, -(int) numScale);
+
+            long[] tmp = new long[2];
+            add(num.getHigh(), num.getLow(), other.getHigh(), other.getLow(), tmp, 0);
+            rescale(tmp[0], tmp[1], -(int) numScale, tmp, 0);
+            return Int128.valueOf(tmp);
         }
 
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
-        public static long ceilingLongShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Slice num)
+        public static long ceilingLongShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
         {
-            return unscaledDecimalToUnscaledLong(ceilingLong(numScale, num));
+            return ceilingLong(numScale, num).toLongExact();
         }
     }
 
@@ -427,27 +427,32 @@ public final class MathFunctions
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
-        public static Slice floorLong(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Slice num)
+        public static Int128 floorLong(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
         {
-            Slice tmp;
-            if (isZero(num)) {
+            if (num.isZero()) {
                 return num;
             }
-            if (isNegative(num)) {
-                tmp = subtract(num, DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[(int) numScale]);
+
+            Int128 other;
+            if (num.isNegative()) {
+                other = DECIMAL_ALMOST_HALF_UNSCALED_FOR_SCALE[(int) numScale];
             }
             else {
-                tmp = subtract(num, DECIMAL_HALF_UNSCALED_FOR_SCALE[(int) numScale]);
+                other = DECIMAL_HALF_UNSCALED_FOR_SCALE[(int) numScale];
             }
-            return rescale(tmp, -(int) numScale);
+
+            long[] result = new long[2];
+            subtract(num.getHigh(), num.getLow(), other.getHigh(), other.getLow(), result, 0);
+            rescale(result[0], result[1], -(int) numScale, result, 0);
+            return Int128.valueOf(result);
         }
 
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "p - s + min(s, 1)")
-        public static long floorLongShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Slice num)
+        public static long floorLongShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
         {
-            return unscaledDecimalToUnscaledLong(floorLong(numScale, num));
+            return floorLong(numScale, num).toLongExact();
         }
     }
 
@@ -883,7 +888,7 @@ public final class MathFunctions
         @SqlType("decimal(rp, rs)")
         @Constraint(variable = "rp", expression = "min(38, p - s + min(1, s))")
         @Constraint(variable = "rs", expression = "0")
-        public static Slice roundLongLong(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Slice num)
+        public static Int128 roundLongLong(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
         {
             if (numScale == 0) {
                 return num;
@@ -895,9 +900,10 @@ public final class MathFunctions
         @SqlType("decimal(rp, rs)")
         @Constraint(variable = "rp", expression = "min(38, p - s + min(1, s))")
         @Constraint(variable = "rs", expression = "0")
-        public static long roundLongShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Slice num)
+        public static long roundLongShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
         {
-            return unscaledDecimalToUnscaledLong(rescale(num, -(int) numScale));
+            Int128 decimal = rescale(num, -(int) numScale);
+            return decimal.toLongExact();
         }
     }
 
@@ -933,10 +939,10 @@ public final class MathFunctions
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp, s)")
         @Constraint(variable = "rp", expression = "min(38, p + 1)")
-        public static Slice roundNLong(
+        public static Int128 roundNLong(
                 @LiteralParameter("s") long numScale,
                 @LiteralParameter("rp") long resultPrecision,
-                @SqlType("decimal(p, s)") Slice num,
+                @SqlType("decimal(p, s)") Int128 num,
                 @SqlType(StandardTypes.INTEGER) long decimals)
         {
             if (decimals >= numScale) {
@@ -944,8 +950,12 @@ public final class MathFunctions
             }
             int rescaleFactor = ((int) numScale) - (int) decimals;
             try {
-                Slice result = rescale(rescale(num, -rescaleFactor), rescaleFactor);
-                throwIfOverflows(result, ((int) resultPrecision));
+                Int128 result = rescale(rescale(num, -rescaleFactor), rescaleFactor);
+
+                if (overflows(result, (int) resultPrecision)) {
+                    throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "decimal overflow: " + num);
+                }
+
                 return result;
             }
             catch (ArithmeticException e) {
@@ -956,13 +966,13 @@ public final class MathFunctions
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp, s)")
         @Constraint(variable = "rp", expression = "min(38, p + 1)")
-        public static Slice roundNShortLong(
+        public static Int128 roundNShortLong(
                 @LiteralParameter("s") long numScale,
                 @LiteralParameter("rp") long resultPrecision,
                 @SqlType("decimal(p, s)") long num,
                 @SqlType(StandardTypes.INTEGER) long decimals)
         {
-            return roundNLong(numScale, resultPrecision, unscaledDecimal(num), decimals);
+            return roundNLong(numScale, resultPrecision, Int128.valueOf(num), decimals);
         }
     }
 
@@ -989,7 +999,7 @@ public final class MathFunctions
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "max(1, p - s)")
-        public static Slice truncateLong(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Slice num)
+        public static Int128 truncateLong(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
         {
             if (numScale == 0) {
                 return num;
@@ -1000,9 +1010,10 @@ public final class MathFunctions
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "max(1, p - s)")
-        public static long truncateLongShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Slice num)
+        public static long truncateLongShort(@LiteralParameter("s") long numScale, @SqlType("decimal(p, s)") Int128 num)
         {
-            return unscaledDecimalToUnscaledLong(rescaleTruncate(num, -(int) numScale));
+            Int128 decimal = rescaleTruncate(num, -(int) numScale);
+            return decimal.toLongExact();
         }
     }
 
@@ -1034,14 +1045,14 @@ public final class MathFunctions
 
         @LiteralParameters({"p", "s"})
         @SqlType("decimal(p, s)")
-        public static Slice truncateLong(
+        public static Int128 truncateLong(
                 @LiteralParameter("p") long numPrecision,
                 @LiteralParameter("s") long numScale,
-                @SqlType("decimal(p, s)") Slice num,
+                @SqlType("decimal(p, s)") Int128 num,
                 @SqlType(StandardTypes.INTEGER) long roundScale)
         {
             if (numPrecision - numScale + roundScale <= 0) {
-                return unscaledDecimal(0);
+                return Int128.ZERO;
             }
             if (roundScale >= numScale) {
                 return num;
@@ -1066,17 +1077,15 @@ public final class MathFunctions
 
         @LiteralParameters({"p", "s"})
         @SqlType("decimal(1,0)")
-        public static long signDecimalLong(@SqlType("decimal(p, s)") Slice num)
+        public static long signDecimalLong(@SqlType("decimal(p, s)") Int128 num)
         {
-            if (isZero(num)) {
-                return 0;
+            int result = Long.signum(num.getHigh());
+
+            if (result != 0) {
+                return result;
             }
-            else if (isNegative(num)) {
-                return -1;
-            }
-            else {
-                return 1;
-            }
+
+            return num.getLow() == 0 ? 0 : 1;
         }
     }
 

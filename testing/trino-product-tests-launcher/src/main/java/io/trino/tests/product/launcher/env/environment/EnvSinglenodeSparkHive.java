@@ -30,8 +30,10 @@ import javax.inject.Inject;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -57,11 +59,19 @@ public class EnvSinglenodeSparkHive
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
+        String dockerImageName = "ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion;
+
         builder.configureContainer(HADOOP, dockerContainer -> {
-            dockerContainer.setDockerImageName("ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion);
+            dockerContainer.setDockerImageName(dockerImageName);
             dockerContainer.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-hdp3/apply-hdp3-config.sh")),
                     CONTAINER_HADOOP_INIT_D + "apply-hdp3-config.sh");
+        });
+
+        builder.configureContainer(TESTS, dockerContainer -> {
+            dockerContainer.withCopyFileToContainer(
+                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),
+                    CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
 
         builder.configureContainer(COORDINATOR, container -> container

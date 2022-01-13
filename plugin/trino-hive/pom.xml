@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>367-SNAPSHOT</version>
+        <version>369-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -411,7 +411,8 @@
                             <excludes>
                                 <exclude>**/TestHiveGlueMetastore.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
-                                <exclude>**/TestHiveFailureRecovery.java</exclude>
+                                <exclude>**/TestHiveFailureRecoveryFile.java</exclude>
+                                <exclude>**/TestHiveFailureRecoveryMinIO.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -462,7 +463,8 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestHiveFailureRecovery.java</include>
+                                <include>**/TestHiveFailureRecoveryFile.java</include>
+                                <include>**/TestHiveFailureRecoveryMinIO.java</include>
                             </includes>
                         </configuration>
                     </plugin>

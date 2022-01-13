@@ -60,10 +60,11 @@ import io.trino.execution.TaskStatus;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
-import io.trino.execution.scheduler.AllAtOnceExecutionPolicy;
-import io.trino.execution.scheduler.ExecutionPolicy;
-import io.trino.execution.scheduler.PhasedExecutionPolicy;
 import io.trino.execution.scheduler.SplitSchedulerStats;
+import io.trino.execution.scheduler.policy.AllAtOnceExecutionPolicy;
+import io.trino.execution.scheduler.policy.ExecutionPolicy;
+import io.trino.execution.scheduler.policy.LegacyPhasedExecutionPolicy;
+import io.trino.execution.scheduler.policy.PhasedExecutionPolicy;
 import io.trino.failuredetector.FailureDetectorModule;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.ForMemoryManager;
@@ -284,6 +285,7 @@ public class CoordinatorModule
 
         MapBinder<String, ExecutionPolicy> executionPolicyBinder = newMapBinder(binder, String.class, ExecutionPolicy.class);
         executionPolicyBinder.addBinding("all-at-once").to(AllAtOnceExecutionPolicy.class);
+        executionPolicyBinder.addBinding("legacy-phased").to(LegacyPhasedExecutionPolicy.class);
         executionPolicyBinder.addBinding("phased").to(PhasedExecutionPolicy.class);
 
         install(new QueryExecutionFactoryModule());

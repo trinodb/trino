@@ -13,10 +13,9 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
@@ -62,8 +61,8 @@ public class DecimalValueWriter
         else {
             for (int i = 0; i < block.getPositionCount(); ++i) {
                 if (!block.isNull(i)) {
-                    Slice slice = decimalType.getSlice(block, i);
-                    BigInteger bigInteger = Decimals.decodeUnscaledValue(slice);
+                    Int128 decimal = (Int128) decimalType.getObject(block, i);
+                    BigInteger bigInteger = decimal.toBigInteger();
                     Binary binary = Binary.fromConstantByteArray(paddingBigInteger(bigInteger));
                     getValueWriter().writeBytes(binary);
                     getStatistics().updateStats(binary);

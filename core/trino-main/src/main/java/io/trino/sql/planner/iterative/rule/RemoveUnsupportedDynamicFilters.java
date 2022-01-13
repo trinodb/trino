@@ -100,8 +100,7 @@ public class RemoveUnsupportedDynamicFilters
                         new SessionPropertyManager(),
                         new TablePropertyManager(),
                         new AnalyzePropertyManager(),
-                        new TableProceduresPropertyManager()),
-                new AllowAllAccessControl());
+                        new TableProceduresPropertyManager()));
     }
 
     @Override

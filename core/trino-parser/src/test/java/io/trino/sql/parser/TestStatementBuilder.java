@@ -17,7 +17,7 @@ import com.google.common.io.Resources;
 import io.trino.sql.SqlFormatter;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Statement;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -27,8 +27,8 @@ import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUB
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class TestStatementBuilder
 {
@@ -389,7 +389,7 @@ public class TestStatementBuilder
     {
         Expression originalExpression = SQL_PARSER.createExpression(expression, new ParsingOptions());
         String real = SqlFormatter.formatSql(originalExpression);
-        assertEquals(real, formatted);
+        assertEquals(formatted, real);
     }
 
     private static void println(String s)

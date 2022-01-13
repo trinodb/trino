@@ -19,21 +19,24 @@ import com.google.common.collect.ImmutableList;
 import io.trino.execution.TaskId;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
-import java.net.URI;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class RemoteSplit
         implements ConnectorSplit
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RemoteSplit.class).instanceSize();
+
     private final TaskId taskId;
-    private final URI location;
+    private final String location;
 
     @JsonCreator
-    public RemoteSplit(@JsonProperty("taskId") TaskId taskId, @JsonProperty("location") URI location)
+    public RemoteSplit(@JsonProperty("taskId") TaskId taskId, @JsonProperty("location") String location)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.location = requireNonNull(location, "location is null");
@@ -46,7 +49,7 @@ public class RemoteSplit
     }
 
     @JsonProperty
-    public URI getLocation()
+    public String getLocation()
     {
         return location;
     }
@@ -76,5 +79,13 @@ public class RemoteSplit
                 .add("taskId", taskId)
                 .add("location", location)
                 .toString();
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + taskId.getRetainedSizeInBytes()
+                + estimatedSizeOf(location);
     }
 }

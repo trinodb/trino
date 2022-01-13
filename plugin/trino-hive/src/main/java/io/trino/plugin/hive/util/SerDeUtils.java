@@ -158,7 +158,7 @@ public final class SerDeUtils
                     type.writeLong(builder, DecimalUtils.getShortDecimalValue(hiveDecimal, decimalType.getScale()));
                 }
                 else {
-                    type.writeSlice(builder, DecimalUtils.getLongDecimalValue(hiveDecimal, decimalType.getScale()));
+                    type.writeObject(builder, DecimalUtils.getLongDecimalValue(hiveDecimal, decimalType.getScale()));
                 }
                 return;
             case VOID:

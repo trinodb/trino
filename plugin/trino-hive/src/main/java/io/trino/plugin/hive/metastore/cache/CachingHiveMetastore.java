@@ -477,11 +477,11 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void dropDatabase(HiveIdentity identity, String databaseName)
+    public void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
     {
         identity = updateIdentity(identity);
         try {
-            delegate.dropDatabase(identity, databaseName);
+            delegate.dropDatabase(identity, databaseName, deleteData);
         }
         finally {
             invalidateDatabase(databaseName);

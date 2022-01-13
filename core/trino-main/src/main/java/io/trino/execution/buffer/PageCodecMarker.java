@@ -20,10 +20,10 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
 /**
- * Encodes boolean properties for {@link SerializedPage} by using a bitmasking strategy, allowing
+ * Encodes boolean properties for serialized page by using a bitmasking strategy, allowing
  * up to 8 such properties to be stored in a single byte
  */
-public enum PageCodecMarker
+enum PageCodecMarker
 {
     COMPRESSED(1),
     ENCRYPTED(2);

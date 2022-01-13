@@ -27,9 +27,9 @@ import org.testng.annotations.Test;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContextIfSet;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.SIMPLE;
 import static io.trino.tests.product.TestGroups.SMOKE;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimpleQuery
@@ -61,14 +61,14 @@ public class TestSimpleQuery
     @Requires(SimpleTestRequirements.class)
     public void selectAllFromNation()
     {
-        QueryAssert.assertThat(query("select * from nation")).hasRowsCount(25);
+        QueryAssert.assertThat(onTrino().executeQuery("select * from nation")).hasRowsCount(25);
     }
 
     @Test(groups = {SIMPLE, SMOKE})
     @Requires(SimpleTestRequirements.class)
     public void selectCountFromNation()
     {
-        QueryAssert.assertThat(query("select count(*) from nation"))
+        QueryAssert.assertThat(onTrino().executeQuery("select count(*) from nation"))
                 .hasRowsCount(1)
                 .contains(row(25));
     }

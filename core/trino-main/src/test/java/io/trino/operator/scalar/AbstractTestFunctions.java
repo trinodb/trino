@@ -14,7 +14,6 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.metadata.FunctionListBuilder;
@@ -24,6 +23,7 @@ import io.trino.spi.Plugin;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTimestamp;
@@ -191,7 +191,7 @@ public abstract class AbstractTestFunctions
             unscaledValue = BigInteger.valueOf((Long) parseResult.getObject());
         }
         else {
-            unscaledValue = Decimals.decodeUnscaledValue((Slice) parseResult.getObject());
+            unscaledValue = ((Int128) parseResult.getObject()).toBigInteger();
         }
         return new SqlDecimal(unscaledValue, parseResult.getType().getPrecision(), parseResult.getType().getScale());
     }

@@ -38,7 +38,6 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
@@ -355,7 +354,7 @@ public class TestMergeOperator
 
     private static Split createRemoteSplit(TaskId taskId)
     {
-        return new Split(ExchangeOperator.REMOTE_CONNECTOR_ID, new RemoteSplit(taskId, URI.create("http://localhost/" + taskId)), Lifespan.taskWide());
+        return new Split(ExchangeOperator.REMOTE_CONNECTOR_ID, new RemoteSplit(taskId, "http://localhost/" + taskId), Lifespan.taskWide());
     }
 
     private static List<Page> pullAvailablePages(Operator operator)

@@ -12,7 +12,7 @@ Requirements
 
 To connect to PostgreSQL, you need:
 
-* PostgreSQL 9.6 or higher.
+* PostgreSQL 10.x or higher.
 * Network access from the Trino coordinator and workers to PostgreSQL.
   Port 5432 is the default port.
 
@@ -60,6 +60,8 @@ if you name the property file ``sales.properties``, Trino creates a
 catalog named ``sales`` using the configured connector.
 
 .. include:: jdbc-common-configurations.fragment
+
+.. include:: jdbc-procedures.fragment
 
 .. include:: jdbc-case-insensitive-matching.fragment
 

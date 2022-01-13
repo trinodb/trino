@@ -19,6 +19,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import org.h2.Driver;
 
 import java.util.Map;
@@ -34,7 +35,7 @@ public class TestingH2JdbcModule
 
     public TestingH2JdbcModule()
     {
-        this((config, connectionFactory) -> new TestingH2JdbcClient(config, connectionFactory));
+        this((config, connectionFactory, identifierMapping) -> new TestingH2JdbcClient(config, connectionFactory, identifierMapping));
     }
 
     public TestingH2JdbcModule(TestingH2JdbcClientFactory testingH2JdbcClientFactory)
@@ -46,10 +47,11 @@ public class TestingH2JdbcModule
     public void configure(Binder binder) {}
 
     @Provides
+    @Singleton
     @ForBaseJdbc
-    public JdbcClient provideJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
+    public JdbcClient provideJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
     {
-        return testingH2JdbcClientFactory.create(config, connectionFactory);
+        return testingH2JdbcClientFactory.create(config, connectionFactory, identifierMapping);
     }
 
     @Provides
@@ -69,6 +71,6 @@ public class TestingH2JdbcModule
 
     public interface TestingH2JdbcClientFactory
     {
-        TestingH2JdbcClient create(BaseJdbcConfig config, ConnectionFactory connectionFactory);
+        TestingH2JdbcClient create(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping);
     }
 }

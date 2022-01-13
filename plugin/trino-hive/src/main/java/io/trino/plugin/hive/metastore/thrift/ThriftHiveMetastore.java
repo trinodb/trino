@@ -1010,7 +1010,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void dropDatabase(HiveIdentity identity, String databaseName)
+    public void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
     {
         try {
             retry()
@@ -1018,7 +1018,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("dropDatabase", stats.getDropDatabase().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
-                            client.dropDatabase(databaseName, true, false);
+                            client.dropDatabase(databaseName, deleteData, false);
                         }
                         return null;
                     }));

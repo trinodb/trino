@@ -114,7 +114,7 @@ public abstract class AbstractTestHiveLocal
             throws IOException
     {
         try {
-            getMetastoreClient().dropDatabase(HIVE_IDENTITY, testDbName);
+            getMetastoreClient().dropDatabase(HIVE_IDENTITY, testDbName, true);
         }
         finally {
             deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
@@ -256,7 +256,7 @@ public abstract class AbstractTestHiveLocal
                     .setSerdeParameters(ImmutableMap.of());
 
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner, session.getUser());
-            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.of(externalLocation), true, EMPTY_TABLE_STATISTICS);
+            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.of(externalLocation), Optional.empty(), true, EMPTY_TABLE_STATISTICS, false);
 
             transaction.commit();
         }

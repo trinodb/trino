@@ -36,7 +36,6 @@ import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.CASSANDRA;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
@@ -181,7 +180,7 @@ public class TestSelect
     public void testAllDataTypes()
     {
         // NOTE: DECIMAL is treated like DOUBLE
-        QueryResult query = query(format(
+        QueryResult query = onTrino().executeQuery(format(
                 "SELECT a, b, bl, bo, d, do, dt, f, fr, i, integer, l, m, s, si, t, ti, ts, tu, u, v, vari FROM %s.%s.%s",
                 CONNECTOR_NAME, KEY_SPACE, CASSANDRA_ALL_TYPES.getName()));
 
@@ -286,16 +285,16 @@ public class TestSelect
                 KEY_SPACE,
                 CASSANDRA_ALL_TYPES.getName()));
 
-        assertContainsEventually(() -> query(format("SHOW TABLES FROM %s.%s", CONNECTOR_NAME, KEY_SPACE)),
-                query(format("SELECT '%s'", materializedViewName)),
+        assertContainsEventually(() -> onTrino().executeQuery(format("SHOW TABLES FROM %s.%s", CONNECTOR_NAME, KEY_SPACE)),
+                onTrino().executeQuery(format("SELECT '%s'", materializedViewName)),
                 new Duration(1, MINUTES));
 
         // Materialized view may not return all results during the creation
-        assertContainsEventually(() -> query(format("SELECT status_replicated FROM %s.system.built_views WHERE view_name = '%s'", CONNECTOR_NAME, materializedViewName)),
-                query("SELECT true"),
+        assertContainsEventually(() -> onTrino().executeQuery(format("SELECT status_replicated FROM %s.system.built_views WHERE view_name = '%s'", CONNECTOR_NAME, materializedViewName)),
+                onTrino().executeQuery("SELECT true"),
                 new Duration(1, MINUTES));
 
-        QueryResult query = query(format(
+        QueryResult query = onTrino().executeQuery(format(
                 "SELECT a, b, bl, bo, d, do, dt, f, fr, i, integer, l, m, s, si, t, ti, ts, tu, u, v, vari FROM %s.%s.%s WHERE a = '\0'",
                 CONNECTOR_NAME, KEY_SPACE, materializedViewName));
 
@@ -345,13 +344,13 @@ public class TestSelect
                 KEY_SPACE,
                 CASSANDRA_SUPPLIER.getName()));
 
-        assertContainsEventually(() -> query(format("SHOW TABLES FROM %s.%s", CONNECTOR_NAME, KEY_SPACE)),
-                query(format("SELECT '%s'", mvName)),
+        assertContainsEventually(() -> onTrino().executeQuery(format("SHOW TABLES FROM %s.%s", CONNECTOR_NAME, KEY_SPACE)),
+                onTrino().executeQuery(format("SELECT '%s'", mvName)),
                 new Duration(1, MINUTES));
 
         // Materialized view may not return all results during the creation
-        assertContainsEventually(() -> query(format("SELECT status_replicated FROM %s.system.built_views WHERE view_name = '%s'", CONNECTOR_NAME, mvName)),
-                query("SELECT true"),
+        assertContainsEventually(() -> onTrino().executeQuery(format("SELECT status_replicated FROM %s.system.built_views WHERE view_name = '%s'", CONNECTOR_NAME, mvName)),
+                onTrino().executeQuery("SELECT true"),
                 new Duration(1, MINUTES));
 
         QueryResult aggregateQueryResult = onTrino()

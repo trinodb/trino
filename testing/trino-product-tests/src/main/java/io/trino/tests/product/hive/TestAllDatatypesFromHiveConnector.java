@@ -37,7 +37,6 @@ import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tempto.fulfillment.table.TableHandle.tableHandle;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.JDBC;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_AVRO;
@@ -47,6 +46,7 @@ import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIV
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.populateDataToHiveTable;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.JDBCType.BIGINT;
@@ -129,7 +129,7 @@ public class TestAllDatatypesFromHiveConnector
         String tableName = ALL_HIVE_SIMPLE_TYPES_TEXTFILE.getName();
 
         assertProperAllDatatypesSchema(tableName);
-        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
+        QueryResult queryResult = onTrino().executeQuery(format("SELECT * FROM %s", tableName));
 
         assertColumnTypes(queryResult);
         assertThat(queryResult).containsOnly(
@@ -161,7 +161,7 @@ public class TestAllDatatypesFromHiveConnector
 
         assertProperAllDatatypesSchema(tableName);
 
-        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
+        QueryResult queryResult = onTrino().executeQuery(format("SELECT * FROM %s", tableName));
         assertColumnTypes(queryResult);
         assertThat(queryResult).containsOnly(
                 row(
@@ -192,7 +192,7 @@ public class TestAllDatatypesFromHiveConnector
 
         assertProperAllDatatypesSchema(tableName);
 
-        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
+        QueryResult queryResult = onTrino().executeQuery(format("SELECT * FROM %s", tableName));
         assertColumnTypes(queryResult);
         assertThat(queryResult).containsOnly(
                 row(
@@ -236,7 +236,7 @@ public class TestAllDatatypesFromHiveConnector
                         ")",
                 tableName));
 
-        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
+        assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                 row("c_int", "integer"),
                 row("c_bigint", "bigint"),
                 row("c_float", "real"),
@@ -251,7 +251,7 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_boolean", "boolean"),
                 row("c_binary", "varbinary"));
 
-        QueryResult queryResult = query("SELECT * FROM " + tableName);
+        QueryResult queryResult = onTrino().executeQuery("SELECT * FROM " + tableName);
         assertThat(queryResult).hasColumns(
                 INTEGER,
                 BIGINT,
@@ -289,7 +289,7 @@ public class TestAllDatatypesFromHiveConnector
 
     private void assertProperAllDatatypesSchema(String tableName)
     {
-        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
+        assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                 row("c_tinyint", "tinyint"),
                 row("c_smallint", "smallint"),
                 row("c_int", "integer"),
@@ -369,7 +369,7 @@ public class TestAllDatatypesFromHiveConnector
                 "'kot binarny'" +
                 ")", tableName));
 
-        assertThat(query(format("SHOW COLUMNS FROM %s", tableName)).project(1, 2)).containsExactlyInOrder(
+        assertThat(onTrino().executeQuery(format("SHOW COLUMNS FROM %s", tableName)).project(1, 2)).containsExactlyInOrder(
                 row("c_tinyint", "tinyint"),
                 row("c_smallint", "smallint"),
                 row("c_int", "integer"),
@@ -385,7 +385,7 @@ public class TestAllDatatypesFromHiveConnector
                 row("c_boolean", "boolean"),
                 row("c_binary", "varbinary"));
 
-        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
+        QueryResult queryResult = onTrino().executeQuery(format("SELECT * FROM %s", tableName));
         assertColumnTypesParquet(queryResult);
         assertThat(queryResult).containsOnly(
                 row(

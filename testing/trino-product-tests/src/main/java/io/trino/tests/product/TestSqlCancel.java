@@ -45,8 +45,8 @@ import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.product.TestGroups.CANCEL_QUERY;
+import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
@@ -90,7 +90,7 @@ public class TestSqlCancel
         String sql = format("CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem", tableName);
 
         runAndCancelQuery(sql);
-        assertQueryFailure(() -> query("SELECT * from " + tableName))
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT * from " + tableName))
                 .hasMessageContaining("Table 'hive.default.%s' does not exist", tableName);
     }
 
@@ -99,11 +99,11 @@ public class TestSqlCancel
             throws Exception
     {
         String tableName = "cancel_insertinto_" + nanoTime();
-        query(format("CREATE TABLE %s (orderkey BIGINT, partkey BIGINT, shipinstruct VARCHAR(25)) ", tableName));
+        onTrino().executeQuery(format("CREATE TABLE %s (orderkey BIGINT, partkey BIGINT, shipinstruct VARCHAR(25)) ", tableName));
         String sql = format("INSERT INTO %s SELECT orderkey, partkey, shipinstruct FROM tpch.sf1.lineitem", tableName);
         runAndCancelQuery(sql);
-        assertThat(query("SELECT * from " + tableName)).hasNoRows();
-        query("DROP TABLE " + tableName);
+        assertThat(onTrino().executeQuery("SELECT * from " + tableName)).hasNoRows();
+        onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
     @Test(groups = CANCEL_QUERY, timeOut = 60_000L)
@@ -116,7 +116,7 @@ public class TestSqlCancel
     private void runAndCancelQuery(String sql)
             throws Exception
     {
-        Future<?> queryExecution = executor.submit(() -> query(sql));
+        Future<?> queryExecution = executor.submit(() -> onTrino().executeQuery(sql));
 
         cancelQuery(sql);
 
@@ -140,7 +140,7 @@ public class TestSqlCancel
         Stopwatch stopwatch = Stopwatch.createStarted();
         while (stopwatch.elapsed(SECONDS) < 30) {
             String findQuerySql = "SELECT query_id from system.runtime.queries WHERE query = '%s' and state = 'RUNNING' LIMIT 2";
-            QueryResult queryResult = query(format(findQuerySql, sql));
+            QueryResult queryResult = onTrino().executeQuery(format(findQuerySql, sql));
             checkState(queryResult.getRowsCount() < 2, "Query is executed multiple times");
             if (queryResult.getRowsCount() == 1) {
                 String queryId = (String) queryResult.row(0).get(0);

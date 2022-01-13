@@ -24,6 +24,7 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -31,9 +32,7 @@ import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.block.BlockAssertions;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
-import io.trino.execution.buffer.PageCodecMarker;
 import io.trino.execution.buffer.PagesSerde;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -57,6 +56,7 @@ import java.util.concurrent.TimeoutException;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.io.ByteStreams.toByteArray;
@@ -64,8 +64,8 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertLessThan;
+import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -117,7 +117,7 @@ public class TestExchangeClient
         DataSize maxResponseSize = DataSize.of(10, Unit.MEGABYTE);
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(maxResponseSize);
 
-        List<SerializedPage> pages = ImmutableList.of(createSerializedPage("val1"), createSerializedPage("value2"), createSerializedPage("valllue3"));
+        List<Slice> pages = ImmutableList.of(createSerializedPage(1), createSerializedPage(2), createSerializedPage(3));
 
         URI location = URI.create("http://localhost:8080");
         pages.forEach(page -> processor.addPage(location, page));
@@ -239,8 +239,8 @@ public class TestExchangeClient
         URI location2 = URI.create("http://localhost:8080/2");
         URI location3 = URI.create("http://localhost:8080/3");
 
-        processor.addPage(location1, createSerializedPage("location-1-page-1"));
-        processor.addPage(location1, createSerializedPage("location-1-page-2"));
+        processor.addPage(location1, createSerializedPage(1));
+        processor.addPage(location1, createSerializedPage(2));
 
         TestingExchangeClientBuffer buffer = new TestingExchangeClientBuffer(DataSize.of(1, Unit.MEGABYTE));
 
@@ -513,9 +513,9 @@ public class TestExchangeClient
         URI locationP1A0 = URI.create("http://localhost:8080/2");
         URI locationP0A1 = URI.create("http://localhost:8080/3");
 
-        processor.addPage(locationP1A0, createSerializedPage("location-1-page-1"));
-        processor.addPage(locationP0A1, createSerializedPage("location-2-page-1"));
-        processor.addPage(locationP0A1, createSerializedPage("location-2-page-2"));
+        processor.addPage(locationP1A0, createSerializedPage(1));
+        processor.addPage(locationP0A1, createSerializedPage(2));
+        processor.addPage(locationP0A1, createSerializedPage(3));
 
         @SuppressWarnings("resource")
         ExchangeClient exchangeClient = new ExchangeClient(
@@ -548,16 +548,17 @@ public class TestExchangeClient
         exchangeClient.noMoreLocations();
         exchangeClient.isBlocked().get(10, SECONDS);
 
-        List<String> pageValues = new ArrayList<>();
+        List<Page> pages = new ArrayList<>();
         while (!exchangeClient.isFinished()) {
-            SerializedPage page = exchangeClient.pollPage();
+            Slice page = exchangeClient.pollPage();
             if (page == null) {
                 break;
             }
-            pageValues.add(page.getSlice().toStringUtf8());
+            pages.add(PAGES_SERDE.deserialize(page));
         }
 
-        assertThat(pageValues).containsExactlyInAnyOrder("location-2-page-1", "location-2-page-2");
+        assertThat(pages).hasSize(2);
+        assertThat(pages.stream().map(Page::getPositionCount).collect(toImmutableSet())).containsAll(ImmutableList.of(2, 3));
         assertEventually(() -> assertTrue(exchangeClient.isFinished()));
 
         assertEventually(() -> {
@@ -586,9 +587,9 @@ public class TestExchangeClient
         URI location3 = URI.create("http://localhost:8080/3");
         URI location4 = URI.create("http://localhost:8080/4");
 
-        processor.addPage(location1, createSerializedPage("location-1-page-1"));
-        processor.addPage(location4, createSerializedPage("location-4-page-1"));
-        processor.addPage(location4, createSerializedPage("location-4-page-2"));
+        processor.addPage(location1, createSerializedPage(1));
+        processor.addPage(location4, createSerializedPage(2));
+        processor.addPage(location4, createSerializedPage(3));
 
         TestingExchangeClientBuffer buffer = new TestingExchangeClientBuffer(DataSize.of(1, Unit.MEGABYTE));
 
@@ -787,7 +788,7 @@ public class TestExchangeClient
 
         assertThatThrownBy(() -> getNextPage(exchangeClient))
                 .isInstanceOf(TrinoException.class)
-                .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0xf91cfe5d2bc6e1c2, calculated checksum: 0x3c51297c7b78052f");
+                .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0xdd450d930a94ddde, calculated checksum: 0x9bdc9de3ce57c972");
 
         exchangeClient.close();
     }
@@ -932,21 +933,21 @@ public class TestExchangeClient
         return new Page(BlockAssertions.createLongSequenceBlock(0, size));
     }
 
-    private static SerializedPage createSerializedPage(String value)
+    private static Slice createSerializedPage(int size)
     {
-        return new SerializedPage(utf8Slice(value), PageCodecMarker.MarkerSet.empty(), 1, value.length());
+        return PAGES_SERDE.serialize(PAGES_SERDE.newContext(), createPage(size));
     }
 
-    private static SerializedPage getNextPage(ExchangeClient exchangeClient)
+    private static Slice getNextPage(ExchangeClient exchangeClient)
     {
-        ListenableFuture<SerializedPage> futurePage = Futures.transform(exchangeClient.isBlocked(), ignored -> exchangeClient.isFinished() ? null : exchangeClient.pollPage(), directExecutor());
+        ListenableFuture<Slice> futurePage = Futures.transform(exchangeClient.isBlocked(), ignored -> exchangeClient.isFinished() ? null : exchangeClient.pollPage(), directExecutor());
         return tryGetFutureValue(futurePage, 100, TimeUnit.SECONDS).orElse(null);
     }
 
-    private static void assertPageEquals(SerializedPage actualPage, Page expectedPage)
+    private static void assertPageEquals(Slice actualPage, Page expectedPage)
     {
         assertNotNull(actualPage);
-        assertEquals(actualPage.getPositionCount(), expectedPage.getPositionCount());
+        assertEquals(getSerializedPagePositionCount(actualPage), expectedPage.getPositionCount());
         assertEquals(PAGES_SERDE.deserialize(actualPage).getChannelCount(), expectedPage.getChannelCount());
     }
 

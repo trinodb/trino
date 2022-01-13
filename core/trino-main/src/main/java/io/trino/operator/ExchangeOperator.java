@@ -14,16 +14,17 @@
 package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 import io.trino.connector.CatalogName;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.execution.buffer.SerializedPage;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.net.URI;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -124,7 +125,7 @@ public class ExchangeOperator
         checkArgument(split.getCatalogName().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
 
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
-        exchangeClient.addLocation(remoteSplit.getTaskId(), remoteSplit.getLocation());
+        exchangeClient.addLocation(remoteSplit.getTaskId(), URI.create(remoteSplit.getLocation()));
 
         return Optional::empty;
     }
@@ -181,15 +182,14 @@ public class ExchangeOperator
     @Override
     public Page getOutput()
     {
-        SerializedPage page = exchangeClient.pollPage();
+        Slice page = exchangeClient.pollPage();
         if (page == null) {
             return null;
         }
 
-        operatorContext.recordNetworkInput(page.getSizeInBytes(), page.getPositionCount());
-
         Page deserializedPage = serde.deserialize(page);
-        operatorContext.recordProcessedInput(deserializedPage.getSizeInBytes(), page.getPositionCount());
+        operatorContext.recordNetworkInput(page.length(), deserializedPage.getPositionCount());
+        operatorContext.recordProcessedInput(deserializedPage.getSizeInBytes(), deserializedPage.getPositionCount());
 
         return deserializedPage;
     }

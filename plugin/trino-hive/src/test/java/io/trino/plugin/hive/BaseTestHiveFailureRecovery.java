@@ -15,30 +15,22 @@ package io.trino.plugin.hive;
 
 import io.trino.Session;
 import io.trino.testing.AbstractTestFailureRecovery;
-import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestHiveFailureRecovery
+public abstract class BaseTestHiveFailureRecovery
         extends AbstractTestFailureRecovery
 {
     @Override
-    protected QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
-            throws Exception
+    protected boolean areWriteRetriesSupported()
     {
-        return HiveQueryRunner.builder()
-                .setInitialTables(requiredTpchTables)
-                .setCoordinatorProperties(coordinatorProperties)
-                .setExtraProperties(configProperties)
-                .build();
+        return true;
     }
 
     @Override
@@ -50,14 +42,6 @@ public class TestHiveFailureRecovery
                 partitionColumn,
                 String.join(",", columns));
         getQueryRunner().execute(sql);
-    }
-
-    @Override
-    // create table is not atomic at the moment
-    @Test(enabled = false)
-    public void testCreateTable()
-    {
-        super.testCreateTable();
     }
 
     @Override
@@ -100,8 +84,7 @@ public class TestHiveFailureRecovery
                 .hasMessageContaining("This connector does not support creating materialized views");
     }
 
-    @Test(invocationCount = INVOCATION_COUNT, enabled = false)
-    // create table is not atomic at the moment
+    @Test(invocationCount = INVOCATION_COUNT)
     public void testCreatePartitionedTable()
     {
         testTableModification(
@@ -110,8 +93,7 @@ public class TestHiveFailureRecovery
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT, enabled = false)
-    // create partition is not atomic at the moment
+    @Test(invocationCount = INVOCATION_COUNT)
     public void testInsertIntoNewPartition()
     {
         testTableModification(
@@ -129,8 +111,25 @@ public class TestHiveFailureRecovery
                 Optional.of("DROP TABLE <table>"));
     }
 
-    @Test(invocationCount = INVOCATION_COUNT, enabled = false)
-    // replace partition is not atomic at the moment
+    @Test(invocationCount = INVOCATION_COUNT)
+    public void testInsertIntoNewPartitionBucketed()
+    {
+        testTableModification(
+                Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p'], bucketed_by = ARRAY['orderkey'], bucket_count = 4) AS SELECT *, 'partition1' p FROM orders"),
+                "INSERT INTO <table> SELECT *, 'partition2' p FROM orders",
+                Optional.of("DROP TABLE <table>"));
+    }
+
+    @Test(invocationCount = INVOCATION_COUNT)
+    public void testInsertIntoExistingPartitionBucketed()
+    {
+        testTableModification(
+                Optional.of("CREATE TABLE <table> WITH (partitioned_by = ARRAY['p'], bucketed_by = ARRAY['orderkey'], bucket_count = 4) AS SELECT *, 'partition1' p FROM orders"),
+                "INSERT INTO <table> SELECT *, 'partition1' p FROM orders",
+                Optional.of("DROP TABLE <table>"));
+    }
+
+    @Test(invocationCount = INVOCATION_COUNT)
     public void testReplaceExistingPartition()
     {
         testTableModification(
@@ -143,7 +142,6 @@ public class TestHiveFailureRecovery
     }
 
     @Test(invocationCount = INVOCATION_COUNT)
-    // delete is unsupported for non ACID tables
     public void testDeletePartitionWithSubquery()
     {
         assertThatThrownBy(() -> {

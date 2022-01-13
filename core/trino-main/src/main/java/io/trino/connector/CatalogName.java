@@ -15,14 +15,18 @@ package io.trino.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
 public final class CatalogName
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(CatalogName.class).instanceSize();
+
     private static final String INFORMATION_SCHEMA_CONNECTOR_PREFIX = "$info_schema@";
     private static final String SYSTEM_TABLES_CONNECTOR_PREFIX = "$system@";
 
@@ -64,6 +68,12 @@ public final class CatalogName
     public String toString()
     {
         return catalogName;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(catalogName);
     }
 
     public static boolean isInternalSystemConnector(CatalogName catalogName)

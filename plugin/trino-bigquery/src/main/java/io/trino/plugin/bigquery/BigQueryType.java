@@ -28,6 +28,7 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
@@ -227,8 +228,7 @@ public enum BigQueryType
 
     static String numericToStringConverter(Object value)
     {
-        Slice slice = (Slice) value;
-        return Decimals.toString(slice, DEFAULT_NUMERIC_TYPE_SCALE);
+        return Decimals.toString((Int128) value, DEFAULT_NUMERIC_TYPE_SCALE);
     }
 
     static String bytesToStringConverter(Object value)
@@ -329,7 +329,7 @@ public enum BigQueryType
             if (isShortDecimal(type)) {
                 return Optional.of(format("%s '%s'", bigqueryTypeName, Decimals.toString((long) value, ((DecimalType) type).getScale())));
             }
-            return Optional.of(format("%s '%s'", bigqueryTypeName, Decimals.toString((Slice) value, ((DecimalType) type).getScale())));
+            return Optional.of(format("%s '%s'", bigqueryTypeName, Decimals.toString((Int128) value, ((DecimalType) type).getScale())));
         }
         return toStringConverter.convertToString(value);
     }

@@ -47,6 +47,7 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TypeManager;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
@@ -130,6 +131,7 @@ class TrinoHiveCatalog
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
     private final boolean isUsingSystemSecurity;
+    private final boolean deleteSchemaLocationsFallback;
 
     private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
     private final ViewReaderUtil.PrestoViewReader viewReader = new ViewReaderUtil.PrestoViewReader();
@@ -142,7 +144,8 @@ class TrinoHiveCatalog
             IcebergTableOperationsProvider tableOperationsProvider,
             String trinoVersion,
             boolean useUniqueTableLocation,
-            boolean isUsingSystemSecurity)
+            boolean isUsingSystemSecurity,
+            boolean deleteSchemaLocationsFallback)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -152,6 +155,7 @@ class TrinoHiveCatalog
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
         this.isUsingSystemSecurity = isUsingSystemSecurity;
+        this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
     }
 
     @Override
@@ -215,7 +219,27 @@ class TrinoHiveCatalog
                 !listViews(session, Optional.of(namespace)).isEmpty()) {
             throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + namespace);
         }
-        metastore.dropDatabase(new HiveIdentity(session), namespace);
+
+        Optional<Path> location = metastore.getDatabase(namespace)
+                .orElseThrow(() -> new SchemaNotFoundException(namespace))
+                .getLocation()
+                .map(Path::new);
+
+        // If we see files in the schema location, don't delete it.
+        // If we see no files, request deletion.
+        // If we fail to check the schema location, behave according to fallback.
+        boolean deleteData = location.map(path -> {
+            HdfsContext context = new HdfsContext(session);
+            try (FileSystem fs = hdfsEnvironment.getFileSystem(context, path)) {
+                return !fs.listLocatedStatus(path).hasNext();
+            }
+            catch (IOException e) {
+                log.warn(e, "Could not check schema directory '%s'", path);
+                return deleteSchemaLocationsFallback;
+            }
+        }).orElse(deleteSchemaLocationsFallback);
+
+        metastore.dropDatabase(new HiveIdentity(session), namespace, deleteData);
         return true;
     }
 

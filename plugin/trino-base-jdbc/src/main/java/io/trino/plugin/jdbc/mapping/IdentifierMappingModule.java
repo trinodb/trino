@@ -37,6 +37,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.inject.Scopes.SINGLETON;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static java.lang.annotation.ElementType.FIELD;
@@ -57,6 +58,9 @@ public final class IdentifierMappingModule
         binder.bind(DefaultIdentifierMapping.class).in(SINGLETON);
 
         MappingConfig config = buildConfigObject(MappingConfig.class);
+        // CachingIdentifierMapping instance is bind only when case insensitive name matching is enabled.
+        // As it's required for cache flush procedure we provide Optional binding by default.
+        newOptionalBinder(binder, CachingIdentifierMapping.class);
         if (config.isCaseInsensitiveNameMatching()) {
             Provider<JdbcClient> baseJdbcClientProvider = binder.getProvider(Key.get(JdbcClient.class, ForBaseJdbc.class));
             binder.bind(BaseJdbcClient.class).toProvider(() -> (BaseJdbcClient) baseJdbcClientProvider.get());
@@ -68,6 +72,7 @@ public final class IdentifierMappingModule
                     .annotatedWith(ForRuleBasedIdentifierMapping.class)
                     .to(CachingIdentifierMapping.class)
                     .in(SINGLETON);
+            binder.bind(CachingIdentifierMapping.class).in(SINGLETON);
         }
         else {
             binder.bind(IdentifierMapping.class)

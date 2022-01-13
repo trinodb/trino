@@ -61,6 +61,8 @@ creates a catalog named ``sales`` using the configured connector.
 
 .. include:: jdbc-common-configurations.fragment
 
+.. include:: jdbc-procedures.fragment
+
 .. include:: jdbc-case-insensitive-matching.fragment
 
 .. include:: non-transactional-insert.fragment

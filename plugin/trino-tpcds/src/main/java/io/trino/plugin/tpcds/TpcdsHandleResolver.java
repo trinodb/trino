@@ -18,7 +18,6 @@ import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
 public class TpcdsHandleResolver
@@ -28,12 +27,6 @@ public class TpcdsHandleResolver
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return TpcdsTableHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        return TpcdsTableLayoutHandle.class;
     }
 
     @Override

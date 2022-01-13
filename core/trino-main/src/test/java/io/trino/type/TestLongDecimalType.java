@@ -13,22 +13,16 @@
  */
 package io.trino.type;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.SqlDecimal;
-import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 
-import static io.trino.spi.type.Decimals.encodeScaledValue;
-import static io.trino.spi.type.Decimals.encodeUnscaledValue;
 import static io.trino.spi.type.Decimals.writeBigDecimal;
-import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
-import static org.testng.Assert.assertEquals;
 
 public class TestLongDecimalType
         extends AbstractTestType
@@ -38,16 +32,6 @@ public class TestLongDecimalType
     public TestLongDecimalType()
     {
         super(LONG_DECIMAL_TYPE, SqlDecimal.class, createTestBlock());
-    }
-
-    @Test
-    public void testUnscaledValueToSlice()
-    {
-        assertEquals(encodeUnscaledValue(0L), encodeUnscaledValue(BigInteger.valueOf(0L)));
-        assertEquals(encodeUnscaledValue(1L), encodeUnscaledValue(BigInteger.valueOf(1L)));
-        assertEquals(encodeUnscaledValue(-1L), encodeUnscaledValue(BigInteger.valueOf(-1L)));
-        assertEquals(encodeUnscaledValue(Long.MAX_VALUE), encodeUnscaledValue(BigInteger.valueOf(Long.MAX_VALUE)));
-        assertEquals(encodeUnscaledValue(Long.MIN_VALUE), encodeUnscaledValue(BigInteger.valueOf(Long.MIN_VALUE)));
     }
 
     public static Block createTestBlock()
@@ -70,20 +54,19 @@ public class TestLongDecimalType
     @Override
     protected Object getNonNullValue()
     {
-        return Slices.wrappedBuffer(new byte[16]);
+        return Int128.ZERO;
     }
 
     @Override
     protected Object getGreaterValue(Object value)
     {
-        Slice slice = (Slice) value;
-        BigDecimal decimal = toBigDecimal(slice, 10);
+        BigDecimal decimal = toBigDecimal((Int128) value, 10);
         BigDecimal greaterDecimal = decimal.add(BigDecimal.ONE);
-        return encodeScaledValue(greaterDecimal);
+        return Decimals.valueOf(greaterDecimal);
     }
 
-    private static BigDecimal toBigDecimal(Slice valueSlice, int scale)
+    private static BigDecimal toBigDecimal(Int128 value, int scale)
     {
-        return new BigDecimal(unscaledDecimalToBigInteger(valueSlice), scale);
+        return new BigDecimal(value.toBigInteger(), scale);
     }
 }

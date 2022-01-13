@@ -65,6 +65,8 @@ Property Name                                      Required   Description
 
 .. include:: jdbc-common-configurations.fragment
 
+.. include:: jdbc-procedures.fragment
+
 .. include:: jdbc-case-insensitive-matching.fragment
 
 .. include:: non-transactional-insert.fragment
@@ -106,19 +108,28 @@ The data type mappings are as follows:
 Phoenix                      Trino
 ==========================   ============
 ``BOOLEAN``                  (same)
-``BIGINT``                   (same)
-``INTEGER``                  (same)
-``SMALLINT``                 (same)
 ``TINYINT``                  (same)
-``DOUBLE``                   (same)
+``UNSIGNED_TINYINT``         ``TINYINT``
+``SMALLINT``                 (same)
+``UNSIGNED_SMALLINT``        ``SMALLINT``
+``INTEGER``                  (same)
+``UNSIGNED_INTEGER``         ``INTEGER``
+``BIGINT``                   (same)
+``UNSIGNED_LONG``            ``BIGINT``
 ``FLOAT``                    ``REAL``
+``UNSIGNED_FLOAT``           ``FLOAT``
+``DOUBLE``                   (same)
+``UNSIGNED_DOUBLE``          ``DOUBLE``
 ``DECIMAL``                  (same)
 ``BINARY``                   ``VARBINARY``
 ``VARBINARY``                (same)
-``DATE``                     (same)
 ``TIME``                     (same)
-``VARCHAR``                  (same)
+``UNSIGNED_TIME``            ``TIME``
+``DATE``                     (same)
+``UNSIGNED_DATE``            ``DATE``
 ``CHAR``                     (same)
+``VARCHAR``                  (same)
+``ARRAY``                    (same)
 ==========================   ============
 
 The Phoenix fixed length ``BINARY`` data type is mapped to the Trino

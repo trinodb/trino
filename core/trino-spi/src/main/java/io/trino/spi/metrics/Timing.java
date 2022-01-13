@@ -11,16 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.scheduler;
+package io.trino.spi.metrics;
 
-import java.util.Collection;
+import java.time.Duration;
 
-public class PhasedExecutionPolicy
-        implements ExecutionPolicy
+public interface Timing<T>
+        extends Metric<T>
 {
-    @Override
-    public ExecutionSchedule createExecutionSchedule(Collection<PipelinedStageExecution> stages)
-    {
-        return new PhasedExecutionSchedule(stages);
-    }
+    Duration getDuration();
 }

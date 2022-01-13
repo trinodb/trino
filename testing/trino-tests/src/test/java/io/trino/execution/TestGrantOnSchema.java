@@ -128,9 +128,9 @@ public class TestGrantOnSchema
     public void testAccessDenied(String privilege)
     {
         assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("GRANT %s ON SCHEMA default TO %s", privilege, randomUsername())))
-                .hasMessageContaining(format(
+                .hasMessageContaining(
                         "Access Denied: Cannot grant privilege %s on schema default",
-                        privilege.equals("ALL PRIVILEGES") ? "CREATE" : privilege));
+                        privilege.equals("ALL PRIVILEGES") ? "CREATE" : privilege);
     }
 
     @DataProvider(name = "privileges")
