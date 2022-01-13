@@ -33,6 +33,7 @@ import io.trino.spi.session.ResourceEstimates;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
+import okhttp3.mockwebserver.SocketPolicy;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -371,7 +372,7 @@ public class TestHttpQueryListener
     }
 
     @Test
-    public void testServer400ShouldNotRetry()
+    public void testServer400ShouldRetry()
             throws Exception
     {
         EventListener querylogListener = factory.create(new HashMap<>(){{
@@ -386,7 +387,26 @@ public class TestHttpQueryListener
         querylogListener.queryCompleted(queryCompleteEvent);
 
         assertNotNull(server.takeRequest(1, TimeUnit.SECONDS)); // First request, send back 400
-        assertNull(server.takeRequest(1, TimeUnit.SECONDS)); // No more retries
+        checkRequest(server.takeRequest(1, TimeUnit.SECONDS), queryCompleteEvent); // The retry that responds with 200
+    }
+
+    @Test
+    public void testServerDisconnectShouldRetry()
+            throws Exception
+    {
+        EventListener querylogListener = factory.create(new HashMap<>(){{
+                put("http-event-listener.connect-ingest-uri", server.url("/").toString());
+                put("http-event-listener.log-completed", "true");
+                put("http-event-listener.connect-retry-count", "1");
+            }});
+
+        server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START));
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        querylogListener.queryCompleted(queryCompleteEvent);
+
+        assertNotNull(server.takeRequest(5, TimeUnit.SECONDS)); // First request, causes exception
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEvent);
     }
 
     @Test
