@@ -164,6 +164,10 @@ public class HttpEventListener
 
     private Duration nextDelay(Duration delay)
     {
+        if (delay.compareTo(Duration.valueOf("0s")) == 0) {
+            return config.getRetryDelay();
+        }
+
         Duration newDuration = Duration.succinctDuration(delay.getValue(TimeUnit.SECONDS) * this.config.getBackoffBase(), TimeUnit.SECONDS);
         if (newDuration.compareTo(config.getMaxDelay()) > 0) {
             return config.getMaxDelay();
