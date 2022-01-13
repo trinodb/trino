@@ -2761,7 +2761,7 @@ public abstract class BaseIcebergConnectorTest
     public Object[][] repartitioningDataProvider()
     {
         Session defaultSession = getSession();
-        // For identity-only partitioning, Iceberg connector returns ConnectorNewTableLayout with partitionColumns set, but without partitioning.
+        // For identity-only partitioning, Iceberg connector returns ConnectorTableLayout with partitionColumns set, but without partitioning.
         // This is treated by engine as "preferred", but not mandatory partitioning, and gets ignored if stats suggest number of partitions
         // written is low. Without partitioning, number of files created is nondeterministic, as a writer (worker node) may or may not receive data.
         Session obeyConnectorPartitioning = Session.builder(defaultSession)

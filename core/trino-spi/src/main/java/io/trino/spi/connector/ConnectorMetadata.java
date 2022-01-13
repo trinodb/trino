@@ -124,7 +124,7 @@ public interface ConnectorMetadata
         return getTableHandleForExecute(session, tableHandle, procedureName, executeProperties);
     }
 
-    default Optional<ConnectorNewTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    default Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
         return Optional.empty();
     }
@@ -395,7 +395,7 @@ public interface ConnectorMetadata
     /**
      * Get the physical layout for a new table.
      */
-    default Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    default Optional<ConnectorTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         return Optional.empty();
     }
@@ -403,7 +403,7 @@ public interface ConnectorMetadata
     /**
      * Get the physical layout for inserting into an existing table.
      */
-    default Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    default Optional<ConnectorTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ConnectorTableProperties properties = getTableProperties(session, tableHandle);
         return properties.getTablePartitioning()
@@ -414,7 +414,7 @@ public interface ConnectorMetadata
                             .map(columnNamesByHandle::get)
                             .collect(toUnmodifiableList());
 
-                    return new ConnectorNewTableLayout(partitioning.getPartitioningHandle(), partitionColumns);
+                    return new ConnectorTableLayout(partitioning.getPartitioningHandle(), partitionColumns);
                 });
     }
 
@@ -456,7 +456,7 @@ public interface ConnectorMetadata
      * @deprecated Use {@link #beginCreateTable(ConnectorSession, ConnectorTableMetadata, Optional, RetryMode)}
      */
     @Deprecated
-    default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
     }
@@ -464,7 +464,7 @@ public interface ConnectorMetadata
     /**
      * Begin the atomic creation of a table with data.
      */
-    default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout, RetryMode retryMode)
+    default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
         if (retryMode != RetryMode.NO_RETRIES) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");

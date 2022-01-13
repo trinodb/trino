@@ -65,13 +65,13 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
-import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTablePartitioning;
 import io.trino.spi.connector.ConnectorTableProperties;
@@ -1306,7 +1306,7 @@ public class HiveMetadata
     }
 
     @Override
-    public HiveOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout, RetryMode retryMode)
+    public HiveOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
         Optional<Path> externalLocation = Optional.ofNullable(getExternalLocation(tableMetadata.getProperties()))
                 .map(HiveMetadata::getExternalLocationAsPath);
@@ -2908,7 +2908,7 @@ public class HiveMetadata
     }
 
     @Override
-    public Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Optional<ConnectorTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
@@ -2937,7 +2937,7 @@ public class HiveMetadata
                 return Optional.empty();
             }
 
-            return Optional.of(new ConnectorNewTableLayout(
+            return Optional.of(new ConnectorTableLayout(
                     partitionColumns.stream()
                             .map(Column::getName)
                             .collect(toImmutableList())));
@@ -2964,11 +2964,11 @@ public class HiveMetadata
                         .collect(toImmutableList()),
                 OptionalInt.of(hiveBucketHandle.get().getTableBucketCount()),
                 !partitionColumns.isEmpty() && isParallelPartitionedBucketedWrites(session));
-        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitioningColumns.build()));
+        return Optional.of(new ConnectorTableLayout(partitioningHandle, partitioningColumns.build()));
     }
 
     @Override
-    public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public Optional<ConnectorTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         validateTimestampColumns(tableMetadata.getColumns(), getTimestampPrecision(session));
         validatePartitionColumns(tableMetadata);
@@ -2982,7 +2982,7 @@ public class HiveMetadata
                 return Optional.empty();
             }
 
-            return Optional.of(new ConnectorNewTableLayout(partitionedBy));
+            return Optional.of(new ConnectorTableLayout(partitionedBy));
         }
         if (!bucketProperty.get().getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
             throw new TrinoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
@@ -2991,7 +2991,7 @@ public class HiveMetadata
         List<String> bucketedBy = bucketProperty.get().getBucketedBy();
         Map<String, HiveType> hiveTypeMap = tableMetadata.getColumns().stream()
                 .collect(toMap(ColumnMetadata::getName, column -> toHiveType(column.getType())));
-        return Optional.of(new ConnectorNewTableLayout(
+        return Optional.of(new ConnectorTableLayout(
                 new HivePartitioningHandle(
                         bucketProperty.get().getBucketingVersion(),
                         bucketProperty.get().getBucketCount(),
