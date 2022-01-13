@@ -17,4 +17,4 @@ if ! test -x "${launcher_jar[0]}"; then
     exit 3
 fi
 
-exec java $launcher_opts -jar "${launcher_jar[0]}" "$@"
+exec java $launcher_opts "-javaagent:${target}/org.jacoco.agent-0.8.6-runtime.jar=destfile=${target}/trino-jacoco/launcher/jacoco.exec,includes=io.trino.*" -jar "${launcher_jar[0]}" "$@"
