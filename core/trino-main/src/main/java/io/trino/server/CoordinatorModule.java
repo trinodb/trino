@@ -60,8 +60,10 @@ import io.trino.execution.TaskStatus;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
+import io.trino.execution.scheduler.ConstantPartitionMemoryEstimator;
 import io.trino.execution.scheduler.FixedCountNodeAllocatorService;
 import io.trino.execution.scheduler.NodeAllocatorService;
+import io.trino.execution.scheduler.PartitionMemoryEstimator;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.StageTaskSourceFactory;
 import io.trino.execution.scheduler.TaskDescriptorStorage;
@@ -213,6 +215,7 @@ public class CoordinatorModule
 
         // node allocator
         binder.bind(NodeAllocatorService.class).to(FixedCountNodeAllocatorService.class).in(Scopes.SINGLETON);
+        binder.bind(PartitionMemoryEstimator.class).to(ConstantPartitionMemoryEstimator.class).in(Scopes.SINGLETON);
 
         // node monitor
         binder.bind(ClusterSizeMonitor.class).in(Scopes.SINGLETON);

@@ -509,6 +509,7 @@ public class TestFaultTolerantStageScheduler
                 taskSourceFactory,
                 nodeAllocator,
                 taskDescriptorStorage,
+                new ConstantPartitionMemoryEstimator(),
                 taskLifecycleListener,
                 sinkExchange,
                 Optional.empty(),
