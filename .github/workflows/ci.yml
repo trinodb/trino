@@ -139,13 +139,14 @@ jobs:
       - name: Upload test report
         uses: actions/upload-artifact@v2
         # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
+        # but only the single XML file and some logs to keep the artifact small
         if: always()
         with:
           # Name prefix is checked in the `Annotate checks` workflow
           name: test report ${{ github.job }}
           path: |
             **/surefire-reports/TEST-*.xml
+            /tmp/test-trino-*.log
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
 
   hive-tests:
@@ -260,13 +261,14 @@ jobs:
       - name: Upload test report
         uses: actions/upload-artifact@v2
         # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
+        # but only the single XML file and some logs to keep the artifact small
         if: always()
         with:
           # Name prefix is checked in the `Annotate checks` workflow
           name: test report ${{ github.job }} (${{ matrix.config }})
           path: |
             **/surefire-reports/TEST-*.xml
+            /tmp/test-trino-*.log
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
 
   test-other-modules:
@@ -318,13 +320,14 @@ jobs:
       - name: Upload test report
         uses: actions/upload-artifact@v2
         # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
+        # but only the single XML file and some logs to keep the artifact small
         if: always()
         with:
           # Name prefix is checked in the `Annotate checks` workflow
           name: test report ${{ github.job }}
           path: |
             **/surefire-reports/TEST-*.xml
+            /tmp/test-trino-*.log
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
 
   test:
@@ -387,13 +390,14 @@ jobs:
       - name: Upload test report
         uses: actions/upload-artifact@v2
         # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
+        # but only the single XML file and some logs to keep the artifact small
         if: always()
         with:
           # Name prefix is checked in the `Annotate checks` workflow
           name: test report ${{ github.job }} (${{ env.ARTIFACT_NAME }})
           path: |
             **/surefire-reports/TEST-*.xml
+            /tmp/test-trino-*.log
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
 
   test-memsql:
@@ -435,13 +439,14 @@ jobs:
       - name: Upload test report
         uses: actions/upload-artifact@v2
         # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
+        # but only the single XML file and some logs to keep the artifact small
         if: always()
         with:
           # Name prefix is checked in the `Annotate checks` workflow
           name: test report ${{ github.job }}
           path: |
             **/surefire-reports/TEST-*.xml
+            /tmp/test-trino-*.log
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
 
   test-bigquery:
@@ -489,13 +494,14 @@ jobs:
       - name: Upload test report
         uses: actions/upload-artifact@v2
         # Always upload the test report for the annotate.yml workflow,
-        # but only the single XML file to keep the artifact small
+        # but only the single XML file and some logs to keep the artifact small
         if: always()
         with:
           # Name prefix is checked in the `Annotate checks` workflow
           name: test report ${{ github.job }}
           path: |
             **/surefire-reports/TEST-*.xml
+            /tmp/test-trino-*.log
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
 
   pt:

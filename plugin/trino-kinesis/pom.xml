@@ -184,7 +184,7 @@
                         <exclude>**/TestMinimalFunctionality.java</exclude>
                         <exclude>**/TestS3TableConfigClient.java</exclude>
                     </excludes>
-                    <systemPropertyVariables>
+                    <systemPropertyVariables combine.children="append">
                         <kinesis.awsAccessKey>ACCESS-KEY</kinesis.awsAccessKey>
                         <kinesis.awsSecretKey>SECRET-KEY</kinesis.awsSecretKey>
                         <kinesis.test-table-description-location>s3://S3-LOC</kinesis.test-table-description-location>

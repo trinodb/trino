@@ -96,7 +96,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <systemPropertyVariables>
+                    <systemPropertyVariables combine.children="append">
                         <io.trino.testng.services.FlakyTestRetryAnalyzer.enabled>true</io.trino.testng.services.FlakyTestRetryAnalyzer.enabled>
                     </systemPropertyVariables>
                 </configuration>

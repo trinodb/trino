@@ -1792,6 +1792,9 @@
                         <exclude>**/*jmhTest*.java</exclude>
                         <exclude>**/*jmhType*.java</exclude>
                     </excludes>
+                    <systemPropertyVariables>
+                        <java.util.logging.config.file>src/test/resources/logging.properties</java.util.logging.config.file>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>
