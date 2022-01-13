@@ -32,7 +32,6 @@ import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.FunctionKind;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
@@ -40,6 +39,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
@@ -487,7 +487,7 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             // analyze target table layout, table columns should contain all partition columns
-            Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle.get());
+            Optional<TableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle.get());
             newTableLayout.ifPresent(layout -> {
                 if (!ImmutableSet.copyOf(tableColumns).containsAll(layout.getPartitionColumns())) {
                     throw new TrinoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
@@ -851,14 +851,14 @@ class StatementAnalyzer
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
 
             // analyze target table layout
-            Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, targetTable.getCatalogName(), tableMetadata);
+            Optional<TableLayout> newTableLayout = metadata.getNewTableLayout(session, targetTable.getCatalogName(), tableMetadata);
 
             Set<String> columnNames = columns.build().stream()
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableSet());
 
             if (newTableLayout.isPresent()) {
-                NewTableLayout layout = newTableLayout.get();
+                TableLayout layout = newTableLayout.get();
                 if (!columnNames.containsAll(layout.getPartitionColumns())) {
                     if (layout.getLayout().getPartitioning().isPresent()) {
                         throw new TrinoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());

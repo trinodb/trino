@@ -39,12 +39,12 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTablePartitioning;
 import io.trino.spi.connector.ConnectorTableProperties;
@@ -349,7 +349,7 @@ public class RaptorMetadata
     }
 
     @Override
-    public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata metadata)
+    public Optional<ConnectorTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata metadata)
     {
         ImmutableMap.Builder<String, RaptorColumnHandle> map = ImmutableMap.builder();
         long columnId = 1;
@@ -368,7 +368,7 @@ public class RaptorMetadata
                 .collect(toList());
 
         ConnectorPartitioningHandle partitioning = getPartitioningHandle(distribution.get().getDistributionId());
-        return Optional.of(new ConnectorNewTableLayout(partitioning, partitionColumns));
+        return Optional.of(new ConnectorTableLayout(partitioning, partitionColumns));
     }
 
     private RaptorPartitioningHandle getPartitioningHandle(long distributionId)
@@ -444,7 +444,7 @@ public class RaptorMetadata
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
+        Optional<ConnectorTableLayout> layout = getNewTableLayout(session, tableMetadata);
         finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
     }
 
@@ -535,14 +535,14 @@ public class RaptorMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout)
     {
         if (viewExists(session, tableMetadata.getTable())) {
             throw new TrinoException(ALREADY_EXISTS, "View already exists: " + tableMetadata.getTable());
         }
 
         Optional<RaptorPartitioningHandle> partitioning = layout
-                .map(ConnectorNewTableLayout::getPartitioning)
+                .map(ConnectorTableLayout::getPartitioning)
                 .map(Optional::get)
                 .map(RaptorPartitioningHandle.class::cast);
 

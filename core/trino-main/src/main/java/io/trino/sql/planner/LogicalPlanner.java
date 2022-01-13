@@ -26,11 +26,11 @@ import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
@@ -374,7 +374,7 @@ public class LogicalPlanner
 
         ConnectorTableMetadata tableMetadata = create.getMetadata().orElseThrow();
 
-        Optional<NewTableLayout> newTableLayout = create.getLayout();
+        Optional<TableLayout> newTableLayout = create.getLayout();
 
         List<String> columnNames = tableMetadata.getColumns().stream()
                 .filter(column -> !column.isHidden()) // todo this filter is redundant
@@ -400,7 +400,7 @@ public class LogicalPlanner
             Query query,
             TableHandle tableHandle,
             List<ColumnHandle> insertColumns,
-            Optional<NewTableLayout> newTableLayout,
+            Optional<TableLayout> newTableLayout,
             Optional<WriterTarget> materializedViewRefreshWriterTarget)
     {
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
@@ -529,7 +529,7 @@ public class LogicalPlanner
         Analysis.Insert insert = analysis.getInsert().orElseThrow();
         TableHandle tableHandle = insert.getTarget();
         Query query = insertStatement.getQuery();
-        Optional<NewTableLayout> newTableLayout = insert.getNewTableLayout();
+        Optional<TableLayout> newTableLayout = insert.getNewTableLayout();
         return getInsertPlan(analysis, insert.getTable(), query, tableHandle, insert.getColumns(), newTableLayout, Optional.empty());
     }
 
@@ -548,7 +548,7 @@ public class LogicalPlanner
         Analysis.RefreshMaterializedViewAnalysis viewAnalysis = analysis.getRefreshMaterializedView().get();
         TableHandle tableHandle = viewAnalysis.getTarget();
         Query query = viewAnalysis.getQuery();
-        Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, viewAnalysis.getTarget());
+        Optional<TableLayout> newTableLayout = metadata.getInsertLayout(session, viewAnalysis.getTarget());
         TableWriterNode.RefreshMaterializedViewReference writerTarget = new TableWriterNode.RefreshMaterializedViewReference(
                 viewAnalysis.getTable(),
                 tableHandle,
@@ -563,7 +563,7 @@ public class LogicalPlanner
             WriterTarget target,
             List<String> columnNames,
             List<ColumnMetadata> columnMetadataList,
-            Optional<NewTableLayout> writeTableLayout,
+            Optional<TableLayout> writeTableLayout,
             TableStatisticsMetadata statisticsMetadata)
     {
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
@@ -833,7 +833,7 @@ public class LogicalPlanner
 
         TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(executeHandle, Optional.empty(), tableName.asSchemaTableName());
 
-        Optional<NewTableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
+        Optional<TableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
 
         List<Symbol> symbols = visibleFields(tableScanPlan);
 

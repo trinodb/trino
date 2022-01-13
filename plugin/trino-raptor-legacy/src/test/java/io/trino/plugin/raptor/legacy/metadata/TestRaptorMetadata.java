@@ -29,10 +29,10 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
-import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
@@ -379,7 +379,7 @@ public class TestRaptorMetadata
                 BUCKET_COUNT_PROPERTY, 32,
                 BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey", "custkey")));
 
-        ConnectorNewTableLayout layout = metadata.getNewTableLayout(SESSION, ordersTable).get();
+        ConnectorTableLayout layout = metadata.getNewTableLayout(SESSION, ordersTable).get();
         assertEquals(layout.getPartitionColumns(), ImmutableList.of("orderkey", "custkey"));
         assertTrue(layout.getPartitioning().isPresent());
         assertInstanceOf(layout.getPartitioning().get(), RaptorPartitioningHandle.class);
