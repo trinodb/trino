@@ -55,6 +55,8 @@ import static io.trino.tests.product.launcher.env.DockerContainer.cleanOrCreateH
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
+import static io.trino.tests.product.launcher.env.common.Standard.JACOCO_AGENT;
+import static io.trino.tests.product.launcher.env.common.Standard.JACOCO_LOGS_LOCATION;
 import static io.trino.tests.product.launcher.testcontainers.PortBinder.unsafelyExposePort;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
@@ -62,6 +64,7 @@ import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
 
@@ -263,11 +266,11 @@ public final class TestRun
 
             builder.configureContainer(TESTS, this::mountReportsDir);
             builder.configureContainer(TESTS, container -> {
-                List<String> temptoJavaOptions = Splitter.on(" ").omitEmptyStrings().splitToList(
-                        container.getEnvMap().getOrDefault("TEMPTO_JAVA_OPTS", ""));
+                List<String> temptoJavaOptions = new ArrayList<>(Splitter.on(" ").omitEmptyStrings().splitToList(
+                        container.getEnvMap().getOrDefault("TEMPTO_JAVA_OPTS", "")));
+                temptoJavaOptions.add(format("-javaagent:/docker/jacoco-agent.jar=destfile=/var/trino/var/jacoco/jacoco.exec,includes=io.trino.*"));
 
                 if (debug) {
-                    temptoJavaOptions = new ArrayList<>(temptoJavaOptions);
                     temptoJavaOptions.add(format("-agentlib:jdwp=transport=dt_socket,server=y,suspend=%s,address=0.0.0.0:5007", debugSuspend ? "y" : "n"));
                     unsafelyExposePort(container, 5007); // debug port
                 }
@@ -276,10 +279,14 @@ public final class TestRun
                     container.withEnv("CONTINUOUS_INTEGRATION", "true");
                 }
 
+                File jfrDir = new File(JACOCO_LOGS_LOCATION, TESTS);
+                jfrDir.mkdirs();
                 container
                         // the test jar is hundreds MB and file system bind is much more efficient
                         .withFileSystemBind(testJar.getPath(), "/docker/test.jar", READ_ONLY)
                         .withFileSystemBind(cliJar.getPath(), "/docker/trino-cli", READ_ONLY)
+                        .withFileSystemBind(JACOCO_LOGS_LOCATION + "/" + TESTS, "/var/trino/var/jacoco", READ_WRITE)
+                        .withCopyFileToContainer(forHostPath(JACOCO_AGENT.getAbsolutePath()), "/docker/jacoco-agent.jar")
                         .withCopyFileToContainer(forClasspathResource("docker/presto-product-tests/common/standard/set-trino-cli.sh"), "/etc/profile.d/set-trino-cli.sh")
                         .withEnv("JAVA_HOME", jdkVersion.getJavaHome())
                         .withCommand(ImmutableList.<String>builder()
