@@ -146,7 +146,7 @@ public class TestRowFilter
                     }
                     throw new UnsupportedOperationException();
                 })
-                .withallowMissingColumnsOnInsert(true)
+                .withAllowMissingColumnsOnInsert(true)
                 .build();
 
         runnerMissingColumns.createCatalog(MOCK_CATALOG_MISSING_COLUMNS, mockMissingColumns, ImmutableMap.of());

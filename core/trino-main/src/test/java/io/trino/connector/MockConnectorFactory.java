@@ -475,7 +475,7 @@ public class MockConnectorFactory
             return this;
         }
 
-        public Builder withallowMissingColumnsOnInsert(boolean allowMissingColumnsOnInsert)
+        public Builder withAllowMissingColumnsOnInsert(boolean allowMissingColumnsOnInsert)
         {
             this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
             return this;
