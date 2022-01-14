@@ -183,7 +183,7 @@ public class StatisticsFetcher
 
     public static class Stats
     {
-        public static final String[] HEADER = {
+        public static final List<String> HEADER = List.of(
                 "container",
                 "cpu",
                 "mem",
@@ -191,8 +191,7 @@ public class StatisticsFetcher
                 "mem %",
                 "pids",
                 "net in",
-                "net out"
-        };
+                "net out");
 
         private long systemCpuUsage = -1;
         private long totalCpuUsage = -1;

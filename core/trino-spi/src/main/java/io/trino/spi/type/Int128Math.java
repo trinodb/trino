@@ -31,7 +31,7 @@ public final class Int128Math
     private static final int NUMBER_OF_LONGS = 2;
     private static final int NUMBER_OF_INTS = 2 * NUMBER_OF_LONGS;
 
-    public static final Int128[] POWERS_OF_TEN = new Int128[38]; // 10^38 is the largest value < Int128.MAX_VALUE
+    private static final Int128[] POWERS_OF_TEN = new Int128[38]; // 10^38 is the largest value < Int128.MAX_VALUE
     private static final Int128[] POWERS_OF_FIVE = new Int128[54]; // 5^54 is the largest value < Int128.MAX_VALUE
 
     private static final long ALL_BITS_SET_64 = 0xFFFFFFFFFFFFFFFFL;
@@ -96,6 +96,11 @@ public final class Int128Math
         if (!ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN)) {
             throw new IllegalStateException("UnsignedDecimal128Arithmetic is supported on little-endian machines only");
         }
+    }
+
+    public static Int128 powerOfTen(int exponent)
+    {
+        return POWERS_OF_TEN[exponent];
     }
 
     public static void rescale(long high, long low, int factor, long[] result, int offset)
