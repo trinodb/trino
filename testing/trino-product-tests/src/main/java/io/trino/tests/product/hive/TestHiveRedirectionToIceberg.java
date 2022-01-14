@@ -230,9 +230,9 @@ public class TestHiveRedirectionToIceberg
         String icebergTableName = "iceberg.default." + tableName;
 
         createIcebergTable(icebergTableName, false);
-        onTrino().executeQuery("DROP TABLE " + hiveTableName);
-        assertQueryFailure(() -> onTrino().executeQuery("TABLE " + icebergTableName))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table '" + icebergTableName + "' does not exist");
+        //TODO restore test assertions after adding redirection awareness to the DropTableTask
+        assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + hiveTableName))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Cannot query Iceberg table 'default." + tableName + "'");
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
@@ -305,18 +305,11 @@ public class TestHiveRedirectionToIceberg
 
         createIcebergTable(icebergTableName, false);
 
-        onTrino().executeQuery("ALTER TABLE " + hiveTableName + " RENAME TO " + tableName + "_new");
+        //TODO restore test assertions after adding redirection awareness to the RenameTableTask
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + hiveTableName + " RENAME TO " + tableName + "_new"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Cannot query Iceberg table 'default." + tableName + "'");
 
-        assertQueryFailure(() -> onTrino().executeQuery("TABLE " + hiveTableName))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table '" + hiveTableName + "' does not exist");
-        assertQueryFailure(() -> onTrino().executeQuery("TABLE " + icebergTableName))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Table '" + icebergTableName + "' does not exist");
-
-        assertResultsEqual(
-                onTrino().executeQuery("TABLE " + icebergTableName + "_new"),
-                onTrino().executeQuery("TABLE " + hiveTableName + "_new"));
-
-        onTrino().executeQuery("DROP TABLE " + icebergTableName + "_new");
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
@@ -328,15 +321,9 @@ public class TestHiveRedirectionToIceberg
 
         createIcebergTable(icebergTableName, false);
 
-        onTrino().executeQuery("ALTER TABLE " + hiveTableName + " ADD COLUMN some_new_column double");
-
-        // TODO: ALTER TABLE succeeded, but new column was not added
-        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
-                .containsOnly("nationkey", "name", "regionkey", "comment");
-
-        assertResultsEqual(
-                onTrino().executeQuery("TABLE " + icebergTableName),
-                onTrino().executeQuery("SELECT * /*, NULL*/ FROM tpch.tiny.nation"));
+        //TODO restore test assertions after adding redirection awareness to the AddColumnTask
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + hiveTableName + " ADD COLUMN some_new_column double"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Cannot query Iceberg table 'default." + tableName + "'");
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }
@@ -353,11 +340,9 @@ public class TestHiveRedirectionToIceberg
         assertTableComment("hive", "default", tableName).isNull();
         assertTableComment("iceberg", "default", tableName).isNull();
 
-        onTrino().executeQuery("COMMENT ON TABLE " + hiveTableName + " IS 'This is my table, there are many like it but this one is mine'");
-
-        // TODO: COMMENT ON TABLE succeeded, but comment was not preserved
-        assertTableComment("hive", "default", tableName).isNull();
-        assertTableComment("iceberg", "default", tableName).isNull();
+        //TODO restore test assertions after adding redirection awareness to the CommentTask
+        assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON TABLE " + hiveTableName + " IS 'This is my table, there are many like it but this one is mine'"))
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Cannot query Iceberg table 'default." + tableName + "'");
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }

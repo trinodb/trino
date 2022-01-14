@@ -17,12 +17,12 @@ import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static java.lang.String.format;
 
 public class TestIcebergHiveTablesCompatibility
         extends ProductTest
@@ -49,15 +49,13 @@ public class TestIcebergHiveTablesCompatibility
         onTrino().executeQuery("CREATE TABLE iceberg.default." + tableName + "(a bigint)");
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hive.default." + tableName))
-                // TODO (https://github.com/trinodb/trino/issues/8693) throw specific exception message
-                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Unable to create input format org.apache.hadoop.mapred.FileInputFormat");
+                .hasMessageMatching(format("Query failed \\(#\\w+\\):\\Q Cannot query Iceberg table 'default.%s'", tableName));
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hive.default.\"" + tableName + "$partitions\""))
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'hive.default." + tableName + "$partitions' does not exist");
 
-        // TODO (https://github.com/trinodb/trino/issues/8693) should fail
-        assertThat(onTrino().executeQuery("SELECT * FROM hive.default.\"" + tableName + "$properties\""))
-                .hasRowsCount(1);
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hive.default.\"" + tableName + "$properties\""))
+                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'hive.default." + tableName + "$properties' does not exist");
 
         onTrino().executeQuery("DROP TABLE iceberg.default." + tableName);
     }
