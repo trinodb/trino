@@ -58,9 +58,10 @@ public interface ExchangeManager
      * A new sink instance is created by the coordinator for every task attempt (see {@link Exchange#instantiateSink(ExchangeSinkHandle, int)})
      *
      * @param handle returned by {@link Exchange#instantiateSink(ExchangeSinkHandle, int)}
+     * @param preserveRecordsOrder preserve order of records within a partition. May impact performance as it makes certain optimizations not possible.
      * @return {@link ExchangeSink} used by the engine to write data to an exchange
      */
-    ExchangeSink createSink(ExchangeSinkInstanceHandle handle);
+    ExchangeSink createSink(ExchangeSinkInstanceHandle handle, boolean preserveRecordsOrder);
 
     /**
      * Called by a worker to create an {@link ExchangeSource} to read data corresponding to
