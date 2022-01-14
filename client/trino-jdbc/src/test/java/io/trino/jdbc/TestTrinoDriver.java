@@ -33,6 +33,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.Date;
 import java.sql.Driver;
 import java.sql.DriverManager;
+import java.sql.DriverPropertyInfo;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -58,6 +59,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertInstanceOf;
@@ -376,6 +378,57 @@ public class TestTrinoDriver
         assertThatThrownBy(() -> driver.acceptsURL(null))
                 .isInstanceOf(SQLException.class)
                 .hasMessage("URL is null");
+    }
+
+    @Test
+    public void testDriverPropertyInfoEmpty()
+            throws Exception
+    {
+        Driver driver = DriverManager.getDriver("jdbc:trino:");
+
+        Properties properties = new Properties();
+        DriverPropertyInfo[] infos = driver.getPropertyInfo(jdbcUrl(), properties);
+
+        assertThat(infos)
+                .extracting(TestTrinoDriver::driverPropertyInfoToString)
+                .contains("{name=user, required=true}")
+                .contains("{name=password, required=false}")
+                .contains("{name=accessToken, required=false}")
+                .contains("{name=SSL, required=false, choices=[true, false]}");
+
+        assertThat(infos).extracting(x -> x.name)
+                .doesNotContain("SSLVerification", "SSLTrustStorePath");
+    }
+
+    @Test
+    public void testDriverPropertyInfoSslEnabled()
+            throws Exception
+    {
+        Driver driver = DriverManager.getDriver("jdbc:trino:");
+
+        Properties properties = new Properties();
+        properties.setProperty("user", "test");
+        properties.setProperty("SSL", "true");
+        DriverPropertyInfo[] infos = driver.getPropertyInfo(jdbcUrl(), properties);
+
+        assertThat(infos)
+                .extracting(TestTrinoDriver::driverPropertyInfoToString)
+                .contains("{name=user, value=test, required=true}")
+                .contains("{name=SSL, value=true, required=false, choices=[true, false]}")
+                .contains("{name=SSLVerification, required=false, choices=[FULL, CA, NONE]}")
+                .contains("{name=SSLTrustStorePath, required=false}");
+    }
+
+    private static String driverPropertyInfoToString(DriverPropertyInfo info)
+    {
+        return toStringHelper("")
+                .add("name", info.name)
+                .add("value", info.value)
+                .add("description", info.description)
+                .add("required", info.required)
+                .add("choices", info.choices)
+                .omitNullValues()
+                .toString();
     }
 
     @Test
@@ -747,7 +800,7 @@ public class TestTrinoDriver
                 toProperties(ImmutableMap.<String, String>builder()
                         .put("user", "test")
                         .put("KerberosPrincipal", "test")
-                        .build())))
+                        .buildOrThrow())))
                 .isInstanceOf(SQLException.class)
                 .hasMessage("Connection property 'KerberosPrincipal' is not allowed");
 
@@ -757,14 +810,14 @@ public class TestTrinoDriver
                         .put("KerberosRemoteServiceName", "example.com")
                         .put("KerberosPrincipal", "test")
                         .put("SSL", "true")
-                        .build())))
+                        .buildOrThrow())))
                 .isNotNull();
 
         assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl(),
                 toProperties(ImmutableMap.<String, String>builder()
                         .put("user", "test")
                         .put("SSLVerification", "NONE")
-                        .build())))
+                        .buildOrThrow())))
                 .isInstanceOf(SQLException.class)
                 .hasMessage("Connection property 'SSLVerification' is not allowed");
 
@@ -773,7 +826,7 @@ public class TestTrinoDriver
                         .put("user", "test")
                         .put("SSL", "true")
                         .put("SSLVerification", "NONE")
-                        .build())))
+                        .buildOrThrow())))
                 .isNotNull();
     }
 
