@@ -552,7 +552,7 @@ public class CachingJdbcClient
 
     private static <T, V> void invalidateCache(Cache<T, V> cache, Predicate<T> filterFunction)
     {
-        Set<T> cacheKeys = ((EvictableCache<T, V>) cache).keySet().stream()
+        Set<T> cacheKeys = cache.asMap().keySet().stream()
                 .filter(filterFunction)
                 .collect(toImmutableSet());
 
