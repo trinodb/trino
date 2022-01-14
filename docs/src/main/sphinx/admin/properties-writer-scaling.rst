@@ -6,7 +6,8 @@ By default, the number of writer tasks is static. Enabling writer scaling allows
 Trino to dynamically scale out the number of writer tasks rather than
 allocating a fixed number of tasks. Additional tasks are added when the average
 amount of physical data per writer is above a minimum threshold, but only if the
-query is bottlenecked on writing.
+query is bottlenecked on writing. It works only with connectors that report
+number of written bytes.
 
 Writer scaling is useful with connectors like Hive that produce one or more
 files per writer -- reducing the number of writers results in a larger average
@@ -18,7 +19,7 @@ the needs of the query.
 ^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-boolean`
-* **Default value:** ``false``
+* **Default value:** ``true``
 
 Enable writer scaling. This can be specified on a per-query basis
 using the ``scale_writers`` session property.
