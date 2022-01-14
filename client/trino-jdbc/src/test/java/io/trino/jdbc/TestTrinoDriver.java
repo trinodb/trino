@@ -47,7 +47,9 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -738,6 +740,44 @@ public class TestTrinoDriver
     }
 
     @Test
+    public void testPropertyAllowed()
+            throws Exception
+    {
+        assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("KerberosPrincipal", "test")
+                        .build())))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'KerberosPrincipal' is not allowed");
+
+        assertThat(DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("KerberosRemoteServiceName", "example.com")
+                        .put("KerberosPrincipal", "test")
+                        .put("SSL", "true")
+                        .build())))
+                .isNotNull();
+
+        assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("SSLVerification", "NONE")
+                        .build())))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'SSLVerification' is not allowed");
+
+        assertThat(DriverManager.getConnection(jdbcUrl(),
+                toProperties(ImmutableMap.<String, String>builder()
+                        .put("user", "test")
+                        .put("SSL", "true")
+                        .put("SSLVerification", "NONE")
+                        .build())))
+                .isNotNull();
+    }
+
+    @Test
     public void testSetRole()
             throws Exception
     {
@@ -1036,5 +1076,12 @@ public class TestTrinoDriver
     {
         String url = format("jdbc:trino://%s/%s/%s", server.getAddress(), catalog, schema);
         return DriverManager.getConnection(url, "test", null);
+    }
+
+    private static Properties toProperties(Map<String, String> map)
+    {
+        Properties properties = new Properties();
+        map.forEach(properties::setProperty);
+        return properties;
     }
 }
