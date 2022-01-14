@@ -61,6 +61,7 @@ public final class ClickHouseQueryRunner
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
+            connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             queryRunner.installPlugin(new ClickHousePlugin());
             queryRunner.createCatalog("clickhouse", "clickhouse", connectorProperties);
