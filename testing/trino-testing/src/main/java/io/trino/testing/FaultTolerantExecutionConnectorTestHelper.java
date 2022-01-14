@@ -28,6 +28,8 @@ public class FaultTolerantExecutionConnectorTestHelper
                 .put("query.initial-hash-partitions", "5")
                 .put("fault-tolerant-execution-target-task-input-size", "10MB")
                 .put("fault-tolerant-execution-target-task-split-count", "4")
+                // to trigger spilling
+                .put("exchange.deduplication-buffer-size", "1kB")
                 // TODO: re-enable once failure recover supported for this functionality
                 .put("enable-dynamic-filtering", "false")
                 .put("distributed-sort", "false")

@@ -15,8 +15,15 @@ package io.trino.operator;
 
 import io.trino.execution.TaskFailureListener;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.spi.QueryId;
+import io.trino.spi.exchange.ExchangeId;
 
 public interface DirectExchangeClientSupplier
 {
-    DirectExchangeClient get(LocalMemoryContext memoryContext, TaskFailureListener taskFailureListener, RetryPolicy retryPolicy);
+    DirectExchangeClient get(
+            QueryId queryId,
+            ExchangeId exchangeId,
+            LocalMemoryContext memoryContext,
+            TaskFailureListener taskFailureListener,
+            RetryPolicy retryPolicy);
 }

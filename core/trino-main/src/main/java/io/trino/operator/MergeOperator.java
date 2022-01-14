@@ -22,6 +22,7 @@ import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.type.Type;
 import io.trino.split.RemoteSplit;
 import io.trino.split.RemoteSplit.DirectExchangeInput;
@@ -40,6 +41,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.util.MergeSortedPages.mergeSortedPages;
 import static io.trino.util.MoreLists.mappedCopy;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class MergeOperator
@@ -160,7 +162,12 @@ public class MergeOperator
         checkState(!blockedOnSplits.isDone(), "noMoreSplits has been called already");
 
         TaskContext taskContext = operatorContext.getDriverContext().getPipelineContext().getTaskContext();
-        DirectExchangeClient client = closer.register(directExchangeClientSupplier.get(operatorContext.localUserMemoryContext(), taskContext::sourceTaskFailed, RetryPolicy.NONE));
+        DirectExchangeClient client = closer.register(directExchangeClientSupplier.get(
+                taskContext.getTaskId().getQueryId(),
+                new ExchangeId(format("direct-exchange-merge-%s-%s", taskContext.getTaskId().getStageId().getId(), sourceId)),
+                operatorContext.localUserMemoryContext(),
+                taskContext::sourceTaskFailed,
+                RetryPolicy.NONE));
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
         // Only fault tolerant execution mode is expected to execute external exchanges.
         // MergeOperator is used for distributed sort only and it is not compatible (and disabled) with fault tolerant execution mode.
