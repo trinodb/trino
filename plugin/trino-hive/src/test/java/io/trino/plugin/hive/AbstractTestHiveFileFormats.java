@@ -608,7 +608,7 @@ public abstract class AbstractTestHiveFileFormats
             throws Exception
     {
         HiveOutputFormat<?, ?> outputFormat = newInstance(storageFormat.getOutputFormat(), HiveOutputFormat.class);
-        Serializer serializer = newInstance(storageFormat.getSerDe(), Serializer.class);
+        Serializer serializer = newInstance(storageFormat.getSerde(), Serializer.class);
 
         // filter out partition keys, which are not written to the file
         testColumns = testColumns.stream()

@@ -1588,15 +1588,15 @@ public class HiveMetadata
         }
         hdfsEnvironment.doAs(session.getIdentity(), () -> {
             for (String fileName : fileNames) {
-                writeEmptyFile(session, new Path(path, fileName), conf, schema, format.getSerDe(), format.getOutputFormat());
+                writeEmptyFile(session, new Path(path, fileName), conf, schema, format.getSerde(), format.getOutputFormat());
             }
         });
     }
 
-    private static void writeEmptyFile(ConnectorSession session, Path target, JobConf conf, Properties properties, String serDe, String outputFormatName)
+    private static void writeEmptyFile(ConnectorSession session, Path target, JobConf conf, Properties properties, String serde, String outputFormatName)
     {
         // Some serializers such as Avro set a property in the schema.
-        initializeSerializer(conf, properties, serDe);
+        initializeSerializer(conf, properties, serde);
 
         // The code below is not a try with resources because RecordWriter is not Closeable.
         FileSinkOperator.RecordWriter recordWriter = HiveWriteUtils.createRecordWriter(target, conf, properties, outputFormatName, session);
@@ -3135,10 +3135,10 @@ public class HiveMetadata
     {
         StorageFormat storageFormat = table.getStorage().getStorageFormat();
         String outputFormat = storageFormat.getOutputFormat();
-        String serde = storageFormat.getSerDe();
+        String serde = storageFormat.getSerde();
 
         for (HiveStorageFormat format : HiveStorageFormat.values()) {
-            if (format.getOutputFormat().equals(outputFormat) && format.getSerDe().equals(serde)) {
+            if (format.getOutputFormat().equals(outputFormat) && format.getSerde().equals(serde)) {
                 return format;
             }
         }

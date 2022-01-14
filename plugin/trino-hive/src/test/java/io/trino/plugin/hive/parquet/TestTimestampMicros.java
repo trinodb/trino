@@ -106,7 +106,7 @@ public class TestTimestampMicros
         HivePageSourceFactory pageSourceFactory = StandardFileFormats.TRINO_PARQUET.getHivePageSourceFactory(HDFS_ENVIRONMENT).orElseThrow();
 
         Properties schema = new Properties();
-        schema.setProperty(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerDe());
+        schema.setProperty(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerde());
 
         ReaderPageSource pageSourceWithProjections = pageSourceFactory.createPageSource(
                 new Configuration(false),

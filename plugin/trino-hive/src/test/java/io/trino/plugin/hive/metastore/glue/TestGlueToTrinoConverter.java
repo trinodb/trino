@@ -239,7 +239,7 @@ public class TestGlueToTrinoConverter
     private static void assertStorage(Storage actual, StorageDescriptor expected)
     {
         assertEquals(actual.getLocation(), expected.getLocation());
-        assertEquals(actual.getStorageFormat().getSerDe(), expected.getSerdeInfo().getSerializationLibrary());
+        assertEquals(actual.getStorageFormat().getSerde(), expected.getSerdeInfo().getSerializationLibrary());
         assertEquals(actual.getStorageFormat().getInputFormat(), expected.getInputFormat());
         assertEquals(actual.getStorageFormat().getOutputFormat(), expected.getOutputFormat());
         if (!isNullOrEmpty(expected.getBucketColumns())) {

@@ -175,10 +175,10 @@ public final class ViewReaderUtil
         private final HiveMetastoreClient metastoreClient;
         private final TypeManager typeManager;
 
-        public HiveViewReader(HiveMetastoreClient hiveMetastoreClient, TypeManager typemanager)
+        public HiveViewReader(HiveMetastoreClient hiveMetastoreClient, TypeManager typeManager)
         {
             this.metastoreClient = requireNonNull(hiveMetastoreClient, "hiveMetastoreClient is null");
-            this.typeManager = requireNonNull(typemanager, "typeManager is null");
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
         @Override

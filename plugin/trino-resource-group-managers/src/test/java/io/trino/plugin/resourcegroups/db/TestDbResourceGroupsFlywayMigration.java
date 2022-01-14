@@ -26,24 +26,24 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestDbResourceGroupsFlywayMigration
 {
-    private TestingMysqlServer mysqlServer;
+    private TestingMysqlServer mySqlServer;
     private Jdbi jdbi;
 
     @BeforeClass
     public final void setup()
     {
-        mysqlServer = new TestingMysqlServer()
+        mySqlServer = new TestingMysqlServer()
                 .withDatabaseName("resource_groups")
                 .withUsername("test")
                 .withPassword("test");
-        mysqlServer.start();
-        jdbi = Jdbi.create(mysqlServer.getJdbcUrl(), mysqlServer.getUsername(), mysqlServer.getPassword());
+        mySqlServer.start();
+        jdbi = Jdbi.create(mySqlServer.getJdbcUrl(), mySqlServer.getUsername(), mySqlServer.getPassword());
     }
 
     @AfterClass(alwaysRun = true)
     public final void close()
     {
-        mysqlServer.close();
+        mySqlServer.close();
     }
 
     @AfterMethod(alwaysRun = true)
@@ -56,9 +56,9 @@ public class TestDbResourceGroupsFlywayMigration
     public void testMigrationWithEmptyDatabase()
     {
         DbResourceGroupConfig config = new DbResourceGroupConfig()
-                .setConfigDbUrl(mysqlServer.getJdbcUrl())
-                .setConfigDbUser(mysqlServer.getUsername())
-                .setConfigDbPassword(mysqlServer.getPassword());
+                .setConfigDbUrl(mySqlServer.getJdbcUrl())
+                .setConfigDbUser(mySqlServer.getUsername())
+                .setConfigDbPassword(mySqlServer.getPassword());
         FlywayMigration.migrate(config);
         verifyResourceGroupsSchema(0);
     }
@@ -68,18 +68,18 @@ public class TestDbResourceGroupsFlywayMigration
     {
         String t1Create = "CREATE TABLE t1 (id INT)";
         String t2Create = "CREATE TABLE t2 (id INT)";
-        mysqlServer.executeSql(t1Create);
-        mysqlServer.executeSql(t2Create);
+        mySqlServer.executeSql(t1Create);
+        mySqlServer.executeSql(t2Create);
         DbResourceGroupConfig config = new DbResourceGroupConfig()
-                .setConfigDbUrl(mysqlServer.getJdbcUrl())
-                .setConfigDbUser(mysqlServer.getUsername())
-                .setConfigDbPassword(mysqlServer.getPassword());
+                .setConfigDbUrl(mySqlServer.getJdbcUrl())
+                .setConfigDbUser(mySqlServer.getUsername())
+                .setConfigDbPassword(mySqlServer.getPassword());
         FlywayMigration.migrate(config);
         verifyResourceGroupsSchema(0);
         String t1Drop = "DROP TABLE t1";
         String t2Drop = "DROP TABLE t2";
-        mysqlServer.executeSql(t1Drop);
-        mysqlServer.executeSql(t2Drop);
+        mySqlServer.executeSql(t1Drop);
+        mySqlServer.executeSql(t2Drop);
     }
 
     @Test
@@ -87,11 +87,11 @@ public class TestDbResourceGroupsFlywayMigration
     {
         createOldSchema();
         // add a row to one of the existing tables before migration
-        mysqlServer.executeSql("INSERT INTO resource_groups_global_properties VALUES ('a_name', 'a_value')");
+        mySqlServer.executeSql("INSERT INTO resource_groups_global_properties VALUES ('a_name', 'a_value')");
         DbResourceGroupConfig config = new DbResourceGroupConfig()
-                .setConfigDbUrl(mysqlServer.getJdbcUrl())
-                .setConfigDbUser(mysqlServer.getUsername())
-                .setConfigDbPassword(mysqlServer.getPassword());
+                .setConfigDbUrl(mySqlServer.getJdbcUrl())
+                .setConfigDbUser(mySqlServer.getUsername())
+                .setConfigDbPassword(mySqlServer.getPassword());
         FlywayMigration.migrate(config);
         verifyResourceGroupsSchema(1);
     }
@@ -145,9 +145,9 @@ public class TestDbResourceGroupsFlywayMigration
                 "     selector_resource_estimate VARCHAR(1024),\n" +
                 "     FOREIGN KEY (resource_group_id) REFERENCES resource_groups (resource_group_id) ON DELETE CASCADE\n" +
                 ");";
-        mysqlServer.executeSql(propertiesTable);
-        mysqlServer.executeSql(resourceGroupsTable);
-        mysqlServer.executeSql(selectorsTable);
+        mySqlServer.executeSql(propertiesTable);
+        mySqlServer.executeSql(resourceGroupsTable);
+        mySqlServer.executeSql(selectorsTable);
     }
 
     private void dropAllTables()
@@ -157,10 +157,10 @@ public class TestDbResourceGroupsFlywayMigration
         String selectorsTable = "DROP TABLE IF EXISTS selectors";
         String exactMatchTable = "DROP TABLE IF EXISTS exact_match_source_selectors";
         String flywayHistoryTable = "DROP TABLE IF EXISTS flyway_schema_history";
-        mysqlServer.executeSql(propertiesTable);
-        mysqlServer.executeSql(selectorsTable);
-        mysqlServer.executeSql(resourceGroupsTable);
-        mysqlServer.executeSql(exactMatchTable);
-        mysqlServer.executeSql(flywayHistoryTable);
+        mySqlServer.executeSql(propertiesTable);
+        mySqlServer.executeSql(selectorsTable);
+        mySqlServer.executeSql(resourceGroupsTable);
+        mySqlServer.executeSql(exactMatchTable);
+        mySqlServer.executeSql(flywayHistoryTable);
     }
 }

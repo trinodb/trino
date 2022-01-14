@@ -81,14 +81,14 @@ public final class TestingMetastoreObjects
         return getGlueTestStorageDescriptor(ImmutableList.of(getGlueTestColumn()), "SerdeLib");
     }
 
-    public static StorageDescriptor getGlueTestStorageDescriptor(List<Column> columns, String serDe)
+    public static StorageDescriptor getGlueTestStorageDescriptor(List<Column> columns, String serde)
     {
         return new StorageDescriptor()
                 .withBucketColumns(ImmutableList.of("test-bucket-col"))
                 .withColumns(columns)
                 .withParameters(ImmutableMap.of())
                 .withSerdeInfo(new SerDeInfo()
-                        .withSerializationLibrary(serDe)
+                        .withSerializationLibrary(serde)
                         .withParameters(ImmutableMap.of()))
                 .withInputFormat("InputFormat")
                 .withOutputFormat("OutputFormat")

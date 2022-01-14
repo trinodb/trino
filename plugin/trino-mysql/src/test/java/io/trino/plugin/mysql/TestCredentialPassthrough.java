@@ -29,32 +29,32 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestCredentialPassthrough
 {
-    private TestingMySqlServer mysqlServer;
+    private TestingMySqlServer mySqlServer;
     private QueryRunner queryRunner;
 
     @Test
     public void testCredentialPassthrough()
     {
-        queryRunner.execute(getSession(mysqlServer), "CREATE TABLE test_create (a bigint, b double, c varchar)");
+        queryRunner.execute(getSession(mySqlServer), "CREATE TABLE test_create (a bigint, b double, c varchar)");
     }
 
     @BeforeClass
     public void createQueryRunner()
             throws Exception
     {
-        mysqlServer = new TestingMySqlServer();
+        mySqlServer = new TestingMySqlServer();
         try {
             queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build()).build();
             queryRunner.installPlugin(new MySqlPlugin());
             Map<String, String> properties = ImmutableMap.<String, String>builder()
-                    .put("connection-url", mysqlServer.getJdbcUrl())
+                    .put("connection-url", mySqlServer.getJdbcUrl())
                     .put("user-credential-name", "mysql.user")
                     .put("password-credential-name", "mysql.password")
                     .build();
             queryRunner.createCatalog("mysql", "mysql", properties);
         }
         catch (Exception e) {
-            closeAllSuppress(e, queryRunner, mysqlServer);
+            closeAllSuppress(e, queryRunner, mySqlServer);
             throw e;
         }
     }
@@ -64,8 +64,8 @@ public class TestCredentialPassthrough
     {
         queryRunner.close();
         queryRunner = null;
-        mysqlServer.close();
-        mysqlServer = null;
+        mySqlServer.close();
+        mySqlServer = null;
     }
 
     private static Session getSession(TestingMySqlServer mySqlServer)
