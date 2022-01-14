@@ -40,7 +40,8 @@ public class TestDirectExchangeClientConfig
                 .setMaxResponseSize(new HttpClientConfig().getMaxContentLength())
                 .setPageBufferClientMaxCallbackThreads(25)
                 .setClientThreads(25)
-                .setAcknowledgePages(true));
+                .setAcknowledgePages(true)
+                .setDeduplicationBufferSize(DataSize.of(32, Unit.MEGABYTE)));
     }
 
     @Test
@@ -55,6 +56,7 @@ public class TestDirectExchangeClientConfig
                 .put("exchange.client-threads", "2")
                 .put("exchange.page-buffer-client.max-callback-threads", "16")
                 .put("exchange.acknowledge-pages", "false")
+                .put("exchange.deduplication-buffer-size", "2MB")
                 .buildOrThrow();
 
         DirectExchangeClientConfig expected = new DirectExchangeClientConfig()
@@ -65,7 +67,8 @@ public class TestDirectExchangeClientConfig
                 .setMaxResponseSize(DataSize.of(1, Unit.MEGABYTE))
                 .setClientThreads(2)
                 .setPageBufferClientMaxCallbackThreads(16)
-                .setAcknowledgePages(false);
+                .setAcknowledgePages(false)
+                .setDeduplicationBufferSize(DataSize.of(2, Unit.MEGABYTE));
 
         assertFullMapping(properties, expected);
     }

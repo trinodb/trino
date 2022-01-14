@@ -43,6 +43,7 @@ public class DirectExchangeClientFactory
     private final NodeInfo nodeInfo;
     private final DataIntegrityVerification dataIntegrityVerification;
     private final DataSize maxBufferedBytes;
+    private final DataSize deduplicationBufferSize;
     private final int concurrentRequestMultiplier;
     private final Duration maxErrorDuration;
     private final HttpClient httpClient;
@@ -64,6 +65,7 @@ public class DirectExchangeClientFactory
                 nodeInfo,
                 featuresConfig.getExchangeDataIntegrityVerification(),
                 config.getMaxBufferSize(),
+                config.getDeduplicationBufferSize(),
                 config.getMaxResponseSize(),
                 config.getConcurrentRequestMultiplier(),
                 config.getMaxErrorDuration(),
@@ -77,6 +79,7 @@ public class DirectExchangeClientFactory
             NodeInfo nodeInfo,
             DataIntegrityVerification dataIntegrityVerification,
             DataSize maxBufferedBytes,
+            DataSize deduplicationBufferSize,
             DataSize maxResponseSize,
             int concurrentRequestMultiplier,
             Duration maxErrorDuration,
@@ -88,6 +91,7 @@ public class DirectExchangeClientFactory
         this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
         this.maxBufferedBytes = requireNonNull(maxBufferedBytes, "maxBufferedBytes is null");
+        this.deduplicationBufferSize = requireNonNull(deduplicationBufferSize, "deduplicationBufferSize is null");
         this.concurrentRequestMultiplier = concurrentRequestMultiplier;
         this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         this.acknowledgePages = acknowledgePages;
@@ -129,7 +133,7 @@ public class DirectExchangeClientFactory
         switch (retryPolicy) {
             case TASK:
             case QUERY:
-                buffer = new DeduplicatingDirectExchangeBuffer(scheduler, maxBufferedBytes, retryPolicy);
+                buffer = new DeduplicatingDirectExchangeBuffer(scheduler, deduplicationBufferSize, retryPolicy);
                 break;
             case NONE:
                 buffer = new StreamingDirectExchangeBuffer(scheduler, maxBufferedBytes);
