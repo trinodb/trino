@@ -16,10 +16,10 @@ package io.trino.plugin.hive;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import org.testng.annotations.Test;
 
-public class TestHive3InsertOverwrite
-        extends BaseTestHiveInsertOverwrite
+public class TestHive3OnDataLake
+        extends BaseTestHiveOnDataLake
 {
-    public TestHive3InsertOverwrite()
+    public TestHive3OnDataLake()
     {
         super(HiveHadoop.HIVE3_IMAGE);
     }

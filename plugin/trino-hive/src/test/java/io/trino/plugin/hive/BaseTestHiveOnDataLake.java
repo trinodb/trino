@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public abstract class BaseTestHiveInsertOverwrite
+public abstract class BaseTestHiveOnDataLake
         extends AbstractTestQueryFramework
 {
     private static final String HIVE_TEST_SCHEMA = "hive_insert_overwrite";
@@ -42,7 +42,7 @@ public abstract class BaseTestHiveInsertOverwrite
 
     private final String hiveHadoopImage;
 
-    public BaseTestHiveInsertOverwrite(String hiveHadoopImage)
+    public BaseTestHiveOnDataLake(String hiveHadoopImage)
     {
         this.hiveHadoopImage = requireNonNull(hiveHadoopImage, "hiveHadoopImage is null");
     }
