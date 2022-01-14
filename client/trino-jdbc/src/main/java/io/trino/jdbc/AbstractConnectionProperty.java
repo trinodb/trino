@@ -13,12 +13,15 @@
  */
 package io.trino.jdbc;
 
+import com.google.common.reflect.TypeToken;
+
 import java.io.File;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -33,6 +36,7 @@ abstract class AbstractConnectionProperty<T>
     private final Predicate<Properties> isRequired;
     private final Predicate<Properties> isAllowed;
     private final Converter<T> converter;
+    private final String[] choices;
 
     protected AbstractConnectionProperty(
             String key,
@@ -46,6 +50,19 @@ abstract class AbstractConnectionProperty<T>
         this.isRequired = requireNonNull(isRequired, "isRequired is null");
         this.isAllowed = requireNonNull(isAllowed, "isAllowed is null");
         this.converter = requireNonNull(converter, "converter is null");
+
+        Class<? super T> type = new TypeToken<T>(getClass()) {}.getRawType();
+        if (type == Boolean.class) {
+            choices = new String[] {"true", "false"};
+        }
+        else if (Enum.class.isAssignableFrom(type)) {
+            choices = Stream.of(type.getEnumConstants())
+                    .map(Object::toString)
+                    .toArray(String[]::new);
+        }
+        else {
+            choices = null;
+        }
     }
 
     protected AbstractConnectionProperty(
@@ -75,6 +92,7 @@ abstract class AbstractConnectionProperty<T>
         String currentValue = mergedProperties.getProperty(key);
         DriverPropertyInfo result = new DriverPropertyInfo(key, currentValue);
         result.required = isRequired.test(mergedProperties);
+        result.choices = (choices != null) ? choices.clone() : null;
         return result;
     }
 
