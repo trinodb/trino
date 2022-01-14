@@ -22,9 +22,11 @@ import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -41,14 +43,16 @@ public class AggregationMatcher
     private final List<String> preGroupedSymbols;
     private final Optional<Symbol> groupId;
     private final Step step;
+    private final Optional<List<String>> outputSymbols;
 
-    public AggregationMatcher(PlanMatchPattern.GroupingSetDescriptor groupingSets, List<String> preGroupedSymbols, List<String> masks, Optional<Symbol> groupId, Step step)
+    public AggregationMatcher(PlanMatchPattern.GroupingSetDescriptor groupingSets, List<String> preGroupedSymbols, List<String> masks, Optional<Symbol> groupId, Step step, Optional<List<String>> outputSymbols)
     {
         this.groupingSets = groupingSets;
         this.masks = masks;
         this.preGroupedSymbols = preGroupedSymbols;
         this.groupId = groupId;
         this.step = step;
+        this.outputSymbols = outputSymbols;
     }
 
     @Override
@@ -104,6 +108,10 @@ public class AggregationMatcher
             return NO_MATCH;
         }
 
+        if (outputSymbols.isPresent() && !symbolNamesMatch(outputSymbols.get(), aggregationNode.getOutputSymbols())) {
+            return NO_MATCH;
+        }
+
         return match();
     }
 
@@ -125,6 +133,12 @@ public class AggregationMatcher
         return true;
     }
 
+    private static boolean symbolNamesMatch(List<String> expectedOutputSymbols, List<Symbol> actualOutputSymbols)
+    {
+        List<String> actualOutputSymbolNames = actualOutputSymbols.stream().map(Symbol::getName).collect(Collectors.toList());
+        return new HashSet<>(expectedOutputSymbols).equals(new HashSet<>(actualOutputSymbolNames));
+    }
+
     @Override
     public String toString()
     {
@@ -134,6 +148,7 @@ public class AggregationMatcher
                 .add("masks", masks)
                 .add("groudId", groupId)
                 .add("step", step)
+                .add("outputSymbols", outputSymbols)
                 .toString();
     }
 }

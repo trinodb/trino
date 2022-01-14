@@ -297,7 +297,7 @@ public final class PlanMatchPattern
             Step step,
             PlanMatchPattern source)
     {
-        return aggregation(groupingSets, aggregations, preGroupedSymbols, ImmutableList.of(), groupId, step, source);
+        return aggregation(groupingSets, aggregations, preGroupedSymbols, ImmutableList.of(), groupId, step, Optional.empty(), source);
     }
 
     public static PlanMatchPattern aggregation(
@@ -309,7 +309,20 @@ public final class PlanMatchPattern
             Step step,
             PlanMatchPattern source)
     {
-        PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationMatcher(groupingSets, preGroupedSymbols, masks, groupId, step));
+        return aggregation(groupingSets, aggregations, preGroupedSymbols, masks, groupId, step, Optional.empty(), source);
+    }
+
+    public static PlanMatchPattern aggregation(
+            GroupingSetDescriptor groupingSets,
+            Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
+            List<String> preGroupedSymbols,
+            List<String> masks,
+            Optional<Symbol> groupId,
+            Step step,
+            Optional<List<String>> outputSymbols,
+            PlanMatchPattern source)
+    {
+        PlanMatchPattern result = node(AggregationNode.class, source).with(new AggregationMatcher(groupingSets, preGroupedSymbols, masks, groupId, step, outputSymbols));
         aggregations.entrySet().forEach(
                 aggregation -> result.withAlias(aggregation.getKey(), new AggregationFunctionMatcher(aggregation.getValue())));
         return result;
