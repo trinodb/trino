@@ -260,6 +260,8 @@ import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
+import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_NAME;
+import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_VALUE;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
@@ -2935,6 +2937,56 @@ public abstract class AbstractTestHive
                 // list all columns in a table
                 assertThat(listTableColumns(metadata, session, new SchemaTablePrefix(tableName.getSchemaName(), tableName.getTableName())).keySet())
                         .doesNotContain(tableName);
+            }
+        }
+        finally {
+            // Clean up
+            metastoreClient.dropTable(identity, tableName.getSchemaName(), tableName.getTableName(), true);
+        }
+    }
+
+    @Test
+    public void testDisallowQueryingOfIcebergTables()
+    {
+        ConnectorSession session = newSession();
+        HiveIdentity identity = new HiveIdentity(session);
+        SchemaTableName tableName = temporaryTable("trino_iceberg_table");
+
+        Table.Builder table = Table.builder()
+                .setDatabaseName(tableName.getSchemaName())
+                .setTableName(tableName.getTableName())
+                .setOwner(Optional.of(session.getUser()))
+                .setTableType(MANAGED_TABLE.name())
+                .setPartitionColumns(List.of(new Column("a_partition_column", HIVE_INT, Optional.empty())))
+                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())))
+                .setParameter(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE);
+        table.getStorageBuilder()
+                .setStorageFormat(fromHiveStorageFormat(PARQUET))
+                .setLocation(getTableDefaultLocation(
+                        metastoreClient.getDatabase(tableName.getSchemaName()).orElseThrow(),
+                        new HdfsContext(session.getIdentity()),
+                        hdfsEnvironment,
+                        tableName.getSchemaName(),
+                        tableName.getTableName()).toString());
+        metastoreClient.createTable(identity, table.build(), NO_PRIVILEGES);
+
+        try {
+            // Verify that the table was created as a Iceberg table can't be queried in hive
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                metadata.beginQuery(session);
+                assertThatThrownBy(() -> getTableHandle(metadata, tableName))
+                        .hasMessage(format("Cannot query Iceberg table '%s'", tableName));
+            }
+
+            // Verify the hidden `$properties` and `$partitions` hive system tables table handle can't be obtained for the Iceberg tables
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                metadata.beginQuery(session);
+                SchemaTableName propertiesTableName = new SchemaTableName(tableName.getSchemaName(), format("%s$properties", tableName.getTableName()));
+                assertThat(metadata.getSystemTable(newSession(), propertiesTableName)).isEmpty();
+                SchemaTableName partitionsTableName = new SchemaTableName(tableName.getSchemaName(), format("%s$partitions", tableName.getTableName()));
+                assertThat(metadata.getSystemTable(newSession(), partitionsTableName)).isEmpty();
             }
         }
         finally {

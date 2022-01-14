@@ -180,6 +180,9 @@ public final class HiveUtil
     public static final String SPARK_TABLE_PROVIDER_KEY = "spark.sql.sources.provider";
     public static final String DELTA_LAKE_PROVIDER = "delta";
 
+    public static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
+    public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
+
     private static final DateTimeFormatter HIVE_DATE_PARSER = ISODateTimeFormat.date().withZoneUTC();
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
     private static final Field COMPRESSION_CODECS_FIELD;
@@ -191,8 +194,6 @@ public final class HiveUtil
     private static final String BIG_DECIMAL_POSTFIX = "BD";
 
     private static final Splitter COLUMN_NAMES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-    private static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
-    private static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
