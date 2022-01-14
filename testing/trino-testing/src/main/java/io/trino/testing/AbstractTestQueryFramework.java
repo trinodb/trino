@@ -44,16 +44,24 @@ import io.trino.transaction.TransactionBuilder;
 import io.trino.util.AutoCloseableCloser;
 import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
+import org.testng.ITestContext;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.MemoryHandler;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -75,22 +83,51 @@ public abstract class AbstractTestQueryFramework
     private SqlParser sqlParser;
     private final AutoCloseableCloser afterClassCloser = AutoCloseableCloser.create();
     private io.trino.sql.query.QueryAssertions queryAssertions;
+    private Map<Handler, Level> oldLevels;
+    private MemoryHandler memoryHandler;
 
     @BeforeClass
     public void init()
             throws Exception
     {
+        enableLogBuffering();
         queryRunner = afterClassCloser.register(createQueryRunner());
         h2QueryRunner = afterClassCloser.register(new H2QueryRunner());
         sqlParser = new SqlParser();
         queryAssertions = new io.trino.sql.query.QueryAssertions(queryRunner);
     }
 
+    private void enableLogBuffering()
+    {
+        if (System.getenv("CONTINUOUS_INTEGRATION") == null) {
+            return;
+        }
+        // change the log level of the console handler
+        Logger rootLogger = Logger.getLogger("");
+        Handler[] handlers = rootLogger.getHandlers();
+        oldLevels = new HashMap<>();
+        Handler consoleHandler = null;
+        for (Handler handler : handlers) {
+            if (!(handler instanceof ConsoleHandler)) {
+                continue;
+            }
+            oldLevels.put(handler, handler.getLevel());
+            handler.setLevel(Level.OFF);
+            consoleHandler = handler;
+        }
+
+        // add a capturing handler
+        if (consoleHandler != null) {
+            memoryHandler = new MemoryHandler(consoleHandler, 1_000_000, Level.OFF);
+            rootLogger.addHandler(memoryHandler);
+        }
+    }
+
     protected abstract QueryRunner createQueryRunner()
             throws Exception;
 
     @AfterClass(alwaysRun = true)
-    public final void close()
+    public final void close(ITestContext context)
             throws Exception
     {
         afterClassCloser.close();
@@ -98,6 +135,32 @@ public abstract class AbstractTestQueryFramework
         h2QueryRunner = null;
         sqlParser = null;
         queryAssertions = null;
+        flushBufferedLogs(context);
+    }
+
+    private void flushBufferedLogs(ITestContext context)
+    {
+        if (System.getenv("CONTINUOUS_INTEGRATION") == null) {
+            return;
+        }
+        if (oldLevels.size() == 0) {
+            return;
+        }
+        // restore the log level of the console handler
+        for (Handler handler : Logger.getLogger("").getHandlers()) {
+            if (!(handler instanceof ConsoleHandler) || !oldLevels.containsKey(handler)) {
+                continue;
+            }
+            handler.setLevel(oldLevels.get(handler));
+        }
+        if (memoryHandler == null) {
+            return;
+        }
+        if (context.getFailedTests().size() != 0) {
+            memoryHandler.push();
+        }
+        // remove it but don't close it, since it would also close the target (console) handler
+        Logger.getLogger("").removeHandler(memoryHandler);
     }
 
     @Test
