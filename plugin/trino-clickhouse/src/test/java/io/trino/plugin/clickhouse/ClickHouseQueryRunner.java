@@ -33,7 +33,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class ClickHouseQueryRunner
 {
-    private static final String TPCH_SCHEMA = "tpch";
+    public static final String TPCH_SCHEMA = "tpch";
 
     private ClickHouseQueryRunner() {}
 
