@@ -839,7 +839,7 @@ public abstract class AbstractTestHive
                             TupleDomain.all()));
                 },
                 ImmutableSet.of(
-                        new PartitionsSystemTableProvider(partitionManager),
+                        new PartitionsSystemTableProvider(partitionManager, TESTING_TYPE_MANAGER),
                         new PropertiesSystemTableProvider()),
                 (metastore) -> new NoneHiveMaterializedViewMetadata()
                 {
@@ -2899,22 +2899,14 @@ public abstract class AbstractTestHive
                         .hasMessage(format("Cannot query Delta Lake table '%s'", tableName));
             }
 
-            // Verify the hidden `$properties` Delta Lake table handle can't be obtained within the hive connector
-            SchemaTableName propertiesTableName = new SchemaTableName(tableName.getSchemaName(), format("%s$properties", tableName.getTableName()));
+            // Verify the hidden `$properties` and `$partitions` Delta Lake table handle can't be obtained within the hive connector
             try (Transaction transaction = newTransaction()) {
                 ConnectorMetadata metadata = transaction.getMetadata();
                 metadata.beginQuery(session);
-                assertThatThrownBy(() -> metadata.getSystemTable(newSession(), propertiesTableName))
-                        .hasMessage(format("Cannot query Delta Lake table '%s'", tableName));
-            }
-
-            // Verify the hidden `$partitions` Delta Lake table handle can't be obtained within the hive connector
-            SchemaTableName partitionsTableName = new SchemaTableName(tableName.getSchemaName(), format("%s$partitions", tableName.getTableName()));
-            try (Transaction transaction = newTransaction()) {
-                ConnectorMetadata metadata = transaction.getMetadata();
-                metadata.beginQuery(session);
-                assertThatThrownBy(() -> metadata.getSystemTable(newSession(), partitionsTableName))
-                        .hasMessage(format("Cannot query Delta Lake table '%s'", tableName));
+                SchemaTableName propertiesTableName = new SchemaTableName(tableName.getSchemaName(), format("%s$properties", tableName.getTableName()));
+                assertThat(metadata.getSystemTable(newSession(), propertiesTableName)).isEmpty();
+                SchemaTableName partitionsTableName = new SchemaTableName(tableName.getSchemaName(), format("%s$partitions", tableName.getTableName()));
+                assertThat(metadata.getSystemTable(newSession(), partitionsTableName)).isEmpty();
             }
 
             // Assert that table is hidden
