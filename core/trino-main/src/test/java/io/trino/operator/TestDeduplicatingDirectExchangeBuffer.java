@@ -20,21 +20,33 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.metadata.HandleResolver;
+import io.trino.server.testing.exchange.LocalFileSystemExchangeManagerFactory;
+import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
+import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
+import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -45,13 +57,30 @@ import static org.testng.Assert.assertTrue;
 
 public class TestDeduplicatingDirectExchangeBuffer
 {
-    private static final DataSize ONE_KB = DataSize.of(1, KILOBYTE);
+    private static final DataSize DEFAULT_BUFFER_CAPACITY = DataSize.of(1, KILOBYTE);
+
+    private ExchangeManagerRegistry exchangeManagerRegistry;
+
+    @BeforeClass
+    public void beforeClass()
+    {
+        exchangeManagerRegistry = new ExchangeManagerRegistry(new HandleResolver());
+        exchangeManagerRegistry.addExchangeManagerFactory(new LocalFileSystemExchangeManagerFactory());
+        exchangeManagerRegistry.loadExchangeManager("local", ImmutableMap.of(
+                "base-directory", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void afterClass()
+    {
+        exchangeManagerRegistry = null;
+    }
 
     @Test
     public void testIsBlocked()
     {
         // immediate close
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             ListenableFuture<Void> blocked = buffer.isBlocked();
             assertBlocked(blocked);
             buffer.close();
@@ -59,7 +88,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         }
 
         // empty set of tasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             ListenableFuture<Void> blocked = buffer.isBlocked();
             assertBlocked(blocked);
             buffer.noMoreTasks();
@@ -67,7 +96,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         }
 
         // single task finishes before noMoreTasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             ListenableFuture<Void> blocked = buffer.isBlocked();
             assertBlocked(blocked);
 
@@ -83,7 +112,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         }
 
         // single task finishes after noMoreTasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             ListenableFuture<Void> blocked = buffer.isBlocked();
             assertBlocked(blocked);
 
@@ -99,7 +128,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         }
 
         // single task fails before noMoreTasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             ListenableFuture<Void> blocked = buffer.isBlocked();
             assertBlocked(blocked);
 
@@ -115,7 +144,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         }
 
         // single task fails after noMoreTasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             ListenableFuture<Void> blocked = buffer.isBlocked();
             assertBlocked(blocked);
 
@@ -131,7 +160,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         }
 
         // cancelled blocked future doesn't affect other blocked futures
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             ListenableFuture<Void> blocked1 = buffer.isBlocked();
             ListenableFuture<Void> blocked2 = buffer.isBlocked();
             assertBlocked(blocked1);
@@ -147,154 +176,421 @@ public class TestDeduplicatingDirectExchangeBuffer
     @Test
     public void testPollPagesQueryLevelRetry()
     {
-        testPollPages(RetryPolicy.QUERY, ImmutableListMultimap.of(), ImmutableMap.of(), ImmutableList.of());
+        // 0 pages
+        testPollPages(
+                RetryPolicy.QUERY,
+                ImmutableListMultimap.of(),
+                ImmutableMap.of(),
+                DEFAULT_BUFFER_CAPACITY,
+                0,
+                ImmutableList.of());
+
+        // single page, no spilling
         testPollPages(
                 RetryPolicy.QUERY,
                 ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(10, BYTE)))
                         .build(),
                 ImmutableMap.of(),
-                ImmutableList.of("p0a0v0"));
+                DataSize.of(1, KILOBYTE),
+                0,
+                ImmutableList.of(createPage("p0a0v0", DataSize.of(10, BYTE))));
+
+        // single page, with spilling
         testPollPages(
                 RetryPolicy.QUERY,
                 ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
-                        .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(2, KILOBYTE)))
                         .build(),
                 ImmutableMap.of(),
-                ImmutableList.of("p0a1v0"));
+                DataSize.of(1, KILOBYTE),
+                1,
+                ImmutableList.of(createPage("p0a0v0", DataSize.of(2, KILOBYTE))));
+
+        // multiple pages, no spilling
         testPollPages(
                 RetryPolicy.QUERY,
                 ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
-                        .put(createTaskId(1, 0), utf8Slice("p1a0v0"))
-                        .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
+                        .build(),
+                ImmutableMap.<TaskId, RuntimeException>builder()
+                        .put(createTaskId(0, 0), new RuntimeException("error"))
+                        .build(),
+                DataSize.of(5, KILOBYTE),
+                0,
+                ImmutableList.of(
+                        createPage("p0a1v0", DataSize.of(1, KILOBYTE))));
+
+        // two pages, one spilled
+        testPollPages(
+                RetryPolicy.QUERY,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(6, KILOBYTE)))
+                        .put(createTaskId(0, 0), createPage("p0a0v1", DataSize.of(3, KILOBYTE)))
                         .build(),
                 ImmutableMap.of(),
-                ImmutableList.of("p0a1v0"));
+                DataSize.of(5, KILOBYTE),
+                2,
+                ImmutableList.of(
+                        createPage("p0a0v0", DataSize.of(6, KILOBYTE)),
+                        createPage("p0a0v1", DataSize.of(3, KILOBYTE))));
+
+        // discard single spilled page
         testPollPages(
                 RetryPolicy.QUERY,
                 ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
-                        .put(createTaskId(1, 0), utf8Slice("p1a0v0"))
-                        .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(6, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(3, KILOBYTE)))
                         .build(),
-                ImmutableMap.of(
-                        createTaskId(2, 0),
-                        new RuntimeException("error")),
-                ImmutableList.of("p0a1v0"));
+                ImmutableMap.<TaskId, RuntimeException>builder()
+                        .put(createTaskId(0, 0), new RuntimeException("error"))
+                        .build(),
+                DataSize.of(5, KILOBYTE),
+                2,
+                ImmutableList.of(
+                        createPage("p0a1v0", DataSize.of(3, KILOBYTE))));
+
+        // discard one of the spilled page
+        testPollPages(
+                RetryPolicy.QUERY,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(2, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(4, KILOBYTE)))
+                        .put(createTaskId(1, 1), createPage("p1a1v0", DataSize.of(4, KILOBYTE)))
+                        .build(),
+                ImmutableMap.<TaskId, RuntimeException>builder()
+                        .put(createTaskId(0, 0), new RuntimeException("error"))
+                        .build(),
+                DataSize.of(5, KILOBYTE),
+                2,
+                ImmutableList.of(
+                        createPage("p0a1v0", DataSize.of(4, KILOBYTE)),
+                        createPage("p1a1v0", DataSize.of(4, KILOBYTE))));
+
+        // discard pages from successful tasks, no spilling
+        testPollPages(
+                RetryPolicy.QUERY,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
+                        .build(),
+                ImmutableMap.<TaskId, RuntimeException>builder()
+                        .put(createTaskId(2, 0), new RuntimeException("error"))
+                        .build(),
+                DataSize.of(5, KILOBYTE),
+                0,
+                ImmutableList.of(
+                        createPage("p0a1v0", DataSize.of(1, KILOBYTE))));
+
+        // discard pages from successful tasks, with spilling
+        testPollPages(
+                RetryPolicy.QUERY,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(2, KILOBYTE)))
+                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(3, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
+                        .build(),
+                ImmutableMap.<TaskId, RuntimeException>builder()
+                        .put(createTaskId(2, 0), new RuntimeException("error"))
+                        .build(),
+                DataSize.of(4, KILOBYTE),
+                3,
+                ImmutableList.of(
+                        createPage("p0a1v0", DataSize.of(1, KILOBYTE))));
+
         RuntimeException error = new RuntimeException("error");
+
+        // failure in a task that produced no pages, no spilling
         testPollPagesFailure(
                 RetryPolicy.QUERY,
                 ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
-                        .put(createTaskId(1, 0), utf8Slice("p1a0v0"))
-                        .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.of(
-                        createTaskId(2, 2),
-                        error),
+                ImmutableMap.<TaskId, RuntimeException>builder()
+                        .put(createTaskId(2, 2), error)
+                        .build(),
+                DataSize.of(4, KILOBYTE),
+                0,
                 error);
+
+        // failure in a task that produced some pages, no spilling
         testPollPagesFailure(
                 RetryPolicy.QUERY,
                 ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
-                        .put(createTaskId(1, 0), utf8Slice("p1a0v0"))
-                        .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.of(
-                        createTaskId(0, 1),
-                        error),
+                ImmutableMap.<TaskId, RuntimeException>builder()
+                        .put(createTaskId(0, 1), error)
+                        .build(),
+                DataSize.of(4, KILOBYTE),
+                0,
+                error);
+
+        // failure in a task that produced no pages, with spilling
+        testPollPagesFailure(
+                RetryPolicy.QUERY,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(3, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
+                        .build(),
+                ImmutableMap.<TaskId, RuntimeException>builder()
+                        .put(createTaskId(2, 2), error)
+                        .build(),
+                DataSize.of(3, KILOBYTE),
+                3,
+                error);
+
+        // failure in a task that produced some pages, with spilling
+        testPollPagesFailure(
+                RetryPolicy.QUERY,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(3, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
+                        .build(),
+                ImmutableMap.<TaskId, RuntimeException>builder()
+                        .put(createTaskId(0, 1), error)
+                        .build(),
+                DataSize.of(3, KILOBYTE),
+                3,
                 error);
     }
 
     @Test
     public void testPollPagesTaskLevelRetry()
     {
-        testPollPages(RetryPolicy.TASK, ImmutableListMultimap.of(), ImmutableMap.of(), ImmutableList.of());
+        // 0 pages
+        testPollPages(
+                RetryPolicy.TASK,
+                ImmutableListMultimap.of(),
+                ImmutableMap.of(),
+                DEFAULT_BUFFER_CAPACITY,
+                0,
+                ImmutableList.of());
+
+        // single page, no spilling
         testPollPages(
                 RetryPolicy.TASK,
                 ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(10, BYTE)))
                         .build(),
                 ImmutableMap.of(),
-                ImmutableList.of("p0a0v0"));
+                DataSize.of(1, KILOBYTE),
+                0,
+                ImmutableList.of(createPage("p0a0v0", DataSize.of(10, BYTE))));
+
+        // single page, with spilling
         testPollPages(
                 RetryPolicy.TASK,
                 ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
-                        .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(2, KILOBYTE)))
                         .build(),
                 ImmutableMap.of(),
-                ImmutableList.of("p0a0v0"));
+                DataSize.of(1, KILOBYTE),
+                1,
+                ImmutableList.of(createPage("p0a0v0", DataSize.of(2, KILOBYTE))));
+
+        // discard single page, with no spilling
         testPollPages(
                 RetryPolicy.TASK,
                 ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
-                        .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
-                        .put(createTaskId(1, 0), utf8Slice("p1a0v0"))
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(6, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(3, KILOBYTE)))
                         .build(),
                 ImmutableMap.of(),
-                ImmutableList.of("p0a0v0", "p1a0v0"));
+                DataSize.of(10, KILOBYTE),
+                0,
+                ImmutableList.of(
+                        createPage("p0a0v0", DataSize.of(6, KILOBYTE))));
+
+        // discard single page, with spilling
         testPollPages(
                 RetryPolicy.TASK,
                 ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
-                        .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
-                        .put(createTaskId(1, 1), utf8Slice("p1a0v0"))
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(6, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(3, KILOBYTE)))
                         .build(),
-                ImmutableMap.of(
-                        createTaskId(1, 0),
-                        new RuntimeException("error")),
-                ImmutableList.of("p0a0v0", "p1a0v0"));
+                ImmutableMap.of(),
+                DataSize.of(5, KILOBYTE),
+                2,
+                ImmutableList.of(
+                        createPage("p0a0v0", DataSize.of(6, KILOBYTE))));
+
+        // multiple pages, no spilling
+        testPollPages(
+                RetryPolicy.TASK,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
+                        .build(),
+                ImmutableMap.of(),
+                DataSize.of(5, KILOBYTE),
+                0,
+                ImmutableList.of(
+                        createPage("p0a0v0", DataSize.of(1, KILOBYTE)),
+                        createPage("p1a0v0", DataSize.of(1, KILOBYTE))));
+
+        // multiple pages, with spilling
+        testPollPages(
+                RetryPolicy.TASK,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(2, KILOBYTE)))
+                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
+                        .build(),
+                ImmutableMap.of(),
+                DataSize.of(2, KILOBYTE),
+                3,
+                ImmutableList.of(
+                        createPage("p0a0v0", DataSize.of(1, KILOBYTE)),
+                        createPage("p1a0v0", DataSize.of(1, KILOBYTE))));
+
+        // failure in a task that produced no pages, no spilling
+        testPollPages(
+                RetryPolicy.TASK,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(2, KILOBYTE)))
+                        .put(createTaskId(1, 1), createPage("p1a1v0", DataSize.of(1, KILOBYTE)))
+                        .build(),
+                ImmutableMap.<TaskId, RuntimeException>builder()
+                        .put(createTaskId(1, 0), new RuntimeException("error"))
+                        .build(),
+                DataSize.of(10, KILOBYTE),
+                0,
+                ImmutableList.of(
+                        createPage("p0a0v0", DataSize.of(1, KILOBYTE)),
+                        createPage("p1a1v0", DataSize.of(1, KILOBYTE))));
+
+        // failure in a task that produced no pages, with spilling
+        testPollPages(
+                RetryPolicy.TASK,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(2, KILOBYTE)))
+                        .put(createTaskId(1, 1), createPage("p1a1v0", DataSize.of(1, KILOBYTE)))
+                        .build(),
+                ImmutableMap.<TaskId, RuntimeException>builder()
+                        .put(createTaskId(1, 0), new RuntimeException("error"))
+                        .build(),
+                DataSize.of(2, KILOBYTE),
+                3,
+                ImmutableList.of(
+                        createPage("p0a0v0", DataSize.of(1, KILOBYTE)),
+                        createPage("p1a1v0", DataSize.of(1, KILOBYTE))));
+
         RuntimeException error = new RuntimeException("error");
+
+        // buffer failure in a task that produced no pages, no spilling
         testPollPagesFailure(
                 RetryPolicy.TASK,
                 ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), utf8Slice("p0a0v0"))
-                        .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
-                        .put(createTaskId(1, 0), utf8Slice("p1a0v0"))
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.of(
-                        createTaskId(2, 2),
-                        error),
+                ImmutableMap.<TaskId, RuntimeException>builder()
+                        .put(createTaskId(2, 2), error)
+                        .build(),
+                DataSize.of(5, KILOBYTE),
+                0,
                 error);
+
+        // buffer failure in a task that produced some pages, no spilling
         testPollPagesFailure(
                 RetryPolicy.TASK,
                 ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 1), utf8Slice("p0a1v0"))
-                        .put(createTaskId(1, 0), utf8Slice("p1a0v0"))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.of(
-                        createTaskId(0, 1),
-                        error),
+                ImmutableMap.<TaskId, RuntimeException>builder()
+                        .put(createTaskId(0, 1), error)
+                        .build(),
+                DataSize.of(5, KILOBYTE),
+                0,
+                error);
+
+        // buffer failure in a task that produced no pages, with spilling
+        testPollPagesFailure(
+                RetryPolicy.TASK,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(2, KILOBYTE)))
+                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
+                        .build(),
+                ImmutableMap.<TaskId, RuntimeException>builder()
+                        .put(createTaskId(2, 2), error)
+                        .build(),
+                DataSize.of(2, KILOBYTE),
+                3,
+                error);
+
+        // buffer failure in a task that produced some pages, with spilling
+        testPollPagesFailure(
+                RetryPolicy.TASK,
+                ImmutableListMultimap.<TaskId, Slice>builder()
+                        .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
+                        .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
+                        .build(),
+                ImmutableMap.<TaskId, RuntimeException>builder()
+                        .put(createTaskId(0, 1), error)
+                        .build(),
+                DataSize.of(1, KILOBYTE),
+                2,
                 error);
     }
 
-    private static void testPollPages(RetryPolicy retryPolicy, Multimap<TaskId, Slice> pages, Map<TaskId, RuntimeException> failures, List<String> expectedValues)
+    private void testPollPages(
+            RetryPolicy retryPolicy,
+            Multimap<TaskId, Slice> pages,
+            Map<TaskId, RuntimeException> failures,
+            DataSize bufferCapacity,
+            int expectedSpilledPageCount,
+            List<Slice> expectedOutput)
     {
-        List<Slice> actualPages = pollPages(retryPolicy, pages, failures);
-        List<String> actualValues = actualPages.stream()
-                .map(Slice::toStringUtf8)
-                .collect(toImmutableList());
-        assertThat(actualValues).containsExactlyInAnyOrderElementsOf(expectedValues);
+        List<Slice> actualOutput = pollPages(retryPolicy, pages, failures, bufferCapacity, expectedSpilledPageCount);
+        assertEquals(actualOutput, expectedOutput);
     }
 
-    private static void testPollPagesFailure(RetryPolicy retryPolicy, Multimap<TaskId, Slice> pages, Map<TaskId, RuntimeException> failures, Throwable expectedFailure)
+    private void testPollPagesFailure(
+            RetryPolicy retryPolicy,
+            Multimap<TaskId, Slice> pages,
+            Map<TaskId, RuntimeException> failures,
+            DataSize bufferCapacity,
+            int expectedSpilledPageCount,
+            Throwable expectedFailure)
     {
-        assertThatThrownBy(() -> pollPages(retryPolicy, pages, failures)).isEqualTo(expectedFailure);
+        assertThatThrownBy(() -> pollPages(retryPolicy, pages, failures, bufferCapacity, expectedSpilledPageCount)).isEqualTo(expectedFailure);
     }
 
-    private static List<Slice> pollPages(RetryPolicy retryPolicy, Multimap<TaskId, Slice> pages, Map<TaskId, RuntimeException> failures)
+    private List<Slice> pollPages(
+            RetryPolicy retryPolicy,
+            Multimap<TaskId, Slice> pages,
+            Map<TaskId, RuntimeException> failures,
+            DataSize bufferCapacity,
+            int expectedSpilledPageCount)
     {
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, retryPolicy)) {
-            for (TaskId taskId : Sets.union(pages.keySet(), failures.keySet())) {
-                buffer.addTask(taskId);
-            }
+        Set<TaskId> addedTasks = new HashSet<>();
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(bufferCapacity, retryPolicy)) {
             for (Map.Entry<TaskId, Slice> page : pages.entries()) {
+                if (addedTasks.add(page.getKey())) {
+                    buffer.addTask(page.getKey());
+                }
                 buffer.addPages(page.getKey(), ImmutableList.of(page.getValue()));
             }
             for (Map.Entry<TaskId, RuntimeException> failure : failures.entrySet()) {
+                if (addedTasks.add(failure.getKey())) {
+                    buffer.addTask(failure.getKey());
+                }
                 buffer.taskFailed(failure.getKey(), failure.getValue());
             }
             for (TaskId taskId : Sets.difference(pages.keySet(), failures.keySet())) {
@@ -303,14 +599,17 @@ public class TestDeduplicatingDirectExchangeBuffer
             buffer.noMoreTasks();
 
             ImmutableList.Builder<Slice> result = ImmutableList.builder();
-            while (true) {
+            while (!buffer.isFinished()) {
+                // wait for blocked
+                getUnchecked(buffer.isBlocked());
                 Slice page = buffer.pollPage();
                 if (page == null) {
-                    break;
+                    continue;
                 }
                 result.add(page);
             }
             assertTrue(buffer.isFinished());
+            assertEquals(buffer.getSpilledPageCount(), expectedSpilledPageCount);
             return result.build();
         }
     }
@@ -318,7 +617,7 @@ public class TestDeduplicatingDirectExchangeBuffer
     @Test
     public void testRemovePagesForPreviousAttempts()
     {
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DataSize.of(1, KILOBYTE), RetryPolicy.QUERY)) {
             assertEquals(buffer.getRetainedSizeInBytes(), 0);
 
             TaskId partition0Attempt0 = createTaskId(0, 0);
@@ -346,9 +645,39 @@ public class TestDeduplicatingDirectExchangeBuffer
     }
 
     @Test
-    public void testBufferOverflow()
+    public void testExchangeManagerNotConfigured()
     {
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), DataSize.of(100, BYTE), RetryPolicy.QUERY)) {
+        // no overflow
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(
+                directExecutor(),
+                DataSize.of(100, BYTE),
+                RetryPolicy.QUERY,
+                new ExchangeManagerRegistry(new HandleResolver()),
+                new QueryId("query"),
+                createRandomExchangeId())) {
+            TaskId task = createTaskId(0, 0);
+            Slice page = createPage("1234", DataSize.of(10, BYTE));
+
+            buffer.addTask(task);
+            buffer.addPages(task, ImmutableList.of(page));
+            buffer.taskFinished(task);
+            buffer.noMoreTasks();
+
+            assertFalse(buffer.isFinished());
+            assertNotBlocked(buffer.isBlocked());
+            assertEquals(buffer.pollPage(), page);
+            assertNull(buffer.pollPage());
+            assertTrue(buffer.isFinished());
+        }
+
+        // overflow
+        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(
+                directExecutor(),
+                DataSize.of(100, BYTE),
+                RetryPolicy.QUERY,
+                new ExchangeManagerRegistry(new HandleResolver()),
+                new QueryId("query"),
+                createRandomExchangeId())) {
             TaskId task = createTaskId(0, 0);
 
             Slice page1 = utf8Slice("1234");
@@ -371,8 +700,7 @@ public class TestDeduplicatingDirectExchangeBuffer
             assertEquals(buffer.getBufferedPageCount(), 0);
 
             assertThatThrownBy(buffer::pollPage)
-                    .isInstanceOf(TrinoException.class)
-                    .hasMessage("Retries for queries with large result set currently unsupported");
+                    .isInstanceOf(TrinoException.class);
         }
     }
 
@@ -380,21 +708,21 @@ public class TestDeduplicatingDirectExchangeBuffer
     public void testIsFinished()
     {
         // close right away
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
             buffer.close();
             assertTrue(buffer.isFinished());
         }
 
         // 0 tasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
             buffer.noMoreTasks();
             assertTrue(buffer.isFinished());
         }
 
         // single task producing no results, finish before noMoreTasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -409,7 +737,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         }
 
         // single task producing no results, finish after noMoreTasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -424,7 +752,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         }
 
         // single task producing no results, fail before noMoreTasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -440,7 +768,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         }
 
         // single task producing no results, fail after noMoreTasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -456,7 +784,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         }
 
         // single task producing one page, fail after noMoreTasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -473,7 +801,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         }
 
         // single task producing one page, finish after noMoreTasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -492,7 +820,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         }
 
         // single task producing one page, finish before noMoreTasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -514,7 +842,7 @@ public class TestDeduplicatingDirectExchangeBuffer
     @Test
     public void testRemainingBufferCapacity()
     {
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, RetryPolicy.QUERY)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, RetryPolicy.QUERY)) {
             assertFalse(buffer.isFinished());
 
             TaskId taskId = createTaskId(0, 0);
@@ -522,7 +850,7 @@ public class TestDeduplicatingDirectExchangeBuffer
             Slice page = utf8Slice("page");
             buffer.addPages(taskId, ImmutableList.of(page));
 
-            assertEquals(buffer.getRemainingCapacityInBytes(), ONE_KB.toBytes() - page.getRetainedSize());
+            assertEquals(buffer.getRemainingCapacityInBytes(), Long.MAX_VALUE);
         }
     }
 
@@ -536,7 +864,7 @@ public class TestDeduplicatingDirectExchangeBuffer
     private void testRemoteTaskFailedError(RetryPolicy retryPolicy)
     {
         // fail before noMoreTasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, retryPolicy)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, retryPolicy)) {
             TaskId taskId = createTaskId(0, 0);
             buffer.addTask(taskId);
             buffer.taskFailed(taskId, new TrinoException(REMOTE_TASK_FAILED, "Remote task failed"));
@@ -549,7 +877,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         }
 
         // fail after noMoreTasks
-        try (DirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(directExecutor(), ONE_KB, retryPolicy)) {
+        try (DirectExchangeBuffer buffer = createDeduplicatingDirectExchangeBuffer(DEFAULT_BUFFER_CAPACITY, retryPolicy)) {
             TaskId taskId = createTaskId(0, 0);
             buffer.addTask(taskId);
             buffer.noMoreTasks();
@@ -562,9 +890,30 @@ public class TestDeduplicatingDirectExchangeBuffer
         }
     }
 
+    private DeduplicatingDirectExchangeBuffer createDeduplicatingDirectExchangeBuffer(DataSize bufferCapacity, RetryPolicy retryPolicy)
+    {
+        return new DeduplicatingDirectExchangeBuffer(
+                directExecutor(),
+                bufferCapacity,
+                retryPolicy,
+                exchangeManagerRegistry,
+                new QueryId("query"),
+                createRandomExchangeId());
+    }
+
     private static TaskId createTaskId(int partition, int attempt)
     {
         return new TaskId(new StageId("query", 0), partition, attempt);
+    }
+
+    private static Slice createPage(String value, DataSize size)
+    {
+        Slice encodedValue = utf8Slice(value);
+        int sizeInBytes = toIntExact(size.toBytes());
+        checkArgument(encodedValue.length() <= sizeInBytes, "encoded value %s is larger than the total requested size of a page %s", value, size);
+        Slice result = Slices.allocate(sizeInBytes);
+        result.setBytes(0, encodedValue);
+        return result;
     }
 
     private static void assertNotBlocked(ListenableFuture<Void> blocked)

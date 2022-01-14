@@ -21,11 +21,13 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.node.NodeInfo;
 import io.trino.FeaturesConfig;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.Lifespan;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.TestingPagesSerdeFactory;
+import io.trino.metadata.HandleResolver;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
@@ -88,7 +90,13 @@ public class TestMergeOperator
 
         taskBuffers = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(TestingTaskBuffer::new));
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), executor);
-        exchangeClientFactory = new DirectExchangeClientFactory(new NodeInfo("test"), new FeaturesConfig(), new DirectExchangeClientConfig(), httpClient, executor);
+        exchangeClientFactory = new DirectExchangeClientFactory(
+                new NodeInfo("test"),
+                new FeaturesConfig(),
+                new DirectExchangeClientConfig(),
+                httpClient,
+                executor,
+                new ExchangeManagerRegistry(new HandleResolver()));
         orderingCompiler = new OrderingCompiler(new TypeOperators());
     }
 

@@ -30,11 +30,14 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 import io.trino.block.BlockAssertions;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.memory.context.SimpleLocalMemoryContext;
+import io.trino.metadata.HandleResolver;
 import io.trino.spi.Page;
+import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoTransportException;
 import org.testng.annotations.AfterClass;
@@ -69,6 +72,7 @@ import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCoun
 import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -467,7 +471,13 @@ public class TestDirectExchangeClient
         processor.setComplete(attempt1Task1Location);
         processor.setFailed(attempt1Task2Location, new RuntimeException("randomfailure"));
 
-        DeduplicatingDirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(scheduler, DataSize.of(1, Unit.MEGABYTE), RetryPolicy.QUERY);
+        DeduplicatingDirectExchangeBuffer buffer = new DeduplicatingDirectExchangeBuffer(
+                scheduler,
+                DataSize.of(1, Unit.MEGABYTE),
+                RetryPolicy.QUERY,
+                new ExchangeManagerRegistry(new HandleResolver()),
+                new QueryId("query"),
+                createRandomExchangeId());
 
         DirectExchangeClient exchangeClient = new DirectExchangeClient(
                 "localhost",
@@ -521,7 +531,13 @@ public class TestDirectExchangeClient
         DirectExchangeClient exchangeClient = new DirectExchangeClient(
                 "localhost",
                 DataIntegrityVerification.ABORT,
-                new DeduplicatingDirectExchangeBuffer(scheduler, DataSize.of(1, Unit.KILOBYTE), RetryPolicy.QUERY),
+                new DeduplicatingDirectExchangeBuffer(
+                        scheduler,
+                        DataSize.of(1, Unit.KILOBYTE),
+                        RetryPolicy.QUERY,
+                        new ExchangeManagerRegistry(new HandleResolver()),
+                        new QueryId("query"),
+                        createRandomExchangeId()),
                 maxResponseSize,
                 1,
                 new Duration(1, SECONDS),

@@ -38,6 +38,7 @@ import io.trino.operator.DirectExchangeClient;
 import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
+import io.trino.spi.exchange.ExchangeId;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
 import io.trino.version.EmbedVersion;
@@ -335,7 +336,12 @@ public class TestSqlTaskManager
             implements DirectExchangeClientSupplier
     {
         @Override
-        public DirectExchangeClient get(LocalMemoryContext memoryContext, TaskFailureListener taskFailureListener, RetryPolicy retryPolicy)
+        public DirectExchangeClient get(
+                QueryId queryId,
+                ExchangeId exchangeId,
+                LocalMemoryContext memoryContext,
+                TaskFailureListener taskFailureListener,
+                RetryPolicy retryPolicy)
         {
             throw new UnsupportedOperationException();
         }
