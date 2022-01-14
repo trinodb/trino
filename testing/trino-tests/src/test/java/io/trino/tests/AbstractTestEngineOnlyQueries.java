@@ -3409,6 +3409,9 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testMaxBy()
     {
         assertQuery("SELECT MAX_BY(orderkey, totalprice) FROM orders", "SELECT orderkey FROM orders ORDER BY totalprice DESC LIMIT 1");
+        assertQuery(
+                "SELECT clerk, max_by(orderstatus, shippriority) FROM orders WHERE orderstatus = 'O' GROUP BY 1",
+                "SELECT clerk, 'O' FROM orders GROUP BY clerk");
     }
 
     @Test
