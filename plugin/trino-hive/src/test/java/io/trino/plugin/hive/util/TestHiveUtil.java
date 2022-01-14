@@ -89,13 +89,13 @@ public class TestHiveUtil
 
         Properties avroSymlinkSchema = new Properties();
         avroSymlinkSchema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
-        avroSymlinkSchema.setProperty(SERIALIZATION_LIB, AVRO.getSerDe());
+        avroSymlinkSchema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
         assertInstanceOf(getInputFormat(configuration, avroSymlinkSchema, false), SymlinkTextInputFormat.class);
         assertInstanceOf(getInputFormat(configuration, avroSymlinkSchema, true), AvroContainerInputFormat.class);
 
         Properties parquetSymlinkSchema = new Properties();
         parquetSymlinkSchema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
-        parquetSymlinkSchema.setProperty(SERIALIZATION_LIB, PARQUET.getSerDe());
+        parquetSymlinkSchema.setProperty(SERIALIZATION_LIB, PARQUET.getSerde());
         assertInstanceOf(getInputFormat(configuration, parquetSymlinkSchema, false), SymlinkTextInputFormat.class);
         assertInstanceOf(getInputFormat(configuration, parquetSymlinkSchema, true), MapredParquetInputFormat.class);
 

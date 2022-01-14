@@ -326,14 +326,14 @@ public final class HiveUtil
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
             if (symlinkTarget && inputFormatClass == SymlinkTextInputFormat.class) {
-                String serDe = getDeserializerClassName(schema);
+                String serde = getDeserializerClassName(schema);
                 for (HiveStorageFormat format : HiveStorageFormat.values()) {
-                    if (serDe.equals(format.getSerDe())) {
+                    if (serde.equals(format.getSerde())) {
                         inputFormatClass = getInputFormatClass(jobConf, format.getInputFormat());
                         return ReflectionUtils.newInstance(inputFormatClass, jobConf);
                     }
                 }
-                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Unknown SerDe for SymlinkTextInputFormat: " + serDe);
+                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Unknown SerDe for SymlinkTextInputFormat: " + serde);
             }
 
             return ReflectionUtils.newInstance(inputFormatClass, jobConf);
