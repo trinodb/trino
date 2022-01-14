@@ -159,7 +159,7 @@ public abstract class AbstractTestExchangeManager
 
     private void writeData(ExchangeSinkInstanceHandle handle, Multimap<Integer, String> data, boolean finish)
     {
-        ExchangeSink sink = exchangeManager.createSink(handle);
+        ExchangeSink sink = exchangeManager.createSink(handle, false);
         data.forEach((key, value) -> {
             sink.add(key, Slices.utf8Slice(value));
         });
