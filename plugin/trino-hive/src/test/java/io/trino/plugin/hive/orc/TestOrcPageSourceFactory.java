@@ -316,7 +316,7 @@ public class TestOrcPageSourceFactory
     private static Properties createSchema()
     {
         Properties schema = new Properties();
-        schema.setProperty(SERIALIZATION_LIB, ORC.getSerDe());
+        schema.setProperty(SERIALIZATION_LIB, ORC.getSerde());
         schema.setProperty(FILE_INPUT_FORMAT, ORC.getInputFormat());
         schema.setProperty(TABLE_IS_TRANSACTIONAL, "true");
         return schema;

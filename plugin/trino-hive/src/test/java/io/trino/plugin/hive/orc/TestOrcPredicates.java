@@ -167,7 +167,7 @@ public class TestOrcPredicates
 
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, ORC.getInputFormat());
-        splitProperties.setProperty(SERIALIZATION_LIB, ORC.getSerDe());
+        splitProperties.setProperty(SERIALIZATION_LIB, ORC.getSerde());
 
         // Use full columns in split properties
         ImmutableList.Builder<String> splitPropertiesColumnNames = ImmutableList.builder();

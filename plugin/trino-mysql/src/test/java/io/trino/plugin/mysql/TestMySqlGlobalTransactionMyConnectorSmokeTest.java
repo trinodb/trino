@@ -23,14 +23,14 @@ import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 public class TestMySqlGlobalTransactionMyConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
-    private TestingMySqlServer mysqlServer;
+    private TestingMySqlServer mySqlServer;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mysqlServer = closeAfterClass(new TestingMySqlServer(true));
-        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        mySqlServer = closeAfterClass(new TestingMySqlServer(true));
+        return createMySqlQueryRunner(mySqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @Override

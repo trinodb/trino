@@ -1823,6 +1823,7 @@
                                     -Xep:EqualsIncompatibleType:ERROR \
                                     -Xep:FallThrough:ERROR \
                                     -Xep:ImmutableSetForContains:ERROR \
+                                    -Xep:InconsistentCapitalization:ERROR <!-- fields/variables should not differ only in case --> \
                                     -Xep:InconsistentHashCode:ERROR \
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR \
                                     -Xep:MissingCasesInEnumSwitch:ERROR \

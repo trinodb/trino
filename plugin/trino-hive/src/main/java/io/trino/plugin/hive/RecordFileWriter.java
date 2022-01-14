@@ -99,8 +99,8 @@ public class RecordFileWriter
 
         fieldCount = fileColumnNames.size();
 
-        String serDe = storageFormat.getSerDe();
-        serializer = initializeSerializer(conf, schema, serDe);
+        String serde = storageFormat.getSerde();
+        serializer = initializeSerializer(conf, schema, serde);
 
         List<ObjectInspector> objectInspectors = getRowColumnInspectors(fileColumnTypes);
         tableInspector = getStandardStructObjectInspector(fileColumnNames, objectInspectors);

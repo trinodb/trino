@@ -108,10 +108,10 @@ public class RcFileFileWriterFactory
         }
 
         RcFileEncoding rcFileEncoding;
-        if (LazyBinaryColumnarSerDe.class.getName().equals(storageFormat.getSerDe())) {
+        if (LazyBinaryColumnarSerDe.class.getName().equals(storageFormat.getSerde())) {
             rcFileEncoding = new BinaryRcFileEncoding(timeZone);
         }
-        else if (ColumnarSerDe.class.getName().equals(storageFormat.getSerDe())) {
+        else if (ColumnarSerDe.class.getName().equals(storageFormat.getSerde())) {
             rcFileEncoding = createTextVectorEncoding(schema);
         }
         else {
