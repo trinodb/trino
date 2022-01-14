@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -155,7 +156,7 @@ public class PushAggregationThroughOuterJoin
                     join.getLeft(),
                     rewrittenAggregation,
                     join.getCriteria(),
-                    join.getLeft().getOutputSymbols(),
+                    join.getLeft().getOutputSymbols().stream().filter(aggregation.getOutputSymbols()::contains).collect(Collectors.toList()),
                     ImmutableList.copyOf(rewrittenAggregation.getAggregations().keySet()),
                     // there are no duplicate rows possible since outer rows were guaranteed to be distinct
                     false,
@@ -175,7 +176,7 @@ public class PushAggregationThroughOuterJoin
                     join.getRight(),
                     join.getCriteria(),
                     ImmutableList.copyOf(rewrittenAggregation.getAggregations().keySet()),
-                    join.getRight().getOutputSymbols(),
+                    join.getRight().getOutputSymbols().stream().filter(aggregation.getOutputSymbols()::contains).collect(Collectors.toList()),
                     // there are no duplicate rows possible since outer rows were guaranteed to be distinct
                     false,
                     join.getFilter(),
