@@ -57,6 +57,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
@@ -200,6 +201,8 @@ class Query
             BlockEncodingSerde blockEncodingSerde)
     {
         DirectExchangeClient exchangeClient = directExchangeClientSupplier.get(
+                session.getQueryId(),
+                new ExchangeId("direct-exchange-query-results"),
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), Query.class.getSimpleName()),
                 queryManager::outputTaskFailed,
                 getRetryPolicy(session));

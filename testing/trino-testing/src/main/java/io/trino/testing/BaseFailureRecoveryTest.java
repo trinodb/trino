@@ -106,6 +106,8 @@ public abstract class BaseFailureRecoveryTest
                         .put("failure-injection.request-timeout", new Duration(REQUEST_TIMEOUT.toMillis() * 2, MILLISECONDS).toString())
                         .put("exchange.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
                         .put("query.initial-hash-partitions", "5")
+                        // to trigger spilling
+                        .put("exchange.deduplication-buffer-size", "1kB")
                         .buildOrThrow(),
                 ImmutableMap.<String, String>builder()
                         .put("scheduler.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
