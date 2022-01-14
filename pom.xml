@@ -1813,8 +1813,6 @@
                                 <arg>-XDcompilePolicy=simple</arg>
                                 <arg>
                                     -Xplugin:ErrorProne \
-                                    <!-- -Xep:ReferenceEquality:OFF fails in IDEA --> \
-                                    <!-- -Xep:BoxedPrimitiveEquality:OFF fails in IDEA --> \
                                     -Xep:GuardedBy:OFF <!-- needs some careful inspection --> \
                                     -Xep:BadInstanceof:ERROR \
                                     -Xep:BoxedPrimitiveConstructor:ERROR \
