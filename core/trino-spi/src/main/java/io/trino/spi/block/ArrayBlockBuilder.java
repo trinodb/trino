@@ -147,56 +147,10 @@ public class ArrayBlockBuilder
     }
 
     @Override
-    public BlockBuilder appendStructure(Block block)
-    {
-        if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was opened");
-        }
-        currentEntryOpened = true;
-
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (block.isNull(i)) {
-                values.appendNull();
-            }
-            else {
-                block.writePositionTo(i, values);
-            }
-        }
-
-        closeEntry();
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendStructureInternal(Block block, int position)
-    {
-        if (!(block instanceof AbstractArrayBlock)) {
-            throw new IllegalArgumentException();
-        }
-
-        AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
-        BlockBuilder entryBuilder = beginBlockEntry();
-
-        int startValueOffset = arrayBlock.getOffset(position);
-        int endValueOffset = arrayBlock.getOffset(position + 1);
-        for (int i = startValueOffset; i < endValueOffset; i++) {
-            if (arrayBlock.getRawElementBlock().isNull(i)) {
-                entryBuilder.appendNull();
-            }
-            else {
-                arrayBlock.getRawElementBlock().writePositionTo(i, entryBuilder);
-            }
-        }
-
-        closeEntry();
-        return this;
-    }
-
-    @Override
     public SingleArrayBlockWriter beginBlockEntry()
     {
         if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was closed");
+            throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
         return new SingleArrayBlockWriter(values, values.getPositionCount());

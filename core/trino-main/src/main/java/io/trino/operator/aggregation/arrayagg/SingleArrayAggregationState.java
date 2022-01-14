@@ -92,6 +92,6 @@ public class SingleArrayAggregationState
     @Override
     public AccumulatorState copy()
     {
-        return new SingleArrayAggregationState(copyBlockBuilder(blockBuilder), type);
+        return new SingleArrayAggregationState(copyBlockBuilder(type, blockBuilder), type);
     }
 }

@@ -66,10 +66,9 @@ public class TestBlockBuilder
         for (int i = 0; i < 100; i++) {
             BIGINT.writeLong(bigintBlockBuilder, i);
             VARCHAR.writeSlice(varcharBlockBuilder, Slices.utf8Slice("test" + i));
-            Block longArrayBlock = new ArrayType(BIGINT)
-                    .createBlockBuilder(null, 1)
-                    .appendStructure(BIGINT.createBlockBuilder(null, 2).writeLong(i).closeEntry().writeLong(i * 2).closeEntry().build());
-            arrayBlockBuilder.appendStructure(longArrayBlock);
+            BlockBuilder blockBuilder = longArrayType.createBlockBuilder(null, 1);
+            longArrayType.writeObject(blockBuilder, BIGINT.createBlockBuilder(null, 2).writeLong(i).writeLong(i * 2).build());
+            arrayType.writeObject(arrayBlockBuilder, blockBuilder);
             pageBuilder.declarePosition();
         }
 

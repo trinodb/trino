@@ -326,7 +326,7 @@ public class BenchmarkUnnestOperator
 
             for (int i = 0; i < entries; i++) {
                 int arrayLength = minNestedCardinality + random.nextInt(maxNestedCardinality - minNestedCardinality);
-                builder.appendStructure(produceBlock(elementType, arrayLength, primitiveNullsRatio, rowNullsRatio));
+                arrayType.writeObject(builder, produceBlock(elementType, arrayLength, primitiveNullsRatio, rowNullsRatio));
             }
             return builder.build();
         }

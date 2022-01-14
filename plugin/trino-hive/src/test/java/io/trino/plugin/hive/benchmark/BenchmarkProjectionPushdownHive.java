@@ -288,7 +288,7 @@ public class BenchmarkProjectionPushdownHive
                 BlockBuilder blockBuilder = type.createBlockBuilder(null, rowCount);
                 for (int i = 0; i < rowCount; i++) {
                     Block elementBlock = createBlock(elementType, DEFAULT_ARRAY_SIZE);
-                    blockBuilder.appendStructure(elementBlock);
+                    type.writeObject(blockBuilder, elementBlock);
                 }
 
                 return blockBuilder.build();
