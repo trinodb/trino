@@ -445,7 +445,6 @@ public class MockConnectorFactory
 
         public Builder withProcedures(Set<Procedure> procedures)
         {
-            provideAccessControl = true;
             this.procedures = procedures;
             return this;
         }
