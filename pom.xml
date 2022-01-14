@@ -1813,13 +1813,13 @@
                                 <arg>-XDcompilePolicy=simple</arg>
                                 <arg>
                                     -Xplugin:ErrorProne \
-                                    -Xep:GuardedBy:OFF <!-- needs some careful inspection --> \
                                     -Xep:BadInstanceof:ERROR \
                                     -Xep:BoxedPrimitiveConstructor:ERROR \
                                     -Xep:ClassCanBeStatic:ERROR \
                                     -Xep:CompareToZero:ERROR \
                                     -Xep:EqualsIncompatibleType:ERROR \
                                     -Xep:FallThrough:ERROR \
+                                    -Xep:GuardedBy:OFF <!-- needs some careful inspection --> \
                                     -Xep:ImmutableSetForContains:ERROR \
                                     -Xep:InconsistentHashCode:ERROR \
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR \
