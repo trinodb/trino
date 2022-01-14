@@ -49,8 +49,6 @@ public class EnvSinglenodeCompatibility
     private final DockerFiles.ResourceProvider configDir;
     private final PortBinder portBinder;
 
-    private Config extraConfig;
-
     @Inject
     public EnvSinglenodeCompatibility(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, PortBinder portBinder)
     {
@@ -61,8 +59,9 @@ public class EnvSinglenodeCompatibility
     }
 
     @Override
-    public void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder, Map<String, String> extraOptions)
     {
+        Config extraConfig = new Config(extraOptions);
         configureCompatibilityTestContainer(builder, extraConfig);
         configureTestsContainer(builder, extraConfig);
     }
@@ -120,12 +119,6 @@ public class EnvSinglenodeCompatibility
     public Optional<String> getExtraOptionsPrefix()
     {
         return Optional.of("compatibility.");
-    }
-
-    @Override
-    public void setExtraOptions(Map<String, String> extraOptions)
-    {
-        extraConfig = new Config(extraOptions);
     }
 
     public static class Config
