@@ -112,11 +112,6 @@ public interface Block
     }
 
     /**
-     * Appends the value at {@code position} to {@code blockBuilder} and close the entry.
-     */
-    void writePositionTo(int position, BlockBuilder blockBuilder);
-
-    /**
      * Is the byte sequences at {@code offset} in the value at {@code position} equal
      * to the byte sequence at {@code otherOffset} in the value at {@code otherPosition}
      * in {@code otherBlock}.

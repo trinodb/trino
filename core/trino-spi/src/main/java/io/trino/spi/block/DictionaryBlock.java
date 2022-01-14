@@ -187,12 +187,6 @@ public class DictionaryBlock
     }
 
     @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        dictionary.writePositionTo(getId(position), blockBuilder);
-    }
-
-    @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         return dictionary.equals(getId(position), offset, otherBlock, otherPosition, otherOffset, length);

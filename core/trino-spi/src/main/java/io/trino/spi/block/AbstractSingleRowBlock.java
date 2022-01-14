@@ -139,13 +139,6 @@ public abstract class AbstractSingleRowBlock
     }
 
     @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        checkFieldIndex(position);
-        getRawFieldBlock(position).writePositionTo(getRowIndex(), blockBuilder);
-    }
-
-    @Override
     public Block getSingleValueBlock(int position)
     {
         checkFieldIndex(position);

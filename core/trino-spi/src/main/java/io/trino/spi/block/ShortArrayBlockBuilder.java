@@ -205,14 +205,6 @@ public class ShortArrayBlockBuilder
     }
 
     @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        checkReadablePosition(position);
-        blockBuilder.writeShort(values[position]);
-        blockBuilder.closeEntry();
-    }
-
-    @Override
     public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(position);

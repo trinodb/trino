@@ -115,13 +115,6 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        checkReadablePosition(position);
-        getBlock().writePositionTo(position + start, blockBuilder);
-    }
-
-    @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         checkReadablePosition(position);
