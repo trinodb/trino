@@ -35,6 +35,7 @@ public class DirectExchangeClientConfig
     private int clientThreads = 25;
     private int pageBufferClientMaxCallbackThreads = 25;
     private boolean acknowledgePages = true;
+    private DataSize deduplicationBufferSize = DataSize.of(32, Unit.MEGABYTE);
 
     @NotNull
     public DataSize getMaxBufferSize()
@@ -138,6 +139,19 @@ public class DirectExchangeClientConfig
     public DirectExchangeClientConfig setAcknowledgePages(boolean acknowledgePages)
     {
         this.acknowledgePages = acknowledgePages;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getDeduplicationBufferSize()
+    {
+        return deduplicationBufferSize;
+    }
+
+    @Config("exchange.deduplication-buffer-size")
+    public DirectExchangeClientConfig setDeduplicationBufferSize(DataSize deduplicationBufferSize)
+    {
+        this.deduplicationBufferSize = deduplicationBufferSize;
         return this;
     }
 }
