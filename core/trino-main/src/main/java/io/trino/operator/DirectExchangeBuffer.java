@@ -54,6 +54,10 @@ public interface DirectExchangeBuffer
 
     int getBufferedPageCount();
 
+    long getSpilledBytes();
+
+    int getSpilledPageCount();
+
     @Override
     void close();
 }

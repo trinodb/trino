@@ -183,6 +183,18 @@ public class TestingDirectExchangeBuffer
     }
 
     @Override
+    public long getSpilledBytes()
+    {
+        return 0;
+    }
+
+    @Override
+    public int getSpilledPageCount()
+    {
+        return 0;
+    }
+
+    @Override
     public synchronized void close()
     {
         finished = true;

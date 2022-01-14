@@ -128,6 +128,8 @@ public class DirectExchangeClient
                     averageBytesPerRequest,
                     successfulRequests,
                     buffer.getBufferedPageCount(),
+                    buffer.getSpilledPageCount(),
+                    buffer.getSpilledBytes(),
                     noMoreLocations,
                     pageBufferClientStatus);
         }

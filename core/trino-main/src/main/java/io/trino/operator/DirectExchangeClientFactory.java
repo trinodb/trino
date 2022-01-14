@@ -20,8 +20,11 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
+import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.TaskFailureListener;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.spi.QueryId;
+import io.trino.spi.exchange.ExchangeId;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -52,6 +55,7 @@ public class DirectExchangeClientFactory
     private final ScheduledExecutorService scheduler;
     private final ThreadPoolExecutorMBean executorMBean;
     private final ExecutorService pageBufferClientCallbackExecutor;
+    private final ExchangeManagerRegistry exchangeManagerRegistry;
 
     @Inject
     public DirectExchangeClientFactory(
@@ -59,7 +63,8 @@ public class DirectExchangeClientFactory
             FeaturesConfig featuresConfig,
             DirectExchangeClientConfig config,
             @ForExchange HttpClient httpClient,
-            @ForExchange ScheduledExecutorService scheduler)
+            @ForExchange ScheduledExecutorService scheduler,
+            ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this(
                 nodeInfo,
@@ -72,7 +77,8 @@ public class DirectExchangeClientFactory
                 config.isAcknowledgePages(),
                 config.getPageBufferClientMaxCallbackThreads(),
                 httpClient,
-                scheduler);
+                scheduler,
+                exchangeManagerRegistry);
     }
 
     public DirectExchangeClientFactory(
@@ -86,7 +92,8 @@ public class DirectExchangeClientFactory
             boolean acknowledgePages,
             int pageBufferClientMaxCallbackThreads,
             HttpClient httpClient,
-            ScheduledExecutorService scheduler)
+            ScheduledExecutorService scheduler,
+            ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.dataIntegrityVerification = requireNonNull(dataIntegrityVerification, "dataIntegrityVerification is null");
@@ -111,6 +118,7 @@ public class DirectExchangeClientFactory
         checkArgument(maxBufferedBytes.toBytes() > 0, "maxBufferSize must be at least 1 byte: %s", maxBufferedBytes);
         checkArgument(maxResponseSize.toBytes() > 0, "maxResponseSize must be at least 1 byte: %s", maxResponseSize);
         checkArgument(concurrentRequestMultiplier > 0, "concurrentRequestMultiplier must be at least 1: %s", concurrentRequestMultiplier);
+        this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
     }
 
     @PreDestroy
@@ -127,13 +135,18 @@ public class DirectExchangeClientFactory
     }
 
     @Override
-    public DirectExchangeClient get(LocalMemoryContext memoryContext, TaskFailureListener taskFailureListener, RetryPolicy retryPolicy)
+    public DirectExchangeClient get(
+            QueryId queryId,
+            ExchangeId exchangeId,
+            LocalMemoryContext memoryContext,
+            TaskFailureListener taskFailureListener,
+            RetryPolicy retryPolicy)
     {
         DirectExchangeBuffer buffer;
         switch (retryPolicy) {
             case TASK:
             case QUERY:
-                buffer = new DeduplicatingDirectExchangeBuffer(scheduler, deduplicationBufferSize, retryPolicy);
+                buffer = new DeduplicatingDirectExchangeBuffer(scheduler, deduplicationBufferSize, retryPolicy, exchangeManagerRegistry, queryId, exchangeId);
                 break;
             case NONE:
                 buffer = new StreamingDirectExchangeBuffer(scheduler, maxBufferedBytes);

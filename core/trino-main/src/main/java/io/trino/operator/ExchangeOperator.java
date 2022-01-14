@@ -20,12 +20,14 @@ import io.airlift.slice.Slice;
 import io.trino.connector.CatalogName;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.TaskFailureListener;
+import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSource;
 import io.trino.spi.exchange.ExchangeSourceHandle;
@@ -47,6 +49,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ExchangeOperator
@@ -99,7 +102,14 @@ public class ExchangeOperator
                 // The decision of what exchange to use (streaming vs external) is currently made at the scheduling phase. It is more convenient to deliver it as part of a RemoteSplit.
                 // Postponing this decision until scheduling allows to dynamically change the exchange type as part of an adaptive query re-planning.
                 // LazyExchangeDataSource allows to choose an exchange source implementation based on the information received from a split.
-                exchangeDataSource = new LazyExchangeDataSource(directExchangeClientSupplier, memoryContext, taskContext::sourceTaskFailed, retryPolicy, exchangeManagerRegistry);
+                exchangeDataSource = new LazyExchangeDataSource(
+                        taskContext.getTaskId(),
+                        sourceId,
+                        directExchangeClientSupplier,
+                        memoryContext,
+                        taskContext::sourceTaskFailed,
+                        retryPolicy,
+                        exchangeManagerRegistry);
             }
             return new ExchangeOperator(
                     operatorContext,
@@ -244,6 +254,8 @@ public class ExchangeOperator
     private static class LazyExchangeDataSource
             implements ExchangeDataSource
     {
+        private final TaskId taskId;
+        private final PlanNodeId sourceId;
         private final DirectExchangeClientSupplier directExchangeClientSupplier;
         private final LocalMemoryContext systemMemoryContext;
         private final TaskFailureListener taskFailureListener;
@@ -255,12 +267,16 @@ public class ExchangeOperator
         private final AtomicBoolean closed = new AtomicBoolean();
 
         private LazyExchangeDataSource(
+                TaskId taskId,
+                PlanNodeId sourceId,
                 DirectExchangeClientSupplier directExchangeClientSupplier,
                 LocalMemoryContext systemMemoryContext,
                 TaskFailureListener taskFailureListener,
                 RetryPolicy retryPolicy,
                 ExchangeManagerRegistry exchangeManagerRegistry)
         {
+            this.taskId = requireNonNull(taskId, "taskId is null");
+            this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
             this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
             this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
@@ -316,7 +332,12 @@ public class ExchangeOperator
                 ExchangeDataSource dataSource = delegate.get();
                 if (dataSource == null) {
                     if (split.getExchangeInput() instanceof DirectExchangeInput) {
-                        DirectExchangeClient client = directExchangeClientSupplier.get(systemMemoryContext, taskFailureListener, retryPolicy);
+                        DirectExchangeClient client = directExchangeClientSupplier.get(
+                                taskId.getQueryId(),
+                                new ExchangeId(format("direct-exchange-%s-%s", taskId.getStageId().getId(), sourceId)),
+                                systemMemoryContext,
+                                taskFailureListener,
+                                retryPolicy);
                         dataSource = new DirectExchangeDataSource(client);
                     }
                     else if (split.getExchangeInput() instanceof SpoolingExchangeInput) {

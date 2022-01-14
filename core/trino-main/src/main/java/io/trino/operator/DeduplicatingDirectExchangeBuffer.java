@@ -13,37 +13,63 @@
  */
 package io.trino.operator;
 
-import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
+import io.trino.exchange.ExchangeManagerRegistry;
+import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.exchange.Exchange;
+import io.trino.spi.exchange.ExchangeContext;
+import io.trino.spi.exchange.ExchangeId;
+import io.trino.spi.exchange.ExchangeManager;
+import io.trino.spi.exchange.ExchangeSink;
+import io.trino.spi.exchange.ExchangeSinkHandle;
+import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
+import io.trino.spi.exchange.ExchangeSource;
+import io.trino.spi.exchange.ExchangeSourceHandle;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.NotThreadSafe;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Multimaps.asMap;
+import static com.google.common.util.concurrent.Futures.getUnchecked;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static io.airlift.concurrent.MoreFutures.asVoid;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.operator.RetryPolicy.QUERY;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
+import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -53,10 +79,8 @@ public class DeduplicatingDirectExchangeBuffer
     private static final Logger log = Logger.get(DeduplicatingDirectExchangeBuffer.class);
 
     private final Executor executor;
-    private final long bufferCapacityInBytes;
     private final RetryPolicy retryPolicy;
 
-    private final SettableFuture<Void> blocked = SettableFuture.create();
     @GuardedBy("this")
     private final Set<TaskId> allTasks = new HashSet<>();
     @GuardedBy("this")
@@ -66,37 +90,56 @@ public class DeduplicatingDirectExchangeBuffer
     @GuardedBy("this")
     private final Map<TaskId, Throwable> failedTasks = new HashMap<>();
     @GuardedBy("this")
-    private boolean inputFinished;
+    private int maxAttemptId;
+
+    @GuardedBy("this")
+    private final PageBuffer pageBuffer;
+
+    private final SettableFuture<Void> outputReady = SettableFuture.create();
+    @GuardedBy("this")
+    private OutputSource outputSource;
+
+    @GuardedBy("this")
+    private long maxRetainedSizeInBytes;
+
     @GuardedBy("this")
     private Throwable failure;
 
     @GuardedBy("this")
-    private final ListMultimap<TaskId, Slice> pageBuffer = LinkedListMultimap.create();
-    @GuardedBy("this")
-    private Iterator<Slice> pagesIterator;
-    @GuardedBy("this")
-    private volatile long bufferRetainedSizeInBytes;
-    @GuardedBy("this")
-    private volatile long maxBufferRetainedSizeInBytes;
-    @GuardedBy("this")
-    private int maxAttemptId;
-
-    @GuardedBy("this")
     private boolean closed;
 
-    public DeduplicatingDirectExchangeBuffer(Executor executor, DataSize bufferCapacity, RetryPolicy retryPolicy)
+    public DeduplicatingDirectExchangeBuffer(
+            Executor executor,
+            DataSize bufferCapacity,
+            RetryPolicy retryPolicy,
+            ExchangeManagerRegistry exchangeManagerRegistry,
+            QueryId queryId,
+            ExchangeId exchangeId)
     {
         this.executor = requireNonNull(executor, "executor is null");
-        this.bufferCapacityInBytes = requireNonNull(bufferCapacity, "bufferCapacity is null").toBytes();
         requireNonNull(retryPolicy, "retryPolicy is null");
         checkArgument(retryPolicy != NONE, "retries should be enabled");
         this.retryPolicy = retryPolicy;
+        this.pageBuffer = new PageBuffer(
+                exchangeManagerRegistry,
+                queryId,
+                exchangeId,
+                bufferCapacity);
     }
 
     @Override
     public ListenableFuture<Void> isBlocked()
     {
-        return nonCancellationPropagating(blocked);
+        if (failure != null || closed) {
+            return immediateVoidFuture();
+        }
+
+        if (!outputReady.isDone()) {
+            return nonCancellationPropagating(outputReady);
+        }
+
+        checkState(outputSource != null, "outputSource is expected to be set");
+        return outputSource.isBlocked();
     }
 
     @Override
@@ -108,22 +151,13 @@ public class DeduplicatingDirectExchangeBuffer
             return null;
         }
 
-        if (!inputFinished) {
+        if (!outputReady.isDone()) {
             return null;
         }
 
-        if (pagesIterator == null) {
-            pagesIterator = pageBuffer.values().iterator();
-        }
-
-        if (!pagesIterator.hasNext()) {
-            return null;
-        }
-
-        Slice page = pagesIterator.next();
-        pagesIterator.remove();
-        bufferRetainedSizeInBytes -= page.getRetainedSize();
-
+        checkState(outputSource != null, "outputSource is expected to be set");
+        Slice page = outputSource.getNext();
+        updateMaxRetainedSize();
         return page;
     }
 
@@ -141,7 +175,8 @@ public class DeduplicatingDirectExchangeBuffer
             maxAttemptId = taskId.getAttemptId();
 
             if (retryPolicy == QUERY) {
-                removePagesForPreviousAttempts(taskId.getAttemptId());
+                pageBuffer.removePagesForPreviousAttempts(maxAttemptId);
+                updateMaxRetainedSize();
             }
         }
     }
@@ -165,18 +200,13 @@ public class DeduplicatingDirectExchangeBuffer
             return;
         }
 
-        long pagesRetainedSizeInBytes = 0;
-        for (Slice page : pages) {
-            pagesRetainedSizeInBytes += page.getRetainedSize();
+        try {
+            pageBuffer.addPages(taskId, pages);
+            updateMaxRetainedSize();
         }
-        bufferRetainedSizeInBytes += pagesRetainedSizeInBytes;
-        if (bufferRetainedSizeInBytes > bufferCapacityInBytes) {
-            // TODO: implement disk spilling
-            fail(new TrinoException(NOT_SUPPORTED, "Retries for queries with large result set currently unsupported"));
-            return;
+        catch (RuntimeException e) {
+            fail(e);
         }
-        maxBufferRetainedSizeInBytes = max(maxBufferRetainedSizeInBytes, bufferRetainedSizeInBytes);
-        pageBuffer.putAll(taskId, pages);
     }
 
     @Override
@@ -217,23 +247,17 @@ public class DeduplicatingDirectExchangeBuffer
         checkInputFinished();
     }
 
-    private synchronized void checkInputFinished()
+    private void checkInputFinished()
     {
         if (failure != null) {
             return;
         }
 
-        if (inputFinished) {
+        if (outputSource != null) {
             return;
         }
 
         if (!noMoreTasks) {
-            return;
-        }
-
-        if (allTasks.isEmpty()) {
-            inputFinished = true;
-            unblock(blocked);
             return;
         }
 
@@ -258,9 +282,8 @@ public class DeduplicatingDirectExchangeBuffer
                         }
                     }
 
-                    removePagesFor(taskId -> !taskId.equals(partitionToTaskMap.get(taskId.getPartitionId())));
-                    inputFinished = true;
-                    unblock(blocked);
+                    outputSource = pageBuffer.createOutputSource(ImmutableSet.copyOf(partitionToTaskMap.values()));
+                    unblock(outputReady);
                     return;
                 }
 
@@ -282,9 +305,8 @@ public class DeduplicatingDirectExchangeBuffer
                         .collect(toImmutableSet());
 
                 if (successfulTasks.containsAll(latestAttemptTasks)) {
-                    removePagesForPreviousAttempts(maxAttemptId);
-                    inputFinished = true;
-                    unblock(blocked);
+                    outputSource = pageBuffer.createOutputSource(latestAttemptTasks);
+                    unblock(outputReady);
                     return;
                 }
 
@@ -322,30 +344,10 @@ public class DeduplicatingDirectExchangeBuffer
         }
     }
 
-    private synchronized void removePagesForPreviousAttempts(int currentAttemptId)
-    {
-        removePagesFor(task -> task.getAttemptId() < currentAttemptId);
-    }
-
-    private synchronized void removePagesFor(Predicate<TaskId> taskIdPredicate)
-    {
-        long pagesRetainedSizeInBytes = 0;
-        Iterator<Map.Entry<TaskId, Slice>> iterator = pageBuffer.entries().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<TaskId, Slice> entry = iterator.next();
-            TaskId taskId = entry.getKey();
-            if (taskIdPredicate.test(taskId)) {
-                pagesRetainedSizeInBytes += entry.getValue().getRetainedSize();
-                iterator.remove();
-            }
-        }
-        bufferRetainedSizeInBytes -= pagesRetainedSizeInBytes;
-    }
-
     @Override
     public synchronized boolean isFinished()
     {
-        return failure == null && (closed || (inputFinished && pageBuffer.isEmpty()));
+        return failure == null && (closed || (outputSource != null && outputSource.isFinished()));
     }
 
     @Override
@@ -355,27 +357,44 @@ public class DeduplicatingDirectExchangeBuffer
     }
 
     @Override
-    public long getRemainingCapacityInBytes()
+    public synchronized long getRemainingCapacityInBytes()
     {
-        return max(bufferCapacityInBytes - bufferRetainedSizeInBytes, 0);
+        // this buffer is always ready to accept more data
+        return Long.MAX_VALUE;
     }
 
     @Override
-    public long getRetainedSizeInBytes()
+    public synchronized long getRetainedSizeInBytes()
     {
-        return bufferRetainedSizeInBytes;
+        long retainedSizeInBytes = pageBuffer.getRetainedSizeInBytes();
+        if (outputSource != null) {
+            retainedSizeInBytes += outputSource.getRetainedSizeInBytes();
+        }
+        return retainedSizeInBytes;
     }
 
     @Override
-    public long getMaxRetainedSizeInBytes()
+    public synchronized long getMaxRetainedSizeInBytes()
     {
-        return maxBufferRetainedSizeInBytes;
+        return maxRetainedSizeInBytes;
     }
 
     @Override
     public synchronized int getBufferedPageCount()
     {
-        return pageBuffer.size();
+        return pageBuffer.getBufferedPageCount();
+    }
+
+    @Override
+    public synchronized long getSpilledBytes()
+    {
+        return pageBuffer.getSpilledBytes();
+    }
+
+    @Override
+    public synchronized int getSpilledPageCount()
+    {
+        return pageBuffer.getSpilledPageCount();
     }
 
     @Override
@@ -385,12 +404,16 @@ public class DeduplicatingDirectExchangeBuffer
             return;
         }
         closed = true;
-        pageBuffer.clear();
-        bufferRetainedSizeInBytes = 0;
-        unblock(blocked);
+        closeAndUnblock();
     }
 
-    private synchronized void throwIfFailed()
+    private void fail(Throwable failure)
+    {
+        this.failure = failure;
+        closeAndUnblock();
+    }
+
+    private void throwIfFailed()
     {
         if (failure != null) {
             throwIfUnchecked(failure);
@@ -398,16 +421,402 @@ public class DeduplicatingDirectExchangeBuffer
         }
     }
 
-    private synchronized void fail(Throwable failure)
+    private void closeAndUnblock()
     {
-        pageBuffer.clear();
-        bufferRetainedSizeInBytes = 0;
-        this.failure = failure;
-        unblock(blocked);
+        try (Closer closer = Closer.create()) {
+            closer.register(pageBuffer);
+            closer.register(outputSource);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        finally {
+            unblock(outputReady);
+        }
+    }
+
+    private void updateMaxRetainedSize()
+    {
+        maxRetainedSizeInBytes = max(maxRetainedSizeInBytes, getRetainedSizeInBytes());
     }
 
     private void unblock(SettableFuture<Void> blocked)
     {
         executor.execute(() -> blocked.set(null));
+    }
+
+    @NotThreadSafe
+    private static class PageBuffer
+            implements Closeable
+    {
+        private final ExchangeManagerRegistry exchangeManagerRegistry;
+        private final QueryId queryId;
+        private final ExchangeId exchangeId;
+
+        private final long pageBufferCapacityInBytes;
+        private final ListMultimap<TaskId, Slice> pageBuffer = ArrayListMultimap.create();
+        private long pageBufferRetainedSizeInBytes;
+
+        private ExchangeManager exchangeManager;
+        private Exchange exchange;
+        private ExchangeSinkInstanceHandle sinkInstanceHandle;
+        private ExchangeSink exchangeSink;
+        private SliceOutput writeBuffer;
+
+        private int bufferedPageCount;
+        private long spilledBytes;
+        private int spilledPageCount;
+
+        private boolean inputFinished;
+        private boolean closed;
+
+        private PageBuffer(
+                ExchangeManagerRegistry exchangeManagerRegistry,
+                QueryId queryId,
+                ExchangeId exchangeId,
+                DataSize pageBufferCapacity)
+        {
+            this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+            this.queryId = requireNonNull(queryId, "queryId is null");
+            this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
+            this.pageBufferCapacityInBytes = requireNonNull(pageBufferCapacity, "pageBufferCapacity is null").toBytes();
+        }
+
+        public void addPages(TaskId taskId, List<Slice> pages)
+        {
+            if (closed) {
+                return;
+            }
+
+            if (inputFinished) {
+                // ignore extra pages after input is marked as finished
+                return;
+            }
+
+            long pagesRetainedSizeInBytes = getRetainedSizeInBytes(pages);
+            if (exchangeSink == null && pageBufferRetainedSizeInBytes + pagesRetainedSizeInBytes <= pageBufferCapacityInBytes) {
+                pageBuffer.putAll(taskId, pages);
+                pageBufferRetainedSizeInBytes += pagesRetainedSizeInBytes;
+                bufferedPageCount += pages.size();
+                return;
+            }
+
+            if (exchangeSink == null) {
+                verify(exchangeManager == null, "exchangeManager is not expected to be initialized");
+                verify(exchange == null, "exchange is not expected to be initialized");
+                verify(sinkInstanceHandle == null, "sinkInstanceHandle is not expected to be initialized");
+                verify(writeBuffer == null, "writeBuffer is not expected to be initialized");
+
+                exchangeManager = exchangeManagerRegistry.getExchangeManager();
+                exchange = exchangeManager.createExchange(new ExchangeContext(queryId, exchangeId), 1);
+
+                ExchangeSinkHandle sinkHandle = exchange.addSink(0);
+                sinkInstanceHandle = exchange.instantiateSink(sinkHandle, 0);
+                exchange.noMoreSinks();
+                exchangeSink = exchangeManager.createSink(sinkInstanceHandle, true);
+
+                writeBuffer = new DynamicSliceOutput(DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+            }
+
+            if (!pageBuffer.isEmpty()) {
+                for (Map.Entry<TaskId, List<Slice>> entry : asMap(pageBuffer).entrySet()) {
+                    writeToSink(entry.getKey(), entry.getValue());
+                }
+                pageBuffer.clear();
+                pageBufferRetainedSizeInBytes = 0;
+            }
+
+            writeToSink(taskId, pages);
+            bufferedPageCount += pages.size();
+        }
+
+        private static long getRetainedSizeInBytes(List<Slice> pages)
+        {
+            long result = 0;
+            for (Slice page : pages) {
+                result += page.getRetainedSize();
+            }
+            return result;
+        }
+
+        private void writeToSink(TaskId taskId, List<Slice> pages)
+        {
+            verify(exchangeSink != null, "exchangeSink is expected to be initialized");
+            verify(writeBuffer != null, "writeBuffer is expected to be initialized");
+            for (Slice page : pages) {
+                // wait for the sink to unblock
+                getUnchecked(exchangeSink.isBlocked());
+                writeBuffer.writeInt(taskId.getStageId().getId());
+                writeBuffer.writeInt(taskId.getPartitionId());
+                writeBuffer.writeInt(taskId.getAttemptId());
+                writeBuffer.writeBytes(page);
+                exchangeSink.add(0, writeBuffer.slice());
+                writeBuffer.reset();
+                spilledBytes += page.length();
+                spilledPageCount++;
+            }
+        }
+
+        public void removePagesForPreviousAttempts(int currentAttemptId)
+        {
+            checkState(!inputFinished, "input is finished");
+
+            if (closed) {
+                return;
+            }
+
+            long removedPagesRetainedSizeInBytes = 0;
+            int removedPagesCount = 0;
+            Iterator<Map.Entry<TaskId, List<Slice>>> iterator = asMap(pageBuffer).entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<TaskId, List<Slice>> entry = iterator.next();
+                TaskId taskId = entry.getKey();
+                if (taskId.getAttemptId() < currentAttemptId) {
+                    for (Slice page : entry.getValue()) {
+                        removedPagesRetainedSizeInBytes += page.getRetainedSize();
+                        removedPagesCount++;
+                    }
+                    iterator.remove();
+                }
+            }
+            pageBufferRetainedSizeInBytes -= removedPagesRetainedSizeInBytes;
+            bufferedPageCount -= removedPagesCount;
+        }
+
+        public OutputSource createOutputSource(Set<TaskId> selectedTasks)
+        {
+            checkState(!inputFinished, "input is already marked as finished and page source has already been created");
+            inputFinished = true;
+
+            if (exchangeSink == null) {
+                Iterator<Slice> iterator = pageBuffer.entries().stream()
+                        .filter(entry -> selectedTasks.contains(entry.getKey()))
+                        .map(Map.Entry::getValue)
+                        .iterator();
+                return new InMemoryBufferOutputSource(iterator);
+            }
+
+            verify(exchangeManager != null, "exchangeManager is expected to be initialized");
+            verify(exchange != null, "exchange is expected to be initialized");
+            verify(sinkInstanceHandle != null, "sinkInstanceHandle is expected to be initialized");
+
+            exchangeSink.finish();
+            exchangeSink = null;
+            exchange.sinkFinished(sinkInstanceHandle);
+            return new ExchangeOutputSource(selectedTasks, exchangeManager, exchange, queryId);
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            long result = pageBufferRetainedSizeInBytes;
+            if (exchangeSink != null) {
+                result += exchangeSink.getMemoryUsage();
+            }
+            if (writeBuffer != null) {
+                result += writeBuffer.getRetainedSize();
+            }
+            return result;
+        }
+
+        public int getBufferedPageCount()
+        {
+            return bufferedPageCount;
+        }
+
+        public long getSpilledBytes()
+        {
+            return spilledBytes;
+        }
+
+        public int getSpilledPageCount()
+        {
+            return spilledPageCount;
+        }
+
+        @Override
+        public void close()
+        {
+            if (closed) {
+                return;
+            }
+            closed = true;
+
+            pageBuffer.clear();
+            pageBufferRetainedSizeInBytes = 0;
+            bufferedPageCount = 0;
+            writeBuffer = null;
+            try (Closer closer = Closer.create()) {
+                closer.register(exchange);
+                if (exchangeSink != null) {
+                    closer.register(exchangeSink::abort);
+                }
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+    }
+
+    @NotThreadSafe
+    private interface OutputSource
+            extends Closeable
+    {
+        Slice getNext();
+
+        boolean isFinished();
+
+        ListenableFuture<Void> isBlocked();
+
+        long getRetainedSizeInBytes();
+    }
+
+    @NotThreadSafe
+    private static class InMemoryBufferOutputSource
+            implements OutputSource
+    {
+        private final Iterator<Slice> iterator;
+
+        private InMemoryBufferOutputSource(Iterator<Slice> iterator)
+        {
+            this.iterator = requireNonNull(iterator, "iterator is null");
+        }
+
+        @Override
+        public Slice getNext()
+        {
+            if (!iterator.hasNext()) {
+                return null;
+            }
+            return iterator.next();
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return !iterator.hasNext();
+        }
+
+        @Override
+        public ListenableFuture<Void> isBlocked()
+        {
+            return immediateVoidFuture();
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            return 0;
+        }
+
+        @Override
+        public void close()
+        {
+        }
+    }
+
+    @NotThreadSafe
+    private static class ExchangeOutputSource
+            implements OutputSource
+    {
+        private final Set<TaskId> selectedTasks;
+        private final ExchangeManager exchangeManager;
+        private final Exchange exchange;
+        private final QueryId queryId;
+
+        private ExchangeSource exchangeSource;
+        private boolean finished;
+
+        private ExchangeOutputSource(
+                Set<TaskId> selectedTasks,
+                ExchangeManager exchangeManager,
+                Exchange exchange,
+                QueryId queryId)
+        {
+            this.selectedTasks = ImmutableSet.copyOf(requireNonNull(selectedTasks, "selectedTasks is null"));
+            this.exchangeManager = requireNonNull(exchangeManager, "exchangeManager is null");
+            this.exchange = requireNonNull(exchange, "exchange is null");
+            this.queryId = requireNonNull(queryId, "queryId is null");
+        }
+
+        @Override
+        public Slice getNext()
+        {
+            if (finished) {
+                return null;
+            }
+            if (exchangeSource == null) {
+                CompletableFuture<List<ExchangeSourceHandle>> sourceHandlesFuture = exchange.getSourceHandles();
+                if (!sourceHandlesFuture.isDone()) {
+                    return null;
+                }
+                List<ExchangeSourceHandle> handles = getUnchecked(sourceHandlesFuture);
+                exchangeSource = exchangeManager.createSource(handles);
+            }
+            while (!exchangeSource.isFinished()) {
+                if (!exchangeSource.isBlocked().isDone()) {
+                    return null;
+                }
+                Slice buffer = exchangeSource.read();
+                if (buffer == null) {
+                    continue;
+                }
+                int stageId = buffer.getInt(0);
+                int partitionId = buffer.getInt(Integer.BYTES);
+                int attemptId = buffer.getInt(Integer.BYTES * 2);
+                TaskId taskId = new TaskId(new StageId(queryId, stageId), partitionId, attemptId);
+                if (!selectedTasks.contains(taskId)) {
+                    continue;
+                }
+                return buffer.slice(Integer.BYTES * 3, buffer.length() - Integer.BYTES * 3);
+            }
+            close();
+            return null;
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return finished;
+        }
+
+        @Override
+        public ListenableFuture<Void> isBlocked()
+        {
+            if (finished) {
+                return immediateVoidFuture();
+            }
+            if (exchangeSource != null) {
+                CompletableFuture<?> blocked = exchangeSource.isBlocked();
+                if (!blocked.isDone()) {
+                    return nonCancellationPropagating(asVoid(toListenableFuture(blocked)));
+                }
+            }
+            CompletableFuture<List<ExchangeSourceHandle>> sourceHandles = exchange.getSourceHandles();
+            if (!sourceHandles.isDone()) {
+                return nonCancellationPropagating(asVoid(toListenableFuture(sourceHandles)));
+            }
+            return immediateVoidFuture();
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            if (exchangeSource != null) {
+                return exchangeSource.getMemoryUsage();
+            }
+            return 0;
+        }
+
+        @Override
+        public void close()
+        {
+            if (finished) {
+                return;
+            }
+            finished = true;
+            if (exchangeSource != null) {
+                exchangeSource.close();
+            }
+        }
     }
 }
