@@ -33,6 +33,7 @@ import java.util.Optional;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static java.lang.Integer.parseInt;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
@@ -121,14 +122,14 @@ public class EnvSinglenodeCompatibility
         return Optional.of("compatibility.");
     }
 
-    public static class Config
+    private static class Config
     {
         private static final String TEST_DOCKER_IMAGE = "testDockerImage";
         private final String compatibilityTestDockerImage;
 
         public Config(Map<String, String> extraOptions)
         {
-            this.compatibilityTestDockerImage = requireNonNull(extraOptions.get(TEST_DOCKER_IMAGE), "Required extra option " + TEST_DOCKER_IMAGE + " is null");
+            this.compatibilityTestDockerImage = requireNonNull(extraOptions.get(TEST_DOCKER_IMAGE), () -> format("Required extra option %s is null", TEST_DOCKER_IMAGE));
         }
 
         public String getCompatibilityTestDockerImage()
