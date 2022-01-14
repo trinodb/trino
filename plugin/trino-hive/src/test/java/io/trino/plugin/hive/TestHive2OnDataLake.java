@@ -15,10 +15,10 @@ package io.trino.plugin.hive;
 
 import io.trino.plugin.hive.containers.HiveHadoop;
 
-public class TestHive2InsertOverwrite
-        extends BaseTestHiveInsertOverwrite
+public class TestHive2OnDataLake
+        extends BaseTestHiveOnDataLake
 {
-    public TestHive2InsertOverwrite()
+    public TestHive2OnDataLake()
     {
         super(HiveHadoop.DEFAULT_IMAGE);
     }
