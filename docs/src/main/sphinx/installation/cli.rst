@@ -134,7 +134,7 @@ server's certificate.
      - Description
    * - ``--truststore-use-system-store``
      - Instruct the client to use the system TrustStore based on the operating system.
-       The supported OS are Windows and MacOS, for other OS the default Java TrustStore is loaded.
+       The supported OSes are Windows and MacOS, for other OSes the default Java TrustStore is loaded.
        The TrustStore specification can be overridden using ``--truststore-type``.
 
 .. _cli-jwt-auth:
