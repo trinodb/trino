@@ -15,6 +15,8 @@ package io.trino.plugin.clickhouse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.net.InetAddresses;
+import io.airlift.slice.Slice;
 import io.trino.plugin.base.expression.AggregateFunctionRewriter;
 import io.trino.plugin.base.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -54,8 +56,12 @@ import io.trino.spi.type.VarcharType;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.io.UncheckedIOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -69,6 +75,7 @@ import java.util.function.BiFunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.clickhouse.ClickHouseSessionProperties.isMapStringAsVarchar;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
@@ -100,6 +107,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -120,6 +128,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.lang.System.arraycopy;
 
 public class ClickHouseClient
         extends BaseJdbcClient
@@ -128,6 +137,7 @@ public class ClickHouseClient
 
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
     private final Type uuidType;
+    private final Type ipAddressType;
 
     @Inject
     public ClickHouseClient(
@@ -138,6 +148,7 @@ public class ClickHouseClient
     {
         super(config, "\"", connectionFactory, identifierMapping);
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
+        this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this::quoted,
@@ -368,8 +379,9 @@ public class ClickHouseClient
 
         switch (jdbcTypeName.replaceAll("\\(.*\\)$", "")) {
             case "IPv4":
+                return Optional.of(ipAddressColumnMapping("IPv4StringToNum(?)"));
             case "IPv6":
-                // TODO (https://github.com/trinodb/trino/issues/7098) map to Trino IPADDRESS
+                return Optional.of(ipAddressColumnMapping("IPv6StringToNum(?)"));
             case "Enum8":
             case "Enum16":
                 return Optional.of(ColumnMapping.sliceMapping(
@@ -522,6 +534,56 @@ public class ClickHouseClient
             // include more than one columns
             return Optional.of("(" + String.join(",", prop) + ")");
         }
+    }
+
+    private ColumnMapping ipAddressColumnMapping(String writeBindExpression)
+    {
+        return ColumnMapping.sliceMapping(
+                ipAddressType,
+                (resultSet, columnIndex) -> {
+                    // copied from IpAddressOperators.castFromVarcharToIpAddress
+                    byte[] address = InetAddresses.forString(resultSet.getString(columnIndex)).getAddress();
+
+                    byte[] bytes;
+                    if (address.length == 4) {
+                        bytes = new byte[16];
+                        bytes[10] = (byte) 0xff;
+                        bytes[11] = (byte) 0xff;
+                        arraycopy(address, 0, bytes, 12, 4);
+                    }
+                    else if (address.length == 16) {
+                        bytes = address;
+                    }
+                    else {
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid InetAddress length: " + address.length);
+                    }
+
+                    return wrappedBuffer(bytes);
+                },
+                ipAddressWriteFunction(writeBindExpression));
+    }
+
+    private static SliceWriteFunction ipAddressWriteFunction(String bindExpression)
+    {
+        return new SliceWriteFunction() {
+            @Override
+            public String getBindExpression()
+            {
+                return bindExpression;
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice value)
+                    throws SQLException
+            {
+                try {
+                    statement.setObject(index, InetAddresses.toAddrString(InetAddress.getByAddress(value.getBytes())), Types.OTHER);
+                }
+                catch (UnknownHostException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }
+        };
     }
 
     private ColumnMapping uuidColumnMapping()
