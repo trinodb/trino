@@ -215,7 +215,7 @@ public abstract class AbstractTestHiveFileSystem
                 new NodeVersion("test_version"),
                 new NoneHiveRedirectionsProvider(),
                 ImmutableSet.of(
-                        new PartitionsSystemTableProvider(hivePartitionManager),
+                        new PartitionsSystemTableProvider(hivePartitionManager, TESTING_TYPE_MANAGER),
                         new PropertiesSystemTableProvider()),
                 new DefaultHiveMaterializedViewMetadataFactory(),
                 SqlStandardAccessControlMetadata::new,
