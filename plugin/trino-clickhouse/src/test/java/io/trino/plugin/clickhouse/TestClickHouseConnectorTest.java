@@ -64,7 +64,6 @@ public class TestClickHouseConnectorTest
                 ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         .put("clickhouse.map-string-as-varchar", "true")
-                        .put("allow-drop-table", "true")
                         .build(),
                 REQUIRED_TPCH_TABLES);
     }
