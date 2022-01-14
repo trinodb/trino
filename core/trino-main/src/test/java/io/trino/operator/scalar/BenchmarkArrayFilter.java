@@ -239,7 +239,7 @@ public class BenchmarkArrayFilter
                     throw new RuntimeException(t);
                 }
                 if (TRUE.equals(keep)) {
-                    block.writePositionTo(position, resultBuilder);
+                    type.appendTo(block, position, resultBuilder);
                 }
             }
             return resultBuilder.build();

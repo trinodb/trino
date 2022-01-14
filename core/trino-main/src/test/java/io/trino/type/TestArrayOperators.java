@@ -22,6 +22,7 @@ import io.airlift.slice.Slice;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -103,15 +104,15 @@ public class TestArrayOperators
     @Test
     public void testStackRepresentation()
     {
-        Block actualBlock = arrayBlockOf(new ArrayType(BIGINT), arrayBlockOf(BIGINT, 1L, 2L), arrayBlockOf(BIGINT, 3L));
+        ArrayType arrayType = new ArrayType(BIGINT);
+        Block actualBlock = arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 1L, 2L), arrayBlockOf(BIGINT, 3L));
         DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
         writeBlock(functionAssertions.getPlannerContext().getBlockEncodingSerde(), actualSliceOutput, actualBlock);
 
-        Block expectedBlock = new ArrayType(BIGINT)
-                .createBlockBuilder(null, 3)
-                .appendStructure(BIGINT.createBlockBuilder(null, 2).writeLong(1).closeEntry().writeLong(2).closeEntry().build())
-                .appendStructure(BIGINT.createBlockBuilder(null, 1).writeLong(3).closeEntry().build())
-                .build();
+        BlockBuilder expectedBlockBuilder = arrayType.createBlockBuilder(null, 3);
+        arrayType.writeObject(expectedBlockBuilder, BIGINT.createBlockBuilder(null, 2).writeLong(1).writeLong(2).build());
+        arrayType.writeObject(expectedBlockBuilder, BIGINT.createBlockBuilder(null, 1).writeLong(3).build());
+        Block expectedBlock = expectedBlockBuilder.build();
         DynamicSliceOutput expectedSliceOutput = new DynamicSliceOutput(100);
         writeBlock(functionAssertions.getPlannerContext().getBlockEncodingSerde(), expectedSliceOutput, expectedBlock);
 

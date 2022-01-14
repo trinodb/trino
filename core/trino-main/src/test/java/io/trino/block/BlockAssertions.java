@@ -498,33 +498,36 @@ public final class BlockAssertions
                 rowBlockBuilder.appendNull();
                 continue;
             }
+            verify(row.length == fieldTypes.size());
             BlockBuilder singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
-            for (Object fieldValue : row) {
+            for (int fieldIndex = 0; fieldIndex < fieldTypes.size(); fieldIndex++) {
+                Type fieldType = fieldTypes.get(fieldIndex);
+                Object fieldValue = row[fieldIndex];
                 if (fieldValue == null) {
                     singleRowBlockWriter.appendNull();
                     continue;
                 }
 
                 if (fieldValue instanceof String) {
-                    VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice((String) fieldValue));
+                    fieldType.writeSlice(singleRowBlockWriter, utf8Slice((String) fieldValue));
                 }
                 else if (fieldValue instanceof Slice) {
-                    VARBINARY.writeSlice(singleRowBlockWriter, (Slice) fieldValue);
+                    fieldType.writeSlice(singleRowBlockWriter, (Slice) fieldValue);
                 }
                 else if (fieldValue instanceof Double) {
-                    DOUBLE.writeDouble(singleRowBlockWriter, (Double) fieldValue);
+                    fieldType.writeDouble(singleRowBlockWriter, (Double) fieldValue);
                 }
                 else if (fieldValue instanceof Long) {
-                    BIGINT.writeLong(singleRowBlockWriter, (Long) fieldValue);
+                    fieldType.writeLong(singleRowBlockWriter, (Long) fieldValue);
                 }
                 else if (fieldValue instanceof Boolean) {
-                    BOOLEAN.writeBoolean(singleRowBlockWriter, (Boolean) fieldValue);
+                    fieldType.writeBoolean(singleRowBlockWriter, (Boolean) fieldValue);
                 }
                 else if (fieldValue instanceof Block) {
-                    singleRowBlockWriter.appendStructure((Block) fieldValue);
+                    fieldType.writeObject(singleRowBlockWriter, fieldValue);
                 }
                 else if (fieldValue instanceof Integer) {
-                    INTEGER.writeLong(singleRowBlockWriter, (Integer) fieldValue);
+                    fieldType.writeLong(singleRowBlockWriter, (Integer) fieldValue);
                 }
                 else {
                     throw new IllegalArgumentException();

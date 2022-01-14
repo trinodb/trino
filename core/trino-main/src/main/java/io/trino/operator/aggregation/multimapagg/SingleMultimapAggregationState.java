@@ -96,6 +96,6 @@ public class SingleMultimapAggregationState
     @Override
     public AccumulatorState copy()
     {
-        return new SingleMultimapAggregationState(keyType, valueType, copyBlockBuilder(keyBlockBuilder), copyBlockBuilder(valueBlockBuilder));
+        return new SingleMultimapAggregationState(keyType, valueType, copyBlockBuilder(keyType, keyBlockBuilder), copyBlockBuilder(valueType, valueBlockBuilder));
     }
 }

@@ -213,18 +213,6 @@ public abstract class AbstractSingleMapBlock
     }
 
     @Override
-    public void writePositionTo(int position, BlockBuilder blockBuilder)
-    {
-        position = getAbsolutePosition(position);
-        if (position % 2 == 0) {
-            getRawKeyBlock().writePositionTo(position / 2, blockBuilder);
-        }
-        else {
-            getRawValueBlock().writePositionTo(position / 2, blockBuilder);
-        }
-    }
-
-    @Override
     public Block getSingleValueBlock(int position)
     {
         position = getAbsolutePosition(position);

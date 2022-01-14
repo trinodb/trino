@@ -233,56 +233,6 @@ public class RowBlockBuilder
     }
 
     @Override
-    public BlockBuilder appendStructure(Block block)
-    {
-        if (!(block instanceof AbstractSingleRowBlock)) {
-            throw new IllegalStateException("Expected AbstractSingleRowBlock");
-        }
-        if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was opened");
-        }
-
-        int blockPositionCount = block.getPositionCount();
-        if (blockPositionCount != numFields) {
-            throw new IllegalArgumentException(format("block position count (%s) is not equal to number of fields (%s)", blockPositionCount, numFields));
-        }
-        for (int i = 0; i < blockPositionCount; i++) {
-            if (block.isNull(i)) {
-                fieldBlockBuilders[i].appendNull();
-            }
-            else {
-                block.writePositionTo(i, fieldBlockBuilders[i]);
-            }
-        }
-        entryAdded(false);
-        return this;
-    }
-
-    @Override
-    public BlockBuilder appendStructureInternal(Block block, int position)
-    {
-        if (!(block instanceof AbstractRowBlock)) {
-            throw new IllegalArgumentException();
-        }
-
-        AbstractRowBlock rowBlock = (AbstractRowBlock) block;
-        BlockBuilder entryBuilder = this.beginBlockEntry();
-
-        int fieldBlockOffset = rowBlock.getFieldBlockOffset(position);
-        for (int i = 0; i < rowBlock.numFields; i++) {
-            if (rowBlock.getRawFieldBlocks()[i].isNull(fieldBlockOffset)) {
-                entryBuilder.appendNull();
-            }
-            else {
-                rowBlock.getRawFieldBlocks()[i].writePositionTo(fieldBlockOffset, entryBuilder);
-            }
-        }
-
-        closeEntry();
-        return this;
-    }
-
-    @Override
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus)
     {
         int newSize = calculateBlockResetSize(getPositionCount());

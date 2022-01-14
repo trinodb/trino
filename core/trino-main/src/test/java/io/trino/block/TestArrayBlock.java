@@ -197,20 +197,20 @@ public class TestArrayBlock
                 blockBuilder.appendNull();
             }
             else {
-                BlockBuilder intermediateBlockBuilder = new ArrayBlockBuilder(BIGINT, null, 100, 100);
+                BlockBuilder intermediateBlockBuilder = blockBuilder.beginBlockEntry();
                 for (int j = 0; j < expectedValue.length; j++) {
                     if (expectedValue[j] == null) {
                         intermediateBlockBuilder.appendNull();
                     }
                     else {
-                        BlockBuilder innerMostBlockBuilder = BIGINT.createBlockBuilder(null, expectedValue.length);
+                        BlockBuilder innerMostBlockBuilder = intermediateBlockBuilder.beginBlockEntry();
                         for (long v : expectedValue[j]) {
                             BIGINT.writeLong(innerMostBlockBuilder, v);
                         }
-                        intermediateBlockBuilder.appendStructure(innerMostBlockBuilder.build());
+                        intermediateBlockBuilder.closeEntry();
                     }
                 }
-                blockBuilder.appendStructure(intermediateBlockBuilder.build());
+                blockBuilder.closeEntry();
             }
         }
         return blockBuilder;
@@ -229,11 +229,11 @@ public class TestArrayBlock
                 blockBuilder.appendNull();
             }
             else {
-                BlockBuilder elementBlockBuilder = BIGINT.createBlockBuilder(null, expectedValue.length);
+                BlockBuilder elementBlockBuilder = blockBuilder.beginBlockEntry();
                 for (long v : expectedValue) {
                     BIGINT.writeLong(elementBlockBuilder, v);
                 }
-                blockBuilder.appendStructure(elementBlockBuilder);
+                blockBuilder.closeEntry();
             }
         }
         return blockBuilder;
@@ -247,11 +247,11 @@ public class TestArrayBlock
                 blockBuilder.appendNull();
             }
             else {
-                BlockBuilder elementBlockBuilder = VARCHAR.createBlockBuilder(null, expectedValue.length);
+                BlockBuilder elementBlockBuilder = blockBuilder.beginBlockEntry();
                 for (Slice v : expectedValue) {
                     VARCHAR.writeSlice(elementBlockBuilder, v);
                 }
-                blockBuilder.appendStructure(elementBlockBuilder.build());
+                blockBuilder.closeEntry();
             }
         }
         return blockBuilder;
