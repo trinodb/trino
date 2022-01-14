@@ -14,6 +14,7 @@
 package io.trino.plugin.clickhouse;
 
 import org.testcontainers.containers.ClickHouseContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import java.io.Closeable;
 import java.sql.Connection;
@@ -27,13 +28,19 @@ import static org.testcontainers.utility.MountableFile.forClasspathResource;
 public class TestingClickHouseServer
         implements Closeable
 {
-    private static final String CLICKHOUSE_IMAGE = "yandex/clickhouse-server:20.8";
+    private static final DockerImageName CLICKHOUSE_IMAGE = DockerImageName.parse("yandex/clickhouse-server");
+    public static final String LATEST_VERSION = "21.11.10.1";
+    public static final String DEFAULT_VERSION = "20.8";
     private final ClickHouseContainer dockerContainer;
 
     public TestingClickHouseServer()
     {
-        // Use 2nd stable version
-        dockerContainer = (ClickHouseContainer) new ClickHouseContainer(CLICKHOUSE_IMAGE)
+        this(DEFAULT_VERSION);
+    }
+
+    public TestingClickHouseServer(String version)
+    {
+        dockerContainer = (ClickHouseContainer) new ClickHouseContainer(CLICKHOUSE_IMAGE.withTag(version))
                 .withCopyFileToContainer(forClasspathResource("custom.xml"), "/etc/clickhouse-server/config.d/custom.xml")
                 .withStartupAttempts(10);
 
