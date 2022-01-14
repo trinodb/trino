@@ -947,8 +947,8 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT orderkey FROM orders WHERE EXISTS(SELECT 1 WHERE orderkey = 3)", // EXISTS maps to count(*) > 0
                 anyTree(
-                        filter("FINAL_COUNT > BIGINT '0'",
-                                project(
+                        project(
+                                filter("FINAL_COUNT > BIGINT '0'",
                                         aggregation(
                                                 singleGroupingSet("ORDERKEY", "UNIQUE"),
                                                 ImmutableMap.of(Optional.of("FINAL_COUNT"), functionCall("count", ImmutableList.of())),
@@ -1201,9 +1201,9 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT name FROM region r WHERE regionkey IN (SELECT regionkey FROM nation WHERE name < r.name)",
                 anyTree(
-                        filter(
+                        project(
+                                filter(
                                 "count_matches > BIGINT '0'",
-                                project(
                                         aggregation(
                                                 singleGroupingSet("region_regionkey", "region_name", "unique"),
                                                 ImmutableMap.of(Optional.of("count_matches"), functionCall("count", ImmutableList.of())),
@@ -1234,9 +1234,8 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT regionkey, name FROM region r WHERE EXISTS(SELECT regionkey FROM nation WHERE name < r.name)",
                 anyTree(
-                        filter(
-                                "count_matches > BIGINT '0'",
-                                project(
+                        project(
+                                filter("count_matches > BIGINT '0'",
                                         aggregation(
                                                 singleGroupingSet("region_regionkey", "region_name", "unique"),
                                                 ImmutableMap.of(Optional.of("count_matches"), functionCall("count", ImmutableList.of())),
@@ -1510,15 +1509,14 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT count(*) FROM ((SELECT nationkey FROM customer) UNION ALL (SELECT nationkey FROM customer)) GROUP BY nationkey",
                 output(
-                        project(
-                                node(AggregationNode.class,
-                                        exchange(LOCAL, REPARTITION,
-                                                project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(nationkey), 0))")),
-                                                        node(AggregationNode.class,
-                                                                tableScan("customer", ImmutableMap.of("nationkey", "nationkey")))),
-                                                project(ImmutableMap.of("hash_1", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(nationkey_6), 0))")),
-                                                        node(AggregationNode.class,
-                                                                tableScan("customer", ImmutableMap.of("nationkey_6", "nationkey")))))))));
+                        node(AggregationNode.class,
+                                exchange(LOCAL, REPARTITION,
+                                        project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(nationkey), 0))")),
+                                                node(AggregationNode.class,
+                                                        tableScan("customer", ImmutableMap.of("nationkey", "nationkey")))),
+                                        project(ImmutableMap.of("hash_1", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(nationkey_6), 0))")),
+                                                node(AggregationNode.class,
+                                                        tableScan("customer", ImmutableMap.of("nationkey_6", "nationkey"))))))));
     }
 
     @Test
