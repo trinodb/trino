@@ -48,7 +48,9 @@ public class PruneAggregationColumns
         // The special `groupid` symbol will never be referenced but if we prune it then other optimizer rules break
         // for example: PushPartialAggregationThroughExchange
         boolean pruneOutputSymbols = aggregationNode.getGroupingSetCount() <= 1 &&
-                (referencedOutputs.size() != aggregationNode.getOutputSymbols().size());
+                (referencedOutputs.size() != aggregationNode.getOutputSymbols().size()) &&
+                // Prevent output pruning if we would prune all the output symbols, see TestSubqueries
+                prunedAggregations.size() + referencedOutputs.size() != 0;
 
         if (!pruneAggregations && !pruneOutputSymbols) {
             return Optional.empty();
