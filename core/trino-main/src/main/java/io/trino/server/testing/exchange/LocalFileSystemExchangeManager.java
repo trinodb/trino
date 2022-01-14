@@ -50,7 +50,7 @@ public class LocalFileSystemExchangeManager
     }
 
     @Override
-    public ExchangeSink createSink(ExchangeSinkInstanceHandle handle)
+    public ExchangeSink createSink(ExchangeSinkInstanceHandle handle, boolean preserveRecordsOrder)
     {
         LocalFileSystemExchangeSinkInstanceHandle localHandle = (LocalFileSystemExchangeSinkInstanceHandle) handle;
         Path outputDirectory = localHandle.getOutputDirectory();

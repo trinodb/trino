@@ -40,7 +40,7 @@ public class TestingExchangeManager
     }
 
     @Override
-    public ExchangeSink createSink(ExchangeSinkInstanceHandle handle)
+    public ExchangeSink createSink(ExchangeSinkInstanceHandle handle, boolean preserveRecordsOrder)
     {
         throw new UnsupportedOperationException();
     }

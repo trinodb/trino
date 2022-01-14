@@ -55,7 +55,7 @@ public interface Exchange
      * @param sinkHandle - handle returned by <code>addSink</code>
      * @param taskAttemptId - attempt id
      * @return ExchangeSinkInstanceHandle to be sent to a worker that is needed to create an {@link ExchangeSink} instance using
-     * {@link ExchangeManager#createSink(ExchangeSinkInstanceHandle)}
+     * {@link ExchangeManager#createSink(ExchangeSinkInstanceHandle, boolean)}
      */
     ExchangeSinkInstanceHandle instantiateSink(ExchangeSinkHandle sinkHandle, int taskAttemptId);
 
