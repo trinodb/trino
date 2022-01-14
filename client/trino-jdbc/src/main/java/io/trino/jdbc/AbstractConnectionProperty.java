@@ -87,7 +87,7 @@ abstract class AbstractConnectionProperty<T>
     @Override
     public boolean isAllowed(Properties properties)
     {
-        return !properties.containsKey(key) || isAllowed.test(properties);
+        return isAllowed.test(properties);
     }
 
     @Override
@@ -117,7 +117,7 @@ abstract class AbstractConnectionProperty<T>
     public void validate(Properties properties)
             throws SQLException
     {
-        if (!isAllowed(properties)) {
+        if (properties.containsKey(key) && !isAllowed(properties)) {
             throw new SQLException(format("Connection property '%s' is not allowed", key));
         }
 
