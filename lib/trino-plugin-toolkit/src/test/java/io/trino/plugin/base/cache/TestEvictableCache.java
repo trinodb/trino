@@ -99,7 +99,7 @@ public class TestEvictableCache
                         cache.invalidateAll(List.of(key));
                         break;
                     case INVALIDATE_SELECTED_KEYS:
-                        Set<Integer> keys = ((EvictableCache<Integer, ?>) cache).keySet().stream()
+                        Set<Integer> keys = cache.asMap().keySet().stream()
                                 .filter(foundKey -> (int) foundKey == key)
                                 .collect(toImmutableSet());
                         cache.invalidateAll(keys);
@@ -160,7 +160,7 @@ public class TestEvictableCache
                                 cache.invalidateAll(List.of(key));
                                 break;
                             case INVALIDATE_SELECTED_KEYS:
-                                Set<Integer> keys = ((EvictableCache<Integer, ?>) cache).keySet().stream()
+                                Set<Integer> keys = cache.asMap().keySet().stream()
                                         .filter(foundKey -> (int) foundKey == key)
                                         .collect(toImmutableSet());
                                 cache.invalidateAll(keys);

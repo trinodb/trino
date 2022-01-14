@@ -21,6 +21,9 @@ import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.CheckForNull;
 
+import java.util.Collection;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -178,13 +181,116 @@ public class EvictableCache<K, V>
     @Override
     public ConcurrentMap<K, V> asMap()
     {
-        // TODO implement and remove non-interface keySet()
-        throw new UnsupportedOperationException();
-    }
+        ConcurrentMap<K, Future<V>> delegate = this.delegate.asMap();
+        return new ConcurrentMap<K, V>()
+        {
+            @Override
+            public V putIfAbsent(K key, V value)
+            {
+                throw new UnsupportedOperationException("The operation is not supported, as in inherently races with cache invalidation");
+            }
 
-    public Set<K> keySet()
-    {
-        return delegate.asMap().keySet();
+            @Override
+            public boolean remove(Object key, Object value)
+            {
+                // We could use delegate.compute(key, ..) to check existence and remove, but compute takes `K key` and we have `Object`
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public boolean replace(K key, V oldValue, V newValue)
+            {
+                throw new UnsupportedOperationException("The operation is not supported, as in inherently races with cache invalidation");
+            }
+
+            @Override
+            public V replace(K key, V value)
+            {
+                throw new UnsupportedOperationException("The operation is not supported, as in inherently races with cache invalidation");
+            }
+
+            @Override
+            public int size()
+            {
+                return delegate.size();
+            }
+
+            @Override
+            public boolean isEmpty()
+            {
+                return delegate.isEmpty();
+            }
+
+            @Override
+            public boolean containsKey(Object key)
+            {
+                return delegate.containsKey(key);
+            }
+
+            @Override
+            public boolean containsValue(Object value)
+            {
+                for (Future<V> future : delegate.values()) {
+                    if (future.isDone() && !future.isCancelled() && Objects.equals(getDone(future), value)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public V get(Object key)
+            {
+                return getIfPresent(key);
+            }
+
+            @Override
+            public V put(K key, V value)
+            {
+                throw new UnsupportedOperationException("The operation is not supported, as in inherently races with cache invalidation. Use get(key, callable) instead.");
+            }
+
+            @Override
+            public V remove(Object key)
+            {
+                Future<V> future = delegate.remove(key);
+                if (future != null && future.isDone() && !future.isCancelled()) {
+                    return getDone(future);
+                }
+                return null;
+            }
+
+            @Override
+            public void putAll(Map<? extends K, ? extends V> m)
+            {
+                throw new UnsupportedOperationException("The operation is not supported, as in inherently races with cache invalidation. Use get(key, callable) instead.");
+            }
+
+            @Override
+            public void clear()
+            {
+                delegate.clear();
+            }
+
+            @Override
+            public Set<K> keySet()
+            {
+                return delegate.keySet();
+            }
+
+            @Override
+            public Collection<V> values()
+            {
+                // values() should be a view, but also, it has a size and, iterating values shouldn't throw for incomplete futures.
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Set<Entry<K, V>> entrySet()
+            {
+                throw new UnsupportedOperationException();
+            }
+        };
     }
 
     @Override
