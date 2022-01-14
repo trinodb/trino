@@ -145,8 +145,8 @@ ClickHouse        Trino           Notes
 ``Date``          ``DATE``
 ``DateTime``      ``TIMESTAMP``
 ``IPv4``          ``VARCHAR``
-``IPv6``          ``VARCHAR``
-``Enum8``         ``VARCHAR``
+``IPv6``          ``IPADDRESS``
+``Enum8``         ``IPADDRESS``
 ``Enum16``        ``VARCHAR``
 ``UUID``           ``UUID``
 ================= =============== ===================================================================================================
