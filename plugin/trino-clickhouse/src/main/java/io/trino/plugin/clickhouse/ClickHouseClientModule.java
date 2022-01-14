@@ -28,6 +28,7 @@ import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import ru.yandex.clickhouse.ClickHouseDriver;
 
+import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 
 public class ClickHouseClientModule
@@ -37,6 +38,7 @@ public class ClickHouseClientModule
     public void configure(Binder binder)
     {
         ConfigBinder.configBinder(binder).bindConfig(ClickHouseConfig.class);
+        bindSessionPropertiesProvider(binder, ClickHouseSessionProperties.class);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(ClickHouseClient.class).in(Scopes.SINGLETON);
         bindTablePropertiesProvider(binder, ClickHouseTableProperties.class);
         binder.install(new DecimalModule());

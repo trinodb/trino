@@ -37,6 +37,7 @@ import java.time.ZoneId;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -48,7 +49,9 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 
@@ -238,6 +241,21 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("Nullable(char(10))", "'text_a'", VARBINARY, "to_utf8('text_a')")
                 .addRoundTrip("Nullable(char(1))", "'😂'", VARBINARY, "to_utf8('😂')")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_char"));
+
+        // Set map_string_as_varchar session property as true
+        SqlDataTypeTest.create()
+                // plain
+                .addRoundTrip("char(10)", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("char(255)", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("char(5)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("char(32)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("char(1)", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("char(77)", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
+                // nullable
+                .addRoundTrip("Nullable(char(10))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Nullable(char(10))", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("Nullable(char(1))", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndInsert("tpch.test_char"));
     }
 
     @Test
@@ -252,6 +270,17 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("Nullable(FixedString(10))", "'c12345678b'", VARBINARY, "to_utf8('c12345678b')")
                 .addRoundTrip("Nullable(FixedString(10))", "'c123'", VARBINARY, "to_utf8('c123\0\0\0\0\0\0')")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_fixed_string"));
+
+        // Set map_string_as_varchar session property as true
+        SqlDataTypeTest.create()
+                // plain
+                .addRoundTrip("FixedString(10)", "'c12345678b'", VARCHAR, "CAST('c12345678b' AS varchar)")
+                .addRoundTrip("FixedString(10)", "'c123'", VARCHAR, "CAST('c123\0\0\0\0\0\0' AS varchar)")
+                // nullable
+                .addRoundTrip("Nullable(FixedString(10))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Nullable(FixedString(10))", "'c12345678b'", VARCHAR, "CAST('c12345678b' AS varchar)")
+                .addRoundTrip("Nullable(FixedString(10))", "'c123'", VARCHAR, "CAST('c123\0\0\0\0\0\0' AS varchar)")
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndInsert("tpch.test_fixed_string"));
     }
 
     @Test
@@ -265,34 +294,65 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("char(32)", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
                 .addRoundTrip("char(1)", "'😂'", VARBINARY, "to_utf8('😂')")
                 .addRoundTrip("char(77)", "'Ну, погоди!'", VARBINARY, "to_utf8('Ну, погоди!')")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_char"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_char"))
+                .execute(getQueryRunner(), trinoCreateAsSelect(mapStringAsVarcharSession(), "test_char"));
+
+        // Set map_string_as_varchar session property as true
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(10)", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("char(10)", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("char(255)", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("char(5)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("char(32)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("char(1)", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("char(77)", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), trinoCreateAsSelect("test_char"))
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), trinoCreateAsSelect(mapStringAsVarcharSession(), "test_char"));
     }
 
     @Test
     public void testClickHouseVarchar()
     {
+        // TODO add more test cases
         // ClickHouse varchar is String, which is arbitrary bytes
         SqlDataTypeTest.create()
-                // TODO add more test cases
                 // plain
                 .addRoundTrip("varchar(30)", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
                 // nullable
                 .addRoundTrip("Nullable(varchar(30))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
                 .addRoundTrip("Nullable(varchar(30))", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_varchar"));
+
+        // Set map_string_as_varchar session property as true
+        SqlDataTypeTest.create()
+                // plain
+                .addRoundTrip("varchar(30)", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                // nullable
+                .addRoundTrip("Nullable(varchar(30))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Nullable(varchar(30))", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndInsert("tpch.test_varchar"));
     }
 
     @Test
     public void testClickHouseString()
     {
+        // TODO add more test cases
         SqlDataTypeTest.create()
-                // TODO add more test cases
                 // plain
                 .addRoundTrip("String", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
                 // nullable
                 .addRoundTrip("Nullable(String)", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
                 .addRoundTrip("Nullable(String)", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_varchar"));
+
+        // Set map_string_as_varchar session property as true
+        SqlDataTypeTest.create()
+                // plain
+                .addRoundTrip("String", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                // nullable
+                .addRoundTrip("Nullable(String)", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("Nullable(String)", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndInsert("tpch.test_varchar"));
     }
 
     @Test
@@ -301,7 +361,15 @@ public class TestClickHouseTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar(30)", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
                 .addRoundTrip("varchar(30)", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"))
+                .execute(getQueryRunner(), trinoCreateAsSelect(mapStringAsVarcharSession(), "test_varchar"));
+
+        // Set map_string_as_varchar session property as true
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(30)", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("varchar(30)", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), trinoCreateAsSelect("test_varchar"))
+                .execute(getQueryRunner(), mapStringAsVarcharSession(), trinoCreateAsSelect(mapStringAsVarcharSession(), "test_varchar"));
     }
 
     @Test
@@ -423,6 +491,15 @@ public class TestClickHouseTypeMapping
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_ip"));
 
         // TODO add test with IPADDRESS written from Trino
+    }
+
+    private static Session mapStringAsVarcharSession()
+    {
+        return testSessionBuilder()
+                .setCatalog("clickhouse")
+                .setSchema(TPCH_SCHEMA)
+                .setCatalogSessionProperty("clickhouse", "map_string_as_varchar", "true")
+                .build();
     }
 
     private DataSetup trinoCreateAsSelect(String tableNamePrefix)

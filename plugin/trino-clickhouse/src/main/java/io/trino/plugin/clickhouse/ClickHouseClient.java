@@ -69,6 +69,7 @@ import java.util.function.BiFunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.clickhouse.ClickHouseSessionProperties.isMapStringAsVarchar;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
@@ -125,7 +126,6 @@ public class ClickHouseClient
 {
     static final int CLICKHOUSE_MAX_DECIMAL_PRECISION = 76;
 
-    private final boolean mapStringAsVarchar;
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
     private final Type uuidType;
 
@@ -134,13 +134,10 @@ public class ClickHouseClient
             BaseJdbcConfig config,
             ConnectionFactory connectionFactory,
             TypeManager typeManager,
-            ClickHouseConfig clickHouseConfig,
             IdentifierMapping identifierMapping)
     {
         super(config, "\"", connectionFactory, identifierMapping);
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
-        // TODO (https://github.com/trinodb/trino/issues/7102) define session property
-        this.mapStringAsVarchar = clickHouseConfig.isMapStringAsVarchar();
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this::quoted,
@@ -384,7 +381,7 @@ public class ClickHouseClient
 
             case "FixedString": // FixedString(n)
             case "String":
-                if (mapStringAsVarchar) {
+                if (isMapStringAsVarchar(session)) {
                     return Optional.of(ColumnMapping.sliceMapping(
                             createUnboundedVarcharType(),
                             varcharReadFunction(createUnboundedVarcharType()),
