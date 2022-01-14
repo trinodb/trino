@@ -55,6 +55,7 @@ import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
@@ -418,7 +419,7 @@ public class IcebergMetadata
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         Optional<ConnectorTableLayout> layout = getNewTableLayout(session, tableMetadata);
-        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
+        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout, RetryMode.NO_RETRIES), ImmutableList.of(), ImmutableList.of());
     }
 
     @Override
@@ -436,7 +437,7 @@ public class IcebergMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
         verify(transaction == null, "transaction already set");
         transaction = newCreateTableTransaction(catalog, tableMetadata, session);
@@ -492,7 +493,7 @@ public class IcebergMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
@@ -563,7 +564,8 @@ public class IcebergMetadata
             ConnectorSession session,
             ConnectorTableHandle connectorTableHandle,
             String procedureName,
-            Map<String, Object> executeProperties)
+            Map<String, Object> executeProperties,
+            RetryMode retryMode)
     {
         IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTableHandle;
 
@@ -1067,7 +1069,7 @@ public class IcebergMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles)
+    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
