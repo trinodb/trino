@@ -82,9 +82,10 @@ public class TrinoResultSet
     public void close()
             throws SQLException
     {
-        closed.set(true);
-        ((AsyncIterator<?>) results).cancel();
-        client.close();
+        if (closed.compareAndSet(false, true)) {
+            ((AsyncIterator<?>) results).cancel();
+            client.close();
+        }
     }
 
     void partialCancel()
