@@ -42,6 +42,7 @@ public class PipelineStats
 
     private final boolean inputPipeline;
     private final boolean outputPipeline;
+    private final boolean partitioned;
 
     private final int totalDrivers;
     private final int queuedDrivers;
@@ -97,6 +98,7 @@ public class PipelineStats
 
             @JsonProperty("inputPipeline") boolean inputPipeline,
             @JsonProperty("outputPipeline") boolean outputPipeline,
+            @JsonProperty("partitioned") boolean partitioned,
 
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
@@ -150,6 +152,7 @@ public class PipelineStats
 
         this.inputPipeline = inputPipeline;
         this.outputPipeline = outputPipeline;
+        this.partitioned = partitioned;
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
         this.totalDrivers = totalDrivers;
@@ -247,6 +250,12 @@ public class PipelineStats
     public boolean isOutputPipeline()
     {
         return outputPipeline;
+    }
+
+    @JsonProperty
+    public boolean isPartitioned()
+    {
+        return partitioned;
     }
 
     @JsonProperty
@@ -456,6 +465,7 @@ public class PipelineStats
                 lastEndTime,
                 inputPipeline,
                 outputPipeline,
+                partitioned,
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,

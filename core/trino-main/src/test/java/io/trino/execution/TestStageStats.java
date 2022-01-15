@@ -67,9 +67,13 @@ public class TestStageStats
             202,
 
             DataSize.ofBytes(19),
+            DataSize.ofBytes(19),
+            20,
             20,
 
             DataSize.ofBytes(21),
+            DataSize.ofBytes(21),
+            22,
             22,
 
             DataSize.ofBytes(23),
@@ -137,10 +141,14 @@ public class TestStageStats
         assertEquals(actual.getInternalNetworkInputPositions(), 202);
 
         assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(19));
+        assertEquals(actual.getRawNonPartitionedInputDataSize(), DataSize.ofBytes(19));
         assertEquals(actual.getRawInputPositions(), 20);
+        assertEquals(actual.getRawNonPartitionedInputPositions(), 20);
 
         assertEquals(actual.getProcessedInputDataSize(), DataSize.ofBytes(21));
+        assertEquals(actual.getProcessedNonPartitionedInputDataSize(), DataSize.ofBytes(21));
         assertEquals(actual.getProcessedInputPositions(), 22);
+        assertEquals(actual.getProcessedNonPartitionedInputPositions(), 22);
 
         assertEquals(actual.getBufferedDataSize(), DataSize.ofBytes(23));
         assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(24));
@@ -157,7 +165,7 @@ public class TestStageStats
         assertEquals(actual.getGcInfo().getAverageFullGcSec(), 107);
     }
 
-    private static DistributionSnapshot getTestDistribution(int count)
+    public static DistributionSnapshot getTestDistribution(int count)
     {
         Distribution distribution = new Distribution();
         for (int i = 0; i < count; i++) {

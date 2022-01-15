@@ -40,6 +40,7 @@ public class TestPipelineStats
 
             true,
             false,
+            true,
 
             1,
             2,
@@ -103,6 +104,7 @@ public class TestPipelineStats
         assertEquals(actual.getLastEndTime(), new DateTime(102, UTC));
         assertEquals(actual.isInputPipeline(), true);
         assertEquals(actual.isOutputPipeline(), false);
+        assertEquals(actual.isPartitioned(), true);
 
         assertEquals(actual.getTotalDrivers(), 1);
         assertEquals(actual.getQueuedDrivers(), 2);

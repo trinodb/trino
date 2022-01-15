@@ -76,10 +76,14 @@ public class StageStats
     private final long internalNetworkInputPositions;
 
     private final DataSize rawInputDataSize;
+    private final DataSize rawNonPartitionedInputDataSize;
     private final long rawInputPositions;
+    private final long rawNonPartitionedInputPositions;
 
     private final DataSize processedInputDataSize;
+    private final DataSize processedNonPartitionedInputDataSize;
     private final long processedInputPositions;
+    private final long processedNonPartitionedInputPositions;
 
     private final DataSize bufferedDataSize;
     private final DataSize outputDataSize;
@@ -130,10 +134,14 @@ public class StageStats
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
 
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
+            @JsonProperty("rawNonPartitionedInputDataSize") DataSize rawNonPartitionedInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
+            @JsonProperty("rawNonPartitionedInputPositions") long rawNonPartitionedInputPositions,
 
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
+            @JsonProperty("processedNonPartitionedInputDataSize") DataSize processedNonPartitionedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
+            @JsonProperty("processedNonPartitionedInputPositions") long processedNonPartitionedInputPositions,
 
             @JsonProperty("bufferedDataSize") DataSize bufferedDataSize,
             @JsonProperty("outputDataSize") DataSize outputDataSize,
@@ -193,12 +201,20 @@ public class StageStats
         this.internalNetworkInputPositions = internalNetworkInputPositions;
 
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
+        this.rawNonPartitionedInputDataSize = requireNonNull(rawNonPartitionedInputDataSize, "rawNonPartitionedInputDataSize is null");
+        checkArgument(rawInputDataSize.compareTo(rawNonPartitionedInputDataSize) >= 0, "rawInputDataSize is less than rawNonPartitionedInputDataSize");
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
         this.rawInputPositions = rawInputPositions;
+        checkArgument(rawNonPartitionedInputPositions >= 0, "rawNonPartitionedInputPositions is negative");
+        this.rawNonPartitionedInputPositions = rawNonPartitionedInputPositions;
 
         this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
+        this.processedNonPartitionedInputDataSize = requireNonNull(processedNonPartitionedInputDataSize, "processedNonPartitionedInputDataSize is null");
+        checkArgument(processedInputDataSize.compareTo(processedNonPartitionedInputDataSize) >= 0, "processedInputDataSize is less than processedNonPartitionedInputDataSize");
         this.processedInputPositions = processedInputPositions;
+        checkArgument(processedNonPartitionedInputPositions >= 0, "processedNonPartitionedInputPositions is negative");
+        this.processedNonPartitionedInputPositions = processedNonPartitionedInputPositions;
 
         this.bufferedDataSize = requireNonNull(bufferedDataSize, "bufferedDataSize is null");
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
@@ -387,9 +403,21 @@ public class StageStats
     }
 
     @JsonProperty
+    public DataSize getRawNonPartitionedInputDataSize()
+    {
+        return rawNonPartitionedInputDataSize;
+    }
+
+    @JsonProperty
     public long getRawInputPositions()
     {
         return rawInputPositions;
+    }
+
+    @JsonProperty
+    public long getRawNonPartitionedInputPositions()
+    {
+        return rawNonPartitionedInputPositions;
     }
 
     @JsonProperty
@@ -399,9 +427,21 @@ public class StageStats
     }
 
     @JsonProperty
+    public DataSize getProcessedNonPartitionedInputDataSize()
+    {
+        return processedNonPartitionedInputDataSize;
+    }
+
+    @JsonProperty
     public long getProcessedInputPositions()
     {
         return processedInputPositions;
+    }
+
+    @JsonProperty
+    public long getProcessedNonPartitionedInputPositions()
+    {
+        return processedNonPartitionedInputPositions;
     }
 
     @JsonProperty

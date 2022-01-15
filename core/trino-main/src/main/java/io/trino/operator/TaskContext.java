@@ -456,10 +456,14 @@ public class TaskContext
         long internalNetworkInputPositions = 0;
 
         long rawInputDataSize = 0;
+        long rawNonPartitionedInputDataSize = 0;
         long rawInputPositions = 0;
+        long rawNonPartitionedInputPositions = 0;
 
         long processedInputDataSize = 0;
+        long processedNonPartitionedInputDataSize = 0;
         long processedInputPositions = 0;
+        long processedNonPartitionedInputPositions = 0;
 
         long outputDataSize = 0;
         long outputPositions = 0;
@@ -508,6 +512,14 @@ public class TaskContext
 
                 processedInputDataSize += pipeline.getProcessedInputDataSize().toBytes();
                 processedInputPositions += pipeline.getProcessedInputPositions();
+
+                if (!pipeline.isPartitioned()) {
+                    rawNonPartitionedInputDataSize += pipeline.getRawInputDataSize().toBytes();
+                    rawNonPartitionedInputPositions += pipeline.getRawInputPositions();
+
+                    processedNonPartitionedInputDataSize += pipeline.getProcessedInputDataSize().toBytes();
+                    processedNonPartitionedInputPositions += pipeline.getProcessedInputPositions();
+                }
             }
 
             if (pipeline.isOutputPipeline()) {
@@ -587,9 +599,13 @@ public class TaskContext
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
                 succinctBytes(rawInputDataSize),
+                succinctBytes(rawNonPartitionedInputDataSize),
                 rawInputPositions,
+                rawNonPartitionedInputPositions,
                 succinctBytes(processedInputDataSize),
+                succinctBytes(processedNonPartitionedInputDataSize),
                 processedInputPositions,
+                processedNonPartitionedInputPositions,
                 succinctBytes(outputDataSize),
                 outputPositions,
                 succinctBytes(physicalWrittenDataSize),

@@ -71,10 +71,14 @@ public class TaskStats
     private final long internalNetworkInputPositions;
 
     private final DataSize rawInputDataSize;
+    private final DataSize rawNonPartitionedInputDataSize;
     private final long rawInputPositions;
+    private final long rawNonPartitionedInputPositions;
 
     private final DataSize processedInputDataSize;
+    private final DataSize processedNonPartitionedInputDataSize;
     private final long processedInputPositions;
+    private final long processedNonPartitionedInputPositions;
 
     private final DataSize outputDataSize;
     private final long outputPositions;
@@ -120,8 +124,12 @@ public class TaskStats
                 DataSize.ofBytes(0),
                 0,
                 DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                0,
                 0,
                 DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                0,
                 0,
                 DataSize.ofBytes(0),
                 0,
@@ -171,10 +179,14 @@ public class TaskStats
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
 
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
+            @JsonProperty("rawNonPartitionedInputDataSize") DataSize rawNonPartitionedInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
+            @JsonProperty("rawNonPartitionedInputPositions") long rawNonPartitionedInputPositions,
 
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
+            @JsonProperty("processedNonPartitionedInputDataSize") DataSize processedNonPartitionedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
+            @JsonProperty("processedNonPartitionedInputPositions") long processedNonPartitionedInputPositions,
 
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
@@ -238,12 +250,22 @@ public class TaskStats
         this.internalNetworkInputPositions = internalNetworkInputPositions;
 
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
+        this.rawNonPartitionedInputDataSize = requireNonNull(rawNonPartitionedInputDataSize, "rawNonPartitionedInputDataSize is null");
+        checkArgument(rawInputDataSize.compareTo(rawNonPartitionedInputDataSize) >= 0, "rawInputDataSize is less than rawNonPartitionedInputDataSize");
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
         this.rawInputPositions = rawInputPositions;
+        checkArgument(rawNonPartitionedInputPositions >= 0, "rawNonPartitionedInputPositions is negative");
+        checkArgument(rawInputPositions >= rawNonPartitionedInputPositions, "rawInputPositions is less than rawNonPartitionedInputPositions");
+        this.rawNonPartitionedInputPositions = rawNonPartitionedInputPositions;
 
         this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
+        this.processedNonPartitionedInputDataSize = requireNonNull(processedNonPartitionedInputDataSize, "processedNonPartitionedInputDataSize is null");
+        checkArgument(processedInputDataSize.compareTo(processedNonPartitionedInputDataSize) >= 0, "processedInputDataSize is less than processedNonPartitionedInputDataSize");
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
+        checkArgument(processedNonPartitionedInputPositions >= 0, "processedNonPartitionedInputPositions is negative");
+        checkArgument(processedInputPositions >= processedNonPartitionedInputPositions, "processedInputPositions is less than processedNonPartitionedInputPositions");
+        this.processedNonPartitionedInputPositions = processedNonPartitionedInputPositions;
 
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
@@ -431,9 +453,21 @@ public class TaskStats
     }
 
     @JsonProperty
+    public DataSize getRawNonPartitionedInputDataSize()
+    {
+        return rawNonPartitionedInputDataSize;
+    }
+
+    @JsonProperty
     public long getRawInputPositions()
     {
         return rawInputPositions;
+    }
+
+    @JsonProperty
+    public long getRawNonPartitionedInputPositions()
+    {
+        return rawNonPartitionedInputPositions;
     }
 
     @JsonProperty
@@ -443,9 +477,21 @@ public class TaskStats
     }
 
     @JsonProperty
+    public DataSize getProcessedNonPartitionedInputDataSize()
+    {
+        return processedNonPartitionedInputDataSize;
+    }
+
+    @JsonProperty
     public long getProcessedInputPositions()
     {
         return processedInputPositions;
+    }
+
+    @JsonProperty
+    public long getProcessedNonPartitionedInputPositions()
+    {
+        return processedNonPartitionedInputPositions;
     }
 
     @JsonProperty
@@ -543,9 +589,13 @@ public class TaskStats
                 internalNetworkInputDataSize,
                 internalNetworkInputPositions,
                 rawInputDataSize,
+                rawNonPartitionedInputDataSize,
                 rawInputPositions,
+                rawNonPartitionedInputPositions,
                 processedInputDataSize,
+                processedNonPartitionedInputDataSize,
                 processedInputPositions,
+                processedNonPartitionedInputPositions,
                 outputDataSize,
                 outputPositions,
                 physicalWrittenDataSize,
@@ -589,9 +639,13 @@ public class TaskStats
                 internalNetworkInputDataSize,
                 internalNetworkInputPositions,
                 rawInputDataSize,
+                rawNonPartitionedInputDataSize,
                 rawInputPositions,
+                rawNonPartitionedInputPositions,
                 processedInputDataSize,
+                processedNonPartitionedInputDataSize,
                 processedInputPositions,
+                processedNonPartitionedInputPositions,
                 outputDataSize,
                 outputPositions,
                 physicalWrittenDataSize,

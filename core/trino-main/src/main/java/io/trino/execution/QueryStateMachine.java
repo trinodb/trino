@@ -545,6 +545,13 @@ public class QueryStateMachine
 
                 processedInputDataSize += stageStats.getProcessedInputDataSize().toBytes();
                 processedInputPositions += stageStats.getProcessedInputPositions();
+
+                // Not to include the exchange operator stat to avoid the addition of build-side input data multiple times for broadcast join
+                rawInputDataSize -= stageStats.getRawNonPartitionedInputDataSize().toBytes();
+                rawInputPositions -= stageStats.getRawNonPartitionedInputPositions();
+
+                processedInputDataSize -= stageStats.getProcessedNonPartitionedInputDataSize().toBytes();
+                processedInputPositions -= stageStats.getProcessedNonPartitionedInputPositions();
             }
 
             physicalWrittenDataSize += stageStats.getPhysicalWrittenDataSize().toBytes();

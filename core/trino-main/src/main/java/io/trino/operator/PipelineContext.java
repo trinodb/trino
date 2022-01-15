@@ -458,6 +458,7 @@ public class PipelineContext
 
                 inputPipeline,
                 outputPipeline,
+                partitioned,
 
                 totalDrivers,
                 pipelineStatus.getQueuedDrivers(),
