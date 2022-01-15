@@ -32,5 +32,7 @@ class InMemoryTrinoResultSet
     @Override
     public void close()
             throws SQLException
-    {}
+    {
+        closed.set(true);
+    }
 }
