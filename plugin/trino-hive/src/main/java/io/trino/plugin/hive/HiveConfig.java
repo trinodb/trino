@@ -724,7 +724,7 @@ public class HiveConfig
         return fileStatusCacheTables;
     }
 
-    @Config("hive.file-status-cache-tables")
+    @Config("hive.experimental-file-status-cache-tables")
     public HiveConfig setFileStatusCacheTables(String fileStatusCacheTables)
     {
         this.fileStatusCacheTables = SPLITTER.splitToList(fileStatusCacheTables);
@@ -750,7 +750,7 @@ public class HiveConfig
         return fileStatusCacheMaxSize;
     }
 
-    @Config("hive.file-status-cache-size")
+    @Config("hive.experimental-file-status-cache-size")
     public HiveConfig setFileStatusCacheMaxSize(long fileStatusCacheMaxSize)
     {
         this.fileStatusCacheMaxSize = fileStatusCacheMaxSize;
@@ -762,7 +762,7 @@ public class HiveConfig
         return fileStatusCacheExpireAfterWrite;
     }
 
-    @Config("hive.file-status-cache-expire-time")
+    @Config("hive.experimental-file-status-cache-expire-time")
     public HiveConfig setFileStatusCacheExpireAfterWrite(Duration fileStatusCacheExpireAfterWrite)
     {
         this.fileStatusCacheExpireAfterWrite = fileStatusCacheExpireAfterWrite;
