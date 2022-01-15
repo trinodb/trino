@@ -16,7 +16,9 @@ package io.trino.execution;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TestingTicker;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.FailureInfo;
@@ -28,6 +30,7 @@ import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.TrinoException;
+import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -36,12 +39,15 @@ import io.trino.sql.analyzer.Output;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.transaction.TransactionManager;
+import org.joda.time.DateTime;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -61,6 +67,7 @@ import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.execution.QueryState.STARTING;
 import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
+import static io.trino.execution.TestStageStats.getTestDistribution;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
@@ -69,6 +76,7 @@ import static io.trino.testing.TestingEventListenerManager.emptyEventListenerMan
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -395,6 +403,84 @@ public class TestQueryStateMachine
         assertEquals(stateMachine.getPeakTaskUserMemory(), 5);
         assertEquals(stateMachine.getPeakTaskTotalMemory(), 5);
         assertEquals(stateMachine.getPeakTaskRevocableMemory(), 10);
+    }
+
+    @Test
+    public void testInputDataStat()
+    {
+        QueryStateMachine stateMachine = createQueryStateMachine();
+
+        StageStats stageStats = new StageStats(
+                new DateTime(0),
+                getTestDistribution(0),
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                new Duration(0, NANOSECONDS),
+                new Duration(0, NANOSECONDS),
+                new Duration(0, NANOSECONDS),
+                false,
+                ImmutableSet.of(),
+                DataSize.ofBytes(0),
+                0,
+                new Duration(0, NANOSECONDS),
+                DataSize.ofBytes(0),
+                0,
+
+                DataSize.ofBytes(20),
+                DataSize.ofBytes(10),
+                25,
+                10,
+
+                DataSize.ofBytes(30),
+                DataSize.ofBytes(10),
+                35,
+                10,
+
+                DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
+                0,
+                DataSize.ofBytes(0),
+                new StageGcStatistics(
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0),
+                ImmutableList.of());
+
+        StageInfo stageInfoMock = new StageInfo(
+                new StageId("test", 1),
+                StageState.FINISHED,
+                TaskTestUtils.PLAN_FRAGMENT,
+                false,
+                new ArrayList<>(),
+                stageStats,
+                new ArrayList<>(),
+                new ArrayList<>(),
+                new HashMap<>(),
+                null);
+        QueryStats queryStats = stateMachine.getQueryInfo(Optional.of(stageInfoMock)).getQueryStats();
+
+        assertEquals(queryStats.getRawInputDataSize().toBytes(), 10);
+        assertEquals(queryStats.getRawInputPositions(), 15);
+        assertEquals(queryStats.getProcessedInputDataSize().toBytes(), 20);
+        assertEquals(queryStats.getProcessedInputPositions(), 25);
     }
 
     private static void assertFinalState(QueryStateMachine stateMachine, QueryState expectedState)

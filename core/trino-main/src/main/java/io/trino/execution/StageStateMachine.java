@@ -383,10 +383,14 @@ public class StageStateMachine
         long internalNetworkInputPositions = 0;
 
         long rawInputDataSize = 0;
+        long rawNonPartitionedInputDataSize = 0;
         long rawInputPositions = 0;
+        long rawNonPartitionedInputPositions = 0;
 
         long processedInputDataSize = 0;
+        long processedNonPartitionedInputDataSize = 0;
         long processedInputPositions = 0;
+        long processedNonPartitionedInputPositions = 0;
 
         long bufferedDataSize = 0;
         long outputDataSize = 0;
@@ -451,10 +455,14 @@ public class StageStateMachine
             internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
 
             rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
+            rawNonPartitionedInputDataSize += taskStats.getRawNonPartitionedInputDataSize().toBytes();
             rawInputPositions += taskStats.getRawInputPositions();
+            rawNonPartitionedInputPositions += taskStats.getRawNonPartitionedInputPositions();
 
             processedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
+            processedNonPartitionedInputDataSize += taskStats.getProcessedNonPartitionedInputDataSize().toBytes();
             processedInputPositions += taskStats.getProcessedInputPositions();
+            processedNonPartitionedInputPositions += taskStats.getProcessedNonPartitionedInputPositions();
 
             bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
             outputDataSize += taskStats.getOutputDataSize().toBytes();
@@ -514,10 +522,14 @@ public class StageStateMachine
                 internalNetworkInputPositions,
 
                 succinctBytes(rawInputDataSize),
+                succinctBytes(rawNonPartitionedInputDataSize),
                 rawInputPositions,
+                rawNonPartitionedInputPositions,
 
                 succinctBytes(processedInputDataSize),
+                succinctBytes(processedNonPartitionedInputDataSize),
                 processedInputPositions,
+                processedNonPartitionedInputPositions,
                 succinctBytes(bufferedDataSize),
                 succinctBytes(outputDataSize),
                 outputPositions,
