@@ -221,9 +221,7 @@ public class TestHttpQueryListener
         server.enqueue(new MockResponse()
                 .setResponseCode(200));
 
-        EventListener querylogListener = factory.create(new HashMap<>() {{
-                put("http-event-listener.connect-ingest-uri", server.url("/").toString());
-            }});
+        EventListener querylogListener = factory.create(Map.of("http-event-listener.connect-ingest-uri", server.url("/").toString()));
         querylogListener.queryCreated(null);
         querylogListener.queryCompleted(null);
         querylogListener.splitCompleted(null);
@@ -235,12 +233,11 @@ public class TestHttpQueryListener
     public void testAllLoggingEnabledShouldSendCorrectEvent()
             throws Exception
     {
-        EventListener querylogListener = factory.create(new HashMap<>() {{
-                put("http-event-listener.log-created", "true");
-                put("http-event-listener.log-completed", "true");
-                put("http-event-listener.log-split", "true");
-                put("http-event-listener.connect-ingest-uri", server.url("/").toString());
-            }});
+        EventListener querylogListener = factory.create(Map.of(
+                "http-event-listener.log-created", "true",
+                "http-event-listener.log-completed", "true",
+                "http-event-listener.log-split", "true",
+                "http-event-listener.connect-ingest-uri", server.url("/").toString()));
 
         server.enqueue(new MockResponse().setResponseCode(200));
         server.enqueue(new MockResponse().setResponseCode(200));
@@ -260,10 +257,9 @@ public class TestHttpQueryListener
     public void testContentTypeDefaultHeaderShouldAlwaysBeSet()
             throws Exception
     {
-        EventListener querylogListener = factory.create(new HashMap<>(){{
-                put("http-event-listener.connect-ingest-uri", server.url("/").toString());
-                put("http-event-listener.log-completed", "true");
-            }});
+        EventListener querylogListener = factory.create(Map.of(
+                "http-event-listener.connect-ingest-uri", server.url("/").toString(),
+                "http-event-listener.log-completed", "true"));
 
         server.enqueue(new MockResponse().setResponseCode(200));
 
@@ -276,20 +272,18 @@ public class TestHttpQueryListener
     public void testHttpHeadersShouldBePresent()
             throws Exception
     {
-        EventListener querylogListener = factory.create(new HashMap<>(){{
-                put("http-event-listener.connect-ingest-uri", server.url("/").toString());
-                put("http-event-listener.log-completed", "true");
-                put("http-event-listener.connect-http-headers", "Authorization: Trust Me!, Cache-Control: no-cache");
-            }});
+        EventListener querylogListener = factory.create(Map.of(
+                "http-event-listener.connect-ingest-uri", server.url("/").toString(),
+                "http-event-listener.log-completed", "true",
+                "http-event-listener.connect-http-headers", "Authorization: Trust Me!, Cache-Control: no-cache"));
 
         server.enqueue(new MockResponse().setResponseCode(200));
 
         querylogListener.queryCompleted(queryCompleteEvent);
 
-        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), new HashMap<>() {{
-                put("Authorization", "Trust Me!");
-                put("Cache-Control", "no-cache");
-            }}, queryCompleteEvent);
+        checkRequest(server.takeRequest(5, TimeUnit.SECONDS), Map.of(
+                "Authorization", "Trust Me!",
+                "Cache-Control", "no-cache"), queryCompleteEvent);
     }
 
     @Test
@@ -299,12 +293,11 @@ public class TestHttpQueryListener
         setupServerTLSCertificate();
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        EventListener querylogListener = factory.create(new HashMap<>(){{
-                put("http-event-listener.connect-ingest-uri", server.url("/").toString());
-                put("http-event-listener.log-completed", "true");
-                put("http-event-listener.http-client.key-store-path", "src/test/resources/trino-httpquery-test.p12");
-                put("http-event-listener.http-client.key-store-password", "testing-ssl");
-            }});
+        EventListener querylogListener = factory.create(Map.of(
+                "http-event-listener.connect-ingest-uri", server.url("/").toString(),
+                "http-event-listener.log-completed", "true",
+                "http-event-listener.http-client.key-store-path", "src/test/resources/trino-httpquery-test.p12",
+                "http-event-listener.http-client.key-store-password", "testing-ssl"));
         querylogListener.queryCompleted(queryCompleteEvent);
 
         RecordedRequest recordedRequest = server.takeRequest(5, TimeUnit.SECONDS);
@@ -322,12 +315,11 @@ public class TestHttpQueryListener
         setupServerTLSCertificate();
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        EventListener querylogListener = factory.create(new HashMap<>(){{
-                put("http-event-listener.connect-ingest-uri", server.url("/").toString());
-                put("http-event-listener.log-completed", "true");
-                put("http-event-listener.http-client.key-store-path", "src/test/resources/trino-httpquery-test2.p12");
-                put("http-event-listener.http-client.key-store-password", "testing-ssl");
-            }});
+        EventListener querylogListener = factory.create(Map.of(
+                "http-event-listener.connect-ingest-uri", server.url("/").toString(),
+                "http-event-listener.log-completed", "true",
+                "http-event-listener.http-client.key-store-path", "src/test/resources/trino-httpquery-test2.p12",
+                "http-event-listener.http-client.key-store-password", "testing-ssl"));
         querylogListener.queryCompleted(queryCompleteEvent);
 
         RecordedRequest recordedRequest = server.takeRequest(5, TimeUnit.SECONDS);
@@ -341,12 +333,11 @@ public class TestHttpQueryListener
     {
         server.enqueue(new MockResponse().setResponseCode(200));
 
-        EventListener querylogListener = factory.create(new HashMap<>(){{
-                put("http-event-listener.connect-ingest-uri", new URL("https", server.getHostName(), server.getPort(), "/").toString());
-                put("http-event-listener.log-completed", "true");
-                put("http-event-listener.http-client.key-store-path", "src/test/resources/trino-httpquery-test.p12");
-                put("http-event-listener.http-client.key-store-password", "testing-ssl");
-            }});
+        EventListener querylogListener = factory.create(Map.of(
+                "http-event-listener.connect-ingest-uri", new URL("https", server.getHostName(), server.getPort(), "/").toString(),
+                "http-event-listener.log-completed", "true",
+                "http-event-listener.http-client.key-store-path", "src/test/resources/trino-httpquery-test.p12",
+                "http-event-listener.http-client.key-store-password", "testing-ssl"));
         querylogListener.queryCompleted(queryCompleteEvent);
 
         RecordedRequest recordedRequest = server.takeRequest(5, TimeUnit.SECONDS);
@@ -358,11 +349,10 @@ public class TestHttpQueryListener
     public void testServer500ShouldRetry()
             throws Exception
     {
-        EventListener querylogListener = factory.create(new HashMap<>(){{
-                put("http-event-listener.connect-ingest-uri", server.url("/").toString());
-                put("http-event-listener.log-completed", "true");
-                put("http-event-listener.connect-retry-count", "1");
-            }});
+        EventListener querylogListener = factory.create(Map.of(
+                "http-event-listener.connect-ingest-uri", server.url("/").toString(),
+                "http-event-listener.log-completed", "true",
+                "http-event-listener.connect-retry-count", "1"));
 
         server.enqueue(new MockResponse().setResponseCode(500));
         server.enqueue(new MockResponse().setResponseCode(200));
@@ -377,11 +367,10 @@ public class TestHttpQueryListener
     public void testServer400ShouldRetry()
             throws Exception
     {
-        EventListener querylogListener = factory.create(new HashMap<>(){{
-                put("http-event-listener.connect-ingest-uri", server.url("/").toString());
-                put("http-event-listener.log-completed", "true");
-                put("http-event-listener.connect-retry-count", "1");
-            }});
+        EventListener querylogListener = factory.create(Map.of(
+                "http-event-listener.connect-ingest-uri", server.url("/").toString(),
+                "http-event-listener.log-completed", "true",
+                "http-event-listener.connect-retry-count", "1"));
 
         server.enqueue(new MockResponse().setResponseCode(400));
         server.enqueue(new MockResponse().setResponseCode(200));
@@ -396,11 +385,10 @@ public class TestHttpQueryListener
     public void testServerDisconnectShouldRetry()
             throws Exception
     {
-        EventListener querylogListener = factory.create(new HashMap<>(){{
-                put("http-event-listener.connect-ingest-uri", server.url("/").toString());
-                put("http-event-listener.log-completed", "true");
-                put("http-event-listener.connect-retry-count", "1");
-            }});
+        EventListener querylogListener = factory.create(Map.of(
+                "http-event-listener.connect-ingest-uri", server.url("/").toString(),
+                "http-event-listener.log-completed", "true",
+                "http-event-listener.connect-retry-count", "1"));
 
         server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START));
         server.enqueue(new MockResponse().setResponseCode(200));
@@ -415,10 +403,9 @@ public class TestHttpQueryListener
     public void testServerDelayDoesNotBlock()
             throws Exception
     {
-        EventListener querylogListener = factory.create(new HashMap<>(){{
-                put("http-event-listener.connect-ingest-uri", server.url("/").toString());
-                put("http-event-listener.log-completed", "true");
-            }});
+        EventListener querylogListener = factory.create(Map.of(
+                "http-event-listener.connect-ingest-uri", server.url("/").toString(),
+                "http-event-listener.log-completed", "true"));
 
         server.enqueue(new MockResponse().setResponseCode(200).setHeadersDelay(5, TimeUnit.SECONDS));
 

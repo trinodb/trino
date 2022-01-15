@@ -16,7 +16,6 @@ package io.trino.plugin.httpquery;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -47,17 +46,16 @@ public class TestHttpQueryListenerConfig
     public void testExplicitPropertyMappings()
             throws Exception
     {
-        Map<String, String> properties = new HashMap<>() {{
-                put("http-event-listener.log-created", "true");
-                put("http-event-listener.log-completed", "true");
-                put("http-event-listener.log-split", "true");
-                put("http-event-listener.connect-ingest-uri", "http://example.com:8080/api");
-                put("http-event-listener.connect-http-headers", "Authorization: Trust Me, Cache-Control: no-cache");
-                put("http-event-listener.connect-retry-count", "2");
-                put("http-event-listener.connect-retry-delay", "101s");
-                put("http-event-listener.connect-backoff-base", "1.5");
-                put("http-event-listener.connect-max-delay", "10m");
-            }};
+        Map<String, String> properties = Map.of(
+                "http-event-listener.log-created", "true",
+                "http-event-listener.log-completed", "true",
+                "http-event-listener.log-split", "true",
+                "http-event-listener.connect-ingest-uri", "http://example.com:8080/api",
+                "http-event-listener.connect-http-headers", "Authorization: Trust Me, Cache-Control: no-cache",
+                "http-event-listener.connect-retry-count", "2",
+                "http-event-listener.connect-retry-delay", "101s",
+                "http-event-listener.connect-backoff-base", "1.5",
+                "http-event-listener.connect-max-delay", "10m");
 
         HttpEventListenerConfig expected = new HttpEventListenerConfig()
                 .setLogCompleted(true)
