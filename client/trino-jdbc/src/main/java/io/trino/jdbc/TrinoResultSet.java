@@ -20,6 +20,8 @@ import io.trino.client.Column;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
 
+import javax.annotation.concurrent.GuardedBy;
+
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Iterator;
@@ -31,7 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -44,10 +45,14 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 public class TrinoResultSet
         extends AbstractTrinoResultSet
 {
+    private final Statement statement;
     private final StatementClient client;
     private final String queryId;
 
-    private final AtomicBoolean closed = new AtomicBoolean();
+    @GuardedBy("this")
+    private boolean closed;
+    @GuardedBy("this")
+    private boolean closeStatementOnClose;
 
     static TrinoResultSet create(Statement statement, StatementClient client, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
@@ -65,6 +70,7 @@ public class TrinoResultSet
                 columns,
                 new AsyncIterator<>(flatten(new ResultsPageIterator(requireNonNull(client, "client is null"), progressCallback, warningsManager), maxRows), client));
 
+        this.statement = statement;
         this.client = requireNonNull(client, "client is null");
         requireNonNull(progressCallback, "progressCallback is null");
 
@@ -81,21 +87,46 @@ public class TrinoResultSet
         return QueryStats.create(queryId, client.getStats());
     }
 
-    @Override
-    public void close()
+    void setCloseStatementOnClose()
             throws SQLException
     {
-        if (closed.compareAndSet(false, true)) {
-            ((AsyncIterator<?>) results).cancel();
-            client.close();
+        boolean alreadyClosed;
+        synchronized (this) {
+            alreadyClosed = closed;
+            if (!alreadyClosed) {
+                closeStatementOnClose = true;
+            }
+        }
+        if (alreadyClosed) {
+            statement.close();
         }
     }
 
     @Override
-    public boolean isClosed()
+    public void close()
             throws SQLException
     {
-        return closed.get();
+        boolean closeStatement;
+        synchronized (this) {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            closeStatement = closeStatementOnClose;
+        }
+
+        ((AsyncIterator<?>) results).cancel();
+        client.close();
+        if (closeStatement) {
+            statement.close();
+        }
+    }
+
+    @Override
+    public synchronized boolean isClosed()
+            throws SQLException
+    {
+        return closed;
     }
 
     void partialCancel()

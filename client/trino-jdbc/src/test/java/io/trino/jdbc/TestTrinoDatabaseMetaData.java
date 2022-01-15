@@ -1496,6 +1496,33 @@ public class TestTrinoDatabaseMetaData
         assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "abc\\_def"), "abc\\\\\\_def");
     }
 
+    @Test
+    public void testStatementsDoNotLeak()
+            throws Exception
+    {
+        TrinoConnection connection = (TrinoConnection) this.connection;
+        DatabaseMetaData metaData = connection.getMetaData();
+
+        // consumed
+        try (ResultSet resultSet = metaData.getCatalogs()) {
+            assertThat(countRows(resultSet)).isEqualTo(5);
+        }
+        try (ResultSet resultSet = metaData.getSchemas(TEST_CATALOG, null)) {
+            assertThat(countRows(resultSet)).isEqualTo(10);
+        }
+        try (ResultSet resultSet = metaData.getTables(TEST_CATALOG, "sf%", null, null)) {
+            assertThat(countRows(resultSet)).isEqualTo(64);
+        }
+
+        // not consumed
+        metaData.getCatalogs().close();
+        metaData.getSchemas(TEST_CATALOG, null).close();
+        metaData.getTables(TEST_CATALOG, "sf%", null, null).close();
+
+        assertThat(connection.activeStatements()).as("activeStatements")
+                .isEqualTo(0);
+    }
+
     private static void assertColumnSpec(ResultSet rs, int dataType, Long precision, Long numPrecRadix, String typeName)
             throws SQLException
     {
@@ -1583,6 +1610,16 @@ public class TestTrinoDatabaseMetaData
                 return readRows(resultSet, columns);
             }
         };
+    }
+
+    private int countRows(ResultSet resultSet)
+            throws Exception
+    {
+        int rows = 0;
+        while (resultSet.next()) {
+            rows++;
+        }
+        return rows;
     }
 
     private Connection createConnection()
