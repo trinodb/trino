@@ -16,23 +16,25 @@ package io.trino.plugin.elasticsearch.utility;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.PriorityQueue;
-import java.util.stream.Collectors;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public enum ElasticsearchTypeCoercionHierarchy
 {
-    // Whole numbers
+    // Integer variants
     BYTE(0, 0), SHORT(0, 1), INTEGER(0, 2), LONG(0, 3),
 
-    // Decimal numbers
+    // Float Variants
     HALF_FLOAT(1, 0), FLOAT(1, 1), DOUBLE(1, 2);
 
-    int bucket;
+    int group;
     int precision;
 
-    public int getBucket()
+    public int getGroup()
     {
-        return bucket;
+        return group;
     }
 
     public int getPrecision()
@@ -40,22 +42,28 @@ public enum ElasticsearchTypeCoercionHierarchy
         return precision;
     }
 
-    ElasticsearchTypeCoercionHierarchy(int bucket, int precision)
+    ElasticsearchTypeCoercionHierarchy(int group, int precision)
     {
-        this.bucket = bucket;
+        this.group = group;
         this.precision = precision;
     }
 
     public static String getWiderDataType(Collection<String> dataTypes)
     {
         try {
-            List<ElasticsearchTypeCoercionHierarchy> elasticsearchDataTypes = dataTypes.stream().map(String::toUpperCase).map(ElasticsearchTypeCoercionHierarchy::valueOf).collect(Collectors.toList());
+            List<ElasticsearchTypeCoercionHierarchy> elasticsearchDataTypes = dataTypes.stream()
+                    .map(String::toUpperCase)
+                    .map(ElasticsearchTypeCoercionHierarchy::valueOf)
+                    .collect(toImmutableList());
 
-            final long numberOfBuckets = elasticsearchDataTypes.stream().map(ElasticsearchTypeCoercionHierarchy::getBucket).distinct().count();
+            final long numberOfBuckets = elasticsearchDataTypes.stream()
+                    .map(ElasticsearchTypeCoercionHierarchy::getGroup)
+                    .distinct()
+                    .count();
             if (numberOfBuckets > 1) {
                 return "text";
             }
-            return widerType(elasticsearchDataTypes);
+            return widerType(elasticsearchDataTypes).toLowerCase(Locale.ROOT);
         }
         catch (IllegalArgumentException e) {
             // Do nothing.

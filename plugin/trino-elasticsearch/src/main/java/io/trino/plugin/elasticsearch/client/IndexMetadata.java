@@ -21,6 +21,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -149,7 +150,7 @@ public class IndexMetadata
         {
             requireNonNull(formats, "formats is null");
 
-            this.formats = ImmutableList.copyOf(formats);
+            this.formats = formats.stream().sorted().collect(toImmutableList());
         }
 
         public List<String> getFormats()
@@ -160,7 +161,7 @@ public class IndexMetadata
         @Override
         public int hashCode()
         {
-            return Objects.hash(formats.stream().sorted().collect(Collectors.toList()));
+            return Objects.hash(formats);
         }
 
         @Override
@@ -210,6 +211,25 @@ public class IndexMetadata
         public double getScale()
         {
             return scale;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(scale);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ScaledFloatType that = (ScaledFloatType) o;
+            return this.scale == that.scale;
         }
     }
 }

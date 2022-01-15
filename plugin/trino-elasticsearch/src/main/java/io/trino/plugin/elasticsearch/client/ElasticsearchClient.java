@@ -29,6 +29,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.json.JsonCodec;
@@ -94,7 +95,6 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -113,6 +113,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getLast;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
@@ -156,7 +157,7 @@ public class ElasticsearchClient
     private final boolean tlsEnabled;
     private final boolean ignorePublishAddress;
 
-    private final boolean unionSchemaIndicesForAlias;
+    private final boolean mergeIndicesSchemaForAlias;
     private final int maxNumberOfIndicesForAliasSchema;
     private final boolean failOnAliasSchemaMismatch;
 
@@ -182,11 +183,56 @@ public class ElasticsearchClient
         this.scrollTimeout = config.getScrollTimeout();
         this.refreshInterval = config.getNodeRefreshInterval();
         this.tlsEnabled = config.isTlsEnabled();
-        this.unionSchemaIndicesForAlias = config.isUnionSchemaIndicesForAlias();
+        this.mergeIndicesSchemaForAlias = config.isMergeIndicesSchemaForAlias();
         this.maxNumberOfIndicesForAliasSchema = config.getMaxNumberOfIndicesForAliasSchema();
         this.failOnAliasSchemaMismatch = config.isFailOnAliasSchemaMismatch();
         indexMetaDataCache = newCacheBuilder(OptionalLong.of(config.getIndexMetaDataCacheTtl().toMillis()), config.getIndexMetaDataCacheMaximumSize())
                 .build(CacheLoader.asyncReloading(CacheLoader.from(this::loadIndexMetadata), Executors.newSingleThreadExecutor()));
+    }
+
+    @PostConstruct
+    public void initialize()
+    {
+        if (!started.getAndSet(true)) {
+            // do the first refresh eagerly
+            refreshNodes();
+
+            executor.scheduleWithFixedDelay(this::refreshNodes, refreshInterval.toMillis(), refreshInterval.toMillis(), MILLISECONDS);
+        }
+    }
+
+    @PreDestroy
+    public void close()
+            throws IOException
+    {
+        executor.shutdownNow();
+        client.close();
+    }
+
+    private void refreshNodes()
+    {
+        // discover other nodes in the cluster and add them to the client
+        try {
+            Set<ElasticsearchNode> nodes = fetchNodes();
+
+            HttpHost[] hosts = nodes.stream()
+                    .map(ElasticsearchNode::getAddress)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
+                    .toArray(HttpHost[]::new);
+
+            if (hosts.length > 0 && !ignorePublishAddress) {
+                client.getLowLevelClient().setHosts(hosts);
+            }
+
+            this.nodes.set(nodes);
+        }
+        catch (Throwable e) {
+            // Catch all exceptions here since throwing an exception from executor#scheduleWithFixedDelay method
+            // suppresses all future scheduled invocations
+            LOG.error(e, "Error refreshing nodes");
+        }
     }
 
     private static BackpressureRestHighLevelClient createClient(
@@ -379,31 +425,6 @@ public class ElasticsearchClient
         return format("%s.%s", parent, child);
     }
 
-    private static TrinoException propagate(ResponseException exception)
-    {
-        HttpEntity entity = exception.getResponse().getEntity();
-
-        if (entity != null && entity.getContentType() != null) {
-            try {
-                JsonNode reason = OBJECT_MAPPER.readTree(entity.getContent()).path("error")
-                        .path("root_cause")
-                        .path(0)
-                        .path("reason");
-
-                if (!reason.isMissingNode()) {
-                    throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, reason.asText(), exception);
-                }
-            }
-            catch (IOException e) {
-                TrinoException result = new TrinoException(ELASTICSEARCH_QUERY_FAILURE, exception);
-                result.addSuppressed(e);
-                throw result;
-            }
-        }
-
-        throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, exception);
-    }
-
     private static CacheBuilder<Object, Object> newCacheBuilder(OptionalLong expiresAfterWriteMillis, long maximumSize)
     {
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder().softValues();
@@ -412,71 +433,6 @@ public class ElasticsearchClient
         }
         cacheBuilder = cacheBuilder.maximumSize(maximumSize);
         return cacheBuilder;
-    }
-
-    @VisibleForTesting
-    static Optional<String> extractAddress(String address)
-    {
-        Matcher matcher = ADDRESS_PATTERN.matcher(address);
-
-        if (!matcher.matches()) {
-            return Optional.empty();
-        }
-
-        String cname = matcher.group("cname");
-        String ip = matcher.group("ip");
-        String port = matcher.group("port");
-
-        if (cname != null) {
-            return Optional.of(cname + ":" + port);
-        }
-
-        return Optional.of(ip + ":" + port);
-    }
-
-    @PostConstruct
-    public void initialize()
-    {
-        if (!started.getAndSet(true)) {
-            // do the first refresh eagerly
-            refreshNodes();
-
-            executor.scheduleWithFixedDelay(this::refreshNodes, refreshInterval.toMillis(), refreshInterval.toMillis(), MILLISECONDS);
-        }
-    }
-
-    @PreDestroy
-    public void close()
-            throws IOException
-    {
-        executor.shutdownNow();
-        client.close();
-    }
-
-    private void refreshNodes()
-    {
-        // discover other nodes in the cluster and add them to the client
-        try {
-            Set<ElasticsearchNode> nodes = fetchNodes();
-
-            HttpHost[] hosts = nodes.stream()
-                    .map(ElasticsearchNode::getAddress)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
-                    .toArray(HttpHost[]::new);
-
-            if (hosts.length > 0 && !ignorePublishAddress) {
-                client.getLowLevelClient().setHosts(hosts);
-            }
-
-            this.nodes.set(nodes);
-        }
-        catch (Throwable e) {
-            // Catch all exceptions here since throwing an exception from executor#scheduleWithFixedDelay method
-            // suppresses all future scheduled invocations
-            LOG.error(e, "Error refreshing nodes");
-        }
     }
 
     private Set<ElasticsearchNode> fetchNodes()
@@ -641,8 +597,9 @@ public class ElasticsearchClient
         return doRequest(path, body -> {
             try {
                 final JsonNode indices = OBJECT_MAPPER.readTree(body);
-                if (maxNumberOfIndicesForAliasSchema != 0 && indices.size() > maxNumberOfIndicesForAliasSchema) {
-                    throw new TrinoException(ELASTICSEARCH_INVALID_METADATA, format("alias has too many indices, max allowed indices is %s", maxNumberOfIndicesForAliasSchema));
+                if (maxNumberOfIndicesForAliasSchema > 0 && indices.size() > maxNumberOfIndicesForAliasSchema) {
+                    throw new TrinoException(ELASTICSEARCH_INVALID_METADATA,
+                            format("alias has too many indices, max allowed indices is %s", maxNumberOfIndicesForAliasSchema));
                 }
                 Iterator<JsonNode> indicesIterator = indices.elements();
                 IndexMetadata.ObjectType outputSchema = new IndexMetadata.ObjectType(ImmutableList.of());
@@ -673,15 +630,12 @@ public class ElasticsearchClient
                     IndexMetadata.ObjectType schema = parseType(mappings.get("properties"), metaProperties);
                     outputSchema = merge(index, "", outputSchema, schema);
                 }
-                while (unionSchemaIndicesForAlias && indicesIterator.hasNext());
+                while (mergeIndicesSchemaForAlias && indicesIterator.hasNext());
 
                 return new IndexMetadata(outputSchema);
             }
             catch (IOException e) {
                 throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
-            }
-            catch (RuntimeException e) {
-                throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, e);
             }
         });
     }
@@ -735,14 +689,47 @@ public class ElasticsearchClient
     {
         final Map<String, List<IndexMetadata.Field>> fieldsByName = fields.stream().collect(groupingBy(IndexMetadata.Field::getName));
 
+        // Valid fields are collected here.
         final Set<IndexMetadata.Field> resultFields = fieldsByName.values().stream()
                 .filter(fieldList -> fieldList.size() == 1)
-                .map(fieldList -> fieldList.get(0))
+                .map(Iterables::getOnlyElement)
                 .collect(toSet());
+
+        // Fields with difference in isArray property always casts as Array.
+        final Set<IndexMetadata.Field> fieldsCastedAsIsArray = fieldsByName.values().stream()
+                .filter(fieldList -> fieldList.size() > 1)
+                .filter(fieldList -> {
+                    final IndexMetadata.Field lastField = getLast(fieldList);
+                    return fieldList.stream().allMatch(field -> field.getType().equals(lastField.getType())) &&
+                            fieldList.stream().anyMatch(IndexMetadata.Field::isArray);
+                })
+                .map(fieldList -> {
+                    final IndexMetadata.Field field = getLast(fieldList);
+                    return new IndexMetadata.Field(false, true, field.getName(), field.getType());
+                })
+                .collect(toSet());
+
+        // Fields with difference in asRawJson property always casts as rawJson.
+        final Set<IndexMetadata.Field> fieldsCastedAsAsRawJson = fieldsByName.values().stream()
+                .filter(fieldList -> fieldList.size() > 1)
+                .filter(fieldList -> {
+                    final IndexMetadata.Field lastField = getLast(fieldList);
+                    return fieldList.stream().allMatch(field -> field.getType().equals(lastField.getType())) &&
+                            fieldList.stream().anyMatch(IndexMetadata.Field::asRawJson);
+                })
+                .map(fieldList -> {
+                    final IndexMetadata.Field field = getLast(fieldList);
+                    return new IndexMetadata.Field(true, false, field.getName(), field.getType());
+                })
+                .collect(toSet());
+
+        resultFields.addAll(fieldsCastedAsIsArray);
+        resultFields.addAll(fieldsCastedAsAsRawJson);
+
+        resultFields.forEach(field -> fieldsByName.remove(field.getName()));
 
         final Map<String, List<IndexMetadata.Type>> columnsWithMultipleDataTypes = fieldsByName.entrySet()
                 .stream()
-                .filter(fieldNameToFieldsList -> fieldNameToFieldsList.getValue().size() > 1)
                 .collect(toImmutableMap(Map.Entry::getKey, columnToFields -> columnToFields.getValue().stream()
                         .map(IndexMetadata.Field::getType)
                         .collect(toList())));
@@ -775,7 +762,7 @@ public class ElasticsearchClient
                         final Set<String> dataTypes = fieldType.getValue().stream()
                                 .map(type -> ((IndexMetadata.PrimitiveType) type).getName())
                                 .collect(toImmutableSet());
-                        resultDataType = getWiderDataType(dataTypes).toLowerCase(Locale.ROOT);
+                        resultDataType = getWiderDataType(dataTypes);
                     }
                     // Casts as raw json if resultant data type is text.
                     return new IndexMetadata.Field("text".equals(resultDataType), false, fieldType.getKey(), new IndexMetadata.PrimitiveType(resultDataType));
@@ -1054,6 +1041,51 @@ public class ElasticsearchClient
         }
 
         return handler.process(body);
+    }
+
+    private static TrinoException propagate(ResponseException exception)
+    {
+        HttpEntity entity = exception.getResponse().getEntity();
+
+        if (entity != null && entity.getContentType() != null) {
+            try {
+                JsonNode reason = OBJECT_MAPPER.readTree(entity.getContent()).path("error")
+                        .path("root_cause")
+                        .path(0)
+                        .path("reason");
+
+                if (!reason.isMissingNode()) {
+                    throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, reason.asText(), exception);
+                }
+            }
+            catch (IOException e) {
+                TrinoException result = new TrinoException(ELASTICSEARCH_QUERY_FAILURE, exception);
+                result.addSuppressed(e);
+                throw result;
+            }
+        }
+
+        throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, exception);
+    }
+
+    @VisibleForTesting
+    static Optional<String> extractAddress(String address)
+    {
+        Matcher matcher = ADDRESS_PATTERN.matcher(address);
+
+        if (!matcher.matches()) {
+            return Optional.empty();
+        }
+
+        String cname = matcher.group("cname");
+        String ip = matcher.group("ip");
+        String port = matcher.group("port");
+
+        if (cname != null) {
+            return Optional.of(cname + ":" + port);
+        }
+
+        return Optional.of(ip + ":" + port);
     }
 
     private interface ResponseHandler<T>

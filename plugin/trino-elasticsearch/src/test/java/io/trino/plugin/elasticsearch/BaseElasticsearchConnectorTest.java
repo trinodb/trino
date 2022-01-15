@@ -1695,7 +1695,7 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
-    public void testDescribeMultiIndexAlias()
+    public void testDescribeMultiIndexAliasWithPrimitiveTypes()
             throws IOException
     {
         ImmutableMap<String, String> config = ImmutableMap.<String, String>builder()
@@ -1708,7 +1708,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("elasticsearch.scroll-size", "1000")
                 .put("elasticsearch.scroll-timeout", "1m")
                 .put("elasticsearch.request-timeout", "2m")
-                .put("elasticsearch.union-schema-indices-for-alias", "true")
+                .put("elasticsearch.merge-alias-index-mappings", "true")
                 .put("elasticsearch.fail-on-alias-schema-mismatch", "false")
                 .build();
 
@@ -1722,6 +1722,8 @@ public abstract class BaseElasticsearchConnectorTest
                 "{" +
                 "  \"properties\":{" +
                 "    \"name\":   { \"type\": \"text\" }," +
+                "    \"date\":   { \"type\": \"date\" }," +
+                "    \"scaled_float\":   { \"type\": \"scaled_float\", \"scaling_factor\": 100}," +
                 "    \"rackid\":   { \"type\": \"integer\" }" +
                 "  }" +
                 "}";
@@ -1738,14 +1740,19 @@ public abstract class BaseElasticsearchConnectorTest
                 "}";
         createIndex(indexName2, properties);
 
-        // Index that brings a new field 'bookid' that needs to be added & rackid that needs to be merged.
-        // Also merging is within the same bucket in ElasticsearchTypeCoercionHierarchy.
+        /**
+         * TEST 1:
+         * Index that brings a new field 'bookid' that needs to be added & 'rackid', 'date' that needs to be merged.
+         * Also merging is across different variants in {@link io.trino.plugin.elasticsearch.utility.ElasticsearchTypeCoercionHierarchy}.
+         */
         String indexName3 = format("index_%s", randomTableSuffix());
         properties = "" +
                 "{" +
                 "  \"properties\":{" +
                 "    \"name\":   { \"type\": \"text\" }," +
                 "    \"rackid\":   { \"type\": \"float\" }," +
+                "    \"date\":   { \"type\": \"long\" }," +
+                "    \"scaled_float\":   { \"type\": \"double\" }," +
                 "    \"bookid\":   { \"type\": \"long\" }" +
                 "  }" +
                 "}";
@@ -1759,20 +1766,27 @@ public abstract class BaseElasticsearchConnectorTest
 
         Session session = testSessionBuilder().setCatalog(catalogName).setSchema("tpch").build();
         MaterializedResult expectedColumns = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("date", "varchar", "", "")
                 .row("name", "varchar", "", "")
                 .row("rackid", "varchar", "", "")
                 .row("bookid", "bigint", "", "")
+                .row("scaled_float", "varchar", "", "")
                 .build();
         MaterializedResult actualColumns = computeActual(session, "DESCRIBE " + aliasName);
         assertEquals(actualColumns, expectedColumns);
 
-        // Index that brings a new field 'bookid' that needs to be added & rackid that needs to be merged.
-        // Also merging is across different buckets in ElasticsearchTypeCoercionHierarchy.
+        /**
+         * TEST 2:
+         * Index that brings a new field 'bookid' that needs to be added & 'rackid' that needs to be merged.
+         * Also merging is within the same variant in {@link io.trino.plugin.elasticsearch.utility.ElasticsearchTypeCoercionHierarchy}.
+         */
         String indexName4 = format("index_%s", randomTableSuffix());
         properties = "" +
                 "{" +
                 "  \"properties\":{" +
                 "    \"name\":   { \"type\": \"text\" }," +
+                "    \"date\":   { \"type\": \"date\" }," +
+                "    \"scaled_float\":   { \"type\": \"scaled_float\", \"scaling_factor\": 100 }," +
                 "    \"rackid\":   { \"type\": \"long\" }," +
                 "    \"bookid\":   { \"type\": \"long\" }" +
                 "  }" +
@@ -1786,9 +1800,11 @@ public abstract class BaseElasticsearchConnectorTest
         addAlias(indexName4, aliasName);
 
         expectedColumns = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("date", "timestamp(3)", "", "")
                 .row("name", "varchar", "", "")
                 .row("bookid", "bigint", "", "")
                 .row("rackid", "bigint", "", "")
+                .row("scaled_float", "double", "", "")
                 .build();
         actualColumns = computeActual(session, "DESCRIBE " + aliasName);
         assertEquals(actualColumns, expectedColumns);
@@ -1797,6 +1813,142 @@ public abstract class BaseElasticsearchConnectorTest
         deleteIndex(indexName2);
         deleteIndex(indexName3);
         deleteIndex(indexName4);
+    }
+
+    @Test
+    public void testDescribeMultiIndexAliasWithMismatchIsArrayFields()
+            throws IOException
+    {
+        ImmutableMap<String, String> config = ImmutableMap.<String, String>builder()
+                .put("elasticsearch.host", elasticsearch.getAddress().getHost())
+                .put("elasticsearch.port", Integer.toString(elasticsearch.getAddress().getPort()))
+                // Node discovery relies on the publish_address exposed via the Elasticseach API
+                // This doesn't work well within a docker environment that maps ES's port to a random public port
+                .put("elasticsearch.ignore-publish-address", "true")
+                .put("elasticsearch.default-schema-name", "tpch")
+                .put("elasticsearch.scroll-size", "1000")
+                .put("elasticsearch.scroll-timeout", "1m")
+                .put("elasticsearch.request-timeout", "2m")
+                .put("elasticsearch.merge-alias-index-mappings", "true")
+                .put("elasticsearch.fail-on-alias-schema-mismatch", "false")
+                .build();
+
+        String catalogName = format("elasticsearch_%s", randomTableSuffix());
+
+        getQueryRunner().createCatalog(catalogName, "elasticsearch", config);
+
+        String indexName1 = format("index_%s", randomTableSuffix());
+        @Language("JSON")
+        String properties = "" +
+                "{" +
+                "  \"_meta\": {" +
+                "    \"trino\": {" +
+                "      \"name_array\": {" +
+                "        \"isArray\": true" +
+                "      }" +
+                "    }" +
+                "  }," +
+                "  \"properties\":{" +
+                "    \"name_array\":   { \"type\": \"text\" }," +
+                "    \"rackid\":   { \"type\": \"integer\" }" +
+                "  }" +
+                "}";
+        createIndex(indexName1, properties);
+
+        // Matches the index indexName1, but differs in isArray
+        String indexName2 = format("index_%s", randomTableSuffix());
+        properties = "" +
+                "{" +
+                "  \"properties\":{" +
+                "    \"name_array\":   { \"type\": \"text\" }," +
+                "    \"rackid\":   { \"type\": \"integer\" }" +
+                "  }" +
+                "}";
+        createIndex(indexName2, properties);
+
+        String aliasName = format("alias_%s", randomTableSuffix());
+
+        addAlias(indexName1, aliasName);
+        addAlias(indexName2, aliasName);
+
+        Session session = testSessionBuilder().setCatalog(catalogName).setSchema("tpch").build();
+        MaterializedResult expectedColumns = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("rackid", "integer", "", "")
+                .row("name_array", "array(varchar)", "", "")
+                .build();
+        MaterializedResult actualColumns = computeActual(session, "DESCRIBE " + aliasName);
+        assertEquals(actualColumns, expectedColumns);
+
+        deleteIndex(indexName1);
+        deleteIndex(indexName2);
+    }
+
+    @Test
+    public void testDescribeMultiIndexAliasWithMismatchAsRawJsonFields()
+            throws IOException
+    {
+        ImmutableMap<String, String> config = ImmutableMap.<String, String>builder()
+                .put("elasticsearch.host", elasticsearch.getAddress().getHost())
+                .put("elasticsearch.port", Integer.toString(elasticsearch.getAddress().getPort()))
+                // Node discovery relies on the publish_address exposed via the Elasticseach API
+                // This doesn't work well within a docker environment that maps ES's port to a random public port
+                .put("elasticsearch.ignore-publish-address", "true")
+                .put("elasticsearch.default-schema-name", "tpch")
+                .put("elasticsearch.scroll-size", "1000")
+                .put("elasticsearch.scroll-timeout", "1m")
+                .put("elasticsearch.request-timeout", "2m")
+                .put("elasticsearch.merge-alias-index-mappings", "true")
+                .put("elasticsearch.fail-on-alias-schema-mismatch", "false")
+                .build();
+
+        String catalogName = format("elasticsearch_%s", randomTableSuffix());
+
+        getQueryRunner().createCatalog(catalogName, "elasticsearch", config);
+
+        String indexName1 = format("index_%s", randomTableSuffix());
+        @Language("JSON")
+        String properties = "" +
+                "{" +
+                "  \"_meta\": {" +
+                "    \"trino\": {" +
+                "      \"name_rawjson\": {" +
+                "        \"asRawJson\": true" +
+                "      }" +
+                "    }" +
+                "  }," +
+                "  \"properties\":{" +
+                "    \"name_rawjson\":   { \"type\": \"integer\" }," +
+                "    \"rackid\":   { \"type\": \"integer\" }" +
+                "  }" +
+                "}";
+        createIndex(indexName1, properties);
+
+        // Matches the index indexName1, but differs in isArray
+        String indexName2 = format("index_%s", randomTableSuffix());
+        properties = "" +
+                "{" +
+                "  \"properties\":{" +
+                "    \"name_rawjson\":   { \"type\": \"integer\" }," +
+                "    \"rackid\":   { \"type\": \"integer\" }" +
+                "  }" +
+                "}";
+        createIndex(indexName2, properties);
+
+        String aliasName = format("alias_%s", randomTableSuffix());
+
+        addAlias(indexName1, aliasName);
+        addAlias(indexName2, aliasName);
+
+        Session session = testSessionBuilder().setCatalog(catalogName).setSchema("tpch").build();
+        MaterializedResult expectedColumns = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("rackid", "integer", "", "")
+                .row("name_rawjson", "varchar", "", "")
+                .build();
+        MaterializedResult actualColumns = computeActual(session, "DESCRIBE " + aliasName);
+        assertEquals(actualColumns, expectedColumns);
+
+        deleteIndex(indexName1);
+        deleteIndex(indexName2);
     }
 
     @Test
@@ -1813,7 +1965,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("elasticsearch.scroll-size", "1000")
                 .put("elasticsearch.scroll-timeout", "1m")
                 .put("elasticsearch.request-timeout", "2m")
-                .put("elasticsearch.union-schema-indices-for-alias", "true")
+                .put("elasticsearch.merge-alias-index-mappings", "true")
                 .put("elasticsearch.fail-on-alias-schema-mismatch", "true")
                 .put("elasticsearch.max-number-of-indices-for-alias-schema", "1")
                 .build();
@@ -1851,22 +2003,7 @@ public abstract class BaseElasticsearchConnectorTest
         addAlias(indexName2, aliasName);
 
         Session session = testSessionBuilder().setCatalog(catalogName).setSchema("tpch").build();
-        /*
-        Elasticsearch returns the alias mappings in the random order of indices.
-        Hence, alias mapping should be same as either of the indices mapping.
-        i.e., racks or books
-         */
-        MaterializedResult expectedRacksColumns = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("name", "varchar", "", "")
-                .row("rackid", "integer", "", "")
-                .build();
-        MaterializedResult expectedBooksColumns = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("bookid", "bigint", "", "")
-                .row("name", "varchar", "", "")
-                .row("rackid", "bigint", "", "")
-                .build();
-        assertThatThrownBy(() -> computeActual(session, "DESCRIBE " + aliasName))
-                .hasMessage("alias has too many indices, max allowed indices is 1");
+        assertThatThrownBy(() -> computeActual(session, "DESCRIBE " + aliasName)).hasMessage("alias has too many indices, max allowed indices is 1");
         deleteIndex(indexName1);
         deleteIndex(indexName2);
     }
@@ -1885,7 +2022,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("elasticsearch.scroll-size", "1000")
                 .put("elasticsearch.scroll-timeout", "1m")
                 .put("elasticsearch.request-timeout", "2m")
-                .put("elasticsearch.union-schema-indices-for-alias", "true")
+                .put("elasticsearch.merge-alias-index-mappings", "true")
                 .put("elasticsearch.fail-on-alias-schema-mismatch", "false")
                 .build();
 
@@ -1989,7 +2126,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("elasticsearch.scroll-size", "1000")
                 .put("elasticsearch.scroll-timeout", "1m")
                 .put("elasticsearch.request-timeout", "2m")
-                .put("elasticsearch.union-schema-indices-for-alias", "true")
+                .put("elasticsearch.merge-alias-index-mappings", "true")
                 .put("elasticsearch.fail-on-alias-schema-mismatch", "false")
                 .build();
 
@@ -2097,7 +2234,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("elasticsearch.scroll-size", "1000")
                 .put("elasticsearch.scroll-timeout", "1m")
                 .put("elasticsearch.request-timeout", "2m")
-                .put("elasticsearch.union-schema-indices-for-alias", "true")
+                .put("elasticsearch.merge-alias-index-mappings", "true")
                 .put("elasticsearch.fail-on-alias-schema-mismatch", "true")
                 .build();
 
@@ -2157,7 +2294,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("elasticsearch.scroll-size", "1000")
                 .put("elasticsearch.scroll-timeout", "1m")
                 .put("elasticsearch.request-timeout", "2m")
-                .put("elasticsearch.union-schema-indices-for-alias", "true")
+                .put("elasticsearch.merge-alias-index-mappings", "true")
                 .put("elasticsearch.fail-on-alias-schema-mismatch", "false")
                 .build();
 
@@ -2217,7 +2354,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("elasticsearch.scroll-size", "1000")
                 .put("elasticsearch.scroll-timeout", "1m")
                 .put("elasticsearch.request-timeout", "2m")
-                .put("elasticsearch.union-schema-indices-for-alias", "true")
+                .put("elasticsearch.merge-alias-index-mappings", "true")
                 .put("elasticsearch.fail-on-alias-schema-mismatch", "false")
                 .build();
 
@@ -2266,6 +2403,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .build();
         MaterializedResult actualColumns = computeActual(session, "DESCRIBE " + aliasName);
         assertEquals(actualColumns, expectedColumns);
+
         deleteIndex(indexName1);
         deleteIndex(indexName2);
     }

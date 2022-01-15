@@ -22,39 +22,50 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 public class TestElasticsearchTypeCoercionHierarchy
 {
     @Test
-    public void testTypeCoercionWholeNumbers()
+    public void testTypeCoercionIntegerVariants()
     {
-        // Whole numbers
-        assertEquals(getWiderDataType(ImmutableList.of("byte")), "BYTE");
-        assertEquals(getWiderDataType(ImmutableList.of("short")), "SHORT");
-        assertEquals(getWiderDataType(ImmutableList.of("integer")), "INTEGER");
-        assertEquals(getWiderDataType(ImmutableList.of("long")), "LONG");
-        assertEquals(getWiderDataType(ImmutableList.of("byte", "short")), "SHORT");
-        assertEquals(getWiderDataType(ImmutableList.of("byte", "short", "integer")), "INTEGER");
-        assertEquals(getWiderDataType(ImmutableList.of("byte", "short", "long", "integer")), "LONG");
-        assertEquals(getWiderDataType(ImmutableList.of("short", "integer")), "INTEGER");
-        assertEquals(getWiderDataType(ImmutableList.of("short", "integer", "long")), "LONG");
-        assertEquals(getWiderDataType(ImmutableList.of("integer", "long")), "LONG");
+        // Integer variants
+        assertEquals(getWiderDataType(ImmutableList.of("byte")), "byte");
+        assertEquals(getWiderDataType(ImmutableList.of("short")), "short");
+        assertEquals(getWiderDataType(ImmutableList.of("integer")), "integer");
+        assertEquals(getWiderDataType(ImmutableList.of("long")), "long");
+        assertEquals(getWiderDataType(ImmutableList.of("byte", "short")), "short");
+        assertEquals(getWiderDataType(ImmutableList.of("byte", "short", "integer")), "integer");
+        assertEquals(getWiderDataType(ImmutableList.of("byte", "short", "long", "integer")), "long");
+        assertEquals(getWiderDataType(ImmutableList.of("short", "integer")), "integer");
+        assertEquals(getWiderDataType(ImmutableList.of("short", "integer", "long")), "long");
+        assertEquals(getWiderDataType(ImmutableList.of("integer", "long")), "long");
     }
 
     @Test
-    public void testTypeCoercionDecimalNumbers()
+    public void testTypeCoercionFloatVariants()
     {
-        // Decimal numbers
-        assertEquals(getWiderDataType(ImmutableList.of("half_float")), "HALF_FLOAT");
-        assertEquals(getWiderDataType(ImmutableList.of("float")), "FLOAT");
-        assertEquals(getWiderDataType(ImmutableList.of("double")), "DOUBLE");
-        assertEquals(getWiderDataType(ImmutableList.of("half_float", "float")), "FLOAT");
-        assertEquals(getWiderDataType(ImmutableList.of("half_float", "float", "double")), "DOUBLE");
-        assertEquals(getWiderDataType(ImmutableList.of("float", "double")), "DOUBLE");
+        // Float variants
+        assertEquals(getWiderDataType(ImmutableList.of("half_float")), "half_float");
+        assertEquals(getWiderDataType(ImmutableList.of("float")), "float");
+        assertEquals(getWiderDataType(ImmutableList.of("double")), "double");
+        assertEquals(getWiderDataType(ImmutableList.of("half_float", "float")), "float");
+        assertEquals(getWiderDataType(ImmutableList.of("half_float", "float", "double")), "double");
+        assertEquals(getWiderDataType(ImmutableList.of("float", "double")), "double");
     }
 
     @Test
-    public void testTypeCoercionFromDifferentBuckets()
+    public void testTypeCoercionFromDifferentVariants()
     {
         assertEquals(getWiderDataType(ImmutableList.of("byte", "half_float")), "text");
         assertEquals(getWiderDataType(ImmutableList.of("short", "float")), "text");
         assertEquals(getWiderDataType(ImmutableList.of("short", "long", "float")), "text");
         assertEquals(getWiderDataType(ImmutableList.of("double", "long")), "text");
+    }
+
+    @Test
+    public void testTypeCoercionFromUndefinedVariants()
+    {
+        // Complex data types not defined in the coercion hierarchy.
+        assertEquals(getWiderDataType(ImmutableList.of("date", "ip")), "text");
+        assertEquals(getWiderDataType(ImmutableList.of("scaled_float", "float")), "text");
+        assertEquals(getWiderDataType(ImmutableList.of("short", "long", "scaled_float")), "text");
+        assertEquals(getWiderDataType(ImmutableList.of("double", "ip")), "text");
+        assertEquals(getWiderDataType(ImmutableList.of("date", "ip", "scaled_float")), "text");
     }
 }

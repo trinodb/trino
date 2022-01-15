@@ -119,7 +119,7 @@ This property is optional; the default is ``1m``.
 Enable or disable using the address published by Elasticsearch to connect for
 queries.
 
-``elasticsearch.union-schema-indices-for-alias``
+``elasticsearch.merge-alias-index-mappings``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Enable or disable merging of schemas of indices for governing the schema of an alias.
@@ -127,7 +127,7 @@ If disabled, schema of the alias follows the schema of first index only.
 Same field with different data types in different indices for an alias always casts
 as :ref:`raw JSON <elasticsearch-raw-json-transform>`.
 
-This property is optional; the default value is ``false``.
+This property is optional; the default value is ``true``.
 
 ``elasticsearch.fail-on-alias-schema-mismatch``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -141,10 +141,21 @@ casts mismatch column as :ref:`raw JSON <elasticsearch-raw-json-transform>`.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Maximum number of indices allowed for merging to govern the schema of an alias.
-Any alias having higher number of indices than this config can't be read.
-This property will be used only if ``elasticsearch.union-schema-indices-for-alias`` is ``true``.
+Any alias having higher number of indices than this config can't be read and results in query failure.
+This property will be used only if ``elasticsearch.merge-alias-index-mappings`` is ``true``.
 
-This property is optional; the default value is ``0`` i.e., merges all schemas to govern schema of an alias.
+This property is optional. When the config is absent, merge schemas of all indices to govern
+the schema of an alias.
+
+``elasticsearch.index-metadata-cache-ttl``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Duration how long cached metastore data should be considered valid. Default is ``1m``.
+
+``elasticsearch.index-metadata-cache-maximum-entries``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Maximum number of data objects in the metadata cache. Default is ``1000``.
 
 TLS security
 ------------

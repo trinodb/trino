@@ -76,7 +76,7 @@ public class ElasticsearchConfig
     private boolean ignorePublishAddress;
     private boolean verifyHostnames = true;
 
-    private boolean unionSchemaIndicesForAlias;
+    private boolean mergeIndicesSchemaForAlias = true;
     private int maxNumberOfIndicesForAliasSchema;
     private boolean failOnAliasSchemaMismatch;
 
@@ -143,34 +143,34 @@ public class ElasticsearchConfig
         return indexMetaDataCacheMaximumSize;
     }
 
-    @Config("elasticsearch.index-metadata-cache-maximum-size")
+    @Config("elasticsearch.index-metadata-cache-maximum-entries")
+    @ConfigDescription("Maximum number of objects stored in the metadata cache")
     public ElasticsearchConfig setIndexMetaDataCacheMaximumSize(long indexMetaDataCacheMaximumSize)
     {
         this.indexMetaDataCacheMaximumSize = indexMetaDataCacheMaximumSize;
         return this;
     }
 
-    public boolean isUnionSchemaIndicesForAlias()
+    public boolean isMergeIndicesSchemaForAlias()
     {
-        return unionSchemaIndicesForAlias;
+        return mergeIndicesSchemaForAlias;
     }
 
-    @Config("elasticsearch.union-schema-indices-for-alias")
-    @ConfigDescription("Union schema indices for alias")
-    public ElasticsearchConfig setUnionSchemaIndicesForAlias(boolean unionSchemaIndicesForAlias)
+    @Config("elasticsearch.merge-alias-index-mappings")
+    @ConfigDescription("Enable/disable merge schemas of indices for alias")
+    public ElasticsearchConfig setMergeIndicesSchemaForAlias(boolean mergeIndicesSchemaForAlias)
     {
-        this.unionSchemaIndicesForAlias = unionSchemaIndicesForAlias;
+        this.mergeIndicesSchemaForAlias = mergeIndicesSchemaForAlias;
         return this;
     }
 
-    @Min(0)
     public int getMaxNumberOfIndicesForAliasSchema()
     {
         return maxNumberOfIndicesForAliasSchema;
     }
 
     @Config("elasticsearch.max-number-of-indices-for-alias-schema")
-    @ConfigDescription("Maximum number of indices to include for alias schema")
+    @ConfigDescription("Maximum number of indices allowed for alias schema")
     public ElasticsearchConfig setMaxNumberOfIndicesForAliasSchema(int maxNumberOfIndicesForAliasSchema)
     {
         this.maxNumberOfIndicesForAliasSchema = maxNumberOfIndicesForAliasSchema;
