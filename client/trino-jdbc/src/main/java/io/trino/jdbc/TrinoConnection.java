@@ -782,6 +782,12 @@ public class TrinoConnection
         checkState(statements.remove(statement), "Statement is not registered");
     }
 
+    @VisibleForTesting
+    int activeStatements()
+    {
+        return statements.size();
+    }
+
     private void checkOpen()
             throws SQLException
     {
