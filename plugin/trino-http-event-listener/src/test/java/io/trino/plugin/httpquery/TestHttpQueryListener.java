@@ -271,6 +271,7 @@ public class TestHttpQueryListener
         assertEquals(server.takeRequest(5, TimeUnit.SECONDS).getHeader("Content-Type"), "application/json; charset=utf-8");
     }
 
+    @Test
     public void testHttpHeadersShouldBePresent()
             throws Exception
     {
