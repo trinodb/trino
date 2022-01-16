@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.clickhouse;
 
+import com.clickhouse.client.ClickHouseColumn;
+import com.clickhouse.client.ClickHouseDataType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.expression.AggregateFunctionRewriter;
@@ -67,6 +69,8 @@ import java.util.function.BiFunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.clickhouse.ClickHouseSessionProperties.isMapStringAsVarchar;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
@@ -94,7 +98,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRounding;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -113,6 +116,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
@@ -304,6 +308,12 @@ public class ClickHouseClient
     }
 
     @Override
+    protected Optional<List<String>> getTableTypes()
+    {
+        return Optional.empty();
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle handle)
     {
         String sql = "DROP TABLE " + quoted(handle.getRemoteTableName());
@@ -351,12 +361,14 @@ public class ClickHouseClient
             return mapping;
         }
 
-        switch (jdbcTypeName.replaceAll("\\(.*\\)$", "")) {
-            case "IPv4":
-            case "IPv6":
+        ClickHouseColumn column = ClickHouseColumn.of("", jdbcTypeName);
+        ClickHouseDataType columnDataType = column.getDataType();
+        switch (columnDataType) {
+            case IPv4:
+            case IPv6:
                 // TODO (https://github.com/trinodb/trino/issues/7098) map to Trino IPADDRESS
-            case "Enum8":
-            case "Enum16":
+            case Enum8:
+            case Enum16:
                 return Optional.of(ColumnMapping.sliceMapping(
                         createUnboundedVarcharType(),
                         varcharReadFunction(createUnboundedVarcharType()),
@@ -364,8 +376,8 @@ public class ClickHouseClient
                         // TODO (https://github.com/trinodb/trino/issues/7100) Currently pushdown would not work and may require a custom bind expression
                         DISABLE_PUSHDOWN));
 
-            case "FixedString": // FixedString(n)
-            case "String":
+            case FixedString: // FixedString(n)
+            case String:
                 if (isMapStringAsVarchar(session)) {
                     return Optional.of(ColumnMapping.sliceMapping(
                             createUnboundedVarcharType(),
@@ -374,8 +386,12 @@ public class ClickHouseClient
                             DISABLE_PUSHDOWN));
                 }
                 // TODO (https://github.com/trinodb/trino/issues/7100) test & enable predicate pushdown
-                return Optional.of(varbinaryColumnMapping());
-            case "UUID":
+                return Optional.of(ColumnMapping.sliceMapping(
+                        VARBINARY,
+                        (resultSet, columnIndex) -> wrappedBuffer(utf8Slice(resultSet.getString(columnIndex)).getBytes()),
+                        varbinaryWriteFunction(),
+                        DISABLE_PUSHDOWN));
+            case UUID:
                 return Optional.of(uuidColumnMapping());
         }
 
@@ -426,7 +442,7 @@ public class ClickHouseClient
                 return Optional.of(dateColumnMappingUsingLocalDate());
 
             case Types.TIMESTAMP:
-                if (jdbcTypeName.equals("DateTime")) {
+                if (columnDataType == ClickHouseDataType.DateTime) {
                     verify(typeHandle.getRequiredDecimalDigits() == 0, "Expected 0 as timestamp precision, but got %s", typeHandle.getRequiredDecimalDigits());
                     return Optional.of(timestampColumnMapping(TIMESTAMP_SECONDS));
                 }
