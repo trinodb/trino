@@ -48,10 +48,11 @@
             <artifactId>log-manager</artifactId>
         </dependency>
 
+        <!-- TODO: Shade clickhouse-jdbc (https://github.com/testcontainers/testcontainers-java/issues/4924) -->
         <dependency>
             <groupId>com.clickhouse</groupId>
             <artifactId>clickhouse-jdbc</artifactId>
-            <version>0.3.2-patch1</version>
+            <version>0.3.2-patch2</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -64,10 +65,6 @@
                 <exclusion>
                     <groupId>org.projectlombok</groupId>
                     <artifactId>lombok</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.clickhouse</groupId>
-                    <artifactId>clickhouse-http-client</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>org.robolectric</groupId>
