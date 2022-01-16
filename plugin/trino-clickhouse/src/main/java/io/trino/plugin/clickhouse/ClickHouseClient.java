@@ -55,8 +55,6 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
@@ -303,19 +301,6 @@ public class ClickHouseClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
-    }
-
-    @Override
-    public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
-            throws SQLException
-    {
-        // ClickHouse maps their "database" to SQL catalogs and does not have schemas
-        DatabaseMetaData metadata = connection.getMetaData();
-        return metadata.getTables(
-                null,
-                schemaName.orElse(null),
-                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
-                new String[] {"TABLE", "VIEW"});
     }
 
     @Override
