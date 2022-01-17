@@ -144,9 +144,9 @@ ClickHouse        Trino           Notes
 ``String``        ``VARBINARY``   Enabling ``clickhouse.map-string-as-varchar`` config property changes the mapping to ``VARCHAR``
 ``Date``          ``DATE``
 ``DateTime``      ``TIMESTAMP``
-``IPv4``          ``VARCHAR``
+``IPv4``          ``IPADDRESS``
 ``IPv6``          ``IPADDRESS``
-``Enum8``         ``IPADDRESS``
+``Enum8``         ``VARCHAR``
 ``Enum16``        ``VARCHAR``
 ``UUID``           ``UUID``
 ================= =============== ===================================================================================================
