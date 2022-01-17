@@ -190,7 +190,6 @@ abstract class AbstractTrinoResultSet
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicLong currentRowNumber = new AtomicLong(); // Index into 'rows' of our current row (1-based)
     private final AtomicBoolean wasNull = new AtomicBoolean();
-    protected final AtomicBoolean closed = new AtomicBoolean();
     private final Optional<Statement> statement;
 
     AbstractTrinoResultSet(Optional<Statement> statement, List<Column> columns, Iterator<List<Object>> results)
@@ -1468,11 +1467,8 @@ abstract class AbstractTrinoResultSet
     }
 
     @Override
-    public boolean isClosed()
-            throws SQLException
-    {
-        return closed.get();
-    }
+    public abstract boolean isClosed()
+            throws SQLException;
 
     @Override
     public void updateNString(int columnIndex, String nString)

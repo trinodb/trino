@@ -31,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -45,6 +46,8 @@ public class TrinoResultSet
 {
     private final StatementClient client;
     private final String queryId;
+
+    private final AtomicBoolean closed = new AtomicBoolean();
 
     static TrinoResultSet create(Statement statement, StatementClient client, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
@@ -86,6 +89,13 @@ public class TrinoResultSet
             ((AsyncIterator<?>) results).cancel();
             client.close();
         }
+    }
+
+    @Override
+    public boolean isClosed()
+            throws SQLException
+    {
+        return closed.get();
     }
 
     void partialCancel()
