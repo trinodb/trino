@@ -184,12 +184,6 @@ statements, the connector supports the following features:
 
 * :doc:`/sql/insert`
 * :doc:`/sql/truncate`
-* :doc:`/sql/create-table`
-* :doc:`/sql/create-table-as`
-* :doc:`/sql/drop-table`
-* :doc:`/sql/create-schema`
-* :doc:`/sql/drop-schema`
-* :doc:`/sql/alter-schema`
-* :doc:`/sql/comment`
+* :ref:`sql-schema-table-management`
 
 .. include:: alter-schema-limitation.fragment
