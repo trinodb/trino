@@ -17,6 +17,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import io.airlift.concurrent.MoreFutures;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -30,10 +31,12 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.base.cache.CacheStatsAssertions.assertCacheStats;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -47,11 +50,44 @@ public class TestEvictableCache
     {
         Cache<Integer, String> cache = EvictableCache.buildWith(
                 CacheBuilder.newBuilder());
+        assertEquals(cache.get(42, () -> "abc"), "abc");
+    }
+
+    @Test(timeOut = TEST_TIMEOUT_MILLIS)
+    public void testLoadStats()
+            throws Exception
+    {
+        Cache<Integer, String> cache = EvictableCache.buildWith(
+                CacheBuilder.newBuilder());
 
         assertEquals(cache.stats(), new CacheStats(0, 0, 0, 0, 0, 0));
-        String value = cache.get(42, () -> "abc");
-        assertEquals(cache.stats(), new CacheStats(0, 1, 1, 0, cache.stats().totalLoadTime(), 0));
+
+        String value = assertCacheStats(cache)
+                .misses(1)
+                .loads(1)
+                .calling(() -> cache.get(42, () -> "abc"));
         assertEquals(value, "abc");
+
+        value = assertCacheStats(cache)
+                .hits(1)
+                .calling(() -> cache.get(42, () -> "xyz"));
+        assertEquals(value, "abc");
+
+        // with equal, but not the same key
+        value = assertCacheStats(cache)
+                .hits(1)
+                .calling(() -> cache.get(newInteger(42), () -> "xyz"));
+        assertEquals(value, "abc");
+    }
+
+    @SuppressModernizer
+    private static Integer newInteger(int value)
+    {
+        Integer integer = value;
+        @SuppressWarnings({"UnnecessaryBoxing", "deprecation", "BoxedPrimitiveConstructor"})
+        Integer newInteger = new Integer(value);
+        assertNotSame(integer, newInteger);
+        return newInteger;
     }
 
     /**

@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.base.cache;
 
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheStats;
 
+import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -22,6 +24,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class CacheStatsAssertions
 {
+    public static CacheStatsAssertions assertCacheStats(Cache<?, ?> cache)
+    {
+        requireNonNull(cache, "cache is null");
+        return assertCacheStats(cache::stats);
+    }
+
     public static CacheStatsAssertions assertCacheStats(Supplier<CacheStats> statsSupplier)
     {
         return new CacheStatsAssertions(statsSupplier);
@@ -58,8 +66,22 @@ public class CacheStatsAssertions
 
     public void afterRunning(Runnable runnable)
     {
+        try {
+            calling(() -> {
+                runnable.run();
+                return null;
+            });
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public <T> T calling(Callable<T> callable)
+            throws Exception
+    {
         CacheStats beforeStats = stats.get();
-        runnable.run();
+        T value = callable.call();
         CacheStats afterStats = stats.get();
 
         long expectedLoad = beforeStats.loadCount() + loads;
@@ -75,5 +97,7 @@ public class CacheStatsAssertions
         assertThat(afterStats.missCount())
                 .withFailMessage("Expected miss count is %d but actual is %d", expectedMisses, afterStats.missCount())
                 .isEqualTo(expectedMisses);
+
+        return value;
     }
 }
