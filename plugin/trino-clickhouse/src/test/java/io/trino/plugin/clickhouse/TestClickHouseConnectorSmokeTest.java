@@ -17,20 +17,43 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestClickHouseConnectorSmokeTest
         extends BaseClickHouseConnectorSmokeTest
 {
+    protected TestingClickHouseServer clickHouseServer;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        clickHouseServer = closeAfterClass(new TestingClickHouseServer());
         return createClickHouseQueryRunner(
-                closeAfterClass(new TestingClickHouseServer()),
+                clickHouseServer,
                 ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         .put("clickhouse.map-string-as-varchar", "true")
                         .build(),
                 REQUIRED_TPCH_TABLES);
+    }
+
+    @Override
+    public void testRenameSchema()
+    {
+        // Override because the default database engine in version < v20.10.2.20-stable doesn't allow renaming schemas
+        assertThatThrownBy(super::testRenameSchema)
+                .hasMessageMatching("ClickHouse exception, code: 48,.* Ordinary: RENAME DATABASE is not supported .*\\n");
+
+        String schemaName = "test_rename_schema_" + randomTableSuffix();
+        try {
+            clickHouseServer.execute("CREATE DATABASE " + schemaName + " ENGINE = Atomic");
+            assertUpdate("ALTER SCHEMA " + schemaName + " RENAME TO " + schemaName + "_renamed");
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName + "_renamed");
+        }
     }
 }
