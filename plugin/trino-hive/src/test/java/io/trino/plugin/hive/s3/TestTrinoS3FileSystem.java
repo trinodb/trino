@@ -67,7 +67,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -736,9 +735,9 @@ public class TestTrinoS3FileSystem
             fs.setS3Client(s3);
             try (FSDataOutputStream stream = fs.create(new Path("s3n://test-bucket/test"))) {
                 stream.write('a');
-                stream.write(repeat("foo", 2).getBytes(US_ASCII));
-                stream.write(repeat("bar", 3).getBytes(US_ASCII));
-                stream.write(repeat("orange", 4).getBytes(US_ASCII), 6, 12);
+                stream.write("foo".repeat(2).getBytes(US_ASCII));
+                stream.write("bar".repeat(3).getBytes(US_ASCII));
+                stream.write("orange".repeat(4).getBytes(US_ASCII), 6, 12);
             }
 
             List<UploadPartRequest> parts = s3.getUploadParts();
