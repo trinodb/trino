@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.cache;
 
-import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
@@ -23,6 +22,7 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.cache.EvictableLoadingCache;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
@@ -91,7 +91,6 @@ import static io.trino.plugin.hive.metastore.PartitionFilter.partitionFilter;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig.isCacheEnabled;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 
 /**
@@ -1026,21 +1025,20 @@ public class CachingHiveMetastore
     {
         CacheLoader<K, V> cacheLoader = CacheLoader.from(loader);
 
-        CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder();
-        if (expiresAfterWriteMillis.isPresent()) {
-            cacheBuilder.expireAfterWrite(expiresAfterWriteMillis.getAsLong(), MILLISECONDS);
-        }
         checkArgument(refreshMillis.isEmpty() || refreshExecutor.isPresent(), "refreshMillis is provided but refreshExecutor is not");
         if (refreshMillis.isPresent() && (expiresAfterWriteMillis.isEmpty() || expiresAfterWriteMillis.getAsLong() > refreshMillis.getAsLong())) {
-            cacheBuilder.refreshAfterWrite(refreshMillis.getAsLong(), MILLISECONDS);
             cacheLoader = asyncReloading(cacheLoader, refreshExecutor.orElseThrow(() -> new IllegalArgumentException("Executor not provided")));
         }
-        cacheBuilder.maximumSize(maximumSize);
-        if (statsRecording == StatsRecording.ENABLED) {
-            cacheBuilder.recordStats();
+        else {
+            refreshMillis = OptionalLong.empty();
         }
 
-        return cacheBuilder.build(cacheLoader);
+        return EvictableLoadingCache.build(
+                expiresAfterWriteMillis,
+                refreshMillis,
+                maximumSize,
+                statsRecording == StatsRecording.ENABLED,
+                cacheLoader);
     }
 
     private static <K, V> LoadingCache<K, V> buildCache(
@@ -1067,19 +1065,13 @@ public class CachingHiveMetastore
             }
         };
 
-        CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder();
-        if (expiresAfterWriteMillis.isPresent()) {
-            cacheBuilder.expireAfterWrite(expiresAfterWriteMillis.getAsLong(), MILLISECONDS);
-        }
-
-        // cannot use refreshAfterWrite since it can't use the bulk loading and causes too many requests
-
-        cacheBuilder.maximumSize(maximumSize);
-        if (statsRecording == StatsRecording.ENABLED) {
-            cacheBuilder.recordStats();
-        }
-
-        return cacheBuilder.build(cacheLoader);
+        return EvictableLoadingCache.build(
+                expiresAfterWriteMillis,
+                // cannot use refreshAfterWrite since it can't use the bulk loading and causes too many requests
+                OptionalLong.empty(),
+                maximumSize,
+                statsRecording == StatsRecording.ENABLED,
+                cacheLoader);
     }
 
     private static class WithIdentity<T>
