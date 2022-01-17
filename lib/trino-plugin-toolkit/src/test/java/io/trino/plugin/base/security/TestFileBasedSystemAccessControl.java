@@ -745,7 +745,7 @@ public class TestFileBasedSystemAccessControl
     @Test
     public void testCanSetUserOperations()
     {
-        SystemAccessControl accessControl = newFileBasedSystemAccessControl("catalog_principal.json");
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-catalog_principal.json");
 
         try {
             accessControl.checkCanSetUser(Optional.empty(), alice.getUser());
@@ -780,7 +780,7 @@ public class TestFileBasedSystemAccessControl
         catch (AccessDeniedException expected) {
         }
 
-        SystemAccessControl accessControlNoPatterns = newFileBasedSystemAccessControl("catalog.json");
+        SystemAccessControl accessControlNoPatterns = newFileBasedSystemAccessControl("file-based-system-catalog.json");
         accessControlNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
     }
 
@@ -851,7 +851,7 @@ public class TestFileBasedSystemAccessControl
     @Test
     public void testQueryNotSet()
     {
-        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("catalog.json");
+        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("file-based-system-catalog.json");
 
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(bob, queryId));
         accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), any);
@@ -939,7 +939,7 @@ public class TestFileBasedSystemAccessControl
     @Test
     public void testSystemInformationNotSet()
     {
-        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("catalog.json");
+        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("file-based-system-catalog.json");
 
         assertThatThrownBy(() -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())))
                 .isInstanceOf(AccessDeniedException.class)
@@ -974,7 +974,7 @@ public class TestFileBasedSystemAccessControl
     @Test
     public void testSchemaOperations()
     {
-        SystemAccessControl accessControl = newFileBasedSystemAccessControl("catalog.json");
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-catalog.json");
 
         TrinoPrincipal user = new TrinoPrincipal(PrincipalType.USER, "some_user");
         TrinoPrincipal role = new TrinoPrincipal(PrincipalType.ROLE, "some_user");
@@ -1308,7 +1308,7 @@ public class TestFileBasedSystemAccessControl
     {
         File configFile = newTemporaryFile();
         configFile.deleteOnExit();
-        copy(new File(getResourcePath("catalog.json")), configFile);
+        copy(new File(getResourcePath("file-based-system-catalog.json")), configFile);
 
         SystemAccessControl accessControl = newFileBasedSystemAccessControl(ImmutableMap.of(
                 SECURITY_CONFIG_FILE, configFile.getAbsolutePath(),
@@ -1319,7 +1319,7 @@ public class TestFileBasedSystemAccessControl
         accessControl.checkCanCreateView(alice, aliceView);
         accessControl.checkCanCreateView(alice, aliceView);
 
-        copy(new File(getResourcePath("security-config-file-with-unknown-rules.json")), configFile);
+        copy(new File(getResourcePath("file-based-system-security-config-file-with-unknown-rules.json")), configFile);
         sleep(2);
 
         assertThatThrownBy(() -> accessControl.checkCanCreateView(alice, aliceView))
@@ -1331,7 +1331,7 @@ public class TestFileBasedSystemAccessControl
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageStartingWith("Invalid JSON file");
 
-        copy(new File(getResourcePath("catalog.json")), configFile);
+        copy(new File(getResourcePath("file-based-system-catalog.json")), configFile);
         sleep(2);
 
         accessControl.checkCanCreateView(alice, aliceView);
@@ -1340,7 +1340,7 @@ public class TestFileBasedSystemAccessControl
     @Test
     public void parseUnknownRules()
     {
-        assertThatThrownBy(() -> newFileBasedSystemAccessControl("security-config-file-with-unknown-rules.json"))
+        assertThatThrownBy(() -> newFileBasedSystemAccessControl("file-based-system-security-config-file-with-unknown-rules.json"))
                 .hasMessageContaining("Invalid JSON");
     }
 
