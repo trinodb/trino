@@ -102,7 +102,8 @@ public abstract class BaseFailureRecoveryTest
                         .put("exchange.max-error-duration", MAX_ERROR_DURATION.toString())
                         .put("retry-policy", retryPolicy.toString())
                         .put("retry-initial-delay", "0s")
-                        .put("retry-attempts", "1")
+                        .put("query-retry-attempts", "1")
+                        .put("task-retry-attempts-overall", "1")
                         .put("failure-injection.request-timeout", new Duration(REQUEST_TIMEOUT.toMillis() * 2, MILLISECONDS).toString())
                         // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
                         .put("exchange.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
