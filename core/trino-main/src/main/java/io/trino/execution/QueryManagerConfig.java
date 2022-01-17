@@ -76,7 +76,9 @@ public class QueryManagerConfig
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
 
     private RetryPolicy retryPolicy = RetryPolicy.NONE;
-    private int retryAttempts = 4;
+    private int queryRetryAttempts = 4;
+    private int taskRetryAttemptsPerTask = 2;
+    private int taskRetryAttemptsOverall = Integer.MAX_VALUE;
     private Duration retryInitialDelay = new Duration(10, SECONDS);
     private Duration retryMaxDelay = new Duration(1, MINUTES);
 
@@ -414,15 +416,42 @@ public class QueryManagerConfig
     }
 
     @Min(0)
-    public int getRetryAttempts()
+    public int getQueryRetryAttempts()
     {
-        return retryAttempts;
+        return queryRetryAttempts;
     }
 
-    @Config("retry-attempts")
-    public QueryManagerConfig setRetryAttempts(int retryAttempts)
+    @Config("query-retry-attempts")
+    @LegacyConfig("retry-attempts")
+    public QueryManagerConfig setQueryRetryAttempts(int queryRetryAttempts)
     {
-        this.retryAttempts = retryAttempts;
+        this.queryRetryAttempts = queryRetryAttempts;
+        return this;
+    }
+
+    @Min(0)
+    public int getTaskRetryAttemptsOverall()
+    {
+        return taskRetryAttemptsOverall;
+    }
+
+    @Config("task-retry-attempts-overall")
+    public QueryManagerConfig setTaskRetryAttemptsOverall(int taskRetryAttemptsOverall)
+    {
+        this.taskRetryAttemptsOverall = taskRetryAttemptsOverall;
+        return this;
+    }
+
+    @Min(0)
+    public int getTaskRetryAttemptsPerTask()
+    {
+        return taskRetryAttemptsPerTask;
+    }
+
+    @Config("task-retry-attempts-per-task")
+    public QueryManagerConfig setTaskRetryAttemptsPerTask(int taskRetryAttemptsPerTask)
+    {
+        this.taskRetryAttemptsPerTask = taskRetryAttemptsPerTask;
         return this;
     }
 

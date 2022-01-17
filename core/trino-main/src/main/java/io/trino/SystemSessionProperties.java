@@ -145,7 +145,9 @@ public final class SystemSessionProperties
     public static final String INCREMENTAL_HASH_ARRAY_LOAD_FACTOR_ENABLED = "incremental_hash_array_load_factor_enabled";
     public static final String MAX_PARTIAL_TOP_N_MEMORY = "max_partial_top_n_memory";
     public static final String RETRY_POLICY = "retry_policy";
-    public static final String RETRY_ATTEMPTS = "retry_attempts";
+    public static final String QUERY_RETRY_ATTEMPTS = "query_retry_attempts";
+    public static final String TASK_RETRY_ATTEMPTS_OVERALL = "task_retry_attempts_overall";
+    public static final String TASK_RETRY_ATTEMPTS_PER_TASK = "task_retry_attempts_per_task";
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
@@ -683,9 +685,19 @@ public final class SystemSessionProperties
                         queryManagerConfig.getRetryPolicy(),
                         false),
                 integerProperty(
-                        RETRY_ATTEMPTS,
-                        "Maximum number of retry attempts",
-                        queryManagerConfig.getRetryAttempts(),
+                        QUERY_RETRY_ATTEMPTS,
+                        "Maximum number of query retry attempts",
+                        queryManagerConfig.getQueryRetryAttempts(),
+                        false),
+                integerProperty(
+                        TASK_RETRY_ATTEMPTS_OVERALL,
+                        "Maximum number of task retry attempts overall",
+                        queryManagerConfig.getTaskRetryAttemptsOverall(),
+                        false),
+                integerProperty(
+                        TASK_RETRY_ATTEMPTS_PER_TASK,
+                        "Maximum number of task retry attempts per single task",
+                        queryManagerConfig.getTaskRetryAttemptsPerTask(),
                         false),
                 durationProperty(
                         RETRY_INITIAL_DELAY,
@@ -1264,9 +1276,19 @@ public final class SystemSessionProperties
         return retryPolicy;
     }
 
-    public static int getRetryAttempts(Session session)
+    public static int getQueryRetryAttempts(Session session)
     {
-        return session.getSystemProperty(RETRY_ATTEMPTS, Integer.class);
+        return session.getSystemProperty(QUERY_RETRY_ATTEMPTS, Integer.class);
+    }
+
+    public static int getTaskRetryAttemptsOverall(Session session)
+    {
+        return session.getSystemProperty(TASK_RETRY_ATTEMPTS_OVERALL, Integer.class);
+    }
+
+    public static int getTaskRetryAttemptsPerTask(Session session)
+    {
+        return session.getSystemProperty(TASK_RETRY_ATTEMPTS_PER_TASK, Integer.class);
     }
 
     public static Duration getRetryInitialDelay(Session session)
