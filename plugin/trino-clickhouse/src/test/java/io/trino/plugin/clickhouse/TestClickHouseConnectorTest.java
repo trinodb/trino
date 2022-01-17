@@ -87,9 +87,6 @@ public class TestClickHouseConnectorTest
             case SUPPORTS_DELETE:
                 return false;
 
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -100,6 +97,25 @@ public class TestClickHouseConnectorTest
     public void testColumnName(String columnName)
     {
         throw new SkipException("TODO: test not implemented yet");
+    }
+
+    @Test
+    @Override
+    public void testRenameSchema()
+    {
+        // Override because the default database engine in version < v20.10.2.20-stable doesn't allow renaming schemas
+        assertThatThrownBy(super::testRenameSchema)
+                .hasMessageMatching("ClickHouse exception, code: 48,.* Ordinary: RENAME DATABASE is not supported .*\\n");
+
+        String schemaName = "test_rename_schema_" + randomTableSuffix();
+        try {
+            onRemoteDatabase().execute("CREATE DATABASE " + schemaName + " ENGINE = Atomic");
+            assertUpdate("ALTER SCHEMA " + schemaName + " RENAME TO " + schemaName + "_renamed");
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName + "_renamed");
+        }
     }
 
     @Override
