@@ -316,6 +316,17 @@ public class ClickHouseClient
     }
 
     @Override
+    public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        String sql = format(
+                "ALTER TABLE %s COMMENT COLUMN %s '%s'",
+                quoted(handle.asPlainTable().getRemoteTableName()),
+                quoted(column.getColumnName()),
+                comment.orElse(""));
+        execute(session, sql);
+    }
+
+    @Override
     public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {

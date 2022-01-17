@@ -190,5 +190,6 @@ statements, the connector supports the following features:
 * :doc:`/sql/create-schema`
 * :doc:`/sql/drop-schema`
 * :doc:`/sql/alter-schema`
+* :doc:`/sql/comment`
 
 .. include:: alter-schema-limitation.fragment
