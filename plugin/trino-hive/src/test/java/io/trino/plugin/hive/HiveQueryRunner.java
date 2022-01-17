@@ -85,6 +85,11 @@ public final class HiveQueryRunner
         return new Builder<>();
     }
 
+    public static Builder<Builder<?>> builder(Session defaultSession)
+    {
+        return new Builder<>(defaultSession);
+    }
+
     public static class Builder<SELF extends Builder<?>>
             extends DistributedQueryRunner.Builder<SELF>
     {
@@ -107,7 +112,12 @@ public final class HiveQueryRunner
 
         protected Builder()
         {
-            super(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))));
+            this(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))));
+        }
+
+        protected Builder(Session defaultSession)
+        {
+            super(defaultSession);
         }
 
         public SELF setSkipTimezoneSetup(boolean skipTimezoneSetup)

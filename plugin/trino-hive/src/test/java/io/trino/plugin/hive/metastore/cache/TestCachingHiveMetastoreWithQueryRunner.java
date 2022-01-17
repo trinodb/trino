@@ -13,10 +13,11 @@
  */
 package io.trino.plugin.hive.metastore.cache;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.hive.TestingHivePlugin;
+import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
@@ -30,20 +31,23 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Lists.cartesianProduct;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.authentication.HiveIdentity.none;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.nio.file.Files.createTempDirectory;
+import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
 public class TestCachingHiveMetastoreWithQueryRunner
         extends AbstractTestQueryFramework
 {
-    private static final String CATALOG = "test";
+    private static final String CATALOG = HiveQueryRunner.HIVE_CATALOG;
     private static final String SCHEMA = "test";
     private static final Session ADMIN = getTestSession(Identity.forUser("admin")
             .withConnectorRole(CATALOG, new SelectedRole(ROLE, Optional.of("admin")))
@@ -57,22 +61,22 @@ public class TestCachingHiveMetastoreWithQueryRunner
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner
-                .builder(ADMIN)
-                .setNodeCount(1)
-                // Exclude coordinator from workers to make testPartitionAppend deterministically reproduce the original problem
-                .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
-                .build();
-
         Path temporaryMetastoreDirectory = createTempDirectory(null);
         closeAfterClass(() -> deleteRecursively(temporaryMetastoreDirectory, ALLOW_INSECURE));
-        fileHiveMetastore = FileHiveMetastore.createTestingFileHiveMetastore(temporaryMetastoreDirectory.toFile());
 
-        queryRunner.installPlugin(new TestingHivePlugin(fileHiveMetastore));
-        queryRunner.createCatalog(CATALOG, "hive", ImmutableMap.of(
-                "hive.security", "sql-standard",
-                "hive.metastore-cache-ttl", "60m",
-                "hive.metastore-refresh-interval", "10m"));
+        DistributedQueryRunner queryRunner = HiveQueryRunner.builder(ADMIN)
+                .setNodeCount(3)
+                // Required by testPartitionAppend test.
+                // Coordinator needs to be excluded from workers to deterministically reproduce the original problem
+                // https://github.com/trinodb/trino/pull/6853
+                .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
+                .setMetastore(distributedQueryRunner -> fileHiveMetastore = createTestingFileHiveMetastore(temporaryMetastoreDirectory.toFile()))
+                .setHiveProperties(ImmutableMap.of(
+                        "hive.security", "sql-standard",
+                        "hive.metastore-cache-ttl", "60m",
+                        "hive.metastore-refresh-interval", "10m"))
+                .build();
+
         queryRunner.execute(ADMIN, "CREATE SCHEMA " + SCHEMA);
         queryRunner.execute("CREATE TABLE test (test INT)");
 
@@ -153,6 +157,28 @@ public class TestCachingHiveMetastoreWithQueryRunner
 
         assertThatThrownBy(() -> getQueryRunner().execute("CALL system.flush_metadata_cache(schema_name => 'dummy_schema', table_name => 'dummy_table', partition_column => ARRAY['dummy_partition'])"))
                 .hasMessage("Parameters partition_column and partition_value should have same length");
+    }
+
+    @Test
+    public void testPartitionAppend()
+    {
+        int nodeCount = getQueryRunner().getNodeCount();
+        verify(nodeCount > 1, "this test requires a multinode query runner");
+
+        getQueryRunner().execute("CREATE TABLE test_part_append " +
+                "(name varchar, partkey varchar) " +
+                "WITH (partitioned_by = ARRAY['partkey'])");
+
+        String row = "('some name', 'part1')";
+
+        // if metastore caching was enabled on workers than any worker which tries to INSERT into same partition twice
+        // will fail because it would've cached the absence of the partition
+        for (int i = 0; i < nodeCount + 1; i++) {
+            getQueryRunner().execute("INSERT INTO test_part_append VALUES " + row);
+        }
+
+        String expected = Joiner.on(",").join(nCopies(nodeCount + 1, row));
+        assertQuery("SELECT * FROM test_part_append", "VALUES " + expected);
     }
 
     @DataProvider
