@@ -17,7 +17,6 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import io.airlift.concurrent.MoreFutures;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -28,7 +27,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -42,14 +40,6 @@ import static org.testng.Assert.fail;
 public class TestEvictableCache
 {
     private static final int TEST_TIMEOUT_MILLIS = 10_000;
-
-    private enum Invalidation
-    {
-        INVALIDATE_KEY,
-        INVALIDATE_PREDEFINED_KEYS,
-        INVALIDATE_SELECTED_KEYS,
-        INVALIDATE_ALL,
-    }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS)
     public void testLoad()
@@ -67,7 +57,7 @@ public class TestEvictableCache
     /**
      * Covers https://github.com/google/guava/issues/1881
      */
-    @Test(timeOut = TEST_TIMEOUT_MILLIS, dataProvider = "invalidations")
+    @Test(timeOut = TEST_TIMEOUT_MILLIS, dataProviderClass = Invalidation.class, dataProvider = "invalidations")
     public void testInvalidateOngoingLoad(Invalidation invalidation)
             throws Exception
     {
@@ -126,7 +116,7 @@ public class TestEvictableCache
     /**
      * Covers https://github.com/google/guava/issues/1881
      */
-    @Test(invocationCount = 10, timeOut = TEST_TIMEOUT_MILLIS, dataProvider = "invalidations")
+    @Test(invocationCount = 10, timeOut = TEST_TIMEOUT_MILLIS, dataProviderClass = Invalidation.class, dataProvider = "invalidations")
     public void testInvalidateAndLoadConcurrently(Invalidation invalidation)
             throws Exception
     {
@@ -189,13 +179,5 @@ public class TestEvictableCache
             executor.shutdownNow();
             executor.awaitTermination(10, SECONDS);
         }
-    }
-
-    @DataProvider
-    public static Object[][] invalidations()
-    {
-        return Stream.of(Invalidation.values())
-                .map(invalidation -> new Object[] {invalidation})
-                .toArray(Object[][]::new);
     }
 }
