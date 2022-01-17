@@ -278,10 +278,9 @@ public class ClickHouseClient
     }
 
     @Override
-    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    protected String renameSchemaSql(String remoteSchemaName, String newRemoteSchemaName)
     {
-        // TODO: https://github.com/trinodb/trino/issues/10558
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
+        return "RENAME DATABASE " + quoted(remoteSchemaName) + " TO " + quoted(newRemoteSchemaName);
     }
 
     @Override
