@@ -64,7 +64,7 @@ public final class AccumuloQueryRunner
                         .put(AccumuloConfig.USERNAME, server.getUser())
                         .put(AccumuloConfig.PASSWORD, server.getPassword())
                         .put(AccumuloConfig.ZOOKEEPER_METADATA_ROOT, "/presto-accumulo-test")
-                        .build();
+                        .buildOrThrow();
 
         queryRunner.createCatalog("accumulo", "accumulo", accumuloProperties);
 

@@ -66,7 +66,7 @@ public class OptimizerStatsMBeanExporter
                 mbeanExports.add(exporter.exportWithGeneratedName(entry.getValue(), PlanOptimizer.class, ImmutableMap.<String, String>builder()
                         .put("name", PlanOptimizer.class.getSimpleName())
                         .put("optimizer", entry.getKey().getSimpleName())
-                        .build()));
+                        .buildOrThrow()));
             }
             catch (RuntimeException e) {
                 throw new RuntimeException(format("Failed to export MBean with name '%s'", getName(entry.getKey())), e);
@@ -79,7 +79,7 @@ public class OptimizerStatsMBeanExporter
                 mbeanExports.add(exporter.exportWithGeneratedName(entry.getValue(), IterativeOptimizer.class, ImmutableMap.<String, String>builder()
                         .put("name", IterativeOptimizer.class.getSimpleName())
                         .put("rule", entry.getKey().getSimpleName())
-                        .build()));
+                        .buildOrThrow()));
             }
             catch (RuntimeException e) {
                 throw new RuntimeException(format("Failed to export MBean with for rule '%s'", entry.getKey().getSimpleName()), e);

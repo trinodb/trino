@@ -95,7 +95,7 @@ public class TestStorageManagerConfig
                 .put("storage.max-shard-size", "10MB")
                 .put("storage.max-buffer-size", "512MB")
                 .put("storage.one-split-per-bucket-threshold", "4")
-                .build();
+                .buildOrThrow();
 
         StorageManagerConfig expected = new StorageManagerConfig()
                 .setDataDirectory(new File("/data"))

@@ -42,7 +42,7 @@ public class TestTransactionManagerConfig
                 .put("transaction.idle-check-interval", "1s")
                 .put("transaction.idle-timeout", "10s")
                 .put("transaction.max-finishing-concurrency", "100")
-                .build();
+                .buildOrThrow();
 
         TransactionManagerConfig expected = new TransactionManagerConfig()
                 .setIdleCheckInterval(new Duration(1, TimeUnit.SECONDS))

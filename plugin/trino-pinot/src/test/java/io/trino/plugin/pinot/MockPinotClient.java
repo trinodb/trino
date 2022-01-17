@@ -102,7 +102,7 @@ public class MockPinotClient
                     "server4", ImmutableList.of("segment41", "segment42")));
         }
 
-        return routingTable.build();
+        return routingTable.buildOrThrow();
     }
 
     @Override

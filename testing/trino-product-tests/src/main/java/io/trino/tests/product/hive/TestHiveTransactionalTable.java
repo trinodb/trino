@@ -2110,7 +2110,7 @@ public class TestHiveTransactionalTable
                 singleRow.put(columnName, (String) row.get(column));
             }
 
-            rows.add(singleRow.build());
+            rows.add(singleRow.buildOrThrow());
         }
 
         return rows.build().stream();

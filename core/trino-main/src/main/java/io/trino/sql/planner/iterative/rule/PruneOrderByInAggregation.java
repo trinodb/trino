@@ -81,7 +81,7 @@ public class PruneOrderByInAggregation
         return Result.ofPlanNode(new AggregationNode(
                 node.getId(),
                 node.getSource(),
-                aggregations.build(),
+                aggregations.buildOrThrow(),
                 node.getGroupingSets(),
                 node.getPreGroupedSymbols(),
                 node.getStep(),

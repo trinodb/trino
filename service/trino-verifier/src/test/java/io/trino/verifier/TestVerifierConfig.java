@@ -135,7 +135,7 @@ public class TestVerifierConfig
                 .put("control.teardown-retries", "5")
                 .put("test.teardown-retries", "7")
                 .put("run-teardown-on-result-mismatch", "true")
-                .build();
+                .buildOrThrow();
 
         VerifierConfig expected = new VerifierConfig().setTestUsernameOverride("verifier-test")
                 .setSuites("my_suite")

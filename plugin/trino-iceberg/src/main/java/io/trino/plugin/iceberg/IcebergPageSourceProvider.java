@@ -457,7 +457,7 @@ public class IcebergPageSourceProvider
                             return setMissingFieldIds(nestedColumn, nameMapping, nextQualifiedPath.build());
                         })
                         .collect(toImmutableList()),
-                attributes.build());
+                attributes.buildOrThrow());
     }
 
     /**
@@ -491,7 +491,7 @@ public class IcebergPageSourceProvider
                         columnsById.put(Integer.parseInt(fieldId), column);
                     }
                 });
-        return columnsById.build();
+        return columnsById.buildOrThrow();
     }
 
     private static Integer getIcebergFieldId(OrcColumn column)
@@ -544,7 +544,7 @@ public class IcebergPageSourceProvider
                 populateMapping(column.getColumnIdentity(), mapping);
             }
 
-            this.fieldNameToIdMappingForTableColumns = mapping.build();
+            this.fieldNameToIdMappingForTableColumns = mapping.buildOrThrow();
         }
 
         @Override
@@ -768,7 +768,7 @@ public class IcebergPageSourceProvider
                 }
             }
 
-            return new IcebergOrcProjectedLayout(fieldLayouts.build());
+            return new IcebergOrcProjectedLayout(fieldLayouts.buildOrThrow());
         }
 
         @Override
@@ -831,7 +831,7 @@ public class IcebergPageSourceProvider
                 }
             }
         });
-        return TupleDomain.withColumnDomains(predicate.build());
+        return TupleDomain.withColumnDomains(predicate.buildOrThrow());
     }
 
     private static TrinoException handleException(OrcDataSourceId dataSourceId, Exception exception)

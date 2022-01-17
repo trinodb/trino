@@ -94,7 +94,7 @@ public class MapColumnWriter
         encodings.put(columnId, columnEncoding);
         encodings.putAll(keyWriter.getColumnEncodings());
         encodings.putAll(valueWriter.getColumnEncodings());
-        return encodings.build();
+        return encodings.buildOrThrow();
     }
 
     @Override
@@ -150,7 +150,7 @@ public class MapColumnWriter
         columnStatistics.put(columnId, statistics);
         columnStatistics.putAll(keyWriter.finishRowGroup());
         columnStatistics.putAll(valueWriter.finishRowGroup());
-        return columnStatistics.build();
+        return columnStatistics.buildOrThrow();
     }
 
     @Override
@@ -171,7 +171,7 @@ public class MapColumnWriter
         columnStatistics.put(columnId, ColumnStatistics.mergeColumnStatistics(rowGroupColumnStatistics));
         columnStatistics.putAll(keyWriter.getColumnStripeStatistics());
         columnStatistics.putAll(valueWriter.getColumnStripeStatistics());
-        return columnStatistics.build();
+        return columnStatistics.buildOrThrow();
     }
 
     @Override

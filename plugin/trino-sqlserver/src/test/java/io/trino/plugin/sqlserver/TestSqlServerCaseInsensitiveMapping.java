@@ -52,7 +52,7 @@ public class TestSqlServerCaseInsensitiveMapping
                         .put("case-insensitive-name-matching", "true")
                         .put("case-insensitive-name-matching.config-file", mappingFile.toFile().getAbsolutePath())
                         .put("case-insensitive-name-matching.config-file.refresh-period", "1ms") // ~always refresh
-                        .build(),
+                        .buildOrThrow(),
                 ImmutableList.of());
     }
 

@@ -42,7 +42,7 @@ public class TestFileHiveMetastoreConfig
                 .put("hive.metastore.catalog.dir", "some path")
                 .put("hive.metastore.version-compatibility", "UNSAFE_ASSUME_COMPATIBILITY")
                 .put("hive.metastore.user", "some user")
-                .build();
+                .buildOrThrow();
 
         FileHiveMetastoreConfig expected = new FileHiveMetastoreConfig()
                 .setCatalogDirectory("some path")

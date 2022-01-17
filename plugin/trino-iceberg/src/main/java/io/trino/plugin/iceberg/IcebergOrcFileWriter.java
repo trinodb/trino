@@ -128,10 +128,10 @@ public class IcebergOrcFileWriter
                 upperBoundsBuilder.put(icebergId, minMax.getMax());
             });
         }
-        Map<Integer, Long> valueCounts = valueCountsBuilder.build();
-        Map<Integer, Long> nullCounts = nullCountsBuilder.build();
-        Map<Integer, ByteBuffer> lowerBounds = lowerBoundsBuilder.build();
-        Map<Integer, ByteBuffer> upperBounds = upperBoundsBuilder.build();
+        Map<Integer, Long> valueCounts = valueCountsBuilder.buildOrThrow();
+        Map<Integer, Long> nullCounts = nullCountsBuilder.buildOrThrow();
+        Map<Integer, ByteBuffer> lowerBounds = lowerBoundsBuilder.buildOrThrow();
+        Map<Integer, ByteBuffer> upperBounds = upperBoundsBuilder.buildOrThrow();
         return new Metrics(
                 fileRowCount,
                 null, // TODO: Add column size accounting to ORC column writers

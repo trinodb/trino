@@ -179,7 +179,7 @@ public class KafkaInternalFieldManager
                         OFFSET_TIMESTAMP_FIELD,
                         "Message timestamp",
                         TIMESTAMP_MILLIS))
-                .build();
+                .buildOrThrow();
     }
 
     /**

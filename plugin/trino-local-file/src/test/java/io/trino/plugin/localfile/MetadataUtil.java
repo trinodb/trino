@@ -59,7 +59,7 @@ final class MetadataUtil
                 .put(createTimestampWithTimeZoneType(3).getTypeId(), createTimestampWithTimeZoneType(3))
                 .put(DATE.getTypeId(), DATE)
                 .put(VARCHAR.getTypeId(), createUnboundedVarcharType())
-                .build();
+                .buildOrThrow();
 
         public TestingTypeDeserializer()
         {

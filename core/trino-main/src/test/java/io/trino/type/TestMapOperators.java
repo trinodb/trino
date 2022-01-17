@@ -387,7 +387,7 @@ public class TestMapOperators
                         .put("k6", "null")
                         .put("k7", "\"null\"")
                         .put("k8", "[null]")
-                        .build());
+                        .buildOrThrow());
 
         // These two tests verifies that partial json cast preserves input order
         // The second test should never happen in real life because valid json in Trino requires natural key ordering.

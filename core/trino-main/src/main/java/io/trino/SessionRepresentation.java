@@ -129,13 +129,13 @@ public final class SessionRepresentation
         for (Entry<CatalogName, Map<String, String>> entry : catalogProperties.entrySet()) {
             catalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
         }
-        this.catalogProperties = catalogPropertiesBuilder.build();
+        this.catalogProperties = catalogPropertiesBuilder.buildOrThrow();
 
         ImmutableMap.Builder<String, Map<String, String>> unprocessedCatalogPropertiesBuilder = ImmutableMap.builder();
         for (Entry<String, Map<String, String>> entry : unprocessedCatalogProperties.entrySet()) {
             unprocessedCatalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
         }
-        this.unprocessedCatalogProperties = unprocessedCatalogPropertiesBuilder.build();
+        this.unprocessedCatalogProperties = unprocessedCatalogPropertiesBuilder.buildOrThrow();
     }
 
     @JsonProperty

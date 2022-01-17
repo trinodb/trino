@@ -88,7 +88,7 @@ public class TestElasticsearchConfig
                 .put("elasticsearch.tls.verify-hostnames", "false")
                 .put("elasticsearch.ignore-publish-address", "true")
                 .put("elasticsearch.security", "AWS")
-                .build();
+                .buildOrThrow();
 
         ElasticsearchConfig expected = new ElasticsearchConfig()
                 .setHost("example.com")

@@ -193,7 +193,7 @@ public class RcFilePageSourceFactory
             RcFileReader rcFileReader = new RcFileReader(
                     dataSource,
                     rcFileEncoding,
-                    readColumns.build(),
+                    readColumns.buildOrThrow(),
                     new AircompressorCodecFactory(new HadoopCodecFactory(configuration.getClassLoader())),
                     start,
                     length,

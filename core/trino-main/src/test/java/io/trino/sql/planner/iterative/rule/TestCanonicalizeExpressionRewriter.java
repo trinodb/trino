@@ -135,7 +135,7 @@ public class TestCanonicalizeExpressionRewriter
                                             .put(new Symbol("ts"), createTimestampType(3))
                                             .put(new Symbol("tstz"), createTimestampWithTimeZoneType(3))
                                             .put(new Symbol("v"), createVarcharType(100))
-                                            .build()));
+                                            .buildOrThrow()));
                 }),
                 PlanBuilder.expression(to),
                 SymbolAliases.builder()

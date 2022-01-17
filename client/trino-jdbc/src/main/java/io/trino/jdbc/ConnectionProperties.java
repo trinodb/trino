@@ -131,7 +131,7 @@ final class ConnectionProperties
         for (ConnectionProperty<?> property : ALL_PROPERTIES) {
             property.getDefault().ifPresent(value -> defaults.put(property.getKey(), value));
         }
-        DEFAULTS = defaults.build();
+        DEFAULTS = defaults.buildOrThrow();
     }
 
     private ConnectionProperties() {}

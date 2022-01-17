@@ -412,7 +412,7 @@ public class TestS3SecurityMapping
             ConnectorSession connectorSession = TestingConnectorSession.builder()
                     .setIdentity(ConnectorIdentity.forUser(user)
                             .withGroups(groups)
-                            .withExtraCredentials(extraCredentials.build())
+                            .withExtraCredentials(extraCredentials.buildOrThrow())
                             .build())
                     .setPropertyMetadata(HIVE_SESSION_PROPERTIES.getSessionProperties())
                     .build();

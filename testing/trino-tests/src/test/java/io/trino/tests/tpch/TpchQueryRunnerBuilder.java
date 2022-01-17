@@ -95,7 +95,7 @@ public final class TpchQueryRunnerBuilder
             destinationCatalog.ifPresent(value -> properties.put(TPCH_TABLE_SCAN_REDIRECTION_CATALOG, value));
             destinationSchema.ifPresent(value -> properties.put(TPCH_TABLE_SCAN_REDIRECTION_SCHEMA, value));
             splitsPerNode.ifPresent(value -> properties.put(TPCH_SPLITS_PER_NODE, Integer.toString(value)));
-            queryRunner.createCatalog("tpch", "tpch", properties.build());
+            queryRunner.createCatalog("tpch", "tpch", properties.buildOrThrow());
             return queryRunner;
         }
         catch (Exception e) {

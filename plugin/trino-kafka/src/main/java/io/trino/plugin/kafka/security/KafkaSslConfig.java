@@ -171,7 +171,7 @@ public class KafkaSslConfig
         getKeyPassword().ifPresent(v -> properties.put(SSL_KEY_PASSWORD_CONFIG, v));
         getEndpointIdentificationAlgorithm().ifPresent(v -> properties.put(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, v.getValue()));
 
-        return properties.build();
+        return properties.buildOrThrow();
     }
 
     @PostConstruct

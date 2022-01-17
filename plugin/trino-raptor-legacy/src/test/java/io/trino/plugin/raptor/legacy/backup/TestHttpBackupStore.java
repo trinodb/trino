@@ -57,7 +57,7 @@ public class TestHttpBackupStore
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("backup.http.uri", "http://localhost:8080")
-                .build();
+                .buildOrThrow();
 
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule(),

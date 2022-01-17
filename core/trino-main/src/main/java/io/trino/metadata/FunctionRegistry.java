@@ -912,7 +912,7 @@ public class FunctionRegistry
             this.functions = ImmutableMap.<FunctionId, SqlFunction>builder()
                     .putAll(map.functions)
                     .putAll(Maps.uniqueIndex(functions, function -> function.getFunctionMetadata().getFunctionId()))
-                    .build();
+                    .buildOrThrow();
 
             ImmutableListMultimap.Builder<QualifiedName, FunctionMetadata> functionsByName = ImmutableListMultimap.<QualifiedName, FunctionMetadata>builder()
                     .putAll(map.functionsByName);

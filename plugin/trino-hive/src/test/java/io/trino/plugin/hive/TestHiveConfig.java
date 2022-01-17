@@ -188,7 +188,7 @@ public class TestHiveConfig
                 .put("hive.iceberg-catalog-name", "iceberg")
                 .put("hive.size-based-split-weights-enabled", "false")
                 .put("hive.minimum-assigned-split-weight", "1.0")
-                .build();
+                .buildOrThrow();
 
         HiveConfig expected = new HiveConfig()
                 .setMaxSplitSize(DataSize.of(256, Unit.MEGABYTE))

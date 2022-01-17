@@ -268,14 +268,14 @@ public class TestCachingHiveMetastore
                 withColumnDomains(ImmutableMap.<HiveColumnHandle, Domain>builder()
                         .put(dateKeyColumn, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, utf8Slice("2020-10-01"))), false))
                         .put(keyColumn, Domain.create(ValueSet.of(VARCHAR, utf8Slice("val")), false))
-                        .build()));
+                        .buildOrThrow()));
 
         TupleDomain<String> withNoSingleValueFilter = computePartitionKeyFilter(
                 partitionColumns,
                 withColumnDomains(ImmutableMap.<HiveColumnHandle, Domain>builder()
                         .put(dateKeyColumn, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, utf8Slice("2020-10-01"))), false))
                         .put(keyColumn, Domain.create(ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("val1"), true, utf8Slice("val2"), true)), false))
-                        .build()));
+                        .buildOrThrow()));
 
         assertEquals(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount(), 0.0);
         metastore.getPartitionNamesByFilter(IDENTITY, TEST_DATABASE, TEST_TABLE, partitionColumnNames, withNoFilter);

@@ -64,8 +64,8 @@ public class ColumnIdentity
             childrenBuilder.put(child.getId(), child);
             childFieldIdToIndex.put(child.getId(), i);
         }
-        this.children = childrenBuilder.build();
-        this.childFieldIdToIndex = childFieldIdToIndex.build();
+        this.children = childrenBuilder.buildOrThrow();
+        this.childFieldIdToIndex = childFieldIdToIndex.buildOrThrow();
     }
 
     @JsonProperty

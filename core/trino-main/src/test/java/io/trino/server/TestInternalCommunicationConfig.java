@@ -57,7 +57,7 @@ public class TestInternalCommunicationConfig
                 .put("internal-communication.https.truststore.path", truststoreFile.toString())
                 .put("internal-communication.https.truststore.key", "trust-key")
                 .put("http-server.https.enabled", "true")
-                .build();
+                .buildOrThrow();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
                 .setSharedSecret("secret")

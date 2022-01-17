@@ -120,7 +120,7 @@ public class TestRecordingHiveMetastore
     private static final Domain PARTITION_COLUMN_EQUAL_DOMAIN = Domain.singleValue(createUnboundedVarcharType(), Slices.utf8Slice("value1"));
     private static final TupleDomain<String> TUPLE_DOMAIN = TupleDomain.withColumnDomains(ImmutableMap.<String, Domain>builder()
             .put(TABLE_COLUMN.getName(), PARTITION_COLUMN_EQUAL_DOMAIN)
-            .build());
+            .buildOrThrow());
 
     @Test
     public void testRecordingHiveMetastore()

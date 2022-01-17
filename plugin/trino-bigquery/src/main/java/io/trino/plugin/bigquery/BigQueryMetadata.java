@@ -321,7 +321,7 @@ public class BigQueryMetadata
                 // table disappeared during listing operation
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     @Override

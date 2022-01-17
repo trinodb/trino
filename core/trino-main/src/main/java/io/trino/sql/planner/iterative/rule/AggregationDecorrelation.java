@@ -49,6 +49,6 @@ class AggregationDecorrelation
                     Optional.of(masks.get(symbol))));
         }
 
-        return rewritten.build();
+        return rewritten.buildOrThrow();
     }
 }

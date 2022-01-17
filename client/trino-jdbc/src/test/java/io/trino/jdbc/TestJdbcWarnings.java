@@ -75,7 +75,7 @@ public class TestJdbcWarnings
                 .setProperties(ImmutableMap.<String, String>builder()
                         .put("testing-warning-collector.add-warnings", "true")
                         .put("testing-warning-collector.preloaded-warnings", String.valueOf(PRELOADED_WARNINGS))
-                        .build())
+                        .buildOrThrow())
                 .build();
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");

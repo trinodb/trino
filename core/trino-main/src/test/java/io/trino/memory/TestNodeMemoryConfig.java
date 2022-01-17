@@ -48,7 +48,7 @@ public class TestNodeMemoryConfig
                 .put("query.max-total-memory-per-task", "200MB")
                 .put("memory.heap-headroom-per-node", "1GB")
                 .put("experimental.reserved-pool-disabled", "false")
-                .build();
+                .buildOrThrow();
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
                 .setMaxQueryMemoryPerNode(DataSize.of(1, GIGABYTE))

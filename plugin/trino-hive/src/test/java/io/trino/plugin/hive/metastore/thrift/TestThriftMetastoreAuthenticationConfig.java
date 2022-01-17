@@ -37,7 +37,7 @@ public class TestThriftMetastoreAuthenticationConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.authentication.type", "KERBEROS")
-                .build();
+                .buildOrThrow();
 
         ThriftMetastoreAuthenticationConfig expected = new ThriftMetastoreAuthenticationConfig()
                 .setAuthenticationType(ThriftMetastoreAuthenticationType.KERBEROS);

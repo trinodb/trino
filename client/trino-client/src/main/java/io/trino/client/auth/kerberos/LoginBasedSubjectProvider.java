@@ -110,7 +110,7 @@ public class LoginBasedSubjectProvider
                 principal.ifPresent(value -> options.put("principal", value));
 
                 return new AppConfigurationEntry[] {
-                        new AppConfigurationEntry(Krb5LoginModule.class.getName(), REQUIRED, options.build())
+                        new AppConfigurationEntry(Krb5LoginModule.class.getName(), REQUIRED, options.buildOrThrow())
                 };
             }
         });

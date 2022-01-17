@@ -118,7 +118,7 @@ public class KuduMetadata
                 columns.put(tableName, tableMetadata.getColumns());
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     private ColumnMetadata getColumnMetadata(ColumnSchema column)
@@ -185,7 +185,7 @@ public class KuduMetadata
             columnHandles.put(name, columnHandle);
         }
 
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override

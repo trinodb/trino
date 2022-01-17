@@ -182,7 +182,7 @@ public class TestOrcFileRewriter
                     .put(10L, mapType.getTypeId())
                     .put(11L, arrayOfArrayType.getTypeId())
                     .put(12L, decimalType.getTypeId())
-                    .build()));
+                    .buildOrThrow()));
         }
 
         BitSet rowsToDelete = new BitSet(5);
@@ -255,7 +255,7 @@ public class TestOrcFileRewriter
                     .put(10L, mapType.getTypeId())
                     .put(11L, arrayOfArrayType.getTypeId())
                     .put(12L, decimalType.getTypeId())
-                    .build()));
+                    .buildOrThrow()));
         }
     }
 

@@ -67,7 +67,7 @@ public class KuduRecordSet
             }
         }
 
-        return new KuduRecordCursor(scanner, getTable(), getColumnTypes(), builder.build());
+        return new KuduRecordCursor(scanner, getTable(), getColumnTypes(), builder.buildOrThrow());
     }
 
     KuduTable getTable()

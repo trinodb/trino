@@ -193,7 +193,7 @@ public class StripeReader
                 diskRangesBuilder.put(entry);
             }
         }
-        ImmutableMap<StreamId, DiskRange> diskRanges = diskRangesBuilder.build();
+        ImmutableMap<StreamId, DiskRange> diskRanges = diskRangesBuilder.buildOrThrow();
 
         // read the file regions
         Map<StreamId, OrcChunkLoader> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, systemMemoryUsage);
@@ -229,7 +229,7 @@ public class StripeReader
         for (Entry<StreamId, ValueInputStream<?>> entry : valueStreams.entrySet()) {
             builder.put(entry.getKey(), new ValueInputStreamSource<>(entry.getValue()));
         }
-        RowGroup rowGroup = new RowGroup(0, 0, stripe.getNumberOfRows(), minAverageRowBytes, new InputStreamSources(builder.build()));
+        RowGroup rowGroup = new RowGroup(0, 0, stripe.getNumberOfRows(), minAverageRowBytes, new InputStreamSources(builder.buildOrThrow()));
 
         return new Stripe(stripe.getNumberOfRows(), fileTimeZone, columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
     }
@@ -271,7 +271,7 @@ public class StripeReader
             DiskRange diskRange = entry.getValue();
             diskRangesBuilder.put(entry.getKey(), new DiskRange(stripeOffset + diskRange.getOffset(), diskRange.getLength()));
         }
-        diskRanges = diskRangesBuilder.build();
+        diskRanges = diskRangesBuilder.buildOrThrow();
 
         // read ranges
         Map<StreamId, OrcDataReader> streamsData = orcDataSource.readFully(diskRanges);
@@ -281,7 +281,7 @@ public class StripeReader
         for (Entry<StreamId, OrcDataReader> entry : streamsData.entrySet()) {
             dataBuilder.put(entry.getKey(), OrcChunkLoader.create(entry.getValue(), decompressor, systemMemoryUsage));
         }
-        return dataBuilder.build();
+        return dataBuilder.buildOrThrow();
     }
 
     private Map<StreamId, ValueInputStream<?>> createValueStreams(Map<StreamId, Stream> streams, Map<StreamId, OrcChunkLoader> streamsData, ColumnMetadata<ColumnEncoding> columnEncodings)
@@ -302,7 +302,7 @@ public class StripeReader
 
             valueStreams.put(streamId, ValueStreams.createValueStreams(streamId, chunkLoader, columnType, columnEncoding));
         }
-        return valueStreams.build();
+        return valueStreams.buildOrThrow();
     }
 
     private InputStreamSources createDictionaryStreamSources(Map<StreamId, Stream> streams, Map<StreamId, ValueInputStream<?>> valueStreams, ColumnMetadata<ColumnEncoding> columnEncodings)
@@ -331,7 +331,7 @@ public class StripeReader
             InputStreamSource<?> streamSource = createCheckpointStreamSource(valueStream, streamCheckpoint);
             dictionaryStreamBuilder.put(streamId, streamSource);
         }
-        return new InputStreamSources(dictionaryStreamBuilder.build());
+        return new InputStreamSources(dictionaryStreamBuilder.buildOrThrow());
     }
 
     private List<RowGroup> createRowGroups(
@@ -379,7 +379,7 @@ public class StripeReader
 
             builder.put(streamId, createCheckpointStreamSource(valueStream, checkpoint));
         }
-        InputStreamSources rowGroupStreams = new InputStreamSources(builder.build());
+        InputStreamSources rowGroupStreams = new InputStreamSources(builder.buildOrThrow());
         return new RowGroup(groupId, rowOffset, rowCount, minAverageRowBytes, rowGroupStreams);
     }
 
@@ -445,7 +445,7 @@ public class StripeReader
                 columnIndexes.put(entry.getKey(), rowGroupIndexes);
             }
         }
-        return columnIndexes.build();
+        return columnIndexes.buildOrThrow();
     }
 
     private Set<Integer> selectRowGroups(StripeInformation stripe, Map<StreamId, List<RowGroupIndex>> columnIndexes)
@@ -506,7 +506,7 @@ public class StripeReader
             }
             stripeOffset += streamLength;
         }
-        return streamDiskRanges.build();
+        return streamDiskRanges.buildOrThrow();
     }
 
     private static Set<OrcColumnId> getIncludeColumns(Set<OrcColumn> includedColumns)

@@ -848,7 +848,7 @@ public class TestHiveGlueMetastore
 
             PartitionStatistics partitionStatistics = PartitionStatistics.builder()
                     .setBasicStatistics(HIVE_BASIC_STATISTICS)
-                    .setColumnStatistics(columnStatistics.build()).build();
+                    .setColumnStatistics(columnStatistics.buildOrThrow()).build();
 
             doCreateEmptyTable(tableName, ORC, columns.build());
             testUpdateTableStatistics(tableName, EMPTY_TABLE_STATISTICS, partitionStatistics);
@@ -1031,7 +1031,7 @@ public class TestHiveGlueMetastore
             tableInput.setParameters(ImmutableMap.<String, String>builder()
                     .putAll(tableInput.getParameters())
                     .put("column_stats_bad_data", "bad data")
-                    .build());
+                    .buildOrThrow());
             getGlueClient().updateTable(new UpdateTableRequest()
                     .withDatabaseName(tableName.getSchemaName())
                     .withTableInput(tableInput));

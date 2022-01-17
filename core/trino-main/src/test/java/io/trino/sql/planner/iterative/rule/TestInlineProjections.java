@@ -74,7 +74,7 @@ public class TestInlineProjections
                                         .put("out8", PlanMatchPattern.expression("z + 1"))
                                         .put("out9", PlanMatchPattern.expression("try(2 * x)"))
                                         .put("out10", PlanMatchPattern.expression("x + x"))
-                                        .build(),
+                                        .buildOrThrow(),
                                 project(
                                         ImmutableMap.of(
                                                 "x", PlanMatchPattern.expression("x"),
@@ -100,7 +100,7 @@ public class TestInlineProjections
                         project(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                         .put("out1", PlanMatchPattern.expression("x - 1 + 2"))
-                                        .build(),
+                                        .buildOrThrow(),
                                 values(ImmutableMap.of("x", 0))));
     }
 

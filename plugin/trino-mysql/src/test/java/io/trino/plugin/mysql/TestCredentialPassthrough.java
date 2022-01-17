@@ -50,7 +50,7 @@ public class TestCredentialPassthrough
                     .put("connection-url", mySqlServer.getJdbcUrl())
                     .put("user-credential-name", "mysql.user")
                     .put("password-credential-name", "mysql.password")
-                    .build();
+                    .buildOrThrow();
             queryRunner.createCatalog("mysql", "mysql", properties);
         }
         catch (Exception e) {

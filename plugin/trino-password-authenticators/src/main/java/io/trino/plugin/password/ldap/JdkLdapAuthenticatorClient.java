@@ -69,7 +69,7 @@ public class JdkLdapAuthenticatorClient
                 .put(INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory")
                 .put(PROVIDER_URL, ldapUrl)
                 .put(REFERRAL, ldapConfig.isIgnoreReferrals() ? "ignore" : "follow")
-                .build();
+                .buildOrThrow();
 
         this.sslContext = Optional.ofNullable(ldapConfig.getTrustCertificate())
                 .map(JdkLdapAuthenticatorClient::createSslContext);
@@ -146,7 +146,7 @@ public class JdkLdapAuthenticatorClient
             environment.put("java.naming.ldap.factory.socket", LdapSslSocketFactory.class.getName());
         });
 
-        return environment.build();
+        return environment.buildOrThrow();
     }
 
     private static SSLContext createSslContext(File trustCertificate)

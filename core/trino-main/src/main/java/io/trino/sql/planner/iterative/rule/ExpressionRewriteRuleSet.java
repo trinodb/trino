@@ -212,7 +212,7 @@ public class ExpressionRewriteRuleSet
                 return Result.ofPlanNode(new AggregationNode(
                         aggregationNode.getId(),
                         aggregationNode.getSource(),
-                        aggregations.build(),
+                        aggregations.buildOrThrow(),
                         aggregationNode.getGroupingSets(),
                         aggregationNode.getPreGroupedSymbols(),
                         aggregationNode.getStep(),
@@ -422,7 +422,7 @@ public class ExpressionRewriteRuleSet
                         node.getPrePartitionedInputs(),
                         node.getPreSortedOrderPrefix(),
                         node.getWindowFunctions(),
-                        rewrittenMeasures.build(),
+                        rewrittenMeasures.buildOrThrow(),
                         node.getCommonBaseFrame(),
                         node.getRowsPerMatch(),
                         node.getSkipToLabel(),
@@ -430,7 +430,7 @@ public class ExpressionRewriteRuleSet
                         node.isInitial(),
                         node.getPattern(),
                         node.getSubsets(),
-                        rewrittenDefinitions.build()));
+                        rewrittenDefinitions.buildOrThrow()));
             }
 
             return Result.empty();

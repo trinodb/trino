@@ -53,7 +53,7 @@ public class TestDistributedSpilledQueries
                 .put("spiller-max-used-space-threshold", "1.0")
                 .put("memory-revoking-threshold", "0.0") // revoke always
                 .put("memory-revoking-target", "0.0")
-                .build();
+                .buildOrThrow();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
                 .setNodeCount(2)

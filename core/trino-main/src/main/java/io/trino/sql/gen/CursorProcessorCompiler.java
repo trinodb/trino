@@ -208,7 +208,7 @@ public class CursorProcessorCompiler
                     lambdaExpression,
                     methodName,
                     containerClassDefinition,
-                    compiledLambdaMap.build(),
+                    compiledLambdaMap.buildOrThrow(),
                     callSiteBinder,
                     cachedInstanceBinder,
                     metadata);
@@ -216,7 +216,7 @@ public class CursorProcessorCompiler
             counter++;
         }
 
-        return compiledLambdaMap.build();
+        return compiledLambdaMap.buildOrThrow();
     }
 
     private void generateFilterMethod(

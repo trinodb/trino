@@ -158,7 +158,7 @@ public class KafkaMetadata
             columnHandles.put(kafkaInternalField.getColumnName(), kafkaInternalField.getColumnHandle(index.getAndIncrement(), hideInternalColumns));
         }
 
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -184,7 +184,7 @@ public class KafkaMetadata
                 // information_schema table or a system table
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     @Override

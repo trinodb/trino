@@ -240,7 +240,7 @@ public class OrcFileWriter
                 for (int i = 0; i < columnIds.size(); i++) {
                     columnTypesMap.put(columnIds.get(i), columnTypes.get(i).getTypeId());
                 }
-                byte[] bytes = METADATA_CODEC.toJsonBytes(new OrcFileMetadata(columnTypesMap.build()));
+                byte[] bytes = METADATA_CODEC.toJsonBytes(new OrcFileMetadata(columnTypesMap.buildOrThrow()));
                 context.getWriter().addUserMetadata(OrcFileMetadata.KEY, ByteBuffer.wrap(bytes));
             }
         };

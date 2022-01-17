@@ -102,7 +102,7 @@ public class LocalFileMetadata
             }
             columnHandles.put(column.getName(), new LocalFileColumnHandle(column.getName(), column.getType(), ordinalPosition));
         }
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -122,7 +122,7 @@ public class LocalFileMetadata
                 columns.put(tableName, localFileTables.getColumns(tableHandle));
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)

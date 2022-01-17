@@ -110,7 +110,7 @@ public class TestCassandraClientConfig
                 .put("cassandra.tls.keystore-password", "keystore-password")
                 .put("cassandra.tls.truststore-path", truststoreFile.toString())
                 .put("cassandra.tls.truststore-password", "truststore-password")
-                .build();
+                .buildOrThrow();
 
         CassandraClientConfig expected = new CassandraClientConfig()
                 .setContactPoints("host1", "host2")

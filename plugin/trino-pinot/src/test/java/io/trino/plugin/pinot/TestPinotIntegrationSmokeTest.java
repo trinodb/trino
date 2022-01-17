@@ -298,7 +298,7 @@ public class TestPinotIntegrationSmokeTest
                 .put("pinot.controller-urls", pinot.getControllerConnectString())
                 .put("pinot.max-rows-per-split-for-segment-queries", String.valueOf(MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
                 .put("pinot.max-rows-for-broker-queries", String.valueOf(MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES))
-                .build();
+                .buildOrThrow();
 
         return PinotQueryRunner.createPinotQueryRunner(
                 ImmutableMap.of(),
@@ -313,7 +313,7 @@ public class TestPinotIntegrationSmokeTest
                 .put(SCHEMA_REGISTRY_URL_CONFIG, testingKafka.getSchemaRegistryConnectString())
                 .put(KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName())
                 .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                .build();
+                .buildOrThrow();
     }
 
     private static GenericRecord createTestRecord(

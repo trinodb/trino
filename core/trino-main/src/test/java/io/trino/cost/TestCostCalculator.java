@@ -440,7 +440,7 @@ public class TestCostCalculator
                 .put("le", statsEstimate(localExchange, 6000))
                 .put("ts1", statsEstimate(ts1, 6000))
                 .put("ts2", statsEstimate(ts2, 1000))
-                .build();
+                .buildOrThrow();
         Map<String, Type> types = ImmutableMap.of(
                 "orderkey", BIGINT,
                 "orderkey_0", BIGINT);
@@ -469,7 +469,7 @@ public class TestCostCalculator
                 .put("le", statsEstimate(localExchange, 6000))
                 .put("ts1", statsEstimate(ts1, 6000))
                 .put("ts2", statsEstimate(ts2, 1000))
-                .build();
+                .buildOrThrow();
         Map<String, Type> types = ImmutableMap.of(
                 "orderkey", BIGINT,
                 "orderkey_0", BIGINT);
@@ -795,7 +795,7 @@ public class TestCostCalculator
                 new PlanNodeId(id),
                 new TableHandle(new CatalogName("tpch"), tableHandle, INSTANCE),
                 symbolsList,
-                assignments.build(),
+                assignments.buildOrThrow(),
                 TupleDomain.all(),
                 Optional.empty(),
                 false,

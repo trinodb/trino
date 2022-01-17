@@ -44,7 +44,7 @@ public class TestJdbcMetadataConfig
                 .put("aggregation-pushdown.enabled", "false")
                 .put("domain-compaction-threshold", "42")
                 .put("topn-pushdown.enabled", "false")
-                .build();
+                .buildOrThrow();
 
         JdbcMetadataConfig expected = new JdbcMetadataConfig()
                 .setAllowDropTable(true)

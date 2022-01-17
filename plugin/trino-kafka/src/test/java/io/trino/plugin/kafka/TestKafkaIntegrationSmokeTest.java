@@ -102,13 +102,13 @@ public class TestKafkaIntegrationSmokeTest
                 .put(new SchemaTableName("default", headersTopic),
                         new KafkaTopicDescription(headersTopic, Optional.empty(), headersTopic, Optional.empty(), Optional.empty()))
                 .putAll(createJsonDateTimeTestTopic())
-                .build();
+                .buildOrThrow();
 
         QueryRunner queryRunner = KafkaQueryRunner.builder(testingKafka)
                 .setTables(TpchTable.getTables())
                 .setExtraTopicDescription(ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
                         .putAll(extraTopicDescriptions)
-                        .build())
+                        .buildOrThrow())
                 .build();
 
         return queryRunner;
@@ -191,7 +191,7 @@ public class TestKafkaIntegrationSmokeTest
                 .put(ACKS_CONFIG, "all")
                 .put(KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName())
                 .put(VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName())
-                .build();
+                .buildOrThrow();
     }
 
     @Test

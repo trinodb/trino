@@ -44,7 +44,7 @@ public class TestDecimalConfig
                 .put("decimal-mapping", "allow_overflow")
                 .put("decimal-default-scale", "16")
                 .put("decimal-rounding-mode", "HALF_UP")
-                .build();
+                .buildOrThrow();
 
         DecimalConfig expected = new DecimalConfig()
                 .setDecimalMapping(ALLOW_OVERFLOW)

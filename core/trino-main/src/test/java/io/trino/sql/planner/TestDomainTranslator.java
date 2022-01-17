@@ -165,7 +165,7 @@ public class TestDomainTranslator
             .put(C_TINYINT, TINYINT)
             .put(C_REAL, REAL)
             .put(C_REAL_1, REAL)
-            .build());
+            .buildOrThrow());
 
     private static final long TIMESTAMP_VALUE = new DateTime(2013, 3, 30, 1, 5, 0, 0, DateTimeZone.UTC).getMillis();
     private static final long DATE_VALUE = TimeUnit.MILLISECONDS.toDays(new DateTime(2001, 1, 22, 0, 0, 0, 0, DateTimeZone.UTC).getMillis());
@@ -225,7 +225,7 @@ public class TestDomainTranslator
                 .put(C_DATE, Domain.singleValue(DATE, DATE_VALUE))
                 .put(C_COLOR, Domain.singleValue(COLOR, COLOR_VALUE_1))
                 .put(C_HYPER_LOG_LOG, Domain.notNull(HYPER_LOG_LOG))
-                .build());
+                .buildOrThrow());
 
         assertPredicateTranslates(toPredicate(tupleDomain), tupleDomain);
     }
@@ -291,7 +291,7 @@ public class TestDomainTranslator
                 .put(C_DOUBLE, Domain.onlyNull(DOUBLE))
                 .put(C_VARCHAR, Domain.notNull(VARCHAR))
                 .put(C_BOOLEAN, Domain.none(BOOLEAN))
-                .build());
+                .buildOrThrow());
 
         assertEquals(toPredicate(tupleDomain), FALSE_LITERAL);
     }
@@ -304,7 +304,7 @@ public class TestDomainTranslator
                 .put(C_DOUBLE, Domain.onlyNull(DOUBLE))
                 .put(C_VARCHAR, Domain.notNull(VARCHAR))
                 .put(C_BOOLEAN, Domain.all(BOOLEAN))
-                .build());
+                .buildOrThrow());
 
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain));
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
@@ -312,7 +312,7 @@ public class TestDomainTranslator
                 .put(C_BIGINT, Domain.singleValue(BIGINT, 1L))
                 .put(C_DOUBLE, Domain.onlyNull(DOUBLE))
                 .put(C_VARCHAR, Domain.notNull(VARCHAR))
-                .build()));
+                .buildOrThrow()));
     }
 
     @Test

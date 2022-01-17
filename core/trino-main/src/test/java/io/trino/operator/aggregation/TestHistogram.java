@@ -384,7 +384,7 @@ public class TestHistogram
                 .put("d4", 2L)
                 .put("a3", 1L)
                 .put("b3", 1L)
-                .build());
+                .buildOrThrow());
         AggregationTestInput test1 = testInputBuilder1.build();
 
         test1.runPagesOnAggregatorWithAssertion(0L, aggregationFunction.getFinalType(), test1.createGroupedAggregator(), aggregationTestOutput1);

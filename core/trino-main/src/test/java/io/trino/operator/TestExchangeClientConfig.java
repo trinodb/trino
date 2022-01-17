@@ -55,7 +55,7 @@ public class TestExchangeClientConfig
                 .put("exchange.client-threads", "2")
                 .put("exchange.page-buffer-client.max-callback-threads", "16")
                 .put("exchange.acknowledge-pages", "false")
-                .build();
+                .buildOrThrow();
 
         ExchangeClientConfig expected = new ExchangeClientConfig()
                 .setMaxBufferSize(DataSize.of(1, Unit.GIGABYTE))

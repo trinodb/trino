@@ -445,7 +445,7 @@ public class ThriftHiveMetastore
             result.put(partitionName, new PartitionStatistics(basicStatistics, columnStatistics));
         }
 
-        return result.build();
+        return result.buildOrThrow();
     }
 
     @Override

@@ -44,7 +44,7 @@ public class TestLocalFileConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("trino-logs.http-request-log.location", httpRequestLogFile.toString())
                 .put("trino-logs.http-request-log.pattern", "bar")
-                .build();
+                .buildOrThrow();
 
         LocalFileConfig expected = new LocalFileConfig()
                 .setHttpRequestLogLocation(httpRequestLogFile.toString())

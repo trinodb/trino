@@ -418,7 +418,7 @@ public class RcFileTester
                     Map<String, String> expectedMetadata = ImmutableMap.<String, String>builder()
                             .putAll(metadata)
                             .put(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY, PRESTO_RCFILE_WRITER_VERSION)
-                            .build();
+                            .buildOrThrow();
 
                     assertFileContentsNew(type, tempFile, format, finalValues, false, expectedMetadata);
 
@@ -444,7 +444,7 @@ public class RcFileTester
             assertEquals(recordReader.getMetadata(), ImmutableMap.builder()
                     .putAll(metadata)
                     .put("hive.io.rcfile.column.number", "1")
-                    .build());
+                    .buildOrThrow());
 
             Iterator<?> iterator = expectedValues.iterator();
             int totalCount = 0;

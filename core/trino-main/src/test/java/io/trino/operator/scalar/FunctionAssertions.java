@@ -192,7 +192,7 @@ public final class FunctionAssertions
             .put(new Symbol("bound_row"), TEST_ROW_TYPE)
             .put(new Symbol("bound_short_decimal"), SHORT_DECIMAL_TYPE)
             .put(new Symbol("bound_long_decimal"), LONG_DECIMAL_TYPE)
-            .build());
+            .buildOrThrow());
 
     private static final Map<Symbol, Integer> INPUT_MAPPING = ImmutableMap.<Symbol, Integer>builder()
             .put(new Symbol("bound_long"), 0)
@@ -208,7 +208,7 @@ public final class FunctionAssertions
             .put(new Symbol("bound_row"), 10)
             .put(new Symbol("bound_short_decimal"), 11)
             .put(new Symbol("bound_long_decimal"), 12)
-            .build();
+            .buildOrThrow();
 
     private static final PageSourceProvider PAGE_SOURCE_PROVIDER = new TestPageSourceProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");

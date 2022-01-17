@@ -81,7 +81,7 @@ public class CassandraSplit
         return ImmutableMap.builder()
                 .put("hosts", addresses)
                 .put("partitionId", partitionId)
-                .build();
+                .buildOrThrow();
     }
 
     @Override

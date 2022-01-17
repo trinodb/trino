@@ -532,7 +532,7 @@ public final class MetadataManager
         for (Entry<String, ColumnHandle> mapEntry : handles.entrySet()) {
             map.put(mapEntry.getKey().toLowerCase(ENGLISH), mapEntry.getValue());
         }
-        return map.build();
+        return map.buildOrThrow();
     }
 
     @Override

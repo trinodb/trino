@@ -62,7 +62,7 @@ public class TestOrcWriterConfig
                 .put("hive.orc.writer.writer-identification", "LEGACY_HIVE_COMPATIBLE")
                 .put("hive.orc.writer.validation-percentage", "0.16")
                 .put("hive.orc.writer.validation-mode", "DETAILED")
-                .build();
+                .buildOrThrow();
 
         OrcWriterConfig expected = new OrcWriterConfig()
                 .setStripeMinSize(DataSize.of(13, MEGABYTE))

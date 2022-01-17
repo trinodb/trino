@@ -74,7 +74,7 @@ public class StatsAndCosts
                 filteredCosts.put(node.getId(), costs.get(node.getId()));
             }
         }
-        return new StatsAndCosts(filteredStats.build(), filteredCosts.build());
+        return new StatsAndCosts(filteredStats.buildOrThrow(), filteredCosts.buildOrThrow());
     }
 
     public static StatsAndCosts create(PlanNode root, StatsProvider statsProvider, CostProvider costProvider)
@@ -87,7 +87,7 @@ public class StatsAndCosts
             stats.put(node.getId(), statsProvider.getStats(node));
             costs.put(node.getId(), costProvider.getCost(node));
         }
-        return new StatsAndCosts(stats.build(), costs.build());
+        return new StatsAndCosts(stats.buildOrThrow(), costs.buildOrThrow());
     }
 
     public static StatsAndCosts create(StageInfo stageInfo)
@@ -95,7 +95,7 @@ public class StatsAndCosts
         ImmutableMap.Builder<PlanNodeId, PlanNodeStatsEstimate> planNodeStats = ImmutableMap.builder();
         ImmutableMap.Builder<PlanNodeId, PlanCostEstimate> planNodeCosts = ImmutableMap.builder();
         reconstructStatsAndCosts(stageInfo, planNodeStats, planNodeCosts);
-        return new StatsAndCosts(planNodeStats.build(), planNodeCosts.build());
+        return new StatsAndCosts(planNodeStats.buildOrThrow(), planNodeCosts.buildOrThrow());
     }
 
     private static void reconstructStatsAndCosts(

@@ -283,7 +283,7 @@ public final class MetadataUtil
 
         public ConnectorTableMetadata build()
         {
-            return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment);
+            return new ConnectorTableMetadata(tableName, columns.build(), properties.buildOrThrow(), comment);
         }
     }
 }

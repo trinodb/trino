@@ -44,7 +44,7 @@ public class TestAwsSecurityConfig
                 .put("elasticsearch.aws.region", "region")
                 .put("elasticsearch.aws.iam-role", "iamRole")
                 .put("elasticsearch.aws.external-id", "externalId")
-                .build();
+                .buildOrThrow();
 
         AwsSecurityConfig expected = new AwsSecurityConfig()
                 .setAccessKey("access")

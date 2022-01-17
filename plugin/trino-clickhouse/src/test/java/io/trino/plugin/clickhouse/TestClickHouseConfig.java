@@ -50,7 +50,7 @@ public class TestClickHouseConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("clickhouse.map-string-as-varchar", "true")
-                .build();
+                .buildOrThrow();
 
         ClickHouseConfig expected = new ClickHouseConfig()
                 .setMapStringAsVarchar(true);

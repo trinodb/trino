@@ -182,7 +182,7 @@ public final class HiveQueryRunner
                 }
                 hiveProperties.put("hive.max-partitions-per-scan", "1000");
                 hiveProperties.put("hive.security", SQL_STANDARD);
-                hiveProperties.putAll(this.hiveProperties.build());
+                hiveProperties.putAll(this.hiveProperties.buildOrThrow());
 
                 Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
                         .putAll(hiveProperties)
@@ -190,7 +190,7 @@ public final class HiveQueryRunner
                         .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
                         .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
                         .put("hive.compression-codec", "NONE") // so that the file is splittable
-                        .build();
+                        .buildOrThrow();
                 queryRunner.createCatalog(HIVE_CATALOG, "hive", hiveProperties);
                 queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
 

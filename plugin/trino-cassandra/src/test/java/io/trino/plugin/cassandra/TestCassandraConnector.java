@@ -445,7 +445,7 @@ public class TestCassandraConnector
             index.put(name, i);
             i++;
         }
-        return index.build();
+        return index.buildOrThrow();
     }
 
     private CassandraTableHandle getTableHandle(Optional<List<CassandraPartition>> partitions, String clusteringKeyPredicates)

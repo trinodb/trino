@@ -123,7 +123,7 @@ public class TestIcebergPlugin
                         .put("iceberg.catalog.type", "HIVE_METASTORE")
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("iceberg.security", "allow-all")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext())
                 .shutdown();
     }
@@ -139,7 +139,7 @@ public class TestIcebergPlugin
                         .put("iceberg.catalog.type", "HIVE_METASTORE")
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("iceberg.security", "read-only")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext())
                 .shutdown();
     }
@@ -155,7 +155,7 @@ public class TestIcebergPlugin
                         .put("iceberg.catalog.type", "HIVE_METASTORE")
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("iceberg.security", "system")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext());
         assertThatThrownBy(connector::getAccessControl).isInstanceOf(UnsupportedOperationException.class);
         connector.shutdown();
@@ -177,7 +177,7 @@ public class TestIcebergPlugin
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("iceberg.security", "file")
                         .put("security.config-file", tempFile.getAbsolutePath())
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext())
                 .shutdown();
     }

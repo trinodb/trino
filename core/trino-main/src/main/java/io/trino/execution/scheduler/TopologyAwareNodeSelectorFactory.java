@@ -107,7 +107,7 @@ public class TopologyAwareNodeSelectorFactory
         }
 
         this.placementCounters = placementCounters.build();
-        this.placementCountersByName = placementCountersByName.build();
+        this.placementCountersByName = placementCountersByName.buildOrThrow();
     }
 
     public Map<String, CounterStat> getPlacementCountersByName()

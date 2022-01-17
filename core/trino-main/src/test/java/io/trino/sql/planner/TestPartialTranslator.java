@@ -59,7 +59,7 @@ public class TestPartialTranslator
             .put(new Symbol("double_symbol_2"), DOUBLE)
             .put(new Symbol("bigint_symbol_1"), BIGINT)
             .put(new Symbol("row_symbol_1"), rowType(field("int_symbol_1", INTEGER), field("varchar_symbol_1", createVarcharType(5))))
-            .build());
+            .buildOrThrow());
 
     @Test
     public void testPartialTranslator()

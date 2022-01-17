@@ -301,7 +301,7 @@ public class SemiTransactionalHiveMetastore
         else {
             partitionNamesToQuery.build().forEach(partitionName -> resultBuilder.put(partitionName, PartitionStatistics.empty()));
         }
-        return resultBuilder.build();
+        return resultBuilder.buildOrThrow();
     }
 
     /**
@@ -351,7 +351,7 @@ public class SemiTransactionalHiveMetastore
             for (Map.Entry<List<String>, Action<PartitionAndMore>> entry : partitionActionMap.entrySet()) {
                 modifiedPartitionMapBuilder.put(entry.getKey(), getPartitionFromPartitionAction(entry.getValue()));
             }
-            modifiedPartitionMap = modifiedPartitionMapBuilder.build();
+            modifiedPartitionMap = modifiedPartitionMapBuilder.buildOrThrow();
         }
         return new HivePageSinkMetadata(
                 schemaTableName,
@@ -905,7 +905,7 @@ public class SemiTransactionalHiveMetastore
             resultBuilder.putAll(delegateResult);
         }
 
-        return resultBuilder.build();
+        return resultBuilder.buildOrThrow();
     }
 
     private static Optional<Partition> getPartitionFromPartitionAction(Action<PartitionAndMore> partitionAction)

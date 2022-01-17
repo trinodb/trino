@@ -200,7 +200,7 @@ public class TestEffectivePredicateExtractor
                 .put(E, new TestingColumnHandle("e"))
                 .put(F, new TestingColumnHandle("f"))
                 .put(R, new TestingColumnHandle("r"))
-                .build();
+                .buildOrThrow();
 
         Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C, D, E, F)));
         baseTableScan = TableScanNode.newInstance(
@@ -578,7 +578,7 @@ public class TestEffectivePredicateExtractor
                 .put(B, BIGINT)
                 .put(D, DOUBLE)
                 .put(R, RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)))
-                .build());
+                .buildOrThrow());
 
         // one column
         assertEquals(

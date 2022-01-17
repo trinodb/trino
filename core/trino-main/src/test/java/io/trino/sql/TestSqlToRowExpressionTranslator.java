@@ -58,7 +58,7 @@ public class TestSqlToRowExpressionTranslator
             expression = new CoalesceExpression(expression, new LongLiteral("2"));
             types.put(NodeRef.of(expression), BIGINT);
         }
-        translateAndOptimize(expression, types.build());
+        translateAndOptimize(expression, types.buildOrThrow());
     }
 
     @Test

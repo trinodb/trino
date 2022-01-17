@@ -301,7 +301,7 @@ public final class StandaloneQueryRunner
                         .put("query.client.timeout", "10m")
                         .put("exchange.http-client.idle-timeout", "1h")
                         .put("node-scheduler.min-candidates", "1")
-                        .build())
+                        .buildOrThrow())
                 .build();
     }
 }

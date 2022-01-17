@@ -36,7 +36,7 @@ public class TestProtocolConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("protocol.v1.alternate-header-name", "taco")
-                .build();
+                .buildOrThrow();
 
         ProtocolConfig expected = new ProtocolConfig()
                 .setAlternateHeaderName("taco");

@@ -91,11 +91,11 @@ public class TestQuerySessionSupplier
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(HASH_PARTITION_COUNT, "43")
-                .build());
+                .buildOrThrow());
         assertEquals(session.getPreparedStatements(), ImmutableMap.<String, String>builder()
                 .put("query1", "select * from foo")
                 .put("query2", "select * from bar")
-                .build());
+                .buildOrThrow());
     }
 
     @Test
