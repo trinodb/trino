@@ -184,7 +184,7 @@ public class CachingHiveMetastore
 
         // disable refresh since it can't use the bulk loading and causes too many requests
         partitionStatisticsCache = newCacheBuilder(expiresAfterWriteMillis, OptionalLong.empty(), maximumSize, statsRecording)
-                .build(asyncReloading(new CacheLoader<>()
+                .build(new CacheLoader<>()
                 {
                     @Override
                     public PartitionStatistics load(WithIdentity<HivePartitionName> key)
@@ -197,7 +197,7 @@ public class CachingHiveMetastore
                     {
                         return loadPartitionColumnStatistics(keys);
                     }
-                }, executor));
+                });
 
         tableCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
                 .build(asyncReloading(CacheLoader.from(this::loadTable), executor));
@@ -210,7 +210,7 @@ public class CachingHiveMetastore
 
         // disable refresh since it can't use the bulk loading and causes too many requests
         partitionCache = newCacheBuilder(expiresAfterWriteMillis, OptionalLong.empty(), maximumSize, statsRecording)
-                .build(asyncReloading(new CacheLoader<>()
+                .build(new CacheLoader<>()
                 {
                     @Override
                     public Optional<Partition> load(WithIdentity<HivePartitionName> partitionName)
@@ -223,7 +223,7 @@ public class CachingHiveMetastore
                     {
                         return loadPartitionsByNames(partitionNames);
                     }
-                }, executor));
+                });
 
         tablePrivilegesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
                 .build(asyncReloading(CacheLoader.from(key -> loadTablePrivileges(key.getDatabase(), key.getTable(), key.getOwner(), key.getPrincipal())), executor));
