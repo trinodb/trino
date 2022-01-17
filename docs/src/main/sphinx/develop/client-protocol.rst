@@ -22,9 +22,9 @@ Overview of query processing
 
 A Trino client request is initiated by an HTTP ``POST`` to the endpoint
 ``/v1/statement``, with a ``POST`` body consisting of the SQL query string.
-The caller may set HTTP header field ``X-Trino-User`` to the username for
-the session.  A number of other optional header fields are documented in
-the following sections.
+The caller may set various :ref:`client-request-headers`. The headers are
+only required on the initial ``POST`` request, and not when following the
+``nextUri`` links.
 
 If the client request returns an HTTP 503, that means the server was busy,
 and the client should try again in 50-100 milliseconds.  Any HTTP status other
@@ -123,6 +123,8 @@ These ``QueryResults`` data members may be useful in tracking down problems:
       ``StageStats``, providing statistics on the execution of each of
       the stages of query processing.
 
+.. _client-request-headers:
+
 Client request headers
 ----------------------
 
@@ -137,8 +139,8 @@ in subsequent requests, just like browser cookies.
   * - Header name
     - Description
   * - ``X-Trino-User``
-    - Specifies the session user; must be supplied with every
-      request to ``/v1/statement``.
+    - Specifies the session user. If not supplied, the session user is
+      automatically determined via :doc:`/security/user-mapping`.
   * - ``X-Trino-Source``
     - For reporting purposes, this supplies the name of the software
       that submitted the query.
