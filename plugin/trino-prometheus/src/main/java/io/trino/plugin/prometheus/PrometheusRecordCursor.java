@@ -185,19 +185,13 @@ public class PrometheusRecordCursor
     private List<PrometheusStandardizedRow> prometheusResultsInStandardizedForm(List<PrometheusMetricResult> results)
     {
         return results.stream().map(result ->
-                result.getTimeSeriesValues().getValues().stream().map(prometheusTimeSeriesValue ->
-                        new PrometheusStandardizedRow(
-                                getBlockFromMap(columnHandles.get(0).getColumnType(), metricHeaderToMap(result.getMetricHeader())),
-                                prometheusTimeSeriesValue.getTimestamp(),
-                                Double.parseDouble(prometheusTimeSeriesValue.getValue())))
+                result.getTimeSeriesValues().getValues().stream().map(prometheusTimeSeriesValue -> new PrometheusStandardizedRow(
+                        getBlockFromMap(columnHandles.get(0).getColumnType(), ImmutableMap.copyOf(result.getMetricHeader())),
+                        prometheusTimeSeriesValue.getTimestamp(),
+                        Double.parseDouble(prometheusTimeSeriesValue.getValue())))
                         .collect(Collectors.toList()))
                 .flatMap(List::stream)
                 .collect(Collectors.toList());
-    }
-
-    private static Map<String, String> metricHeaderToMap(Map<String, String> mapToConvert)
-    {
-        return ImmutableMap.<String, String>builder().putAll(mapToConvert).buildOrThrow();
     }
 
     static Block getBlockFromMap(Type mapType, Map<?, ?> map)

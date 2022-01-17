@@ -941,7 +941,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         createIndex(indexName, mapping);
 
-        index(indexName, ImmutableMap.<String, Object>builder().buildOrThrow());
+        index(indexName, ImmutableMap.of());
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("a", "hello")

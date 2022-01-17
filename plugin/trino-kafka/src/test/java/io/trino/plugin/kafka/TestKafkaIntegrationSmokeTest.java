@@ -106,9 +106,7 @@ public class TestKafkaIntegrationSmokeTest
 
         QueryRunner queryRunner = KafkaQueryRunner.builder(testingKafka)
                 .setTables(TpchTable.getTables())
-                .setExtraTopicDescription(ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
-                        .putAll(extraTopicDescriptions)
-                        .buildOrThrow())
+                .setExtraTopicDescription(extraTopicDescriptions)
                 .build();
 
         return queryRunner;
