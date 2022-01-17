@@ -289,9 +289,9 @@ public class SqlQueryScheduler
             queryStateMachine.updateQueryInfo(Optional.ofNullable(getStageInfo()));
         });
 
-        coordinatorStagesScheduler.schedule();
-
         Optional<DistributedStagesScheduler> distributedStagesScheduler = createDistributedStagesScheduler(currentAttempt.get());
+
+        coordinatorStagesScheduler.schedule();
         distributedStagesScheduler.ifPresent(scheduler -> distributedStagesSchedulingTask = executor.submit(scheduler::schedule, null));
     }
 
