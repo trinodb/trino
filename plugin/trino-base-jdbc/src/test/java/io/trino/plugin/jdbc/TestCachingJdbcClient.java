@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.jdbc;
 
-import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.cache.CacheStatsAssertions;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.credential.ExtraCredentialConfig;
 import io.trino.spi.connector.ColumnHandle;
@@ -44,9 +44,9 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.plugin.base.cache.CacheStatsAssertions.assertCacheStats;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -55,7 +55,6 @@ import static java.lang.Character.MAX_RADIX;
 import static java.lang.Math.abs;
 import static java.lang.Math.min;
 import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -673,70 +672,17 @@ public class TestCachingJdbcClient
 
     private static CacheStatsAssertions assertTableNamesCache(CachingJdbcClient cachingJdbcClient)
     {
-        return new CacheStatsAssertions(cachingJdbcClient::getTableNamesCacheStats);
+        return assertCacheStats(cachingJdbcClient::getTableNamesCacheStats);
     }
 
     private static CacheStatsAssertions assertColumnCacheStats(CachingJdbcClient client)
     {
-        return new CacheStatsAssertions(client::getColumnsCacheStats);
+        return assertCacheStats(client::getColumnsCacheStats);
     }
 
     private static CacheStatsAssertions assertStatisticsCacheStats(CachingJdbcClient client)
     {
-        return new CacheStatsAssertions(client::getStatisticsCacheStats);
-    }
-
-    private static final class CacheStatsAssertions
-    {
-        private final Supplier<CacheStats> stats;
-
-        private long loads;
-        private long hits;
-        private long misses;
-
-        private CacheStatsAssertions(Supplier<CacheStats> stats)
-        {
-            this.stats = requireNonNull(stats, "stats is null");
-        }
-
-        public CacheStatsAssertions loads(long value)
-        {
-            this.loads = value;
-            return this;
-        }
-
-        public CacheStatsAssertions hits(long value)
-        {
-            this.hits = value;
-            return this;
-        }
-
-        public CacheStatsAssertions misses(long value)
-        {
-            this.misses = value;
-            return this;
-        }
-
-        public void afterRunning(Runnable runnable)
-        {
-            CacheStats beforeStats = stats.get();
-            runnable.run();
-            CacheStats afterStats = stats.get();
-
-            long expectedLoad = beforeStats.loadCount() + loads;
-            long expectedMisses = beforeStats.missCount() + misses;
-            long expectedHits = beforeStats.hitCount() + hits;
-
-            assertThat(afterStats.loadCount())
-                    .withFailMessage("Expected load count is %d but actual is %d", expectedLoad, afterStats.loadCount())
-                    .isEqualTo(expectedLoad);
-            assertThat(afterStats.hitCount())
-                    .withFailMessage("Expected hit count is %d but actual is %d", expectedHits, afterStats.hitCount())
-                    .isEqualTo(expectedHits);
-            assertThat(afterStats.missCount())
-                    .withFailMessage("Expected miss count is %d but actual is %d", expectedMisses, afterStats.missCount())
-                    .isEqualTo(expectedMisses);
-        }
+        return assertCacheStats(client::getStatisticsCacheStats);
     }
 
     private static String randomSuffix()
