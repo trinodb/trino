@@ -17,16 +17,20 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.UnimplementedHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.MetastoreLocator;
 import io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient;
@@ -38,26 +42,40 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.testing.DataProviders;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
+import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
+import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_DATABASE;
@@ -75,7 +93,9 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
+import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -85,6 +105,8 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestCachingHiveMetastore
 {
+    private static final Logger log = Logger.get(TestCachingHiveMetastore.class);
+
     private static final HiveIdentity IDENTITY = new HiveIdentity(SESSION);
     private static final PartitionStatistics TEST_STATS = PartitionStatistics.builder()
             .setColumnStatistics(ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty())))
@@ -466,6 +488,182 @@ public class TestCachingHiveMetastore
         assertEquals(metastore.getAllDatabases(), ImmutableList.of(TEST_DATABASE));
         assertEquals(mockClient.getAccessCount(), 1);
         assertEquals(metastore.getDatabaseNamesStats().getRequestCount(), 0);
+    }
+
+    @Test(timeOut = 60_000, dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testLoadAfterInvalidate(boolean invalidateAll)
+            throws Exception
+    {
+        // State
+        CopyOnWriteArrayList<Column> tableColumns = new CopyOnWriteArrayList<>();
+        ConcurrentMap<String, Partition> tablePartitionsByName = new ConcurrentHashMap<>();
+        Map<String, String> tableParameters = new ConcurrentHashMap<>();
+        tableParameters.put("frequent-changing-table-parameter", "parameter initial value");
+
+        // Initialize data
+        String databaseName = "my_database";
+        String tableName = "my_table_name";
+
+        tableColumns.add(new Column("value", toHiveType(VARCHAR), Optional.empty() /* comment */));
+        tableColumns.add(new Column("pk", toHiveType(VARCHAR), Optional.empty() /* comment */));
+
+        List<String> partitionNames = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            String partitionName = "pk=" + i;
+            tablePartitionsByName.put(
+                    partitionName,
+                    Partition.builder()
+                            .setDatabaseName(databaseName)
+                            .setTableName(tableName)
+                            .setColumns(ImmutableList.copyOf(tableColumns))
+                            .setValues(List.of(Integer.toString(i)))
+                            .withStorage(storage -> storage.setStorageFormat(fromHiveStorageFormat(TEXTFILE)))
+                            .setParameters(Map.of("frequent-changing-partition-parameter", "parameter initial value"))
+                            .build());
+            partitionNames.add(partitionName);
+        }
+
+        // Mock metastore
+        CountDownLatch getTableEnteredLatch = new CountDownLatch(1);
+        CountDownLatch getTableReturnLatch = new CountDownLatch(1);
+        CountDownLatch getTableFinishedLatch = new CountDownLatch(1);
+        CountDownLatch getPartitionsByNamesEnteredLatch = new CountDownLatch(1);
+        CountDownLatch getPartitionsByNamesReturnLatch = new CountDownLatch(1);
+        CountDownLatch getPartitionsByNamesFinishedLatch = new CountDownLatch(1);
+
+        HiveMetastore mockMetastore = new UnimplementedHiveMetastore()
+        {
+            @Override
+            public Optional<Table> getTable(HiveIdentity identity, String databaseName, String tableName)
+            {
+                Optional<Table> table = Optional.of(Table.builder()
+                        .setDatabaseName(databaseName)
+                        .setTableName(tableName)
+                        .setTableType(EXTERNAL_TABLE.name())
+                        .setDataColumns(tableColumns)
+                        .setParameters(ImmutableMap.copyOf(tableParameters))
+                        // Required by 'Table', but not used by view translation.
+                        .withStorage(storage -> storage.setStorageFormat(fromHiveStorageFormat(TEXTFILE)))
+                        .setOwner(Optional.empty())
+                        .build());
+
+                getTableEnteredLatch.countDown(); // 1
+                await(getTableReturnLatch, 10, SECONDS); // 2
+
+                return table;
+            }
+
+            @Override
+            public Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, Table table, List<String> partitionNames)
+            {
+                Map<String, Optional<Partition>> result = new HashMap<>();
+                for (String partitionName : partitionNames) {
+                    result.put(partitionName, Optional.ofNullable(tablePartitionsByName.get(partitionName)));
+                }
+
+                getPartitionsByNamesEnteredLatch.countDown(); // loader#1
+                await(getPartitionsByNamesReturnLatch, 10, SECONDS); // loader#2
+
+                return result;
+            }
+
+            @Override
+            public boolean isImpersonationEnabled()
+            {
+                return false;
+            }
+        };
+
+        // Caching metastore
+        metastore = cachingHiveMetastore(
+                mockMetastore,
+                executor,
+                new Duration(5, TimeUnit.MINUTES),
+                Optional.of(new Duration(1, TimeUnit.MINUTES)),
+                1000);
+
+        // The test. Main thread does modifications and verifies subsequent load sees them. Background thread loads the state into the cache.
+        ExecutorService executor = Executors.newFixedThreadPool(1);
+        try {
+            Future<Void> future = executor.submit(() -> {
+                try {
+                    Table table;
+
+                    table = metastore.getTable(IDENTITY, databaseName, tableName).orElseThrow();
+                    getTableFinishedLatch.countDown(); // 3
+
+                    metastore.getPartitionsByNames(IDENTITY, table, partitionNames);
+                    getPartitionsByNamesFinishedLatch.countDown(); // 6
+
+                    return (Void) null;
+                }
+                catch (Throwable e) {
+                    log.error(e);
+                    throw e;
+                }
+            });
+
+            await(getTableEnteredLatch, 10, SECONDS); // 21
+            tableParameters.put("frequent-changing-table-parameter", "main-thread-put-xyz");
+            if (invalidateAll) {
+                metastore.flushCache();
+            }
+            else {
+                metastore.invalidateTable(databaseName, tableName);
+            }
+            getTableReturnLatch.countDown(); // 2
+            await(getTableFinishedLatch, 10, SECONDS); // 3
+            Table table = metastore.getTable(IDENTITY, databaseName, tableName).orElseThrow();
+            assertThat(table.getParameters())
+                    .isEqualTo(Map.of("frequent-changing-table-parameter", "main-thread-put-xyz"));
+
+            await(getPartitionsByNamesEnteredLatch, 10, SECONDS); // 4
+            String partitionName = partitionNames.get(2);
+            Map<String, String> newPartitionParameters = Map.of("frequent-changing-partition-parameter", "main-thread-put-alice");
+            tablePartitionsByName.put(partitionName,
+                    Partition.builder(tablePartitionsByName.get(partitionName))
+                            .setParameters(newPartitionParameters)
+                            .build());
+            if (invalidateAll) {
+                metastore.flushCache();
+            }
+            else {
+                metastore.invalidateTable(databaseName, tableName);
+            }
+            getPartitionsByNamesReturnLatch.countDown(); // 5
+            await(getPartitionsByNamesFinishedLatch, 10, SECONDS); // 6
+            Map<String, Optional<Partition>> loadedPartitions = metastore.getPartitionsByNames(IDENTITY, table, partitionNames);
+            assertThat(loadedPartitions.get(partitionName))
+                    .isNotNull()
+                    .isPresent()
+                    .hasValueSatisfying(partition -> assertThat(partition.getParameters()).isEqualTo(newPartitionParameters));
+
+            // verify no failure in the background thread
+            future.get(10, SECONDS);
+        }
+        finally {
+            getTableEnteredLatch.countDown();
+            getTableReturnLatch.countDown();
+            getTableFinishedLatch.countDown();
+            getPartitionsByNamesEnteredLatch.countDown();
+            getPartitionsByNamesReturnLatch.countDown();
+            getPartitionsByNamesFinishedLatch.countDown();
+
+            executor.shutdownNow();
+            executor.awaitTermination(10, SECONDS);
+        }
+    }
+
+    private static void await(CountDownLatch latch, long timeout, TimeUnit unit)
+    {
+        try {
+            boolean awaited = latch.await(timeout, unit);
+            checkState(awaited, "wait timed out");
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException();
+        }
     }
 
     private CachingHiveMetastore createMetastoreWithDirectExecutor(CachingHiveMetastoreConfig config)

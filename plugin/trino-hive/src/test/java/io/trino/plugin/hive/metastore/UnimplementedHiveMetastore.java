@@ -29,7 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-class UnimplementedHiveMetastore
+public class UnimplementedHiveMetastore
         implements HiveMetastore
 {
     @Override
