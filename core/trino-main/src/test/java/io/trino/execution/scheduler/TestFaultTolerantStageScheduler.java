@@ -516,6 +516,7 @@ public class TestFaultTolerantStageScheduler
                 sourceExchanges,
                 Optional.empty(),
                 Optional.empty(),
+                retryAttempts,
                 retryAttempts);
     }
 

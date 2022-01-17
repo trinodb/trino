@@ -123,10 +123,12 @@ import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.trino.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static io.trino.SystemSessionProperties.getHashPartitionCount;
-import static io.trino.SystemSessionProperties.getRetryAttempts;
+import static io.trino.SystemSessionProperties.getQueryRetryAttempts;
 import static io.trino.SystemSessionProperties.getRetryInitialDelay;
 import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.SystemSessionProperties.getTaskRetryAttemptsOverall;
+import static io.trino.SystemSessionProperties.getTaskRetryAttemptsPerTask;
 import static io.trino.SystemSessionProperties.getWriterMinSize;
 import static io.trino.connector.CatalogName.isInternalSystemConnector;
 import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
@@ -193,7 +195,9 @@ public class SqlQueryScheduler
     private final CoordinatorStagesScheduler coordinatorStagesScheduler;
 
     private final RetryPolicy retryPolicy;
-    private final int maxRetryAttempts;
+    private final int maxQueryRetryAttempts;
+    private final int maxTaskRetryAttemptsOverall;
+    private final int maxTaskRetryAttemptsPerTask;
     private final AtomicInteger currentAttempt = new AtomicInteger();
     private final Duration retryInitialDelay;
     private final Duration retryMaxDelay;
@@ -270,7 +274,9 @@ public class SqlQueryScheduler
                 coordinatorTaskManager);
 
         retryPolicy = getRetryPolicy(queryStateMachine.getSession());
-        maxRetryAttempts = getRetryAttempts(queryStateMachine.getSession());
+        maxQueryRetryAttempts = getQueryRetryAttempts(queryStateMachine.getSession());
+        maxTaskRetryAttemptsOverall = getTaskRetryAttemptsOverall(queryStateMachine.getSession());
+        maxTaskRetryAttemptsPerTask = getTaskRetryAttemptsPerTask(queryStateMachine.getSession());
         retryInitialDelay = getRetryInitialDelay(queryStateMachine.getSession());
         retryMaxDelay = getRetryMaxDelay(queryStateMachine.getSession());
     }
@@ -344,7 +350,8 @@ public class SqlQueryScheduler
                         exchangeManager,
                         nodePartitioningManager,
                         coordinatorStagesScheduler.getTaskLifecycleListener(),
-                        maxRetryAttempts,
+                        maxTaskRetryAttemptsOverall,
+                        maxTaskRetryAttemptsPerTask,
                         schedulerExecutor,
                         schedulerStats,
                         nodeAllocatorService,
@@ -422,7 +429,7 @@ public class SqlQueryScheduler
 
     private boolean shouldRetry(ErrorCode errorCode)
     {
-        return retryPolicy == RetryPolicy.QUERY && currentAttempt.get() < maxRetryAttempts && isRetryableErrorCode(errorCode);
+        return retryPolicy == RetryPolicy.QUERY && currentAttempt.get() < maxQueryRetryAttempts && isRetryableErrorCode(errorCode);
     }
 
     private static boolean isRetryableErrorCode(ErrorCode errorCode)
@@ -1745,7 +1752,8 @@ public class SqlQueryScheduler
                 ExchangeManager exchangeManager,
                 NodePartitioningManager nodePartitioningManager,
                 TaskLifecycleListener coordinatorTaskLifecycleListener,
-                int retryAttempts,
+                int taskRetryAttemptsOverall,
+                int taskRetryAttemptsPerTask,
                 ScheduledExecutorService scheduledExecutorService,
                 SplitSchedulerStats schedulerStats,
                 NodeAllocatorService nodeAllocatorService,
@@ -1818,7 +1826,8 @@ public class SqlQueryScheduler
                             sourceExchanges.buildOrThrow(),
                             inputBucketToPartition.getBucketToPartitionMap(),
                             inputBucketToPartition.getBucketNodeMap(),
-                            retryAttempts);
+                            taskRetryAttemptsOverall,
+                            taskRetryAttemptsPerTask);
 
                     schedulers.add(scheduler);
                 }
