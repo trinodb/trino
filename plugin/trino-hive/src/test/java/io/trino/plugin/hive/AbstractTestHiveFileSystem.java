@@ -79,7 +79,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.IntStream;
@@ -196,7 +195,6 @@ public abstract class AbstractTestHiveFileSystem
                         new ThriftMetastoreConfig(),
                         hdfsEnvironment,
                         false)),
-                executor,
                 getBasePath(),
                 hdfsEnvironment);
         locationService = new HiveLocationService(hdfsEnvironment);
@@ -543,9 +541,9 @@ public abstract class AbstractTestHiveFileSystem
         private final Path basePath;
         private final HdfsEnvironment hdfsEnvironment;
 
-        public TestingHiveMetastore(HiveMetastore delegate, Executor executor, Path basePath, HdfsEnvironment hdfsEnvironment)
+        public TestingHiveMetastore(HiveMetastore delegate, Path basePath, HdfsEnvironment hdfsEnvironment)
         {
-            super(delegate, executor, OptionalLong.empty(), OptionalLong.empty(), 0, StatsRecording.ENABLED);
+            super(delegate, OptionalLong.empty(), OptionalLong.empty(), Optional.empty(), 0, StatsRecording.ENABLED);
             this.basePath = basePath;
             this.hdfsEnvironment = hdfsEnvironment;
         }
