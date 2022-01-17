@@ -9,3 +9,6 @@
 
 jdbc:
   - client/trino-jdbc/**
+
+docs:
+  - docs/**
