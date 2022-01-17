@@ -96,7 +96,7 @@ public class TestJoinStatsRule
             .put(new Symbol(RIGHT_JOIN_COLUMN_2), DOUBLE)
             .put(new Symbol(LEFT_OTHER_COLUMN), DOUBLE)
             .put(new Symbol(RIGHT_OTHER_COLUMN), BIGINT)
-            .build());
+            .buildOrThrow());
 
     @Test
     public void testStatsForInnerJoin()

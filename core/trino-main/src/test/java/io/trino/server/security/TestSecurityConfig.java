@@ -43,7 +43,7 @@ public class TestSecurityConfig
                 .put("http-server.authentication.allow-insecure-over-http", "false")
                 .put("management.user", "management-user")
                 .put("management.user.https-enabled", "true")
-                .build();
+                .buildOrThrow();
 
         SecurityConfig expected = new SecurityConfig()
                 .setAuthenticationTypes(ImmutableList.of("KERBEROS", "PASSWORD"))

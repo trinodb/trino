@@ -119,7 +119,7 @@ public class StructColumnReader
             }
         }
         this.fieldNames = fieldNames.build();
-        this.structFields = structFields.build();
+        this.structFields = structFields.buildOrThrow();
     }
 
     @Override

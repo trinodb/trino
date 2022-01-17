@@ -36,7 +36,7 @@ public class TestFixedUserWebUiConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("web-ui.user", "some-user")
-                .build();
+                .buildOrThrow();
 
         FixedUserWebUiConfig expected = new FixedUserWebUiConfig()
                 .setUsername("some-user");

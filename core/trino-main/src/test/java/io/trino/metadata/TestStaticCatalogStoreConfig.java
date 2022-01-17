@@ -40,7 +40,7 @@ public class TestStaticCatalogStoreConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("catalog.config-dir", "/foo")
                 .put("catalog.disabled-catalogs", "abc,xyz")
-                .build();
+                .buildOrThrow();
 
         StaticCatalogStoreConfig expected = new StaticCatalogStoreConfig()
                 .setCatalogConfigurationDir(new File("/foo"))

@@ -50,7 +50,7 @@ public class TestOracleCaseInsensitiveMapping
                 ImmutableMap.<String, String>builder()
                         .putAll(OracleQueryRunner.connectionProperties(oracleServer))
                         .put("case-insensitive-name-matching", "true")
-                        .build(),
+                        .buildOrThrow(),
                 ImmutableList.of());
     }
 

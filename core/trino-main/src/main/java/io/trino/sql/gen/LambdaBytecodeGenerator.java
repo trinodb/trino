@@ -92,7 +92,7 @@ public final class LambdaBytecodeGenerator
                     lambdaExpression,
                     "lambda_" + counter,
                     containerClassDefinition,
-                    compiledLambdaMap.build(),
+                    compiledLambdaMap.buildOrThrow(),
                     callSiteBinder,
                     cachedInstanceBinder,
                     metadata);
@@ -100,7 +100,7 @@ public final class LambdaBytecodeGenerator
             counter++;
         }
 
-        return compiledLambdaMap.build();
+        return compiledLambdaMap.buildOrThrow();
     }
 
     /**
@@ -130,7 +130,7 @@ public final class LambdaBytecodeGenerator
         RowExpressionCompiler innerExpressionCompiler = new RowExpressionCompiler(
                 callSiteBinder,
                 cachedInstanceBinder,
-                variableReferenceCompiler(parameterMapBuilder.build()),
+                variableReferenceCompiler(parameterMapBuilder.buildOrThrow()),
                 metadata,
                 compiledLambdaMap);
 

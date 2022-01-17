@@ -243,7 +243,7 @@ public class RaptorMetadata
             columns.add(hiddenColumn(BUCKET_NUMBER_COLUMN_NAME, INTEGER));
         }
 
-        return new ConnectorTableMetadata(tableName, columns, properties.build());
+        return new ConnectorTableMetadata(tableName, columns, properties.buildOrThrow());
     }
 
     @Override
@@ -269,7 +269,7 @@ public class RaptorMetadata
             builder.put(bucketNumberColumn.getColumnName(), bucketNumberColumn);
         }
 
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @Override
@@ -358,7 +358,7 @@ public class RaptorMetadata
             columnId++;
         }
 
-        Optional<DistributionInfo> distribution = getOrCreateDistribution(map.build(), metadata.getProperties());
+        Optional<DistributionInfo> distribution = getOrCreateDistribution(map.buildOrThrow(), metadata.getProperties());
         if (distribution.isEmpty()) {
             return Optional.empty();
         }
@@ -883,7 +883,7 @@ public class RaptorMetadata
         for (ViewResult view : dao.getViews(schemaName.orElse(null), null)) {
             map.put(view.getName(), VIEW_CODEC.fromJson(view.getData()));
         }
-        return map.build();
+        return map.buildOrThrow();
     }
 
     @Override

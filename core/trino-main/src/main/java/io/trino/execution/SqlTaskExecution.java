@@ -211,7 +211,7 @@ public class SqlTaskExecution
                     }
                 }
             }
-            this.driverRunnerFactoriesWithSplitLifeCycle = driverRunnerFactoriesWithSplitLifeCycle.build();
+            this.driverRunnerFactoriesWithSplitLifeCycle = driverRunnerFactoriesWithSplitLifeCycle.buildOrThrow();
             this.driverRunnerFactoriesWithDriverGroupLifeCycle = driverRunnerFactoriesWithDriverGroupLifeCycle.build();
             this.driverRunnerFactoriesWithTaskLifeCycle = driverRunnerFactoriesWithTaskLifeCycle.build();
 
@@ -1176,8 +1176,8 @@ public class SqlTaskExecution
             }
             this.pipelineWithTaskLifeCycleCount = pipelineWithTaskLifeCycleCount;
             this.pipelineWithDriverGroupLifeCycleCount = pipelineWithDriverGroupLifeCycleCount;
-            this.perPipelineAndLifespan = perPipelineAndLifespan.build();
-            this.perPipeline = perPipeline.build();
+            this.perPipelineAndLifespan = perPipelineAndLifespan.buildOrThrow();
+            this.perPipeline = perPipeline.buildOrThrow();
         }
 
         public synchronized void setNoMoreLifespans()

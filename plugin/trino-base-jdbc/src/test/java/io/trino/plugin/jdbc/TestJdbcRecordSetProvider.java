@@ -116,7 +116,7 @@ public class TestJdbcRecordSetProvider
                 .put("ten", 10L)
                 .put("eleven", 11L)
                 .put("twelve", 12L)
-                .build());
+                .buildOrThrow());
     }
 
     @Test

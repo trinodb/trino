@@ -455,7 +455,7 @@ public class TestMergeWindows
         leftTableScanBuilder.put(QUANTITY_ALIAS, "quantity");
         leftTableScanBuilder.put(SHIPDATE_ALIAS, "shipdate");
 
-        PlanMatchPattern leftTableScan = tableScan("lineitem", leftTableScanBuilder.build());
+        PlanMatchPattern leftTableScan = tableScan("lineitem", leftTableScanBuilder.buildOrThrow());
 
         PlanMatchPattern rightTableScan = tableScan(
                 "lineitem",

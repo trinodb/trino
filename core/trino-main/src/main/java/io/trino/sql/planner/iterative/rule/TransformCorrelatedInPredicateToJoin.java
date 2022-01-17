@@ -222,7 +222,7 @@ public class TransformCorrelatedInPredicateToJoin
                 ImmutableMap.<Symbol, AggregationNode.Aggregation>builder()
                         .put(countMatchesSymbol, countWithFilter(session, matchConditionSymbol))
                         .put(countNullMatchesSymbol, countWithFilter(session, nullMatchConditionSymbol))
-                        .build(),
+                        .buildOrThrow(),
                 singleGroupingSet(probeSide.getOutputSymbols()),
                 ImmutableList.of(),
                 AggregationNode.Step.SINGLE,

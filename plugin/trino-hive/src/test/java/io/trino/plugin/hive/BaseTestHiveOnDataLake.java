@@ -95,7 +95,7 @@ public abstract class BaseTestHiveOnDataLake
                         // Below are required to enable caching on metastore
                         .put("hive.metastore-cache-ttl", "1d")
                         .put("hive.metastore-refresh-interval", "1d")
-                        .build());
+                        .buildOrThrow());
     }
 
     @BeforeClass

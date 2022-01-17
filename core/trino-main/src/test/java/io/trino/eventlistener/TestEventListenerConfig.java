@@ -44,7 +44,7 @@ public class TestEventListenerConfig
 
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("event-listener.config-files", config1.toString() + "," + config2.toString())
-                .build();
+                .buildOrThrow();
 
         EventListenerConfig expected = new EventListenerConfig()
                 .setEventListenerFiles(ImmutableList.of(config1.toFile(), config2.toFile()));

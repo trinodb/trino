@@ -220,7 +220,7 @@ public class JmxRecordSetProvider
         for (Attribute attribute : mbeanServer.getAttributes(objectName, columnNamesArray).asList()) {
             attributes.put(attribute.getName(), Optional.ofNullable(attribute.getValue()));
         }
-        return attributes.build();
+        return attributes.buildOrThrow();
     }
 
     private List<List<Object>> getLiveRows(JmxTableHandle tableHandle, List<? extends ColumnHandle> columns)

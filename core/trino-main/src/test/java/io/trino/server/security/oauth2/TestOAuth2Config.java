@@ -74,7 +74,7 @@ public class TestOAuth2Config
                 .put("http-server.authentication.oauth2.challenge-timeout", "90s")
                 .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.oauth2.user-mapping.file", userMappingFile.toString())
-                .build();
+                .buildOrThrow();
 
         OAuth2Config expected = new OAuth2Config()
                 .setStateKey("key-secret")

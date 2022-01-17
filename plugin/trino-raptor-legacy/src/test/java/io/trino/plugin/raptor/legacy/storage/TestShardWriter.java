@@ -184,7 +184,7 @@ public class TestShardWriter
                     .put(8L, arrayType.getTypeId())
                     .put(9L, mapType.getTypeId())
                     .put(10L, arrayOfArrayType.getTypeId())
-                    .build()));
+                    .buildOrThrow()));
         }
 
         File crcFile = new File(file.getParentFile(), "." + file.getName() + ".crc");

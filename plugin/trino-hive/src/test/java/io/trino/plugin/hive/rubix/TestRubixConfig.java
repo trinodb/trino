@@ -58,7 +58,7 @@ public class TestRubixConfig
                 .put("hive.cache.bookkeeper-port", "1234")
                 .put("hive.cache.data-transfer-port", "1235")
                 .put("hive.cache.start-server-on-coordinator", "true")
-                .build();
+                .buildOrThrow();
 
         RubixConfig expected = new RubixConfig()
                 .setReadMode(RubixConfig.ReadMode.READ_THROUGH)

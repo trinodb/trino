@@ -117,7 +117,7 @@ public class TableStatisticsMaker
                     toTrinoType(type, typeManager),
                     type.typeId().javaClass()));
         }
-        Map<Integer, ColumnFieldDetails> idToDetails = idToDetailsBuilder.build();
+        Map<Integer, ColumnFieldDetails> idToDetails = idToDetailsBuilder.buildOrThrow();
 
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(intersection))
@@ -191,7 +191,7 @@ public class TableStatisticsMaker
             }
             columnHandleBuilder.put(columnHandle, columnBuilder.build());
         }
-        return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.build());
+        return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.buildOrThrow());
     }
 
     private boolean dataFileMatches(

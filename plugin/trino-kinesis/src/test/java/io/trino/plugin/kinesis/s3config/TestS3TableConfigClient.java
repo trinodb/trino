@@ -94,7 +94,7 @@ public class TestS3TableConfigClient
                 .put("kinesis.hide-internal-columns", "false")
                 .put("kinesis.access-key", TestUtils.noneToBlank(accessKey))
                 .put("kinesis.secret-key", TestUtils.noneToBlank(secretKey))
-                .build();
+                .buildOrThrow();
 
         KinesisPlugin kinesisPlugin = new KinesisPlugin();
         KinesisConnector kinesisConnector = TestUtils.createConnector(kinesisPlugin, properties, false);

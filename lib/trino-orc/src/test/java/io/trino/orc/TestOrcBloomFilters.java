@@ -81,7 +81,7 @@ public class TestOrcBloomFilters
             .put(987654L, TIMESTAMP_MILLIS)
             .put(234.567, DOUBLE)
             .put((long) floatToIntBits(987.654f), REAL)
-            .build();
+            .buildOrThrow();
 
     @Test
     public void testHiveBloomFilterSerde()

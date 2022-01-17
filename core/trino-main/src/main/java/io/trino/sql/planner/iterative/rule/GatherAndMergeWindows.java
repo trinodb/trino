@@ -193,7 +193,7 @@ public final class GatherAndMergeWindows
                     parent.getId(),
                     child.getSource(),
                     parent.getSpecification(),
-                    functionsBuilder.build(),
+                    functionsBuilder.buildOrThrow(),
                     parent.getHashSymbol(),
                     parent.getPrePartitionedInputs(),
                     parent.getPreSortedOrderPrefix());

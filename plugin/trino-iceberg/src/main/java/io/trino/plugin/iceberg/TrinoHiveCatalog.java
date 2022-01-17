@@ -367,7 +367,7 @@ class TrinoHiveCatalog
                 .put(PRESTO_VERSION_NAME, trinoVersion)
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
-                .build();
+                .buildOrThrow();
 
         io.trino.plugin.hive.metastore.Table.Builder tableBuilder = io.trino.plugin.hive.metastore.Table.builder()
                 .setDatabaseName(schemaViewName.getSchemaName())
@@ -461,7 +461,7 @@ class TrinoHiveCatalog
                 }
             }
         }
-        return views.build();
+        return views.buildOrThrow();
     }
 
     @Override
@@ -543,7 +543,7 @@ class TrinoHiveCatalog
                 .put(PRESTO_VIEW_FLAG, "true")
                 .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)
                 .put(TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT)
-                .build();
+                .buildOrThrow();
 
         Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty());
 
@@ -632,7 +632,7 @@ class TrinoHiveCatalog
                         .collect(toImmutableList()),
                 definition.getComment(),
                 materializedView.getOwner(),
-                properties.build()));
+                properties.buildOrThrow()));
     }
 
     @Override

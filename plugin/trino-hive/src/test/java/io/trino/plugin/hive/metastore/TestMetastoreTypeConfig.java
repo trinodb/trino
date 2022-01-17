@@ -36,7 +36,7 @@ public class TestMetastoreTypeConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore", "foo")
-                .build();
+                .buildOrThrow();
 
         MetastoreTypeConfig expected = new MetastoreTypeConfig()
                 .setMetastoreType("foo");

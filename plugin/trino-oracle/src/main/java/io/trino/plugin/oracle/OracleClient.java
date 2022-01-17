@@ -162,7 +162,7 @@ public class OracleClient
             .put(VARBINARY, WriteMapping.sliceMapping("blob", varbinaryWriteFunction()))
             .put(DATE, WriteMapping.longMapping("date", oracleDateWriteFunction()))
             .put(TIMESTAMP_TZ_MILLIS, WriteMapping.longMapping("timestamp(3) with time zone", oracleTimestampWithTimeZoneWriteFunction()))
-            .build();
+            .buildOrThrow();
 
     @Inject
     public OracleClient(

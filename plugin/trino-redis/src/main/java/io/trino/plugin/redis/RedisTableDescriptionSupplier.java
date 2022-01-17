@@ -67,7 +67,7 @@ public class RedisTableDescriptionSupplier
                 }
             }
 
-            Map<SchemaTableName, RedisTableDescription> tableDefinitions = builder.build();
+            Map<SchemaTableName, RedisTableDescription> tableDefinitions = builder.buildOrThrow();
 
             log.debug("Loaded table definitions: %s", tableDefinitions.keySet());
 
@@ -96,7 +96,7 @@ public class RedisTableDescriptionSupplier
                 }
             }
 
-            return builder.build();
+            return builder.buildOrThrow();
         }
         catch (IOException e) {
             log.warn(e, "Error: ");

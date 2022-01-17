@@ -45,7 +45,7 @@ public class TestStaticCredentialsConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("bigquery.credentials-key", "key")
-                .build();
+                .buildOrThrow();
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
         StaticCredentialsConfig config = configurationFactory.build(StaticCredentialsConfig.class);
@@ -62,7 +62,7 @@ public class TestStaticCredentialsConfig
 
             Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                     .put("bigquery.credentials-file", file.toString())
-                    .build();
+                    .buildOrThrow();
 
             ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
             StaticCredentialsConfig config = configurationFactory.build(StaticCredentialsConfig.class);
@@ -81,7 +81,7 @@ public class TestStaticCredentialsConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("bigquery.credentials-key", "key")
                 .put("bigquery.credentials-file", "file")
-                .build();
+                .buildOrThrow();
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
         assertThatThrownBy(() -> configurationFactory.build(StaticCredentialsConfig.class))

@@ -50,7 +50,7 @@ public class TestConnectorExpressionTranslator
     private static final Map<Symbol, Type> symbols = ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("double_symbol_1"), DOUBLE)
             .put(new Symbol("row_symbol_1"), ROW_TYPE)
-            .build();
+            .buildOrThrow();
 
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(symbols);
     private static final Map<String, Symbol> variableMappings = symbols.entrySet().stream()

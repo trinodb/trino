@@ -138,13 +138,13 @@ public final class Session
         connectorProperties.entrySet().stream()
                 .map(entry -> Maps.immutableEntry(entry.getKey(), ImmutableMap.copyOf(entry.getValue())))
                 .forEach(catalogPropertiesBuilder::put);
-        this.connectorProperties = catalogPropertiesBuilder.build();
+        this.connectorProperties = catalogPropertiesBuilder.buildOrThrow();
 
         ImmutableMap.Builder<String, Map<String, String>> unprocessedCatalogPropertiesBuilder = ImmutableMap.builder();
         unprocessedCatalogProperties.entrySet().stream()
                 .map(entry -> Maps.immutableEntry(entry.getKey(), ImmutableMap.copyOf(entry.getValue())))
                 .forEach(unprocessedCatalogPropertiesBuilder::put);
-        this.unprocessedCatalogProperties = unprocessedCatalogPropertiesBuilder.build();
+        this.unprocessedCatalogProperties = unprocessedCatalogPropertiesBuilder.buildOrThrow();
 
         checkArgument(transactionId.isEmpty() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
 
@@ -352,7 +352,7 @@ public final class Session
                 Optional.of(transactionId),
                 clientTransactionSupport,
                 Identity.from(identity)
-                        .withConnectorRoles(connectorRoles.build())
+                        .withConnectorRoles(connectorRoles.buildOrThrow())
                         .build(),
                 source,
                 catalog,
@@ -369,7 +369,7 @@ public final class Session
                 resourceEstimates,
                 start,
                 systemProperties,
-                connectorProperties.build(),
+                connectorProperties.buildOrThrow(),
                 ImmutableMap.of(),
                 sessionPropertyManager,
                 preparedStatements,

@@ -48,7 +48,7 @@ public class TestServerConfig
                 .put("shutdown.grace-period", "5m")
                 .put("query-results.compression-enabled", "false")
                 .put("query.info-url-template", "https://example.com/query/${QUERY_ID}")
-                .build();
+                .buildOrThrow();
 
         ServerConfig expected = new ServerConfig()
                 .setCoordinator(false)

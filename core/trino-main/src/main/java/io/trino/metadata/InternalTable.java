@@ -85,7 +85,7 @@ public class InternalTable
             for (String columnName : columnNames) {
                 columnIndexes.put(columnName, columnIndex++);
             }
-            this.columnIndexes = columnIndexes.build();
+            this.columnIndexes = columnIndexes.buildOrThrow();
 
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             checkArgument(columnNames.size() == types.size(),

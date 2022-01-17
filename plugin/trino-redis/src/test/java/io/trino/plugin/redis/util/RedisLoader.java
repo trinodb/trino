@@ -119,7 +119,7 @@ public class RedisLoader
                                         builder.put(columns.get(i).getName(), value);
                                     }
                                 }
-                                jedis.set(redisKey, jsonEncoder.toString(builder.build()));
+                                jedis.set(redisKey, jsonEncoder.toString(builder.buildOrThrow()));
                                 break;
                             case "hash":
                                 // add keys to zset

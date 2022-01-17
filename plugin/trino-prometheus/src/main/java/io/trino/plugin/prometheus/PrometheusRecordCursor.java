@@ -197,7 +197,7 @@ public class PrometheusRecordCursor
 
     private static Map<String, String> metricHeaderToMap(Map<String, String> mapToConvert)
     {
-        return ImmutableMap.<String, String>builder().putAll(mapToConvert).build();
+        return ImmutableMap.<String, String>builder().putAll(mapToConvert).buildOrThrow();
     }
 
     static Block getBlockFromMap(Type mapType, Map<?, ?> map)

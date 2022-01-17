@@ -48,7 +48,7 @@ public class TestMappingConfig
                 .put("case-insensitive-name-matching.cache-ttl", "1s")
                 .put("case-insensitive-name-matching.config-file", configFile)
                 .put("case-insensitive-name-matching.config-file.refresh-period", "1s")
-                .build();
+                .buildOrThrow();
 
         MappingConfig expected = new MappingConfig()
                 .setCaseInsensitiveNameMatching(true)

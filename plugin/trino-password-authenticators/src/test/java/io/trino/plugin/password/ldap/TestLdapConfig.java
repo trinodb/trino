@@ -70,7 +70,7 @@ public class TestLdapConfig
                 .put("ldap.bind-password", "password1234")
                 .put("ldap.ignore-referrals", "true")
                 .put("ldap.cache-ttl", "2m")
-                .build();
+                .buildOrThrow();
 
         LdapConfig expected = new LdapConfig()
                 .setLdapUrl("ldaps://localhost:636")

@@ -121,7 +121,7 @@ public class MongoMetadata
         for (MongoColumnHandle columnHandle : columns) {
             columnHandles.put(columnHandle.getName(), columnHandle);
         }
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -137,7 +137,7 @@ public class MongoMetadata
                 // table disappeared during listing operation
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)

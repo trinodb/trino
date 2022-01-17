@@ -51,7 +51,7 @@ public class TestFileBasedAccessControlConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put(SECURITY_CONFIG_FILE, securityConfigFile.toString())
                 .put(SECURITY_REFRESH_PERIOD, "1s")
-                .build();
+                .buildOrThrow();
 
         FileBasedAccessControlConfig expected = new FileBasedAccessControlConfig()
                 .setConfigFile(securityConfigFile.toString())

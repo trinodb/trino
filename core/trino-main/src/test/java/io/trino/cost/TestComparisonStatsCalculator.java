@@ -172,7 +172,7 @@ public class TestComparisonStatsCalculator
                 .put(new Symbol("unknownRange"), DoubleType.DOUBLE)
                 .put(new Symbol("emptyRange"), DoubleType.DOUBLE)
                 .put(new Symbol("varchar"), VarcharType.createVarcharType(10))
-                .build());
+                .buildOrThrow());
     }
 
     private Consumer<SymbolStatsAssertion> equalTo(SymbolStatsEstimate estimate)

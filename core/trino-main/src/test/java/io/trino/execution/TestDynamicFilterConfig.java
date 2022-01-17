@@ -68,7 +68,7 @@ public class TestDynamicFilterConfig
                 .put("dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "256")
                 .put("dynamic-filtering.large-partitioned.max-size-per-driver", "64kB")
                 .put("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
-                .build();
+                .buildOrThrow();
 
         DynamicFilterConfig expected = new DynamicFilterConfig()
                 .setEnableDynamicFiltering(false)

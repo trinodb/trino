@@ -102,7 +102,7 @@ public class SheetsMetadata
             columnHandles.put(column.getName(), new SheetsColumnHandle(column.getName(), column.getType(), index));
             index++;
         }
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -117,7 +117,7 @@ public class SheetsMetadata
                 columns.put(tableName, tableMetadata.get().getColumns());
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     private Optional<ConnectorTableMetadata> getTableMetadata(SchemaTableName tableName)

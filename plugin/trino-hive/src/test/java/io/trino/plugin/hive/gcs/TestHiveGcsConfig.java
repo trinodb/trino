@@ -44,7 +44,7 @@ public class TestHiveGcsConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.gcs.json-key-file-path", jsonKeyFile.toString())
                 .put("hive.gcs.use-access-token", "true")
-                .build();
+                .buildOrThrow();
 
         HiveGcsConfig expected = new HiveGcsConfig()
                 .setJsonKeyFilePath(jsonKeyFile.toString())

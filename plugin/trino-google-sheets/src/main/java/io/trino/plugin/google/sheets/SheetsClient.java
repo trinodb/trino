@@ -195,7 +195,7 @@ public class SheetsClient
                 tableSheetMap.put(tableId.toLowerCase(Locale.ENGLISH), Optional.of(sheetId));
             }
         }
-        return tableSheetMap.build();
+        return tableSheetMap.buildOrThrow();
     }
 
     private Credential getCredentials()

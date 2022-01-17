@@ -101,7 +101,7 @@ public class TestTaskManagerConfig
                 .put("task.task-yield-threads", "8")
                 .put("task.level-time-multiplier", "2.1")
                 .put("task.statistics-cpu-timer-enabled", "false")
-                .build();
+                .buildOrThrow();
 
         TaskManagerConfig expected = new TaskManagerConfig()
                 .setInitialSplitsPerNode(1)

@@ -60,7 +60,7 @@ public class TestIcebergConfig
                 .put("iceberg.dynamic-filtering.wait-timeout", "1h")
                 .put("iceberg.table-statistics-enabled", "false")
                 .put("iceberg.projection-pushdown-enabled", "false")
-                .build();
+                .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
                 .setFileFormat(PARQUET)

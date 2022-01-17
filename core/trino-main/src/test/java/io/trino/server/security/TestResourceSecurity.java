@@ -117,7 +117,7 @@ public class TestResourceSecurity
             .put("http-server.https.keystore.key", "")
             .put("http-server.process-forwarded", "true")
             .put("http-server.authentication.insecure.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
-            .build();
+            .buildOrThrow();
     private static final String TEST_USER = "test-user";
     private static final String TEST_USER_LOGIN = TEST_USER + "@allowed";
     private static final String TEST_PASSWORD = "test-password";
@@ -168,7 +168,7 @@ public class TestResourceSecurity
         try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .put("http-server.authentication.insecure.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
@@ -198,7 +198,7 @@ public class TestResourceSecurity
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.allow-insecure-over-http", "false")
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
@@ -217,7 +217,7 @@ public class TestResourceSecurity
                         .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
@@ -237,7 +237,7 @@ public class TestResourceSecurity
                         .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate, TestResourceSecurity::authenticate2);
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
@@ -257,7 +257,7 @@ public class TestResourceSecurity
                         .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate, TestResourceSecurity::authenticate2);
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
@@ -282,7 +282,7 @@ public class TestResourceSecurity
                         .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
-                        .build())
+                        .buildOrThrow())
                 .setAdditionalModule(binder -> jaxrsBinder(binder).bind(TestResource.class))
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
@@ -337,7 +337,7 @@ public class TestResourceSecurity
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.allow-insecure-over-http", "true")
                         .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
@@ -359,7 +359,7 @@ public class TestResourceSecurity
                         .put("http-server.authentication.allow-insecure-over-http", "true")
                         .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
                         .put("management.user", MANAGEMENT_USER)
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
@@ -382,7 +382,7 @@ public class TestResourceSecurity
                         .put("http-server.authentication.allow-insecure-over-http", "false")
                         .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
                         .put("management.user", MANAGEMENT_USER)
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
@@ -409,7 +409,7 @@ public class TestResourceSecurity
                         .put("http-server.authentication.allow-insecure-over-http", "true")
                         .put("management.user", MANAGEMENT_USER)
                         .put("management.user.https-enabled", "true")
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
@@ -430,7 +430,7 @@ public class TestResourceSecurity
                         .put("http-server.authentication.type", "certificate")
                         .put("http-server.https.truststore.path", LOCALHOST_KEYSTORE)
                         .put("http-server.https.truststore.key", "")
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
@@ -468,7 +468,7 @@ public class TestResourceSecurity
                         .put("http-server.authentication.type", "jwt")
                         .put("http-server.authentication.jwt.key-file", HMAC_KEY)
                         .put("http-server.authentication.jwt.principal-field", principalField.orElse("sub"))
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
@@ -507,7 +507,7 @@ public class TestResourceSecurity
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "jwt")
                         .put("http-server.authentication.jwt.key-file", jwkServer.getBaseUrl().toString())
-                        .build())
+                        .buildOrThrow())
                 .build()) {
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.NO_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
@@ -591,7 +591,7 @@ public class TestResourceSecurity
                         .put("http-server.authentication.oauth2.client-id", clientId)
                         .put("http-server.authentication.oauth2.client-secret", "client-secret")
                         .put("http-server.authentication.oauth2.principal-field", principalField.orElse("sub"))
-                        .build())
+                        .buildOrThrow())
                 .setAdditionalModule(binder -> newOptionalBinder(binder, OAuth2Client.class)
                         .setBinding()
                         .toInstance(new OAuth2Client()

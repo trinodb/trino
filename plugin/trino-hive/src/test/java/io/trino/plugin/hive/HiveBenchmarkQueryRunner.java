@@ -79,7 +79,7 @@ public final class HiveBenchmarkQueryRunner
 
         Map<String, String> hiveCatalogConfig = ImmutableMap.<String, String>builder()
                 .put("hive.max-split-size", "10GB")
-                .build();
+                .buildOrThrow();
 
         localQueryRunner.createCatalog("hive", new TestingHiveConnectorFactory(metastore), hiveCatalogConfig);
 

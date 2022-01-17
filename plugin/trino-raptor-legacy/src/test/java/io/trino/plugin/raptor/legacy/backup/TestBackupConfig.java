@@ -45,7 +45,7 @@ public class TestBackupConfig
                 .put("backup.timeout", "42s")
                 .put("backup.timeout-threads", "13")
                 .put("backup.threads", "3")
-                .build();
+                .buildOrThrow();
 
         BackupConfig expected = new BackupConfig()
                 .setProvider("file")

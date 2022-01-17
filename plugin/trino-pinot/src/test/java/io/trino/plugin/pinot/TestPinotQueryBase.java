@@ -108,6 +108,6 @@ public class TestPinotQueryBase
                         .addSingleValueDimension("non_quoted", DataType.STRING)
                         .addSingleValueDimension("qu\"ot\"ed", DataType.STRING)
                         .build())
-                .build();
+                .buildOrThrow();
     }
 }

@@ -38,7 +38,7 @@ public class TestPasswordConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("elasticsearch.auth.user", "user")
                 .put("elasticsearch.auth.password", "password")
-                .build();
+                .buildOrThrow();
 
         PasswordConfig expected = new PasswordConfig()
                 .setUser("user")

@@ -98,7 +98,7 @@ public class TestQueryStateMachine
     private static final Map<String, String> SET_SESSION_PROPERTIES = ImmutableMap.<String, String>builder()
             .put("fruit", "apple")
             .put("drink", "coffee")
-            .build();
+            .buildOrThrow();
     private static final List<String> RESET_SESSION_PROPERTIES = ImmutableList.of("candy");
     private static final Optional<QueryType> QUERY_TYPE = Optional.of(QueryType.SELECT);
 

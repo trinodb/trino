@@ -36,7 +36,7 @@ public class TestWebUiConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("web-ui.enabled", "false")
-                .build();
+                .buildOrThrow();
 
         WebUiConfig expected = new WebUiConfig()
                 .setEnabled(false);

@@ -670,7 +670,7 @@ public class TestSourcePartitionedScheduler
                 .forEach(fragmentId -> outputBuffers.put(fragmentId, new PartitionedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 10)));
         return createPipelinedStageExecution(
                 stage,
-                outputBuffers.build(),
+                outputBuffers.buildOrThrow(),
                 TaskLifecycleListener.NO_OP,
                 new NoOpFailureDetector(),
                 queryExecutor,

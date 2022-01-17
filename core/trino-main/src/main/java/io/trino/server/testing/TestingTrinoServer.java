@@ -284,7 +284,7 @@ public class TestingTrinoServer
 
         injector = app
                 .doNotInitializeLogging()
-                .setRequiredConfigurationProperties(serverProperties.build())
+                .setRequiredConfigurationProperties(serverProperties.buildOrThrow())
                 .setOptionalConfigurationProperties(optionalProperties)
                 .quiet()
                 .initialize();

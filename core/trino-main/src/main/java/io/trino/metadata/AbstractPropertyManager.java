@@ -133,10 +133,10 @@ abstract class AbstractPropertyManager<K>
 
             properties.put(property.getName(), value);
         }
-        Map<String, Object> userSpecifiedProperties = properties.build();
+        Map<String, Object> userSpecifiedProperties = properties.buildOrThrow();
 
         if (!setDefaultProperties) {
-            return properties.build();
+            return properties.buildOrThrow();
         }
         // Fill in the remaining properties with non-null defaults
         for (PropertyMetadata<?> propertyMetadata : supportedProperties.values()) {
@@ -147,7 +147,7 @@ abstract class AbstractPropertyManager<K>
                 }
             }
         }
-        return properties.build();
+        return properties.buildOrThrow();
     }
 
     protected final Map<K, Map<String, PropertyMetadata<?>>> doGetAllProperties()

@@ -36,7 +36,7 @@ public class TestRemoteQueryCancellationConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("remote-query-async-cancellation.enabled", "false")
-                .build();
+                .buildOrThrow();
 
         RemoteQueryCancellationConfig expected = new RemoteQueryCancellationConfig()
                 .setRemoteQueryCancellationEnabled(false);

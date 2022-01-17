@@ -86,7 +86,7 @@ public class TestRowFilter
         MockConnectorFactory mock = MockConnectorFactory.builder()
                 .withGetViews((s, prefix) -> ImmutableMap.<SchemaTableName, ConnectorViewDefinition>builder()
                         .put(new SchemaTableName("default", "nation_view"), view)
-                        .build())
+                        .buildOrThrow())
                 .withGetColumns(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
                         return TPCH_NATION_SCHEMA;

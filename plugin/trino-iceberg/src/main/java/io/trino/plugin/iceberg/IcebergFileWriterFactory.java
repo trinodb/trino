@@ -227,7 +227,7 @@ public class IcebergFileWriterFactory
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())
                             .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                            .build(),
+                            .buildOrThrow(),
                     validationInputFactory,
                     getOrcWriterValidateMode(session),
                     orcWriterStats);

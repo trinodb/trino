@@ -44,7 +44,7 @@ public class TestHdfsKerberosConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.hdfs.trino.principal", "trino@EXAMPLE.COM")
                 .put("hive.hdfs.trino.keytab", keytab.toString())
-                .build();
+                .buildOrThrow();
 
         HdfsKerberosConfig expected = new HdfsKerberosConfig()
                 .setHdfsTrinoPrincipal("trino@EXAMPLE.COM")

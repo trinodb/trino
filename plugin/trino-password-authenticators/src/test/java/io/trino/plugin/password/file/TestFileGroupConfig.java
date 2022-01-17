@@ -47,7 +47,7 @@ public class TestFileGroupConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("file.group-file", groupFile.toString())
                 .put("file.refresh-period", "42s")
-                .build();
+                .buildOrThrow();
 
         FileGroupConfig expected = new FileGroupConfig()
                 .setGroupFile(groupFile.toFile())

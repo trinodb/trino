@@ -48,7 +48,7 @@ public class TestPasswordAuthenticatorConfig
                 .put("http-server.authentication.password.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.password.user-mapping.file", userMappingFile.toString())
                 .put("password-authenticator.config-files", config1.toString() + "," + config2.toString())
-                .build();
+                .buildOrThrow();
 
         PasswordAuthenticatorConfig expected = new PasswordAuthenticatorConfig()
                 .setUserMappingPattern("(.*)@something")

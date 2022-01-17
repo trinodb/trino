@@ -45,7 +45,7 @@ public class TestDbSessionPropertyManagerConfig
                 .put("session-property-manager.db.username", "bar")
                 .put("session-property-manager.db.password", "pass")
                 .put("session-property-manager.db.refresh-period", "50s")
-                .build();
+                .buildOrThrow();
 
         DbSessionPropertyManagerConfig expected = new DbSessionPropertyManagerConfig()
                 .setConfigDbUrl("foo")

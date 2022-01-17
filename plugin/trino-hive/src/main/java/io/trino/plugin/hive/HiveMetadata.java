@@ -527,7 +527,7 @@ public class HiveMetadata
                                 .putAll(tableMetadata.getProperties())
                                 // we use table properties as a vehicle to pass to the analyzer the subset of columns to be analyzed
                                 .put(ANALYZE_COLUMNS_PROPERTY, columnNames)
-                                .build(),
+                                .buildOrThrow(),
                         tableMetadata.getComment()))
                 .orElse(tableMetadata);
     }
@@ -646,7 +646,7 @@ public class HiveMetadata
             properties.put(AUTO_PURGE, true);
         }
 
-        return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment);
+        return new ConnectorTableMetadata(tableName, columns.build(), properties.buildOrThrow(), comment);
     }
 
     private static Optional<String> getCsvSerdeProperty(Table table, String key)
@@ -1015,7 +1015,7 @@ public class HiveMetadata
         // Table comment property
         tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));
 
-        return tableProperties.build();
+        return tableProperties.buildOrThrow();
     }
 
     private static void checkFormatForProperty(HiveStorageFormat actualStorageFormat, HiveStorageFormat expectedStorageFormat, String propertyName)
@@ -1144,7 +1144,7 @@ public class HiveMetadata
                 .setTableType((external ? EXTERNAL_TABLE : MANAGED_TABLE).name())
                 .setDataColumns(columns.build())
                 .setPartitionColumns(partitionColumns)
-                .setParameters(tableParameters.build());
+                .setParameters(tableParameters.buildOrThrow());
 
         tableBuilder.getStorageBuilder()
                 .setStorageFormat(fromHiveStorageFormat(hiveStorageFormat))
@@ -1297,7 +1297,7 @@ public class HiveMetadata
                 }
             }
             verify(usedComputedStatistics == computedStatistics.size(), "All computed statistics must be used");
-            metastore.setPartitionStatistics(identity, table, partitionStatistics.build());
+            metastore.setPartitionStatistics(identity, table, partitionStatistics.buildOrThrow());
         }
     }
 
@@ -1952,7 +1952,7 @@ public class HiveMetadata
                 .setParameters(ImmutableMap.<String, String>builder()
                         .put(PRESTO_VERSION_NAME, prestoVersion)
                         .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                        .build())
+                        .buildOrThrow())
                 .withStorage(storage -> storage
                         .setStorageFormat(isRespectTableFormat(session) ?
                                 table.getStorage().getStorageFormat() :
@@ -2249,7 +2249,7 @@ public class HiveMetadata
                 .put(TRINO_CREATED_BY, "Trino Hive connector")
                 .put(PRESTO_VERSION_NAME, prestoVersion)
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
-                .build();
+                .buildOrThrow();
 
         Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty());
 
@@ -2375,7 +2375,7 @@ public class HiveMetadata
                 }
             }
         }
-        return views.build();
+        return views.buildOrThrow();
     }
 
     @Override
@@ -2683,7 +2683,7 @@ public class HiveMetadata
         }
 
         // Modify projections to refer to new variables
-        Map<ConnectorExpression, Variable> newVariables = newVariablesBuilder.build();
+        Map<ConnectorExpression, Variable> newVariables = newVariablesBuilder.buildOrThrow();
         List<ConnectorExpression> newProjections = projections.stream()
                 .map(expression -> replaceWithNewVariables(expression, newVariables))
                 .collect(toImmutableList());
@@ -3340,7 +3340,7 @@ public class HiveMetadata
             }
         }
 
-        Map<String, Optional<String>> columnComment = builder.build();
+        Map<String, Optional<String>> columnComment = builder.buildOrThrow();
 
         return handle -> ColumnMetadata.builder()
                 .setName(handle.getName())

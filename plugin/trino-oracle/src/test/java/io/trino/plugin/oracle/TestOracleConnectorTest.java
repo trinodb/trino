@@ -49,7 +49,7 @@ public class TestOracleConnectorTest
                         .put("allow-drop-table", "true")
                         .put("oracle.connection-pool.enabled", "false")
                         .put("oracle.remarks-reporting.enabled", "false")
-                        .build(),
+                        .buildOrThrow(),
                 REQUIRED_TPCH_TABLES);
     }
 

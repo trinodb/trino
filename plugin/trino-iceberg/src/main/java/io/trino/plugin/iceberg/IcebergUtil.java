@@ -188,7 +188,7 @@ public final class IcebergUtil
                 columns.put(field, i);
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     public static Map<Integer, PrimitiveType> primitiveFieldTypes(Schema schema)
@@ -351,7 +351,7 @@ public final class IcebergUtil
             }
         });
 
-        return partitionKeys.build();
+        return partitionKeys.buildOrThrow();
     }
 
     public static LocationProvider getLocationProvider(SchemaTableName schemaTableName, String tableLocation, Map<String, String> storageProperties)
@@ -395,6 +395,6 @@ public final class IcebergUtil
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
 
-        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, targetPath, propertiesBuilder.build());
+        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, targetPath, propertiesBuilder.buildOrThrow());
     }
 }

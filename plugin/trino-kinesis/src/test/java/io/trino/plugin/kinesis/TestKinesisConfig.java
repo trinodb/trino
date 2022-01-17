@@ -71,7 +71,7 @@ public class TestKinesisConfig
                 .put("kinesis.dynamo-write-capacity", "20")
                 .put("kinesis.checkpoint-logical-name", "process")
                 .put("kinesis.iterator-number", "1")
-                .build();
+                .buildOrThrow();
 
         KinesisConfig expected = new KinesisConfig()
                 .setTableDescriptionLocation("/var/lib/kinesis")

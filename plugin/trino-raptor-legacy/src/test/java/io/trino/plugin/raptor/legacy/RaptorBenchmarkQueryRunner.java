@@ -81,6 +81,6 @@ public final class RaptorBenchmarkQueryRunner
                 .put("metadata.db.filename", databaseDir.getAbsolutePath())
                 .put("storage.data-directory", dataDir.getAbsolutePath())
                 .put("storage.compress", "false")
-                .build();
+                .buildOrThrow();
     }
 }

@@ -36,7 +36,7 @@ public class TestSqlServerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("sqlserver.snapshot-isolation.disabled", "true")
-                .build();
+                .buildOrThrow();
 
         SqlServerConfig expected = new SqlServerConfig()
                 .setSnapshotIsolationDisabled(true);

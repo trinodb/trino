@@ -37,7 +37,7 @@ public class TestServerPluginsProviderConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("plugin.dir", "plugins-dir")
-                .build();
+                .buildOrThrow();
 
         ServerPluginsProviderConfig expected = new ServerPluginsProviderConfig()
                 .setInstalledPluginsDir(new File("plugins-dir"));

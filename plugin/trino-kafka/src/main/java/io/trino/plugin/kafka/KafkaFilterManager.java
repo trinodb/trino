@@ -185,7 +185,7 @@ public class KafkaFilterManager
             Optional<Long> newOffset = overrideFunction.apply(partition);
             partitionFilteredBeginOffsetsBuilder.put(partition, newOffset.map(index -> Long.max(partitionIndex, index)).orElse(partitionIndex));
         });
-        return partitionFilteredBeginOffsetsBuilder.build();
+        return partitionFilteredBeginOffsetsBuilder.buildOrThrow();
     }
 
     private static Map<TopicPartition, Long> overridePartitionEndOffsets(Map<TopicPartition, Long> partitionEndOffsets,
@@ -196,7 +196,7 @@ public class KafkaFilterManager
             Optional<Long> newOffset = overrideFunction.apply(partition);
             partitionFilteredEndOffsetsBuilder.put(partition, newOffset.map(index -> Long.min(partitionIndex, index)).orElse(partitionIndex));
         });
-        return partitionFilteredEndOffsetsBuilder.build();
+        return partitionFilteredEndOffsetsBuilder.buildOrThrow();
     }
 
     @VisibleForTesting

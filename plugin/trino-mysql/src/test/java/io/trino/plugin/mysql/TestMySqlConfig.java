@@ -44,7 +44,7 @@ public class TestMySqlConfig
                 .put("mysql.max-reconnects", "4")
                 .put("mysql.connection-timeout", "4s")
                 .put("mysql.jdbc.use-information-schema", "false")
-                .build();
+                .buildOrThrow();
 
         MySqlConfig expected = new MySqlConfig()
                 .setAutoReconnect(false)

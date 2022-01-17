@@ -42,7 +42,7 @@ public class TestSortExpressionExtractor
             .put(new Symbol("b2"), DOUBLE)
             .put(new Symbol("p1"), BIGINT)
             .put(new Symbol("p2"), DOUBLE)
-            .build());
+            .buildOrThrow());
     private static final Set<Symbol> BUILD_SYMBOLS = ImmutableSet.of(new Symbol("b1"), new Symbol("b2"));
 
     @Test

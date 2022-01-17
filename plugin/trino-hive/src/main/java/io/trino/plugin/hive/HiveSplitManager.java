@@ -325,7 +325,7 @@ public class HiveSplitManager
                 }
                 partitionBuilder.put(entry.getKey(), entry.getValue().get());
             }
-            Map<String, Partition> partitions = partitionBuilder.build();
+            Map<String, Partition> partitions = partitionBuilder.buildOrThrow();
             if (partitionBatch.size() != partitions.size()) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitions.size()));
             }
@@ -419,7 +419,7 @@ public class HiveSplitManager
                 columnCoercions.put(i, partitionType.getHiveTypeName());
             }
         }
-        return mapColumnsByIndex(columnCoercions.build());
+        return mapColumnsByIndex(columnCoercions.buildOrThrow());
     }
 
     private static boolean isPartitionUsesColumnNames(ConnectorSession session, HiveStorageFormat storageFormat)
@@ -444,7 +444,7 @@ public class HiveSplitManager
         for (int i = 0; i < partitionColumns.size(); i++) {
             partitionColumnIndexesBuilder.put(partitionColumns.get(i).getName().toLowerCase(ENGLISH), i);
         }
-        Map<String, Integer> partitionColumnsByIndex = partitionColumnIndexesBuilder.build();
+        Map<String, Integer> partitionColumnsByIndex = partitionColumnIndexesBuilder.buildOrThrow();
 
         ImmutableMap.Builder<Integer, HiveTypeName> columnCoercions = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, Integer> tableToPartitionColumns = ImmutableMap.builder();
@@ -466,7 +466,7 @@ public class HiveSplitManager
             }
         }
 
-        return new TableToPartitionMapping(Optional.of(tableToPartitionColumns.build()), columnCoercions.build());
+        return new TableToPartitionMapping(Optional.of(tableToPartitionColumns.buildOrThrow()), columnCoercions.buildOrThrow());
     }
 
     private TrinoException tablePartitionColumnMismatchException(SchemaTableName tableName, String partName, String tableColumnName, HiveType tableType, String partitionColumnName, HiveType partitionType)

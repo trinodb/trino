@@ -79,7 +79,7 @@ public class TpchIndexedData
             }
         }
 
-        indexedTables = indexedTablesBuilder.build();
+        indexedTables = indexedTablesBuilder.buildOrThrow();
     }
 
     public Optional<IndexedTable> getIndexedTable(String tableName, double scaleFactor, Set<String> indexColumnNames)

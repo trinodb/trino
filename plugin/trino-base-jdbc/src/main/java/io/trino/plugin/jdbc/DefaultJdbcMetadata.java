@@ -319,7 +319,7 @@ public class DefaultJdbcMetadata
                 handle,
                 Optional.of(groupingSetsAsJdbcColumnHandles),
                 newColumnsList,
-                expressions.build());
+                expressions.buildOrThrow());
         handle = new JdbcTableHandle(
                 new JdbcQueryRelationHandle(preparedQuery),
                 TupleDomain.all(),
@@ -358,7 +358,7 @@ public class DefaultJdbcMetadata
                     .build());
             nextSyntheticColumnId++;
         }
-        Map<JdbcColumnHandle, JdbcColumnHandle> newLeftColumns = newLeftColumnsBuilder.build();
+        Map<JdbcColumnHandle, JdbcColumnHandle> newLeftColumns = newLeftColumnsBuilder.buildOrThrow();
 
         ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newRightColumnsBuilder = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, rightHandle)) {
@@ -367,7 +367,7 @@ public class DefaultJdbcMetadata
                     .build());
             nextSyntheticColumnId++;
         }
-        Map<JdbcColumnHandle, JdbcColumnHandle> newRightColumns = newRightColumnsBuilder.build();
+        Map<JdbcColumnHandle, JdbcColumnHandle> newRightColumns = newRightColumnsBuilder.buildOrThrow();
 
         ImmutableList.Builder<JdbcJoinCondition> jdbcJoinConditions = ImmutableList.builder();
         for (JoinCondition joinCondition : joinConditions) {
@@ -595,7 +595,7 @@ public class DefaultJdbcMetadata
                 // these exceptions are ignored because listTableColumns is used for metadata queries (SELECT FROM information_schema)
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     @Override

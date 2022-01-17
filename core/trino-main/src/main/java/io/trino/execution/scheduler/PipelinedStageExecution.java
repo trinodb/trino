@@ -162,7 +162,7 @@ public class PipelinedStageExecution
                 failureDetector,
                 executor,
                 bucketToPartition,
-                exchangeSources.build(),
+                exchangeSources.buildOrThrow(),
                 attempt);
         execution.initialize();
         return execution;

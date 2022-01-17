@@ -781,7 +781,7 @@ public final class ShowQueriesRewrite
                     .put("function_type", "Function Type")
                     .put("deterministic", "Deterministic")
                     .put("description", "Description")
-                    .build();
+                    .buildOrThrow();
 
             return simpleQuery(
                     selectAll(columns.entrySet().stream()

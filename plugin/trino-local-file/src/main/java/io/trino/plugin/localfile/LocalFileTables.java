@@ -74,9 +74,9 @@ public class LocalFileTables
             dataLocationBuilder.put(table, dataLocation);
         }
 
-        tables = tablesBuilder.build();
-        tableColumns = tableColumnsBuilder.build();
-        tableDataLocations = dataLocationBuilder.build();
+        tables = tablesBuilder.buildOrThrow();
+        tableColumns = tableColumnsBuilder.buildOrThrow();
+        tableDataLocations = dataLocationBuilder.buildOrThrow();
 
         cachedFiles = CacheBuilder.newBuilder()
                 .expireAfterWrite(10, SECONDS)

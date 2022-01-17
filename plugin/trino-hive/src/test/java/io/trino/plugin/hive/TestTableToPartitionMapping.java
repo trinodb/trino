@@ -30,19 +30,19 @@ public class TestTableToPartitionMapping
                 .put(1, 1)
                 .put(2, 2)
                 .put(3, 3)
-                .build()));
+                .buildOrThrow()));
         assertFalse(isIdentityMapping(ImmutableMap.<Integer, Integer>builder()
                 .put(0, 0)
                 .put(1, 1)
                 .put(2, 2)
                 .put(3, 3)
                 .put(5, 5)
-                .build()));
+                .buildOrThrow()));
         assertFalse(isIdentityMapping(ImmutableMap.<Integer, Integer>builder()
                 .put(0, 0)
                 .put(1, 1)
                 .put(2, 2)
                 .put(4, 5)
-                .build()));
+                .buildOrThrow()));
     }
 }

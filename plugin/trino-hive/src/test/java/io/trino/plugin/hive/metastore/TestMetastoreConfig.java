@@ -36,7 +36,7 @@ public class TestMetastoreConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.hide-delta-lake-tables", "true")
-                .build();
+                .buildOrThrow();
 
         MetastoreConfig expected = new MetastoreConfig()
                 .setHideDeltaLakeTables(true);

@@ -58,7 +58,7 @@ public class RelationType
         for (Field field : fields) {
             builder.put(field, index++);
         }
-        fieldIndexes = builder.build();
+        fieldIndexes = builder.buildOrThrow();
     }
 
     /**

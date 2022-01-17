@@ -105,7 +105,7 @@ public final class ElasticsearchQueryRunner
                 .put("elasticsearch.scroll-timeout", "1m")
                 .put("elasticsearch.request-timeout", "2m")
                 .putAll(extraConnectorProperties)
-                .build();
+                .buildOrThrow();
 
         queryRunner.createCatalog("elasticsearch", "elasticsearch", config);
     }

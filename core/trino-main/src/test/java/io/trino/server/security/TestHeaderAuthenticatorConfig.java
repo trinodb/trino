@@ -49,7 +49,7 @@ public class TestHeaderAuthenticatorConfig
                 .put("http-server.authentication.header.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.header.user-mapping.file", userMappingFile.toString())
                 .put("header-authenticator.config-files", config1.toString() + "," + config2.toString())
-                .build();
+                .buildOrThrow();
 
         HeaderAuthenticatorConfig expected = new HeaderAuthenticatorConfig()
                 .setHeaderAuthenticatorFiles(ImmutableList.of(config1.toAbsolutePath().toString(), config2.toAbsolutePath().toString()))

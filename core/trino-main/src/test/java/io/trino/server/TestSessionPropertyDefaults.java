@@ -55,13 +55,13 @@ public class TestSessionPropertyDefaults
                 ImmutableMap.<String, String>builder()
                         .put(QUERY_MAX_MEMORY, "2GB") //Will be overridden
                         .put(QUERY_MAX_TOTAL_MEMORY, "2GB") //Will remain default
-                        .build(),
+                        .buildOrThrow(),
                 ImmutableMap.of(
                         "testCatalog",
                         ImmutableMap.<String, String>builder()
                                 .put("explicit_set", "override") // Will be overridden
                                 .put("catalog_default", "catalog_default") // Will remain default
-                                .build()));
+                                .buildOrThrow()));
         sessionPropertyDefaults.addConfigurationManagerFactory(factory);
         sessionPropertyDefaults.setConfigurationManager(factory.getName(), ImmutableMap.of());
 
@@ -78,14 +78,14 @@ public class TestSessionPropertyDefaults
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(HASH_PARTITION_COUNT, "43")
-                .build());
+                .buildOrThrow());
         assertEquals(
                 session.getUnprocessedCatalogProperties(),
                 ImmutableMap.of(
                         "testCatalog",
                         ImmutableMap.<String, String>builder()
                                 .put("explicit_set", "explicit_set")
-                                .build()));
+                                .buildOrThrow()));
 
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), TEST_RESOURCE_GROUP_ID);
 
@@ -94,7 +94,7 @@ public class TestSessionPropertyDefaults
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned") // User provided value is used
                 .put(HASH_PARTITION_COUNT, "43") // User provided value is used
                 .put(QUERY_MAX_TOTAL_MEMORY, "2GB") // Default value is used
-                .build());
+                .buildOrThrow());
         assertEquals(
                 session.getUnprocessedCatalogProperties(),
                 ImmutableMap.of(
@@ -102,6 +102,6 @@ public class TestSessionPropertyDefaults
                         ImmutableMap.<String, String>builder()
                                 .put("explicit_set", "explicit_set") // User provided value overrides default value
                                 .put("catalog_default", "catalog_default") // Default value is used
-                                .build()));
+                                .buildOrThrow()));
     }
 }

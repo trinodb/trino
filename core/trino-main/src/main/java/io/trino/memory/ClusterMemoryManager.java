@@ -186,7 +186,7 @@ public class ClusterMemoryManager
                 log.error(e, "Error exporting memory pool %s", poolId);
             }
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @Override
@@ -364,7 +364,7 @@ public class ClusterMemoryManager
     {
         ImmutableMap.Builder<MemoryPoolId, MemoryPoolInfo> builder = new ImmutableMap.Builder<>();
         pools.forEach((poolId, memoryPool) -> builder.put(poolId, memoryPool.getInfo()));
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     private synchronized boolean isClusterOutOfMemory()

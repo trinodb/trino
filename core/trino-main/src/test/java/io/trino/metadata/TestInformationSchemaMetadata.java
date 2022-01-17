@@ -114,7 +114,7 @@ public class TestInformationSchemaMetadata
         ImmutableMap.Builder<ColumnHandle, Domain> domains = new ImmutableMap.Builder<>();
         domains.put(new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")));
         domains.put(new InformationSchemaColumnHandle("table_name"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_view")));
-        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.build()));
+        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.buildOrThrow()));
 
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
@@ -153,7 +153,7 @@ public class TestInformationSchemaMetadata
         // predicate without schema predicates should cause schemas to be enumerated when table predicates are present
         ImmutableMap.Builder<ColumnHandle, Domain> domains = new ImmutableMap.Builder<>();
         domains.put(new InformationSchemaColumnHandle("table_name"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_view")));
-        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.build()));
+        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.buildOrThrow()));
 
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
@@ -174,7 +174,7 @@ public class TestInformationSchemaMetadata
         // predicate without table name predicates should not cause table level prefixes to be evaluated
         ImmutableMap.Builder<ColumnHandle, Domain> domains = new ImmutableMap.Builder<>();
         domains.put(new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")));
-        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.build()));
+        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.buildOrThrow()));
 
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);

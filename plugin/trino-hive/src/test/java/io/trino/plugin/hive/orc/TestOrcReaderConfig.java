@@ -54,7 +54,7 @@ public class TestOrcReaderConfig
                 .put("hive.orc.max-read-block-size", "66kB")
                 .put("hive.orc.lazy-read-small-ranges", "false")
                 .put("hive.orc.nested-lazy", "false")
-                .build();
+                .buildOrThrow();
 
         OrcReaderConfig expected = new OrcReaderConfig()
                 .setUseColumnNames(true)
