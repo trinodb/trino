@@ -40,7 +40,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.Flaky;
 import io.trino.tpch.TpchTable;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.intellij.lang.annotations.Language;
@@ -1551,7 +1550,6 @@ public class TestSalesforceConnectorTest
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "AssertionError: expected \\[.*\\] but found \\[.*\\]")
     public void testWrittenStats()
     {
         skipTestUnless(supportsCreateTable());
