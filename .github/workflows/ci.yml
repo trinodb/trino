@@ -612,12 +612,14 @@ jobs:
         run: |
           export TRINO_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
           mkdir -p testing/trino-product-tests-launcher/target/trino-jacoco/reports
-          mkdir -p "core/trino-server/target/trino-server-${TRINO_VERSION}-trino-jars"
+          mkdir -p core/trino-server/target/trino-server-trino-jars core/trino-server/target/trino-server-trino-sources
           # copy only trino JARs, since we don't care about coverage of external dependencies
-          find . -name "trino-*-${TRINO_VERSION}.jar" -print0 | xargs --null cp --link --no-clobber -t "core/trino-server/target/trino-server-${TRINO_VERSION}-trino-jars"
+          find . -name "trino-*-${TRINO_VERSION}.jar" -exec cp --link --no-clobber --target-directory=core/trino-server/target/trino-server-trino-jars {} +
+          find . -name "trino-*-${TRINO_VERSION}-sources.jar" -exec cp --link --no-clobber --target-directory=core/trino-server/target/trino-server-trino-sources {} +
           java -jar testing/trino-product-tests-launcher/target/org.jacoco.cli-0.8.6-nodeps.jar \
             report testing/trino-product-tests-launcher/target/trino-jacoco/*/*.exec \
-            --classfiles "core/trino-server/target/trino-server-${TRINO_VERSION}-trino-jars" \
+            --classfiles core/trino-server/target/trino-server-trino-jars \
+            --sourcefiles core/trino-server/target/trino-server-trino-sources \
             --name "coverage pt (${{ matrix.config }}, ${{ matrix.suite }})" \
             --csv testing/trino-product-tests-launcher/target/trino-jacoco/reports/jacoco-report.csv
       - name: Upload test logs and results

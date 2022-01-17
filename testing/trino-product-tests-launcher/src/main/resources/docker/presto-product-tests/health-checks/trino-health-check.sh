@@ -13,4 +13,4 @@ PID=$(jps | grep TrinoServer | cut -f1 -d ' ')
 jstack -l $PID > /var/trino/var/log/stack.log || true
 
 # Dump Jacoco report
-java -jar /docker/jacoco-cli.jar dump --address localhost --port 57026 --destfile /var/trino/var/jacoco/jacoco-$(date +%s).exec --reset || true
+java -jar /docker/jacoco-cli.jar dump --address localhost --port 19474 --destfile /var/trino/var/jacoco/jacoco-$(date +%s).exec --reset || true

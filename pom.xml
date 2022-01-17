@@ -43,7 +43,6 @@
         <project.build.targetJdk>11</project.build.targetJdk>
         <air.java.version>11.0.11</air.java.version>
         <air.modernizer.java-version>8</air.modernizer.java-version>
-        <air.jacoco.version>0.8.6</air.jacoco.version>
 
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
 
@@ -66,6 +65,7 @@
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
         <dep.coral.version>1.0.121</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
+        <dep.jacoco.version>0.8.6</dep.jacoco.version>
 
         <dep.docker.images.version>53</dep.docker.images.version>
 
@@ -1450,14 +1450,14 @@
             <dependency>
                 <groupId>org.jacoco</groupId>
                 <artifactId>org.jacoco.agent</artifactId>
-                <version>${air.jacoco.version}</version>
+                <version>${dep.jacoco.version}</version>
                 <classifier>runtime</classifier>
             </dependency>
 
             <dependency>
                 <groupId>org.jacoco</groupId>
                 <artifactId>org.jacoco.cli</artifactId>
-                <version>${air.jacoco.version}</version>
+                <version>${dep.jacoco.version}</version>
                 <classifier>nodeps</classifier>
             </dependency>
 

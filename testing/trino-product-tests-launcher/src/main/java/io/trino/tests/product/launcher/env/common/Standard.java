@@ -140,8 +140,8 @@ public final class Standard
     @SuppressWarnings("resource")
     public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, File serverPackage, SupportedTrinoJdk jdkVersion, boolean debug, String dockerImageName, String logicalName)
     {
-        File jfrDir = new File(JACOCO_LOGS_LOCATION, logicalName);
-        jfrDir.mkdirs();
+        File jacocoDir = new File(JACOCO_LOGS_LOCATION, logicalName);
+        jacocoDir.mkdirs();
         DockerContainer container = new DockerContainer(dockerImageName, logicalName)
                 .withNetworkAliases(logicalName + ".docker.cluster")
                 .withFileSystemBind(JACOCO_LOGS_LOCATION + "/" + logicalName, "/var/trino/var/jacoco", READ_WRITE)
