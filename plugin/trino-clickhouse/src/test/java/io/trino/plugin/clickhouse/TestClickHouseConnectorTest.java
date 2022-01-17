@@ -78,7 +78,6 @@ public class TestClickHouseConnectorTest
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
-            case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
             case SUPPORTS_ARRAY:
