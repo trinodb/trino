@@ -684,7 +684,7 @@ public class PhoenixClient
         catch (IOException | SQLException e) {
             throw new TrinoException(PHOENIX_METADATA_ERROR, "Couldn't get Phoenix table properties", e);
         }
-        return properties.build();
+        return properties.buildOrThrow();
     }
 
     private static ColumnMapping arrayColumnMapping(ConnectorSession session, ArrayType arrayType, String elementJdbcTypeName)

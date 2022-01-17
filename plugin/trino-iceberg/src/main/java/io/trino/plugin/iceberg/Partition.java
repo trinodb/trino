@@ -243,6 +243,6 @@ class Partition
             verify(type != null, "No type for column id %s, known types: %s", id, idToTypeMapping);
             map.put(id, Conversions.fromByteBuffer(type, value));
         });
-        return map.build();
+        return map.buildOrThrow();
     }
 }

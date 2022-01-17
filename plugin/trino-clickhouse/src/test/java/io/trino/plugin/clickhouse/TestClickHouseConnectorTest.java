@@ -64,7 +64,7 @@ public class TestClickHouseConnectorTest
                 ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         .put("clickhouse.map-string-as-varchar", "true")
-                        .build(),
+                        .buildOrThrow(),
                 REQUIRED_TPCH_TABLES);
     }
 
@@ -476,7 +476,7 @@ public class TestClickHouseConnectorTest
                 properties.put(PRIMARY_KEY_PROPERTY, resultSet.getString("primary_key"));
                 properties.put(SAMPLE_BY_PROPERTY, resultSet.getString("sampling_key"));
             }
-            return properties.build();
+            return properties.buildOrThrow();
         }
     }
 }

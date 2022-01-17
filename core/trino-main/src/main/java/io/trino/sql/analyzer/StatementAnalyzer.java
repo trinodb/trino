@@ -1433,7 +1433,7 @@ class StatementAnalyzer
 
             ordinalityField.ifPresent(outputFields::add);
 
-            analysis.setUnnest(node, new UnnestAnalysis(mappings.build(), ordinalityField));
+            analysis.setUnnest(node, new UnnestAnalysis(mappings.buildOrThrow(), ordinalityField));
 
             return createAndAssignScope(node, scope, outputFields.build());
         }
@@ -1932,7 +1932,7 @@ class StatementAnalyzer
                 analysis.recordSubqueries(relation, expressionAnalysis);
                 measureTypesBuilder.put(NodeRef.of(expression), expressionAnalysis.getType(expression));
             }
-            Map<NodeRef<Node>, Type> measureTypes = measureTypesBuilder.build();
+            Map<NodeRef<Node>, Type> measureTypes = measureTypesBuilder.buildOrThrow();
 
             // create output scope
             // ONE ROW PER MATCH: PARTITION BY columns, then MEASURES columns in order of declaration

@@ -108,7 +108,7 @@ public class TestTableRedirection
                     .collect(toImmutableMap(
                             i -> schemaTableName(SCHEMA_THREE, REDIRECTION_CHAIN.get(i)),
                             i -> schemaTableName(SCHEMA_THREE, REDIRECTION_CHAIN.get(i + 1)))))
-            .build();
+            .buildOrThrow();
 
     private static final Map<String, List<ColumnMetadata>> columnMetadatas = ImmutableMap.of(
             SCHEMA_ONE,

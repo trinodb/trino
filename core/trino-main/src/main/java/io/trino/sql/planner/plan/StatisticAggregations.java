@@ -92,9 +92,9 @@ public class StatisticAggregations
         }
         groupingSymbols.forEach(symbol -> mappings.put(symbol, symbol));
         return new Parts(
-                new StatisticAggregations(partialAggregation.build(), groupingSymbols),
-                new StatisticAggregations(finalAggregation.build(), groupingSymbols),
-                mappings.build());
+                new StatisticAggregations(partialAggregation.buildOrThrow(), groupingSymbols),
+                new StatisticAggregations(finalAggregation.buildOrThrow(), groupingSymbols),
+                mappings.buildOrThrow());
     }
 
     public static class Parts

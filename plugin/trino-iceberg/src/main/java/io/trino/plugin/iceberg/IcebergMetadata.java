@@ -387,7 +387,7 @@ public class IcebergMetadata
                 // ignore table of unknown type
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     @Override
@@ -771,7 +771,7 @@ public class IcebergMetadata
             properties.put(LOCATION_PROPERTY, icebergTable.location());
         }
 
-        return new ConnectorTableMetadata(table, columns, properties.build(), getTableComment(icebergTable));
+        return new ConnectorTableMetadata(table, columns, properties.buildOrThrow(), getTableComment(icebergTable));
     }
 
     private List<ColumnMetadata> getColumnMetadatas(Table table)
@@ -979,7 +979,7 @@ public class IcebergMetadata
         }
 
         // Modify projections to refer to new variables
-        Map<ConnectorExpression, Variable> newVariables = newVariablesBuilder.build();
+        Map<ConnectorExpression, Variable> newVariables = newVariablesBuilder.buildOrThrow();
         List<ConnectorExpression> newProjections = projections.stream()
                 .map(expression -> replaceWithNewVariables(expression, newVariables))
                 .collect(toImmutableList());

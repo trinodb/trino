@@ -74,7 +74,7 @@ public class TestPinotConfig
                 .put("pinot.max-rows-for-broker-queries", "5000")
                 .put("pinot.aggregation-pushdown.enabled", "false")
                 .put("pinot.count-distinct-pushdown.enabled", "false")
-                .build();
+                .buildOrThrow();
 
         PinotConfig expected = new PinotConfig()
                 .setControllerUrls("host1:1111,host2:1111")

@@ -1103,7 +1103,7 @@ public class FileHiveMetastore
             List<String> partitionValues = toPartitionValues(partitionName);
             builder.put(partitionName, getPartition(identity, table, partitionValues));
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @Override

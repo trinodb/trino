@@ -83,7 +83,7 @@ public class TestThriftMetastoreConfig
                 .put("hive.metastore.thrift.delete-files-on-drop", "true")
                 .put("hive.metastore.thrift.txn-lock-max-wait", "5m")
                 .put("hive.metastore.thrift.assume-canonical-partition-keys", "true")
-                .build();
+                .buildOrThrow();
 
         ThriftMetastoreConfig expected = new ThriftMetastoreConfig()
                 .setMetastoreTimeout(new Duration(20, SECONDS))

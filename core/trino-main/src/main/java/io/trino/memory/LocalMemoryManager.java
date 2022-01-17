@@ -74,7 +74,7 @@ public final class LocalMemoryManager
         }
         verify(generalPoolSize > 0, "general memory pool size is 0");
         builder.put(GENERAL_POOL, new MemoryPool(GENERAL_POOL, DataSize.ofBytes(generalPoolSize)));
-        this.pools = builder.build();
+        this.pools = builder.buildOrThrow();
     }
 
     private void validateHeapHeadroom(NodeMemoryConfig config, long availableMemory)
@@ -98,7 +98,7 @@ public final class LocalMemoryManager
         for (Map.Entry<MemoryPoolId, MemoryPool> entry : pools.entrySet()) {
             builder.put(entry.getKey(), entry.getValue().getInfo());
         }
-        return new MemoryInfo(OPERATING_SYSTEM_MX_BEAN.getAvailableProcessors(), maxMemory, builder.build());
+        return new MemoryInfo(OPERATING_SYSTEM_MX_BEAN.getAvailableProcessors(), maxMemory, builder.buildOrThrow());
     }
 
     public List<MemoryPool> getPools()

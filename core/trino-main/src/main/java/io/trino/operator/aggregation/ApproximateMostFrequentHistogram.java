@@ -148,7 +148,7 @@ public class ApproximateMostFrequentHistogram<K>
         ImmutableMap.Builder<K, Long> buckets = new ImmutableMap.Builder<>();
         forEachBucket(buckets::put);
 
-        return buckets.build();
+        return buckets.buildOrThrow();
     }
 
     public long estimatedInMemorySize()

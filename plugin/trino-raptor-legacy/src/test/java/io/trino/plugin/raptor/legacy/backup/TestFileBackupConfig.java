@@ -37,7 +37,7 @@ public class TestFileBackupConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("backup.directory", "/backup")
-                .build();
+                .buildOrThrow();
 
         FileBackupConfig expected = new FileBackupConfig()
                 .setBackupDirectory(new File("/backup"));

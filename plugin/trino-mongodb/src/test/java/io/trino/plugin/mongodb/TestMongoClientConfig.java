@@ -70,7 +70,7 @@ public class TestMongoClientConfig
                 .put("mongodb.write-concern", "UNACKNOWLEDGED")
                 .put("mongodb.required-replica-set", "replica_set")
                 .put("mongodb.implicit-row-field-prefix", "_prefix")
-                .build();
+                .buildOrThrow();
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
         MongoClientConfig config = configurationFactory.build(MongoClientConfig.class);

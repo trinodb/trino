@@ -5284,12 +5284,12 @@ public abstract class AbstractTestEngineOnlyQueries
                 ImmutableMap.<String, String>builder()
                         .put("test_string", "foo string")
                         .put("test_long", "424242")
-                        .build(),
+                        .buildOrThrow(),
                 ImmutableMap.of(),
                 ImmutableMap.of(TESTING_CATALOG, ImmutableMap.<String, String>builder()
                         .put("connector_string", "bar string")
                         .put("connector_long", "11")
-                        .build()),
+                        .buildOrThrow()),
                 getQueryRunner().getSessionPropertyManager(),
                 getSession().getPreparedStatements(),
                 getSession().getProtocolHeaders());

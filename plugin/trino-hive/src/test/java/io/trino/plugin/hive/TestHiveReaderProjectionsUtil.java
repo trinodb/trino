@@ -57,7 +57,7 @@ public class TestHiveReaderProjectionsUtil
             regularColumnHiveIndex++;
         }
 
-        return hiveColumns.build();
+        return hiveColumns.buildOrThrow();
     }
 
     public static HiveColumnHandle createProjectedColumnHandle(HiveColumnHandle column, List<Integer> indices)

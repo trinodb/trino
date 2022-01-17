@@ -75,7 +75,7 @@ public class ExpressionAndValuePointersEquivalence
             mapping.put(left.getLayout().get(i), right.getLayout().get(i));
         }
 
-        return treeEqual(left.getExpression(), right.getExpression(), mappingComparator(mapping.build()));
+        return treeEqual(left.getExpression(), right.getExpression(), mappingComparator(mapping.buildOrThrow()));
     }
 
     private static boolean equivalent(

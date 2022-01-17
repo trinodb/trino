@@ -254,7 +254,7 @@ public abstract class BaseElasticsearchConnectorTest
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("null_keyword", 32)
                 .put("custkey", 1301)
-                .build());
+                .buildOrThrow());
 
         assertQueryReturnsEmptyResult("SELECT * FROM null_predicate1 WHERE null_keyword IS NULL");
         assertQueryReturnsEmptyResult("SELECT * FROM null_predicate1 WHERE null_keyword = '10' OR null_keyword IS NULL");
@@ -281,7 +281,7 @@ public abstract class BaseElasticsearchConnectorTest
         createIndex(indexName, properties);
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("custkey", 1301)
-                .build());
+                .buildOrThrow());
 
         // not null filter
         assertQueryReturnsEmptyResult("SELECT * FROM null_predicate2 WHERE null_keyword IS NOT NULL");
@@ -297,7 +297,7 @@ public abstract class BaseElasticsearchConnectorTest
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("null_keyword", 32)
                 .put("custkey", 1302)
-                .build());
+                .buildOrThrow());
 
         assertQuery("SELECT custkey, null_keyword FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301, NULL), (1302, 32)");
         assertQuery("SELECT custkey FROM null_predicate2 WHERE null_keyword = '32' OR null_keyword IS NULL", "VALUES (1301), (1302)");
@@ -312,7 +312,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("name", "nestfield")
                 .put("fields.fielda", 32)
                 .put("fields.fieldb", "valueb")
-                .build());
+                .buildOrThrow());
 
         assertQuery(
                 "SELECT name, fields.fielda, fields.fieldb FROM data",
@@ -328,7 +328,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("field", "value")
                 .put("Conflict", "conflict1")
                 .put("conflict", "conflict2")
-                .build());
+                .buildOrThrow());
 
         assertQuery(
                 "SELECT * FROM name_conflict",
@@ -456,7 +456,7 @@ public abstract class BaseElasticsearchConnectorTest
                         .add(50L)
                         .add(60L)
                         .build())
-                .build());
+                .buildOrThrow());
 
         assertQuery(
                 "SELECT a.b.y[1], c.f[1].g[2], c.f[2].g[1], j[2], k[1] FROM test_arrays",
@@ -616,7 +616,7 @@ public abstract class BaseElasticsearchConnectorTest
                                 .build())
                         .build())
                 .put("order_field", 1)
-                .build());
+                .buildOrThrow());
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("es_object", ImmutableMap.<String, Object>builder()
@@ -634,7 +634,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("array_of_string_arrays", "Check out the bi-weekly Trino Community Broadcast https://trino.io/broadcast/")
                 .put("array_of_long_arrays", 5309L)
                 .put("order_field", 2)
-                .build());
+                .buildOrThrow());
 
         MaterializedResult rows = computeActual("" +
                 "SELECT " +
@@ -793,7 +793,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("es_double", (double) 123)
                 .put("es_float", (float) 123)
                 .put("order_field", 1)
-                .build());
+                .buildOrThrow());
 
         MaterializedResult rows = computeActual("" +
                 "SELECT " +
@@ -860,7 +860,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("es_binary", "test".getBytes(UTF_8))
                 .put("es_boolean", true)
                 .put("es_timestamp", 123)
-                .build());
+                .buildOrThrow());
 
         MaterializedResult rows = computeActual("" +
                 "SELECT " +
@@ -908,7 +908,7 @@ public abstract class BaseElasticsearchConnectorTest
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("array_raw_field", "test")
-                .build());
+                .buildOrThrow());
 
         assertThatThrownBy(() -> computeActual("SELECT array_raw_field FROM " + indexName))
                 .hasMessage("A column, (array_raw_field) cannot be declared as a Trino array and also be rendered as json.");
@@ -941,16 +941,15 @@ public abstract class BaseElasticsearchConnectorTest
 
         createIndex(indexName, mapping);
 
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .build());
+        index(indexName, ImmutableMap.<String, Object>builder().buildOrThrow());
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("a", "hello")
-                .build());
+                .buildOrThrow());
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("a", ImmutableList.of("foo", "bar"))
-                .build());
+                .buildOrThrow());
 
         assertQuery(
                 "SELECT a FROM test_mixed_arrays",
@@ -986,7 +985,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("float_column", "")
                 .put("scaled_float_column", "")
                 .put("double_column", "")
-                .build());
+                .buildOrThrow());
 
         assertQuery(
                 "SELECT byte_column, short_column, integer_column, long_column, float_column, scaled_float_column, double_column FROM emptynumeric",
@@ -1005,7 +1004,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("emptyobject", ImmutableMap.of())
                 .put("fields.fielda", 32)
                 .put("fields.fieldb", ImmutableMap.of())
-                .build());
+                .buildOrThrow());
 
         assertQuery(
                 "SELECT name, fields.fielda FROM emptyobject",
@@ -1082,7 +1081,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("ipv4_column", "1.2.3.4")
                 .put("ipv6_column", "2001:db8:0:0:1:0:0:1")
                 .put("scaled_float_column", 123456.78d)
-                .build());
+                .buildOrThrow());
 
         MaterializedResult rows = computeActual("" +
                 "SELECT " +
@@ -1139,7 +1138,7 @@ public abstract class BaseElasticsearchConnectorTest
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("long_column", 1L)
                 .put("unsupported_type", ImmutableList.of("foo", "bar"))
-                .build());
+                .buildOrThrow());
 
         MaterializedResult rows = computeActual("SELECT * FROM unsupported_types");
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
@@ -1167,23 +1166,23 @@ public abstract class BaseElasticsearchConnectorTest
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("boolean_column", true)
-                .build());
+                .buildOrThrow());
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("boolean_column", "true")
-                .build());
+                .buildOrThrow());
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("boolean_column", false)
-                .build());
+                .buildOrThrow());
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("boolean_column", "false")
-                .build());
+                .buildOrThrow());
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("boolean_column", "")
-                .build());
+                .buildOrThrow());
 
         MaterializedResult rows = computeActual("SELECT boolean_column FROM booleans");
 
@@ -1216,19 +1215,19 @@ public abstract class BaseElasticsearchConnectorTest
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("timestamp_column", "2015-01-01")
-                .build());
+                .buildOrThrow());
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("timestamp_column", "2015-01-01T12:10:30Z")
-                .build());
+                .buildOrThrow());
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("timestamp_column", 1420070400001L)
-                .build());
+                .buildOrThrow());
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("timestamp_column", "1420070400001")
-                .build());
+                .buildOrThrow());
 
         MaterializedResult rows = computeActual("SELECT timestamp_column FROM timestamps");
 
@@ -1262,17 +1261,17 @@ public abstract class BaseElasticsearchConnectorTest
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("text_column", "foo")
                 .put("scaled_float_column", 123.4567d)
-                .build());
+                .buildOrThrow());
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("text_column", "bar")
                 .put("scaled_float_column", 123.46d)
-                .build());
+                .buildOrThrow());
 
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("text_column", "random value")
                 .put("scaled_float_column", 9.8d)
-                .build());
+                .buildOrThrow());
 
         // Trino query filters in the engine, so the rounding (dependent on scaling factor) does not impact results
         assertEquals(
@@ -1310,7 +1309,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("double_column", "1.0")
                 .put("integer_column", "1")
                 .put("long_column", "1")
-                .build());
+                .buildOrThrow());
 
         MaterializedResult rows = computeActual("" +
                 "SELECT " +
@@ -1367,7 +1366,7 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("timestamp_column", 1569888000000L)
                 .put("ipv4_column", "1.2.3.4")
                 .put("ipv6_column", "2001:db8:0:0:1:0:0:1")
-                .build());
+                .buildOrThrow());
 
         // _score column
         assertQuery("SELECT count(*) FROM \"filter_pushdown: cool\" WHERE _score > 0", "VALUES 1");
@@ -1498,7 +1497,7 @@ public abstract class BaseElasticsearchConnectorTest
                         .put("timestamp_column", 0)
                         .put("ipv4_column", "1.2.3.4")
                         .put("ipv6_column", "2001:db8:0:0:1:0:0:1")
-                        .build()));
+                        .buildOrThrow()));
 
         MaterializedResult rows = computeActual("" +
                 "SELECT " +
@@ -1568,7 +1567,7 @@ public abstract class BaseElasticsearchConnectorTest
                         .put("timestamp_column", 0)
                         .put("ipv4_column", "1.2.3.4")
                         .put("ipv6_column", "2001:db8:0:0:1:0:0:1")
-                        .build()));
+                        .buildOrThrow()));
 
         MaterializedResult rows = computeActual("" +
                 "SELECT " +
@@ -1613,7 +1612,7 @@ public abstract class BaseElasticsearchConnectorTest
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("Name", "john")
                 .put("AGE", 32)
-                .build());
+                .buildOrThrow());
 
         assertQuery(
                 "SELECT name, age FROM mixed_case",
@@ -1639,7 +1638,7 @@ public abstract class BaseElasticsearchConnectorTest
         createIndex(indexName, properties);
         index(indexName, ImmutableMap.<String, Object>builder()
                 .put("numeric_keyword", 20)
-                .build());
+                .buildOrThrow());
 
         assertQuery(
                 "SELECT numeric_keyword FROM numeric_keyword",

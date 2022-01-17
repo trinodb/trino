@@ -189,7 +189,7 @@ public class TestPushPredicateIntoTableScan
         ColumnHandle columnHandle = new TpchColumnHandle("orderstatus", orderStatusType);
         Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
                 .put("orderstatus", singleValue(orderStatusType, utf8Slice("O")))
-                .build();
+                .buildOrThrow();
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("orderstatus = 'O' OR orderstatus = 'F'"),
                         p.tableScan(
@@ -299,7 +299,7 @@ public class TestPushPredicateIntoTableScan
     {
         Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
                 .put("orderstatus", singleValue(createVarcharType(1), utf8Slice("F")))
-                .build();
+                .buildOrThrow();
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("orderstatus = 'F'"),
                         p.tableScan(

@@ -244,7 +244,7 @@ public class ClientOptions
             }
             builder.put(name, sessionProperty.getValue());
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     public static Map<String, String> toResourceEstimates(List<ClientResourceEstimate> estimates)
@@ -253,7 +253,7 @@ public class ClientOptions
         for (ClientResourceEstimate estimate : estimates) {
             builder.put(estimate.getResource(), estimate.getEstimate());
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     public static Map<String, String> toExtraCredentials(List<ClientExtraCredential> extraCredentials)
@@ -262,7 +262,7 @@ public class ClientOptions
         for (ClientExtraCredential credential : extraCredentials) {
             builder.put(credential.getName(), credential.getValue());
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     public static final class ClientResourceEstimate

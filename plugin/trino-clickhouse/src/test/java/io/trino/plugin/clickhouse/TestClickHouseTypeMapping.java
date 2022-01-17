@@ -110,7 +110,7 @@ public class TestClickHouseTypeMapping
                 ImmutableMap.<String, String>builder()
                         .put("metadata.cache-ttl", "10m")
                         .put("metadata.cache-missing", "true")
-                        .build(),
+                        .buildOrThrow(),
                 ImmutableList.of());
     }
 

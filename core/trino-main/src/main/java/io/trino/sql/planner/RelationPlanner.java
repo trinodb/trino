@@ -229,7 +229,7 @@ class RelationPlanner
 
             List<Symbol> outputSymbols = outputSymbolsBuilder.build();
             boolean updateTarget = analysis.isUpdateTarget(node);
-            PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build(), updateTarget, Optional.empty());
+            PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.buildOrThrow(), updateTarget, Optional.empty());
 
             plan = new RelationPlan(root, scope, outputSymbols, outerContext);
 
@@ -450,7 +450,7 @@ class RelationPlanner
             Type type = analysis.getType(measureDefinition.getExpression());
             Symbol symbol = symbolAllocator.newSymbol(measureDefinition.getName().getValue().toLowerCase(ENGLISH), type);
             Expression expression = expressionRewrite.apply(measureDefinition.getExpression());
-            ExpressionAndValuePointers measure = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.build(), symbolAllocator, plannerContext.getMetadata());
+            ExpressionAndValuePointers measure = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.buildOrThrow(), symbolAllocator, plannerContext.getMetadata());
             rewrittenMeasures.put(symbol, new Measure(measure, type));
             measureOutputs.add(symbol);
         }
@@ -463,7 +463,7 @@ class RelationPlanner
         for (VariableDefinition variableDefinition : variableDefinitions) {
             IrLabel label = irLabel(variableDefinition.getName());
             Expression expression = expressionRewrite.apply(variableDefinition.getExpression());
-            ExpressionAndValuePointers definition = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.build(), symbolAllocator, plannerContext.getMetadata());
+            ExpressionAndValuePointers definition = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.buildOrThrow(), symbolAllocator, plannerContext.getMetadata());
             rewrittenVariableDefinitions.put(label, definition);
         }
         // add `true` definition for undefined labels
@@ -472,14 +472,14 @@ class RelationPlanner
         }
 
         return new PatternRecognitionComponents(
-                rewrittenSubsets.build(),
-                rewrittenMeasures.build(),
+                rewrittenSubsets.buildOrThrow(),
+                rewrittenMeasures.buildOrThrow(),
                 measureOutputs.build(),
                 skipTo.flatMap(SkipTo::getIdentifier).map(RelationPlanner::irLabel),
                 skipTo.map(SkipTo::getPosition).orElse(PAST_LAST),
                 searchMode.map(mode -> mode.getMode() == INITIAL).orElse(TRUE),
                 rewrittenPattern,
-                rewrittenVariableDefinitions.build());
+                rewrittenVariableDefinitions.buildOrThrow());
     }
 
     private static IrLabel irLabel(Identifier identifier)

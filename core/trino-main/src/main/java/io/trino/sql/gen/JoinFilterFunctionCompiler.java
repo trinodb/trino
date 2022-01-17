@@ -225,7 +225,7 @@ public class JoinFilterFunctionCompiler
                     lambdaExpression,
                     "lambda_" + counter,
                     containerClassDefinition,
-                    compiledLambdaMap.build(),
+                    compiledLambdaMap.buildOrThrow(),
                     callSiteBinder,
                     cachedInstanceBinder,
                     metadata);
@@ -233,7 +233,7 @@ public class JoinFilterFunctionCompiler
             counter++;
         }
 
-        return compiledLambdaMap.build();
+        return compiledLambdaMap.buildOrThrow();
     }
 
     private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)

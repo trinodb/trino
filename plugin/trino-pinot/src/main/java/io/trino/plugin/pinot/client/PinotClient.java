@@ -317,13 +317,13 @@ public class PinotClient
                         segmentBuilder.put(segmentEntry.getKey(), segmentEntry.getValue());
                     }
                 }
-                Map<String, List<String>> segmentMap = segmentBuilder.build();
+                Map<String, List<String>> segmentMap = segmentBuilder.buildOrThrow();
                 if (!segmentMap.isEmpty()) {
                     routingTableMap.put(tablenameWithType, segmentMap);
                 }
             }
         }
-        return routingTableMap.build();
+        return routingTableMap.buildOrThrow();
     }
 
     public static class TimeBoundary

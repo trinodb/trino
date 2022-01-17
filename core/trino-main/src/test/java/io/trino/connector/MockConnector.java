@@ -695,7 +695,7 @@ public class MockConnector
             for (int index = 0; index < columnMetadata.size(); index++) {
                 columnIndexes.put(columnMetadata.get(index).getName(), index);
             }
-            return columnIndexes.build();
+            return columnIndexes.buildOrThrow();
         }
     }
 

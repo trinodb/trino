@@ -258,7 +258,7 @@ public class ElasticsearchMetadata
                     supportsPredicates(field.getType())));
         }
 
-        return result.build();
+        return result.buildOrThrow();
     }
 
     private static boolean supportsPredicates(IndexMetadata.Type type)

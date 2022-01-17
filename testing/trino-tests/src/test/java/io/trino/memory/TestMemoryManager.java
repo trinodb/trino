@@ -89,7 +89,7 @@ public class TestMemoryManager
                 .put("query.max-memory-per-node", "1kB")
                 .put("query.max-total-memory-per-node", "1kB")
                 .put("query.max-memory", "1kB")
-                .build();
+                .buildOrThrow();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             assertThatThrownBy(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk"))
@@ -113,7 +113,7 @@ public class TestMemoryManager
                 .put("task.verbose-stats", "true")
                 .put("query.low-memory-killer.delay", "5s")
                 .put("query.low-memory-killer.policy", "total-reservation")
-                .build();
+                .buildOrThrow();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             // Reserve all the memory
@@ -170,7 +170,7 @@ public class TestMemoryManager
                 .put("experimental.reserved-pool-disabled", "true")
                 .put("query.low-memory-killer.delay", "5s")
                 .put("query.low-memory-killer.policy", "total-reservation")
-                .build();
+                .buildOrThrow();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             // Reserve all the memory
@@ -220,7 +220,7 @@ public class TestMemoryManager
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("experimental.reserved-pool-disabled", "false")
                 .put("task.verbose-stats", "true")
-                .build();
+                .buildOrThrow();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             executor.submit(() -> queryRunner.execute(query)).get();
@@ -247,7 +247,7 @@ public class TestMemoryManager
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("experimental.reserved-pool-disabled", "false")
                 .put("task.verbose-stats", "true")
-                .build();
+                .buildOrThrow();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             // Reserve all the memory
@@ -353,7 +353,7 @@ public class TestMemoryManager
                 .put("task.max-partial-aggregation-memory", "1B")
                 .put("query.max-memory", "1kB")
                 .put("query.max-total-memory", "1GB")
-                .build();
+                .buildOrThrow();
         try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
             queryRunner.execute(SESSION, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
         }
@@ -366,7 +366,7 @@ public class TestMemoryManager
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.max-memory", "1kB")
                 .put("query.max-total-memory", "2kB")
-                .build();
+                .buildOrThrow();
         try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
             queryRunner.execute(SESSION, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
         }
@@ -379,7 +379,7 @@ public class TestMemoryManager
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("task.max-partial-aggregation-memory", "1B")
                 .put("query.max-memory-per-node", "1kB")
-                .build();
+                .buildOrThrow();
         try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
             queryRunner.execute(SESSION, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
         }

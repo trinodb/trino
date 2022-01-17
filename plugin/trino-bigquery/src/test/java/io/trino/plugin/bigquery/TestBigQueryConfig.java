@@ -60,7 +60,7 @@ public class TestBigQueryConfig
                 .put("bigquery.case-insensitive-name-matching.cache-ttl", "1s")
                 .put("bigquery.views-cache-ttl", "1m")
                 .put("bigquery.service-cache-ttl", "10d")
-                .build();
+                .buildOrThrow();
 
         BigQueryConfig expected = new BigQueryConfig()
                 .setProjectId("pid")

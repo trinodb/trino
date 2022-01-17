@@ -755,7 +755,7 @@ public class DynamicFilterService
                 // filter has already been collected
                 collectedDomainsBuilder.put(dynamicFilterId, dynamicFilterSummaries.get(dynamicFilterId));
             });
-            Map<DynamicFilterId, Domain> collectedDomains = collectedDomainsBuilder.build();
+            Map<DynamicFilterId, Domain> collectedDomains = collectedDomainsBuilder.buildOrThrow();
             if (!collectedDomains.isEmpty()) {
                 consumer.accept(collectedDomains);
             }

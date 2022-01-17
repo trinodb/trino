@@ -54,7 +54,7 @@ public class TestS3SecurityMappingConfig
                 .put("hive.s3.security-mapping.kms-key-id-credential-name", "kms-key-id-credential-name")
                 .put("hive.s3.security-mapping.refresh-period", "1s")
                 .put("hive.s3.security-mapping.colon-replacement", "#")
-                .build();
+                .buildOrThrow();
 
         S3SecurityMappingConfig expected = new S3SecurityMappingConfig()
                 .setConfigFilePath(securityMappingConfigFile.toString())
@@ -77,7 +77,7 @@ public class TestS3SecurityMappingConfig
                 .put("hive.s3.security-mapping.kms-key-id-credential-name", "kms-key-id-credential-name")
                 .put("hive.s3.security-mapping.refresh-period", "1s")
                 .put("hive.s3.security-mapping.colon-replacement", "#")
-                .build();
+                .buildOrThrow();
 
         S3SecurityMappingConfig expected = new S3SecurityMappingConfig()
                 .setConfigFilePath("http://test:1234/example")

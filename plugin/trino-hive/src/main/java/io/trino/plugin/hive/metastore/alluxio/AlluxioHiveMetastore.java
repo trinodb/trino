@@ -176,7 +176,7 @@ public class AlluxioHiveMetastore
                 Map<String, HiveColumnStatistics> columnStatistics = partitionColumnStatistics.getOrDefault(partitionName, ImmutableMap.of());
                 result.put(partitionName, new PartitionStatistics(basicStatistics, columnStatistics));
             }
-            return result.build();
+            return result.buildOrThrow();
         }
         catch (Exception e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);

@@ -75,7 +75,7 @@ public class TestHdfsConfig
                 .put("hive.hdfs.wire-encryption.enabled", "true")
                 .put("hive.fs.cache.max-size", "1010")
                 .put("hive.dfs.replication", "1")
-                .build();
+                .buildOrThrow();
 
         HdfsConfig expected = new HdfsConfig()
                 .setResourceConfigFiles(ImmutableList.of(resource1.toFile(), resource2.toFile()))
@@ -101,7 +101,7 @@ public class TestHdfsConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.fs.new-directory-permissions", "skip")
-                .build();
+                .buildOrThrow();
 
         HdfsConfig expected = new HdfsConfig()
                 .setNewDirectoryPermissions("skip");

@@ -485,7 +485,7 @@ public class OrcReader
                 }
             }
 
-            return new NameBasedProjectedLayout(Optional.of(fieldLayouts.build()));
+            return new NameBasedProjectedLayout(Optional.of(fieldLayouts.buildOrThrow()));
         }
     }
 

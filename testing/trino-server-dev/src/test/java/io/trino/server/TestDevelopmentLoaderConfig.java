@@ -42,7 +42,7 @@ public class TestDevelopmentLoaderConfig
                 .put("plugin.bundles", "a,b,c")
                 .put("maven.repo.local", "local-repo")
                 .put("maven.repo.remote", "remote-a,remote-b")
-                .build();
+                .buildOrThrow();
 
         DevelopmentLoaderConfig expected = new DevelopmentLoaderConfig()
                 .setPlugins(ImmutableList.of("a", "b", "c"))

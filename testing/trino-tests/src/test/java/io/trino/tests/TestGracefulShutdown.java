@@ -70,7 +70,7 @@ public class TestGracefulShutdown
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("node-scheduler.include-coordinator", "false")
                 .put("shutdown.grace-period", "10s")
-                .build();
+                .buildOrThrow();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             List<ListenableFuture<Void>> queryFutures = new ArrayList<>();

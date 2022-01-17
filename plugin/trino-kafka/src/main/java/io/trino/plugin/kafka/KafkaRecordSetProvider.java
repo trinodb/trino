@@ -80,6 +80,6 @@ public class KafkaRecordSetProvider
     {
         ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
         dataSchema.ifPresent(schema -> parameters.put("dataSchema", schema));
-        return parameters.build();
+        return parameters.buildOrThrow();
     }
 }

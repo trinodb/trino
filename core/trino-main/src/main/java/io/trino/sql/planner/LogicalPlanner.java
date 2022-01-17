@@ -339,7 +339,7 @@ public class LogicalPlanner
                 targetTable.getCatalogName().getCatalogName(),
                 tableMetadata.getMetadata());
 
-        TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToSymbol.build());
+        TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToSymbol.buildOrThrow());
         StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();
         List<Symbol> groupingSymbols = statisticAggregations.getGroupingSymbols();
 
@@ -347,7 +347,7 @@ public class LogicalPlanner
                 idAllocator.getNextId(),
                 new AggregationNode(
                         idAllocator.getNextId(),
-                        TableScanNode.newInstance(idAllocator.getNextId(), targetTable, tableScanOutputs.build(), symbolToColumnHandle.build(), false, Optional.empty()),
+                        TableScanNode.newInstance(idAllocator.getNextId(), targetTable, tableScanOutputs.build(), symbolToColumnHandle.buildOrThrow(), false, Optional.empty()),
                         statisticAggregations.getAggregations(),
                         singleGroupingSet(groupingSymbols),
                         ImmutableList.of(),

@@ -97,10 +97,10 @@ public abstract class AbstractTestFailureRecovery
                         .put("retry-attempts", "1")
                         .put("failure-injection.request-timeout", new Duration(REQUEST_TIMEOUT.toMillis() * 2, MILLISECONDS).toString())
                         .put("exchange.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
-                        .build(),
+                        .buildOrThrow(),
                 ImmutableMap.<String, String>builder()
                         .put("scheduler.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
-                        .build());
+                        .buildOrThrow());
     }
 
     protected abstract QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)

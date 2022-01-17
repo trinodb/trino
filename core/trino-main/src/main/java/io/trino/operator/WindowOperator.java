@@ -478,7 +478,7 @@ public class WindowOperator
             }
         }
 
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     public static class FrameBoundKey

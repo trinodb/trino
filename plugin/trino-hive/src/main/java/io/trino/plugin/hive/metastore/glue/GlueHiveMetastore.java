@@ -901,7 +901,7 @@ public class GlueHiveMetastore
             Partition partition = partitionValuesToPartitionMap.get(entry.getValue());
             resultBuilder.put(entry.getKey(), Optional.ofNullable(partition));
         }
-        return resultBuilder.build();
+        return resultBuilder.buildOrThrow();
     }
 
     private List<Partition> batchGetPartition(Table table, List<String> partitionNames)

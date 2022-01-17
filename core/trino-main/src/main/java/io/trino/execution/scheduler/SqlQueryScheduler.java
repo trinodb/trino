@@ -510,12 +510,12 @@ public class SqlQueryScheduler
             }
             StageManager stageManager = new StageManager(
                     queryStateMachine,
-                    stages.build(),
+                    stages.buildOrThrow(),
                     coordinatorStagesInTopologicalOrder.build(),
                     distributedStagesInTopologicalOrder.build(),
                     rootStageId,
-                    children.build(),
-                    parents.build());
+                    children.buildOrThrow(),
+                    parents.buildOrThrow());
             stageManager.initialize();
             return stageManager;
         }
@@ -804,7 +804,7 @@ public class SqlQueryScheduler
                 }
             }
 
-            return result.build();
+            return result.buildOrThrow();
         }
 
         private static OutputBufferManager createSingleStreamOutputBuffer(SqlStage stage)
@@ -827,7 +827,7 @@ public class SqlQueryScheduler
                 }
             }
 
-            return result.build();
+            return result.buildOrThrow();
         }
 
         private CoordinatorStagesScheduler(
@@ -1171,7 +1171,7 @@ public class SqlQueryScheduler
                     schedulerStats,
                     stageManager,
                     executionPolicy.createExecutionSchedule(stageExecutions.values()),
-                    stageSchedulers.build(),
+                    stageSchedulers.buildOrThrow(),
                     ImmutableMap.copyOf(stageExecutions),
                     dynamicFilterService);
             distributedStagesScheduler.initialize();
@@ -1192,7 +1192,7 @@ public class SqlQueryScheduler
                     result.put(childStage.getFragment().getId(), bucketToPartition);
                 }
             }
-            return result.build();
+            return result.buildOrThrow();
         }
 
         private static Optional<int[]> getBucketToPartition(
@@ -1251,7 +1251,7 @@ public class SqlQueryScheduler
                     result.put(fragmentId, outputBufferManager);
                 }
             }
-            return result.build();
+            return result.buildOrThrow();
         }
 
         private static StageScheduler createStageScheduler(

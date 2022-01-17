@@ -189,12 +189,12 @@ public class OptimizeMixedDistinctAggregations
                     }
                 }
             }
-            Map<Symbol, Symbol> coalesceSymbols = coalesceSymbolsBuilder.build();
+            Map<Symbol, Symbol> coalesceSymbols = coalesceSymbolsBuilder.buildOrThrow();
 
             AggregationNode aggregationNode = new AggregationNode(
                     idAllocator.getNextId(),
                     source,
-                    aggregations.build(),
+                    aggregations.buildOrThrow(),
                     node.getGroupingSets(),
                     ImmutableList.of(),
                     node.getStep(),
@@ -278,7 +278,7 @@ public class OptimizeMixedDistinctAggregations
                     node,
                     aggregationOutputSymbolsMapBuilder);
             // This map has mapping only for aggregation on non-distinct symbols which the new AggregationNode handles
-            Map<Symbol, Symbol> aggregationOutputSymbolsMap = aggregationOutputSymbolsMapBuilder.build();
+            Map<Symbol, Symbol> aggregationOutputSymbolsMap = aggregationOutputSymbolsMapBuilder.buildOrThrow();
 
             // 3. Add new project node that adds if expressions
             ProjectNode projectNode = createProjectNode(
@@ -361,7 +361,7 @@ public class OptimizeMixedDistinctAggregations
             // unused mask will be removed by PruneUnreferencedOutputs
             outputSymbols.put(aggregateInfo.getMask(), new NullLiteral());
 
-            aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateSymbols.build());
+            aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateSymbols.buildOrThrow());
 
             return new ProjectNode(idAllocator.getNextId(), source, outputSymbols.build());
         }
@@ -455,7 +455,7 @@ public class OptimizeMixedDistinctAggregations
             return new AggregationNode(
                     idAllocator.getNextId(),
                     groupIdNode,
-                    aggregations.build(),
+                    aggregations.buildOrThrow(),
                     singleGroupingSet(ImmutableList.copyOf(groupByKeys)),
                     ImmutableList.of(),
                     SINGLE,

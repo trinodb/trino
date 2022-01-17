@@ -130,8 +130,8 @@ public class MetadataQueryOptimizer
                 columnBuilder.put(symbol, column);
             }
 
-            Map<Symbol, ColumnHandle> columns = columnBuilder.build();
-            Map<Symbol, Type> types = typesBuilder.build();
+            Map<Symbol, ColumnHandle> columns = columnBuilder.buildOrThrow();
+            Map<Symbol, Type> types = typesBuilder.buildOrThrow();
 
             // Materialize the list of partitions and replace the TableScan node
             // with a Values node

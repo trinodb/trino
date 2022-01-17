@@ -43,7 +43,7 @@ public class TestKafkaSecurityConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("kafka.security-protocol", "SSL")
-                .build();
+                .buildOrThrow();
 
         KafkaSecurityConfig expected = new KafkaSecurityConfig()
                 .setSecurityProtocol(SSL);

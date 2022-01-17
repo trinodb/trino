@@ -37,7 +37,7 @@ public class TestExampleConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("metadata-uri", "file://test.json")
-                .build();
+                .buildOrThrow();
 
         ExampleConfig expected = new ExampleConfig()
                 .setMetadata(URI.create("file://test.json"));

@@ -45,7 +45,7 @@ public class TestNodeSpillConfig
                 .put("query-max-spill-per-node", "15 MB")
                 .put("spill-compression-enabled", "true")
                 .put("spill-encryption-enabled", "true")
-                .build();
+                .buildOrThrow();
 
         NodeSpillConfig expected = new NodeSpillConfig()
                 .setMaxSpillPerNode(DataSize.of(10, MEGABYTE))

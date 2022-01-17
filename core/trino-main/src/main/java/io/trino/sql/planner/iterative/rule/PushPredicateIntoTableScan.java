@@ -335,7 +335,7 @@ public class PushPredicateIntoTableScan
                 enforcedDomainsBuilder.put(predicateColumnHandle, entry.getValue());
             }
         }
-        Map<ColumnHandle, Domain> enforcedDomains = enforcedDomainsBuilder.build();
+        Map<ColumnHandle, Domain> enforcedDomains = enforcedDomainsBuilder.buildOrThrow();
         checkArgument(
                 enforcedDomains.size() + unenforcedDomains.size() == predicateDomains.size(),
                 "Enforced tuple domain cannot be determined. Connector returned an unenforced TupleDomain that contains columns not in predicate.");

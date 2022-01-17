@@ -92,7 +92,7 @@ public class TestTypeValidator
                 .put(columnC, new TestingColumnHandle("c"))
                 .put(columnD, new TestingColumnHandle("d"))
                 .put(columnE, new TestingColumnHandle("e"))
-                .build();
+                .buildOrThrow();
 
         baseTableScan = new TableScanNode(
                 newId(),

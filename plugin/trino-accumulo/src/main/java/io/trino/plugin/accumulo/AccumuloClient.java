@@ -363,7 +363,7 @@ public class AccumuloClient
             localityGroupsBuilder.put(g.getKey(), familyBuilder.build());
         }
 
-        Map<String, Set<Text>> localityGroups = localityGroupsBuilder.build();
+        Map<String, Set<Text>> localityGroups = localityGroupsBuilder.buildOrThrow();
         LOG.debug("Setting locality groups: %s", localityGroups);
         tableManager.setLocalityGroups(table.getFullTableName(), localityGroups);
     }

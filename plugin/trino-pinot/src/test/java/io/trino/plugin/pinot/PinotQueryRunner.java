@@ -77,7 +77,7 @@ public class PinotQueryRunner
                 .put("pinot.controller-urls", pinot.getControllerConnectString())
                 .put("pinot.segments-per-split", "10")
                 .put("pinot.request-timeout", "3m")
-                .build();
+                .buildOrThrow();
         DistributedQueryRunner queryRunner = createPinotQueryRunner(properties, pinotProperties, Optional.empty());
         Thread.sleep(10);
         Logger log = Logger.get(PinotQueryRunner.class);

@@ -207,7 +207,7 @@ public class PinotMetadata
             columnHandlesBuilder.put(columnMetadata.getName(),
                     new PinotColumnHandle(getPinotColumnName(columnMetadata), columnMetadata.getType()));
         }
-        return columnHandlesBuilder.build();
+        return columnHandlesBuilder.buildOrThrow();
     }
 
     private static String getPinotColumnName(ColumnMetadata columnMetadata)
@@ -228,7 +228,7 @@ public class PinotMetadata
                 columns.put(tableName, tableMetadata.getColumns());
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     @Override
@@ -533,7 +533,7 @@ public class PinotMetadata
         }
         dynamicTable.getAggregateColumns()
                 .forEach(columnHandle -> columnHandlesBuilder.put(columnHandle.getColumnName().toLowerCase(ENGLISH), columnHandle));
-        return columnHandlesBuilder.build();
+        return columnHandlesBuilder.buildOrThrow();
     }
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
@@ -556,7 +556,7 @@ public class PinotMetadata
                 .setType(pinotColumn.getDataType())
                 .setProperties(ImmutableMap.<String, Object>builder()
                         .put(PINOT_COLUMN_NAME_PROPERTY, pinotColumn.getColumnName())
-                        .build())
+                        .buildOrThrow())
                 .build();
     }
 

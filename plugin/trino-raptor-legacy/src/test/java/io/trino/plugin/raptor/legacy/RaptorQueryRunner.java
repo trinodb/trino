@@ -70,7 +70,7 @@ public final class RaptorQueryRunner
                 .put("storage.max-shard-rows", "2000")
                 .put("backup.provider", "file")
                 .put("backup.directory", new File(baseDir, "backup").getAbsolutePath())
-                .build();
+                .buildOrThrow();
 
         queryRunner.createCatalog("raptor", "raptor-legacy", raptorProperties);
 
@@ -117,7 +117,7 @@ public final class RaptorQueryRunner
                 throw new IllegalArgumentException("Unsupported table: " + table);
             }
         }
-        Map<TpchTable<?>, String> tablesMap = tablesMapBuilder.build();
+        Map<TpchTable<?>, String> tablesMap = tablesMapBuilder.buildOrThrow();
 
         log.info("Loading data from %s.%s...", catalog, schema);
         long startTime = System.nanoTime();

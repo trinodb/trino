@@ -81,7 +81,7 @@ public class TestTrinoDriverAuth
                         .put("http-server.https.enabled", "true")
                         .put("http-server.https.keystore.path", new File(getResource("localhost.keystore").toURI()).getPath())
                         .put("http-server.https.keystore.key", "changeit")
-                        .build())
+                        .buildOrThrow())
                 .build();
         server.installPlugin(new TpchPlugin());
         server.createCatalog(TEST_CATALOG, "tpch");

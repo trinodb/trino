@@ -50,7 +50,7 @@ public class TestKinesisPlugin
                 .put("kinesis.hide-internal-columns", "false")
                 .put("kinesis.access-key", TestUtils.noneToBlank(accessKey))
                 .put("kinesis.secret-key", TestUtils.noneToBlank(secretKey))
-                .build(), new TestingConnectorContext());
+                .buildOrThrow(), new TestingConnectorContext());
         assertNotNull(c);
 
         // Verify that the key objects have been created on the connector

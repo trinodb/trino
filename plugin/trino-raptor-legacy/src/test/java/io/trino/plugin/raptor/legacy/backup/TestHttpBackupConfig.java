@@ -37,7 +37,7 @@ public class TestHttpBackupConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("backup.http.uri", "http://example.net:8080")
-                .build();
+                .buildOrThrow();
 
         HttpBackupConfig expected = new HttpBackupConfig()
                 .setUri(URI.create("http://example.net:8080"));

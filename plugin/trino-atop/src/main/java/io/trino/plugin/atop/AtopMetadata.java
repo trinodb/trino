@@ -119,7 +119,7 @@ public class AtopMetadata
         for (AtopColumn column : atopTableHandle.getTable().getColumns()) {
             columnHandles.put(column.getName(), new AtopColumnHandle(column.getName()));
         }
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -130,7 +130,7 @@ public class AtopMetadata
             ConnectorTableMetadata tableMetadata = getTableMetadata(session, getTableHandle(session, tableName));
             columns.put(tableName, tableMetadata.getColumns());
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     @Override

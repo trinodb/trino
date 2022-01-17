@@ -38,7 +38,7 @@ public class TestExtraCredentialConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("user-credential-name", "foo")
                 .put("password-credential-name", "bar")
-                .build();
+                .buildOrThrow();
 
         ExtraCredentialConfig expected = new ExtraCredentialConfig()
                 .setUserCredentialName("foo")

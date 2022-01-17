@@ -186,7 +186,7 @@ public final class OutputBuffers
                 ImmutableMap.<OutputBufferId, Integer>builder()
                         .putAll(buffers)
                         .put(bufferId, partition)
-                        .build());
+                        .buildOrThrow());
     }
 
     public OutputBuffers withBuffers(Map<OutputBufferId, Integer> buffers)

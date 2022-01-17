@@ -99,7 +99,7 @@ public class TestThriftProjectionPushdown
                 .put("trino.thrift.client.addresses", addresses)
                 .put("trino.thrift.client.connect-timeout", "30s")
                 .put("trino-thrift.lookup-requests-concurrency", "2")
-                .build();
+                .buildOrThrow();
 
         LocalQueryRunner runner = LocalQueryRunner.create(SESSION);
         runner.createCatalog(CATALOG, getOnlyElement(new ThriftPlugin().getConnectorFactories()), connectorProperties);
@@ -221,7 +221,7 @@ public class TestThriftProjectionPushdown
                                     ImmutableMap.<Symbol, ColumnHandle>builder()
                                             .put(nationKey, nationKeyColumn)
                                             .put(name, nameColumn)
-                                            .build()));
+                                            .buildOrThrow()));
                 })
                 .withSession(SESSION)
                 .matches(project(

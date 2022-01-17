@@ -141,7 +141,7 @@ public class TestSingleDistinctAggregationToGroupBy
                                 ImmutableMap.<Optional<String>, ExpectedValueProvider<FunctionCall>>builder()
                                         .put(Optional.of("output1"), functionCall("count", ImmutableList.of("input")))
                                         .put(Optional.of("output2"), functionCall("sum", ImmutableList.of("input")))
-                                        .build(),
+                                        .buildOrThrow(),
                                 Optional.empty(),
                                 SINGLE,
                                 aggregation(
@@ -168,7 +168,7 @@ public class TestSingleDistinctAggregationToGroupBy
                                 ImmutableMap.<Optional<String>, ExpectedValueProvider<FunctionCall>>builder()
                                         .put(Optional.of("output1"), functionCall("corr", ImmutableList.of("x", "y")))
                                         .put(Optional.of("output2"), functionCall("corr", ImmutableList.of("y", "x")))
-                                        .build(),
+                                        .buildOrThrow(),
                                 Optional.empty(),
                                 SINGLE,
                                 aggregation(

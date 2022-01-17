@@ -393,7 +393,7 @@ public class CachingHiveMetastore
                 result.put(partitionName, statisticsByPartitionName.get(stringNameForPartition));
             }
         });
-        return result.build();
+        return result.buildOrThrow();
     }
 
     @Override
@@ -732,7 +732,7 @@ public class CachingHiveMetastore
         for (Entry<WithIdentity<HivePartitionName>, Optional<Partition>> entry : all.entrySet()) {
             partitionsByName.put(entry.getKey().getKey().getPartitionName().get(), entry.getValue());
         }
-        return partitionsByName.build();
+        return partitionsByName.buildOrThrow();
     }
 
     private Optional<Partition> loadPartitionByName(WithIdentity<HivePartitionName> partitionName)
@@ -769,7 +769,7 @@ public class CachingHiveMetastore
         for (WithIdentity<HivePartitionName> partitionName : partitionNames) {
             partitions.put(partitionName, partitionsByNames.getOrDefault(partitionName.getKey().getPartitionName().get(), Optional.empty()));
         }
-        return partitions.build();
+        return partitions.buildOrThrow();
     }
 
     @Override

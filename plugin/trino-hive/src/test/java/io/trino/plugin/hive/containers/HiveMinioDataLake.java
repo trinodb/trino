@@ -58,14 +58,14 @@ public class HiveMinioDataLake
                         .withEnvVars(ImmutableMap.<String, String>builder()
                                 .put("MINIO_ACCESS_KEY", ACCESS_KEY)
                                 .put("MINIO_SECRET_KEY", SECRET_KEY)
-                                .build())
+                                .buildOrThrow())
                         .build());
         this.hiveHadoop = closer.register(
                 HiveHadoop.builder()
                         .withFilesToMount(ImmutableMap.<String, String>builder()
                                 .put("hive_s3_insert_overwrite/hive-core-site.xml", "/etc/hadoop/conf/core-site.xml")
                                 .putAll(hiveHadoopFilesToMount)
-                                .build())
+                                .buildOrThrow())
                         .withImage(hiveHadoopImage)
                         .withNetwork(network)
                         .build());

@@ -116,7 +116,7 @@ public class TestExpressionInterpreter
             .put(new Symbol("unbound_interval"), INTERVAL_DAY_TIME)
             .put(new Symbol("unbound_pattern"), VARCHAR)
             .put(new Symbol("unbound_null_string"), VARCHAR)
-            .build());
+            .buildOrThrow());
 
     private static final SymbolResolver INPUTS = symbol -> {
         switch (symbol.getName().toLowerCase(ENGLISH)) {

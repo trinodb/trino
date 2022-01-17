@@ -136,7 +136,7 @@ public class SystemTablesMetadata
                 builder.put(tableMetadata.getTable(), tableMetadata.getColumns());
             }
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @Override

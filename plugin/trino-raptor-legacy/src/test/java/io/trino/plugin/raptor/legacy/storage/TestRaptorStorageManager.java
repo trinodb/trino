@@ -298,7 +298,7 @@ public class TestRaptorStorageManager
         // tuple domain within the column range
         tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.<RaptorColumnHandle, NullableValue>builder()
                 .put(new RaptorColumnHandle("c1", 2, BIGINT), NullableValue.of(BIGINT, 124L))
-                .build());
+                .buildOrThrow());
 
         try (ConnectorPageSource pageSource = getPageSource(manager, columnIds, columnTypes, uuid, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
@@ -308,7 +308,7 @@ public class TestRaptorStorageManager
         // tuple domain outside the column range
         tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.<RaptorColumnHandle, NullableValue>builder()
                 .put(new RaptorColumnHandle("c1", 2, BIGINT), NullableValue.of(BIGINT, 122L))
-                .build());
+                .buildOrThrow());
 
         try (ConnectorPageSource pageSource = getPageSource(manager, columnIds, columnTypes, uuid, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);

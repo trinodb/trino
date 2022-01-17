@@ -227,7 +227,7 @@ public class TrinoStatement
         if (queryTimeoutSeconds.get() > 0) {
             sessionProperties.put("query_max_run_time", queryTimeoutSeconds.get() + "s");
         }
-        return sessionProperties.build();
+        return sessionProperties.buildOrThrow();
     }
 
     @Override

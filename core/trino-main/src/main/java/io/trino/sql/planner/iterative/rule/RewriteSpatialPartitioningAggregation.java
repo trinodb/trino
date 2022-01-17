@@ -131,9 +131,9 @@ public class RewriteSpatialPartitioningAggregation
                                 Assignments.builder()
                                         .putIdentities(node.getSource().getOutputSymbols())
                                         .put(partitionCountSymbol, new LongLiteral(Integer.toString(getHashPartitionCount(context.getSession()))))
-                                        .putAll(envelopeAssignments.build())
+                                        .putAll(envelopeAssignments.buildOrThrow())
                                         .build()),
-                        aggregations.build(),
+                        aggregations.buildOrThrow(),
                         node.getGroupingSets(),
                         node.getPreGroupedSymbols(),
                         node.getStep(),

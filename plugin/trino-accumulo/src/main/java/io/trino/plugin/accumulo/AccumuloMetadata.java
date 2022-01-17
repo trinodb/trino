@@ -275,7 +275,7 @@ public class AccumuloMetadata
         for (AccumuloColumnHandle column : table.getColumns()) {
             columnHandles.put(column.getName(), column);
         }
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -330,7 +330,7 @@ public class AccumuloMetadata
                 columns.put(tableName, tableMetadata.getColumns());
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     @Override

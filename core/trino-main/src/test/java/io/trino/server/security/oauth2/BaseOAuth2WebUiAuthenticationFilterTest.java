@@ -188,7 +188,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                                         .put("nbf", now)
                                         .put("scp", ImmutableList.of("openid"))
                                         .put("sub", "foo@bar.com")
-                                        .build()))
+                                        .buildOrThrow()))
                 .signWith(keyGenerator.generateKeyPair().getPrivate())
                 .compact();
         try (Response response = httpClientWithOAuth2Cookie(token, false)

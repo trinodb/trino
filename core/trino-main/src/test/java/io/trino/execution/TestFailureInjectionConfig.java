@@ -40,7 +40,7 @@ public class TestFailureInjectionConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("failure-injection.request-timeout", "12m")
                 .put("failure-injection.expiration-period", "7m")
-                .build();
+                .buildOrThrow();
 
         FailureInjectionConfig expected = new FailureInjectionConfig()
                 .setRequestTimeout(new Duration(12, MINUTES))

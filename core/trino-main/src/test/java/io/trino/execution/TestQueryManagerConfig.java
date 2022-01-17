@@ -96,7 +96,7 @@ public class TestQueryManagerConfig
                 .put("retry-attempts", "0")
                 .put("retry-initial-delay", "1m")
                 .put("retry-max-delay", "1h")
-                .build();
+                .buildOrThrow();
 
         QueryManagerConfig expected = new QueryManagerConfig()
                 .setMinQueryExpireAge(new Duration(30, SECONDS))

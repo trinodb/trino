@@ -50,7 +50,7 @@ public class TestSheetsConfig
                 .put("metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
                 .put("sheets-data-max-cache-size", "2000")
                 .put("sheets-data-expire-after-write", "10m")
-                .build();
+                .buildOrThrow();
 
         SheetsConfig expected = new SheetsConfig()
                 .setCredentialsFilePath(credentialsFile.toString())

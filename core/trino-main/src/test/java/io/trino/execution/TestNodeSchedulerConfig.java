@@ -50,7 +50,7 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.max-splits-per-node", "101")
                 .put("node-scheduler.max-unacknowledged-splits-per-task", "501")
                 .put("node-scheduler.optimized-local-scheduling", "false")
-                .build();
+                .buildOrThrow();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
                 .setNodeSchedulerPolicy("topology")

@@ -42,7 +42,7 @@ public class TestRecordingMetastoreConfig
                 .put("hive.metastore-recording-path", "/foo/bar")
                 .put("hive.metastore-recording-duration", "42s")
                 .put("hive.replay-metastore-recording", "true")
-                .build();
+                .buildOrThrow();
 
         RecordingMetastoreConfig expected = new RecordingMetastoreConfig()
                 .setRecordingPath("/foo/bar")

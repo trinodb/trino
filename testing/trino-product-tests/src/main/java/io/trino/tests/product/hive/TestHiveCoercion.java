@@ -489,7 +489,7 @@ public class TestHiveCoercion
                 .put("id", Arrays.asList(
                         1,
                         1))
-                .build();
+                .buildOrThrow();
     }
 
     private List<String> removeUnsupportedColumnsForHive(List<String> columns, String tableName)
@@ -559,8 +559,7 @@ public class TestHiveCoercion
                 .put(columnContext("3.1", "rcbinary", "row_to_row"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryStruct")
                 .put(columnContext("3.1", "rcbinary", "list_to_list"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryArray")
                 .put(columnContext("3.1", "rcbinary", "map_to_map"), "java.util.LinkedHashMap cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryMap")
-
-                .build();
+                .buildOrThrow();
     }
 
     private void assertQueryResults(
@@ -681,7 +680,7 @@ public class TestHiveCoercion
                 .put("varchar_to_bigger_varchar", VARCHAR)
                 .put("varchar_to_smaller_varchar", VARCHAR)
                 .put("id", BIGINT)
-                .build();
+                .buildOrThrow();
 
         assertThat(queryResult)
                 .hasColumns(columns.stream().map(expectedTypes::get).collect(toImmutableList()));

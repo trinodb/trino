@@ -109,7 +109,7 @@ public class PrometheusMetadata
             columnHandles.put(column.getName(), new PrometheusColumnHandle(column.getName(), column.getType(), index));
             index++;
         }
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -124,7 +124,7 @@ public class PrometheusMetadata
                 columns.put(tableName, tableMetadata.getColumns());
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)

@@ -116,7 +116,7 @@ public class TestingMetadata
             builder.put(columnMetadata.getName(), new TestingColumnHandle(columnMetadata.getName(), index, columnMetadata.getType()));
             index++;
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @Override
@@ -132,7 +132,7 @@ public class TestingMetadata
             }
             tableColumns.put(tableName, columns.build());
         }
-        return tableColumns.build();
+        return tableColumns.buildOrThrow();
     }
 
     @Override

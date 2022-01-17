@@ -179,7 +179,7 @@ public class TestSqlStage
         return new PlanFragment(
                 new PlanFragmentId("exchange_fragment_id"),
                 planNode,
-                types.build(),
+                types.buildOrThrow(),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),

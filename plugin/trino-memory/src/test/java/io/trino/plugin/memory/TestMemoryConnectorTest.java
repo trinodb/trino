@@ -74,7 +74,7 @@ public class TestMemoryConnectorTest
                         .put("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
                         // disable semi join to inner join rewrite to test semi join operators explicitly
                         .put("optimizer.rewrite-filtering-semi-join-to-inner-join", "false")
-                        .build(),
+                        .buildOrThrow(),
                 ImmutableSet.<TpchTable<?>>builder()
                         .addAll(REQUIRED_TPCH_TABLES)
                         .add(TpchTable.PART)

@@ -38,7 +38,7 @@ public class TestRedisPlugin
                 ImmutableMap.<String, String>builder()
                         .put("redis.table-names", "test")
                         .put("redis.nodes", "localhost:6379")
-                        .build(),
+                        .buildOrThrow(),
                 new TestingConnectorContext());
         assertNotNull(connector);
         connector.shutdown();

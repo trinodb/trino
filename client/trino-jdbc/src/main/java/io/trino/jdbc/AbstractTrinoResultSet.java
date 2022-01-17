@@ -141,7 +141,7 @@ abstract class AbstractTrinoResultSet
             .put("interval day to second", TrinoIntervalDayTime.class)
             .put("map", Map.class)
             .put("row", Row.class)
-            .build();
+            .buildOrThrow();
 
     @VisibleForTesting
     static final TypeConversions TYPE_CONVERSIONS =

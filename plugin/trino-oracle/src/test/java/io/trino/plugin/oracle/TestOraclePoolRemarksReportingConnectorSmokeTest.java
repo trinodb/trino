@@ -46,7 +46,7 @@ public class TestOraclePoolRemarksReportingConnectorSmokeTest
                         .put("allow-drop-table", "true")
                         .put("oracle.connection-pool.enabled", "true")
                         .put("oracle.remarks-reporting.enabled", "true")
-                        .build(),
+                        .buildOrThrow(),
                 REQUIRED_TPCH_TABLES);
     }
 

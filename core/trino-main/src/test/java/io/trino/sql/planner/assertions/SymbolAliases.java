@@ -104,7 +104,7 @@ public final class SymbolAliases
                 }
             }
         }
-        return mapUpdate.build();
+        return mapUpdate.buildOrThrow();
     }
 
     /*

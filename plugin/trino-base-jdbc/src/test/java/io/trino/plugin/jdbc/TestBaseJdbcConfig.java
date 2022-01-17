@@ -53,7 +53,7 @@ public class TestBaseJdbcConfig
                 .put("metadata.cache-ttl", "1s")
                 .put("metadata.cache-missing", "true")
                 .put("metadata.cache-maximum-size", "5000")
-                .build();
+                .buildOrThrow();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
                 .setConnectionUrl("jdbc:h2:mem:config")

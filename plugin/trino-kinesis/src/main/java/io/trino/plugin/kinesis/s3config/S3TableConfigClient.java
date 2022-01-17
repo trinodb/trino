@@ -125,7 +125,7 @@ public class S3TableConfigClient
         for (KinesisStreamDescription stream : streamValues) {
             builder.put(new SchemaTableName(stream.getSchemaName(), stream.getTableName()), stream);
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     @Override

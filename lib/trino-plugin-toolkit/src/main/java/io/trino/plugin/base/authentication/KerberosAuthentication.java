@@ -97,7 +97,7 @@ public class KerberosAuthentication
             optionsBuilder.put("debug", "true");
         }
 
-        Map<String, String> options = optionsBuilder.build();
+        Map<String, String> options = optionsBuilder.buildOrThrow();
 
         return new Configuration()
         {

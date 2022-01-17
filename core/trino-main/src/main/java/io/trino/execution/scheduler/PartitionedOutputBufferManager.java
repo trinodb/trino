@@ -40,7 +40,7 @@ public class PartitionedOutputBufferManager
         }
 
         outputBuffers = createInitialEmptyOutputBuffers(requireNonNull(partitioningHandle, "partitioningHandle is null"))
-                .withBuffers(partitions.build())
+                .withBuffers(partitions.buildOrThrow())
                 .withNoMoreBufferIds();
     }
 

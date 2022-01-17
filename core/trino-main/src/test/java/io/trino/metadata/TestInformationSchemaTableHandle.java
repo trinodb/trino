@@ -46,7 +46,7 @@ public class TestInformationSchemaTableHandle
             .put("prefixes", ImmutableList.of(ImmutableMap.of("catalogName", "abc", "schemaName", INFORMATION_SCHEMA)))
             .put("roles", ImmutableList.of("role"))
             .put("grantees", ImmutableList.of("grantee"))
-            .build();
+            .buildOrThrow();
 
     private ObjectMapper objectMapper;
 

@@ -174,7 +174,7 @@ public class RedisMetadata
             index++;
         }
 
-        return columnHandles.build();
+        return columnHandles.buildOrThrow();
     }
 
     @Override
@@ -199,7 +199,7 @@ public class RedisMetadata
                 columns.put(tableName, tableMetadata.getColumns());
             }
         }
-        return columns.build();
+        return columns.buildOrThrow();
     }
 
     @Override

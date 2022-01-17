@@ -55,7 +55,7 @@ public class ScribeJavaOAuth2Client
         parameters.put(REDIRECT_URI, callbackUri.toString());
         parameters.put(STATE, state);
         nonceHash.ifPresent(n -> parameters.put(NONCE, n));
-        return URI.create(service.getAuthorizationUrl(parameters.build()));
+        return URI.create(service.getAuthorizationUrl(parameters.buildOrThrow()));
     }
 
     @Override

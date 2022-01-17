@@ -47,7 +47,7 @@ public class TestFailureDetectorConfig
                 .put("failure-detector.heartbeat-interval", "10s")
                 .put("failure-detector.threshold", "0.5")
                 .put("failure-detector.enabled", "false")
-                .build();
+                .buildOrThrow();
 
         FailureDetectorConfig expected = new FailureDetectorConfig()
                 .setExpirationGraceInterval(new Duration(5, TimeUnit.MINUTES))

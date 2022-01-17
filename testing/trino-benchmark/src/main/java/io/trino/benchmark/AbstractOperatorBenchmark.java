@@ -248,7 +248,7 @@ public abstract class AbstractOperatorBenchmark
         Map<NodeRef<Expression>, Type> expressionTypes = createTestingTypeAnalyzer(localQueryRunner.getPlannerContext())
                 .getTypes(session, TypeProvider.copyOf(symbolTypes), hashExpression.get());
 
-        RowExpression translated = translate(hashExpression.get(), expressionTypes, symbolToInputMapping.build(), localQueryRunner.getMetadata(), session, false);
+        RowExpression translated = translate(hashExpression.get(), expressionTypes, symbolToInputMapping.buildOrThrow(), localQueryRunner.getMetadata(), session, false);
 
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0);
         projections.add(functionCompiler.compileProjection(translated, Optional.empty()).get());
@@ -343,7 +343,6 @@ public abstract class AbstractOperatorBenchmark
                 .put("input_bytes", inputBytes)
                 .put("output_rows", outputRows)
                 .put("output_bytes", outputBytes)
-
-                .build();
+                .buildOrThrow();
     }
 }

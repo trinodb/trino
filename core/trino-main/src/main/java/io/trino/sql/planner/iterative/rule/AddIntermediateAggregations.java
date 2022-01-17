@@ -188,7 +188,7 @@ public class AddIntermediateAggregations
                             Optional.empty(),
                             Optional.empty()));  // No mask for INTERMEDIATE
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 
     /**
@@ -207,6 +207,6 @@ public class AddIntermediateAggregations
             Symbol input = getOnlyElement(SymbolsExtractor.extractAll(entry.getValue()));
             builder.put(input, entry.getValue());
         }
-        return builder.build();
+        return builder.buildOrThrow();
     }
 }

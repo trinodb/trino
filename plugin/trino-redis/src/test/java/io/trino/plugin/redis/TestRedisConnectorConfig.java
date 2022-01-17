@@ -57,7 +57,7 @@ public class TestRedisConnectorConfig
                 .put("redis.connect-timeout", "10s")
                 .put("redis.database-index", "5")
                 .put("redis.password", "secret")
-                .build();
+                .buildOrThrow();
 
         RedisConnectorConfig expected = new RedisConnectorConfig()
                 .setTableDescriptionDir(new File("/var/lib/redis"))

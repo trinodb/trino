@@ -245,6 +245,6 @@ public final class MetadataListing
                             .collect(toImmutableList()));
         });
 
-        return result.build();
+        return result.buildOrThrow();
     }
 }

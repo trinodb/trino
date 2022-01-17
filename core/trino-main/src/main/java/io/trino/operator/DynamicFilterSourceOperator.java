@@ -386,7 +386,7 @@ public class DynamicFilterSourceOperator
             }
             minValues = null;
             maxValues = null;
-            dynamicPredicateConsumer.accept(TupleDomain.withColumnDomains(domainsBuilder.build()));
+            dynamicPredicateConsumer.accept(TupleDomain.withColumnDomains(domainsBuilder.buildOrThrow()));
             return;
         }
         for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
@@ -396,7 +396,7 @@ public class DynamicFilterSourceOperator
         }
         valueSets = null;
         blockBuilders = null;
-        dynamicPredicateConsumer.accept(TupleDomain.withColumnDomains(domainsBuilder.build()));
+        dynamicPredicateConsumer.accept(TupleDomain.withColumnDomains(domainsBuilder.buildOrThrow()));
     }
 
     private Domain convertToDomain(Type type, Block block)

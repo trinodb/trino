@@ -265,7 +265,7 @@ public class HivePartitionManager
             NullableValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), partitionColumnTypes.get(i));
             builder.put(column, parsedValue);
         }
-        Map<ColumnHandle, NullableValue> values = builder.build();
+        Map<ColumnHandle, NullableValue> values = builder.buildOrThrow();
         return new HivePartition(tableName, partitionName, values);
     }
 

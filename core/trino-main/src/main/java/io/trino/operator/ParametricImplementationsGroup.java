@@ -150,7 +150,7 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
 
         public ParametricImplementationsGroup<T> build()
         {
-            Map<Signature, T> exactImplementations = this.exactImplementations.build();
+            Map<Signature, T> exactImplementations = this.exactImplementations.buildOrThrow();
             List<T> specializedImplementations = this.specializedImplementations.build();
             List<T> genericImplementations = this.genericImplementations.build();
             return new ParametricImplementationsGroup<>(

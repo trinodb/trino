@@ -251,11 +251,11 @@ public class CassandraType
         }
 
         RowType trinoType = RowType.from(
-                argumentTypes.build().entrySet().stream()
+                argumentTypes.buildOrThrow().entrySet().stream()
                         .map(field -> new RowType.Field(Optional.of(field.getKey()), field.getValue().getTrinoType()))
                         .collect(toImmutableList()));
 
-        return Optional.of(new CassandraType(Kind.UDT, trinoType, argumentTypes.build().values().stream().collect(toImmutableList())));
+        return Optional.of(new CassandraType(Kind.UDT, trinoType, argumentTypes.buildOrThrow().values().stream().collect(toImmutableList())));
     }
 
     public NullableValue getColumnValue(Row row, int position)

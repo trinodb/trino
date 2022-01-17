@@ -55,7 +55,7 @@ public class TestPrometheusConnectorConfig
                 .put("prometheus.cache.ttl", "60s")
                 .put("prometheus.bearer.token.file", "/tmp/bearer_token.txt")
                 .put("prometheus.read-timeout", "30s")
-                .build();
+                .buildOrThrow();
 
         URI uri = URI.create("file://test.json");
         PrometheusConnectorConfig expected = new PrometheusConnectorConfig();

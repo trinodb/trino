@@ -548,7 +548,7 @@ public abstract class AbstractTestHive
                             .put("t_timestamp", createIntegerColumnStatistics(OptionalLong.of(1234567L), OptionalLong.of(71234567L), OptionalLong.of(7), OptionalLong.of(5)))
                             .put("t_short_decimal", createDecimalColumnStatistics(Optional.of(new BigDecimal(10)), Optional.of(new BigDecimal(12)), OptionalLong.of(3), OptionalLong.of(5)))
                             .put("t_long_decimal", createDecimalColumnStatistics(Optional.of(new BigDecimal("12345678901234567.123")), Optional.of(new BigDecimal("81234567890123456.123")), OptionalLong.of(2), OptionalLong.of(1)))
-                            .build());
+                            .buildOrThrow());
 
     protected static final PartitionStatistics STATISTICS_1_1 =
             new PartitionStatistics(
@@ -585,7 +585,7 @@ public abstract class AbstractTestHive
                             .put("t_timestamp", createIntegerColumnStatistics(OptionalLong.of(2345671L), OptionalLong.of(12345677L), OptionalLong.of(9), OptionalLong.of(1)))
                             .put("t_short_decimal", createDecimalColumnStatistics(Optional.of(new BigDecimal(11)), Optional.of(new BigDecimal(14)), OptionalLong.of(5), OptionalLong.of(7)))
                             .put("t_long_decimal", createDecimalColumnStatistics(Optional.of(new BigDecimal("71234567890123456.123")), Optional.of(new BigDecimal("78123456789012345.123")), OptionalLong.of(2), OptionalLong.of(1)))
-                            .build());
+                            .buildOrThrow());
 
     private static final PartitionStatistics STATISTICS_EMPTY_OPTIONAL_FIELDS =
             new PartitionStatistics(
@@ -607,7 +607,7 @@ public abstract class AbstractTestHive
                             .put("t_timestamp", createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(9), OptionalLong.of(1)))
                             .put("t_short_decimal", createDecimalColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(5), OptionalLong.of(7)))
                             .put("t_long_decimal", createDecimalColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(2), OptionalLong.of(1)))
-                            .build());
+                            .buildOrThrow());
 
     protected String database;
     protected SchemaTableName tablePartitionFormat;
@@ -716,28 +716,28 @@ public abstract class AbstractTestHive
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("textfile")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 1L))
-                                .build()))
+                                .buildOrThrow()))
                 .add(new HivePartition(tablePartitionFormat,
                         "ds=2012-12-29/file_format=sequencefile/dummy=2",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("sequencefile")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 2L))
-                                .build()))
+                                .buildOrThrow()))
                 .add(new HivePartition(tablePartitionFormat,
                         "ds=2012-12-29/file_format=rctext/dummy=3",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("rctext")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 3L))
-                                .build()))
+                                .buildOrThrow()))
                 .add(new HivePartition(tablePartitionFormat,
                         "ds=2012-12-29/file_format=rcbinary/dummy=4",
                         ImmutableMap.<ColumnHandle, NullableValue>builder()
                                 .put(dsColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2012-12-29")))
                                 .put(fileFormatColumn, NullableValue.of(createUnboundedVarcharType(), utf8Slice("rcbinary")))
                                 .put(dummyColumn, NullableValue.of(INTEGER, 4L))
-                                .build()))
+                                .buildOrThrow()))
                 .build();
         tableUnpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned));
         tablePartitionFormatProperties = new ConnectorTableProperties(
@@ -1592,7 +1592,7 @@ public abstract class AbstractTestHive
                     .put(columnHandles.get(columnIndex.get("t_int")), NullableValue.of(INTEGER, (long) testInt))
                     .put(columnHandles.get(columnIndex.get("t_string")), NullableValue.of(createUnboundedVarcharType(), utf8Slice(testString)))
                     .put(columnHandles.get(columnIndex.get("t_smallint")), NullableValue.of(SMALLINT, (long) testSmallint))
-                    .build();
+                    .buildOrThrow();
 
             MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.fromFixedValues(bindings), OptionalInt.of(1), Optional.empty());
 
@@ -1638,7 +1638,7 @@ public abstract class AbstractTestHive
                     .put(columnHandles.get(columnIndex.get("t_string")), NullableValue.of(createUnboundedVarcharType(), utf8Slice(testString)))
                     .put(columnHandles.get(columnIndex.get("t_bigint")), NullableValue.of(BIGINT, testBigint))
                     .put(columnHandles.get(columnIndex.get("t_boolean")), NullableValue.of(BOOLEAN, testBoolean))
-                    .build();
+                    .buildOrThrow();
 
             MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.fromFixedValues(bindings), OptionalInt.of(1), Optional.empty());
 
@@ -1673,7 +1673,7 @@ public abstract class AbstractTestHive
             ImmutableMap<ColumnHandle, NullableValue> bindings = ImmutableMap.<ColumnHandle, NullableValue>builder()
                     .put(columnHandles.get(columnIndex.get("t_float")), NullableValue.of(REAL, (long) floatToRawIntBits(87.1f)))
                     .put(columnHandles.get(columnIndex.get("t_double")), NullableValue.of(DOUBLE, 88.2))
-                    .build();
+                    .buildOrThrow();
 
             // floats and doubles are not supported, so we should see all splits
             MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.fromFixedValues(bindings), OptionalInt.of(32), Optional.empty());
@@ -2595,7 +2595,7 @@ public abstract class AbstractTestHive
                                     .add(new SortingColumn("value_asc", ASCENDING))
                                     .add(new SortingColumn("value_desc", DESCENDING))
                                     .build())
-                            .build());
+                            .buildOrThrow());
 
             ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty(), NO_RETRIES);
 
@@ -3471,7 +3471,7 @@ public abstract class AbstractTestHive
             inputAssignments = ImmutableMap.<String, ColumnHandle>builder()
                     .putAll(getColumnHandlesFor(columnHandlesWithSymbols, ImmutableList.of("symbol_2")))
                     .put(newlyCreatedColumn.getVariable(), newlyCreatedColumn.getColumn())
-                    .build();
+                    .buildOrThrow();
             inputProjections = ImmutableList.of(symbol2Field0, new Variable("onelevelrow0#f_int0", BIGINT));
             projectionResult = metadata.applyProjection(session, tableHandle, inputProjections, inputAssignments);
             expectedProjections = ImmutableList.of(new Variable("onelevelrow0#f_int0", BIGINT), new Variable("onelevelrow0#f_int0", BIGINT));
@@ -5037,7 +5037,7 @@ public abstract class AbstractTestHive
             index.put(hiveColumnHandle.getName(), i);
             i++;
         }
-        return index.build();
+        return index.buildOrThrow();
     }
 
     protected static ImmutableMap<String, Integer> indexColumns(ConnectorTableMetadata tableMetadata)
@@ -5048,7 +5048,7 @@ public abstract class AbstractTestHive
             index.put(columnMetadata.getName(), i);
             i++;
         }
-        return index.build();
+        return index.buildOrThrow();
     }
 
     protected SchemaTableName temporaryTable(String tableName)
@@ -5075,7 +5075,7 @@ public abstract class AbstractTestHive
                 .put(BUCKETED_BY_PROPERTY, ImmutableList.of())
                 .put(BUCKET_COUNT_PROPERTY, 0)
                 .put(SORTED_BY_PROPERTY, ImmutableList.of())
-                .build();
+                .buildOrThrow();
     }
 
     protected static List<ColumnHandle> filterNonHiddenColumnHandles(Collection<ColumnHandle> columnHandles)
@@ -5142,7 +5142,7 @@ public abstract class AbstractTestHive
                     .setTableName(tableName)
                     .setOwner(Optional.of(tableOwner))
                     .setTableType(TableType.MANAGED_TABLE.name())
-                    .setParameters(tableParamBuilder.build())
+                    .setParameters(tableParamBuilder.buildOrThrow())
                     .setDataColumns(columns)
                     .setPartitionColumns(partitionColumns);
 
