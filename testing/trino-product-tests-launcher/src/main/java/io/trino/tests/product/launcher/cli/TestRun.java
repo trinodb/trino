@@ -279,8 +279,8 @@ public final class TestRun
                     container.withEnv("CONTINUOUS_INTEGRATION", "true");
                 }
 
-                File jfrDir = new File(JACOCO_LOGS_LOCATION, TESTS);
-                jfrDir.mkdirs();
+                File jacocoDir = new File(JACOCO_LOGS_LOCATION, TESTS);
+                jacocoDir.mkdirs();
                 container
                         // the test jar is hundreds MB and file system bind is much more efficient
                         .withFileSystemBind(testJar.getPath(), "/docker/test.jar", READ_ONLY)
