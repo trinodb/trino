@@ -134,6 +134,7 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
+import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -558,8 +559,10 @@ public class ExpressionInterpreter
                             newOperands.add(nestedOperand);
                         }
                         // This operand can be evaluated to a non-null value. Remaining operands can be skipped.
-                        if (nestedOperand instanceof Literal) {
-                            verify(!(nestedOperand instanceof NullLiteral), "Null operand should have been removed by recursive coalesce processing");
+                        if (isEffectivelyLiteral(plannerContext, session, nestedOperand)) {
+                            verify(
+                                    !(nestedOperand instanceof NullLiteral) && !(nestedOperand instanceof Cast && ((Cast) nestedOperand).getExpression() instanceof NullLiteral),
+                                    "Null operand should have been removed by recursive coalesce processing");
                             return newOperands;
                         }
                     }
