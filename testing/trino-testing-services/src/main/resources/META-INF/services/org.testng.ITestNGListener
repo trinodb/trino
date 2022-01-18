@@ -3,6 +3,7 @@ io.trino.testng.services.ReportPrivateMethods
 io.trino.testng.services.ReportUnannotatedMethods
 io.trino.testng.services.ReportIllNamedTest
 io.trino.testng.services.ReportMultiThreadedBeforeOrAfterMethod
+io.trino.testng.services.ReportImproperlyOverriddenTestMethods
 io.trino.testng.services.LogTestDurationListener
 io.trino.testng.services.RetryAnnotationTransformer
 io.trino.testng.services.FlakyAnnotationVerifier
