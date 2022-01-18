@@ -23,6 +23,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -64,16 +65,16 @@ import static java.util.Objects.requireNonNull;
 
 public final class CanonicalizeExpressionRewriter
 {
-    public static Expression canonicalizeExpression(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata, Session session)
+    public static Expression canonicalizeExpression(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, PlannerContext plannerContext, Session session)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, metadata, expressionTypes), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, plannerContext, expressionTypes), expression);
     }
 
     private CanonicalizeExpressionRewriter() {}
 
-    public static Expression rewrite(Expression expression, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types)
+    public static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, TypeProvider types)
     {
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
         if (expression instanceof SymbolReference) {
@@ -81,20 +82,22 @@ public final class CanonicalizeExpressionRewriter
         }
         Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
 
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, metadata, expressionTypes), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(session, plannerContext, expressionTypes), expression);
     }
 
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
         private final Session session;
+        private final PlannerContext plannerContext;
         private final Metadata metadata;
         private final Map<NodeRef<Expression>, Type> expressionTypes;
 
-        public Visitor(Session session, Metadata metadata, Map<NodeRef<Expression>, Type> expressionTypes)
+        public Visitor(Session session, PlannerContext plannerContext, Map<NodeRef<Expression>, Type> expressionTypes)
         {
             this.session = session;
-            this.metadata = metadata;
+            this.plannerContext = plannerContext;
+            this.metadata = plannerContext.getMetadata();
             this.expressionTypes = expressionTypes;
         }
 
