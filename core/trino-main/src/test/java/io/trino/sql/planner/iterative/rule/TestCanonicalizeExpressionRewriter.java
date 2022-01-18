@@ -127,7 +127,7 @@ public class TestCanonicalizeExpressionRewriter
                     return rewrite(
                             PlanBuilder.expression(from),
                             transactedSession,
-                            PLANNER_CONTEXT.getMetadata(),
+                            PLANNER_CONTEXT,
                             TYPE_ANALYZER,
                                     TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
                                             .put(new Symbol("x"), BIGINT)

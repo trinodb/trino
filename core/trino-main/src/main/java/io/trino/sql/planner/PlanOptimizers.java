@@ -358,7 +358,7 @@ public class PlanOptimizers
                 .addAll(new PushCastIntoRow().rules())
                 .addAll(new UnwrapCastInComparison(plannerContext, typeAnalyzer).rules())
                 .addAll(new RemoveDuplicateConditions(metadata).rules())
-                .addAll(new CanonicalizeExpressions(metadata, typeAnalyzer).rules())
+                .addAll(new CanonicalizeExpressions(plannerContext, typeAnalyzer).rules())
                 .add(new RemoveTrivialFilters())
                 .build();
         IterativeOptimizer simplifyOptimizer = new IterativeOptimizer(
@@ -397,7 +397,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
-                                .addAll(new CanonicalizeExpressions(metadata, typeAnalyzer).rules())
+                                .addAll(new CanonicalizeExpressions(plannerContext, typeAnalyzer).rules())
                                 .add(new OptimizeRowPattern())
                                 .build()),
                 new IterativeOptimizer(
