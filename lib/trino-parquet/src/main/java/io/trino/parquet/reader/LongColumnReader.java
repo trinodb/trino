@@ -15,6 +15,7 @@ package io.trino.parquet.reader;
 
 import io.trino.parquet.RichColumnDescriptor;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 
 public class LongColumnReader
@@ -28,6 +29,17 @@ public class LongColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
-        type.writeLong(blockBuilder, valuesReader.readLong());
+        long longValue = valuesReader.readLong();
+
+        if (type instanceof TimestampType) {
+            int precision = ((TimestampType) type).getPrecision();
+            if (precision == 3) {
+                // When the 'timestamp(3)' (millisecond precision) is read from the column,
+                // just make sure it is converted to microsecond precision, which TimestampType expects
+                longValue *= 1000;
+            }
+        }
+
+        type.writeLong(blockBuilder, longValue);
     }
 }

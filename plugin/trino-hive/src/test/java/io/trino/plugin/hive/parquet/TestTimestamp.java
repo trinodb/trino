@@ -40,6 +40,7 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
@@ -53,10 +54,23 @@ import static org.testng.Assert.assertTrue;
 public class TestTimestamp
 {
     @Test
-    public void testTimestampBackedByInt64()
+    public void testAnnotatedInt64Timestamp()
             throws Exception
     {
-        MessageType parquetSchema = parseMessageType("message hive_timestamp { optional int64 test (TIMESTAMP_MILLIS); }");
+        testInt64TimestampColumn("optional int64 test (TIMESTAMP_MILLIS)");
+    }
+
+    @Test
+    public void testRawInt64Timestamp()
+            throws Exception
+    {
+        testInt64TimestampColumn("optional int64 test");
+    }
+
+    void testInt64TimestampColumn(String column)
+            throws Exception
+    {
+        MessageType parquetSchema = parseMessageType(format("message hive_timestamp { %s; }", column));
         ContiguousSet<Long> epochMillisValues = ContiguousSet.create(Range.closedOpen((long) -1_000, (long) 1_000), DiscreteDomain.longs());
         ImmutableList.Builder<SqlTimestamp> timestampsMillis = new ImmutableList.Builder<>();
         ImmutableList.Builder<Long> bigints = new ImmutableList.Builder<>();
