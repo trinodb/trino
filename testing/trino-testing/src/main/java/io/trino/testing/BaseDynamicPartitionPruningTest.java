@@ -64,11 +64,9 @@ public abstract class BaseDynamicPartitionPruningTest
             "optimizer.rewrite-filtering-semi-join-to-inner-join", "false");
 
     @BeforeClass
-    @Override
-    public void init()
+    public void initTables()
             throws Exception
     {
-        super.init();
         // setup partitioned fact table for dynamic partition pruning
         createLineitemTable(PARTITIONED_LINEITEM, ImmutableList.of("orderkey", "partkey", "suppkey"), ImmutableList.of("suppkey"));
     }
