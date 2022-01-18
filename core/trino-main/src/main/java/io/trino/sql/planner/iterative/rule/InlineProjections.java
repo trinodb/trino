@@ -21,6 +21,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.spi.type.RowType;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -62,10 +63,13 @@ public class InlineProjections
 
     private static final Pattern<ProjectNode> PATTERN = project()
             .with(source().matching(project().capturedAs(CHILD)));
+
+    private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
 
-    public InlineProjections(TypeAnalyzer typeAnalyzer)
+    public InlineProjections(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
     {
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
@@ -80,19 +84,19 @@ public class InlineProjections
     {
         ProjectNode child = captures.get(CHILD);
 
-        return inlineProjections(parent, child, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes())
+        return inlineProjections(plannerContext, parent, child, context.getSession(), typeAnalyzer, context.getSymbolAllocator().getTypes())
                 .map(Result::ofPlanNode)
                 .orElse(Result.empty());
     }
 
-    static Optional<ProjectNode> inlineProjections(ProjectNode parent, ProjectNode child, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
+    static Optional<ProjectNode> inlineProjections(PlannerContext plannerContext, ProjectNode parent, ProjectNode child, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
     {
         // squash identity projections
         if (parent.isIdentity() && child.isIdentity()) {
             return Optional.of((ProjectNode) parent.replaceChildren(ImmutableList.of(child.getSource())));
         }
 
-        Set<Symbol> targets = extractInliningTargets(parent, child, session, typeAnalyzer, types);
+        Set<Symbol> targets = extractInliningTargets(plannerContext, parent, child, session, typeAnalyzer, types);
         if (targets.isEmpty()) {
             return Optional.empty();
         }
@@ -157,8 +161,10 @@ public class InlineProjections
         return inlineSymbols(mapping, expression);
     }
 
-    private static Set<Symbol> extractInliningTargets(ProjectNode parent, ProjectNode child, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
+    private static Set<Symbol> extractInliningTargets(PlannerContext plannerContext, ProjectNode parent, ProjectNode child, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
     {
+        requireNonNull(plannerContext, "plannerContext is null"); // TODO use
+
         // candidates for inlining are
         //   1. references to simple constants or symbol references
         //   2. references to complex expressions that
