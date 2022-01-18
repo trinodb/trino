@@ -66,6 +66,7 @@ import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ExpressionUtils.and;
+import static io.trino.sql.ExpressionUtils.getExpressionTypes;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
@@ -74,7 +75,6 @@ import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Double.min;
 import static java.lang.String.format;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class FilterStatsCalculator
@@ -108,7 +108,7 @@ public class FilterStatsCalculator
     {
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
 
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, predicate, types);
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(plannerContext, session, predicate, types);
         ExpressionInterpreter interpreter = new ExpressionInterpreter(predicate, plannerContext, session, expressionTypes);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
@@ -117,21 +117,6 @@ public class FilterStatsCalculator
             value = false;
         }
         return new LiteralEncoder(plannerContext).toExpression(session, value, BOOLEAN);
-    }
-
-    private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
-    {
-        ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                plannerContext,
-                new AllowAllAccessControl(),
-                session,
-                types,
-                emptyMap(),
-                node -> new IllegalStateException("Unexpected node: " + node),
-                WarningCollector.NOOP,
-                false);
-        expressionAnalyzer.analyze(expression, Scope.create());
-        return expressionAnalyzer.getExpressionTypes();
     }
 
     private class FilterExpressionStatsCalculatingVisitor
@@ -440,7 +425,7 @@ public class FilterStatsCalculator
 
         private OptionalDouble doubleValueFromLiteral(Type type, Literal literal)
         {
-            Object literalValue = LiteralInterpreter.evaluate(plannerContext, session, getExpressionTypes(session, literal, types), literal);
+            Object literalValue = LiteralInterpreter.evaluate(plannerContext, session, getExpressionTypes(plannerContext, session, literal, types), literal);
             return toStatsRepresentation(type, literalValue);
         }
     }
