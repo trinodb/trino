@@ -31,7 +31,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.TryExpression;
@@ -44,6 +43,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
@@ -163,8 +163,6 @@ public class InlineProjections
 
     private static Set<Symbol> extractInliningTargets(PlannerContext plannerContext, ProjectNode parent, ProjectNode child, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
     {
-        requireNonNull(plannerContext, "plannerContext is null"); // TODO use
-
         // candidates for inlining are
         //   1. references to simple constants or symbol references
         //   2. references to complex expressions that
@@ -183,7 +181,7 @@ public class InlineProjections
 
         // find references to simple constants or symbol references
         Set<Symbol> basicReferences = dependencies.keySet().stream()
-                .filter(input -> child.getAssignments().get(input) instanceof Literal || child.getAssignments().get(input) instanceof SymbolReference)
+                .filter(input -> isEffectivelyLiteral(plannerContext, session, child.getAssignments().get(input)) || child.getAssignments().get(input) instanceof SymbolReference)
                 .filter(input -> !child.getAssignments().isIdentity(input)) // skip identities, otherwise, this rule will keep firing forever
                 .collect(toSet());
 

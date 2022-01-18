@@ -40,7 +40,6 @@ import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullLiteral;
@@ -58,6 +57,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
@@ -294,20 +294,16 @@ public final class CanonicalizeExpressionRewriter
                     .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new Row(arguments.subList(1, arguments.size())))
                     .build();
         }
-    }
 
-    private static boolean isConstant(Expression expression)
-    {
-        // Current IR has no way to represent typed constants. It encodes simple ones as Cast(Literal)
-        // This is the simplest possible check that
-        //   1) doesn't require ExpressionInterpreter.optimize(), which is not cheap
-        //   2) doesn't try to duplicate all the logic in LiteralEncoder
-        //   3) covers a sufficient portion of the use cases that occur in practice
-        // TODO: this should eventually be removed when IR includes types
-        if (expression instanceof Cast && ((Cast) expression).getExpression() instanceof Literal) {
-            return true;
+        private boolean isConstant(Expression expression)
+        {
+            // Current IR has no way to represent typed constants. It encodes simple ones as Cast(Literal)
+            // This is the simplest possible check that
+            //   1) doesn't require ExpressionInterpreter.optimize(), which is not cheap
+            //   2) doesn't try to duplicate all the logic in LiteralEncoder
+            //   3) covers a sufficient portion of the use cases that occur in practice
+            // TODO: this should eventually be removed when IR includes types
+            return isEffectivelyLiteral(plannerContext, session, expression);
         }
-
-        return expression instanceof Literal;
     }
 }
