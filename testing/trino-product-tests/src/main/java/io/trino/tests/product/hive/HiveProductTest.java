@@ -16,19 +16,28 @@ package io.trino.tests.product.hive;
 import com.google.common.base.Throwables;
 import io.airlift.log.Logger;
 import io.trino.tempto.ProductTest;
+import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryResult;
 import net.jodah.failsafe.RetryPolicy;
 import org.intellij.lang.annotations.Language;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Path;
 import java.time.temporal.ChronoUnit;
 import java.util.regex.Pattern;
+
+import static java.nio.file.Files.newInputStream;
 
 public class HiveProductTest
         extends ProductTest
 {
     private static final Logger log = Logger.get(HiveProductTest.class);
+
+    @Inject
+    protected HdfsClient hdfsClient;
 
     static final String ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE = "https://github.com/trinodb/trino/issues/4936";
     @Language("RegExp")
@@ -85,5 +94,14 @@ public class HiveProductTest
         return getHiveVersionMajor() == 3 &&
                 getHiveVersionMinor() == 1 &&
                 (getHiveVersionPatch() == 0 || getHiveVersionPatch() == 1);
+    }
+
+    protected void saveOnHdfs(Path path, String location)
+            throws IOException
+    {
+        hdfsClient.delete(location);
+        try (InputStream inputStream = newInputStream(path)) {
+            hdfsClient.saveFile(location, inputStream);
+        }
     }
 }
