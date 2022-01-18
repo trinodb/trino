@@ -294,13 +294,13 @@ public class TestExchangeClient
         assertTaskIsNotFinished(buffer, task3);
 
         exchangeClient.close();
+        buffer.whenTaskFinished(task3).get(10, SECONDS);
+        assertThat(buffer.getFinishedTasks()).containsExactlyInAnyOrder(task1, task2, task3);
+        assertThat(buffer.getFailedTasks().asMap()).isEmpty();
 
         assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState(), "not scheduled", "httpRequestState"));
         assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getHttpRequestState(), "not scheduled", "httpRequestState"));
         assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getHttpRequestState(), "not scheduled", "httpRequestState"));
-
-        assertThat(buffer.getFinishedTasks()).containsExactlyInAnyOrder(task1, task2, task3);
-        assertThat(buffer.getFailedTasks().asMap()).isEmpty();
 
         assertTrue(exchangeClient.isFinished());
     }
