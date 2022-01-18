@@ -36,10 +36,10 @@ import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
 
 /**
- * A Cache implementation similar to ones produced by {@code com.google.common.cache.CacheBuilder},
- * but one that does not exhibits <a href="https://github.com/google/guava/issues/1881">Guava issue #1881</a>, i.e.
- * a {@link #getIfPresent(Object)} after {@link #invalidate(Object)} is guaranteed to return {@code null} and
- * {@link #get(Object, Callable)} after {@link #invalidate(Object)} is guaranteed to load a fresh value.
+ * A {@link Cache} implementation similar to ones produced by {@link CacheBuilder#build()}, but one that does not exhibit
+ * <a href="https://github.com/google/guava/issues/1881">Guava issue #1881</a>: a cache inspection with
+ * {@link #getIfPresent(Object)} or {@link #get(Object, Callable)} is guaranteed to return fresh state after
+ * {@link #invalidate(Object)}, {@link #invalidateAll(Iterable)} or {@link #invalidateAll()} were called.
  */
 public class EvictableCache<K, V>
         extends AbstractCache<K, V>
