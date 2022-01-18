@@ -567,6 +567,12 @@ public class DynamoDbJdbcClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
 
+    @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
+    }
+
     private void generateSchemaFile(String tableName, ColumnMetadata partitionKeyMetadata, Optional<ColumnMetadata> sortKeyMetadata, List<ColumnMetadata> columns)
     {
         Jinjava jinjava = new Jinjava();
