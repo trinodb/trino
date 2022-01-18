@@ -323,7 +323,9 @@ public class IcebergPageSink
 
     private WriteContext createWriter(Optional<PartitionData> partitionData)
     {
-        String fileName = fileFormat.toIceberg().addExtension(randomUUID().toString());
+        // prepend query id to a file name so we can determine which files were written by which query. This is needed for opportunistic cleanup of extra files
+        // which may be present for successfully completing query in presence of failure recovery mechanisms.
+        String fileName = fileFormat.toIceberg().addExtension(session.getQueryId() + "-" + randomUUID());
         Path outputPath = partitionData.map(partition -> new Path(locationProvider.newDataLocation(partitionSpec, partition, fileName)))
                 .orElse(new Path(locationProvider.newDataLocation(fileName)));
 
