@@ -26,8 +26,8 @@ import java.util.Map;
 
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 
-public class TestHiveFailureRecoveryMinIO
-        extends BaseTestHiveFailureRecovery
+public class TestHiveMinioFailureRecoveryTest
+        extends BaseHiveFailureRecoveryTest
 {
     private String bucketName;
     private HiveMinioDataLake dockerizedS3DataLake;
