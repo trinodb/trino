@@ -29,18 +29,18 @@ public class TestingClickHouseServer
         implements Closeable
 {
     private static final DockerImageName CLICKHOUSE_IMAGE = DockerImageName.parse("yandex/clickhouse-server");
-    public static final String LATEST_VERSION = "21.11.10.1";
-    public static final String DEFAULT_VERSION = "20.8";
+    public static final DockerImageName CLICKHOUSE_LATEST_IMAGE = CLICKHOUSE_IMAGE.withTag("21.11.10.1");
+    public static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("20.8");
     private final ClickHouseContainer dockerContainer;
 
     public TestingClickHouseServer()
     {
-        this(DEFAULT_VERSION);
+        this(CLICKHOUSE_DEFAULT_IMAGE);
     }
 
-    public TestingClickHouseServer(String version)
+    public TestingClickHouseServer(DockerImageName image)
     {
-        dockerContainer = (ClickHouseContainer) new ClickHouseContainer(CLICKHOUSE_IMAGE.withTag(version))
+        dockerContainer = (ClickHouseContainer) new ClickHouseContainer(image)
                 .withCopyFileToContainer(forClasspathResource("custom.xml"), "/etc/clickhouse-server/config.d/custom.xml")
                 .withStartupAttempts(10);
 
