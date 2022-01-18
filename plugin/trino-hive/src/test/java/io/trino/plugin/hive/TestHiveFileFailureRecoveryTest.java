@@ -19,8 +19,8 @@ import io.trino.tpch.TpchTable;
 import java.util.List;
 import java.util.Map;
 
-public class TestHiveFailureRecoveryFile
-        extends BaseTestHiveFailureRecovery
+public class TestHiveFileFailureRecoveryTest
+        extends BaseHiveFailureRecoveryTest
 {
     @Override
     protected QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)

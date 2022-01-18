@@ -411,8 +411,8 @@
                             <excludes>
                                 <exclude>**/TestHiveGlueMetastore.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
-                                <exclude>**/TestHiveFailureRecoveryFile.java</exclude>
-                                <exclude>**/TestHiveFailureRecoveryMinIO.java</exclude>
+                                <exclude>**/TestHiveFileFailureRecoveryTest.java</exclude>
+                                <exclude>**/TestHiveMinioFailureRecoveryTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -463,8 +463,8 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestHiveFailureRecoveryFile.java</include>
-                                <include>**/TestHiveFailureRecoveryMinIO.java</include>
+                                <include>**/TestHiveFileFailureRecoveryTest.java</include>
+                                <include>**/TestHiveMinioFailureRecoveryTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
