@@ -834,6 +834,17 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testCastDateToBoundedVarchar()
+    {
+        assertEvaluatedEquals("CAST(DATE '2013-02-02' AS varchar(10))", "'2013-02-02'");
+        assertEvaluatedEquals("CAST(DATE '-2013-02-02' AS varchar(50))", "'-2013-02-02'");
+
+        // incorrect behavior: the result value does not fit in the type
+        assertEvaluatedEquals("CAST(DATE '2013-02-02' AS varchar(9))", "'2013-02-02'");
+        assertEvaluatedEquals("CAST(DATE '-2013-02-02' AS varchar(9))", "'-2013-02-02'");
+    }
+
+    @Test
     public void testCastToBoolean()
     {
         // integer
