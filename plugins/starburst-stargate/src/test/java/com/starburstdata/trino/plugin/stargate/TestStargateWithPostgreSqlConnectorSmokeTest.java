@@ -69,9 +69,6 @@ public class TestStargateWithPostgreSqlConnectorSmokeTest
                 // Writes are not enabled
                 return false;
 
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
             case SUPPORTS_ARRAY:
                 // TODO Add support in Remote connector (https://starburstdata.atlassian.net/browse/SEP-4798)
                 return false;

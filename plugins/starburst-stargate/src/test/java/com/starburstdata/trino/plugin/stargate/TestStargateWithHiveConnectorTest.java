@@ -64,9 +64,6 @@ public class TestStargateWithHiveConnectorTest
                 // Writes are not enabled
                 return false;
 
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
             default:
                 return super.hasBehavior(connectorBehavior);
         }

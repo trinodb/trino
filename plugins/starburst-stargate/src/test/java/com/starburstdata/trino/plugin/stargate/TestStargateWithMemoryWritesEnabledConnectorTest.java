@@ -24,6 +24,7 @@ import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.create
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createStargateQueryRunner;
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.stargateConnectionUrl;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -66,6 +67,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
                 return false;
 
             case SUPPORTS_RENAME_SCHEMA:
+                // not supported in memory connector
                 return false;
 
             case SUPPORTS_TRUNCATE:
@@ -195,5 +197,15 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         assertQueryFails(
                 "CREATE TABLE not_null_constraint (not_null_col INTEGER NOT NULL)",
                 ".* line 1:53: Catalog 'memory' does not support non-null column for column name '\"not_null_col\"'");
+    }
+
+    @Override
+    public void testRenameSchema()
+    {
+        // Overridden because we get an error message with "Query failed (<query_id>):" prefixed instead of one expected by superclass
+        String schemaName = getSession().getSchema().orElseThrow();
+        assertQueryFails(
+                format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomTableSuffix()),
+                ".*This connector does not support renaming schemas");
     }
 }
