@@ -238,7 +238,7 @@ public class ExpressionInterpreter
 
         // expressionInterpreter/optimizer only understands a subset of expression types
         // TODO: remove this when the new expression tree is implemented
-        Expression canonicalized = canonicalizeExpression(rewrite, analyzer.getExpressionTypes(), plannerContext.getMetadata(), session);
+        Expression canonicalized = canonicalizeExpression(rewrite, analyzer.getExpressionTypes(), plannerContext, session);
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary

@@ -1949,7 +1949,7 @@ public class TestExpressionInterpreter
                     parsedExpression = CanonicalizeExpressionRewriter.rewrite(
                             parsedExpression,
                             transactionSession,
-                            PLANNER_CONTEXT.getMetadata(),
+                            PLANNER_CONTEXT,
                             createTestingTypeAnalyzer(PLANNER_CONTEXT),
                             SYMBOL_TYPES);
                     return parsedExpression;
