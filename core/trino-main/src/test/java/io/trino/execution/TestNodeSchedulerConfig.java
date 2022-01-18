@@ -23,6 +23,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
+import static io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy.NODE;
 
 public class TestNodeSchedulerConfig
 {
@@ -36,6 +37,7 @@ public class TestNodeSchedulerConfig
                 .setMaxPendingSplitsPerTask(10)
                 .setMaxUnacknowledgedSplitsPerTask(500)
                 .setIncludeCoordinator(true)
+                .setSplitsBalancingPolicy(NodeSchedulerConfig.SplitsBalancingPolicy.STAGE)
                 .setOptimizedLocalScheduling(true));
     }
 
@@ -49,6 +51,7 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.max-pending-splits-per-task", "11")
                 .put("node-scheduler.max-splits-per-node", "101")
                 .put("node-scheduler.max-unacknowledged-splits-per-task", "501")
+                .put("node-scheduler.splits-balancing-policy", "node")
                 .put("node-scheduler.optimized-local-scheduling", "false")
                 .build();
 
@@ -59,6 +62,7 @@ public class TestNodeSchedulerConfig
                 .setMaxPendingSplitsPerTask(11)
                 .setMaxUnacknowledgedSplitsPerTask(501)
                 .setMinCandidates(11)
+                .setSplitsBalancingPolicy(NODE)
                 .setOptimizedLocalScheduling(false);
 
         assertFullMapping(properties, expected);

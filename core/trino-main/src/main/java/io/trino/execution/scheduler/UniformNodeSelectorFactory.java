@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.NodeTaskMap;
+import io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.HostAddress;
@@ -59,6 +60,7 @@ public class UniformNodeSelectorFactory
     private final boolean includeCoordinator;
     private final long maxSplitsWeightPerNode;
     private final long maxPendingSplitsWeightPerTask;
+    private final SplitsBalancingPolicy splitsBalancingPolicy;
     private final boolean optimizedLocalScheduling;
     private final NodeTaskMap nodeTaskMap;
     private final Duration nodeMapMemoizationDuration;
@@ -86,6 +88,7 @@ public class UniformNodeSelectorFactory
         this.nodeManager = nodeManager;
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
+        this.splitsBalancingPolicy = config.getSplitsBalancingPolicy();
         this.optimizedLocalScheduling = config.getOptimizedLocalScheduling();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         int maxSplitsPerNode = config.getMaxSplitsPerNode();
@@ -122,6 +125,7 @@ public class UniformNodeSelectorFactory
                 maxSplitsWeightPerNode,
                 maxPendingSplitsWeightPerTask,
                 getMaxUnacknowledgedSplitsPerTask(session),
+                splitsBalancingPolicy,
                 optimizedLocalScheduling);
     }
 
