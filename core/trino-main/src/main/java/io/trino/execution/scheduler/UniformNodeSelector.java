@@ -16,6 +16,7 @@ package io.trino.execution.scheduler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
@@ -24,12 +25,15 @@ import io.airlift.log.Logger;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.resourcegroups.IndexedPriorityQueue;
+import io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
+
+import javax.annotation.Nullable;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -68,6 +72,7 @@ public class UniformNodeSelector
     private final long maxSplitsWeightPerNode;
     private final long maxPendingSplitsWeightPerTask;
     private final int maxUnacknowledgedSplitsPerTask;
+    private final SplitsBalancingPolicy splitsBalancingPolicy;
     private final boolean optimizedLocalScheduling;
 
     public UniformNodeSelector(
@@ -79,6 +84,7 @@ public class UniformNodeSelector
             long maxSplitsWeightPerNode,
             long maxPendingSplitsWeightPerTask,
             int maxUnacknowledgedSplitsPerTask,
+            SplitsBalancingPolicy splitsBalancingPolicy,
             boolean optimizedLocalScheduling)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
@@ -90,6 +96,7 @@ public class UniformNodeSelector
         this.maxPendingSplitsWeightPerTask = maxPendingSplitsWeightPerTask;
         this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
         checkArgument(maxUnacknowledgedSplitsPerTask > 0, "maxUnacknowledgedSplitsPerTask must be > 0, found: %s", maxUnacknowledgedSplitsPerTask);
+        this.splitsBalancingPolicy = requireNonNull(splitsBalancingPolicy, "splitsBalancingPolicy is null");
         this.optimizedLocalScheduling = optimizedLocalScheduling;
     }
 
@@ -171,21 +178,12 @@ public class UniformNodeSelector
                 throw new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query");
             }
 
-            InternalNode chosenNode = null;
-            long minWeight = Long.MAX_VALUE;
-
-            for (InternalNode node : candidateNodes) {
-                long totalSplitsWeight = assignmentStats.getTotalSplitsWeight(node);
-                if (totalSplitsWeight < minWeight && totalSplitsWeight < maxSplitsWeightPerNode && assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask) {
-                    chosenNode = node;
-                    minWeight = totalSplitsWeight;
-                }
-            }
+            InternalNode chosenNode = chooseNodeForSplit(assignmentStats, candidateNodes);
             if (chosenNode == null) {
-                // minWeight is guaranteed to be MAX_VALUE at this line
+                long minWeight = Long.MAX_VALUE;
                 for (InternalNode node : candidateNodes) {
                     long queuedWeight = assignmentStats.getQueuedSplitsWeightForStage(node);
-                    if (queuedWeight < minWeight && queuedWeight < maxPendingSplitsWeightPerTask && assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask) {
+                    if (queuedWeight <= minWeight && queuedWeight < maxPendingSplitsWeightPerTask && assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask) {
                         chosenNode = node;
                         minWeight = queuedWeight;
                     }
@@ -224,6 +222,50 @@ public class UniformNodeSelector
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
         return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsWeightPerNode, maxPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap);
+    }
+
+    @Nullable
+    private InternalNode chooseNodeForSplit(NodeAssignmentStats assignmentStats, List<InternalNode> candidateNodes)
+    {
+        InternalNode chosenNode = null;
+        long minWeight = Long.MAX_VALUE;
+
+        List<InternalNode> freeNodes = getFreeNodesForStage(assignmentStats, candidateNodes);
+        switch (splitsBalancingPolicy) {
+            case STAGE:
+                for (InternalNode node : freeNodes) {
+                    long queuedWeight = assignmentStats.getQueuedSplitsWeightForStage(node);
+                    if (queuedWeight <= minWeight) {
+                        chosenNode = node;
+                        minWeight = queuedWeight;
+                    }
+                }
+                break;
+            case NODE:
+                for (InternalNode node : freeNodes) {
+                    long totalSplitsWeight = assignmentStats.getTotalSplitsWeight(node);
+                    if (totalSplitsWeight <= minWeight) {
+                        chosenNode = node;
+                        minWeight = totalSplitsWeight;
+                    }
+                }
+                break;
+            default:
+                throw new UnsupportedOperationException("Unsupported split balancing policy " + splitsBalancingPolicy);
+        }
+
+        return chosenNode;
+    }
+
+    private List<InternalNode> getFreeNodesForStage(NodeAssignmentStats assignmentStats, List<InternalNode> nodes)
+    {
+        ImmutableList.Builder<InternalNode> freeNodes = ImmutableList.builder();
+        for (InternalNode node : nodes) {
+            if (assignmentStats.getTotalSplitsWeight(node) < maxSplitsWeightPerNode && assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask) {
+                freeNodes.add(node);
+            }
+        }
+        return freeNodes.build();
     }
 
     /**

@@ -31,12 +31,18 @@ public class NodeSchedulerConfig
         UNIFORM, TOPOLOGY
     }
 
+    public enum SplitsBalancingPolicy
+    {
+        NODE, STAGE
+    }
+
     private int minCandidates = 10;
     private boolean includeCoordinator = true;
     private int maxSplitsPerNode = 100;
     private int maxPendingSplitsPerTask = 10;
     private NodeSchedulerPolicy nodeSchedulerPolicy = NodeSchedulerPolicy.UNIFORM;
     private boolean optimizedLocalScheduling = true;
+    private SplitsBalancingPolicy splitsBalancingPolicy = SplitsBalancingPolicy.STAGE;
     private int maxUnacknowledgedSplitsPerTask = 500;
 
     @NotNull
@@ -129,6 +135,20 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setMaxUnacknowledgedSplitsPerTask(int maxUnacknowledgedSplitsPerTask)
     {
         this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
+        return this;
+    }
+
+    @NotNull
+    public SplitsBalancingPolicy getSplitsBalancingPolicy()
+    {
+        return splitsBalancingPolicy;
+    }
+
+    @Config("node-scheduler.splits-balancing-policy")
+    @ConfigDescription("Strategy for balancing new splits on worker nodes")
+    public NodeSchedulerConfig setSplitsBalancingPolicy(SplitsBalancingPolicy splitsBalancingPolicy)
+    {
+        this.splitsBalancingPolicy = splitsBalancingPolicy;
         return this;
     }
 
