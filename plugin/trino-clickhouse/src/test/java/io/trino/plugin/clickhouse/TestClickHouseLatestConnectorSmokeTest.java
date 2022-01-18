@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
-import static io.trino.plugin.clickhouse.TestingClickHouseServer.LATEST_VERSION;
+import static io.trino.plugin.clickhouse.TestingClickHouseServer.CLICKHOUSE_LATEST_IMAGE;
 
 public class TestClickHouseLatestConnectorSmokeTest
         extends BaseClickHouseConnectorSmokeTest
@@ -27,7 +27,7 @@ public class TestClickHouseLatestConnectorSmokeTest
             throws Exception
     {
         return createClickHouseQueryRunner(
-                closeAfterClass(new TestingClickHouseServer(LATEST_VERSION)),
+                closeAfterClass(new TestingClickHouseServer(CLICKHOUSE_LATEST_IMAGE)),
                 ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         .put("clickhouse.map-string-as-varchar", "true")
