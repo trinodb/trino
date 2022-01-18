@@ -14,7 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.trino.Session;
-import io.trino.testing.AbstractTestFailureRecovery;
+import io.trino.testing.BaseFailureRecoveryTest;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -24,8 +24,8 @@ import java.util.Optional;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public abstract class BaseTestHiveFailureRecovery
-        extends AbstractTestFailureRecovery
+public abstract class BaseHiveFailureRecoveryTest
+        extends BaseFailureRecoveryTest
 {
     @Override
     protected boolean areWriteRetriesSupported()

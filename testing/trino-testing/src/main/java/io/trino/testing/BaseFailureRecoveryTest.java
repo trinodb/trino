@@ -75,7 +75,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
-public abstract class AbstractTestFailureRecovery
+public abstract class BaseFailureRecoveryTest
         extends AbstractTestQueryFramework
 {
     private static final String PARTITIONED_LINEITEM = "partitioned_lineitem";
