@@ -131,6 +131,16 @@ public class SalesforceJdbcClient
     }
 
     @Override
+    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
+    {
+        if (!enableWrites) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
+        }
+
+        super.renameSchema(session, schemaName, newSchemaName);
+    }
+
+    @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         if (!enableWrites) {

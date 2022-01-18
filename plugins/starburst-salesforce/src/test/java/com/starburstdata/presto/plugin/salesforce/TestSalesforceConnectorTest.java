@@ -89,6 +89,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
@@ -2402,6 +2403,32 @@ public class TestSalesforceConnectorTest
                         "('views')");
     }
 
+    @Test
+    public void testRenameSchema()
+    {
+        if (!hasBehavior(SUPPORTS_RENAME_SCHEMA)) {
+            String schemaName = getSession().getSchema().orElseThrow();
+            assertQueryFails(
+                    format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomTableSuffix()),
+                    "This connector does not support renaming schemas");
+            return;
+        }
+
+        if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
+            throw new SkipException("Skipping as connector does not support CREATE SCHEMA");
+        }
+
+        String schemaName = "test_rename_schema_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate("ALTER SCHEMA " + schemaName + " RENAME TO " + schemaName + "_renamed");
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName + "_renamed");
+        }
+    }
+
     // BaseJdbcConnectorTest
 
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
@@ -2410,6 +2437,7 @@ public class TestSalesforceConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN:
             case SUPPORTS_ARRAY:
             case SUPPORTS_CREATE_SCHEMA:
+            case SUPPORTS_RENAME_SCHEMA:
             case SUPPORTS_CREATE_TABLE:
             case SUPPORTS_CREATE_TABLE_WITH_DATA:
             case SUPPORTS_CREATE_VIEW:
