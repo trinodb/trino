@@ -40,6 +40,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.execution.scheduler.StageExecution.State.ABORTED;
 import static io.trino.execution.scheduler.StageExecution.State.FINISHED;
 import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
 import static io.trino.execution.scheduler.policy.PlanUtils.createAggregationFragment;
@@ -140,6 +141,40 @@ public class TestPhasedExecutionSchedule
         DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
         assertThat(dependencies.edgeSet()).containsExactly(new FragmentsEdge(buildFragment.getId(), joinFragment.getId()));
         assertThat(getActiveFragments(schedule)).containsExactly(buildFragment.getId(), sourceFragment.getId(), aggregationFragment.getId());
+    }
+
+    @Test
+    public void testDependentStageAbortedBeforeStarted()
+    {
+        PlanFragment sourceFragment = createTableScanPlanFragment("probe");
+        PlanFragment aggregationFragment = createAggregationFragment("aggregation", sourceFragment);
+        PlanFragment buildFragment = createTableScanPlanFragment("build");
+        PlanFragment joinFragment = createJoinPlanFragment(INNER, REPLICATED, "join", buildFragment, aggregationFragment);
+
+        TestingStageExecution sourceStage = new TestingStageExecution(sourceFragment);
+        TestingStageExecution aggregationStage = new TestingStageExecution(aggregationFragment);
+        TestingStageExecution buildStage = new TestingStageExecution(buildFragment);
+        TestingStageExecution joinStage = new TestingStageExecution(joinFragment);
+
+        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(sourceStage, aggregationStage, buildStage, joinStage));
+        assertThat(schedule.getSortedFragments()).containsExactly(buildFragment.getId(), sourceFragment.getId(), aggregationFragment.getId(), joinFragment.getId());
+
+        // aggregation and source stage should start immediately, join stage should wait for build stage to complete
+        DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
+        assertThat(dependencies.edgeSet()).containsExactly(new FragmentsEdge(buildFragment.getId(), joinFragment.getId()));
+        assertThat(getActiveFragments(schedule)).containsExactly(buildFragment.getId(), sourceFragment.getId(), aggregationFragment.getId());
+
+        // abort non-active join stage
+        joinStage.setState(ABORTED);
+
+        // dependencies finish
+        buildStage.setState(FINISHED);
+        aggregationStage.setState(FINISHED);
+        sourceStage.setState(FINISHED);
+
+        // join stage already aborted. Whole schedule should be marked as finished
+        schedule.schedule();
+        assertThat(schedule.isFinished()).isTrue();
     }
 
     @Test
