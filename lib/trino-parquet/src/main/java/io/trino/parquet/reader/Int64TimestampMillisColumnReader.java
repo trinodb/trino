@@ -44,6 +44,7 @@ public class Int64TimestampMillisColumnReader
             type.writeLong(blockBuilder, packDateTimeWithZone(epochMillis, UTC_KEY));
         }
         else if (type instanceof TimestampType) {
+            // The existing int64-millis-timestamp support is just converting timestamp to microsecond precision.
             long epochMicros = epochMillis * MICROSECONDS_PER_MILLISECOND;
             if (((TimestampType) type).isShort()) {
                 type.writeLong(blockBuilder, epochMicros);

@@ -112,12 +112,14 @@ public abstract class PrimitiveColumnReader
                     return new TimestampMicrosColumnReader(descriptor);
                 }
                 if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
+                    // The 'int64 test (TIMESTAMP_MILLIS)' column is handled here because of the type annotation.
                     return new Int64TimestampMillisColumnReader(descriptor);
                 }
                 if (descriptor.getPrimitiveType().getLogicalTypeAnnotation() instanceof TimestampLogicalTypeAnnotation &&
                         ((TimestampLogicalTypeAnnotation) descriptor.getPrimitiveType().getLogicalTypeAnnotation()).getUnit() == LogicalTypeAnnotation.TimeUnit.NANOS) {
                     return new Int64TimestampNanosColumnReader(descriptor);
                 }
+                // Yet 'int64 test' column will land into LongColumnReader, as parquet reader cannot know the table's column type in advance.
                 return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
             case INT96:
                 return new TimestampColumnReader(descriptor, timeZone);
