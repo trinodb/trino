@@ -14,11 +14,19 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.type.Type;
+import io.trino.sql.analyzer.ExpressionAnalyzer;
+import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
@@ -28,6 +36,7 @@ import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LogicalExpression.Operator;
+import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SymbolReference;
 
@@ -35,6 +44,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -253,6 +263,25 @@ public final class ExpressionUtils
 
             return or(resultDisjunct.build());
         };
+    }
+
+    /**
+     * @deprecated Use {@link io.trino.sql.planner.TypeAnalyzer#getTypes(Session, TypeProvider, Expression)}.
+     */
+    @Deprecated
+    public static Map<NodeRef<Expression>, Type> getExpressionTypes(PlannerContext plannerContext, Session session, Expression expression, TypeProvider types)
+    {
+        ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
+                plannerContext,
+                new AllowAllAccessControl(),
+                session,
+                types,
+                ImmutableMap.of(),
+                node -> new IllegalStateException("Unexpected node: " + node),
+                WarningCollector.NOOP,
+                false);
+        expressionAnalyzer.analyze(expression, Scope.create());
+        return expressionAnalyzer.getExpressionTypes();
     }
 
     /**
