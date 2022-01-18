@@ -179,7 +179,8 @@ public class PhasedExecutionSchedule
 
     private Set<PlanFragmentId> removeCompletedStages()
     {
-        Set<StageExecution> completedStages = activeStages.stream()
+        // iterate over all stages, not only active ones; stages which are not yet active could have already been aborted
+        Set<StageExecution> completedStages = stagesByFragmentId.values().stream()
                 .filter(this::isStageCompleted)
                 .collect(toImmutableSet());
         // remove completed stages outside of Java stream to prevent concurrent modification
@@ -192,6 +193,10 @@ public class PhasedExecutionSchedule
     {
         // start all stages that depend on completed stage
         PlanFragmentId fragmentId = stage.getFragment().getId();
+        if (!fragmentDependency.containsVertex(fragmentId)) {
+            // already gone
+            return ImmutableSet.of();
+        }
         Set<PlanFragmentId> fragmentsToExecute = fragmentDependency.outgoingEdgesOf(fragmentId).stream()
                 .map(FragmentsEdge::getTarget)
                 // filter stages that depend on completed stage only
