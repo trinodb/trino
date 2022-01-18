@@ -88,7 +88,7 @@ public class TestPushProjectionThroughJoin
                         new JoinNode.EquiJoinClause(a1, b1)));
 
         Session session = testSessionBuilder().build();
-        Optional<PlanNode> rewritten = pushProjectionThroughJoin(PLANNER_CONTEXT.getMetadata(), planNode, noLookup(), idAllocator, session, createTestingTypeAnalyzer(
+        Optional<PlanNode> rewritten = pushProjectionThroughJoin(PLANNER_CONTEXT, planNode, noLookup(), idAllocator, session, createTestingTypeAnalyzer(
                 PLANNER_CONTEXT), p.getTypes());
         assertTrue(rewritten.isPresent());
         assertPlan(
@@ -128,7 +128,7 @@ public class TestPushProjectionThroughJoin
                         INNER,
                         p.values(a),
                         p.values(b)));
-        Optional<PlanNode> rewritten = pushProjectionThroughJoin(PLANNER_CONTEXT.getMetadata(), planNode, noLookup(), new PlanNodeIdAllocator(), testSessionBuilder().build(), createTestingTypeAnalyzer(
+        Optional<PlanNode> rewritten = pushProjectionThroughJoin(PLANNER_CONTEXT, planNode, noLookup(), new PlanNodeIdAllocator(), testSessionBuilder().build(), createTestingTypeAnalyzer(
                 PLANNER_CONTEXT), p.getTypes());
         assertThat(rewritten).isEmpty();
     }
@@ -148,7 +148,7 @@ public class TestPushProjectionThroughJoin
                         LEFT,
                         p.values(a),
                         p.values(b)));
-        Optional<PlanNode> rewritten = pushProjectionThroughJoin(PLANNER_CONTEXT.getMetadata(), planNode, noLookup(), new PlanNodeIdAllocator(), testSessionBuilder().build(), createTestingTypeAnalyzer(
+        Optional<PlanNode> rewritten = pushProjectionThroughJoin(PLANNER_CONTEXT, planNode, noLookup(), new PlanNodeIdAllocator(), testSessionBuilder().build(), createTestingTypeAnalyzer(
                 PLANNER_CONTEXT), p.getTypes());
         assertThat(rewritten).isEmpty();
     }
