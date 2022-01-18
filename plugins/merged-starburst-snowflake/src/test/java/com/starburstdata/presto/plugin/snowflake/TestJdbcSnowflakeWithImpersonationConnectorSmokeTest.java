@@ -11,7 +11,6 @@ package com.starburstdata.presto.plugin.snowflake;
 
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingConnectorBehavior;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationEnabled;
@@ -28,17 +27,6 @@ public class TestJdbcSnowflakeWithImpersonationConnectorSmokeTest
         return jdbcBuilder()
                 .withConnectorProperties(impersonationEnabled())
                 .build();
-    }
-
-    @Override
-    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
-    {
-        switch (connectorBehavior) {
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
     }
 
     @Test
