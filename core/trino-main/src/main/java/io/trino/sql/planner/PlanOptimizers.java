@@ -349,7 +349,7 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(
-                        new InlineProjections(typeAnalyzer),
+                        new InlineProjections(plannerContext, typeAnalyzer),
                         new RemoveRedundantIdentityProjections()));
 
         Set<Rule<?>> simplifyOptimizerRules = ImmutableSet.<Rule<?>>builder()
@@ -417,7 +417,7 @@ public class PlanOptimizers
                                         new EvaluateEmptyIntersect(),
                                         new RemoveEmptyExceptBranches(),
                                         new MergeFilters(metadata),
-                                        new InlineProjections(typeAnalyzer),
+                                        new InlineProjections(plannerContext, typeAnalyzer),
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
                                         new EvaluateZeroSample(),
@@ -534,7 +534,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
-                                new InlineProjections(typeAnalyzer),
+                                new InlineProjections(plannerContext, typeAnalyzer),
                                 new RemoveRedundantIdentityProjections(),
                                 new TransformCorrelatedSingleRowSubqueryToProject(),
                                 new RemoveAggregationInSemiJoin(),
@@ -697,7 +697,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new EliminateCrossJoins(metadata, typeAnalyzer))), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
+                        ImmutableSet.of(new EliminateCrossJoins(plannerContext, typeAnalyzer))), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
                 new StatsRecordingPlanOptimizer(
                         optimizerStats,
                         new PredicatePushDown(plannerContext, typeAnalyzer, true, false)),
@@ -750,7 +750,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new ReorderJoins(metadata, costComparator, typeAnalyzer))));
+                        ImmutableSet.of(new ReorderJoins(plannerContext, costComparator, typeAnalyzer))));
 
         builder.add(new OptimizeMixedDistinctAggregations(metadata));
         builder.add(new IterativeOptimizer(
@@ -772,7 +772,7 @@ public class PlanOptimizers
                 ImmutableSet.<Rule<?>>builder()
                         .add(new RemoveRedundantIdentityProjections())
                         .addAll(new ExtractSpatialJoins(plannerContext, splitManager, pageSourceManager, typeAnalyzer).rules())
-                        .add(new InlineProjections(typeAnalyzer))
+                        .add(new InlineProjections(plannerContext, typeAnalyzer))
                         .build()));
 
         builder.add(new IterativeOptimizer(
@@ -884,7 +884,7 @@ public class PlanOptimizers
                 ImmutableSet.<Rule<?>>builder()
                         .add(new RemoveRedundantIdentityProjections())
                         .add(new PushRemoteExchangeThroughAssignUniqueId())
-                        .add(new InlineProjections(typeAnalyzer))
+                        .add(new InlineProjections(plannerContext, typeAnalyzer))
                         .build()));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
