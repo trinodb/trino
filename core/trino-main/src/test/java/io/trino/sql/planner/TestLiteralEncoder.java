@@ -63,6 +63,7 @@ import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.transaction.TransactionBuilder.transaction;
@@ -266,6 +267,7 @@ public class TestLiteralEncoder
     private void assertEncodeCaseInsensitively(Object value, Type type, String expected)
     {
         Expression expression = encoder.toExpression(TEST_SESSION, value, type);
+        assertTrue(isEffectivelyLiteral(PLANNER_CONTEXT, TEST_SESSION, expression), "isEffectivelyLiteral returned false for: " + expression);
         assertEquals(getExpressionType(expression), type);
         assertEquals(getExpressionValue(expression), value);
         assertEqualsIgnoreCase(formatSql(expression), expected);
@@ -274,6 +276,7 @@ public class TestLiteralEncoder
     private <T> void assertRoundTrip(T value, Type type, BiPredicate<T, T> predicate)
     {
         Expression expression = encoder.toExpression(TEST_SESSION, value, type);
+        assertTrue(isEffectivelyLiteral(PLANNER_CONTEXT, TEST_SESSION, expression), "isEffectivelyLiteral returned false for: " + expression);
         assertEquals(getExpressionType(expression), type);
         @SuppressWarnings("unchecked")
         T decodedValue = (T) getExpressionValue(expression);

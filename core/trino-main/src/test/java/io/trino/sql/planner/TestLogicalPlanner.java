@@ -995,10 +995,22 @@ public class TestLogicalPlanner
     }
 
     @Test
-    public void testInlineCountOverConstantExpression()
+    public void testInlineCountOverLiteral()
     {
         assertPlan(
                 "SELECT regionkey, count(1) FROM nation GROUP BY regionkey",
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("count_0", functionCall("count", ImmutableList.of())),
+                                PARTIAL,
+                                tableScan("nation", ImmutableMap.of("regionkey", "regionkey")))));
+    }
+
+    @Test
+    public void testInlineCountOverEffectivelyLiteral()
+    {
+        assertPlan(
+                "SELECT regionkey, count(CAST(DECIMAL '1' AS decimal(8,4))) FROM nation GROUP BY regionkey",
                 anyTree(
                         aggregation(
                                 ImmutableMap.of("count_0", functionCall("count", ImmutableList.of())),

@@ -51,6 +51,7 @@ import java.util.OptionalDouble;
 
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.sql.ExpressionUtils.getExpressionTypes;
+import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.trino.sql.planner.LiteralInterpreter.evaluate;
 import static io.trino.util.MoreMath.max;
@@ -140,7 +141,7 @@ public class ScalarStatsCalculator
                 return nullStatsEstimate();
             }
 
-            if (value instanceof Expression && !(value instanceof Literal)) {
+            if (value instanceof Expression && !isEffectivelyLiteral(plannerContext, session, (Expression) value)) {
                 // value is not a constant
                 return SymbolStatsEstimate.unknown();
             }
