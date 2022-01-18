@@ -50,6 +50,7 @@ import java.util.Map;
 import java.util.OptionalDouble;
 
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
+import static io.trino.sql.ExpressionUtils.getExpressionTypes;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.trino.sql.planner.LiteralInterpreter.evaluate;
 import static io.trino.util.MoreMath.max;
@@ -58,7 +59,6 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.abs;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarStatsCalculator
@@ -132,7 +132,7 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitFunctionCall(FunctionCall node, Void context)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, node, types);
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(plannerContext, session, node, types);
             ExpressionInterpreter interpreter = new ExpressionInterpreter(node, plannerContext, session, expressionTypes);
             Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
@@ -150,21 +150,6 @@ public class ScalarStatsCalculator
                     .setNullsFraction(0)
                     .setDistinctValuesCount(1)
                     .build();
-        }
-
-        private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
-        {
-            ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    plannerContext,
-                    new AllowAllAccessControl(),
-                    session,
-                    types,
-                    emptyMap(),
-                    node -> new IllegalStateException("Unexpected node: %s" + node),
-                    WarningCollector.NOOP,
-                    false);
-            expressionAnalyzer.analyze(expression, Scope.create());
-            return expressionAnalyzer.getExpressionTypes();
         }
 
         @Override
