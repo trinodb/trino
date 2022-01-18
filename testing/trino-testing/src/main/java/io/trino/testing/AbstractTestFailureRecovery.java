@@ -107,11 +107,9 @@ public abstract class AbstractTestFailureRecovery
             throws Exception;
 
     @BeforeClass
-    @Override
-    public void init()
+    public void initTables()
             throws Exception
     {
-        super.init();
         // setup partitioned fact table for dynamic partition pruning
         createPartitionedLineitemTable(PARTITIONED_LINEITEM, ImmutableList.of("orderkey", "partkey", "suppkey"), "suppkey");
     }
