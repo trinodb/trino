@@ -18,8 +18,8 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.BoundSignature;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -50,11 +50,11 @@ public class SimplifyCountOverConstant
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .with(source().matching(project().capturedAs(CHILD)));
 
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
 
-    public SimplifyCountOverConstant(Metadata metadata)
+    public SimplifyCountOverConstant(PlannerContext plannerContext)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
     }
 
     @Override
@@ -71,7 +71,7 @@ public class SimplifyCountOverConstant
         boolean changed = false;
         Map<Symbol, AggregationNode.Aggregation> aggregations = new LinkedHashMap<>(parent.getAggregations());
 
-        ResolvedFunction countFunction = metadata.resolveFunction(context.getSession(), QualifiedName.of("count"), ImmutableList.of());
+        ResolvedFunction countFunction = plannerContext.getMetadata().resolveFunction(context.getSession(), QualifiedName.of("count"), ImmutableList.of());
 
         for (Entry<Symbol, AggregationNode.Aggregation> entry : parent.getAggregations().entrySet()) {
             Symbol symbol = entry.getKey();
