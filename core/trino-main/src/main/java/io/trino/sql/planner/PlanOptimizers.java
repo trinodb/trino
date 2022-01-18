@@ -444,7 +444,7 @@ public class PlanOptimizers
                                         new PruneCountAggregationOverScalar(metadata),
                                         new PruneOrderByInAggregation(metadata),
                                         new RewriteSpatialPartitioningAggregation(plannerContext),
-                                        new SimplifyCountOverConstant(metadata)))
+                                        new SimplifyCountOverConstant(plannerContext)))
                                 .build()),
                 new IterativeOptimizer(
                         metadata,
