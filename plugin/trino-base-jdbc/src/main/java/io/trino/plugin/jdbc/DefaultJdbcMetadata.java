@@ -311,8 +311,7 @@ public class DefaultJdbcMetadata
 
         List<JdbcColumnHandle> newColumnsList = newColumns.build();
 
-        // TODO(https://github.com/trinodb/trino/issues/9021) We are reading all grouping columns from remote database as at this point we are not able to tell if they are needed up in the query.
-        // As a reason of that we need to also have matching column handles in JdbcTableHandle constructed below, as columns read via JDBC must match column handles list.
+        // We need to have matching column handles in JdbcTableHandle constructed below, as columns read via JDBC must match column handles list.
         // For more context see assertion in JdbcRecordSetProvider.getRecordSet
         PreparedQuery preparedQuery = jdbcClient.prepareQuery(
                 session,
