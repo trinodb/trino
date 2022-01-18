@@ -34,6 +34,27 @@ appropriate for your setup:
     connection-user=exampleuser
     connection-password=examplepassword
 
+.. _clickhouse-tls:
+
+Connection security
+^^^^^^^^^^^^^^^^^^^
+
+If you have TLS configured with a globally-trusted certificate installed on your
+data source, you can enable TLS between your cluster and the data
+source by appending a parameter to the JDBC connection string set in the
+``connection-url`` catalog configuration property.
+
+For example, with version 2.6.4 of the ClickHouse JDBC driver, enable TLS by
+appending the ``ssl=true`` parameter to the ``connection-url`` configuration
+property:
+
+.. code-block:: properties
+
+  connection-url=jdbc:clickhouse://host1:8123/?ssl=true
+
+For more information on TLS configuration options, see the `Clickhouse JDBC
+driver documentation <https://clickhouse.com/docs/en/interfaces/jdbc/>`_
+
 Multiple ClickHouse servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
