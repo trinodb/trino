@@ -102,15 +102,18 @@ public class TestEvictableCache
 
         CountDownLatch loadOngoing = new CountDownLatch(1);
         CountDownLatch invalidated = new CountDownLatch(1);
+        CountDownLatch getReturned = new CountDownLatch(1);
         ExecutorService executor = newFixedThreadPool(2);
         try {
             // thread A
             Future<String> threadA = executor.submit(() -> {
-                return cache.get(key, () -> {
+                String value = cache.get(key, () -> {
                     loadOngoing.countDown(); // 1
                     assertTrue(invalidated.await(10, SECONDS)); // 2
                     return "stale value";
                 });
+                getReturned.countDown(); // 3
+                return value;
             });
 
             // thread B
@@ -136,6 +139,8 @@ public class TestEvictableCache
                 }
 
                 invalidated.countDown(); // 2
+                // Cache may persist value after loader returned, but before `cache.get(...)` returned. Ensure the latter completed.
+                assertTrue(getReturned.await(10, SECONDS)); // 3
 
                 return cache.get(key, () -> "fresh value");
             });
