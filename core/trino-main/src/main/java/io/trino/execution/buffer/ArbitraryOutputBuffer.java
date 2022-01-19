@@ -105,12 +105,6 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
-    public boolean isFinished()
-    {
-        return stateMachine.getState() == FINISHED;
-    }
-
-    @Override
     public double getUtilization()
     {
         return memoryManager.getUtilization();
@@ -157,6 +151,12 @@ public class ArbitraryOutputBuffer
                 totalRowsAdded.get(),
                 totalPagesAdded.get(),
                 infos.build());
+    }
+
+    @Override
+    public BufferState getState()
+    {
+        return stateMachine.getState();
     }
 
     @Override

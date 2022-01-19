@@ -639,8 +639,8 @@ public class SqlTaskExecution
         // no more output will be created
         outputBuffer.setNoMorePages();
 
-        // are there still pages in the output buffer
-        if (!outputBuffer.isFinished()) {
+        BufferState bufferState = outputBuffer.getState();
+        if (bufferState != BufferState.FINISHED) {
             taskStateMachine.transitionToFlushing();
             return;
         }
