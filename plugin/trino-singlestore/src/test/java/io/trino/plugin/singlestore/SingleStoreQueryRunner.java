@@ -15,7 +15,6 @@ package io.trino.plugin.singlestore;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -78,8 +77,6 @@ public class SingleStoreQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
-
         // You need to set 'memsql.license' to VM options
         DistributedQueryRunner queryRunner = createSingleStoreQueryRunner(
                 new TestingSingleStoreServer(),

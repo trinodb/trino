@@ -15,7 +15,6 @@ package io.trino.plugin.tpcds;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.testing.DistributedQueryRunner;
 
@@ -67,7 +66,6 @@ public final class TpcdsQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
         DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
         Thread.sleep(10);
         Logger log = Logger.get(TpcdsQueryRunner.class);
