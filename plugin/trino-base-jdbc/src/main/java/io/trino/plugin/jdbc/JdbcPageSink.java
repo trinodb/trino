@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.getWriteBatchSize;
@@ -68,7 +69,7 @@ public class JdbcPageSink
             connection.setAutoCommit(false);
         }
         catch (SQLException e) {
-            closeWithSuppression(connection, e);
+            closeAllSuppress(e, connection);
             throw new TrinoException(JDBC_ERROR, e);
         }
 
@@ -102,7 +103,7 @@ public class JdbcPageSink
             statement = connection.prepareStatement(jdbcClient.buildInsertSql(handle, columnWriters));
         }
         catch (SQLException e) {
-            closeWithSuppression(connection, e);
+            closeAllSuppress(e, connection);
             throw new TrinoException(JDBC_ERROR, e);
         }
 
@@ -210,20 +211,6 @@ public class JdbcPageSink
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
-        }
-    }
-
-    @SuppressWarnings("ObjectEquality")
-    private static void closeWithSuppression(Connection connection, Throwable throwable)
-    {
-        try {
-            connection.close();
-        }
-        catch (Throwable t) {
-            // Self-suppression not permitted
-            if (throwable != t) {
-                throwable.addSuppressed(t);
-            }
         }
     }
 }
