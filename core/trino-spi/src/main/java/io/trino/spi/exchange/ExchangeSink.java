@@ -35,6 +35,8 @@ public interface ExchangeSink
      * Appends arbitrary {@code data} to a partition specified by {@code partitionId}.
      * The engine is free to reuse the {@code data} buffer.
      * The implementation is expected to copy the buffer as it may be invalidated and recycled.
+     * If this method is invoked after {@link #finish()} or {@link #abort()} is initiated the
+     * invocation should be ignored.
      */
     void add(int partitionId, Slice data);
 
@@ -45,12 +47,21 @@ public interface ExchangeSink
     long getMemoryUsage();
 
     /**
-     * Notifies the exchange sink that no more data will be appended
+     * Notifies the exchange sink that no more data will be appended.
+     * This method is guaranteed not to be called after {@link #abort()}.
+     * This method is guaranteed not be called more than once.
+     *
+     * @return future that will be resolved when the finish operation either succeeds or fails
      */
-    void finish();
+    CompletableFuture<?> finish();
 
     /**
-     * Notifies the exchange that the write operation has been aborted
+     * Notifies the exchange that the write operation has been aborted.
+     * This method may be called when {@link #finish()} is still running. In this situation the implementation
+     * is free to either cancel the finish operation and abort or let the finish operation succeed.
+     * This method is guaranteed not be called more than once.
+     *
+     * @return future that will be resolved when the abort operation either succeeds or fails
      */
-    void abort();
+    CompletableFuture<?> abort();
 }

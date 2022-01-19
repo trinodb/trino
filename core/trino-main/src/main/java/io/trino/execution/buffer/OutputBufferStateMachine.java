@@ -16,19 +16,24 @@ package io.trino.execution.buffer;
 import io.trino.execution.StateMachine;
 import io.trino.execution.TaskId;
 
+import java.util.Optional;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.execution.buffer.BufferState.ABORTED;
+import static io.trino.execution.buffer.BufferState.FAILED;
 import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
 import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
 import static io.trino.execution.buffer.BufferState.NO_MORE_PAGES;
 import static io.trino.execution.buffer.BufferState.OPEN;
 import static io.trino.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
+import static java.util.Objects.requireNonNull;
 
 public class OutputBufferStateMachine
 {
     private final StateMachine<BufferState> state;
+    private final AtomicReference<Throwable> failureCause = new AtomicReference<>();
 
     public OutputBufferStateMachine(TaskId taskId, Executor executor)
     {
@@ -69,5 +74,18 @@ public class OutputBufferStateMachine
     public boolean abort()
     {
         return state.setIf(ABORTED, oldState -> !oldState.isTerminal());
+    }
+
+    public boolean fail(Throwable throwable)
+    {
+        requireNonNull(throwable, "throwable is null");
+
+        failureCause.compareAndSet(null, throwable);
+        return state.setIf(FAILED, oldState -> !oldState.isTerminal());
+    }
+
+    public Optional<Throwable> getFailureCause()
+    {
+        return Optional.ofNullable(failureCause.get());
     }
 }

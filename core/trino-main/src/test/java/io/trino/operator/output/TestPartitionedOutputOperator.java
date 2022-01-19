@@ -670,6 +670,12 @@ public class TestPartitionedOutputOperator
         {
             return 0;
         }
+
+        @Override
+        public Optional<Throwable> getFailureCause()
+        {
+            return Optional.empty();
+        }
     }
 
     private static class SumModuloPartitionFunction

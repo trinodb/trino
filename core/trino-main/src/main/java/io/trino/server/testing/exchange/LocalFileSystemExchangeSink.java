@@ -41,6 +41,8 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.Files.createFile;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 public class LocalFileSystemExchangeSink
         implements ExchangeSink
@@ -109,10 +111,10 @@ public class LocalFileSystemExchangeSink
     }
 
     @Override
-    public synchronized void finish()
+    public synchronized CompletableFuture<?> finish()
     {
         if (closed) {
-            return;
+            return completedFuture(null);
         }
         try {
             for (SliceOutput output : outputs.values()) {
@@ -133,17 +135,18 @@ public class LocalFileSystemExchangeSink
         }
         catch (Throwable t) {
             abort();
-            throw t;
+            return failedFuture(t);
         }
         committed = true;
         closed = true;
+        return completedFuture(null);
     }
 
     @Override
-    public synchronized void abort()
+    public synchronized CompletableFuture<?> abort()
     {
         if (closed) {
-            return;
+            return completedFuture(null);
         }
         closed = true;
         for (SliceOutput output : outputs.values()) {
@@ -161,5 +164,6 @@ public class LocalFileSystemExchangeSink
         catch (IOException e) {
             log.warn(e, "Error cleaning output directory");
         }
+        return completedFuture(null);
     }
 }
