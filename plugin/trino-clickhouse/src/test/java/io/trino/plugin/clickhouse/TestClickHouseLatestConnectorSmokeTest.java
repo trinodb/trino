@@ -30,7 +30,7 @@ public class TestClickHouseLatestConnectorSmokeTest
                 closeAfterClass(new TestingClickHouseServer(CLICKHOUSE_LATEST_IMAGE)),
                 ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
-                        .put("clickhouse.map-string-as-varchar", "true")
+                        .put("clickhouse.map-string-as-varchar", "true") // To handle string types in TPCH tables as varchar instead of varbinary
                         .buildOrThrow(),
                 REQUIRED_TPCH_TABLES);
     }
