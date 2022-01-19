@@ -19,6 +19,7 @@ import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import io.trino.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
+import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 
@@ -59,6 +60,7 @@ public class HydraIdentityProvider
         DockerContainer migrationContainer = new DockerContainer(HYDRA_IMAGE, "hydra-db-migration")
                 .withCommand("migrate", "sql", "--yes", DSN)
                 .dependsOn(databaseContainer)
+                .withStartupCheckStrategy(new OneShotStartupCheckStrategy())
                 .setTemporary(true);
 
         DockerContainer hydraConsent = new DockerContainer("oryd/hydra-login-consent-node:v1.4.2", "hydra-consent")
