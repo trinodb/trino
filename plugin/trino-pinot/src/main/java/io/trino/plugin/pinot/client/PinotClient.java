@@ -152,14 +152,13 @@ public class PinotClient
         this.brokerAuthenticationProvider = brokerAuthenticationProvider;
     }
 
-    public static JsonCodecBinder addJsonBinders(JsonCodecBinder jsonCodecBinder)
+    public static void addJsonBinders(JsonCodecBinder jsonCodecBinder)
     {
         jsonCodecBinder.bindJsonCodec(GetTables.class);
         jsonCodecBinder.bindJsonCodec(BrokersForTable.InstancesInBroker.class);
         jsonCodecBinder.bindJsonCodec(BrokersForTable.class);
         jsonCodecBinder.bindJsonCodec(TimeBoundary.class);
         jsonCodecBinder.bindJsonCodec(BrokerResponseNative.class);
-        return jsonCodecBinder;
     }
 
     protected <T> T doHttpActionWithHeadersJson(
