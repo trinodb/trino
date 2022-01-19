@@ -308,14 +308,14 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public void fail()
+    public void abort()
     {
         OutputBuffer outputBuffer = delegate;
         if (outputBuffer == null) {
             synchronized (this) {
                 if (delegate == null) {
-                    // ignore fail if the buffer already in a terminal state.
-                    stateMachine.fail();
+                    // ignore abort if the buffer already in a terminal state.
+                    stateMachine.abort();
 
                     // Do not free readers on fail
                     return;
@@ -323,7 +323,7 @@ public class LazyOutputBuffer
                 outputBuffer = delegate;
             }
         }
-        outputBuffer.fail();
+        outputBuffer.abort();
     }
 
     @Override

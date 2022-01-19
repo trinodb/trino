@@ -661,7 +661,7 @@ public class TestPartitionedOutputOperator
         }
 
         @Override
-        public void fail()
+        public void abort()
         {
         }
 

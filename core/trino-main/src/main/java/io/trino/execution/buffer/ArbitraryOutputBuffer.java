@@ -328,10 +328,10 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
-    public void fail()
+    public void abort()
     {
-        // ignore fail if the buffer already in a terminal state.
-        if (stateMachine.fail()) {
+        // ignore abort if the buffer already in a terminal state.
+        if (stateMachine.abort()) {
             memoryManager.setNoBlockOnFull();
             forceFreeMemory();
             // DO NOT destroy buffers or set no more pages.  The coordinator manages the teardown of failed queries.

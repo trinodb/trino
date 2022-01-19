@@ -182,7 +182,7 @@ public class SqlTask
             if (newState == FAILED || newState == ABORTED) {
                 // don't close buffers for a failed query
                 // closed buffers signal to upstream tasks that everything finished cleanly
-                outputBuffer.fail();
+                outputBuffer.abort();
             }
             else {
                 outputBuffer.destroy();
