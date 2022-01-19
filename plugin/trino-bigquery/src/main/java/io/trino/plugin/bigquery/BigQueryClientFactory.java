@@ -47,7 +47,7 @@ public class BigQueryClientFactory
             ViewMaterializationCache materializationCache,
             HeaderProvider headerProvider)
     {
-        this.identityCacheMapping = requireNonNull(identityCacheMapping, "identityCacheMaping is null");
+        this.identityCacheMapping = requireNonNull(identityCacheMapping, "identityCacheMapping is null");
         this.credentialsSupplier = requireNonNull(credentialsSupplier, "credentialsSupplier is null");
         this.bigQueryConfig = requireNonNull(bigQueryConfig, "bigQueryConfig is null");
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
