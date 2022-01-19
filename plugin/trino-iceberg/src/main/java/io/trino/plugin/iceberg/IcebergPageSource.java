@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static java.util.Objects.requireNonNull;
@@ -153,15 +154,6 @@ public class IcebergPageSource
 
     protected void closeWithSuppression(Throwable throwable)
     {
-        requireNonNull(throwable, "throwable is null");
-        try {
-            close();
-        }
-        catch (RuntimeException e) {
-            // Self-suppression not permitted
-            if (throwable != e) {
-                throwable.addSuppressed(e);
-            }
-        }
+        closeAllSuppress(throwable, this);
     }
 }

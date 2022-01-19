@@ -46,6 +46,7 @@ import java.util.OptionalLong;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.trino.plugin.hive.HiveUpdatablePageSource.BUCKET_CHANNEL;
@@ -150,7 +151,7 @@ public class OrcPageSource
             }
         }
         catch (IOException | RuntimeException e) {
-            closeWithSuppression(e);
+            closeAllSuppress(e, this);
             throw handleException(orcDataSource.getId(), e);
         }
 
@@ -242,20 +243,6 @@ public class OrcPageSource
     public long getSystemMemoryUsage()
     {
         return systemMemoryContext.getBytes();
-    }
-
-    private void closeWithSuppression(Throwable throwable)
-    {
-        requireNonNull(throwable, "throwable is null");
-        try {
-            close();
-        }
-        catch (RuntimeException e) {
-            // Self-suppression not permitted
-            if (throwable != e) {
-                throwable.addSuppressed(e);
-            }
-        }
     }
 
     public interface ColumnAdaptation

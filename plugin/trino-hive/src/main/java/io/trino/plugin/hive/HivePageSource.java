@@ -62,6 +62,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
@@ -243,11 +244,11 @@ public class HivePageSource
             return page;
         }
         catch (TrinoException e) {
-            closeWithSuppression(e);
+            closeAllSuppress(e, this);
             throw e;
         }
         catch (RuntimeException e) {
-            closeWithSuppression(e);
+            closeAllSuppress(e, this);
             throw new TrinoException(HIVE_CURSOR_ERROR, e);
         }
     }
@@ -279,20 +280,6 @@ public class HivePageSource
     public Metrics getMetrics()
     {
         return delegate.getMetrics();
-    }
-
-    protected void closeWithSuppression(Throwable throwable)
-    {
-        requireNonNull(throwable, "throwable is null");
-        try {
-            close();
-        }
-        catch (RuntimeException e) {
-            // Self-suppression not permitted
-            if (throwable != e) {
-                throwable.addSuppressed(e);
-            }
-        }
     }
 
     public ConnectorPageSource getPageSource()

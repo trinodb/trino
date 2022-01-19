@@ -39,6 +39,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -104,7 +105,7 @@ public class RaptorPageSource
             page = recordReader.nextPage();
         }
         catch (IOException | RuntimeException e) {
-            closeWithSuppression(e);
+            closeAllSuppress(e, this);
             throw handleException(e);
         }
 
@@ -173,20 +174,6 @@ public class RaptorPageSource
     public long getSystemMemoryUsage()
     {
         return systemMemoryContext.getBytes();
-    }
-
-    private void closeWithSuppression(Throwable throwable)
-    {
-        requireNonNull(throwable, "throwable is null");
-        try {
-            close();
-        }
-        catch (RuntimeException e) {
-            // Self-suppression not permitted
-            if (throwable != e) {
-                throwable.addSuppressed(e);
-            }
-        }
     }
 
     public interface ColumnAdaptation
