@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -52,7 +53,7 @@ public class TopologyAwareNodeSelectorFactory
 {
     private static final Logger LOG = Logger.get(TopologyAwareNodeSelectorFactory.class);
 
-    private final Cache<InternalNode, Boolean> inaccessibleNodeLogCache = CacheBuilder.newBuilder()
+    private final Cache<InternalNode, Object> inaccessibleNodeLogCache = CacheBuilder.newBuilder()
             .expireAfterWrite(30, TimeUnit.SECONDS)
             .build();
 
@@ -164,13 +165,27 @@ public class TopologyAwareNodeSelectorFactory
                 byHost.put(node.getInternalAddress(), node);
             }
             catch (UnknownHostException e) {
-                if (inaccessibleNodeLogCache.getIfPresent(node) == null) {
-                    inaccessibleNodeLogCache.put(node, true);
+                if (markInaccessibleNode(node)) {
                     LOG.warn(e, "Unable to resolve host name for node: %s", node);
                 }
             }
         }
 
         return new NodeMap(byHostAndPort.build(), byHost.build(), workersByNetworkPath.build(), coordinatorNodeIds);
+    }
+
+    /**
+     * Returns true if node has been marked as inaccessible, or false if it was known to be inaccessible.
+     */
+    private boolean markInaccessibleNode(InternalNode node)
+    {
+        Object marker = new Object();
+        try {
+            return inaccessibleNodeLogCache.get(node, () -> marker) == marker;
+        }
+        catch (ExecutionException e) {
+            // impossible
+            throw new RuntimeException(e);
+        }
     }
 }
