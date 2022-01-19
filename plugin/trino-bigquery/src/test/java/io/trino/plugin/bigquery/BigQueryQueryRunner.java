@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -181,7 +180,6 @@ public final class BigQueryQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
         DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"), ImmutableMap.of());
         Thread.sleep(10);
         Logger log = Logger.get(BigQueryQueryRunner.class);

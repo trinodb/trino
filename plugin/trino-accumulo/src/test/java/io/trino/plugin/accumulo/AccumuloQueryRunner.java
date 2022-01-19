@@ -16,7 +16,6 @@ package io.trino.plugin.accumulo;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
@@ -142,7 +141,6 @@ public final class AccumuloQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
         DistributedQueryRunner queryRunner = createAccumuloQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
         Thread.sleep(10);
         Logger log = Logger.get(AccumuloQueryRunner.class);

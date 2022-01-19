@@ -16,7 +16,6 @@ package io.trino.plugin.pinot;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.SessionPropertyManager;
@@ -65,7 +64,6 @@ public class PinotQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
         TestingKafka kafka = TestingKafka.createWithSchemaRegistry();
         kafka.start();
         TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork(), false);

@@ -16,7 +16,6 @@ package io.trino.plugin.elasticsearch;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.jmx.JmxPlugin;
@@ -128,8 +127,6 @@ public final class ElasticsearchQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
-
         DistributedQueryRunner queryRunner = createElasticsearchQueryRunner(
                 new ElasticsearchServer(ELASTICSEARCH_7_IMAGE, ImmutableMap.of()).getAddress(),
                 TpchTable.getTables(),
