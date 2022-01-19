@@ -33,13 +33,11 @@ public class IcebergMaterializedViewAdditionalProperties
     @Inject
     public IcebergMaterializedViewAdditionalProperties(IcebergConfig icebergConfig)
     {
-        materializedViewProperties = ImmutableList.<PropertyMetadata<?>>builder()
-                .add(stringProperty(
-                        STORAGE_SCHEMA,
-                        "Schema for creating materialized view storage table",
-                        icebergConfig.getMaterializedViewsStorageSchema().orElse(null),
-                        false))
-                .build();
+        materializedViewProperties = ImmutableList.of(stringProperty(
+                STORAGE_SCHEMA,
+                "Schema for creating materialized view storage table",
+                icebergConfig.getMaterializedViewsStorageSchema().orElse(null),
+                false));
     }
 
     public List<PropertyMetadata<?>> getMaterializedViewProperties()

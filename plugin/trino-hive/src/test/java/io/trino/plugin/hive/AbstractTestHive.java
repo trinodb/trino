@@ -1798,9 +1798,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
 
             // read entire table
-            List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
-                    .addAll(metadata.getColumnHandles(session, tableHandle).values())
-                    .build();
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
 
             List<ConnectorSplit> splits = getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
             assertEquals(splits.size(), 16);
@@ -1882,9 +1880,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
 
             // read entire table
-            List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
-                    .addAll(metadata.getColumnHandles(session, tableHandle).values())
-                    .build();
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
             MaterializedResult result = readTable(
                     transaction,
                     tableHandle,
@@ -1907,11 +1903,10 @@ public abstract class AbstractTestHive
             assertBucketTableEvolutionResult(result, columnHandles, ImmutableSet.of(6), rowCount);
 
             // read single bucket, without selecting the bucketing column (i.e. id column)
-            columnHandles = ImmutableList.<ColumnHandle>builder()
-                    .addAll(metadata.getColumnHandles(session, tableHandle).values().stream()
+            columnHandles = ImmutableList.copyOf(
+                    metadata.getColumnHandles(session, tableHandle).values().stream()
                             .filter(columnHandle -> !"id".equals(((HiveColumnHandle) columnHandle).getName()))
-                            .collect(toImmutableList()))
-                    .build();
+                            .collect(toImmutableList()));
             result = readTable(
                     transaction,
                     tableHandle,
@@ -3851,9 +3846,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
 
             // read entire table
-            List<ColumnHandle> columnHandles = ImmutableList.<ColumnHandle>builder()
-                    .addAll(metadata.getColumnHandles(session, tableHandle).values())
-                    .build();
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
 
             List<ConnectorSplit> splits = getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
             for (ConnectorSplit split : splits) {

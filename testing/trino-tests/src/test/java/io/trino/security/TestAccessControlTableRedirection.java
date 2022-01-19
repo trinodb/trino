@@ -77,9 +77,8 @@ public class TestAccessControlTableRedirection
             SCHEMA_NAME,
             ImmutableSet.of(REDIRECTION_SOURCE_TABLE_NAME, REDIRECTION_TARGET_TABLE_NAME));
 
-    private static final Map<SchemaTableName, SchemaTableName> TABLE_REDIRECTIONS = ImmutableMap.<SchemaTableName, SchemaTableName>builder()
-            .put(schemaTableName(SCHEMA_NAME, REDIRECTION_SOURCE_TABLE_NAME), schemaTableName(SCHEMA_NAME, REDIRECTION_TARGET_TABLE_NAME))
-            .buildOrThrow();
+    private static final Map<SchemaTableName, SchemaTableName> TABLE_REDIRECTIONS = ImmutableMap.of(
+            schemaTableName(SCHEMA_NAME, REDIRECTION_SOURCE_TABLE_NAME), schemaTableName(SCHEMA_NAME, REDIRECTION_TARGET_TABLE_NAME));
 
     @Override
     protected QueryRunner createQueryRunner()

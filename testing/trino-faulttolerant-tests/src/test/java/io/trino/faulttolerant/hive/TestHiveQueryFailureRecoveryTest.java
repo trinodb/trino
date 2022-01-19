@@ -62,12 +62,11 @@ public class TestHiveQueryFailureRecoveryTest
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })
-                .setHiveProperties(ImmutableMap.<String, String>builder()
+                .setHiveProperties(ImmutableMap.of(
                         // Streaming upload allocates non trivial amount of memory for buffering (16MB per output file by default).
                         // When streaming upload is enabled insert into a table with high number of buckets / partitions may cause
                         // the tests to run out of memory as the buffer space is eagerly allocated for each output file.
-                        .put("hive.s3.streaming.enabled", "false")
-                        .buildOrThrow())
+                        "hive.s3.streaming.enabled", "false"))
                 .build();
     }
 

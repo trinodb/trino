@@ -35,9 +35,7 @@ public class TestFileBackupConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("backup.directory", "/backup")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("backup.directory", "/backup");
 
         FileBackupConfig expected = new FileBackupConfig()
                 .setBackupDirectory(new File("/backup"));

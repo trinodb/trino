@@ -502,9 +502,7 @@ public abstract class AbstractTestHiveFileSystem
     private void createTable(SchemaTableName tableName, HiveStorageFormat storageFormat)
             throws Exception
     {
-        List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                .add(new ColumnMetadata("id", BIGINT))
-                .build();
+        List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("id", BIGINT));
 
         MaterializedResult data = MaterializedResult.resultBuilder(newSession(), BIGINT)
                 .row(1L)

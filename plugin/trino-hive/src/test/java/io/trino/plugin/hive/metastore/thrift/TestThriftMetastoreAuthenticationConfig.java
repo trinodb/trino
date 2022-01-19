@@ -35,9 +35,7 @@ public class TestThriftMetastoreAuthenticationConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hive.metastore.authentication.type", "KERBEROS")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("hive.metastore.authentication.type", "KERBEROS");
 
         ThriftMetastoreAuthenticationConfig expected = new ThriftMetastoreAuthenticationConfig()
                 .setAuthenticationType(ThriftMetastoreAuthenticationType.KERBEROS);

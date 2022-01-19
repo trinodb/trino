@@ -49,9 +49,8 @@ public abstract class BasePostgresFailureRecoveryTest
                 requiredTpchTables,
                 runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
-                    runner.loadExchangeManager("filesystem", ImmutableMap.<String, String>builder()
-                            .put("exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager")
-                            .buildOrThrow());
+                    runner.loadExchangeManager("filesystem", ImmutableMap.of(
+                            "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
                 });
     }
 }

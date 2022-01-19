@@ -40,17 +40,15 @@ public class IcebergAnalyzeProperties
     @Inject
     public IcebergAnalyzeProperties()
     {
-        analyzeProperties = ImmutableList.<PropertyMetadata<?>>builder()
-                .add(new PropertyMetadata<>(
-                        COLUMNS_PROPERTY,
-                        "Columns to be analyzed",
-                        new ArrayType(VARCHAR),
-                        Set.class,
-                        null,
-                        false,
-                        IcebergAnalyzeProperties::decodeColumnNames,
-                        value -> value))
-                .build();
+        analyzeProperties = ImmutableList.of(new PropertyMetadata<>(
+                COLUMNS_PROPERTY,
+                "Columns to be analyzed",
+                new ArrayType(VARCHAR),
+                Set.class,
+                null,
+                false,
+                IcebergAnalyzeProperties::decodeColumnNames,
+                value -> value));
     }
 
     public List<PropertyMetadata<?>> getAnalyzeProperties()

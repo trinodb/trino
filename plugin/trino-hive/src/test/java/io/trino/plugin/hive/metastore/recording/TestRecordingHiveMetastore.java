@@ -131,9 +131,7 @@ public class TestRecordingHiveMetastore
     private static final RoleGrant ROLE_GRANT = new RoleGrant(new TrinoPrincipal(USER, "grantee"), "role", true);
     private static final List<String> PARTITION_COLUMN_NAMES = ImmutableList.of(TABLE_COLUMN.getName());
     private static final Domain PARTITION_COLUMN_EQUAL_DOMAIN = Domain.singleValue(createUnboundedVarcharType(), Slices.utf8Slice("value1"));
-    private static final TupleDomain<String> TUPLE_DOMAIN = TupleDomain.withColumnDomains(ImmutableMap.<String, Domain>builder()
-            .put(TABLE_COLUMN.getName(), PARTITION_COLUMN_EQUAL_DOMAIN)
-            .buildOrThrow());
+    private static final TupleDomain<String> TUPLE_DOMAIN = TupleDomain.withColumnDomains(ImmutableMap.of(TABLE_COLUMN.getName(), PARTITION_COLUMN_EQUAL_DOMAIN));
 
     @Test
     public void testRecordingHiveMetastore()

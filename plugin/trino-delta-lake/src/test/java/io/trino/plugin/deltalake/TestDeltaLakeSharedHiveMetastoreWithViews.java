@@ -48,9 +48,7 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
         DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 "delta",
                 schema,
-                ImmutableMap.<String, String>builder()
-                        .put("delta.enable-non-concurrent-writes", "true")
-                        .buildOrThrow(),
+                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
                 hiveMinioDataLake.getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
         queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = 's3://" + bucketName + "/" + schema + "')");
