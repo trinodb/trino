@@ -72,9 +72,9 @@ public interface OutputBuffer
     void acknowledge(OutputBufferId bufferId, long token);
 
     /**
-     * Closes the specified output buffer.
+     * Destroys the specified output buffer, discarding all pages.
      */
-    void abort(OutputBufferId bufferId);
+    void destroy(OutputBufferId bufferId);
 
     /**
      * Get a future that will be completed when the buffer is not full.

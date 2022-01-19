@@ -127,7 +127,7 @@ public class SpoolingExchangeOutputBuffer
     }
 
     @Override
-    public void abort(OutputBuffers.OutputBufferId bufferId)
+    public void destroy(OutputBuffers.OutputBufferId bufferId)
     {
         throw new UnsupportedOperationException();
     }

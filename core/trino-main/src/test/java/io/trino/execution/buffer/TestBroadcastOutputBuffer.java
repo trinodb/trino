@@ -234,7 +234,7 @@ public class TestBroadcastOutputBuffer
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 14, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 14, true));
 
         // finish first queue
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
         assertQueueClosed(buffer, FIRST, 14);
         assertQueueState(buffer, SECOND, 4, 10);
         assertEquals(buffer.getState(), FLUSHING);
@@ -246,7 +246,7 @@ public class TestBroadcastOutputBuffer
                 createPage(13)));
         assertQueueState(buffer, SECOND, 4, 10);
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 14, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 14, true));
-        buffer.abort(SECOND);
+        buffer.destroy(SECOND);
         assertQueueClosed(buffer, FIRST, 14);
         assertQueueClosed(buffer, SECOND, 14);
         assertFinished(buffer);
@@ -520,7 +520,7 @@ public class TestBroadcastOutputBuffer
 
         // acknowledge the page and verify we are finished
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 1, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 1, true));
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
 
         // set final buffers to a set that does not contain the buffer, which will fail
         assertThatThrownBy(() -> buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST).withNoMoreBufferIds()))
@@ -554,8 +554,8 @@ public class TestBroadcastOutputBuffer
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(1));
         assertFalse(future.isDone());
 
-        // abort that buffer, and verify the future is complete and buffer is finished
-        buffer.abort(FIRST);
+        // destroy that buffer, and verify the future is complete and buffer is finished
+        buffer.destroy(FIRST);
         assertTrue(future.isDone());
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
     }
@@ -630,12 +630,12 @@ public class TestBroadcastOutputBuffer
         bufferedBuffer.setNoMorePages();
 
         assertBufferResultEquals(TYPES, getBufferResult(bufferedBuffer, FIRST, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
-        bufferedBuffer.abort(FIRST);
+        bufferedBuffer.destroy(FIRST);
         assertQueueClosed(bufferedBuffer, FIRST, 0);
         assertBufferResultEquals(TYPES, getBufferResult(bufferedBuffer, FIRST, 1, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
 
         assertBufferResultEquals(TYPES, getBufferResult(bufferedBuffer, SECOND, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
-        bufferedBuffer.abort(SECOND);
+        bufferedBuffer.destroy(SECOND);
         assertQueueClosed(bufferedBuffer, SECOND, 0);
         assertFinished(bufferedBuffer);
         assertBufferResultEquals(TYPES, getBufferResult(bufferedBuffer, SECOND, 1, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
@@ -657,8 +657,8 @@ public class TestBroadcastOutputBuffer
         assertQueueState(buffer, FIRST, 0, 0);
         assertQueueState(buffer, SECOND, 0, 0);
 
-        buffer.abort(FIRST);
-        buffer.abort(SECOND);
+        buffer.destroy(FIRST);
+        buffer.destroy(SECOND);
 
         assertQueueClosed(buffer, FIRST, 0);
         assertQueueClosed(buffer, SECOND, 0);
@@ -692,8 +692,8 @@ public class TestBroadcastOutputBuffer
         future = buffer.get(FIRST, 1, sizeOfPages(10));
         assertFalse(future.isDone());
 
-        // abort the buffer
-        buffer.abort(FIRST);
+        // destroy the buffer
+        buffer.destroy(FIRST);
 
         // verify the future completed
         // broadcast buffer does not return a "complete" result in this case, but it doesn't mapper
@@ -777,7 +777,7 @@ public class TestBroadcastOutputBuffer
                 bufferResult(1, createPage(1), createPage(2), createPage(3), createPage(4), createPage(5), createPage(6)));
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 7, sizeOfPages(100), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 7, true));
 
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
 
         // verify finished
         assertFinished(buffer);
@@ -998,7 +998,7 @@ public class TestBroadcastOutputBuffer
         assertEquals(buffer.getState(), FLUSHING);
 
         // ask the buffer to finish
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
 
         // verify that the buffer is finished
         assertEquals(buffer.getState(), FINISHED);
@@ -1172,13 +1172,13 @@ public class TestBroadcastOutputBuffer
         }
 
         // the buffer is in the NO_MORE_BUFFERS state now
-        // and if we abort all the buffers it should destroy itself
+        // and if we destroy all the buffers it should destroy itself
         // and move to the FINISHED state
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
         assertEquals(buffer.getState(), NO_MORE_BUFFERS);
-        buffer.abort(SECOND);
+        buffer.destroy(SECOND);
         assertEquals(buffer.getState(), NO_MORE_BUFFERS);
-        buffer.abort(THIRD);
+        buffer.destroy(THIRD);
         assertEquals(buffer.getState(), FINISHED);
     }
 

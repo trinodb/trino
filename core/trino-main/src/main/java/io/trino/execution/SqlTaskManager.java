@@ -448,12 +448,12 @@ public class SqlTaskManager
     }
 
     @Override
-    public TaskInfo abortTaskResults(TaskId taskId, OutputBufferId bufferId)
+    public TaskInfo destroyTaskResults(TaskId taskId, OutputBufferId bufferId)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
-        return tasks.getUnchecked(taskId).abortTaskResults(bufferId);
+        return tasks.getUnchecked(taskId).destroyTaskResults(bufferId);
     }
 
     @Override
