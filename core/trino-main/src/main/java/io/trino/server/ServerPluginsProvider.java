@@ -55,7 +55,8 @@ public class ServerPluginsProvider
                 listFiles(installedPluginsDir).stream()
                         .filter(File::isDirectory)
                         .map(file -> (Callable<?>) () -> {
-                            loader.load(file.getAbsolutePath(), () -> createClassLoader.create(buildClassPath(file)));
+                            loader.load(file.getAbsolutePath(), () ->
+                                    createClassLoader.create(file.getName(), buildClassPath(file)));
                             return null;
                         })
                         .collect(toImmutableList()));

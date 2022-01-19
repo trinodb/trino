@@ -20,10 +20,9 @@ public interface ConnectorFactory
     String getName();
 
     /**
-     * Gets the default handle resolver for connectors created by this factory.
-     * Must return a non-null result when {@link Connector#getHandleResolver()}
-     * is not implemented (or it returns empty result).
+     * @deprecated use {@link Connector#getHandleClasses()}
      */
+    @Deprecated
     default ConnectorHandleResolver getHandleResolver()
     {
         throw new UnsupportedOperationException();
