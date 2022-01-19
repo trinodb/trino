@@ -140,14 +140,13 @@ public class PinotClient
                 .build((CacheLoader.from(this::getAllBrokersForTable)));
     }
 
-    public static JsonCodecBinder addJsonBinders(JsonCodecBinder jsonCodecBinder)
+    public static void addJsonBinders(JsonCodecBinder jsonCodecBinder)
     {
         jsonCodecBinder.bindJsonCodec(GetTables.class);
         jsonCodecBinder.bindJsonCodec(BrokersForTable.InstancesInBroker.class);
         jsonCodecBinder.bindJsonCodec(BrokersForTable.class);
         jsonCodecBinder.bindJsonCodec(TimeBoundary.class);
         jsonCodecBinder.bindJsonCodec(BrokerResponseNative.class);
-        return jsonCodecBinder;
     }
 
     protected <T> T doHttpActionWithHeadersJson(Request.Builder requestBuilder, Optional<String> requestBody, JsonCodec<T> codec)
