@@ -24,6 +24,8 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
+import java.util.concurrent.ExecutionException;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.ml.type.ClassifierType.BIGINT_CLASSIFIER;
 import static io.trino.plugin.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
@@ -74,13 +76,11 @@ public final class MLFunctions
     private static Model getOrLoadModel(Slice slice)
     {
         HashCode modelHash = ModelUtils.modelHash(slice);
-
-        Model model = MODEL_CACHE.getIfPresent(modelHash);
-        if (model == null) {
-            model = ModelUtils.deserialize(slice);
-            MODEL_CACHE.put(modelHash, model);
+        try {
+            return MODEL_CACHE.get(modelHash, () -> ModelUtils.deserialize(slice));
         }
-
-        return model;
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
