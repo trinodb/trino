@@ -26,6 +26,7 @@ import io.trino.testing.datatype.CreateAndTrinoInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
+import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -394,7 +395,6 @@ public class TestClickHouseTypeMapping
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
         SqlDataTypeTest.create()
-                .addRoundTrip("date", "DATE '1969-12-31'", DATE, "DATE '1970-01-01'") // unsupported date become 1970-01-01
                 .addRoundTrip("date", "DATE '1970-01-01'", DATE, "DATE '1970-01-01'") // min value in ClickHouse
                 .addRoundTrip("date", "DATE '1970-02-03'", DATE, "DATE '1970-02-03'")
                 .addRoundTrip("date", "DATE '2017-07-01'", DATE, "DATE '2017-07-01'") // summer on northern hemisphere (possible DST)
@@ -403,7 +403,6 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip("date", "DATE '1983-04-01'", DATE, "DATE '1983-04-01'")
                 .addRoundTrip("date", "DATE '1983-10-01'", DATE, "DATE '1983-10-01'")
                 .addRoundTrip("date", "DATE '2106-02-07'", DATE, "DATE '2106-02-07'") // max value in ClickHouse
-                .addRoundTrip("date", "DATE '2106-02-08'", DATE, "DATE '1970-01-01'") // unsupported date become 1970-01-01
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
 
@@ -414,6 +413,19 @@ public class TestClickHouseTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("Nullable(date)", "NULL", DATE, "CAST(NULL AS DATE)")
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_date"));
+    }
+
+    @Test
+    public void testUnsupportedDate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_date", "(dt date)")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (DATE '1969-12-31')", table.getName()),
+                    "Date must be between 1970-01-01 and 2106-02-07: 1969-12-31");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (DATE '2106-02-08')", table.getName()),
+                    "Date must be between 1970-01-01 and 2106-02-07: 2106-02-08");
+        }
     }
 
     @Test(dataProvider = "sessionZonesDataProvider")
