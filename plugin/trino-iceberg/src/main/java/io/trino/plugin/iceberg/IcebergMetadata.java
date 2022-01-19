@@ -432,7 +432,7 @@ public class IcebergMetadata
     {
         Schema schema = toIcebergSchema(tableMetadata.getColumns());
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
-        return getWriteLayout(schema, partitionSpec);
+        return getWriteLayout(schema, partitionSpec, false);
     }
 
     @Override
@@ -462,10 +462,10 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
-        return getWriteLayout(icebergTable.schema(), icebergTable.spec());
+        return getWriteLayout(icebergTable.schema(), icebergTable.spec(), false);
     }
 
-    private Optional<ConnectorNewTableLayout> getWriteLayout(Schema tableSchema, PartitionSpec partitionSpec)
+    private Optional<ConnectorNewTableLayout> getWriteLayout(Schema tableSchema, PartitionSpec partitionSpec, boolean forceRepartitioning)
     {
         if (partitionSpec.isUnpartitioned()) {
             return Optional.empty();
@@ -483,7 +483,7 @@ public class IcebergMetadata
                 .map(IcebergColumnHandle::getName)
                 .collect(toImmutableList());
 
-        if (partitionSpec.fields().stream().allMatch(field -> field.transform().isIdentity())) {
+        if (!forceRepartitioning && partitionSpec.fields().stream().allMatch(field -> field.transform().isIdentity())) {
             // Do not set partitioningHandle, to let engine determine whether to repartition data or not, on stat-based basis.
             return Optional.of(new ConnectorNewTableLayout(partitioningColumnNames));
         }
@@ -615,7 +615,9 @@ public class IcebergMetadata
     private Optional<ConnectorNewTableLayout> getLayoutForOptimize(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
     {
         Table icebergTable = catalog.loadTable(session, executeHandle.getSchemaTableName());
-        return getWriteLayout(icebergTable.schema(), icebergTable.spec());
+        // from performance perspective it is better to have lower number of bigger files than other way around
+        // thus we force repartitioning for optimize to achieve this
+        return getWriteLayout(icebergTable.schema(), icebergTable.spec(), true);
     }
 
     @Override
