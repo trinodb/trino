@@ -839,9 +839,13 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("CAST(DATE '2013-02-02' AS varchar(10))", "'2013-02-02'");
         assertEvaluatedEquals("CAST(DATE '-2013-02-02' AS varchar(50))", "'-2013-02-02'");
 
-        // incorrect behavior: the result value does not fit in the type
-        assertEvaluatedEquals("CAST(DATE '2013-02-02' AS varchar(9))", "'2013-02-02'");
-        assertEvaluatedEquals("CAST(DATE '-2013-02-02' AS varchar(9))", "'-2013-02-02'");
+        // the result value does not fit in the type
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DATE '2013-02-02' AS varchar(9))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value 2013-02-02 cannot be represented as varchar(9)");
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(DATE '-2013-02-02' AS varchar(9))"))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value -2013-02-02 cannot be represented as varchar(9)");
     }
 
     @Test
