@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.exchange.ExchangeManagerRegistry;
-import io.trino.execution.StateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
@@ -43,16 +42,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.execution.buffer.BufferResult.emptyResults;
-import static io.trino.execution.buffer.BufferState.FAILED;
 import static io.trino.execution.buffer.BufferState.FINISHED;
-import static io.trino.execution.buffer.BufferState.OPEN;
-import static io.trino.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static java.util.Objects.requireNonNull;
 
 public class LazyOutputBuffer
         implements OutputBuffer
 {
-    private final StateMachine<BufferState> state;
+    private final OutputBufferStateMachine stateMachine;
     private final String taskInstanceId;
     private final DataSize maxBufferSize;
     private final DataSize maxBroadcastBufferSize;
@@ -84,7 +80,7 @@ public class LazyOutputBuffer
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.executor = requireNonNull(executor, "executor is null");
-        state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
+        stateMachine = new OutputBufferStateMachine(taskId, executor);
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
         this.maxBroadcastBufferSize = requireNonNull(maxBroadcastBufferSize, "maxBroadcastBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
@@ -96,13 +92,13 @@ public class LazyOutputBuffer
     @Override
     public void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener)
     {
-        state.addStateChangeListener(stateChangeListener);
+        stateMachine.addStateChangeListener(stateChangeListener);
     }
 
     @Override
     public boolean isFinished()
     {
-        return state.get() == FINISHED;
+        return stateMachine.getState() == FINISHED;
     }
 
     @Override
@@ -135,7 +131,7 @@ public class LazyOutputBuffer
             //
             // NOTE: this code must be lock free to not hanging state machine updates
             //
-            BufferState state = this.state.get();
+            BufferState state = stateMachine.getState();
 
             return new OutputBufferInfo(
                     "UNINITIALIZED",
@@ -162,25 +158,25 @@ public class LazyOutputBuffer
                 outputBuffer = delegate;
                 if (outputBuffer == null) {
                     // ignore set output if buffer was already destroyed or failed
-                    if (state.get().isTerminal()) {
+                    if (stateMachine.getState().isTerminal()) {
                         return;
                     }
                     switch (newOutputBuffers.getType()) {
                         case PARTITIONED:
-                            outputBuffer = new PartitionedOutputBuffer(taskInstanceId, state, newOutputBuffers, maxBufferSize, memoryContextSupplier, executor);
+                            outputBuffer = new PartitionedOutputBuffer(taskInstanceId, stateMachine, newOutputBuffers, maxBufferSize, memoryContextSupplier, executor);
                             break;
                         case BROADCAST:
-                            outputBuffer = new BroadcastOutputBuffer(taskInstanceId, state, maxBroadcastBufferSize, memoryContextSupplier, executor, notifyStatusChanged);
+                            outputBuffer = new BroadcastOutputBuffer(taskInstanceId, stateMachine, maxBroadcastBufferSize, memoryContextSupplier, executor, notifyStatusChanged);
                             break;
                         case ARBITRARY:
-                            outputBuffer = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, memoryContextSupplier, executor);
+                            outputBuffer = new ArbitraryOutputBuffer(taskInstanceId, stateMachine, maxBufferSize, memoryContextSupplier, executor);
                             break;
                         case SPOOL:
                             ExchangeSinkInstanceHandle exchangeSinkInstanceHandle = newOutputBuffers.getExchangeSinkInstanceHandle()
                                     .orElseThrow(() -> new IllegalArgumentException("exchange sink handle is expected to be present for buffer type EXTERNAL"));
                             ExchangeManager exchangeManager = exchangeManagerRegistry.getExchangeManager();
                             ExchangeSink exchangeSink = exchangeManager.createSink(exchangeSinkInstanceHandle, false);
-                            outputBuffer = new SpoolingExchangeOutputBuffer(state, newOutputBuffers, exchangeSink, memoryContextSupplier);
+                            outputBuffer = new SpoolingExchangeOutputBuffer(stateMachine, newOutputBuffers, exchangeSink, memoryContextSupplier);
                             break;
                         default:
                             throw new IllegalArgumentException("Unexpected output buffer type: " + newOutputBuffers.getType());
@@ -213,7 +209,7 @@ public class LazyOutputBuffer
         if (outputBuffer == null) {
             synchronized (this) {
                 if (delegate == null) {
-                    if (state.get() == FINISHED) {
+                    if (stateMachine.getState() == FINISHED) {
                         return immediateFuture(emptyResults(taskInstanceId, 0, true));
                     }
 
@@ -289,7 +285,7 @@ public class LazyOutputBuffer
             synchronized (this) {
                 if (delegate == null) {
                     // ignore destroy if the buffer already in a terminal state.
-                    if (!state.setIf(FINISHED, state -> !state.isTerminal())) {
+                    if (!stateMachine.finish()) {
                         return;
                     }
 
@@ -319,7 +315,7 @@ public class LazyOutputBuffer
             synchronized (this) {
                 if (delegate == null) {
                     // ignore fail if the buffer already in a terminal state.
-                    state.setIf(FAILED, state -> !state.isTerminal());
+                    stateMachine.fail();
 
                     // Do not free readers on fail
                     return;
