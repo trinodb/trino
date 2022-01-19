@@ -272,9 +272,7 @@ public class TestDateTimeOperators
         assertFunction("cast(DATE '13-2-2' AS varchar)", VARCHAR, "0013-02-02");
         assertFunction("cast(DATE '2013-02-02' AS varchar(50))", createVarcharType(50), "2013-02-02");
         assertFunction("cast(DATE '2013-02-02' AS varchar(10))", createVarcharType(10), "2013-02-02");
-
-        // cast operator returns a value that does not fit in the result type. this causes error in the LiteralEncoder
-        assertFunctionThrowsIncorrectly("cast(DATE '2013-02-02' AS varchar(9))", IllegalArgumentException.class, "Value .2013-02-02. does not fit in type varchar.9.");
+        assertInvalidCast("cast(DATE '2013-02-02' AS varchar(9))", "Value 2013-02-02 cannot be represented as varchar(9)");
     }
 
     private static SqlDate toDate(DateTime dateTime)
