@@ -324,7 +324,9 @@ public class TestMemoryManager
             for (TestingTrinoServer worker : queryRunner.getServers()) {
                 Optional<MemoryPool> reserved = worker.getLocalMemoryManager().getReservedPool();
                 assertTrue(reserved.isPresent());
-                assertEquals(reserved.get().getMaxBytes(), reserved.get().getFreeBytes());
+                while (reserved.get().getMaxBytes() != reserved.get().getFreeBytes()) {
+                    MILLISECONDS.sleep(10);
+                }
                 MemoryPool general = worker.getLocalMemoryManager().getGeneralPool();
                 // Free up the memory we reserved earlier
                 general.free(fakeQueryId, "test", general.getMaxBytes());
