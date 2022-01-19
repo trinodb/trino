@@ -44,7 +44,6 @@ import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestSimplifyExpressions
@@ -250,14 +249,9 @@ public class TestSimplifyExpressions
         assertSimplifies("CAST(DATE '2013-02-02' AS varchar(10))", "'2013-02-02'");
         assertSimplifies("CAST(DATE '2013-02-02' AS varchar(50))", "CAST('2013-02-02' AS varchar(50))");
 
-        // the cast operator returns a value that is too long for the expected type ('2013-02-02' for varchar(3))
-        // the LiteralEncoder detects the mismatch and fails
-        assertThatThrownBy(() -> simplify("CAST(DATE '2013-02-02' AS varchar(3))"))
-                .hasMessage("Value [2013-02-02] does not fit in type varchar(3)");
-
-        // the cast operator returns a value that is too long for the expected type ('2013-02-02' for varchar(3))
-        // the value is nested in a comparison expression, so the mismatch is not detected by the LiteralEncoder
-        assertSimplifies("CAST(DATE '2013-02-02' AS varchar(3)) = '2013-02-02'", "true");
+        // cast from date to varchar fails, so the expression is not modified
+        assertSimplifies("CAST(DATE '2013-02-02' AS varchar(3))", "CAST(DATE '2013-02-02' AS varchar(3))");
+        assertSimplifies("CAST(DATE '2013-02-02' AS varchar(3)) = '2013-02-02'", "CAST(DATE '2013-02-02' AS varchar(3)) = '2013-02-02'");
     }
 
     private static void assertSimplifies(String expression, String expected)
