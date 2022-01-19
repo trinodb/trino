@@ -18,7 +18,7 @@ import io.trino.execution.TaskId;
 
 import java.util.concurrent.Executor;
 
-import static io.trino.execution.buffer.BufferState.FAILED;
+import static io.trino.execution.buffer.BufferState.ABORTED;
 import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
 import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
@@ -66,8 +66,8 @@ public class OutputBufferStateMachine
         return state.setIf(FINISHED, oldState -> !oldState.isTerminal());
     }
 
-    public boolean fail()
+    public boolean abort()
     {
-        return state.setIf(FAILED, oldState -> !oldState.isTerminal());
+        return state.setIf(ABORTED, oldState -> !oldState.isTerminal());
     }
 }

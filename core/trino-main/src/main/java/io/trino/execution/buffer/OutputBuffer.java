@@ -105,10 +105,10 @@ public interface OutputBuffer
     void destroy();
 
     /**
-     * Fail the buffer, discarding all pages, but blocking readers.  It is expected that
+     * Abort the buffer, discarding all pages, but blocking readers.  It is expected that
      * readers will be unblocked when the failed query is cleaned up.
      */
-    void fail();
+    void abort();
 
     /**
      * @return the peak memory usage of this output buffer.

@@ -37,7 +37,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.buffer.BufferResult.emptyResults;
-import static io.trino.execution.buffer.BufferState.FAILED;
+import static io.trino.execution.buffer.BufferState.ABORTED;
 import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
 import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
@@ -790,8 +790,8 @@ public class TestArbitraryOutputBuffer
         future = buffer.get(FIRST, 1, sizeOfPages(10));
         assertFalse(future.isDone());
 
-        // fail the buffer
-        buffer.fail();
+        // abort the buffer
+        buffer.abort();
 
         // future should have not finished
         assertFalse(future.isDone());
@@ -828,9 +828,9 @@ public class TestArbitraryOutputBuffer
         assertFalse(firstEnqueuePage.isDone());
         assertFalse(secondEnqueuePage.isDone());
 
-        // fail the buffer (i.e., cancel the query)
-        buffer.fail();
-        assertEquals(buffer.getState(), FAILED);
+        // abort the buffer (i.e., fail the query)
+        buffer.abort();
+        assertEquals(buffer.getState(), ABORTED);
 
         // verify the futures are completed
         assertFutureIsDone(firstEnqueuePage);
@@ -857,8 +857,8 @@ public class TestArbitraryOutputBuffer
         // verify we got one page
         assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
 
-        // fail the buffer
-        buffer.fail();
+        // abort the buffer
+        buffer.abort();
 
         // add a buffer
         outputBuffers = outputBuffers.withBuffer(SECOND, BROADCAST_PARTITION_ID);
