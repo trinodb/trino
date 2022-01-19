@@ -50,6 +50,7 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.orc.OrcReader.createOrcReader;
 import static io.trino.orc.OrcReader.fullyProjectedLayout;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_BUCKET;
@@ -190,7 +191,7 @@ public class OrcDeleteDeltaPageSource
             return page;
         }
         catch (IOException | RuntimeException e) {
-            closeWithSuppression(e);
+            closeAllSuppress(e, this);
             throw handleException(orcDataSource.getId(), e);
         }
     }
@@ -225,20 +226,6 @@ public class OrcDeleteDeltaPageSource
     public long getSystemMemoryUsage()
     {
         return systemMemoryContext.getBytes();
-    }
-
-    private void closeWithSuppression(Throwable throwable)
-    {
-        requireNonNull(throwable, "throwable is null");
-        try {
-            close();
-        }
-        catch (RuntimeException e) {
-            // Self-suppression not permitted
-            if (throwable != e) {
-                throwable.addSuppressed(e);
-            }
-        }
     }
 
     private static String openError(Throwable t, Path path)
