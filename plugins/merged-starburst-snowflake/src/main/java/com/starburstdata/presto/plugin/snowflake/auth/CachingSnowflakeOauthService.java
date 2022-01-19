@@ -11,10 +11,10 @@ package com.starburstdata.presto.plugin.snowflake.auth;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.cache.NonEvictableLoadingCache;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.String.format;
 import static java.time.Duration.ofMinutes;
@@ -38,20 +39,21 @@ public class CachingSnowflakeOauthService
     private static final Duration TTL_WINDOW = new Duration(2, MINUTES);
 
     private final SnowflakeOauthService delegate;
-    private final LoadingCache<UserPassword, OauthCredential> accessTokenCache;
+    private final NonEvictableLoadingCache<UserPassword, OauthCredential> accessTokenCache;
     private final CredentialProvider credentialProvider;
 
     public CachingSnowflakeOauthService(SnowflakeOauthService delegate, CredentialProvider credentialProvider, Duration ttl, int cacheSize)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.credentialProvider = requireNonNull(credentialProvider, "credentialProvider is null");
-        accessTokenCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(ofMinutes(ttl.roundTo(MINUTES) - TTL_WINDOW.roundTo(MINUTES)))
-                // access tokens are valid for 10 minutes; we make them eligible for refresh a bit earlier, to leave ourselves some headroom;
-                // entries are refreshed only on access (if eligible), so we won't waste resources refreshing unused credentials
-                .refreshAfterWrite(ofMinutes(ACCESS_TOKEN_TTL.roundTo(MINUTES) - TTL_WINDOW.roundTo(MINUTES)))
-                .maximumSize(cacheSize)
-                .build(new OauthCacheLoader(delegate));
+        accessTokenCache = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .expireAfterWrite(ofMinutes(ttl.roundTo(MINUTES) - TTL_WINDOW.roundTo(MINUTES)))
+                        // access tokens are valid for 10 minutes; we make them eligible for refresh a bit earlier, to leave ourselves some headroom;
+                        // entries are refreshed only on access (if eligible), so we won't waste resources refreshing unused credentials
+                        .refreshAfterWrite(ofMinutes(ACCESS_TOKEN_TTL.roundTo(MINUTES) - TTL_WINDOW.roundTo(MINUTES)))
+                        .maximumSize(cacheSize),
+                new OauthCacheLoader(delegate));
     }
 
     @Override
