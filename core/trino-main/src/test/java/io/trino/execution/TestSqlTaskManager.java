@@ -135,8 +135,8 @@ public class TestSqlTaskManager
             assertTrue(results.isBufferComplete());
             assertEquals(results.getSerializedPages().size(), 0);
 
-            // complete the task by calling abort on it
-            TaskInfo info = sqlTaskManager.abortTaskResults(taskId, OUT);
+            // complete the task by calling destroy on it
+            TaskInfo info = sqlTaskManager.destroyTaskResults(taskId, OUT);
             assertEquals(info.getOutputBuffers().getState(), BufferState.FINISHED);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId, taskInfo.getTaskStatus().getVersion()).get();
@@ -203,7 +203,7 @@ public class TestSqlTaskManager
             TaskInfo taskInfo = sqlTaskManager.getTaskInfo(taskId, TaskStatus.STARTING_VERSION).get();
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
 
-            sqlTaskManager.abortTaskResults(taskId, OUT);
+            sqlTaskManager.destroyTaskResults(taskId, OUT);
 
             taskInfo = sqlTaskManager.getTaskInfo(taskId, taskInfo.getTaskStatus().getVersion()).get();
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
