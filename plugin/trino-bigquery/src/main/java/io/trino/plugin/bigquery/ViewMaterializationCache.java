@@ -21,10 +21,10 @@ import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.cache.NonEvictableCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED;
 import static io.trino.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
 import static java.lang.String.format;
@@ -47,7 +48,7 @@ public class ViewMaterializationCache
 {
     private static final Logger log = Logger.get(ViewMaterializationCache.class);
 
-    private final Cache<String, TableInfo> destinationTableCache;
+    private final NonEvictableCache<String, TableInfo> destinationTableCache;
     private final Optional<String> viewMaterializationProject;
     private final Optional<String> viewMaterializationDataset;
 
@@ -55,10 +56,10 @@ public class ViewMaterializationCache
     public ViewMaterializationCache(BigQueryConfig config)
     {
         requireNonNull(config, "config is null");
-        this.destinationTableCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(config.getViewsCacheTtl().toMillis(), MILLISECONDS)
-                .maximumSize(1000)
-                .build();
+        this.destinationTableCache = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .expireAfterWrite(config.getViewsCacheTtl().toMillis(), MILLISECONDS)
+                        .maximumSize(1000));
         this.viewMaterializationProject = config.getViewMaterializationProject();
         this.viewMaterializationDataset = config.getViewMaterializationDataset();
     }

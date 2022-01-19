@@ -15,7 +15,6 @@ package io.trino.plugin.accumulo.index;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
@@ -27,6 +26,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
 import io.trino.plugin.accumulo.model.AccumuloColumnConstraint;
+import io.trino.plugin.base.cache.NonEvictableLoadingCache;
 import io.trino.spi.TrinoException;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.Connector;
@@ -63,6 +63,7 @@ import static io.trino.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERR
 import static io.trino.plugin.accumulo.index.Indexer.CARDINALITY_CQ_AS_TEXT;
 import static io.trino.plugin.accumulo.index.Indexer.getIndexColumnFamily;
 import static io.trino.plugin.accumulo.index.Indexer.getMetricsTableName;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static java.lang.Long.parseLong;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -83,7 +84,7 @@ public class ColumnCardinalityCache
     private final Connector connector;
     private final ExecutorService coreExecutor;
     private final BoundedExecutor executorService;
-    private final LoadingCache<CacheKey, Long> cache;
+    private final NonEvictableLoadingCache<CacheKey, Long> cache;
 
     @Inject
     public ColumnCardinalityCache(Connector connector, AccumuloConfig config)
@@ -97,10 +98,11 @@ public class ColumnCardinalityCache
         this.executorService = new BoundedExecutor(coreExecutor, 4 * Runtime.getRuntime().availableProcessors());
 
         LOG.debug("Created new cache size %d expiry %s", size, expireDuration);
-        cache = CacheBuilder.newBuilder()
-                .maximumSize(size)
-                .expireAfterWrite(expireDuration.toMillis(), MILLISECONDS)
-                .build(new CardinalityCacheLoader());
+        cache = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .maximumSize(size)
+                        .expireAfterWrite(expireDuration.toMillis(), MILLISECONDS),
+                new CardinalityCacheLoader());
     }
 
     @PreDestroy

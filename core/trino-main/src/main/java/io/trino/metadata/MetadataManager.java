@@ -14,7 +14,6 @@
 package io.trino.metadata;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -32,6 +31,7 @@ import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.window.WindowFunctionSupplier;
+import io.trino.plugin.base.cache.NonEvictableCache;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -147,6 +147,7 @@ import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.metadata.RedirectionAwareTableHandle.withRedirectionTo;
 import static io.trino.metadata.Signature.mangleOperatorName;
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -180,8 +181,8 @@ public final class MetadataManager
 
     private final ResolvedFunctionDecoder functionDecoder;
 
-    private final Cache<OperatorCacheKey, ResolvedFunction> operatorCache;
-    private final Cache<CoercionCacheKey, ResolvedFunction> coercionCache;
+    private final NonEvictableCache<OperatorCacheKey, ResolvedFunction> operatorCache;
+    private final NonEvictableCache<CoercionCacheKey, ResolvedFunction> coercionCache;
 
     @Inject
     public MetadataManager(
@@ -204,13 +205,8 @@ public final class MetadataManager
 
         functionDecoder = new ResolvedFunctionDecoder(typeManager::getType);
 
-        operatorCache = CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .build();
-
-        coercionCache = CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .build();
+        operatorCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
+        coercionCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
     }
 
     public static MetadataManager createTestMetadataManager()

@@ -18,6 +18,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import com.google.common.util.concurrent.SettableFuture;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import javax.annotation.CheckForNull;
 
@@ -61,7 +62,13 @@ public class EvictableCache<K, V>
     private EvictableCache(CacheBuilder<? super K, Object> cacheBuilder)
     {
         requireNonNull(cacheBuilder, "cacheBuilder is null");
-        this.delegate = cacheBuilder.build();
+        this.delegate = buildUnsafeCache(cacheBuilder);
+    }
+
+    @SuppressModernizer // CacheBuilder.build() is forbidden, advising to use this class as a safety-adding wrapper.
+    private static <K, V> Cache<K, V> buildUnsafeCache(CacheBuilder<? super K, ? super V> cacheBuilder)
+    {
+        return cacheBuilder.build();
     }
 
     @CheckForNull

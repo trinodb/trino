@@ -20,7 +20,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,6 +34,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecBinder;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.log.Logger;
+import io.trino.plugin.base.cache.NonEvictableLoadingCache;
 import io.trino.plugin.pinot.ForPinot;
 import io.trino.plugin.pinot.PinotColumnHandle;
 import io.trino.plugin.pinot.PinotConfig;
@@ -80,6 +80,7 @@ import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandl
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_INVALID_CONFIGURATION;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
@@ -109,7 +110,7 @@ public class PinotClient
     private final HttpClient httpClient;
     private final PinotHostMapper pinotHostMapper;
 
-    private final LoadingCache<String, List<String>> brokersForTableCache;
+    private final NonEvictableLoadingCache<String, List<String>> brokersForTableCache;
 
     private final JsonCodec<GetTables> tablesJsonCodec;
     private final JsonCodec<BrokersForTable> brokersForTableJsonCodec;
@@ -145,9 +146,10 @@ public class PinotClient
 
         this.controllerUrls = config.getControllerUrls();
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.brokersForTableCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
-                .build((CacheLoader.from(this::getAllBrokersForTable)));
+        this.brokersForTableCache = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .expireAfterWrite(config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS),
+                CacheLoader.from(this::getAllBrokersForTable));
         this.controllerAuthenticationProvider = controllerAuthenticationProvider;
         this.brokerAuthenticationProvider = brokerAuthenticationProvider;
     }

@@ -16,7 +16,6 @@ package io.trino.execution;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
@@ -41,6 +40,7 @@ import io.trino.memory.MemoryPoolAssignment;
 import io.trino.memory.MemoryPoolAssignmentsRequest;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.memory.QueryContext;
+import io.trino.plugin.base.cache.NonEvictableLoadingCache;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
@@ -81,6 +81,7 @@ import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.execution.SqlTask.createSqlTask;
 import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.trino.memory.LocalMemoryManager.RESERVED_POOL;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.ABANDONED_TASK;
 import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static java.lang.Math.min;
@@ -105,8 +106,8 @@ public class SqlTaskManager
     private final Duration clientTimeout;
 
     private final LocalMemoryManager localMemoryManager;
-    private final LoadingCache<QueryId, QueryContext> queryContexts;
-    private final LoadingCache<TaskId, SqlTask> tasks;
+    private final NonEvictableLoadingCache<QueryId, QueryContext> queryContexts;
+    private final NonEvictableLoadingCache<TaskId, SqlTask> tasks;
 
     private final SqlTaskIoStats cachedStats = new SqlTaskIoStats();
     private final SqlTaskIoStats finishedTaskStats = new SqlTaskIoStats();
@@ -165,10 +166,10 @@ public class SqlTaskManager
         queryMaxMemoryPerNode = maxQueryMemoryPerNode.toBytes();
         queryMaxTotalMemoryPerNode = maxQueryTotalMemoryPerNode.toBytes();
 
-        queryContexts = CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(
+        queryContexts = buildNonEvictableCache(CacheBuilder.newBuilder().weakValues(), CacheLoader.from(
                 queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryMemoryPerNode, maxQueryTotalMemoryPerNode, queryMaxMemoryPerTask, maxQuerySpillPerNode)));
 
-        tasks = CacheBuilder.newBuilder().build(CacheLoader.from(
+        tasks = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(
                 taskId -> createSqlTask(
                         taskId,
                         locationFactory.createLocalTaskLocation(taskId),

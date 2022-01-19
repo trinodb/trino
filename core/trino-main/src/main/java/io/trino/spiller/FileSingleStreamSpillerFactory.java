@@ -16,7 +16,6 @@ package io.trino.spiller;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
@@ -26,6 +25,7 @@ import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.SpillContext;
+import io.trino.plugin.base.cache.NonKeyEvictableLoadingCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.Type;
@@ -44,6 +44,7 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.FeaturesConfig.SPILLER_SPILL_PATH;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static io.trino.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
@@ -77,7 +78,7 @@ public class FileSingleStreamSpillerFactory
     private final double maxUsedSpaceThreshold;
     private final boolean spillEncryptionEnabled;
     private int roundRobinIndex;
-    private final LoadingCache<Path, Boolean> spillPathHealthCache;
+    private final NonKeyEvictableLoadingCache<Path, Boolean> spillPathHealthCache;
 
     @Inject
     public FileSingleStreamSpillerFactory(BlockEncodingSerde blockEncodingSerde, SpillerStats spillerStats, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig)
@@ -124,9 +125,10 @@ public class FileSingleStreamSpillerFactory
         this.spillEncryptionEnabled = spillEncryptionEnabled;
         this.roundRobinIndex = 0;
 
-        this.spillPathHealthCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(SPILL_PATH_HEALTH_EXPIRY_INTERVAL)
-                .build(CacheLoader.from(path -> isAccessible(path) && isSeeminglyHealthy(path)));
+        this.spillPathHealthCache = buildNonEvictableCacheWithWeakInvalidateAll(
+                CacheBuilder.newBuilder()
+                        .expireAfterWrite(SPILL_PATH_HEALTH_EXPIRY_INTERVAL),
+                CacheLoader.from(path -> isAccessible(path) && isSeeminglyHealthy(path)));
     }
 
     @PostConstruct

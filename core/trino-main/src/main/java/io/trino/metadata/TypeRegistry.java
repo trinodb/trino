@@ -14,13 +14,13 @@
 package io.trino.metadata;
 
 import com.google.common.base.Joiner;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.FeaturesConfig;
+import io.trino.plugin.base.cache.NonEvictableCache;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
@@ -53,6 +53,7 @@ import java.util.concurrent.ExecutionException;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -112,7 +113,7 @@ public final class TypeRegistry
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
-    private final Cache<TypeSignature, Type> parametricTypeCache;
+    private final NonEvictableCache<TypeSignature, Type> parametricTypeCache;
     private final TypeManager typeManager;
     private final TypeOperators typeOperators;
 
@@ -164,9 +165,7 @@ public final class TypeRegistry
         addParametricType(TIME);
         addParametricType(TIME_WITH_TIME_ZONE);
 
-        parametricTypeCache = CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .build();
+        parametricTypeCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
 
         typeManager = new InternalTypeManager(this, typeOperators);
 

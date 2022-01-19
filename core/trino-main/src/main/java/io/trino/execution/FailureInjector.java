@@ -13,9 +13,9 @@
  */
 package io.trino.execution;
 
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.cache.NonEvictableCache;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.ErrorType;
@@ -29,6 +29,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_FAILURE;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.ErrorType.INSUFFICIENT_RESOURCES;
 import static io.trino.spi.ErrorType.INTERNAL_ERROR;
@@ -40,7 +41,7 @@ public class FailureInjector
 {
     public static final String FAILURE_INJECTION_MESSAGE = "This error is injected by the failure injection service";
 
-    private final Cache<Key, InjectedFailure> failures;
+    private final NonEvictableCache<Key, InjectedFailure> failures;
     private final Duration requestTimeout;
 
     @Inject
@@ -53,9 +54,8 @@ public class FailureInjector
 
     public FailureInjector(Duration expirationPeriod, Duration requestTimeout)
     {
-        failures = CacheBuilder.newBuilder()
-                .expireAfterWrite(expirationPeriod.toMillis(), MILLISECONDS)
-                .build();
+        failures = buildNonEvictableCache(CacheBuilder.newBuilder()
+                .expireAfterWrite(expirationPeriod.toMillis(), MILLISECONDS));
         this.requestTimeout = requireNonNull(requestTimeout, "requestTimeout is null");
     }
 
