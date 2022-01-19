@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import io.airlift.log.Logger;
 
@@ -54,6 +55,11 @@ public class ThrowableMapper
 
         ResponseBuilder responseBuilder = Response.serverError()
                 .header(CONTENT_TYPE, TEXT_PLAIN);
+
+        if (!Strings.isNullOrEmpty(throwable.getMessage())) {
+            responseBuilder.header("X-Trino-Error-Message", throwable.getMessage());
+        }
+
         if (includeExceptionInResponse) {
             responseBuilder.entity(Throwables.getStackTraceAsString(throwable));
         }
