@@ -80,6 +80,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
@@ -3327,8 +3328,9 @@ public abstract class BaseIcebergConnectorTest
     {
         String schema = getSession().getSchema().orElseThrow();
         Path tableDataDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve("iceberg_data").resolve(schema).resolve(tableName).resolve("data");
-        try (Stream<Path> list = Files.list(tableDataDir)) {
-            return list
+        try (Stream<Path> walk = Files.walk(tableDataDir)) {
+            return walk
+                    .filter(Files::isRegularFile)
                     .filter(path -> !path.getFileName().toString().matches("\\..*\\.crc"))
                     .map(Path::toString)
                     .collect(toImmutableList());
