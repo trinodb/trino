@@ -34,6 +34,7 @@ import javax.annotation.concurrent.GuardedBy;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
@@ -335,6 +336,12 @@ public class LazyOutputBuffer
             return outputBuffer.getPeakMemoryUsage();
         }
         return 0;
+    }
+
+    @Override
+    public Optional<Throwable> getFailureCause()
+    {
+        return stateMachine.getFailureCause();
     }
 
     @Nullable

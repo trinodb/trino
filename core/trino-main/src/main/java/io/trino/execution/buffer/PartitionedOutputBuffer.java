@@ -24,6 +24,7 @@ import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.trino.memory.context.LocalMemoryContext;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
@@ -264,6 +265,12 @@ public class PartitionedOutputBuffer
     public long getPeakMemoryUsage()
     {
         return memoryManager.getPeakMemoryUsage();
+    }
+
+    @Override
+    public Optional<Throwable> getFailureCause()
+    {
+        return stateMachine.getFailureCause();
     }
 
     @VisibleForTesting

@@ -38,6 +38,7 @@ import io.trino.operator.PipelineExecutionStrategy;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.operator.TaskContext;
 import io.trino.spi.SplitWeight;
+import io.trino.spi.TrinoException;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -76,6 +77,7 @@ import static io.trino.execution.SqlTaskExecution.SplitsState.ADDING_SPLITS;
 import static io.trino.execution.SqlTaskExecution.SplitsState.FINISHED;
 import static io.trino.execution.SqlTaskExecution.SplitsState.NO_MORE_SPLITS;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -640,13 +642,27 @@ public class SqlTaskExecution
         outputBuffer.setNoMorePages();
 
         BufferState bufferState = outputBuffer.getState();
-        if (bufferState != BufferState.FINISHED) {
+        if (!bufferState.isTerminal()) {
             taskStateMachine.transitionToFlushing();
             return;
         }
 
-        // Cool! All done!
-        taskStateMachine.finished();
+        if (bufferState == BufferState.FINISHED) {
+            // Cool! All done!
+            taskStateMachine.finished();
+            return;
+        }
+
+        if (bufferState == BufferState.FAILED) {
+            Throwable failureCause = outputBuffer.getFailureCause()
+                    .orElseGet(() -> new TrinoException(GENERIC_INTERNAL_ERROR, "Output buffer is failed but the failure cause is missing"));
+            taskStateMachine.failed(failureCause);
+            return;
+        }
+
+        // The only terminal state that remains is ABORTED.
+        // Buffer is expected to be aborted only if the task itself is aborted. In this scenario the following statement is expected to be noop.
+        taskStateMachine.failed(new TrinoException(GENERIC_INTERNAL_ERROR, "Unexpected buffer state: " + bufferState));
     }
 
     @Override
@@ -1111,7 +1127,7 @@ public class SqlTaskExecution
         @Override
         public void stateChanged(BufferState newState)
         {
-            if (newState == BufferState.FINISHED) {
+            if (newState.isTerminal()) {
                 SqlTaskExecution sqlTaskExecution = sqlTaskExecutionReference.get();
                 if (sqlTaskExecution != null) {
                     sqlTaskExecution.checkTaskCompletion();
