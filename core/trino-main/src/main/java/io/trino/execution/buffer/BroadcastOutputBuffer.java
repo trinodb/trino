@@ -41,7 +41,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.execution.buffer.BufferState.FAILED;
+import static io.trino.execution.buffer.BufferState.ABORTED;
 import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
 import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
@@ -321,10 +321,10 @@ public class BroadcastOutputBuffer
     }
 
     @Override
-    public void fail()
+    public void abort()
     {
-        // ignore fail if the buffer already in a terminal state.
-        if (stateMachine.fail()) {
+        // ignore abort if the buffer already in a terminal state.
+        if (stateMachine.abort()) {
             memoryManager.setNoBlockOnFull();
             forceFreeMemory();
             // DO NOT destroy buffers or set no more pages.  The coordinator manages the teardown of failed queries.
@@ -360,8 +360,8 @@ public class BroadcastOutputBuffer
         // When no-more-buffers is set, we verify that all created buffers have been declared
         buffer = new ClientBuffer(taskInstanceId, id, onPagesReleased);
 
-        // do not setup the new buffer if we are already failed
-        if (state != FAILED) {
+        // do not setup the new buffer if we are already aborted
+        if (state != ABORTED) {
             // add initial pages
             buffer.enqueuePages(initialPagesForNewBuffers);
 
