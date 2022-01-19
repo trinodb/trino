@@ -217,9 +217,9 @@ public final class HiveTestUtils
     {
         return (RowType) TESTING_TYPE_MANAGER.getParameterizedType(
                 StandardTypes.ROW,
-                ImmutableList.copyOf(elementTypeSignatures.stream()
+                elementTypeSignatures.stream()
                         .map(TypeSignatureParameter::namedTypeParameter)
-                        .collect(toImmutableList())));
+                        .collect(toImmutableList()));
     }
 
     public static Long shortDecimal(String value)

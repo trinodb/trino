@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.parquet.ParquetRecordWriter;
@@ -116,9 +115,9 @@ public class RecordFileWriter
         }
 
         // reorder (and possibly reduce) struct fields to match input
-        structFields = ImmutableList.copyOf(inputColumnNames.stream()
+        structFields = inputColumnNames.stream()
                 .map(tableInspector::getStructFieldRef)
-                .collect(toImmutableList()));
+                .collect(toImmutableList());
 
         row = tableInspector.create();
 

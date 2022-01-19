@@ -1903,10 +1903,9 @@ public abstract class AbstractTestHive
             assertBucketTableEvolutionResult(result, columnHandles, ImmutableSet.of(6), rowCount);
 
             // read single bucket, without selecting the bucketing column (i.e. id column)
-            columnHandles = ImmutableList.copyOf(
-                    metadata.getColumnHandles(session, tableHandle).values().stream()
-                            .filter(columnHandle -> !"id".equals(((HiveColumnHandle) columnHandle).getName()))
-                            .collect(toImmutableList()));
+            columnHandles = metadata.getColumnHandles(session, tableHandle).values().stream()
+                    .filter(columnHandle -> !"id".equals(((HiveColumnHandle) columnHandle).getName()))
+                    .collect(toImmutableList());
             result = readTable(
                     transaction,
                     tableHandle,
