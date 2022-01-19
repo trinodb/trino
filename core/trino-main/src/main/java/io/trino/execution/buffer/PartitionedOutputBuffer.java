@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
-import io.trino.execution.StateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
@@ -31,12 +30,9 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.execution.buffer.BufferState.FAILED;
 import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
 import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
-import static io.trino.execution.buffer.BufferState.NO_MORE_PAGES;
-import static io.trino.execution.buffer.BufferState.OPEN;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.SerializedPageReference.dereferencePages;
@@ -45,7 +41,7 @@ import static java.util.Objects.requireNonNull;
 public class PartitionedOutputBuffer
         implements OutputBuffer
 {
-    private final StateMachine<BufferState> state;
+    private final OutputBufferStateMachine stateMachine;
     private final OutputBuffers outputBuffers;
     private final OutputBufferMemoryManager memoryManager;
     private final PagesReleasedListener onPagesReleased;
@@ -57,13 +53,13 @@ public class PartitionedOutputBuffer
 
     public PartitionedOutputBuffer(
             String taskInstanceId,
-            StateMachine<BufferState> state,
+            OutputBufferStateMachine stateMachine,
             OutputBuffers outputBuffers,
             DataSize maxBufferSize,
             Supplier<LocalMemoryContext> memoryContextSupplier,
             Executor notificationExecutor)
     {
-        this.state = requireNonNull(state, "state is null");
+        this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
 
         requireNonNull(outputBuffers, "outputBuffers is null");
         checkArgument(outputBuffers.getType() == PARTITIONED, "Expected a PARTITIONED output buffer descriptor");
@@ -82,21 +78,20 @@ public class PartitionedOutputBuffer
         }
         this.partitions = partitions.build();
 
-        state.compareAndSet(OPEN, NO_MORE_BUFFERS);
-        state.compareAndSet(NO_MORE_PAGES, FLUSHING);
+        stateMachine.noMoreBuffers();
         checkFlushComplete();
     }
 
     @Override
     public void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener)
     {
-        state.addStateChangeListener(stateChangeListener);
+        stateMachine.addStateChangeListener(stateChangeListener);
     }
 
     @Override
     public boolean isFinished()
     {
-        return state.get() == FINISHED;
+        return stateMachine.getState() == FINISHED;
     }
 
     @Override
@@ -119,7 +114,7 @@ public class PartitionedOutputBuffer
         //
 
         // always get the state first before any other stats
-        BufferState state = this.state.get();
+        BufferState state = stateMachine.getState();
 
         int totalBufferedPages = 0;
         ImmutableList.Builder<BufferInfo> infos = ImmutableList.builderWithExpectedSize(partitions.size());
@@ -148,7 +143,7 @@ public class PartitionedOutputBuffer
 
         // ignore buffers added after query finishes, which can happen when a query is canceled
         // also ignore old versions, which is normal
-        if (state.get().isTerminal() || outputBuffers.getVersion() >= newOutputBuffers.getVersion()) {
+        if (stateMachine.getState().isTerminal() || outputBuffers.getVersion() >= newOutputBuffers.getVersion()) {
             return;
         }
 
@@ -176,7 +171,7 @@ public class PartitionedOutputBuffer
 
         // ignore pages after "no more pages" is set
         // this can happen with a limit query
-        if (!state.get().canAddPages()) {
+        if (!stateMachine.getState().canAddPages()) {
             return;
         }
 
@@ -236,8 +231,7 @@ public class PartitionedOutputBuffer
     @Override
     public void setNoMorePages()
     {
-        state.compareAndSet(OPEN, NO_MORE_PAGES);
-        state.compareAndSet(NO_MORE_BUFFERS, FLUSHING);
+        stateMachine.noMorePages();
         memoryManager.setNoBlockOnFull();
 
         partitions.forEach(ClientBuffer::setNoMorePages);
@@ -249,7 +243,7 @@ public class PartitionedOutputBuffer
     public void destroy()
     {
         // ignore destroy if the buffer already in a terminal state.
-        if (state.setIf(FINISHED, oldState -> !oldState.isTerminal())) {
+        if (stateMachine.finish()) {
             partitions.forEach(ClientBuffer::destroy);
             memoryManager.setNoBlockOnFull();
             forceFreeMemory();
@@ -260,7 +254,7 @@ public class PartitionedOutputBuffer
     public void fail()
     {
         // ignore fail if the buffer already in a terminal state.
-        if (state.setIf(FAILED, oldState -> !oldState.isTerminal())) {
+        if (stateMachine.fail()) {
             memoryManager.setNoBlockOnFull();
             forceFreeMemory();
             // DO NOT destroy buffers or set no more pages.  The coordinator manages the teardown of failed queries.
@@ -281,7 +275,7 @@ public class PartitionedOutputBuffer
 
     private void checkFlushComplete()
     {
-        if (state.get() != FLUSHING && state.get() != NO_MORE_BUFFERS) {
+        if (stateMachine.getState() != FLUSHING && stateMachine.getState() != NO_MORE_BUFFERS) {
             return;
         }
 

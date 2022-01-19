@@ -20,7 +20,6 @@ import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
-import io.trino.execution.StateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.ClientBuffer.PagesSupplier;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
@@ -45,12 +44,9 @@ import java.util.function.Supplier;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.execution.buffer.BufferState.FAILED;
 import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
-import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
 import static io.trino.execution.buffer.BufferState.NO_MORE_PAGES;
-import static io.trino.execution.buffer.BufferState.OPEN;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
@@ -77,7 +73,7 @@ public class ArbitraryOutputBuffer
     //  The index of the first client buffer that should be polled
     private final AtomicInteger nextClientBufferIndex = new AtomicInteger(0);
 
-    private final StateMachine<BufferState> state;
+    private final OutputBufferStateMachine stateMachine;
     private final String taskInstanceId;
 
     private final AtomicLong totalPagesAdded = new AtomicLong();
@@ -85,13 +81,13 @@ public class ArbitraryOutputBuffer
 
     public ArbitraryOutputBuffer(
             String taskInstanceId,
-            StateMachine<BufferState> state,
+            OutputBufferStateMachine stateMachine,
             DataSize maxBufferSize,
             Supplier<LocalMemoryContext> memoryContextSupplier,
             Executor notificationExecutor)
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
-        this.state = requireNonNull(state, "state is null");
+        this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         this.memoryManager = new OutputBufferMemoryManager(
@@ -105,13 +101,13 @@ public class ArbitraryOutputBuffer
     @Override
     public void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener)
     {
-        state.addStateChangeListener(stateChangeListener);
+        stateMachine.addStateChangeListener(stateChangeListener);
     }
 
     @Override
     public boolean isFinished()
     {
-        return state.get() == FINISHED;
+        return stateMachine.getState() == FINISHED;
     }
 
     @Override
@@ -123,7 +119,7 @@ public class ArbitraryOutputBuffer
     @Override
     public boolean isOverutilized()
     {
-        return (memoryManager.getUtilization() >= 0.5) || !state.get().canAddPages();
+        return (memoryManager.getUtilization() >= 0.5) || !stateMachine.getState().canAddPages();
     }
 
     @Override
@@ -134,7 +130,7 @@ public class ArbitraryOutputBuffer
         //
 
         // always get the state first before any other stats
-        BufferState state = this.state.get();
+        BufferState state = stateMachine.getState();
 
         // buffers it a concurrent collection so it is safe to access out side of guard
         // in this case we only want a snapshot of the current buffers
@@ -172,7 +168,7 @@ public class ArbitraryOutputBuffer
         synchronized (this) {
             // ignore buffers added after query finishes, which can happen when a query is canceled
             // also ignore old versions, which is normal
-            BufferState state = this.state.get();
+            BufferState state = stateMachine.getState();
             if (state.isTerminal() || outputBuffers.getVersion() >= newOutputBuffers.getVersion()) {
                 return;
             }
@@ -190,12 +186,11 @@ public class ArbitraryOutputBuffer
 
             // update state if no more buffers is set
             if (outputBuffers.isNoMoreBufferIds()) {
-                this.state.compareAndSet(OPEN, NO_MORE_BUFFERS);
-                this.state.compareAndSet(NO_MORE_PAGES, FLUSHING);
+                stateMachine.noMoreBuffers();
             }
         }
 
-        if (!state.get().canAddBuffers()) {
+        if (!stateMachine.getState().canAddBuffers()) {
             noMoreBuffers();
         }
 
@@ -216,7 +211,7 @@ public class ArbitraryOutputBuffer
 
         // ignore pages after "no more pages" is set
         // this can happen with a limit query
-        if (!state.get().canAddPages()) {
+        if (!stateMachine.getState().canAddPages()) {
             return;
         }
 
@@ -301,8 +296,7 @@ public class ArbitraryOutputBuffer
     public void setNoMorePages()
     {
         checkState(!Thread.holdsLock(this), "Cannot set no more pages while holding a lock on this");
-        state.compareAndSet(OPEN, NO_MORE_PAGES);
-        state.compareAndSet(NO_MORE_BUFFERS, FLUSHING);
+        stateMachine.noMorePages();
         memoryManager.setNoBlockOnFull();
 
         masterBuffer.setNoMorePages();
@@ -321,7 +315,7 @@ public class ArbitraryOutputBuffer
         checkState(!Thread.holdsLock(this), "Cannot destroy while holding a lock on this");
 
         // ignore destroy if the buffer already in a terminal state.
-        if (state.setIf(FINISHED, oldState -> !oldState.isTerminal())) {
+        if (stateMachine.finish()) {
             noMoreBuffers();
 
             masterBuffer.destroy();
@@ -337,7 +331,7 @@ public class ArbitraryOutputBuffer
     public void fail()
     {
         // ignore fail if the buffer already in a terminal state.
-        if (state.setIf(FAILED, oldState -> !oldState.isTerminal())) {
+        if (stateMachine.fail()) {
             memoryManager.setNoBlockOnFull();
             forceFreeMemory();
             // DO NOT destroy buffers or set no more pages.  The coordinator manages the teardown of failed queries.
@@ -366,14 +360,14 @@ public class ArbitraryOutputBuffer
         // NOTE: buffers are allowed to be created in the FINISHED state because destroy() can move to the finished state
         // without a clean "no-more-buffers" message from the scheduler.  This happens with limit queries and is ok because
         // the buffer will be immediately destroyed.
-        checkState(state.get().canAddBuffers() || !outputBuffers.isNoMoreBufferIds(), "No more buffers already set");
+        checkState(stateMachine.getState().canAddBuffers() || !outputBuffers.isNoMoreBufferIds(), "No more buffers already set");
 
         // NOTE: buffers are allowed to be created before they are explicitly declared by setOutputBuffers
         // When no-more-buffers is set, we verify that all created buffers have been declared
         buffer = new ClientBuffer(taskInstanceId, id, onPagesReleased);
 
         // buffer may have finished immediately before calling this method
-        if (state.get() == FINISHED) {
+        if (stateMachine.getState() == FINISHED) {
             buffer.destroy();
         }
 
@@ -400,7 +394,7 @@ public class ArbitraryOutputBuffer
         // This buffer type assigns each page to a single, arbitrary reader,
         // so we don't need to wait for no-more-buffers to finish the buffer.
         // Any readers added after finish will simply receive no data.
-        BufferState state = this.state.get();
+        BufferState state = stateMachine.getState();
         if ((state == FLUSHING) || ((state == NO_MORE_PAGES) && masterBuffer.isEmpty())) {
             if (safeGetBuffersSnapshot().stream().allMatch(ClientBuffer::isDestroyed)) {
                 destroy();
