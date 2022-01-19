@@ -15,6 +15,7 @@ package io.trino.execution.buffer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StateMachine;
@@ -22,6 +23,7 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.exchange.ExchangeSink;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
@@ -35,6 +37,8 @@ import static java.util.Objects.requireNonNull;
 public class SpoolingExchangeOutputBuffer
         implements OutputBuffer
 {
+    private static final Logger log = Logger.get(SpoolingExchangeOutputBuffer.class);
+
     private final OutputBufferStateMachine stateMachine;
     private final OutputBuffers outputBuffers;
     private final ExchangeSink exchangeSink;
@@ -166,40 +170,57 @@ public class SpoolingExchangeOutputBuffer
     @Override
     public void setNoMorePages()
     {
-        stateMachine.noMorePages();
-        destroy();
+        if (!stateMachine.noMorePages()) {
+            return;
+        }
+
+        exchangeSink.finish().whenComplete((value, failure) -> {
+            if (failure != null) {
+                stateMachine.fail(failure);
+            }
+            else {
+                stateMachine.finish();
+            }
+            updateMemoryUsage(0);
+        });
     }
 
     @Override
     public void destroy()
     {
-        if (stateMachine.finish()) {
-            try {
-                exchangeSink.finish();
-            }
-            finally {
-                updateMemoryUsage(exchangeSink.getMemoryUsage());
-            }
-        }
+        // Abort the buffer if it hasn't been finished. This is possible when a task is cancelled early by the coordinator.
+        // Task cancellation is not supported (and not expected to be requested by the coordinator when the spooling exchange
+        // is in use) as the task output is expected to be deterministic.
+        // In a scenario when due to a bug in coordinator logic a cancellation is requested it is better to invalidate the sink
+        // to avoid publishing incomplete data to the downstream stage that could potentially cause a correctness problem
+        abort();
     }
 
     @Override
     public void abort()
     {
-        if (stateMachine.abort()) {
-            try {
-                exchangeSink.abort();
-            }
-            finally {
-                updateMemoryUsage(0);
-            }
+        if (!stateMachine.abort()) {
+            return;
         }
+
+        exchangeSink.abort().whenComplete((value, failure) -> {
+            if (failure != null) {
+                log.warn(failure, "Error aborting exchange sink");
+            }
+            updateMemoryUsage(0);
+        });
     }
 
     @Override
     public long getPeakMemoryUsage()
     {
         return peakMemoryUsage.get();
+    }
+
+    @Override
+    public Optional<Throwable> getFailureCause()
+    {
+        return stateMachine.getFailureCause();
     }
 
     private void updateMemoryUsage(long bytes)

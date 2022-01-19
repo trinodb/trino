@@ -20,6 +20,7 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface OutputBuffer
 {
@@ -114,4 +115,9 @@ public interface OutputBuffer
      * @return the peak memory usage of this output buffer.
      */
     long getPeakMemoryUsage();
+
+    /**
+     * Returns non empty failure cause if the buffer is in state {@link BufferState#FAILED}
+     */
+    Optional<Throwable> getFailureCause();
 }

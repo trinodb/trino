@@ -344,6 +344,12 @@ public class ArbitraryOutputBuffer
         return memoryManager.getPeakMemoryUsage();
     }
 
+    @Override
+    public Optional<Throwable> getFailureCause()
+    {
+        return stateMachine.getFailureCause();
+    }
+
     @VisibleForTesting
     void forceFreeMemory()
     {
