@@ -199,9 +199,9 @@ public final class HiveType
     public static List<HiveType> toHiveTypes(String hiveTypes)
     {
         requireNonNull(hiveTypes, "hiveTypes is null");
-        return ImmutableList.copyOf(getTypeInfosFromTypeString(hiveTypes).stream()
+        return getTypeInfosFromTypeString(hiveTypes).stream()
                 .map(HiveType::toHiveType)
-                .collect(toImmutableList()));
+                .collect(toImmutableList());
     }
 
     public static HiveType toHiveType(TypeInfo typeInfo)
