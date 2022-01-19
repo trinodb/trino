@@ -137,7 +137,7 @@ public interface TaskManager
      * NOTE: this design assumes that only tasks and buffers that will
      * eventually exist are queried.
      */
-    TaskInfo abortTaskResults(TaskId taskId, OutputBufferId bufferId);
+    TaskInfo destroyTaskResults(TaskId taskId, OutputBufferId bufferId);
 
     /**
      * Adds a state change listener to the specified task.

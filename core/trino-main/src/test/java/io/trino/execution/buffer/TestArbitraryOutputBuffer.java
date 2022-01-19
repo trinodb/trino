@@ -217,7 +217,7 @@ public class TestArbitraryOutputBuffer
         assertEquals(buffer.getState(), FLUSHING);
 
         // finish first queue
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
         assertQueueClosed(buffer, 0, FIRST, 6);
         assertQueueState(buffer, 0, SECOND, 1, 10);
         assertEquals(buffer.getState(), FLUSHING);
@@ -228,7 +228,7 @@ public class TestArbitraryOutputBuffer
         assertEquals(buffer.getState(), FLUSHING);
 
         // finish second queue
-        buffer.abort(SECOND);
+        buffer.destroy(SECOND);
         assertQueueClosed(buffer, 0, FIRST, 6);
         assertQueueClosed(buffer, 0, SECOND, 11);
         assertFinished(buffer);
@@ -496,8 +496,8 @@ public class TestArbitraryOutputBuffer
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0L, sizeOfPages(1));
         assertFalse(future.isDone());
 
-        // abort that buffer, and verify the future is finishd
-        buffer.abort(FIRST);
+        // destroy that buffer, and verify the future is finished
+        buffer.destroy(FIRST);
         assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, false));
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
 
@@ -545,17 +545,17 @@ public class TestArbitraryOutputBuffer
         // read a page from the first buffer
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
 
-        // abort buffer, and verify page cannot be acknowledged
-        buffer.abort(FIRST);
+        // destroy buffer, and verify page cannot be acknowledged
+        buffer.destroy(FIRST);
         assertQueueClosed(buffer, 9, FIRST, 0);
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 1, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
 
         outputBuffers = outputBuffers.withBuffer(SECOND, 0).withNoMoreBufferIds();
         buffer.setOutputBuffers(outputBuffers);
 
-        // first page is lost because the first buffer was aborted
+        // first page is lost because the first buffer was destroyed
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(1)));
-        buffer.abort(SECOND);
+        buffer.destroy(SECOND);
         assertQueueClosed(buffer, 0, SECOND, 0);
         assertFinished(buffer);
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 1, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
@@ -577,8 +577,8 @@ public class TestArbitraryOutputBuffer
         assertQueueState(buffer, 0, FIRST, 0, 0);
         assertQueueState(buffer, 0, SECOND, 0, 0);
 
-        buffer.abort(FIRST);
-        buffer.abort(SECOND);
+        buffer.destroy(FIRST);
+        buffer.destroy(SECOND);
 
         assertQueueClosed(buffer, 0, FIRST, 0);
         assertQueueClosed(buffer, 0, SECOND, 0);
@@ -607,8 +607,8 @@ public class TestArbitraryOutputBuffer
         future = buffer.get(FIRST, 1, sizeOfPages(10));
         assertFalse(future.isDone());
 
-        // abort the buffer
-        buffer.abort(FIRST);
+        // destroy the buffer
+        buffer.destroy(FIRST);
         assertQueueClosed(buffer, 0, FIRST, 1);
 
         // verify the future completed
@@ -640,7 +640,7 @@ public class TestArbitraryOutputBuffer
 
         // finish the buffer
         assertQueueState(buffer, 0, FIRST, 0, 1);
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
         assertQueueClosed(buffer, 0, FIRST, 1);
 
         // verify the future completed
@@ -690,7 +690,7 @@ public class TestArbitraryOutputBuffer
         assertEquals(buffer.getState(), FLUSHING);
 
         // finish the queue
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
 
         // verify finished
         assertFinished(buffer);
@@ -908,7 +908,7 @@ public class TestArbitraryOutputBuffer
         assertEquals(buffer.getState(), FLUSHING);
 
         // ask the buffer to finish
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
 
         // verify that the buffer is finished
         assertEquals(buffer.getState(), FINISHED);
@@ -957,7 +957,7 @@ public class TestArbitraryOutputBuffer
         assertEquals(buffer.getState(), NO_MORE_PAGES);
 
         // finish first queue
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
         assertQueueClosed(buffer, 0, FIRST, 3);
         assertFinished(buffer);
 

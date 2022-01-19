@@ -684,7 +684,7 @@ public class TestSqlTaskExecution
 
         public void abort()
         {
-            outputBuffer.abort(outputBufferId);
+            outputBuffer.destroy(outputBufferId);
             assertEquals(outputBuffer.getInfo().getState(), BufferState.FINISHED);
         }
     }

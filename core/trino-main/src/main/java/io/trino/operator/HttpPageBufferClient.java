@@ -268,10 +268,10 @@ public final class HttpPageBufferClient
     @Override
     public void close()
     {
-        boolean shouldSendDelete;
+        boolean shouldDestroyTaskResults;
         Future<?> future;
         synchronized (this) {
-            shouldSendDelete = !closed;
+            shouldDestroyTaskResults = !closed;
 
             closed = true;
 
@@ -286,9 +286,9 @@ public final class HttpPageBufferClient
             future.cancel(true);
         }
 
-        // abort the output buffer on the remote node; response of delete is ignored
-        if (shouldSendDelete) {
-            sendDelete();
+        // destroy task results on the remote node; response is ignored
+        if (shouldDestroyTaskResults) {
+            destroyTaskResults();
         }
     }
 
@@ -325,7 +325,7 @@ public final class HttpPageBufferClient
         }
 
         if (completed) {
-            sendDelete();
+            destroyTaskResults();
         }
         else {
             sendGetResults();
@@ -478,7 +478,7 @@ public final class HttpPageBufferClient
         }, pageBufferClientCallbackExecutor);
     }
 
-    private synchronized void sendDelete()
+    private synchronized void destroyTaskResults()
     {
         HttpResponseFuture<StatusResponse> resultFuture = httpClient.executeAsync(prepareDelete().setUri(location).build(), createStatusResponseHandler());
         future = resultFuture;

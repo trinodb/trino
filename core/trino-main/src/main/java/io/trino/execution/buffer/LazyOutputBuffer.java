@@ -63,7 +63,7 @@ public class LazyOutputBuffer
     private volatile OutputBuffer delegate;
 
     @GuardedBy("this")
-    private final Set<OutputBufferId> abortedBuffers = new HashSet<>();
+    private final Set<OutputBufferId> destroyedBuffers = new HashSet<>();
 
     @GuardedBy("this")
     private final List<PendingRead> pendingReads = new ArrayList<>();
@@ -150,7 +150,7 @@ public class LazyOutputBuffer
     @Override
     public void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
-        Set<OutputBufferId> abortedBuffers = ImmutableSet.of();
+        Set<OutputBufferId> destroyedBuffers = ImmutableSet.of();
         List<PendingRead> pendingReads = ImmutableList.of();
         OutputBuffer outputBuffer = delegate;
         if (outputBuffer == null) {
@@ -183,8 +183,8 @@ public class LazyOutputBuffer
                     }
 
                     // process pending aborts and reads outside of synchronized lock
-                    abortedBuffers = ImmutableSet.copyOf(this.abortedBuffers);
-                    this.abortedBuffers.clear();
+                    destroyedBuffers = ImmutableSet.copyOf(this.destroyedBuffers);
+                    this.destroyedBuffers.clear();
                     pendingReads = ImmutableList.copyOf(this.pendingReads);
                     this.pendingReads.clear();
                     // Must be assigned last to avoid a race condition with unsynchronized readers
@@ -196,7 +196,7 @@ public class LazyOutputBuffer
         outputBuffer.setOutputBuffers(newOutputBuffers);
 
         // process pending aborts and reads outside of synchronized lock
-        abortedBuffers.forEach(outputBuffer::abort);
+        destroyedBuffers.forEach(outputBuffer::destroy);
         for (PendingRead pendingRead : pendingReads) {
             pendingRead.process(outputBuffer);
         }
@@ -231,13 +231,13 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public void abort(OutputBufferId bufferId)
+    public void destroy(OutputBufferId bufferId)
     {
         OutputBuffer outputBuffer = delegate;
         if (outputBuffer == null) {
             synchronized (this) {
                 if (delegate == null) {
-                    abortedBuffers.add(bufferId);
+                    destroyedBuffers.add(bufferId);
                     // Normally, we should free any pending readers for this buffer,
                     // but we assume that the real buffer will be created quickly.
                     return;
@@ -245,7 +245,7 @@ public class LazyOutputBuffer
                 outputBuffer = delegate;
             }
         }
-        outputBuffer.abort(bufferId);
+        outputBuffer.destroy(bufferId);
     }
 
     @Override
