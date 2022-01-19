@@ -37,6 +37,12 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.buffer.BufferResult.emptyResults;
+import static io.trino.execution.buffer.BufferState.FAILED;
+import static io.trino.execution.buffer.BufferState.FINISHED;
+import static io.trino.execution.buffer.BufferState.FLUSHING;
+import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
+import static io.trino.execution.buffer.BufferState.NO_MORE_PAGES;
+import static io.trino.execution.buffer.BufferState.OPEN;
 import static io.trino.execution.buffer.BufferTestUtils.MAX_WAIT;
 import static io.trino.execution.buffer.BufferTestUtils.NO_WAIT;
 import static io.trino.execution.buffer.BufferTestUtils.acknowledgeBufferResult;
@@ -196,30 +202,30 @@ public class TestArbitraryOutputBuffer
 
         //
         // finish the buffer
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
         buffer.setNoMorePages();
         assertQueueState(buffer, 0, FIRST, 2, 4);
         assertQueueState(buffer, 0, SECOND, 1, 10);
 
         // not fully finished until all pages are consumed
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // acknowledge the pages from the first buffer; buffer should not close automatically
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 6, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 6, true));
         assertQueueState(buffer, 0, FIRST, 0, 6);
         assertQueueState(buffer, 0, SECOND, 1, 10);
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // finish first queue
         buffer.abort(FIRST);
         assertQueueClosed(buffer, 0, FIRST, 6);
         assertQueueState(buffer, 0, SECOND, 1, 10);
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // acknowledge a page from the second queue; queue should not close automatically
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 11, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 11, true));
         assertQueueState(buffer, 0, SECOND, 0, 11);
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // finish second queue
         buffer.abort(SECOND);
@@ -336,7 +342,7 @@ public class TestArbitraryOutputBuffer
                         .withNoMoreBufferIds(),
                 sizeOfPages(10));
 
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         assertThatThrownBy(() -> buffer.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY)
                 .withBuffer(FIRST, BROADCAST_PARTITION_ID)
@@ -364,19 +370,19 @@ public class TestArbitraryOutputBuffer
     public void testAddQueueAfterNoMoreQueues()
     {
         ArbitraryOutputBuffer buffer = createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), sizeOfPages(10));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), OPEN);
 
         // tell buffer no more queues will be added
         buffer.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY).withNoMoreBufferIds());
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // set no more queues a second time to assure that we don't get an exception or such
         buffer.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY).withNoMoreBufferIds());
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // set no more queues a third time to assure that we don't get an exception or such
         buffer.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY).withNoMoreBufferIds());
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(ARBITRARY)
                 .withBuffer(FIRST, BROADCAST_PARTITION_ID)
@@ -404,7 +410,7 @@ public class TestArbitraryOutputBuffer
     public void testGetBeforeCreate()
     {
         ArbitraryOutputBuffer buffer = createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), sizeOfPages(10));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), OPEN);
 
         // get a page from a buffer that doesn't exist yet
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0L, sizeOfPages(1));
@@ -427,7 +433,7 @@ public class TestArbitraryOutputBuffer
         }
 
         ArbitraryOutputBuffer buffer = createArbitraryBuffer(outputBuffers, sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), OPEN);
 
         Map<OutputBufferId, ListenableFuture<BufferResult>> firstReads = new HashMap<>();
         for (OutputBufferId id : ids) {
@@ -472,7 +478,7 @@ public class TestArbitraryOutputBuffer
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(10));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // get a page from a buffer that was not declared, which will fail
         assertThatThrownBy(() -> buffer.get(SECOND, 0L, sizeOfPages(1)))
@@ -484,7 +490,7 @@ public class TestArbitraryOutputBuffer
     public void testAbortBeforeCreate()
     {
         ArbitraryOutputBuffer buffer = createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), sizeOfPages(10));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), OPEN);
 
         // get a page from a buffer that doesn't exist yet
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0L, sizeOfPages(1));
@@ -583,7 +589,7 @@ public class TestArbitraryOutputBuffer
     {
         ArbitraryOutputBuffer buffer = createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), sizeOfPages(10));
         buffer.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY).withBuffer(FIRST, 0));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), OPEN);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
@@ -614,7 +620,7 @@ public class TestArbitraryOutputBuffer
     {
         ArbitraryOutputBuffer buffer = createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), sizeOfPages(10));
         buffer.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY).withBuffer(FIRST, 0));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), OPEN);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
@@ -648,7 +654,7 @@ public class TestArbitraryOutputBuffer
         buffer.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY)
                 .withBuffer(FIRST, 0)
                 .withNoMoreBufferIds());
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
@@ -669,7 +675,7 @@ public class TestArbitraryOutputBuffer
 
         // finish the query
         buffer.setNoMorePages();
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // verify futures are complete
         assertFutureIsDone(firstEnqueuePage);
@@ -681,7 +687,7 @@ public class TestArbitraryOutputBuffer
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 7, sizeOfPages(100), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 7, true));
 
         // verify not finished
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // finish the queue
         buffer.abort(FIRST);
@@ -697,7 +703,7 @@ public class TestArbitraryOutputBuffer
         buffer.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY)
                 .withBuffer(FIRST, 0)
                 .withNoMoreBufferIds());
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
@@ -730,7 +736,7 @@ public class TestArbitraryOutputBuffer
         buffer.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY)
                 .withBuffer(FIRST, 0)
                 .withNoMoreBufferIds());
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
@@ -766,7 +772,7 @@ public class TestArbitraryOutputBuffer
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
@@ -803,7 +809,7 @@ public class TestArbitraryOutputBuffer
                         .withBuffer(FIRST, BROADCAST_PARTITION_ID)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
@@ -824,7 +830,7 @@ public class TestArbitraryOutputBuffer
 
         // fail the buffer (i.e., cancel the query)
         buffer.fail();
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FAILED);
 
         // verify the futures are completed
         assertFutureIsDone(firstEnqueuePage);
@@ -837,7 +843,7 @@ public class TestArbitraryOutputBuffer
         OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(ARBITRARY)
                 .withBuffer(FIRST, BROADCAST_PARTITION_ID);
         ArbitraryOutputBuffer buffer = createArbitraryBuffer(outputBuffers, sizeOfPages(5));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), OPEN);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
@@ -883,7 +889,7 @@ public class TestArbitraryOutputBuffer
                 .withBuffer(FIRST, 0)
                 .withNoMoreBufferIds());
 
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
 
         // fill the buffer
         List<Page> pages = new ArrayList<>();
@@ -898,17 +904,14 @@ public class TestArbitraryOutputBuffer
         // get and acknowledge 5 pages
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(5), MAX_WAIT), createBufferResult(TASK_INSTANCE_ID, 0, pages));
 
-        // buffer is not finished
-        assertFalse(buffer.isFinished());
-
         // there are no more pages and no more buffers, but buffer is not finished because it didn't receive an acknowledgement yet
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), FLUSHING);
 
         // ask the buffer to finish
         buffer.abort(FIRST);
 
         // verify that the buffer is finished
-        assertTrue(buffer.isFinished());
+        assertEquals(buffer.getState(), FINISHED);
     }
 
     @Test
@@ -916,7 +919,7 @@ public class TestArbitraryOutputBuffer
     {
         ArbitraryOutputBuffer buffer = createArbitraryBuffer(createInitialEmptyOutputBuffers(ARBITRARY), sizeOfPages(10));
         buffer.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY).withBuffer(FIRST, 0));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), OPEN);
 
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
         assertFalse(future.isDone());
@@ -937,21 +940,21 @@ public class TestArbitraryOutputBuffer
             addPage(buffer, createPage(i));
         }
         buffer.setNoMorePages();
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_PAGES);
 
         // add one output buffer
         OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(ARBITRARY).withBuffer(FIRST, 0);
         buffer.setOutputBuffers(outputBuffers);
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_PAGES);
 
         // read a page from the first buffer
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_PAGES);
 
         // read remaining pages from the first buffer and acknowledge
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 1, sizeOfPages(10), NO_WAIT), bufferResult(1, createPage(1), createPage(2)));
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 3, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 3, true));
-        assertFalse(buffer.isFinished());
+        assertEquals(buffer.getState(), NO_MORE_PAGES);
 
         // finish first queue
         buffer.abort(FIRST);

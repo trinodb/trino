@@ -102,12 +102,6 @@ public class BroadcastOutputBuffer
     }
 
     @Override
-    public boolean isFinished()
-    {
-        return stateMachine.getState() == FINISHED;
-    }
-
-    @Override
     public double getUtilization()
     {
         return memoryManager.getUtilization();
@@ -146,6 +140,12 @@ public class BroadcastOutputBuffer
                 buffers.stream()
                         .map(ClientBuffer::getInfo)
                         .collect(toImmutableList()));
+    }
+
+    @Override
+    public BufferState getState()
+    {
+        return stateMachine.getState();
     }
 
     @Override

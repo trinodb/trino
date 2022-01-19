@@ -30,7 +30,6 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
 import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
@@ -89,12 +88,6 @@ public class PartitionedOutputBuffer
     }
 
     @Override
-    public boolean isFinished()
-    {
-        return stateMachine.getState() == FINISHED;
-    }
-
-    @Override
     public double getUtilization()
     {
         return memoryManager.getUtilization();
@@ -134,6 +127,12 @@ public class PartitionedOutputBuffer
                 totalRowsAdded.get(),
                 totalPagesAdded.get(),
                 infos.build());
+    }
+
+    @Override
+    public BufferState getState()
+    {
+        return stateMachine.getState();
     }
 
     @Override
