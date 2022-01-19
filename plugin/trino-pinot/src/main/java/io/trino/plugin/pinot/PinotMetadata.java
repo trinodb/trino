@@ -494,10 +494,6 @@ public class PinotMetadata
 
     private static <K, V> V getFromCache(LoadingCache<K, V> cache, K key)
     {
-        V value = cache.getIfPresent(key);
-        if (value != null) {
-            return value;
-        }
         try {
             return cache.get(key);
         }
