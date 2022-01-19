@@ -28,11 +28,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
-import static io.trino.execution.buffer.BufferState.FAILED;
 import static io.trino.execution.buffer.BufferState.FINISHED;
-import static io.trino.execution.buffer.BufferState.FLUSHING;
-import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
-import static io.trino.execution.buffer.BufferState.OPEN;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.SPOOL;
 import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
 import static java.util.Objects.requireNonNull;
@@ -40,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class SpoolingExchangeOutputBuffer
         implements OutputBuffer
 {
-    private final StateMachine<BufferState> state;
+    private final OutputBufferStateMachine stateMachine;
     private final OutputBuffers outputBuffers;
     private final ExchangeSink exchangeSink;
     private final Supplier<LocalMemoryContext> memoryContextSupplier;
@@ -50,24 +46,24 @@ public class SpoolingExchangeOutputBuffer
     private final AtomicLong totalRowsAdded = new AtomicLong();
 
     public SpoolingExchangeOutputBuffer(
-            StateMachine<BufferState> state,
+            OutputBufferStateMachine stateMachine,
             OutputBuffers outputBuffers,
             ExchangeSink exchangeSink,
             Supplier<LocalMemoryContext> memoryContextSupplier)
     {
-        this.state = requireNonNull(state, "state is null");
+        this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.outputBuffers = requireNonNull(outputBuffers, "outputBuffers is null");
         checkArgument(outputBuffers.getType() == SPOOL, "Expected a SPOOL output buffer");
         this.exchangeSink = requireNonNull(exchangeSink, "exchangeSink is null");
         this.memoryContextSupplier = requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
 
-        state.compareAndSet(OPEN, NO_MORE_BUFFERS);
+        stateMachine.noMoreBuffers();
     }
 
     @Override
     public OutputBufferInfo getInfo()
     {
-        BufferState state = this.state.get();
+        BufferState state = stateMachine.getState();
         return new OutputBufferInfo(
                 "EXTERNAL",
                 state,
@@ -83,7 +79,7 @@ public class SpoolingExchangeOutputBuffer
     @Override
     public boolean isFinished()
     {
-        return state.get() == FINISHED;
+        return stateMachine.getState() == FINISHED;
     }
 
     @Override
@@ -101,7 +97,7 @@ public class SpoolingExchangeOutputBuffer
     @Override
     public void addStateChangeListener(StateMachine.StateChangeListener<BufferState> stateChangeListener)
     {
-        state.addStateChangeListener(stateChangeListener);
+        stateMachine.addStateChangeListener(stateChangeListener);
     }
 
     @Override
@@ -111,7 +107,7 @@ public class SpoolingExchangeOutputBuffer
 
         // ignore buffers added after query finishes, which can happen when a query is canceled
         // also ignore old versions, which is normal
-        if (state.get().isTerminal() || outputBuffers.getVersion() >= newOutputBuffers.getVersion()) {
+        if (stateMachine.getState().isTerminal() || outputBuffers.getVersion() >= newOutputBuffers.getVersion()) {
             return;
         }
 
@@ -156,7 +152,7 @@ public class SpoolingExchangeOutputBuffer
 
         // ignore pages after "no more pages" is set
         // this can happen with a limit query
-        if (!state.get().canAddPages()) {
+        if (!stateMachine.getState().canAddPages()) {
             return;
         }
 
@@ -171,15 +167,14 @@ public class SpoolingExchangeOutputBuffer
     @Override
     public void setNoMorePages()
     {
-        if (state.compareAndSet(NO_MORE_BUFFERS, FLUSHING)) {
-            destroy();
-        }
+        stateMachine.noMorePages();
+        destroy();
     }
 
     @Override
     public void destroy()
     {
-        if (state.setIf(FINISHED, oldState -> !oldState.isTerminal())) {
+        if (stateMachine.finish()) {
             try {
                 exchangeSink.finish();
             }
@@ -192,7 +187,7 @@ public class SpoolingExchangeOutputBuffer
     @Override
     public void fail()
     {
-        if (state.setIf(FAILED, oldState -> !oldState.isTerminal())) {
+        if (stateMachine.fail()) {
             try {
                 exchangeSink.abort();
             }
