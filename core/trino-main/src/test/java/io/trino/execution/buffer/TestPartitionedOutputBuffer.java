@@ -200,7 +200,7 @@ public class TestPartitionedOutputBuffer
         buffer.setNoMorePages();
         assertQueueState(buffer, FIRST, 12, 4);
         assertQueueState(buffer, SECOND, 0, 10);
-        buffer.abort(SECOND);
+        buffer.destroy(SECOND);
         assertQueueClosed(buffer, SECOND, 10);
 
         // not fully finished until all pages are consumed
@@ -228,7 +228,7 @@ public class TestPartitionedOutputBuffer
         assertQueueState(buffer, FIRST, 10, 6);
         // acknowledge all pages from the first partition, should transition to finished state
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 16, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 16, true));
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
         assertQueueClosed(buffer, FIRST, 16);
         assertFinished(buffer);
     }
@@ -434,12 +434,12 @@ public class TestPartitionedOutputBuffer
         buffer.setNoMorePages();
 
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
         assertQueueClosed(buffer, FIRST, 0);
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 1, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
 
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
-        buffer.abort(SECOND);
+        buffer.destroy(SECOND);
         assertQueueClosed(buffer, SECOND, 0);
         assertFinished(buffer);
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 1, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
@@ -461,8 +461,8 @@ public class TestPartitionedOutputBuffer
         assertQueueState(buffer, FIRST, 0, 0);
         assertQueueState(buffer, SECOND, 0, 0);
 
-        buffer.abort(FIRST);
-        buffer.abort(SECOND);
+        buffer.destroy(FIRST);
+        buffer.destroy(SECOND);
 
         assertQueueClosed(buffer, FIRST, 0);
         assertQueueClosed(buffer, SECOND, 0);
@@ -495,8 +495,8 @@ public class TestPartitionedOutputBuffer
         future = buffer.get(FIRST, 1, sizeOfPages(10));
         assertFalse(future.isDone());
 
-        // abort the buffer
-        buffer.abort(FIRST);
+        // destroy the buffer
+        buffer.destroy(FIRST);
 
         // verify the future completed
         // partitioned buffer does not return a "complete" result in this case, but it doesn't matter
@@ -580,7 +580,7 @@ public class TestPartitionedOutputBuffer
                 bufferResult(1, createPage(1), createPage(2), createPage(3), createPage(4), createPage(5), createPage(6)));
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 7, sizeOfPages(100), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 7, true));
 
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
 
         // verify finished
         assertFinished(buffer);
@@ -757,7 +757,7 @@ public class TestPartitionedOutputBuffer
         assertEquals(buffer.getState(), FLUSHING);
 
         // ask the buffer to finish
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
 
         // verify that the buffer is finished
         assertEquals(buffer.getState(), FINISHED);
@@ -781,13 +781,13 @@ public class TestPartitionedOutputBuffer
         }
 
         // the buffer is in the NO_MORE_BUFFERS state now
-        // and if we abort all the buffers it should destroy itself
+        // and if we destroy all the buffers it should destroy itself
         // and move to the FINISHED state
-        buffer.abort(FIRST);
+        buffer.destroy(FIRST);
         assertEquals(buffer.getState(), NO_MORE_BUFFERS);
-        buffer.abort(SECOND);
+        buffer.destroy(SECOND);
         assertEquals(buffer.getState(), NO_MORE_BUFFERS);
-        buffer.abort(THIRD);
+        buffer.destroy(THIRD);
         assertEquals(buffer.getState(), FINISHED);
     }
 

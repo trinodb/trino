@@ -282,9 +282,9 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
-    public void abort(OutputBufferId bufferId)
+    public void destroy(OutputBufferId bufferId)
     {
-        checkState(!Thread.holdsLock(this), "Cannot abort while holding a lock on this");
+        checkState(!Thread.holdsLock(this), "Cannot destroy while holding a lock on this");
         requireNonNull(bufferId, "bufferId is null");
 
         getBuffer(bufferId).destroy();

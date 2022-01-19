@@ -173,8 +173,8 @@ public class TestSqlTask
         }
         assertEquals(results.getSerializedPages().size(), 0);
 
-        // complete the task by calling abort on it
-        TaskInfo info = sqlTask.abortTaskResults(OUT);
+        // complete the task by calling destroy on it
+        TaskInfo info = sqlTask.destroyTaskResults(OUT);
         assertEquals(info.getOutputBuffers().getState(), BufferState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo(info.getTaskStatus().getVersion()).get();
@@ -233,7 +233,7 @@ public class TestSqlTask
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
         assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION + 1);
 
-        sqlTask.abortTaskResults(OUT);
+        sqlTask.destroyTaskResults(OUT);
 
         taskInfo = sqlTask.getTaskInfo(taskInfo.getTaskStatus().getVersion()).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
@@ -258,7 +258,7 @@ public class TestSqlTask
         updateTask(sqlTask, ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)), outputBuffers);
 
         // finish the task by calling abort on it
-        sqlTask.abortTaskResults(OUT);
+        sqlTask.destroyTaskResults(OUT);
 
         // buffer will be closed by cancel event (wait for event to fire)
         bufferResult.get(1, SECONDS);

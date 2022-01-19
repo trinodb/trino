@@ -488,12 +488,12 @@ public class SqlTask
         outputBuffer.acknowledge(bufferId, sequenceId);
     }
 
-    public TaskInfo abortTaskResults(OutputBufferId bufferId)
+    public TaskInfo destroyTaskResults(OutputBufferId bufferId)
     {
         requireNonNull(bufferId, "bufferId is null");
 
         log.debug("Aborting task %s output %s", taskId, bufferId);
-        outputBuffer.abort(bufferId);
+        outputBuffer.destroy(bufferId);
 
         return getTaskInfo();
     }

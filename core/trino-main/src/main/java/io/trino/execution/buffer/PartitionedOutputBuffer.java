@@ -218,7 +218,7 @@ public class PartitionedOutputBuffer
     }
 
     @Override
-    public void abort(OutputBufferId bufferId)
+    public void destroy(OutputBufferId bufferId)
     {
         requireNonNull(bufferId, "bufferId is null");
 

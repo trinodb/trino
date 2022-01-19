@@ -375,7 +375,7 @@ public class TaskResource
     @ResourceSecurity(INTERNAL_ONLY)
     @DELETE
     @Path("{taskId}/results/{bufferId}")
-    public void abortResults(
+    public void destroyTaskResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") OutputBufferId bufferId,
             @Context UriInfo uriInfo,
@@ -384,11 +384,11 @@ public class TaskResource
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
-        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.ABORT_RESULTS, asyncResponse)) {
+        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.DESTROY_RESULTS, asyncResponse)) {
             return;
         }
 
-        taskManager.abortTaskResults(taskId, bufferId);
+        taskManager.destroyTaskResults(taskId, bufferId);
         asyncResponse.resume(Response.noContent().build());
     }
 
@@ -461,7 +461,7 @@ public class TaskResource
         GET_TASK_STATUS(true),
         ACKNOWLEDGE_AND_GET_NEW_DYNAMIC_FILTER_DOMAINS(true),
         GET_RESULTS(false),
-        ABORT_RESULTS(false);
+        DESTROY_RESULTS(false);
 
         private final boolean taskManagement;
 
