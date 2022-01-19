@@ -10,7 +10,6 @@
 package com.starburstdata.trino.plugin.stargate;
 
 import com.google.common.base.VerifyException;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -19,6 +18,7 @@ import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.jdbc.TrinoConnection;
+import io.trino.plugin.base.cache.NonEvictableCache;
 import io.trino.plugin.base.expression.AggregateFunctionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -94,6 +94,7 @@ import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.sta
 import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateTimestampWithTimeZoneWriteMapping;
 import static com.starburstdata.trino.plugin.stargate.StargateColumnMappings.stargateTimestampWriteMapping;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
@@ -153,7 +154,7 @@ public class StargateClient
     }
 
     private final boolean enableWrites;
-    private final Cache<FunctionsCacheKey, Set<String>> supportedAggregateFunctions;
+    private final NonEvictableCache<FunctionsCacheKey, Set<String>> supportedAggregateFunctions;
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
     private final TableScanRedirection tableScanRedirection;
@@ -172,9 +173,9 @@ public class StargateClient
         this.enableWrites = enableWrites;
         this.jsonType = requireNonNull(typeManager, "typeManager is null").getType(new TypeSignature(JSON));
 
-        this.supportedAggregateFunctions = CacheBuilder.newBuilder()
-                .expireAfterWrite(30, MINUTES)
-                .build();
+        this.supportedAggregateFunctions = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .expireAfterWrite(30, MINUTES));
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(this::quoted, Set.of(
                 new StargateAggregateFunctionRewriteRule(
