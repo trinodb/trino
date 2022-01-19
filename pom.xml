@@ -62,7 +62,7 @@
         <dep.tempto.version>187</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.10.0</dep.errorprone.version>
-        <dep.testcontainers.version>1.16.2</dep.testcontainers.version>
+        <dep.testcontainers.version>1.16.3</dep.testcontainers.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
         <dep.coral.version>1.0.121</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
