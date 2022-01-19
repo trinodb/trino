@@ -81,6 +81,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -213,7 +214,7 @@ public class ConnectorManager
         }
     }
 
-    public synchronized void addConnectorFactory(ConnectorFactory connectorFactory, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
+    public synchronized void addConnectorFactory(ConnectorFactory connectorFactory, Function<CatalogName, ClassLoader> duplicatePluginClassLoaderFactory)
     {
         requireNonNull(connectorFactory, "connectorFactory is null");
         requireNonNull(duplicatePluginClassLoaderFactory, "duplicatePluginClassLoaderFactory is null");
@@ -253,9 +254,13 @@ public class ConnectorManager
         // create all connectors before adding, so a broken connector does not leave the system half updated
         MaterializedConnector connector = new MaterializedConnector(catalogName, createConnector(catalogName, factory, properties));
 
-        ConnectorHandleResolver connectorHandleResolver = connector.getConnector().getHandleResolver()
-                .orElseGet(factory.getConnectorFactory()::getHandleResolver);
-        checkArgument(connectorHandleResolver != null, "Connector %s does not have a handle resolver", factory);
+        Set<Class<?>> handleClasses = connector.getConnector().getHandleClasses();
+        if (handleClasses.isEmpty()) {
+            handleClasses = connector.getConnector().getHandleResolver()
+                    .or(() -> Optional.ofNullable(factory.getConnectorFactory().getHandleResolver()))
+                    .map(ConnectorHandleResolver::getHandleClasses)
+                    .orElseThrow(() -> new IllegalArgumentException(format("Connector %s does not have a handle resolver", factory)));
+        }
 
         MaterializedConnector informationSchemaConnector = new MaterializedConnector(
                 createInformationSchemaCatalogName(catalogName),
@@ -298,10 +303,10 @@ public class ConnectorManager
             addConnectorInternal(informationSchemaConnector);
             addConnectorInternal(systemConnector);
             catalogManager.registerCatalog(catalog);
-            handleResolver.addCatalogHandleResolver(catalogName.getCatalogName(), connectorHandleResolver);
+            handleResolver.addCatalogHandleClasses(catalogName.getCatalogName(), handleClasses);
         }
         catch (Throwable e) {
-            handleResolver.removeCatalogHandleResolver(catalogName.getCatalogName());
+            handleResolver.removeCatalogHandleClasses(catalogName.getCatalogName());
             catalogManager.removeCatalog(catalog.getCatalogName());
             removeConnectorInternal(systemConnector.getCatalogName());
             removeConnectorInternal(informationSchemaConnector.getCatalogName());
@@ -362,7 +367,7 @@ public class ConnectorManager
             removeConnectorInternal(catalog);
             removeConnectorInternal(createInformationSchemaCatalogName(catalog));
             removeConnectorInternal(createSystemTablesCatalogName(catalog));
-            handleResolver.removeCatalogHandleResolver(catalogName);
+            handleResolver.removeCatalogHandleClasses(catalogName);
         });
     }
 
@@ -405,7 +410,7 @@ public class ConnectorManager
                 new InternalMetadataProvider(metadataManager, typeManager),
                 pageSorter,
                 pageIndexerFactory,
-                factory.getDuplicatePluginClassLoaderFactory());
+                factory.getDuplicatePluginClassLoaderFactory(catalogName));
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getConnectorFactory().getClass().getClassLoader())) {
             return factory.getConnectorFactory().create(catalogName.getCatalogName(), properties, context);
@@ -415,9 +420,9 @@ public class ConnectorManager
     private static class InternalConnectorFactory
     {
         private final ConnectorFactory connectorFactory;
-        private final Supplier<ClassLoader> duplicatePluginClassLoaderFactory;
+        private final Function<CatalogName, ClassLoader> duplicatePluginClassLoaderFactory;
 
-        public InternalConnectorFactory(ConnectorFactory connectorFactory, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
+        public InternalConnectorFactory(ConnectorFactory connectorFactory, Function<CatalogName, ClassLoader> duplicatePluginClassLoaderFactory)
         {
             this.connectorFactory = connectorFactory;
             this.duplicatePluginClassLoaderFactory = duplicatePluginClassLoaderFactory;
@@ -428,9 +433,9 @@ public class ConnectorManager
             return connectorFactory;
         }
 
-        public Supplier<ClassLoader> getDuplicatePluginClassLoaderFactory()
+        public Supplier<ClassLoader> getDuplicatePluginClassLoaderFactory(CatalogName catalogName)
         {
-            return duplicatePluginClassLoaderFactory;
+            return () -> duplicatePluginClassLoaderFactory.apply(catalogName);
         }
 
         @Override

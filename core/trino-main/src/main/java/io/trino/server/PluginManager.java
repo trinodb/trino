@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import io.trino.connector.CatalogName;
 import io.trino.connector.ConnectorManager;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.exchange.ExchangeManagerRegistry;
@@ -51,6 +52,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -163,13 +165,13 @@ public class PluginManager
         }
     }
 
-    public void installPlugin(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
+    public void installPlugin(Plugin plugin, Function<CatalogName, ClassLoader> duplicatePluginClassLoaderFactory)
     {
         installPluginInternal(plugin, duplicatePluginClassLoaderFactory);
         typeRegistry.verifyTypes();
     }
 
-    private void installPluginInternal(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
+    private void installPluginInternal(Plugin plugin, Function<CatalogName, ClassLoader> duplicatePluginClassLoaderFactory)
     {
         for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
             log.info("Registering block encoding %s", blockEncoding.getName());
@@ -246,10 +248,10 @@ public class PluginManager
         }
     }
 
-    public static PluginClassLoader createClassLoader(List<URL> urls)
+    public static PluginClassLoader createClassLoader(String pluginName, List<URL> urls)
     {
         ClassLoader parent = PluginManager.class.getClassLoader();
-        return new PluginClassLoader(urls, parent, SPI_PACKAGES);
+        return new PluginClassLoader(pluginName, urls, parent, SPI_PACKAGES);
     }
 
     public interface PluginsProvider
@@ -263,7 +265,7 @@ public class PluginManager
 
         interface ClassLoaderFactory
         {
-            PluginClassLoader create(List<URL> urls);
+            PluginClassLoader create(String pluginName, List<URL> urls);
         }
     }
 }

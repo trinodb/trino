@@ -28,12 +28,21 @@ import static java.util.Collections.emptySet;
 public interface Connector
 {
     /**
-     * Get handle resolver for this connector instance. If {@code Optional.empty()} is returned,
-     * {@link ConnectorFactory#getHandleResolver()} is used instead.
+     * @deprecated use {@link #getHandleClasses()}
      */
+    @Deprecated
     default Optional<ConnectorHandleResolver> getHandleResolver()
     {
         return Optional.empty();
+    }
+
+    /**
+     * Get all handle classes implemented by the connector.
+     * Every handle returned to the engine must be included.
+     */
+    default Set<Class<?>> getHandleClasses()
+    {
+        return emptySet();
     }
 
     /**

@@ -485,7 +485,7 @@ public class TestHttpRemoteTask
                 .quiet()
                 .initialize();
         HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
-        handleResolver.addCatalogHandleResolver("test", new TestingHandleResolver());
+        handleResolver.addCatalogHandleClasses("test", new TestingHandleResolver().getHandleClasses());
         return injector.getInstance(HttpRemoteTaskFactory.class);
     }
 

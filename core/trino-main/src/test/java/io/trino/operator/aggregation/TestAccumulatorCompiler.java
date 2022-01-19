@@ -59,7 +59,7 @@ public class TestAccumulatorCompiler
         TimestampType parameterType = TimestampType.TIMESTAMP_NANOS;
         assertThat(parameterType.getJavaType()).isEqualTo(LongTimestamp.class);
 
-        ClassLoader pluginClassLoader = PluginManager.createClassLoader(ImmutableList.of());
+        ClassLoader pluginClassLoader = PluginManager.createClassLoader("test", ImmutableList.of());
         DynamicClassLoader classLoader = new DynamicClassLoader(pluginClassLoader);
         Class<? extends AccumulatorState> stateInterface = IsolatedClass.isolateClass(
                 classLoader,
