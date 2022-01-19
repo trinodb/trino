@@ -36,9 +36,7 @@ public class TestHudiCopyOnWriteMinioConnectorTest
 
         return S3HudiQueryRunner.create(
                 ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
-                        .put("hudi.columns-to-hide", columnsToHide())
-                        .buildOrThrow(),
+                ImmutableMap.of("hudi.columns-to-hide", columnsToHide()),
                 new TpchHudiTablesInitializer(COPY_ON_WRITE, REQUIRED_TPCH_TABLES),
                 hiveMinioDataLake);
     }

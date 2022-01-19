@@ -195,9 +195,7 @@ public class TestResourceSecurity
             throws Exception
     {
         try (TestingTrinoServer server = TestingTrinoServer.builder()
-                .setProperties(ImmutableMap.<String, String>builder()
-                        .put("http-server.authentication.insecure.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
-                        .buildOrThrow())
+                .setProperties(ImmutableMap.of("http-server.authentication.insecure.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN))
                 .build()) {
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(TestSystemAccessControl.WITH_IMPERSONATION);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));

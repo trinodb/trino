@@ -239,9 +239,7 @@ public class TestHivePlugin
 
         Connector connector = connectorFactory.create(
                 "test",
-                ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", "thrift://foo:1234")
-                        .buildOrThrow(),
+                ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"),
                 new TestingConnectorContext());
         assertThat(getDefaultValueInsertExistingPartitionsBehavior(connector)).isEqualTo(APPEND);
         connector.shutdown();

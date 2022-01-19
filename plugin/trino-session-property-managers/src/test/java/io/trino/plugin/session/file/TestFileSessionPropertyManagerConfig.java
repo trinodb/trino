@@ -40,9 +40,7 @@ public class TestFileSessionPropertyManagerConfig
     {
         Path configFile = Files.createTempFile(null, null);
 
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("session-property-manager.config-file", configFile.toString())
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("session-property-manager.config-file", configFile.toString());
 
         FileSessionPropertyManagerConfig expected = new FileSessionPropertyManagerConfig()
                 .setConfigFile(configFile.toFile());

@@ -691,10 +691,7 @@ public final class Environment
                     commandParts[i + 1] += (commandParts[i + 1].length() == 0 ? "" : ",") + temptoConfig;
                 }
             }
-            testContainer.setCommandParts(
-                    ImmutableList.<String>builder()
-                            .addAll(Arrays.asList(commandParts))
-                            .build().toArray(new String[0]));
+            testContainer.setCommandParts(commandParts.clone());
         }
 
         private static Consumer<OutputFrame> combineConsumers(Consumer<OutputFrame>... consumers)

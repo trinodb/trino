@@ -36,9 +36,7 @@ public class TestHudiMergeOnReadMinioConnectorTest
 
         return S3HudiQueryRunner.create(
                 ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
-                        .put("hudi.columns-to-hide", columnsToHide())
-                        .buildOrThrow(),
+                ImmutableMap.of("hudi.columns-to-hide", columnsToHide()),
                 new TpchHudiTablesInitializer(MERGE_ON_READ, REQUIRED_TPCH_TABLES),
                 hiveMinioDataLake);
     }

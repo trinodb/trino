@@ -80,9 +80,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
-                ImmutableMap.<String, String>builder()
-                        .put("delta.enable-non-concurrent-writes", "true")
-                        .buildOrThrow(),
+                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
                 hiveMinioDataLake.getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
         queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + bucketName + "/" + SCHEMA + "')");

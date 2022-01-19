@@ -92,9 +92,7 @@ public class TestServer
     public void setup()
     {
         server = TestingTrinoServer.builder()
-                .setProperties(ImmutableMap.<String, String>builder()
-                        .put("http-server.process-forwarded", "true")
-                        .buildOrThrow())
+                .setProperties(ImmutableMap.of("http-server.process-forwarded", "true"))
                 .build();
 
         server.installPlugin(new MemoryPlugin());
@@ -210,9 +208,7 @@ public class TestServer
         assertEquals(queryInfo.getSession().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
 
         // verify prepared statements
-        assertEquals(queryInfo.getSession().getPreparedStatements(), ImmutableMap.builder()
-                .put("foo", "select * from bar")
-                .buildOrThrow());
+        assertEquals(queryInfo.getSession().getPreparedStatements(), ImmutableMap.of("foo", "select * from bar"));
 
         List<List<Object>> rows = data.build();
         assertEquals(rows, ImmutableList.of(ImmutableList.of("memory"), ImmutableList.of("system")));

@@ -36,9 +36,7 @@ public class TestDeltaLakeSecurityConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("delta.security", "read_only")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("delta.security", "read_only");
 
         DeltaLakeSecurityConfig expected = new DeltaLakeSecurityConfig()
                 .setSecuritySystem(READ_ONLY);
