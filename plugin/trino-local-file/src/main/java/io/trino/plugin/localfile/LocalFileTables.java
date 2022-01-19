@@ -15,10 +15,10 @@ package io.trino.plugin.localfile;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.trino.plugin.base.cache.NonEvictableLoadingCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -33,6 +33,7 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.localfile.LocalFileMetadata.PRESTO_LOGS_SCHEMA;
 import static io.trino.plugin.localfile.LocalFileMetadata.SERVER_ADDRESS_COLUMN;
 import static io.trino.plugin.localfile.LocalFileTables.HttpRequestLogTable.getSchemaTableName;
@@ -49,7 +50,7 @@ public class LocalFileTables
     private final Map<SchemaTableName, LocalFileTableHandle> tables;
     private final Map<SchemaTableName, List<ColumnMetadata>> tableColumns;
 
-    private final LoadingCache<SchemaTableName, List<File>> cachedFiles;
+    private final NonEvictableLoadingCache<SchemaTableName, List<File>> cachedFiles;
 
     @Inject
     public LocalFileTables(LocalFileConfig config)
@@ -78,9 +79,10 @@ public class LocalFileTables
         tableColumns = tableColumnsBuilder.buildOrThrow();
         tableDataLocations = dataLocationBuilder.buildOrThrow();
 
-        cachedFiles = CacheBuilder.newBuilder()
-                .expireAfterWrite(10, SECONDS)
-                .build(CacheLoader.from(key -> tableDataLocations.get(key).files()));
+        cachedFiles = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .expireAfterWrite(10, SECONDS),
+                CacheLoader.from(key -> tableDataLocations.get(key).files()));
     }
 
     public LocalFileTableHandle getTable(SchemaTableName tableName)

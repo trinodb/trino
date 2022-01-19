@@ -300,6 +300,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.jgrapht</groupId>
             <artifactId>jgrapht-core</artifactId>
         </dependency>

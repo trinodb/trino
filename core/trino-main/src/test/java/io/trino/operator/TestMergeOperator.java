@@ -52,6 +52,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.OperatorAssertion.assertOperatorIsBlocked;
 import static io.trino.operator.OperatorAssertion.assertOperatorIsUnblocked;
 import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -85,7 +86,7 @@ public class TestMergeOperator
         executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("test-merge-operator-%s"));
         serdeFactory = new TestingPagesSerdeFactory();
 
-        taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TestingTaskBuffer::new));
+        taskBuffers = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(TestingTaskBuffer::new));
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), executor);
         exchangeClientFactory = new DirectExchangeClientFactory(new NodeInfo("test"), new FeaturesConfig(), new DirectExchangeClientConfig(), httpClient, executor);
         orderingCompiler = new OrderingCompiler(new TypeOperators());

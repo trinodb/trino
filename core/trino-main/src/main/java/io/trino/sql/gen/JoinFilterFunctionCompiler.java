@@ -15,7 +15,6 @@ package io.trino.sql.gen;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -34,6 +33,7 @@ import io.trino.metadata.Metadata;
 import io.trino.operator.join.InternalJoinFilterFunction;
 import io.trino.operator.join.JoinFilterFunction;
 import io.trino.operator.join.StandardJoinFilterFunction;
+import io.trino.plugin.base.cache.NonEvictableLoadingCache;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
@@ -62,6 +62,7 @@ import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
 import static io.trino.util.CompilerUtils.defineClass;
@@ -78,10 +79,11 @@ public class JoinFilterFunctionCompiler
         this.metadata = metadata;
     }
 
-    private final LoadingCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories = CacheBuilder.newBuilder()
-            .recordStats()
-            .maximumSize(1000)
-            .build(CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getFilter(), key.getLeftBlocksSize())));
+    private final NonEvictableLoadingCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .recordStats()
+                    .maximumSize(1000),
+            CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getFilter(), key.getLeftBlocksSize())));
 
     @Managed
     @Nested

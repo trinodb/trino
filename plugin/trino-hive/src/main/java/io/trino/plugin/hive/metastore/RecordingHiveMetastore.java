@@ -20,6 +20,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.cache.NonEvictableCache;
 import io.trino.plugin.hive.ForRecordingHiveMetastore;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -51,6 +52,7 @@ import java.util.function.Supplier;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.hive.metastore.HivePartitionName.hivePartitionName;
 import static io.trino.plugin.hive.metastore.HiveTableName.hiveTableName;
 import static io.trino.plugin.hive.metastore.PartitionFilter.partitionFilter;
@@ -70,21 +72,21 @@ public class RecordingHiveMetastore
     private volatile Optional<List<String>> allDatabases = Optional.empty();
     private volatile Optional<Set<String>> allRoles = Optional.empty();
 
-    private final Cache<String, Optional<Database>> databaseCache;
-    private final Cache<HiveTableName, Optional<Table>> tableCache;
-    private final Cache<String, Set<ColumnStatisticType>> supportedColumnStatisticsCache;
-    private final Cache<HiveTableName, PartitionStatistics> tableStatisticsCache;
-    private final Cache<Set<HivePartitionName>, Map<String, PartitionStatistics>> partitionStatisticsCache;
-    private final Cache<String, List<String>> allTablesCache;
-    private final Cache<TablesWithParameterCacheKey, List<String>> tablesWithParameterCache;
-    private final Cache<String, List<String>> allViewsCache;
-    private final Cache<HivePartitionName, Optional<Partition>> partitionCache;
-    private final Cache<HiveTableName, Optional<List<String>>> partitionNamesCache;
-    private final Cache<PartitionFilter, Optional<List<String>>> partitionNamesByPartsCache;
-    private final Cache<Set<HivePartitionName>, Map<String, Optional<Partition>>> partitionsByNamesCache;
-    private final Cache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
-    private final Cache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
-    private final Cache<String, Set<RoleGrant>> grantedPrincipalsCache;
+    private final NonEvictableCache<String, Optional<Database>> databaseCache;
+    private final NonEvictableCache<HiveTableName, Optional<Table>> tableCache;
+    private final NonEvictableCache<String, Set<ColumnStatisticType>> supportedColumnStatisticsCache;
+    private final NonEvictableCache<HiveTableName, PartitionStatistics> tableStatisticsCache;
+    private final NonEvictableCache<Set<HivePartitionName>, Map<String, PartitionStatistics>> partitionStatisticsCache;
+    private final NonEvictableCache<String, List<String>> allTablesCache;
+    private final NonEvictableCache<TablesWithParameterCacheKey, List<String>> tablesWithParameterCache;
+    private final NonEvictableCache<String, List<String>> allViewsCache;
+    private final NonEvictableCache<HivePartitionName, Optional<Partition>> partitionCache;
+    private final NonEvictableCache<HiveTableName, Optional<List<String>>> partitionNamesCache;
+    private final NonEvictableCache<PartitionFilter, Optional<List<String>>> partitionNamesByPartsCache;
+    private final NonEvictableCache<Set<HivePartitionName>, Map<String, Optional<Partition>>> partitionsByNamesCache;
+    private final NonEvictableCache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
+    private final NonEvictableCache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
+    private final NonEvictableCache<String, Set<RoleGrant>> grantedPrincipalsCache;
 
     @Inject
     public RecordingHiveMetastore(@ForRecordingHiveMetastore HiveMetastore delegate, RecordingMetastoreConfig config, JsonCodec<RecordingHiveMetastore.Recording> recordingCodec)
@@ -143,16 +145,14 @@ public class RecordingHiveMetastore
         grantedPrincipalsCache.putAll(toMap(recording.getGrantedPrincipals()));
     }
 
-    private static <K, V> Cache<K, V> createCache(boolean reply, Duration recordingDuration)
+    private static <K, V> NonEvictableCache<K, V> createCache(boolean reply, Duration recordingDuration)
     {
         if (reply) {
-            return CacheBuilder.newBuilder()
-                    .build();
+            return buildNonEvictableCache(CacheBuilder.newBuilder());
         }
 
-        return CacheBuilder.newBuilder()
-                .expireAfterWrite(recordingDuration.toMillis(), MILLISECONDS)
-                .build();
+        return buildNonEvictableCache(CacheBuilder.newBuilder()
+                .expireAfterWrite(recordingDuration.toMillis(), MILLISECONDS));
     }
 
     @Managed

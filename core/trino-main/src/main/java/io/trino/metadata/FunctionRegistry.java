@@ -13,7 +13,6 @@
  */
 package io.trino.metadata;
 
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -237,6 +236,7 @@ import io.trino.operator.window.RankFunction;
 import io.trino.operator.window.RowNumberFunction;
 import io.trino.operator.window.SqlWindowFunction;
 import io.trino.operator.window.WindowFunctionSupplier;
+import io.trino.plugin.base.cache.NonEvictableCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.function.InvocationConvention;
@@ -341,6 +341,7 @@ import static io.trino.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST;
 import static io.trino.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static io.trino.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -380,9 +381,9 @@ import static java.util.concurrent.TimeUnit.HOURS;
 @ThreadSafe
 public class FunctionRegistry
 {
-    private final Cache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
-    private final Cache<FunctionKey, AggregationMetadata> specializedAggregationCache;
-    private final Cache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
+    private final NonEvictableCache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
+    private final NonEvictableCache<FunctionKey, AggregationMetadata> specializedAggregationCache;
+    private final NonEvictableCache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private volatile FunctionMap functions = new FunctionMap();
 
     public FunctionRegistry(
@@ -398,20 +399,17 @@ public class FunctionRegistry
         // with generated classes and/or dynamically-created MethodHandles.
         // This might also mitigate problems like deoptimization storm or unintended interpreted execution.
 
-        specializedScalarCache = CacheBuilder.newBuilder()
+        specializedScalarCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .expireAfterWrite(1, HOURS)
-                .build();
+                .expireAfterWrite(1, HOURS));
 
-        specializedAggregationCache = CacheBuilder.newBuilder()
+        specializedAggregationCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .expireAfterWrite(1, HOURS)
-                .build();
+                .expireAfterWrite(1, HOURS));
 
-        specializedWindowCache = CacheBuilder.newBuilder()
+        specializedWindowCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .expireAfterWrite(1, HOURS)
-                .build();
+                .expireAfterWrite(1, HOURS));
 
         FunctionListBuilder builder = new FunctionListBuilder()
                 .window(RowNumberFunction.class)

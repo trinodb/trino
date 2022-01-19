@@ -45,6 +45,7 @@ import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
@@ -60,7 +61,7 @@ public class MockExchangeRequestProcessor
     private static final String TASK_INSTANCE_ID = "task-instance-id";
     private static final PagesSerde PAGES_SERDE = testingPagesSerde();
 
-    private final LoadingCache<URI, MockBuffer> buffers = CacheBuilder.newBuilder().build(CacheLoader.from(MockBuffer::new));
+    private final LoadingCache<URI, MockBuffer> buffers = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(MockBuffer::new));
 
     private final DataSize expectedMaxSize;
 

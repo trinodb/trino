@@ -15,7 +15,6 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -23,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.cache.NonEvictableLoadingCache;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveBasicStatistics;
@@ -127,10 +127,10 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_LOCK_NOT_ACQUIRED;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
-import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToStringList;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.createMetastoreColumnStatistics;
@@ -180,7 +180,7 @@ public class ThriftHiveMetastore
     private final int maxRetries;
     private final boolean impersonationEnabled;
     private final boolean authenticationEnabled;
-    private final LoadingCache<String, String> delegationTokenCache;
+    private final NonEvictableLoadingCache<String, String> delegationTokenCache;
     private final boolean deleteFilesOnDrop;
     private final boolean translateHiveViews;
 
@@ -238,10 +238,11 @@ public class ThriftHiveMetastore
         this.maxWaitForLock = thriftConfig.getMaxWaitForTransactionLock();
         this.authenticationEnabled = authenticationEnabled;
 
-        this.delegationTokenCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(thriftConfig.getDelegationTokenCacheTtl().toMillis(), MILLISECONDS)
-                .maximumSize(thriftConfig.getDelegationTokenCacheMaximumSize())
-                .build(CacheLoader.from(this::loadDelegationToken));
+        this.delegationTokenCache = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .expireAfterWrite(thriftConfig.getDelegationTokenCacheTtl().toMillis(), MILLISECONDS)
+                        .maximumSize(thriftConfig.getDelegationTokenCacheMaximumSize()),
+                CacheLoader.from(this::loadDelegationToken));
         this.assumeCanonicalPartitionKeys = thriftConfig.isAssumeCanonicalPartitionKeys();
     }
 

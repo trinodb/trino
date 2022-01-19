@@ -14,7 +14,6 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.base.Suppliers;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
@@ -27,6 +26,7 @@ import io.trino.connector.CatalogName;
 import io.trino.execution.NodeTaskMap;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.plugin.base.cache.NonEvictableCache;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 
@@ -46,6 +46,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelectorFactory
@@ -53,9 +54,9 @@ public class TopologyAwareNodeSelectorFactory
 {
     private static final Logger LOG = Logger.get(TopologyAwareNodeSelectorFactory.class);
 
-    private final Cache<InternalNode, Object> inaccessibleNodeLogCache = CacheBuilder.newBuilder()
-            .expireAfterWrite(30, TimeUnit.SECONDS)
-            .build();
+    private final NonEvictableCache<InternalNode, Object> inaccessibleNodeLogCache = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .expireAfterWrite(30, TimeUnit.SECONDS));
 
     private final NetworkTopology networkTopology;
     private final InternalNodeManager nodeManager;

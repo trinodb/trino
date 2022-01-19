@@ -17,9 +17,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
+import io.trino.plugin.base.cache.NonKeyEvictableLoadingCache;
+import io.trino.plugin.base.cache.SafeCaches;
 import io.trino.plugin.password.Credential;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.AccessDeniedException;
@@ -56,7 +57,7 @@ public class LdapAuthenticator
     private final Optional<String> bindDistinguishedName;
     private final Optional<String> bindPassword;
 
-    private final LoadingCache<Credential, Principal> authenticationCache;
+    private final NonKeyEvictableLoadingCache<Credential, Principal> authenticationCache;
 
     @Inject
     public LdapAuthenticator(LdapAuthenticatorClient client, LdapConfig ldapConfig)
@@ -82,9 +83,10 @@ public class LdapAuthenticator
                 bindDistinguishedName.isPresent() || !userBindSearchPatterns.isEmpty(),
                 "Either user bind search pattern or bind distinguished name must be provided");
 
-        this.authenticationCache = CacheBuilder.newBuilder()
-                .expireAfterWrite(ldapConfig.getLdapCacheTtl().toMillis(), MILLISECONDS)
-                .build(CacheLoader.from(bindDistinguishedName.isPresent()
+        this.authenticationCache = SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll(
+                CacheBuilder.newBuilder()
+                        .expireAfterWrite(ldapConfig.getLdapCacheTtl().toMillis(), MILLISECONDS),
+                CacheLoader.from(bindDistinguishedName.isPresent()
                         ? this::authenticateWithBindDistinguishedName
                         : this::authenticateWithUserBind));
     }

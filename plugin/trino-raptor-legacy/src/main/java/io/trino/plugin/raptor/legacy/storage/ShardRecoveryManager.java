@@ -28,6 +28,7 @@ import io.trino.plugin.raptor.legacy.metadata.ShardMetadata;
 import io.trino.plugin.raptor.legacy.util.PrioritizedFifoExecutor;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -416,7 +417,7 @@ public class ShardRecoveryManager
         public MissingShardsQueue(PrioritizedFifoExecutor<MissingShardRunnable> shardRecoveryExecutor)
         {
             requireNonNull(shardRecoveryExecutor, "shardRecoveryExecutor is null");
-            this.queuedMissingShards = CacheBuilder.newBuilder().build(new CacheLoader<>()
+            this.queuedMissingShards = buildUnsafeCache(CacheBuilder.newBuilder(), new CacheLoader<>()
             {
                 @Override
                 public ListenableFuture<Void> load(MissingShard missingShard)
@@ -427,12 +428,18 @@ public class ShardRecoveryManager
                             missingShard.getShardXxhash64(),
                             missingShard.isActive());
                     ListenableFuture<Void> future = shardRecoveryExecutor.submit(task);
-                    // TODO this may not invalidate ongoing loads (https://github.com/trinodb/trino/issues/10512, https://github.com/google/guava/issues/1881).
-                    //   Determine whether this is OK here.
+                    // TODO (https://github.com/trinodb/trino/issues/10688) invalidation here races with `.load()` completion
                     future.addListener(() -> queuedMissingShards.invalidate(missingShard), directExecutor());
                     return future;
                 }
             });
+        }
+
+        // TODO (https://github.com/trinodb/trino/issues/10688) there is a load/invalidation race, so it's an unsafe suppression
+        @SuppressModernizer
+        private <K, V> LoadingCache<K, V> buildUnsafeCache(CacheBuilder<? super K, ? super V> cacheBuilder, CacheLoader<? super K, V> cacheLoader)
+        {
+            return cacheBuilder.build(cacheLoader);
         }
 
         public ListenableFuture<Void> submit(MissingShard shard)

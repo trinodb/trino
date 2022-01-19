@@ -115,6 +115,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
         </dependency>
@@ -143,13 +148,6 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.gaul</groupId>
-            <artifactId>modernizer-maven-annotations</artifactId>
-            <version>2.1.0</version>
             <scope>test</scope>
         </dependency>
 
