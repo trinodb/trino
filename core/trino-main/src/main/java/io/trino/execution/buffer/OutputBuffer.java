@@ -30,10 +30,9 @@ public interface OutputBuffer
     OutputBufferInfo getInfo();
 
     /**
-     * A buffer is finished once no-more-pages has been set and all buffers have been closed
-     * with an abort call.
+     * Get buffer state
      */
-    boolean isFinished();
+    BufferState getState();
 
     /**
      * Get the memory utilization percentage.

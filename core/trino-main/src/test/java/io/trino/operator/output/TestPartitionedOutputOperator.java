@@ -596,9 +596,9 @@ public class TestPartitionedOutputOperator
         }
 
         @Override
-        public boolean isFinished()
+        public BufferState getState()
         {
-            return false;
+            return BufferState.NO_MORE_BUFFERS;
         }
 
         @Override

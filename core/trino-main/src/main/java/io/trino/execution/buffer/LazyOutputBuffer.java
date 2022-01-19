@@ -96,12 +96,6 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public boolean isFinished()
-    {
-        return stateMachine.getState() == FINISHED;
-    }
-
-    @Override
     public double getUtilization()
     {
         OutputBuffer outputBuffer = getDelegateOutputBuffer();
@@ -145,6 +139,12 @@ public class LazyOutputBuffer
                     ImmutableList.of());
         }
         return outputBuffer.getInfo();
+    }
+
+    @Override
+    public BufferState getState()
+    {
+        return stateMachine.getState();
     }
 
     @Override

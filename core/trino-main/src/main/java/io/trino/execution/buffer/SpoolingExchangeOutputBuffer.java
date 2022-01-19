@@ -28,7 +28,6 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
-import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.SPOOL;
 import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
 import static java.util.Objects.requireNonNull;
@@ -77,9 +76,9 @@ public class SpoolingExchangeOutputBuffer
     }
 
     @Override
-    public boolean isFinished()
+    public BufferState getState()
     {
-        return stateMachine.getState() == FINISHED;
+        return stateMachine.getState();
     }
 
     @Override
