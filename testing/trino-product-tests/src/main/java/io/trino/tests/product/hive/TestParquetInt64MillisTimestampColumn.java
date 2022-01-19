@@ -18,6 +18,7 @@ import io.trino.tempto.BeforeTestWithContext;
 import org.testng.annotations.Test;
 
 import java.nio.file.Paths;
+import java.sql.Timestamp;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -64,11 +65,12 @@ public class TestParquetInt64MillisTimestampColumn
                 "external_location = 'hdfs:///user/hive/warehouse/TestParquetInt64MillisTimestampColumn/metadata-int64',\n" +
                 "format = 'PARQUET');");
 
+        Timestamp timestamp = Timestamp.valueOf("2021-09-20 08:49:46.531");
         assertThat(onTrino().executeQuery("SELECT id, ts FROM events_int64_meta LIMIT 3"))
                 .containsOnly(
-                        row("5ab115df-c3cf-470e-966b-66c96f4d2004", "2021-09-20 08:49:46.531"),
-                        row("dec75266-3293-471c-9023-74693eb1247e", "2021-09-20 08:49:46.531"),
-                        row("a4d7956f-47dc-4674-b1af-f335f6c9ddfc", "2021-09-20 08:49:46.531"));
+                        row("5ab115df-c3cf-470e-966b-66c96f4d2004", timestamp),
+                        row("dec75266-3293-471c-9023-74693eb1247e", timestamp),
+                        row("a4d7956f-47dc-4674-b1af-f335f6c9ddfc", timestamp));
 
         onTrino().executeQuery("DROP TABLE events_int64_meta");
     }
@@ -88,11 +90,12 @@ public class TestParquetInt64MillisTimestampColumn
                 "external_location = 'hdfs:///user/hive/warehouse/TestParquetInt64MillisTimestampColumn/plain-int64',\n" +
                 "format = 'PARQUET');");
 
+        Timestamp timestamp = Timestamp.valueOf("2021-09-20 08:49:46.531");
         assertThat(onTrino().executeQuery("SELECT id, ts FROM events_int64_plain LIMIT 3"))
                 .containsOnly(
-                        row("5ab115df-c3cf-470e-966b-66c96f4d2004", "2021-09-20 08:49:46.531"),
-                        row("dec75266-3293-471c-9023-74693eb1247e", "2021-09-20 08:49:46.531"),
-                        row("a4d7956f-47dc-4674-b1af-f335f6c9ddfc", "2021-09-20 08:49:46.531"));
+                        row("5ab115df-c3cf-470e-966b-66c96f4d2004", timestamp),
+                        row("dec75266-3293-471c-9023-74693eb1247e", timestamp),
+                        row("a4d7956f-47dc-4674-b1af-f335f6c9ddfc", timestamp));
 
         onTrino().executeQuery("DROP TABLE events_int64_plain");
     }
