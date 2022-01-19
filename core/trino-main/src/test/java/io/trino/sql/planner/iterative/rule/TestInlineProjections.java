@@ -130,9 +130,7 @@ public class TestInlineProjections
                                         p.values(p.symbol("x")))))
                 .matches(
                         project(
-                                ImmutableMap.<String, ExpressionMatcher>builder()
-                                        .put("out1", PlanMatchPattern.expression("x - 1 + 2"))
-                                        .buildOrThrow(),
+                                ImmutableMap.of("out1", PlanMatchPattern.expression("x - 1 + 2")),
                                 values(ImmutableMap.of("x", 0))));
     }
 

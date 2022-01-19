@@ -251,12 +251,8 @@ public class TestingPinotCluster
             String fileName = segmentPath.toFile().getName();
             checkArgument(fileName.endsWith(Constants.TAR_GZ_FILE_EXT));
             String segmentName = fileName.substring(0, fileName.length() - Constants.TAR_GZ_FILE_EXT.length());
-            List<NameValuePair> parameters = ImmutableList.<NameValuePair>builder()
-                    .add(new BasicNameValuePair(FileUploadDownloadClient.QueryParameters.TABLE_NAME, rawTableName))
-                    .build();
-            List<Header> headers = ImmutableList.<Header>builder()
-                    .add(new BasicHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : ""))
-                    .build();
+            List<NameValuePair> parameters = ImmutableList.of(new BasicNameValuePair(FileUploadDownloadClient.QueryParameters.TABLE_NAME, rawTableName));
+            List<Header> headers = ImmutableList.of(new BasicHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : ""));
             RetryPolicies.exponentialBackoffRetryPolicy(3, 1000, 5).attempt(() -> {
                 try (InputStream inputStream = Files.newInputStream(segmentPath)) {
                     SimpleHttpResponse response = FILE_UPLOAD_DOWNLOAD_CLIENT.uploadSegment(

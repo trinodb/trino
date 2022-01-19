@@ -35,9 +35,7 @@ public class TestCatalogStoreConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("catalog.store", "none")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("catalog.store", "none");
 
         CatalogStoreConfig expected = new CatalogStoreConfig()
                 .setCatalogStoreKind(CatalogStoreKind.NONE);

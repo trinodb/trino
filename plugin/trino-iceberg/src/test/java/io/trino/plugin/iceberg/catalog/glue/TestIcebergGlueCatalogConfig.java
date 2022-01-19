@@ -34,9 +34,7 @@ public class TestIcebergGlueCatalogConfig
     @Test
     public void testExplicitPropertyMapping()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("iceberg.glue.skip-archive", "true")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("iceberg.glue.skip-archive", "true");
 
         IcebergGlueCatalogConfig expected = new IcebergGlueCatalogConfig()
                 .setSkipArchive(true);

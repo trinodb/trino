@@ -125,10 +125,9 @@ public abstract class BaseFailureRecoveryTest
                         .put("exchange.deduplication-buffer-size", "1kB")
                         .put("fault-tolerant-execution-task-memory", "1GB")
                         .buildOrThrow(),
-                ImmutableMap.<String, String>builder()
+                ImmutableMap.of(
                         // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
-                        .put("scheduler.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
-                        .buildOrThrow());
+                        "scheduler.http-client.idle-timeout", REQUEST_TIMEOUT.toString()));
     }
 
     protected abstract QueryRunner createQueryRunner(

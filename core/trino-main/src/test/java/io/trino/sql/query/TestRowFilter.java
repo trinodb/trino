@@ -87,9 +87,7 @@ public class TestRowFilter
                 false);
 
         MockConnectorFactory mock = MockConnectorFactory.builder()
-                .withGetViews((s, prefix) -> ImmutableMap.<SchemaTableName, ConnectorViewDefinition>builder()
-                        .put(new SchemaTableName("default", "nation_view"), view)
-                        .buildOrThrow())
+                .withGetViews((s, prefix) -> ImmutableMap.of(new SchemaTableName("default", "nation_view"), view))
                 .withGetColumns(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
                         return TPCH_NATION_SCHEMA;
@@ -120,9 +118,8 @@ public class TestRowFilter
 
         MockConnectorFactory mockMissingColumns = MockConnectorFactory.builder()
                 .withName("mockmissingcolumns")
-                .withGetViews((s, prefix) -> ImmutableMap.<SchemaTableName, ConnectorViewDefinition>builder()
-                        .put(new SchemaTableName("default", "nation_view"), view)
-                        .buildOrThrow())
+                .withGetViews((s, prefix) -> ImmutableMap.of(
+                        new SchemaTableName("default", "nation_view"), view))
                 .withGetColumns(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_optional_column"))) {
                         return TPCH_NATION_WITH_OPTIONAL_COLUMN;

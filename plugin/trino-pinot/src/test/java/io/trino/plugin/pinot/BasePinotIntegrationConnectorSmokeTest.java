@@ -703,9 +703,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
     protected Map<String, String> additionalPinotProperties()
     {
         if (isGrpcEnabled()) {
-            return ImmutableMap.<String, String>builder()
-                    .put("pinot.grpc.enabled", "true")
-                    .buildOrThrow();
+            return ImmutableMap.of("pinot.grpc.enabled", "true");
         }
         return ImmutableMap.of();
     }

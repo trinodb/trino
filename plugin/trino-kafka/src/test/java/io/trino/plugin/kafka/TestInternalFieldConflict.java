@@ -52,9 +52,7 @@ public class TestInternalFieldConflict
                                 topicWithCustomPrefixes,
                                 createOneFieldDescription("unpredictable_prefix_key", createVarcharType(15)),
                                 ImmutableList.of(createOneFieldDescription("custkey", BIGINT), createOneFieldDescription("acctbal", DOUBLE)))))
-                .setExtraKafkaProperties(ImmutableMap.<String, String>builder()
-                        .put("kafka.internal-column-prefix", "unpredictable_prefix_")
-                        .buildOrThrow())
+                .setExtraKafkaProperties(ImmutableMap.of("kafka.internal-column-prefix", "unpredictable_prefix_"))
                 .build();
     }
 

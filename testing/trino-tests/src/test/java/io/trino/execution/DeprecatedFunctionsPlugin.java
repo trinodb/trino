@@ -28,9 +28,7 @@ public class DeprecatedFunctionsPlugin
     @Override
     public Set<Class<?>> getFunctions()
     {
-        return ImmutableSet.<Class<?>>builder()
-                .add(TestPluginScalaFunction.class)
-                .build();
+        return ImmutableSet.of(TestPluginScalaFunction.class);
     }
 
     public static class TestPluginScalaFunction

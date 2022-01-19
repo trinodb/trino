@@ -79,9 +79,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     {
         testingKafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
         return KafkaWithConfluentSchemaRegistryQueryRunner.builder(testingKafka)
-                .setExtraKafkaProperties(ImmutableMap.<String, String>builder()
-                        .put("kafka.confluent-subjects-cache-refresh-interval", "1ms")
-                        .buildOrThrow())
+                .setExtraKafkaProperties(ImmutableMap.of("kafka.confluent-subjects-cache-refresh-interval", "1ms"))
                 .build();
     }
 

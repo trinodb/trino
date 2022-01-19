@@ -584,9 +584,7 @@ public class TestArbitraryDistributionSplitAssigner
             assertTaskDescriptor(
                     taskDescriptor,
                     taskDescriptor.getPartitionId(),
-                    ImmutableListMultimap.<PlanNodeId, Split>builder()
-                            .putAll(expectedReplicatedSplits)
-                            .build());
+                    ImmutableListMultimap.copyOf(expectedReplicatedSplits));
         }
         else {
             assertThat(taskDescriptors).hasSize(expectedPartitionCount);

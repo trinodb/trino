@@ -136,9 +136,7 @@ public class TestHiveGlueMetastore
     private static final String PARTITION_KEY2 = "part_key_2";
     private static final String TEST_DATABASE_NAME_PREFIX = "test_glue";
 
-    private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
-            .add(new ColumnMetadata("id", BigintType.BIGINT))
-            .build();
+    private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS = ImmutableList.of(new ColumnMetadata("id", BIGINT));
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED_VARCHAR = ImmutableList.<ColumnMetadata>builder()
             .addAll(CREATE_TABLE_COLUMNS)
             .add(new ColumnMetadata(PARTITION_KEY, VarcharType.VARCHAR))

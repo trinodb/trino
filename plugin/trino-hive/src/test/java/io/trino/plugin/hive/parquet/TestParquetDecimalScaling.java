@@ -590,9 +590,7 @@ public class TestParquetDecimalScaling
 
         public Iterable<?> getValues()
         {
-            ImmutableList<String> inserts = ImmutableList.<String>builder()
-                    .addAll(values)
-                    .build();
+            ImmutableList<String> inserts = ImmutableList.copyOf(values);
 
             return inserts.stream().map(this::convertValue).collect(toImmutableList());
         }

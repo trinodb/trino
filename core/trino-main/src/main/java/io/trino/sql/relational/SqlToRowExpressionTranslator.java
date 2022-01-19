@@ -688,9 +688,8 @@ public final class SqlToRowExpressionTranslator
             RowExpression min = process(node.getMin(), context);
             RowExpression max = process(node.getMax(), context);
 
-            List<ResolvedFunction> functionDependencies = ImmutableList.<ResolvedFunction>builder()
-                    .add(metadata.resolveOperator(session, LESS_THAN_OR_EQUAL, ImmutableList.of(value.getType(), max.getType())))
-                    .build();
+            List<ResolvedFunction> functionDependencies = ImmutableList.of(
+                    metadata.resolveOperator(session, LESS_THAN_OR_EQUAL, ImmutableList.of(value.getType(), max.getType())));
 
             return new SpecialForm(
                     BETWEEN,

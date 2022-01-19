@@ -77,9 +77,7 @@ public class TestAlignedTablePrinter
     public void testHexPrintingInLists()
             throws Exception
     {
-        List<Column> columns = ImmutableList.<Column>builder()
-                .add(column("list", ARRAY))
-                .build();
+        List<Column> columns = ImmutableList.of(column("list", ARRAY));
 
         StringWriter writer = new StringWriter();
         OutputPrinter printer = new AlignedTablePrinter(columns, writer);
@@ -102,9 +100,7 @@ public class TestAlignedTablePrinter
     public void testHexPrintingInMaps()
             throws Exception
     {
-        List<Column> columns = ImmutableList.<Column>builder()
-                .add(column("map", MAP))
-                .build();
+        List<Column> columns = ImmutableList.of(column("map", MAP));
 
         StringWriter writer = new StringWriter();
         OutputPrinter printer = new AlignedTablePrinter(columns, writer);
@@ -127,9 +123,7 @@ public class TestAlignedTablePrinter
     public void testHexPrintingInMapKeys()
             throws Exception
     {
-        List<Column> columns = ImmutableList.<Column>builder()
-                .add(column("map", MAP))
-                .build();
+        List<Column> columns = ImmutableList.of(column("map", MAP));
 
         StringWriter writer = new StringWriter();
         OutputPrinter printer = new AlignedTablePrinter(columns, writer);
@@ -152,9 +146,7 @@ public class TestAlignedTablePrinter
     public void testHexPrintingInNestedStructures()
             throws Exception
     {
-        List<Column> columns = ImmutableList.<Column>builder()
-                .add(column("map", MAP))
-                .build();
+        List<Column> columns = ImmutableList.of(column("map", MAP));
 
         StringWriter writer = new StringWriter();
         OutputPrinter printer = new AlignedTablePrinter(columns, writer);

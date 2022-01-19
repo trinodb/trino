@@ -382,15 +382,12 @@ public class TestCheckpointWriter
                 Optional.empty(),
                 Optional.of(new DeltaLakeParquetFileStatistics(
                         Optional.of(5L),
-                        Optional.of(ImmutableMap.<String, Object>builder()
-                                .put("row", RowBlock.fromFieldBlocks(1, Optional.empty(), minMaxRowFieldBlocks).getSingleValueBlock(0))
-                                .buildOrThrow()),
-                        Optional.of(ImmutableMap.<String, Object>builder()
-                                .put("row", RowBlock.fromFieldBlocks(1, Optional.empty(), minMaxRowFieldBlocks).getSingleValueBlock(0))
-                                .buildOrThrow()),
-                        Optional.of(ImmutableMap.<String, Object>builder()
-                                .put("row", RowBlock.fromFieldBlocks(1, Optional.empty(), nullCountRowFieldBlocks).getSingleValueBlock(0))
-                                .buildOrThrow()))),
+                        Optional.of(ImmutableMap.of(
+                                "row", RowBlock.fromFieldBlocks(1, Optional.empty(), minMaxRowFieldBlocks).getSingleValueBlock(0))),
+                        Optional.of(ImmutableMap.of(
+                                "row", RowBlock.fromFieldBlocks(1, Optional.empty(), minMaxRowFieldBlocks).getSingleValueBlock(0))),
+                        Optional.of(ImmutableMap.of(
+                                "row", RowBlock.fromFieldBlocks(1, Optional.empty(), nullCountRowFieldBlocks).getSingleValueBlock(0))))),
                 ImmutableMap.of());
 
         CheckpointEntries entries = new CheckpointEntries(

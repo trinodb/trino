@@ -106,9 +106,7 @@ public class TestQuerySessionSupplier
     @Test
     public void testEmptyClientTags()
     {
-        MultivaluedMap<String, String> headers1 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
-                .put(TRINO_HEADERS.requestUser(), "testUser")
-                .build());
+        MultivaluedMap<String, String> headers1 = new GuavaMultivaluedMap<>(ImmutableListMultimap.of(TRINO_HEADERS.requestUser(), "testUser"));
         SessionContext context1 = SESSION_CONTEXT_FACTORY.createSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         assertEquals(context1.getClientTags(), ImmutableSet.of());
 
@@ -130,9 +128,7 @@ public class TestQuerySessionSupplier
         SessionContext context1 = SESSION_CONTEXT_FACTORY.createSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         assertEquals(context1.getClientCapabilities(), ImmutableSet.of("foo", "bar"));
 
-        MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
-                .put(TRINO_HEADERS.requestUser(), "testUser")
-                .build());
+        MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.of(TRINO_HEADERS.requestUser(), "testUser"));
         SessionContext context2 = SESSION_CONTEXT_FACTORY.createSessionContext(headers2, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         assertEquals(context2.getClientCapabilities(), ImmutableSet.of());
     }
@@ -183,18 +179,14 @@ public class TestQuerySessionSupplier
     {
         // no session or defaults
         Session session = createSession(
-                ImmutableListMultimap.<String, String>builder()
-                        .put(TRINO_HEADERS.requestUser(), "testUser")
-                        .build(),
+                ImmutableListMultimap.of(TRINO_HEADERS.requestUser(), "testUser"),
                 new SqlEnvironmentConfig());
         assertThat(session.getCatalog()).isEmpty();
         assertThat(session.getSchema()).isEmpty();
 
         // no session with default catalog
         session = createSession(
-                ImmutableListMultimap.<String, String>builder()
-                        .put(TRINO_HEADERS.requestUser(), "testUser")
-                        .build(),
+                ImmutableListMultimap.of(TRINO_HEADERS.requestUser(), "testUser"),
                 new SqlEnvironmentConfig()
                         .setDefaultCatalog("default-catalog"));
         assertThat(session.getCatalog()).contains("default-catalog");
@@ -202,9 +194,7 @@ public class TestQuerySessionSupplier
 
         // no session with default catalog and schema
         session = createSession(
-                ImmutableListMultimap.<String, String>builder()
-                        .put(TRINO_HEADERS.requestUser(), "testUser")
-                        .build(),
+                ImmutableListMultimap.of(TRINO_HEADERS.requestUser(), "testUser"),
                 new SqlEnvironmentConfig()
                         .setDefaultCatalog("default-catalog")
                         .setDefaultSchema("default-schema"));
