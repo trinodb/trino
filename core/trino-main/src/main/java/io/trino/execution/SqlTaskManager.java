@@ -500,6 +500,8 @@ public class SqlTaskManager
                     try {
                         DateTime endTime = taskInfo.getStats().getEndTime();
                         if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
+                            // The removal here is concurrency safe with respect to any concurrent loads: the cache has no expiration,
+                            // the taskId is in the cache, so there mustn't be an ongoing load.
                             tasks.asMap().remove(taskId);
                         }
                     }
