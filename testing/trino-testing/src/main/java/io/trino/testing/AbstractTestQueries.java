@@ -225,7 +225,8 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT COUNT(1) FROM orders");
 
         assertQuery("SELECT COUNT(NULLIF(orderstatus, 'F')) FROM orders");
-        assertQuery("SELECT COUNT(CAST(NULL AS BIGINT)) FROM orders"); // todo: make COUNT(null) work
+        assertQuery("SELECT COUNT(NULL) FROM orders", "VALUES 0");
+        assertQuery("SELECT COUNT(CAST(NULL AS BIGINT)) FROM orders", "VALUES 0");
     }
 
     @Test
