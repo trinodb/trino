@@ -184,9 +184,9 @@ public class SpoolingExchangeOutputBuffer
     }
 
     @Override
-    public void fail()
+    public void abort()
     {
-        if (stateMachine.fail()) {
+        if (stateMachine.abort()) {
             try {
                 exchangeSink.abort();
             }
