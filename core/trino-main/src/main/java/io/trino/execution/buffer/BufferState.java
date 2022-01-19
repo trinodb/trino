@@ -52,7 +52,13 @@ public enum BufferState
      * assumed that the reader will be cleaned up elsewhere.
      * This is the terminal state.
      */
-    ABORTED(false, false, true);
+    ABORTED(false, false, true),
+
+    /**
+     * Buffer is failed. No more buffers or pages can be added. The task will be failed.
+     * This is the terminal state.
+     */
+    FAILED(false, false, true);
 
     public static final Set<BufferState> TERMINAL_BUFFER_STATES = Stream.of(BufferState.values()).filter(BufferState::isTerminal).collect(toImmutableSet());
 

@@ -17,6 +17,8 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.io.Closer;
+import com.google.common.util.concurrent.FluentFuture;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
@@ -37,7 +39,6 @@ import io.trino.spi.exchange.ExchangeSink;
 import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSource;
-import io.trino.spi.exchange.ExchangeSourceHandle;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -53,6 +54,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -61,10 +63,13 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Multimaps.asMap;
+import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.asVoid;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.operator.RetryPolicy.QUERY;
@@ -124,6 +129,7 @@ public class DeduplicatingDirectExchangeBuffer
                 exchangeManagerRegistry,
                 queryId,
                 exchangeId,
+                executor,
                 bufferCapacity);
     }
 
@@ -452,6 +458,7 @@ public class DeduplicatingDirectExchangeBuffer
         private final ExchangeManagerRegistry exchangeManagerRegistry;
         private final QueryId queryId;
         private final ExchangeId exchangeId;
+        private final Executor executor;
 
         private final long pageBufferCapacityInBytes;
         private final ListMultimap<TaskId, Slice> pageBuffer = ArrayListMultimap.create();
@@ -470,15 +477,19 @@ public class DeduplicatingDirectExchangeBuffer
         private boolean inputFinished;
         private boolean closed;
 
+        private final AtomicBoolean exchangeSinkFinished = new AtomicBoolean();
+
         private PageBuffer(
                 ExchangeManagerRegistry exchangeManagerRegistry,
                 QueryId queryId,
                 ExchangeId exchangeId,
+                Executor executor,
                 DataSize pageBufferCapacity)
         {
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
+            this.executor = requireNonNull(executor, "executor is null");
             this.pageBufferCapacityInBytes = requireNonNull(pageBufferCapacity, "pageBufferCapacity is null").toBytes();
         }
 
@@ -600,10 +611,15 @@ public class DeduplicatingDirectExchangeBuffer
             verify(exchange != null, "exchange is expected to be initialized");
             verify(sinkInstanceHandle != null, "sinkInstanceHandle is expected to be initialized");
 
-            exchangeSink.finish();
-            exchangeSink = null;
-            exchange.sinkFinished(sinkInstanceHandle);
-            return new ExchangeOutputSource(selectedTasks, exchangeManager, exchange, queryId);
+            // Finish ExchangeSink and create ExchangeSource asynchronously to avoid blocking an ExchangeClient thread for potentially substantial amount of time
+            ListenableFuture<ExchangeSource> exchangeSourceFuture = FluentFuture.from(toListenableFuture(exchangeSink.finish()))
+                    .transformAsync((ignored) -> {
+                        exchangeSinkFinished.set(true);
+                        exchange.sinkFinished(sinkInstanceHandle);
+                        return toListenableFuture(exchange.getSourceHandles());
+                    }, executor)
+                    .transform(exchangeManager::createSource, executor);
+            return new ExchangeOutputSource(selectedTasks, queryId, exchangeSourceFuture);
         }
 
         public long getRetainedSizeInBytes()
@@ -645,14 +661,21 @@ public class DeduplicatingDirectExchangeBuffer
             pageBufferRetainedSizeInBytes = 0;
             bufferedPageCount = 0;
             writeBuffer = null;
-            try (Closer closer = Closer.create()) {
-                closer.register(exchange);
-                if (exchangeSink != null) {
-                    closer.register(exchangeSink::abort);
+
+            if (exchangeSink != null && !exchangeSinkFinished.get()) {
+                try {
+                    exchangeSink.abort().whenComplete((result, failure) -> {
+                        if (failure != null) {
+                            log.warn(failure, "Error aborting exchange sink");
+                        }
+                    });
+                }
+                catch (RuntimeException e) {
+                    log.warn(e, "Error aborting exchange sink");
                 }
             }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
+            if (exchange != null) {
+                exchange.close();
             }
         }
     }
@@ -719,23 +742,20 @@ public class DeduplicatingDirectExchangeBuffer
             implements OutputSource
     {
         private final Set<TaskId> selectedTasks;
-        private final ExchangeManager exchangeManager;
-        private final Exchange exchange;
         private final QueryId queryId;
+        private final ListenableFuture<ExchangeSource> exchangeSourceFuture;
 
         private ExchangeSource exchangeSource;
         private boolean finished;
 
         private ExchangeOutputSource(
                 Set<TaskId> selectedTasks,
-                ExchangeManager exchangeManager,
-                Exchange exchange,
-                QueryId queryId)
+                QueryId queryId,
+                ListenableFuture<ExchangeSource> exchangeSourceFuture)
         {
             this.selectedTasks = ImmutableSet.copyOf(requireNonNull(selectedTasks, "selectedTasks is null"));
-            this.exchangeManager = requireNonNull(exchangeManager, "exchangeManager is null");
-            this.exchange = requireNonNull(exchange, "exchange is null");
             this.queryId = requireNonNull(queryId, "queryId is null");
+            this.exchangeSourceFuture = requireNonNull(exchangeSourceFuture, "exchangeSourceFuture is null");
         }
 
         @Override
@@ -745,12 +765,10 @@ public class DeduplicatingDirectExchangeBuffer
                 return null;
             }
             if (exchangeSource == null) {
-                CompletableFuture<List<ExchangeSourceHandle>> sourceHandlesFuture = exchange.getSourceHandles();
-                if (!sourceHandlesFuture.isDone()) {
+                if (!exchangeSourceFuture.isDone()) {
                     return null;
                 }
-                List<ExchangeSourceHandle> handles = getUnchecked(sourceHandlesFuture);
-                exchangeSource = exchangeManager.createSource(handles);
+                exchangeSource = getFutureValue(exchangeSourceFuture);
             }
             while (!exchangeSource.isFinished()) {
                 if (!exchangeSource.isBlocked().isDone()) {
@@ -785,15 +803,14 @@ public class DeduplicatingDirectExchangeBuffer
             if (finished) {
                 return immediateVoidFuture();
             }
+            if (!exchangeSourceFuture.isDone()) {
+                return nonCancellationPropagating(asVoid(exchangeSourceFuture));
+            }
             if (exchangeSource != null) {
                 CompletableFuture<?> blocked = exchangeSource.isBlocked();
                 if (!blocked.isDone()) {
                     return nonCancellationPropagating(asVoid(toListenableFuture(blocked)));
                 }
-            }
-            CompletableFuture<List<ExchangeSourceHandle>> sourceHandles = exchange.getSourceHandles();
-            if (!sourceHandles.isDone()) {
-                return nonCancellationPropagating(asVoid(toListenableFuture(sourceHandles)));
             }
             return immediateVoidFuture();
         }
@@ -814,9 +831,26 @@ public class DeduplicatingDirectExchangeBuffer
                 return;
             }
             finished = true;
-            if (exchangeSource != null) {
-                exchangeSource.close();
-            }
+            addCallback(exchangeSourceFuture, new FutureCallback<>()
+            {
+                @Override
+                public void onSuccess(ExchangeSource exchangeSource)
+                {
+                    try {
+                        exchangeSource.close();
+                    }
+                    catch (RuntimeException e) {
+                        log.warn(e, "error closing exchange source");
+                    }
+                }
+
+                @Override
+                public void onFailure(Throwable ignored)
+                {
+                    // The callback is needed to safely close the exchange source
+                    // It a failure occurred it is expected to be propagated by the getNext method
+                }
+            }, directExecutor());
         }
     }
 }

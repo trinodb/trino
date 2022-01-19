@@ -32,6 +32,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,8 +41,10 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.buffer.BufferState.ABORTED;
+import static io.trino.execution.buffer.BufferState.FAILED;
 import static io.trino.execution.buffer.BufferState.FINISHED;
 import static io.trino.execution.buffer.BufferState.FLUSHING;
 import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
@@ -337,6 +340,12 @@ public class BroadcastOutputBuffer
         return memoryManager.getPeakMemoryUsage();
     }
 
+    @Override
+    public Optional<Throwable> getFailureCause()
+    {
+        return stateMachine.getFailureCause();
+    }
+
     @VisibleForTesting
     void forceFreeMemory()
     {
@@ -362,6 +371,8 @@ public class BroadcastOutputBuffer
 
         // do not setup the new buffer if we are already aborted
         if (state != ABORTED) {
+            verify(state != FAILED, "broadcast output buffer is not expected to fail internally");
+
             // add initial pages
             buffer.enqueuePages(initialPagesForNewBuffers);
 

@@ -37,6 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
@@ -165,10 +166,10 @@ public abstract class AbstractTestExchangeManager
             sink.add(key, Slices.utf8Slice(value));
         });
         if (finish) {
-            sink.finish();
+            getFutureValue(sink.finish());
         }
         else {
-            sink.abort();
+            getFutureValue(sink.abort());
         }
     }
 
