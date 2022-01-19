@@ -56,7 +56,7 @@ public class TableNameCompleter
                 .build(asyncReloading(CacheLoader.from(this::listTables), executor));
 
         functionCache = CacheBuilder.newBuilder()
-                .build(asyncReloading(CacheLoader.from(this::listFunctions), executor));
+                .build(CacheLoader.from(this::listFunctions));
     }
 
     private List<String> listTables(String schemaName)
