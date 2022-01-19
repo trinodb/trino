@@ -1454,6 +1454,13 @@
                 <version>7.15.0</version>
             </dependency>
 
+            <dependency>
+                <!-- TODO remove once we upgrade to airbase with https://github.com/airlift/airbase/pull/298 -->
+                <groupId>org.gaul</groupId>
+                <artifactId>modernizer-maven-annotations</artifactId>
+                <version>2.3.0</version>
+            </dependency>
+
             <!-- force newer version to be used for dependencies -->
             <dependency>
                 <groupId>org.javassist</groupId>

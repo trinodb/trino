@@ -15,7 +15,6 @@ package io.trino.sql.gen;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
@@ -40,6 +39,7 @@ import io.trino.operator.join.JoinHash;
 import io.trino.operator.join.JoinHashSupplier;
 import io.trino.operator.join.LookupSourceSupplier;
 import io.trino.operator.join.PagesHash;
+import io.trino.plugin.base.cache.NonEvictableLoadingCache;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
@@ -81,6 +81,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -95,16 +96,18 @@ public class JoinCompiler
 {
     private final TypeOperators typeOperators;
 
-    private final LoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = CacheBuilder.newBuilder()
-            .recordStats()
-            .maximumSize(1000)
-            .build(CacheLoader.from(key ->
+    private final NonEvictableLoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .recordStats()
+                    .maximumSize(1000),
+            CacheLoader.from(key ->
                     internalCompileLookupSourceFactory(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel())));
 
-    private final LoadingCache<CacheKey, Class<? extends PagesHashStrategy>> hashStrategies = CacheBuilder.newBuilder()
-            .recordStats()
-            .maximumSize(1000)
-            .build(CacheLoader.from(key ->
+    private final NonEvictableLoadingCache<CacheKey, Class<? extends PagesHashStrategy>> hashStrategies = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .recordStats()
+                    .maximumSize(1000),
+            CacheLoader.from(key ->
                     internalCompileHashStrategy(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel())));
 
     @Inject

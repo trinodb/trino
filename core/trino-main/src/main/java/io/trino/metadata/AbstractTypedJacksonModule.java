@@ -34,8 +34,9 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanSerializerFactory;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.fasterxml.jackson.databind.type.TypeFactory;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import io.trino.plugin.base.cache.NonEvictableCache;
+import io.trino.plugin.base.cache.SafeCaches;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
@@ -92,7 +93,7 @@ public abstract class AbstractTypedJacksonModule<T>
             extends StdSerializer<T>
     {
         private final TypeSerializer typeSerializer;
-        private final Cache<Class<?>, JsonSerializer<T>> serializerCache = CacheBuilder.newBuilder().build();
+        private final NonEvictableCache<Class<?>, JsonSerializer<T>> serializerCache = SafeCaches.buildNonEvictableCache(CacheBuilder.newBuilder());
 
         public InternalTypeSerializer(Class<T> baseClass, TypeIdResolver typeIdResolver)
         {

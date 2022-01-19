@@ -52,6 +52,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.TestingTaskBuffer.PAGE;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -69,7 +70,8 @@ public class TestExchangeOperator
     private static final TaskId TASK_2_ID = new TaskId(new StageId("query", 0), 1, 0);
     private static final TaskId TASK_3_ID = new TaskId(new StageId("query", 0), 2, 0);
 
-    private final LoadingCache<TaskId, TestingTaskBuffer> taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TestingTaskBuffer::new));
+    private final LoadingCache<TaskId, TestingTaskBuffer> taskBuffers = buildNonEvictableCacheWithWeakInvalidateAll(
+            CacheBuilder.newBuilder(), CacheLoader.from(TestingTaskBuffer::new));
 
     private ScheduledExecutorService scheduler;
     private ScheduledExecutorService scheduledExecutor;
@@ -120,6 +122,7 @@ public class TestExchangeOperator
     @BeforeMethod
     public void setUpMethod()
     {
+        // the test class is single-threaded, so there should be no ongoing loads and invalidation should be effective
         taskBuffers.invalidateAll();
     }
 

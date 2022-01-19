@@ -23,6 +23,7 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -77,7 +78,13 @@ public class EvictableLoadingCache<K, V>
 
         return new EvictableLoadingCache<>(
                 EvictableCache.buildWith(tokenCache),
-                dataCache.build(new TokenCacheLoader<>(cacheLoader)));
+                buildUnsafeCache(dataCache, new TokenCacheLoader<>(cacheLoader)));
+    }
+
+    @SuppressModernizer // CacheBuilder.build(CacheLoader) is forbidden, advising to use this class as a safety-adding wrapper.
+    private static <K, V> LoadingCache<K, V> buildUnsafeCache(CacheBuilder<? super K, ? super V> cacheBuilder, CacheLoader<? super K, V> cacheLoader)
+    {
+        return cacheBuilder.build(cacheLoader);
     }
 
     // Token<K> is a freshness marker. tokenCache keeps the fresh token for given key.

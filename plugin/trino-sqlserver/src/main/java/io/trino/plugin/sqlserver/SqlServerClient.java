@@ -16,13 +16,13 @@ package io.trino.plugin.sqlserver;
 import com.google.common.base.Enums;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.plugin.base.cache.NonEvictableCache;
 import io.trino.plugin.base.expression.AggregateFunctionRewriter;
 import io.trino.plugin.base.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -97,6 +97,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.microsoft.sqlserver.jdbc.SQLServerConnection.TRANSACTION_SNAPSHOT;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
@@ -183,10 +184,10 @@ public class SqlServerClient
     private static final Joiner DOT_JOINER = Joiner.on(".");
 
     private final boolean snapshotIsolationDisabled;
-    private final Cache<SnapshotIsolationEnabledCacheKey, Boolean> snapshotIsolationEnabled = CacheBuilder.newBuilder()
-            .maximumSize(1)
-            .expireAfterWrite(ofMinutes(5))
-            .build();
+    private final NonEvictableCache<SnapshotIsolationEnabledCacheKey, Boolean> snapshotIsolationEnabled = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .maximumSize(1)
+                    .expireAfterWrite(ofMinutes(5)));
 
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
 

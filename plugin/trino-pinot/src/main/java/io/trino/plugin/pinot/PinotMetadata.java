@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.trino.plugin.base.cache.NonEvictableLoadingCache;
 import io.trino.plugin.base.expression.AggregateFunctionRewriter;
 import io.trino.plugin.base.expression.AggregateFunctionRule;
 import io.trino.plugin.pinot.client.PinotClient;
@@ -74,6 +75,7 @@ import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.pinot.PinotColumnHandle.getPinotColumnsForPinotSchema;
 import static io.trino.plugin.pinot.PinotSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.pinot.query.AggregateExpression.replaceIdentifier;
@@ -90,8 +92,8 @@ public class PinotMetadata
     private static final String SCHEMA_NAME = "default";
     private static final String PINOT_COLUMN_NAME_PROPERTY = "pinotColumnName";
 
-    private final LoadingCache<String, List<PinotColumnHandle>> pinotTableColumnCache;
-    private final LoadingCache<Object, List<String>> allTablesCache;
+    private final NonEvictableLoadingCache<String, List<PinotColumnHandle>> pinotTableColumnCache;
+    private final NonEvictableLoadingCache<Object, List<String>> allTablesCache;
     private final int maxRowsPerBrokerQuery;
     private final AggregateFunctionRewriter<AggregateExpression> aggregateFunctionRewriter;
     private final ImplementCountDistinct implementCountDistinct;
@@ -106,22 +108,23 @@ public class PinotMetadata
         requireNonNull(pinotConfig, "pinot config");
         this.pinotClient = requireNonNull(pinotClient, "pinotClient is null");
         long metadataCacheExpiryMillis = pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
-        this.allTablesCache = CacheBuilder.newBuilder()
-                .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS)
-                .build(asyncReloading(CacheLoader.from(pinotClient::getAllTables), executor));
-        this.pinotTableColumnCache =
+        this.allTablesCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
-                        .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS)
-                        .build(asyncReloading(new CacheLoader<>()
-                        {
-                            @Override
-                            public List<PinotColumnHandle> load(String tableName)
-                                    throws Exception
-                            {
-                                Schema tablePinotSchema = pinotClient.getTableSchema(tableName);
-                                return getPinotColumnsForPinotSchema(tablePinotSchema);
-                            }
-                        }, executor));
+                        .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS),
+                asyncReloading(CacheLoader.from(pinotClient::getAllTables), executor));
+        this.pinotTableColumnCache = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS),
+                asyncReloading(new CacheLoader<>()
+                {
+                    @Override
+                    public List<PinotColumnHandle> load(String tableName)
+                            throws Exception
+                    {
+                        Schema tablePinotSchema = pinotClient.getTableSchema(tableName);
+                        return getPinotColumnsForPinotSchema(tablePinotSchema);
+                    }
+                }, executor));
 
         executor.execute(() -> this.allTablesCache.refresh(ALL_TABLES_CACHE_KEY));
         this.maxRowsPerBrokerQuery = pinotConfig.getMaxRowsForBrokerQueries();
