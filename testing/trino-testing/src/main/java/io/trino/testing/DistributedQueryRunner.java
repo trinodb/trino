@@ -19,6 +19,7 @@ import com.google.common.io.Closer;
 import com.google.inject.Module;
 import io.airlift.discovery.server.testing.TestingDiscoveryServer;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.airlift.testing.Assertions;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -72,6 +73,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.airlift.log.Level.ERROR;
+import static io.airlift.log.Level.WARN;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
@@ -118,6 +121,8 @@ public class DistributedQueryRunner
         if (backupCoordinatorProperties.isPresent()) {
             checkArgument(nodeCount >= 2, "the nodeCount must be greater than or equal to two!");
         }
+
+        setupLogging();
 
         try {
             long start = System.nanoTime();
@@ -202,6 +207,14 @@ public class DistributedQueryRunner
             server.addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
         }
         log.info("Added functions in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
+    }
+
+    private static void setupLogging()
+    {
+        Logging logging = Logging.initialize();
+        logging.setLevel("Bootstrap", WARN);
+        logging.setLevel("org.glassfish", ERROR);
+        logging.setLevel("org.eclipse.jetty.server", WARN);
     }
 
     private static TestingTrinoServer createTestingTrinoServer(

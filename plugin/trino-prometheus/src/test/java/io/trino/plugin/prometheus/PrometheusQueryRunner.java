@@ -15,7 +15,6 @@ package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.testing.DistributedQueryRunner;
@@ -74,7 +73,6 @@ public final class PrometheusQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging.initialize();
         DistributedQueryRunner queryRunner = createPrometheusQueryRunner(new PrometheusServer(), ImmutableMap.of("http-server.http.port", "8080"));
         Thread.sleep(10);
         Logger log = Logger.get(PrometheusQueryRunner.class);

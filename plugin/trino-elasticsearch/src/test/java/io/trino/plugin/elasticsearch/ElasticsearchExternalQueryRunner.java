@@ -16,7 +16,6 @@ package io.trino.plugin.elasticsearch;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
 
@@ -36,8 +35,6 @@ public class ElasticsearchExternalQueryRunner
         // Please set hostname and port via VM options. e.g. "-Delasticsearch.host=localhost -Delasticsearch.port=9200"
         // To start Elasticsearch:
         // docker run -p 9200:9200 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:7.6.2
-        Logging.initialize();
-
         DistributedQueryRunner queryRunner = createElasticsearchQueryRunner(
                 HostAndPort.fromParts(HOSTNAME, PORT),
                 TpchTable.getTables(),

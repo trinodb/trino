@@ -15,7 +15,6 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.deltalake.util.DockerizedMinioDataLake;
@@ -281,7 +280,6 @@ public final class DeltaLakeQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
-            Logging.initialize();
             DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(
                     ImmutableMap.of("http-server.http.port", "8080"),
                     ImmutableMap.of("delta.enable-non-concurrent-writes", "true"));
@@ -302,7 +300,6 @@ public final class DeltaLakeQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
-            Logging.initialize();
             String bucketName = "test-bucket";
 
             DockerizedMinioDataLake dockerizedMinioDataLake = createDockerizedMinioDataLakeForDeltaLake(bucketName);
