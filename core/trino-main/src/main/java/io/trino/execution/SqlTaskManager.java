@@ -485,7 +485,8 @@ public class SqlTaskManager
         return tasks.getUnchecked(taskId).failed(failure);
     }
 
-    public void removeOldTasks()
+    @VisibleForTesting
+    void removeOldTasks()
     {
         DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
         tasks.asMap().values().stream()
