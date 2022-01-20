@@ -12,7 +12,7 @@ Requirements
 
 To connect to a ClickHouse server, you need:
 
-* ClickHouse (version 20.8 or higher) or Altinity (version 20.3 or higher).
+* ClickHouse (version 21.3 or higher) or Altinity (version 20.3 or higher).
 * Network access from the Trino coordinator and workers to the ClickHouse
   server. Port 8123 is the default port.
 
