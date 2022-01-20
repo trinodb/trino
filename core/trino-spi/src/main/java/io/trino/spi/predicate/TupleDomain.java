@@ -247,8 +247,12 @@ public final class TupleDomain<T>
 
     public static <T> TupleDomain<T> intersect(List<TupleDomain<T>> domains)
     {
-        if (domains.size() < 2) {
-            throw new IllegalArgumentException("Expected at least 2 elements");
+        if (domains.isEmpty()) {
+            return all();
+        }
+
+        if (domains.size() == 1) {
+            return domains.get(0);
         }
 
         if (domains.stream().anyMatch(TupleDomain::isNone)) {
