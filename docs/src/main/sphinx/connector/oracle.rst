@@ -397,7 +397,7 @@ Predicate pushdown support
 
 The connector does not support pushdown of any predicates on columns that use
 the ``CLOB``, ``NCLOB``, ``BLOB``, or ``RAW(n)`` Oracle database types, or Trino
-data types that :ref:`map to these Oracle database types <oracle-type-mapping>`.
+data types that :ref:`map <oracle-type-mapping>` to these Oracle database types.
 
 In the following example, the predicate is not pushed down for either query
 since ``name`` is a column of type ``VARCHAR``, which maps to ``NCLOB`` in
