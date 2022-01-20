@@ -333,9 +333,10 @@ public class DynamicFilterService
                     return currentFilter.getDynamicFilter();
                 }
 
-                TupleDomain<ColumnHandle> dynamicFilter = completedDynamicFilters.stream()
-                        .map(filter -> translateSummaryToTupleDomain(filter, context, symbolsMap, columnHandles, typeProvider))
-                        .reduce(TupleDomain.all(), TupleDomain::intersect);
+                TupleDomain<ColumnHandle> dynamicFilter = TupleDomain.intersect(
+                        completedDynamicFilters.stream()
+                                .map(filter -> translateSummaryToTupleDomain(filter, context, symbolsMap, columnHandles, typeProvider))
+                                .collect(toImmutableList()));
 
                 // It could happen that two threads update currentDynamicFilter concurrently.
                 // In such case, currentDynamicFilter might be set to dynamic filter with less domains.
