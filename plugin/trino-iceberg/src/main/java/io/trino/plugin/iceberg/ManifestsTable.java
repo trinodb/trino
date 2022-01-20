@@ -72,6 +72,7 @@ public class ManifestsTable
                         .add(new ColumnMetadata("deleted_data_files_count", INTEGER))
                         .add(new ColumnMetadata("partitions", new ArrayType(RowType.rowType(
                                 RowType.field("contains_null", BOOLEAN),
+                                RowType.field("contains_nan", BOOLEAN),
                                 RowType.field("lower_bound", VARCHAR),
                                 RowType.field("upper_bound", VARCHAR)))))
                         .build());
@@ -136,6 +137,7 @@ public class ManifestsTable
 
             BlockBuilder rowBuilder = singleArrayWriter.beginBlockEntry();
             BOOLEAN.writeBoolean(rowBuilder, summary.containsNull());
+            BOOLEAN.writeBoolean(rowBuilder, summary.containsNaN());
             VARCHAR.writeString(rowBuilder, field.transform().toHumanString(
                     Conversions.fromByteBuffer(nestedType, summary.lowerBound())));
             VARCHAR.writeString(rowBuilder, field.transform().toHumanString(
