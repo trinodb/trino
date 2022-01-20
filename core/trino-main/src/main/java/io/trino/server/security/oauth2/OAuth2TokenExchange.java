@@ -42,6 +42,7 @@ public class OAuth2TokenExchange
 {
     public static final Duration MAX_POLL_TIME = new Duration(10, SECONDS);
     private static final TokenPoll TOKEN_POLL_TIMED_OUT = TokenPoll.error("Authentication has timed out");
+    private static final TokenPoll TOKEN_POLL_DROPPED = TokenPoll.error("Authentication has been finished by the client");
 
     private final LoadingCache<String, SettableFuture<TokenPoll>> cache;
     private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("oauth2-token-exchange"));
@@ -91,9 +92,7 @@ public class OAuth2TokenExchange
 
     public void dropToken(UUID authId)
     {
-        // TODO this may not invalidate ongoing loads (https://github.com/trinodb/trino/issues/10512, https://github.com/google/guava/issues/1881).
-        //   Determine whether this is OK here.
-        cache.invalidate(hashAuthId(authId));
+        cache.getUnchecked(hashAuthId(authId)).set(TOKEN_POLL_DROPPED);
     }
 
     public static String hashAuthId(UUID authId)
