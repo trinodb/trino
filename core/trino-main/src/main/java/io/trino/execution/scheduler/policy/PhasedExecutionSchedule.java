@@ -56,8 +56,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
-import static io.trino.execution.scheduler.StageExecution.State.RUNNING;
-import static io.trino.execution.scheduler.StageExecution.State.SCHEDULED;
+import static io.trino.execution.scheduler.StageExecution.State.PLANNED;
+import static io.trino.execution.scheduler.StageExecution.State.SCHEDULING;
+import static io.trino.execution.scheduler.StageExecution.State.SCHEDULING_SPLITS;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
@@ -135,7 +136,11 @@ public class PhasedExecutionSchedule
         // notifications from previously started stages are not lost
         Optional<ListenableFuture<Void>> rescheduleFuture = getRescheduleFuture();
         schedule();
-        return new StagesScheduleResult(activeStages, rescheduleFuture);
+        return new StagesScheduleResult(
+                activeStages.stream()
+                        .filter(this::isStageScheduling)
+                        .collect(toImmutableSet()),
+                rescheduleFuture);
     }
 
     @Override
@@ -265,7 +270,13 @@ public class PhasedExecutionSchedule
     private boolean isStageCompleted(StageExecution stage)
     {
         State state = stage.getState();
-        return state == SCHEDULED || state == RUNNING || state == FLUSHING || state.isDone();
+        return state == FLUSHING || state.isDone();
+    }
+
+    private boolean isStageScheduling(StageExecution stage)
+    {
+        State state = stage.getState();
+        return state == PLANNED || state == SCHEDULING || state == SCHEDULING_SPLITS;
     }
 
     private Set<PlanFragmentId> extractDependenciesAndReturnNonLazyFragments(Collection<StageExecution> stages)

@@ -47,6 +47,7 @@ import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorS
 import static io.trino.execution.scheduler.StageExecution.State.ABORTED;
 import static io.trino.execution.scheduler.StageExecution.State.FINISHED;
 import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
+import static io.trino.execution.scheduler.StageExecution.State.SCHEDULED;
 import static io.trino.execution.scheduler.policy.PlanUtils.createAggregationFragment;
 import static io.trino.execution.scheduler.policy.PlanUtils.createBroadcastAndPartitionedJoinPlanFragment;
 import static io.trino.execution.scheduler.policy.PlanUtils.createBroadcastJoinPlanFragment;
@@ -84,9 +85,14 @@ public class TestPhasedExecutionSchedule
         // build and join stage should start immediately
         assertThat(getActiveFragments(schedule)).containsExactly(buildFragment.getId(), joinFragment.getId());
 
-        // probe stage should start after build stage is completed
         ListenableFuture<Void> rescheduleFuture = schedule.getRescheduleFuture().orElseThrow();
         assertThat(rescheduleFuture).isNotDone();
+
+        // scheduled stage is not considered completed
+        buildStage.setState(SCHEDULED);
+        assertThat(rescheduleFuture).isNotDone();
+
+        // probe stage should start after build stage is completed
         buildStage.setState(FLUSHING);
         assertThat(rescheduleFuture).isDone();
         schedule.schedule();
