@@ -72,6 +72,7 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.WindowFrame;
+import org.intellij.lang.annotations.Language;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1015,7 +1016,7 @@ public final class PlanMatchPattern
         return new ColumnReference(tableName, columnName);
     }
 
-    public static ExpressionMatcher expression(String expression)
+    public static ExpressionMatcher expression(@Language("SQL") String expression)
     {
         return new ExpressionMatcher(expression);
     }
