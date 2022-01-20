@@ -25,6 +25,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -412,16 +413,21 @@ public class OracleClient
     {
         return ColumnMapping.longMapping(
                 TIMESTAMP_MILLIS,
-                (resultSet, columnIndex) -> {
-                    LocalDateTime timestamp = resultSet.getObject(columnIndex, LocalDateTime.class);
-                    // Adjust years when the value is B.C. dates because Oracle returns +1 year unless converting to string in their server side
-                    if (timestamp.getYear() <= 0) {
-                        timestamp = timestamp.minusYears(1);
-                    }
-                    return timestamp.toInstant(ZoneOffset.UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
-                },
+                oracleTimestampReadFunction(),
                 oracleTimestampWriteFunction(),
                 FULL_PUSHDOWN);
+    }
+
+    private static LongReadFunction oracleTimestampReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            LocalDateTime timestamp = resultSet.getObject(columnIndex, LocalDateTime.class);
+            // Adjust years when the value is B.C. dates because Oracle returns +1 year unless converting to string in their server side
+            if (timestamp.getYear() <= 0) {
+                timestamp = timestamp.minusYears(1);
+            }
+            return timestamp.toInstant(ZoneOffset.UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+        };
     }
 
     public static ColumnMapping oracleTimestampWithTimeZoneColumnMapping()
