@@ -100,6 +100,8 @@ public final class TypeHelper
     private static Type fromKuduClientType(org.apache.kudu.Type ktype, ColumnTypeAttributes attributes)
     {
         switch (ktype) {
+            case VARCHAR:
+                return VarcharType.createVarcharType(attributes.getLength());
             case STRING:
                 return VarcharType.VARCHAR;
             case UNIXTIME_MICROS:
@@ -122,6 +124,8 @@ public final class TypeHelper
                 return VarbinaryType.VARBINARY;
             case DECIMAL:
                 return DecimalType.createDecimalType(attributes.getPrecision(), attributes.getScale());
+            case DATE:
+                return DateType.DATE;
         }
         throw new IllegalStateException("Kudu type not implemented for " + ktype);
     }

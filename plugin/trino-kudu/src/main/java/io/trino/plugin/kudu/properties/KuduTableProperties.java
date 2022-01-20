@@ -383,6 +383,8 @@ public final class KuduTableProperties
                 return ISODateTimeFormat.dateTime().withZone(DateTimeZone.UTC).print(millis);
             case STRING:
                 return bound.getString(idx);
+            case VARCHAR:
+                return bound.getVarchar(idx);
             case INT64:
                 return bound.getLong(idx);
             case INT32:
@@ -394,6 +396,7 @@ public final class KuduTableProperties
             case FLOAT:
             case DOUBLE:
             case DECIMAL:
+            case DATE:
                 // TODO unsupported
                 break;
             case BOOL:
@@ -460,6 +463,14 @@ public final class KuduTableProperties
         Number n;
 
         switch (type) {
+            case VARCHAR:
+                if (obj instanceof String) {
+                    partialRow.addVarchar(idx, (String) obj);
+                }
+                else {
+                    handleInvalidValue(name, type, obj);
+                }
+                break;
             case STRING:
                 if (obj instanceof String) {
                     partialRow.addString(idx, (String) obj);

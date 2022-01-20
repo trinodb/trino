@@ -69,6 +69,9 @@ public final class RowHelper
     {
         for (int i = 0; i < schema.getPrimaryKeyColumnCount(); i++) {
             switch (schema.getColumnByIndex(i).getType()) {
+                case VARCHAR:
+                    to.addVarchar(i, from.getVarchar(i));
+                    break;
                 case STRING:
                     to.addStringUtf8(i, from.getString(i).getBytes(StandardCharsets.UTF_8));
                     break;
@@ -99,6 +102,9 @@ public final class RowHelper
                     break;
                 case BINARY:
                     to.addBinary(i, from.getBinary(i));
+                    break;
+                case DATE:
+                    to.addDate(i, from.getDate(i));
                     break;
                 default:
                     throw new IllegalStateException("Unknown type " + schema.getColumnByIndex(i).getType()
