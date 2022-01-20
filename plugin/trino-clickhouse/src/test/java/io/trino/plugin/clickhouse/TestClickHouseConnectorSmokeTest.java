@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestClickHouseConnectorSmokeTest
         extends BaseClickHouseConnectorSmokeTest
@@ -37,23 +35,5 @@ public class TestClickHouseConnectorSmokeTest
                         .put("clickhouse.map-string-as-varchar", "true") // To handle string types in TPCH tables as varchar instead of varbinary
                         .buildOrThrow(),
                 REQUIRED_TPCH_TABLES);
-    }
-
-    @Override
-    public void testRenameSchema()
-    {
-        // Override because the default database engine in version < v20.10.2.20-stable doesn't allow renaming schemas
-        assertThatThrownBy(super::testRenameSchema)
-                .hasMessageMatching("ClickHouse exception, code: 48,.* Ordinary: RENAME DATABASE is not supported .*\\n");
-
-        String schemaName = "test_rename_schema_" + randomTableSuffix();
-        try {
-            clickHouseServer.execute("CREATE DATABASE " + schemaName + " ENGINE = Atomic");
-            assertUpdate("ALTER SCHEMA " + schemaName + " RENAME TO " + schemaName + "_renamed");
-        }
-        finally {
-            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
-            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName + "_renamed");
-        }
     }
 }
