@@ -162,7 +162,6 @@ public class ClickHouseClient
                         .add(new ImplementMinMax(false)) // TODO: Revisit once https://github.com/trinodb/trino/issues/7100 is resolved
                         .add(new ImplementSum(ClickHouseClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
-                        .add(new ImplementAvgDecimal())
                         .add(new ImplementAvgBigint())
                         .build());
     }
