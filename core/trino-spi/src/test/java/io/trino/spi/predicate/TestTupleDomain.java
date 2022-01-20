@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.block.Block;
@@ -38,6 +39,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.predicate.TupleDomain.all;
 import static io.trino.spi.predicate.TupleDomain.columnWiseUnion;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -112,6 +114,21 @@ public class TestTupleDomain
 
         assertEquals(tupleDomain1.intersect(tupleDomain2), expectedTupleDomain);
         assertEquals(tupleDomain2.intersect(tupleDomain1), expectedTupleDomain);
+
+        assertEquals(TupleDomain.intersect(ImmutableList.of()), all());
+        assertEquals(TupleDomain.intersect(ImmutableList.of(tupleDomain1)), tupleDomain1);
+        assertEquals(TupleDomain.intersect(ImmutableList.of(tupleDomain1, tupleDomain2)), expectedTupleDomain);
+
+        TupleDomain<ColumnHandle> tupleDomain3 = TupleDomain.withColumnDomains(ImmutableMap.of(
+                C, Domain.singleValue(BIGINT, 1L),
+                D, Domain.create(ValueSet.ofRanges(Range.range(DOUBLE, 5.0, true, 100.0, true)), true)));
+        expectedTupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(
+                        A, Domain.singleValue(VARCHAR, utf8Slice("value")),
+                        B, Domain.singleValue(DOUBLE, 0.0),
+                        C, Domain.singleValue(BIGINT, 1L),
+                        D, Domain.create(ValueSet.ofRanges(Range.range(DOUBLE, 5.0, true, 10.0, false)), false)));
+        assertEquals(TupleDomain.intersect(ImmutableList.of(tupleDomain1, tupleDomain2, tupleDomain3)), expectedTupleDomain);
     }
 
     @Test
