@@ -36,7 +36,7 @@ public class LongColumnReader
             if (precision == 3) {
                 // When the 'timestamp(3)' (millisecond precision) is read from the column,
                 // just make sure it is converted to microsecond precision, which TimestampType expects
-                longValue *= 1000;
+                //longValue *= 1000;
             }
         }
 
