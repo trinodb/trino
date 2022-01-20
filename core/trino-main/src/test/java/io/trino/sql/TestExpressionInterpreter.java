@@ -837,6 +837,7 @@ public class TestExpressionInterpreter
     public void testCastDateToBoundedVarchar()
     {
         assertEvaluatedEquals("CAST(DATE '2013-02-02' AS varchar(10))", "'2013-02-02'");
+        // according to the SQL standard, this literal is incorrect. Year should be unsigned. https://github.com/trinodb/trino/issues/10677
         assertEvaluatedEquals("CAST(DATE '-2013-02-02' AS varchar(50))", "'-2013-02-02'");
 
         // the result value does not fit in the type
