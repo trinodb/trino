@@ -50,6 +50,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -658,25 +659,25 @@ public abstract class AbstractTestOracleTypeMapping
 
         SqlDataTypeTest dateTests = SqlDataTypeTest.create()
                 // min value in Oracle
-                .addRoundTrip("DATE", "DATE '-4712-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '-4712-01-01 00:00:00.000'")
-                .addRoundTrip("DATE", "DATE '-0001-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '-0001-01-01 00:00:00.000'")
-                .addRoundTrip("DATE", "DATE '0001-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '0001-01-01 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '-4712-01-01'", TIMESTAMP_SECONDS, "TIMESTAMP '-4712-01-01 00:00:00'")
+                .addRoundTrip("DATE", "DATE '-0001-01-01'", TIMESTAMP_SECONDS, "TIMESTAMP '-0001-01-01 00:00:00'")
+                .addRoundTrip("DATE", "DATE '0001-01-01'", TIMESTAMP_SECONDS, "TIMESTAMP '0001-01-01 00:00:00'")
                 // day before and after julian->gregorian calendar switch
-                .addRoundTrip("DATE", "DATE '1582-10-04'", TIMESTAMP_MILLIS, "TIMESTAMP '1582-10-04 00:00:00.000'")
-                .addRoundTrip("DATE", "DATE '1582-10-15'", TIMESTAMP_MILLIS, "TIMESTAMP '1582-10-15 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '1582-10-04'", TIMESTAMP_SECONDS, "TIMESTAMP '1582-10-04 00:00:00'")
+                .addRoundTrip("DATE", "DATE '1582-10-15'", TIMESTAMP_SECONDS, "TIMESTAMP '1582-10-15 00:00:00'")
                 // before epoch
-                .addRoundTrip("DATE", "DATE '1952-04-03'", TIMESTAMP_MILLIS, "TIMESTAMP '1952-04-03 00:00:00.000'")
-                .addRoundTrip("DATE", "DATE '1970-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000'")
-                .addRoundTrip("DATE", "DATE '1970-02-03'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-02-03 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '1952-04-03'", TIMESTAMP_SECONDS, "TIMESTAMP '1952-04-03 00:00:00'")
+                .addRoundTrip("DATE", "DATE '1970-01-01'", TIMESTAMP_SECONDS, "TIMESTAMP '1970-01-01 00:00:00'")
+                .addRoundTrip("DATE", "DATE '1970-02-03'", TIMESTAMP_SECONDS, "TIMESTAMP '1970-02-03 00:00:00'")
                 // summer on northern hemisphere (possible DST)
-                .addRoundTrip("DATE", "DATE '2017-07-01'", TIMESTAMP_MILLIS, "TIMESTAMP '2017-07-01 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '2017-07-01'", TIMESTAMP_SECONDS, "TIMESTAMP '2017-07-01 00:00:00'")
                 // winter on northern hemisphere
                 // (possible DST on southern hemisphere)
-                .addRoundTrip("DATE", "DATE '2017-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '2017-01-01 00:00:00.000'")
-                .addRoundTrip("DATE", "DATE '1983-04-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1983-04-01 00:00:00.000'")
-                .addRoundTrip("DATE", "DATE '1983-10-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1983-10-01 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '2017-01-01'", TIMESTAMP_SECONDS, "TIMESTAMP '2017-01-01 00:00:00'")
+                .addRoundTrip("DATE", "DATE '1983-04-01'", TIMESTAMP_SECONDS, "TIMESTAMP '1983-04-01 00:00:00'")
+                .addRoundTrip("DATE", "DATE '1983-10-01'", TIMESTAMP_SECONDS, "TIMESTAMP '1983-10-01 00:00:00'")
                 // max value in Oracle
-                .addRoundTrip("DATE", "DATE '9999-12-31'", TIMESTAMP_MILLIS, "TIMESTAMP '9999-12-31 00:00:00.000'");
+                .addRoundTrip("DATE", "DATE '9999-12-31'", TIMESTAMP_SECONDS, "TIMESTAMP '9999-12-31 00:00:00'");
 
         for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), ZoneId.systemDefault().getId(), ZoneId.of("Europe/Vilnius").getId())) {
             Session session = Session.builder(getSession())
@@ -694,7 +695,7 @@ public abstract class AbstractTestOracleTypeMapping
         // Oracle TO_DATE function returns +10 days during julian and gregorian calendar switch
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_julian_dt", "(ts date)")) {
             assertUpdate(format("INSERT INTO %s VALUES (DATE '1582-10-05')", table.getName()), 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES TIMESTAMP '1582-10-15 00:00:00.000'");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES TIMESTAMP '1582-10-15 00:00:00'");
         }
     }
 
@@ -708,9 +709,10 @@ public abstract class AbstractTestOracleTypeMapping
             assertQueryFails(
                     format("INSERT INTO %s VALUES (DATE '0000-01-01')", table.getName()),
                     "\\QFailed to insert data: ORA-01841: (full) year must be between -4713 and +9999, and not be 0\n");
+            // The error message sounds invalid date format in the connector, but it's no problem as the max year is 9999 in Oracle
             assertQueryFails(
                     format("INSERT INTO %s VALUES (DATE '10000-01-01')", table.getName()),
-                    "\\QFailed to insert data: ORA-01862: the numeric value does not match the length of the format item\n");
+                    "\\QFailed to insert data: ORA-01861: literal does not match format string\n");
         }
     }
 
@@ -751,10 +753,10 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testJulianGregorianTimestamp()
     {
-        // Oracle TO_TIMESTAMP function returns +10 days during julian and gregorian calendar switch
+        // Oracle TO_DATE function returns +10 days during julian and gregorian calendar switch
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_julian_ts", "(ts date)")) {
             assertUpdate(format("INSERT INTO %s VALUES (timestamp '1582-10-05')", table.getName()), 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES TIMESTAMP '1582-10-15 00:00:00.000'");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES TIMESTAMP '1582-10-15 00:00:00'");
         }
     }
 

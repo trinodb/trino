@@ -183,7 +183,7 @@ Trino data type mapping:
     - ``VARBINARY``
     -
   * - ``DATE``
-    - ``TIMESTAMP``
+    - ``TIMESTAMP(0)``
     - See :ref:`datetime mapping`
   * - ``TIMESTAMP(p)``
     - ``TIMESTAMP``
@@ -282,8 +282,8 @@ Mapping datetime types
 Selecting a timestamp with fractional second precision (``p``) greater than 3
 truncates the fractional seconds to three digits instead of rounding it.
 
-Oracle ``DATE`` type may store hours, minutes, and seconds, so it is mapped
-to Trino ``TIMESTAMP``.
+Oracle ``DATE`` type stores hours, minutes, and seconds, so it is mapped
+to Trino ``TIMESTAMP(0)``.
 
 .. warning::
 
