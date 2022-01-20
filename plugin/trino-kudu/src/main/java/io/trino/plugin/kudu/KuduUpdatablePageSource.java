@@ -50,7 +50,7 @@ public class KuduUpdatablePageSource
     {
         Schema schema = table.getSchema();
         KuduSession session = clientSession.newSession();
-        session.setFlushMode(FlushMode.AUTO_FLUSH_BACKGROUND);
+        session.setFlushMode(FlushMode.AUTO_FLUSH_SYNC);
         try {
             try {
                 for (int i = 0; i < rowIds.getPositionCount(); i++) {
@@ -63,6 +63,7 @@ public class KuduUpdatablePageSource
                 }
             }
             finally {
+                session.flush();
                 session.close();
             }
         }
