@@ -2,6 +2,26 @@
 Query management properties
 ===========================
 
+``query.execution-policy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-string`
+* **Default value:** ``phased``
+* **Session property:** ``execution_policy``
+
+Configures the algorithm to organize the processing of all of the
+stages of a query. You can use the following execution policies:
+
+* ``phased`` schedules stages in a sequence to avoid blockages because of 
+  inter-stage dependencies. This policy maximizes cluster resource utilization 
+  and provides the lowest query wall time.
+* ``all-at-once`` schedules all of the stages of a query at one time. As a 
+  result, cluster resource utilization is initially high, but inter-stage 
+  dependencies typically prevent full processing and cause longer queue times 
+  which increases the query wall time overall.
+* ``legacy-phased`` has similar functionality to ``phased``, but can increase 
+  the query wall time as it attempts to minimize the number of running stages.
+
 ``query.max-execution-time``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
