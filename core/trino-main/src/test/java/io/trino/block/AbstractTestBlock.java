@@ -25,6 +25,7 @@ import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.MapHashTables;
+import io.trino.spi.block.SingleRowBlockWriter;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
@@ -127,6 +128,9 @@ public abstract class AbstractTestBlock
                 }
                 else if (type == SliceOutput.class) {
                     retainedSize += ((SliceOutput) field.get(block)).getRetainedSize();
+                }
+                else if (type == SingleRowBlockWriter.class) {
+                    retainedSize += SingleRowBlockWriter.INSTANCE_SIZE;
                 }
                 else if (type == int[].class) {
                     retainedSize += sizeOf((int[]) field.get(block));
