@@ -546,7 +546,6 @@ public class ExpressionInterpreter
 
         private List<Object> processOperands(CoalesceExpression node, Object context)
         {
-            Type type = type(node);
             List<Object> newOperands = new ArrayList<>();
             Set<Expression> uniqueNewOperands = new HashSet<>();
             for (Expression operand : node.getOperands()) {
@@ -566,7 +565,7 @@ public class ExpressionInterpreter
                 }
                 else if (value instanceof Expression) {
                     // Skip duplicates unless they are non-deterministic.
-                    Expression expression = toExpression(value, type);
+                    Expression expression = (Expression) value;
                     if (!isDeterministic(expression, metadata) || uniqueNewOperands.add(expression)) {
                         newOperands.add(expression);
                     }
