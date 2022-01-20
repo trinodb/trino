@@ -28,6 +28,7 @@ import java.util.function.Function;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestIcebergSystemTables
@@ -129,10 +130,17 @@ public class TestIcebergSystemTables
                         "('added_data_files_count', 'integer', '', '')," +
                         "('existing_data_files_count', 'integer', '', '')," +
                         "('deleted_data_files_count', 'integer', '', '')," +
-                        "('partitions', 'array(row(contains_null boolean, lower_bound varchar, upper_bound varchar))', '', '')");
+                        "('partitions', 'array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$manifests\"");
+        assertThat(query("SELECT partitions FROM test_schema.\"test_table$manifests\""))
+                .matches("VALUES " +
+                        "    CAST(ARRAY[ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))) , " +
+                        "    CAST(ARRAY[ROW(false, false, '2019-09-09', '2019-09-10')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))");
 
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_multilevel_partitions$manifests\"");
+        assertThat(query("SELECT partitions FROM test_schema.\"test_table_multilevel_partitions$manifests\""))
+                .matches("VALUES " +
+                        "    CAST(ARRAY[ROW(false, false, '0', '1'), ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))");
     }
 
     @Test
