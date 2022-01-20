@@ -42,6 +42,7 @@ public class RowBlockBuilder
     private int[] fieldBlockOffsets;
     private boolean[] rowIsNull;
     private final BlockBuilder[] fieldBlockBuilders;
+    private final SingleRowBlockWriter singleRowBlockWriter;
 
     private boolean currentEntryOpened;
     private boolean hasNullRow;
@@ -64,6 +65,7 @@ public class RowBlockBuilder
         this.fieldBlockOffsets = requireNonNull(fieldBlockOffsets, "fieldBlockOffsets is null");
         this.rowIsNull = requireNonNull(rowIsNull, "rowIsNull is null");
         this.fieldBlockBuilders = requireNonNull(fieldBlockBuilders, "fieldBlockBuilders is null");
+        this.singleRowBlockWriter = new SingleRowBlockWriter(fieldBlockBuilders);
     }
 
     private static BlockBuilder[] createFieldBlockBuilders(List<Type> fieldTypes, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
@@ -133,6 +135,7 @@ public class RowBlockBuilder
         if (blockBuilderStatus != null) {
             size += BlockBuilderStatus.INSTANCE_SIZE;
         }
+        size += SingleRowBlockWriter.INSTANCE_SIZE;
         return size;
     }
 
@@ -154,7 +157,8 @@ public class RowBlockBuilder
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
-        return new SingleRowBlockWriter(fieldBlockBuilders[0].getPositionCount(), fieldBlockBuilders);
+        singleRowBlockWriter.setRowIndex(fieldBlockBuilders[0].getPositionCount());
+        return singleRowBlockWriter;
     }
 
     @Override
@@ -166,6 +170,7 @@ public class RowBlockBuilder
 
         entryAdded(false);
         currentEntryOpened = false;
+        singleRowBlockWriter.reset();
         return this;
     }
 
@@ -236,7 +241,6 @@ public class RowBlockBuilder
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
-        currentEntryOpened = true;
 
         int blockPositionCount = block.getPositionCount();
         if (blockPositionCount != numFields) {
@@ -250,8 +254,7 @@ public class RowBlockBuilder
                 block.writePositionTo(i, fieldBlockBuilders[i]);
             }
         }
-
-        closeEntry();
+        entryAdded(false);
         return this;
     }
 
