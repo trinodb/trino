@@ -24,6 +24,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.LogicalExpression;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
@@ -254,7 +255,7 @@ public class TestSimplifyExpressions
         assertSimplifies("CAST(DATE '2013-02-02' AS varchar(3)) = '2013-02-02'", "CAST(DATE '2013-02-02' AS varchar(3)) = '2013-02-02'");
     }
 
-    private static void assertSimplifies(String expression, String expected)
+    private static void assertSimplifies(@Language("SQL") String expression, @Language("SQL") String expected)
     {
         Expression expectedExpression = normalize(rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, new ParsingOptions())));
         assertEquals(
@@ -262,7 +263,7 @@ public class TestSimplifyExpressions
                 expectedExpression);
     }
 
-    private static Expression simplify(String expression)
+    private static Expression simplify(@Language("SQL") String expression)
     {
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, new ParsingOptions()));
         return normalize(rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(booleanSymbolTypeMapFor(actualExpression)), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)));
