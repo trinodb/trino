@@ -269,6 +269,7 @@ public class TestDateTimeOperators
     public void testDateCastToVarchar()
     {
         assertFunction("cast(DATE '2013-02-02' AS varchar)", VARCHAR, "2013-02-02");
+        // according to the SQL standard, this literal is incorrect. The required format is 'YYYY-MM-DD'. https://github.com/trinodb/trino/issues/10677
         assertFunction("cast(DATE '13-2-2' AS varchar)", VARCHAR, "0013-02-02");
         assertFunction("cast(DATE '2013-02-02' AS varchar(50))", createVarcharType(50), "2013-02-02");
         assertFunction("cast(DATE '2013-02-02' AS varchar(10))", createVarcharType(10), "2013-02-02");
