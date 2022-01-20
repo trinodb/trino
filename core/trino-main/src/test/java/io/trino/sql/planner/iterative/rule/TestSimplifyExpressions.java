@@ -227,12 +227,12 @@ public class TestSimplifyExpressions
     public void testCastRealToBoundedVarchar()
     {
         // the varchar type length is enough to contain the number's representation
-        assertSimplifies("CAST(REAL '0e0' AS varchar(3))", "'0.0'");
-        assertSimplifies("CAST(REAL '-0e0' AS varchar(4))", "'-0.0'");
+        assertSimplifies("CAST(REAL '0e0' AS varchar(3))", "'0E0'");
+        assertSimplifies("CAST(REAL '-0e0' AS varchar(4))", "'-0E0'");
         assertSimplifies("CAST(REAL '0e0' / REAL '0e0' AS varchar(3))", "'NaN'");
         assertSimplifies("CAST(REAL 'Infinity' AS varchar(8))", "'Infinity'");
-        assertSimplifies("CAST(REAL '12e2' AS varchar(6))", "'1200.0'");
-        assertSimplifies("CAST(REAL '-12e2' AS varchar(50))", "CAST('-1200.0' AS varchar(50))");
+        assertSimplifies("CAST(REAL '12e2' AS varchar(5))", "'1.2E3'");
+        assertSimplifies("CAST(REAL '-12e2' AS varchar(50))", "CAST('-1.2E3' AS varchar(50))");
 
         // cast from real to varchar fails, so the expression is not modified
         assertSimplifies("CAST(REAL '12e2' AS varchar(3))", "CAST(REAL '12e2' AS varchar(3))");
