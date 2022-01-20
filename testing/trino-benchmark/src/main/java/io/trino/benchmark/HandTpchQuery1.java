@@ -23,6 +23,7 @@ import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
+import io.trino.operator.hash.IsolatedHashTableFactory;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
@@ -123,7 +124,7 @@ public class HandTpchQuery1
                 Optional.empty(),
                 10_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
-                new GroupByHashFactory(new JoinCompiler(localQueryRunner.getTypeOperators()), localQueryRunner.getBlockTypeOperators()),
+                new GroupByHashFactory(new JoinCompiler(localQueryRunner.getTypeOperators()), localQueryRunner.getBlockTypeOperators(), new IsolatedHashTableFactory()),
                 localQueryRunner.getBlockTypeOperators(),
                 Optional.empty());
 

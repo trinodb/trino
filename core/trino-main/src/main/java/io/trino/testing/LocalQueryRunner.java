@@ -113,6 +113,7 @@ import io.trino.operator.PagesIndexPageSorter;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TrinoOperatorFactories;
+import io.trino.operator.hash.IsolatedHashTableFactory;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.GroupProviderManager;
@@ -364,7 +365,7 @@ public class LocalQueryRunner
         this.splitManager = new SplitManager(new QueryManagerConfig());
         this.planFragmenter = new PlanFragmenter(metadata, functionManager, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(typeOperators);
-        this.groupByHashFactory = new GroupByHashFactory(joinCompiler, blockTypeOperators);
+        this.groupByHashFactory = new GroupByHashFactory(joinCompiler, blockTypeOperators, new IsolatedHashTableFactory());
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(groupByHashFactory);
         this.groupProvider = new TestingGroupProvider();
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);

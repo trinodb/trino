@@ -20,6 +20,7 @@ import io.trino.operator.GroupByHashFactory;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
+import io.trino.operator.hash.IsolatedHashTableFactory;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -46,7 +47,7 @@ public final class TestingConnectorContext
     public TestingConnectorContext()
     {
         TypeOperators typeOperators = new TypeOperators();
-        pageIndexerFactory = new GroupByHashPageIndexerFactory(new GroupByHashFactory(new JoinCompiler(typeOperators), new BlockTypeOperators(typeOperators)));
+        pageIndexerFactory = new GroupByHashPageIndexerFactory(new GroupByHashFactory(new JoinCompiler(typeOperators), new BlockTypeOperators(typeOperators), new IsolatedHashTableFactory()));
         CatalogName catalogName = new CatalogName("test");
         InMemoryNodeManager inMemoryNodeManager = new InMemoryNodeManager();
         inMemoryNodeManager.addCurrentNodeConnector(catalogName);

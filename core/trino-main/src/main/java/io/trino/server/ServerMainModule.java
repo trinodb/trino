@@ -100,6 +100,7 @@ import io.trino.operator.OperatorFactories;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
 import io.trino.operator.TrinoOperatorFactories;
+import io.trino.operator.hash.IsolatedHashTableFactory;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.server.ExpressionSerialization.ExpressionDeserializer;
 import io.trino.server.ExpressionSerialization.ExpressionSerializer;
@@ -334,6 +335,7 @@ public class ServerMainModule
         binder.bind(JoinFilterFunctionCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(JoinFilterFunctionCompiler.class).withGeneratedName();
         binder.bind(JoinCompiler.class).in(Scopes.SINGLETON);
+        binder.bind(IsolatedHashTableFactory.class).in(Scopes.SINGLETON);
         binder.bind(GroupByHashFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(JoinCompiler.class).withGeneratedName();
         binder.bind(OrderingCompiler.class).in(Scopes.SINGLETON);

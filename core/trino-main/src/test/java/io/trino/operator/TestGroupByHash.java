@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
 import static com.google.common.math.DoubleMath.log2;
+import static io.trino.block.BlockAssertions.createIntsBlock;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createStringSequenceBlock;
@@ -47,6 +48,7 @@ import static io.trino.operator.UpdateMemory.NOOP;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.TypeTestUtils.getHashBlock;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -159,6 +161,7 @@ public class TestGroupByHash
         Block hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
         Page page = new Page(block, hashBlock);
         groupByHash.addPage(page).process();
+        assertEquals(groupByHash.getHashCollisions(), 0);
 
         // Add enough values to force a rehash
         block = createLongSequenceBlock(1, 132748);
@@ -168,6 +171,29 @@ public class TestGroupByHash
 
         block = createLongsBlock(0);
         hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
+        page = new Page(block, hashBlock);
+        assertFalse(groupByHash.contains(0, page));
+    }
+
+    @Test
+    public void testNullGroupInt()
+    {
+        GroupByHash groupByHash = GROUP_BY_HASH_FACTORY.createGroupByHash(TEST_SESSION, ImmutableList.of(INTEGER), new int[] {0}, Optional.of(1), 100, NOOP);
+
+        Block block = createIntsBlock((Integer) null);
+        Block hashBlock = getHashBlock(ImmutableList.of(INTEGER), block);
+        Page page = new Page(block, hashBlock);
+        groupByHash.addPage(page).process();
+        assertEquals(groupByHash.getHashCollisions(), 0);
+
+        // Add enough values to force a rehash
+        block = createIntsBlock(1, 132748);
+        hashBlock = getHashBlock(ImmutableList.of(INTEGER), block);
+        page = new Page(block, hashBlock);
+        groupByHash.addPage(page).process();
+
+        block = createIntsBlock(0);
+        hashBlock = getHashBlock(ImmutableList.of(INTEGER), block);
         page = new Page(block, hashBlock);
         assertFalse(groupByHash.contains(0, page));
     }

@@ -14,6 +14,9 @@
 package io.trino.operator;
 
 import io.trino.Session;
+import io.trino.operator.hash.ColumnValueExtractor;
+import io.trino.operator.hash.HashTableDataGroupByHash;
+import io.trino.operator.hash.IsolatedHashTableFactory;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
@@ -24,18 +27,22 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static io.trino.SystemSessionProperties.isUseEnhancedGroupByEnabled;
+import static io.trino.operator.hash.IsolatedHashTableFactory.MAX_SUPPORTED_CHANNELS;
 import static io.trino.spi.type.BigintType.BIGINT;
 
 public class GroupByHashFactory
 {
     private final JoinCompiler joinCompiler;
     private final BlockTypeOperators blockTypeOperators;
+    private final IsolatedHashTableFactory isolatedHashTableFactory;
 
     @Inject
-    public GroupByHashFactory(JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators)
+    public GroupByHashFactory(JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators, IsolatedHashTableFactory isolatedHashTableFactory)
     {
         this.joinCompiler = joinCompiler;
         this.blockTypeOperators = blockTypeOperators;
+        this.isolatedHashTableFactory = isolatedHashTableFactory;
     }
 
     public GroupByHash createGroupByHash(
@@ -46,7 +53,14 @@ public class GroupByHashFactory
             int expectedSize,
             UpdateMemory updateMemory)
     {
-        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session), updateMemory);
+        return createGroupByHash(
+                hashTypes,
+                hashChannels,
+                inputHashChannel,
+                expectedSize,
+                isDictionaryAggregationEnabled(session),
+                isUseEnhancedGroupByEnabled(session),
+                updateMemory);
     }
 
     public GroupByHash createGroupByHash(
@@ -57,9 +71,37 @@ public class GroupByHashFactory
             boolean processDictionary,
             UpdateMemory updateMemory)
     {
+        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, false, updateMemory);
+    }
+
+    public GroupByHash createGroupByHash(
+            List<? extends Type> hashTypes,
+            int[] hashChannels,
+            Optional<Integer> inputHashChannel,
+            int expectedSize,
+            boolean processDictionary,
+            boolean useEnhancedGroupBy,
+            UpdateMemory updateMemory)
+    {
         if (hashTypes.size() == 1 && hashTypes.get(0).equals(BIGINT) && hashChannels.length == 1) {
             return new BigintGroupByHash(hashChannels[0], inputHashChannel.isPresent(), expectedSize, updateMemory);
         }
+        if (useEnhancedGroupBy &&
+                hashTypes.size() <= MAX_SUPPORTED_CHANNELS &&
+                hashTypes.stream()
+                        .map(ColumnValueExtractor::columnValueExtractor)
+                        .allMatch(extractor -> extractor.map(ColumnValueExtractor::isFixedSize).orElse(false))) {
+            return new HashTableDataGroupByHash(
+                    isolatedHashTableFactory,
+                    hashTypes,
+                    hashChannels,
+                    inputHashChannel,
+                    expectedSize,
+                    processDictionary,
+                    updateMemory,
+                    blockTypeOperators);
+        }
+
         return new MultiChannelGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, joinCompiler, blockTypeOperators, updateMemory);
     }
 }

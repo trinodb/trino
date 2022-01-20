@@ -292,6 +292,7 @@ import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationUniq
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
+import static io.trino.SystemSessionProperties.getMaxPartialAggregationMemoryUsage;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.getTaskWriterCount;
 import static io.trino.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
@@ -3795,7 +3796,7 @@ public class LocalExecutionPlanner
                     0,
                     mappings,
                     10_000,
-                    Optional.of(maxPartialAggregationMemorySize));
+                    Optional.of(getMaxPartialAggregationMemoryUsage(context.taskContext.getSession()));
             return new PhysicalOperation(operatorFactory, mappings.buildOrThrow(), context, source);
         }
 

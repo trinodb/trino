@@ -14,11 +14,16 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.trino.operator.aggregation.GroupedAggregator;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
+import it.unimi.dsi.fastutil.ints.IntIterator;
 
 import java.util.List;
+
+import static io.trino.operator.WorkProcessor.ProcessState;
 
 public interface GroupByHash
 {
@@ -49,4 +54,31 @@ public interface GroupByHash
 
     @VisibleForTesting
     int getCapacity();
+
+    default WorkProcessor<Page> buildResult(IntIterator groupIds, PageBuilder pageBuilder, List<GroupedAggregator> groupedAggregators)
+    {
+        return WorkProcessor.create(() -> {
+            if (!groupIds.hasNext()) {
+                return ProcessState.finished();
+            }
+
+            pageBuilder.reset();
+
+            List<Type> types = getTypes();
+            while (!pageBuilder.isFull() && groupIds.hasNext()) {
+                int groupId = groupIds.nextInt();
+
+                appendValuesTo(groupId, pageBuilder, 0);
+
+                pageBuilder.declarePosition();
+                for (int i = 0; i < groupedAggregators.size(); i++) {
+                    GroupedAggregator groupedAggregator = groupedAggregators.get(i);
+                    BlockBuilder output = pageBuilder.getBlockBuilder(types.size() + i);
+                    groupedAggregator.evaluate(groupId, output);
+                }
+            }
+
+            return ProcessState.ofResult(pageBuilder.build());
+        });
+    }
 }

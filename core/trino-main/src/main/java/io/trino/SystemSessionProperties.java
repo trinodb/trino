@@ -165,6 +165,8 @@ public final class SystemSessionProperties
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
+    public static final String TASK_MAX_PARTIAL_AGGREGATION_MEMORY = "task_max_partial_aggregation_memory";
+    public static final String USE_ENHANCED_GROUP_BY = "use_enhanced_group_by";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -791,6 +793,16 @@ public final class SystemSessionProperties
                         ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD,
                         "Ratio between aggregation output and input rows above which partial aggregation might be adaptively turned off",
                         optimizerConfig.getAdaptivePartialAggregationUniqueRowsRatioThreshold(),
+                        false),
+                dataSizeProperty(
+                        TASK_MAX_PARTIAL_AGGREGATION_MEMORY,
+                        "Maximum size of partial aggregation results for distributed aggregations.",
+                        taskManagerConfig.getMaxPartialAggregationMemoryUsage(),
+                        false),
+                booleanProperty(
+                        USE_ENHANCED_GROUP_BY,
+                        "Enable optimization for aggregations",
+                        featuresConfig.isUseEnhancedGroupBy(),
                         false));
     }
 
@@ -1427,5 +1439,15 @@ public final class SystemSessionProperties
     public static double getAdaptivePartialAggregationUniqueRowsRatioThreshold(Session session)
     {
         return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD, Double.class);
+    }
+
+    public static DataSize getMaxPartialAggregationMemoryUsage(Session session)
+    {
+        return session.getSystemProperty(TASK_MAX_PARTIAL_AGGREGATION_MEMORY, DataSize.class);
+    }
+
+    public static boolean isUseEnhancedGroupByEnabled(Session session)
+    {
+        return session.getSystemProperty(USE_ENHANCED_GROUP_BY, Boolean.class);
     }
 }

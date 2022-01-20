@@ -627,6 +627,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT COUNT(*) FROM (values 1) t(x) WHERE x IN (null, 0)", "SELECT 0");
         assertQuery("SELECT d IN (DECIMAL '2.0', DECIMAL '30.0') FROM (VALUES (2.0E0)) t(d)", "SELECT true"); // coercion with type only coercion inside IN list
         assertQuery("SELECT REAL '-0.0' IN (VALUES REAL '1.0', REAL '0.0')", "SELECT true");
+        assertQuery("SELECT DOUBLE '-0.0' IN (VALUES DOUBLE '1.0', DOUBLE '0.0')", "SELECT true");
         assertQuery("SELECT -0e0 IN (VALUES 1e0, 0e0)", "SELECT true");
     }
 

@@ -101,6 +101,7 @@ public class FeaturesConfig
     private boolean legacyCatalogRoles;
     private boolean incrementalHashArrayLoadFactorEnabled = true;
     private boolean allowSetViewAuthorization;
+    private boolean useEnhancedGroupBy = true;
 
     private boolean hideInaccessibleColumns;
 
@@ -214,6 +215,17 @@ public class FeaturesConfig
     {
         this.writerMinSize = writerMinSize;
         return this;
+    }
+
+    public boolean isUseEnhancedGroupBy()
+    {
+        return useEnhancedGroupBy;
+    }
+
+    @Config("optimizer.use-enhanced-group-by")
+    public void setUseEnhancedGroupBy(boolean useEnhancedGroupBy)
+    {
+        this.useEnhancedGroupBy = useEnhancedGroupBy;
     }
 
     @Min(2)

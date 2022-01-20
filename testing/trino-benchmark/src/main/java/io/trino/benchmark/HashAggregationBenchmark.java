@@ -19,6 +19,7 @@ import io.airlift.units.DataSize;
 import io.trino.operator.GroupByHashFactory;
 import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import io.trino.operator.OperatorFactory;
+import io.trino.operator.hash.IsolatedHashTableFactory;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.AggregationNode.Step;
@@ -63,7 +64,7 @@ public class HashAggregationBenchmark
                 Optional.empty(),
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
-                new GroupByHashFactory(new JoinCompiler(localQueryRunner.getTypeOperators()), localQueryRunner.getBlockTypeOperators()),
+                new GroupByHashFactory(new JoinCompiler(localQueryRunner.getTypeOperators()), localQueryRunner.getBlockTypeOperators(), new IsolatedHashTableFactory()),
                 localQueryRunner.getBlockTypeOperators(),
                 Optional.empty());
         return ImmutableList.of(tableScanOperator, aggregationOperator);

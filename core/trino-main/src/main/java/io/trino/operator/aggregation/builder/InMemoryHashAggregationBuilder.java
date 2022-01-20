@@ -27,7 +27,6 @@ import io.trino.operator.TransformWork;
 import io.trino.operator.UpdateMemory;
 import io.trino.operator.Work;
 import io.trino.operator.WorkProcessor;
-import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.GroupedAggregator;
 import io.trino.spi.Page;
@@ -279,48 +278,29 @@ public class InMemoryHashAggregationBuilder
     private WorkProcessor<Page> buildResult(IntIterator groupIds)
     {
         PageBuilder pageBuilder = new PageBuilder(buildTypes());
-        return WorkProcessor.create(() -> {
-            if (!groupIds.hasNext()) {
-                return ProcessState.finished();
+        return groupByHash.buildResult(groupIds, pageBuilder, groupedAggregators);
+
+        result.map(page -> )
+        Page page = pageBuilder.build();
+        if (partial) {
+            // only from partial step output raw input columns
+            Block[] finalPage = new Block[page.getChannelCount() + maskChannelCount + aggregationInputTypes.size() + 1];
+            for (int i = 0; i < page.getChannelCount(); i++) {
+                finalPage[i] = page.getBlock(i);
             }
-
-            pageBuilder.reset();
-
-            List<Type> types = groupByHash.getTypes();
-            while (!pageBuilder.isFull() && groupIds.hasNext()) {
-                int groupId = groupIds.nextInt();
-
-                groupByHash.appendValuesTo(groupId, pageBuilder);
-
-                pageBuilder.declarePosition();
-                for (int i = 0; i < groupedAggregators.size(); i++) {
-                    GroupedAggregator groupedAggregator = groupedAggregators.get(i);
-                    BlockBuilder output = pageBuilder.getBlockBuilder(types.size() + i);
-                    groupedAggregator.evaluate(groupId, output);
-                }
+            int positionCount = page.getPositionCount();
+            for (int i = 0; i < maskChannelCount; i++) {
+                finalPage[page.getChannelCount() + i] = nullRle(BOOLEAN, positionCount);
             }
-
-            Page page = pageBuilder.build();
-            if (partial) {
-                // only from partial step output raw input columns
-                Block[] finalPage = new Block[page.getChannelCount() + maskChannelCount + aggregationInputTypes.size() + 1];
-                for (int i = 0; i < page.getChannelCount(); i++) {
-                    finalPage[i] = page.getBlock(i);
-                }
-                int positionCount = page.getPositionCount();
-                for (int i = 0; i < maskChannelCount; i++) {
-                    finalPage[page.getChannelCount() + i] = nullRle(BOOLEAN, positionCount);
-                }
-                for (int i = 0; i < aggregationInputTypes.size(); i++) {
-                    finalPage[page.getChannelCount() + maskChannelCount + i] = nullRle(aggregationInputTypes.get(i), positionCount);
-                }
-                finalPage[finalPage.length - 1] = nullRle(BOOLEAN, positionCount);
-
-                page = Page.wrapBlocksWithoutCopy(positionCount, finalPage);
+            for (int i = 0; i < aggregationInputTypes.size(); i++) {
+                finalPage[page.getChannelCount() + maskChannelCount + i] = nullRle(aggregationInputTypes.get(i), positionCount);
             }
+            finalPage[finalPage.length - 1] = nullRle(BOOLEAN, positionCount);
 
-            return ProcessState.ofResult(page);
-        });
+            page = Page.wrapBlocksWithoutCopy(positionCount, finalPage);
+        }
+
+        return ProcessState.ofResult(page)
     }
 
     public static RunLengthEncodedBlock nullRle(Type type, int positionCount)

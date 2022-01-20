@@ -566,7 +566,7 @@ public class MultiChannelGroupByHash
         return groupId;
     }
 
-    private static final class DictionaryLookBack
+    public static final class DictionaryLookBack
     {
         private final Block dictionary;
         private final int[] processed;
