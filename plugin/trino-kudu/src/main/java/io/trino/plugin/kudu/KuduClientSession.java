@@ -217,7 +217,9 @@ public class KuduClientSession
     public KuduScanner createScanner(KuduSplit kuduSplit)
     {
         try {
-            return KuduScanToken.deserializeIntoScanner(kuduSplit.getSerializedScanToken(), client);
+            return KuduScanToken.deserializeIntoScannerBuilder(kuduSplit.getSerializedScanToken(), client)
+                    .scanRequestTimeout(180_000_000)
+                    .build();
         }
         catch (IOException e) {
             throw new RuntimeException(e);

@@ -29,6 +29,7 @@ public class TestingKuduServer
     private static final Integer KUDU_MASTER_PORT = 7051;
     private static final Integer KUDU_TSERVER_PORT = 7050;
     private static final Integer NUMBER_OF_REPLICA = 3;
+    private static final String KUDU_VERSION = "1.15.0";
 
     private final GenericContainer<?> master;
     private final List<GenericContainer<?>> tServers;
@@ -37,7 +38,7 @@ public class TestingKuduServer
     {
         Network network = Network.newNetwork();
         ImmutableList.Builder<GenericContainer<?>> tServersBuilder = ImmutableList.builder();
-        this.master = new GenericContainer<>("apache/kudu:1.10.0")
+        this.master = new GenericContainer<>("apache/kudu:" + KUDU_VERSION)
                 .withExposedPorts(KUDU_MASTER_PORT)
                 .withCommand("master")
                 .withNetwork(network)
@@ -45,7 +46,7 @@ public class TestingKuduServer
 
         for (int instance = 0; instance < NUMBER_OF_REPLICA; instance++) {
             String instanceName = "kudu-tserver-" + instance;
-            GenericContainer<?> tableServer = new GenericContainer<>("apache/kudu:1.10.0")
+            GenericContainer<?> tableServer = new GenericContainer<>("apache/kudu:" + KUDU_VERSION)
                     .withExposedPorts(KUDU_TSERVER_PORT)
                     .withCommand("tserver")
                     .withEnv("KUDU_MASTERS", "kudu-master:" + KUDU_MASTER_PORT)
