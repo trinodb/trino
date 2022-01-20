@@ -559,11 +559,13 @@ public class ExpressionInterpreter
                         }
                         // This operand can be evaluated to a non-null value. Remaining operands can be skipped.
                         if (nestedOperand instanceof Literal) {
+                            verify(!(nestedOperand instanceof NullLiteral), "Null operand should have been removed by recursive coalesce processing");
                             return newOperands;
                         }
                     }
                 }
                 else if (value instanceof Expression) {
+                    verify(!(value instanceof NullLiteral), "Null value is expected to be represented as null, not NullLiteral");
                     // Skip duplicates unless they are non-deterministic.
                     Expression expression = (Expression) value;
                     if (!isDeterministic(expression, metadata) || uniqueNewOperands.add(expression)) {
