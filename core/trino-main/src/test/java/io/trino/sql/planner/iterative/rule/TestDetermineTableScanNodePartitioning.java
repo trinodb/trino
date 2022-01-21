@@ -16,16 +16,13 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.TaskCountEstimator;
-import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TestTableScanNodePartitioning.TestPartitioningProvider;
 import io.trino.sql.planner.assertions.MatchResult;
 import io.trino.sql.planner.assertions.Matcher;
 import io.trino.sql.planner.assertions.SymbolAliases;
@@ -67,9 +64,6 @@ public class TestDetermineTableScanNodePartitioning
     {
         tester = defaultRuleTester();
         tester.getQueryRunner().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
-        tester.getQueryRunner().getNodePartitioningManager().addPartitioningProvider(
-                new CatalogName(MOCK_CATALOG),
-                new TestPartitioningProvider(new InMemoryNodeManager()));
     }
 
     @AfterClass(alwaysRun = true)

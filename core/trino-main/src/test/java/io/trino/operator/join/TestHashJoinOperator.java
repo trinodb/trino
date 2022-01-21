@@ -23,6 +23,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.ExceededMemoryLimitException;
 import io.trino.RowPagesBuilder;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.Lifespan;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.StageId;
@@ -167,7 +168,10 @@ public class TestHashJoinOperator
                 new InMemoryNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(new FinalizerService())));
-        nodePartitioningManager = new NodePartitioningManager(nodeScheduler, new BlockTypeOperators(new TypeOperators()));
+        nodePartitioningManager = new NodePartitioningManager(
+                nodeScheduler,
+                new BlockTypeOperators(new TypeOperators()),
+                CatalogServiceProvider.fail());
     }
 
     @AfterMethod(alwaysRun = true)

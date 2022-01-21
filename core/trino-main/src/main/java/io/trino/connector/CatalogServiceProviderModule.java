@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import io.trino.spi.connector.ConnectorIndexProvider;
+import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -55,5 +56,12 @@ public class CatalogServiceProviderModule
     public static CatalogServiceProvider<ConnectorIndexProvider> createIndexProvider(ConnectorServicesProvider connectorServicesProvider)
     {
         return new ConnectorCatalogServiceProvider<>("index provider", connectorServicesProvider, connector -> connector.getIndexProvider().orElse(null));
+    }
+
+    @Provides
+    @Singleton
+    public static CatalogServiceProvider<ConnectorNodePartitioningProvider> createNodePartitioningProvider(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new ConnectorCatalogServiceProvider<>("node partitioning provider", connectorServicesProvider, connector -> connector.getPartitioningProvider().orElse(null));
     }
 }

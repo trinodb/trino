@@ -221,6 +221,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.connector.CatalogServiceProviderModule.createIndexProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createPageSinkProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createPageSourceProvider;
+import static io.trino.connector.CatalogServiceProviderModule.createNodePartitioningProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createSplitManagerProvider;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -342,7 +343,6 @@ public class LocalQueryRunner
         this.nodeManager = new InMemoryNodeManager();
         PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(true);
-        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
         requireNonNull(featuresConfig, "featuresConfig is null");
         this.optimizerConfig = new OptimizerConfig();
         CatalogManager catalogManager = new CatalogManager();
@@ -351,7 +351,6 @@ public class LocalQueryRunner
                 yieldExecutor,
                 catalogManager,
                 notificationExecutor);
-        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators);
 
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
@@ -373,7 +372,6 @@ public class LocalQueryRunner
                 new JsonQueryFunction(functionManager, metadata, typeManager)));
         typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
         this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager);
-        this.planFragmenter = new PlanFragmenter(metadata, functionManager, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler, blockTypeOperators);
         this.groupProvider = new TestingGroupProvider();
@@ -419,7 +417,6 @@ public class LocalQueryRunner
                 metadata,
                 catalogManager,
                 accessControl,
-                nodePartitioningManager,
                 handleResolver,
                 nodeManager,
                 nodeInfo,
@@ -444,6 +441,10 @@ public class LocalQueryRunner
         this.pageSourceManager = new PageSourceManager(createPageSourceProvider(connectorManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(connectorManager));
         this.indexManager = new IndexManager(createIndexProvider(connectorManager));
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
+        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators, createNodePartitioningProvider(connectorManager));
+
+        this.planFragmenter = new PlanFragmenter(metadata, functionManager, nodePartitioningManager, new QueryManagerConfig());
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
