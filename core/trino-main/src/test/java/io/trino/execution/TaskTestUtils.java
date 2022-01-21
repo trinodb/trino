@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.event.SplitMonitor;
 import io.trino.eventlistener.EventListenerConfig;
@@ -103,8 +104,7 @@ public final class TaskTestUtils
 
     public static LocalExecutionPlanner createTestingPlanner()
     {
-        PageSourceManager pageSourceManager = new PageSourceManager();
-        pageSourceManager.addConnectorPageSourceProvider(CONNECTOR_ID, new TestingPageSourceProvider());
+        PageSourceManager pageSourceManager = new PageSourceManager(CatalogServiceProvider.singleton(CONNECTOR_ID, new TestingPageSourceProvider()));
 
         // we don't start the finalizer so nothing will be collected, which is ok for a test
         FinalizerService finalizerService = new FinalizerService();
