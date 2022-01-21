@@ -114,7 +114,10 @@ public final class TaskTestUtils
                 new InMemoryNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService)));
-        NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators);
+        NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(
+                nodeScheduler,
+                blockTypeOperators,
+                CatalogServiceProvider.fail());
 
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
         return new LocalExecutionPlanner(
