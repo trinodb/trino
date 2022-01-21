@@ -218,6 +218,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.connector.CatalogServiceProviderModule.createPageSinkProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createPageSourceProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createSplitManagerProvider;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
@@ -344,7 +345,6 @@ public class LocalQueryRunner
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
         requireNonNull(featuresConfig, "featuresConfig is null");
         this.optimizerConfig = new OptimizerConfig();
-        this.pageSinkManager = new PageSinkManager();
         CatalogManager catalogManager = new CatalogManager();
         this.transactionManager = InMemoryTransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
@@ -421,7 +421,6 @@ public class LocalQueryRunner
                 accessControl,
                 indexManager,
                 nodePartitioningManager,
-                pageSinkManager,
                 handleResolver,
                 nodeManager,
                 nodeInfo,
@@ -444,6 +443,7 @@ public class LocalQueryRunner
                 nodeSchedulerConfig);
         this.splitManager = new SplitManager(createSplitManagerProvider(connectorManager), new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProvider(connectorManager));
+        this.pageSinkManager = new PageSinkManager(createPageSinkProvider(connectorManager));
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
