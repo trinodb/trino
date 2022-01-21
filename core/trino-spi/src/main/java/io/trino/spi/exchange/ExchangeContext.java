@@ -20,12 +20,12 @@ import static java.util.Objects.requireNonNull;
 public class ExchangeContext
 {
     private final QueryId queryId;
-    private final int stageId;
+    private final ExchangeId exchangeId;
 
-    public ExchangeContext(QueryId queryId, int stageId)
+    public ExchangeContext(QueryId queryId, ExchangeId exchangeId)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
-        this.stageId = stageId;
+        this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
     }
 
     public QueryId getQueryId()
@@ -33,8 +33,8 @@ public class ExchangeContext
         return queryId;
     }
 
-    public int getStageId()
+    public ExchangeId getExchangeId()
     {
-        return stageId;
+        return exchangeId;
     }
 }

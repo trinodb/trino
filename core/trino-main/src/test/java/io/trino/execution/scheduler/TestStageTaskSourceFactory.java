@@ -52,6 +52,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -106,7 +107,7 @@ public class TestStageTaskSourceFactory
         assertTrue(taskSource.isFinished());
 
         Multimap<PlanFragmentId, ExchangeSourceHandle> sources = ImmutableListMultimap.of(FRAGMENT_ID_1, new TestingExchangeSourceHandle(0, 3));
-        Exchange exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), 0), 3);
+        Exchange exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
         taskSource = new ArbitraryDistributionTaskSource(
                 ImmutableMap.of(FRAGMENT_ID_1, PLAN_NODE_1),
                 ImmutableMap.of(FRAGMENT_ID_1, exchange),
@@ -122,7 +123,7 @@ public class TestStageTaskSourceFactory
                 new NodeRequirements(Optional.empty(), ImmutableSet.of()))));
 
         sources = ImmutableListMultimap.of(FRAGMENT_ID_1, new TestingExchangeSourceHandle(0, 123));
-        exchange = nonSplittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), 0), 3);
+        exchange = nonSplittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
         taskSource = new ArbitraryDistributionTaskSource(
                 ImmutableMap.of(FRAGMENT_ID_1, PLAN_NODE_1),
                 ImmutableMap.of(FRAGMENT_ID_1, exchange),
@@ -138,7 +139,7 @@ public class TestStageTaskSourceFactory
         sources = ImmutableListMultimap.of(
                 FRAGMENT_ID_1, new TestingExchangeSourceHandle(0, 123),
                 FRAGMENT_ID_2, new TestingExchangeSourceHandle(0, 321));
-        exchange = nonSplittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), 0), 3);
+        exchange = nonSplittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
         taskSource = new ArbitraryDistributionTaskSource(
                 ImmutableMap.of(FRAGMENT_ID_1, PLAN_NODE_1, FRAGMENT_ID_2, PLAN_NODE_2),
                 ImmutableMap.of(FRAGMENT_ID_1, exchange, FRAGMENT_ID_2, exchange),
@@ -161,7 +162,7 @@ public class TestStageTaskSourceFactory
                 FRAGMENT_ID_1, new TestingExchangeSourceHandle(0, 1),
                 FRAGMENT_ID_1, new TestingExchangeSourceHandle(0, 2),
                 FRAGMENT_ID_2, new TestingExchangeSourceHandle(0, 4));
-        exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), 0), 3);
+        exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
         taskSource = new ArbitraryDistributionTaskSource(
                 ImmutableMap.of(FRAGMENT_ID_1, PLAN_NODE_1, FRAGMENT_ID_2, PLAN_NODE_2),
                 ImmutableMap.of(FRAGMENT_ID_1, exchange, FRAGMENT_ID_2, exchange),
@@ -189,7 +190,7 @@ public class TestStageTaskSourceFactory
                 FRAGMENT_ID_1, new TestingExchangeSourceHandle(0, 1),
                 FRAGMENT_ID_1, new TestingExchangeSourceHandle(0, 3),
                 FRAGMENT_ID_2, new TestingExchangeSourceHandle(0, 4));
-        exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), 0), 3);
+        exchange = splittingExchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 3);
         taskSource = new ArbitraryDistributionTaskSource(
                 ImmutableMap.of(FRAGMENT_ID_1, PLAN_NODE_1, FRAGMENT_ID_2, PLAN_NODE_2),
                 ImmutableMap.of(FRAGMENT_ID_1, exchange, FRAGMENT_ID_2, exchange),

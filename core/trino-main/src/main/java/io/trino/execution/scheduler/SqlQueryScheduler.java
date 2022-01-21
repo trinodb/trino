@@ -64,6 +64,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
+import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.NodePartitionMap;
@@ -1741,7 +1742,8 @@ public class SqlQueryScheduler
                     }
                     else {
                         // create external exchange
-                        exchange = Optional.of(exchangeManager.createExchange(new ExchangeContext(session.getQueryId(), stage.getStageId().getId()), hashPartitionCount));
+                        ExchangeContext context = new ExchangeContext(session.getQueryId(), new ExchangeId("external-exchange-" + stage.getStageId().getId()));
+                        exchange = Optional.of(exchangeManager.createExchange(context, hashPartitionCount));
                         exchanges.put(fragment.getId(), exchange.get());
                         taskLifecycleListener = TaskLifecycleListener.NO_OP;
                     }
