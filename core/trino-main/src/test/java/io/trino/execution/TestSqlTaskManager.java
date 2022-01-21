@@ -15,7 +15,6 @@ package io.trino.execution;
 
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.node.NodeInfo;
 import io.airlift.stats.TestingGcMonitor;
@@ -266,7 +265,7 @@ public class TestSqlTaskManager
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                     createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                    ImmutableMap.of());
+                    ImmutableList.of());
             assertTrue(reducesLimitsContext.isMemoryLimitsInitialized());
             assertEquals(reducesLimitsContext.getMaxUserMemory(), 1);
 
@@ -279,7 +278,7 @@ public class TestSqlTaskManager
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                     createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                    ImmutableMap.of());
+                    ImmutableList.of());
             assertTrue(attemptsIncreaseContext.isMemoryLimitsInitialized());
             assertEquals(attemptsIncreaseContext.getMaxUserMemory(), memoryConfig.getMaxQueryMemoryPerNode().toBytes());
         }
@@ -316,7 +315,7 @@ public class TestSqlTaskManager
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, splits, true)),
                 outputBuffers,
-                ImmutableMap.of());
+                ImmutableList.of());
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, OutputBuffers outputBuffers)
@@ -328,7 +327,7 @@ public class TestSqlTaskManager
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(),
                 outputBuffers,
-                ImmutableMap.of());
+                ImmutableList.of());
     }
 
     public static class MockDirectExchangeClientSupplier

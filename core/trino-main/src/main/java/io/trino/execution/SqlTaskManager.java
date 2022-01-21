@@ -44,12 +44,10 @@ import io.trino.plugin.base.cache.NonEvictableLoadingCache;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
-import io.trino.spi.predicate.Domain;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -62,7 +60,6 @@ import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -378,10 +375,10 @@ public class SqlTaskManager
             Optional<PlanFragment> fragment,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
-            Map<DynamicFilterId, Domain> dynamicFilterDomains)
+            List<SummaryInfo> summaryInfo)
     {
         try {
-            return versionEmbedder.embedVersion(() -> doUpdateTask(session, taskId, fragment, splitAssignments, outputBuffers, dynamicFilterDomains)).call();
+            return versionEmbedder.embedVersion(() -> doUpdateTask(session, taskId, fragment, splitAssignments, outputBuffers, summaryInfo)).call();
         }
         catch (Exception e) {
             throwIfUnchecked(e);
@@ -396,7 +393,7 @@ public class SqlTaskManager
             Optional<PlanFragment> fragment,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
-            Map<DynamicFilterId, Domain> dynamicFilterDomains)
+            List<SummaryInfo> summaryInfo)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -423,7 +420,7 @@ public class SqlTaskManager
         }
 
         sqlTask.recordHeartbeat();
-        return sqlTask.updateTask(session, fragment, splitAssignments, outputBuffers, dynamicFilterDomains);
+        return sqlTask.updateTask(session, fragment, splitAssignments, outputBuffers, summaryInfo);
     }
 
     @Override

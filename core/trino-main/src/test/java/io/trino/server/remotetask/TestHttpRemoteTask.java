@@ -39,6 +39,7 @@ import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.SplitAssignment;
 import io.trino.execution.StageId;
+import io.trino.execution.SummaryInfo;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskManagerConfig;
@@ -332,18 +333,18 @@ public class TestHttpRemoteTask
         remoteTask.start();
         assertEventually(
                 new Duration(10, SECONDS),
-                () -> assertEquals(testingTaskResource.getDynamicFiltersSentCounter(), 1L));
+                () -> assertEquals(testingTaskResource.getSummaryInfoSentCounter(), 1L));
         assertEquals(testingTaskResource.getCreateOrUpdateCounter(), 1L);
 
         // schedule a couple of splits to trigger task updates
         addSplit(remoteTask, testingTaskResource, 1);
         addSplit(remoteTask, testingTaskResource, 2);
         // make sure dynamic filter was sent in task updates only once
-        assertEquals(testingTaskResource.getDynamicFiltersSentCounter(), 1L);
+        assertEquals(testingTaskResource.getSummaryInfoSentCounter(), 1L);
         assertEquals(testingTaskResource.getCreateOrUpdateCounter(), 3L);
         assertEquals(
-                testingTaskResource.getLatestDynamicFilterFromCoordinator(),
-                ImmutableMap.of(filterId1, Domain.singleValue(BIGINT, 1L)));
+                testingTaskResource.getLatestSummaryInfoFromCoordinator(),
+                ImmutableList.of(new DynamicFilterSummary(ImmutableMap.of(filterId1, Domain.singleValue(BIGINT, 1L)))));
 
         future = dynamicFilter.isBlocked();
         dynamicFilterService.addTaskDynamicFilters(
@@ -359,12 +360,12 @@ public class TestHttpRemoteTask
         // dynamic filter should be sent even though there were no further splits scheduled
         assertEventually(
                 new Duration(10, SECONDS),
-                () -> assertEquals(testingTaskResource.getDynamicFiltersSentCounter(), 2L));
+                () -> assertEquals(testingTaskResource.getSummaryInfoSentCounter(), 2L));
         assertEquals(testingTaskResource.getCreateOrUpdateCounter(), 4L);
         // previously sent dynamic filter should not be repeated
         assertEquals(
-                testingTaskResource.getLatestDynamicFilterFromCoordinator(),
-                ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L)));
+                testingTaskResource.getLatestSummaryInfoFromCoordinator(),
+                ImmutableList.of(new DynamicFilterSummary(ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L)))));
 
         httpRemoteTaskFactory.stop();
         dynamicFilterService.stop();
@@ -549,12 +550,12 @@ public class TestHttpRemoteTask
         private long version;
         private TaskState taskState;
         private String taskInstanceId = INITIAL_TASK_INSTANCE_ID;
-        private Map<DynamicFilterId, Domain> latestDynamicFilterFromCoordinator = ImmutableMap.of();
+        private List<SummaryInfo> latestSummaryInfoFromCoordinator = ImmutableList.of();
 
         private long statusFetchCounter;
         private long createOrUpdateCounter;
         private long summaryInfoFetchCounter;
-        private long dynamicFiltersSentCounter;
+        private long summaryInfoSentCounter;
         private final List<SummaryInfoFetchRequest> summaryInfoFetchRequests = new ArrayList<>();
 
         public TestingTaskResource(AtomicLong lastActivityNanos, FailureScenario failureScenario)
@@ -595,9 +596,9 @@ public class TestHttpRemoteTask
             for (SplitAssignment splitAssignment : taskUpdateRequest.getSplitAssignments()) {
                 taskSplitAssignmentMap.compute(splitAssignment.getPlanNodeId(), (planNodeId, taskSplitAssignment) -> taskSplitAssignment == null ? splitAssignment : taskSplitAssignment.update(splitAssignment));
             }
-            if (!taskUpdateRequest.getDynamicFilterDomains().isEmpty()) {
-                dynamicFiltersSentCounter++;
-                latestDynamicFilterFromCoordinator = taskUpdateRequest.getDynamicFilterDomains();
+            if (taskUpdateRequest.getSummaryInfo().stream().anyMatch(summaryInfo -> !summaryInfo.isEmpty())) {
+                summaryInfoSentCounter++;
+                latestSummaryInfoFromCoordinator = taskUpdateRequest.getSummaryInfo();
             }
             createOrUpdateCounter++;
             lastActivityNanos.set(System.nanoTime());
@@ -689,9 +690,9 @@ public class TestHttpRemoteTask
             this.versionedSummaryInfo = Optional.of(versionedSummaryInfo);
         }
 
-        public Map<DynamicFilterId, Domain> getLatestDynamicFilterFromCoordinator()
+        public List<SummaryInfo> getLatestSummaryInfoFromCoordinator()
         {
-            return latestDynamicFilterFromCoordinator;
+            return latestSummaryInfoFromCoordinator;
         }
 
         public synchronized long getStatusFetchCounter()
@@ -709,9 +710,9 @@ public class TestHttpRemoteTask
             return summaryInfoFetchCounter;
         }
 
-        public synchronized long getDynamicFiltersSentCounter()
+        public synchronized long getSummaryInfoSentCounter()
         {
-            return dynamicFiltersSentCounter;
+            return summaryInfoSentCounter;
         }
 
         public synchronized List<SummaryInfoFetchRequest> getSummaryInfoFetchRequests()

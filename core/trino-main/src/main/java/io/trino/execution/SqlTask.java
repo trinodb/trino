@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -35,9 +36,7 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.PipelineStatus;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TaskStats;
-import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 
@@ -45,7 +44,6 @@ import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -58,9 +56,11 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.trino.execution.SummaryInfo.Type.DYNAMIC_FILTER;
 import static io.trino.execution.TaskState.ABORTED;
 import static io.trino.execution.TaskState.FAILED;
 import static io.trino.execution.TaskState.RUNNING;
@@ -413,7 +413,7 @@ public class SqlTask
             Optional<PlanFragment> fragment,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
-            Map<DynamicFilterId, Domain> dynamicFilterDomains)
+            List<SummaryInfo> summaryInfo)
     {
         try {
             // trace token must be set first to make sure failure injection for getTaskResults requests works as expected
@@ -449,7 +449,15 @@ public class SqlTask
 
             if (taskExecution != null) {
                 taskExecution.addSplitAssignments(splitAssignments);
-                taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
+
+                List<DynamicFilterSummary> dynamicFilterSummaries = summaryInfo.stream()
+                        .filter(summary -> summary.getType() == DYNAMIC_FILTER)
+                        .map(DynamicFilterSummary.class::cast)
+                        .collect(toImmutableList());
+                checkState(dynamicFilterSummaries.size() <= 1, "Received multiple dynamic filter summaries");
+                taskExecution.getTaskContext().addDynamicFilter(dynamicFilterSummaries.stream()
+                        .findAny()
+                        .map(DynamicFilterSummary::getDynamicFilterDomains).orElse(ImmutableMap.of()));
             }
         }
         catch (Error e) {

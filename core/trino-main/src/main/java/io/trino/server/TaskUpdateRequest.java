@@ -18,10 +18,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.SessionRepresentation;
 import io.trino.execution.SplitAssignment;
+import io.trino.execution.SummaryInfo;
 import io.trino.execution.buffer.OutputBuffers;
-import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.plan.DynamicFilterId;
 
 import java.util.List;
 import java.util.Map;
@@ -38,7 +37,7 @@ public class TaskUpdateRequest
     private final Optional<PlanFragment> fragment;
     private final List<SplitAssignment> splitAssignments;
     private final OutputBuffers outputIds;
-    private final Map<DynamicFilterId, Domain> dynamicFilterDomains;
+    private final List<SummaryInfo> summaryInfo;
 
     @JsonCreator
     public TaskUpdateRequest(
@@ -47,21 +46,21 @@ public class TaskUpdateRequest
             @JsonProperty("fragment") Optional<PlanFragment> fragment,
             @JsonProperty("splitAssignments") List<SplitAssignment> splitAssignments,
             @JsonProperty("outputIds") OutputBuffers outputIds,
-            @JsonProperty("dynamicFilterDomains") Map<DynamicFilterId, Domain> dynamicFilterDomains)
+            @JsonProperty("summaryInfo") List<SummaryInfo> summaryInfo)
     {
         requireNonNull(session, "session is null");
         requireNonNull(extraCredentials, "extraCredentials is null");
         requireNonNull(fragment, "fragment is null");
         requireNonNull(splitAssignments, "splitAssignments is null");
         requireNonNull(outputIds, "outputIds is null");
-        requireNonNull(dynamicFilterDomains, "dynamicFilterDomains is null");
+        requireNonNull(summaryInfo, "summaryStats is null");
 
         this.session = session;
         this.extraCredentials = extraCredentials;
         this.fragment = fragment;
         this.splitAssignments = ImmutableList.copyOf(splitAssignments);
         this.outputIds = outputIds;
-        this.dynamicFilterDomains = dynamicFilterDomains;
+        this.summaryInfo = ImmutableList.copyOf(summaryInfo);
     }
 
     @JsonProperty
@@ -95,9 +94,9 @@ public class TaskUpdateRequest
     }
 
     @JsonProperty
-    public Map<DynamicFilterId, Domain> getDynamicFilterDomains()
+    public List<SummaryInfo> getSummaryInfo()
     {
-        return dynamicFilterDomains;
+        return summaryInfo;
     }
 
     @Override
@@ -109,7 +108,7 @@ public class TaskUpdateRequest
                 .add("fragment", fragment)
                 .add("splitAssignments", splitAssignments)
                 .add("outputIds", outputIds)
-                .add("dynamicFilterDomains", dynamicFilterDomains)
+                .add("summaryStats", summaryInfo)
                 .toString();
     }
 }

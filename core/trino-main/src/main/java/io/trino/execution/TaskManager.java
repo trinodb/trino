@@ -22,12 +22,9 @@ import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.memory.MemoryPoolAssignmentsRequest;
-import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.plan.DynamicFilterId;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 public interface TaskManager
@@ -94,7 +91,7 @@ public interface TaskManager
             Optional<PlanFragment> fragment,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
-            Map<DynamicFilterId, Domain> dynamicFilterDomains);
+            List<SummaryInfo> summaryInfo);
 
     /**
      * Cancels a task.  If the task does not already exist, it is created and then

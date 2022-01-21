@@ -40,6 +40,7 @@ import io.trino.execution.RemoteTask;
 import io.trino.execution.ScheduledSplit;
 import io.trino.execution.SplitAssignment;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.SummaryInfo;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
@@ -86,7 +87,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -94,7 +94,6 @@ import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
-import static io.trino.execution.SummaryInfo.Type.DYNAMIC_FILTER;
 import static io.trino.execution.TaskInfo.createInitialTask;
 import static io.trino.execution.TaskState.ABORTED;
 import static io.trino.execution.TaskState.FAILED;
@@ -607,9 +606,7 @@ public final class HttpRemoteTask
 
         List<SplitAssignment> splitAssignments = getSplitAssignments();
         VersionedSummaryInfo versionedSummaryInfo = outboundSummaryInfoCollector.acknowledgeAndGetNewSummaryInfo(sentSummaryStatsVersion);
-        DynamicFilterSummary dynamicFilterSummary = (DynamicFilterSummary) versionedSummaryInfo.getSummaryInfo().stream()
-                .filter(summaryInfo -> summaryInfo.getType() == DYNAMIC_FILTER)
-                .collect(onlyElement());
+        List<SummaryInfo> summaryInfo = versionedSummaryInfo.getSummaryInfo();
 
         // Workers don't need the embedded JSON representation when the fragment is sent
         Optional<PlanFragment> fragment = sendPlan.get() ? Optional.of(planFragment.withoutEmbeddedJsonRepresentation()) : Optional.empty();
@@ -619,12 +616,12 @@ public final class HttpRemoteTask
                 fragment,
                 splitAssignments,
                 outputBuffers.get(),
-                dynamicFilterSummary.getDynamicFilterDomains());
+                summaryInfo);
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toJsonBytes(updateRequest);
         if (fragment.isPresent()) {
             stats.updateWithPlanBytes(taskUpdateRequestJson.length);
         }
-        if (!dynamicFilterSummary.isEmpty()) {
+        if (summaryInfo.stream().anyMatch(summary -> !summary.isEmpty())) {
             stats.updateWithDynamicFilterBytes(taskUpdateRequestJson.length);
         }
 
