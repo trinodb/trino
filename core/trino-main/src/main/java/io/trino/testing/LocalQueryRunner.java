@@ -218,6 +218,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.connector.CatalogServiceProviderModule.createIndexProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createPageSinkProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createPageSourceProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createSplitManagerProvider;
@@ -340,7 +341,6 @@ public class LocalQueryRunner
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
         PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
-        this.indexManager = new IndexManager();
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(true);
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
         requireNonNull(featuresConfig, "featuresConfig is null");
@@ -419,7 +419,6 @@ public class LocalQueryRunner
                 metadata,
                 catalogManager,
                 accessControl,
-                indexManager,
                 nodePartitioningManager,
                 handleResolver,
                 nodeManager,
@@ -444,6 +443,7 @@ public class LocalQueryRunner
         this.splitManager = new SplitManager(createSplitManagerProvider(connectorManager), new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProvider(connectorManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(connectorManager));
+        this.indexManager = new IndexManager(createIndexProvider(connectorManager));
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
