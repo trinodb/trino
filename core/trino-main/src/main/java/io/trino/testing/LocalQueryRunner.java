@@ -218,6 +218,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.connector.CatalogServiceProviderModule.createPageSourceProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createSplitManagerProvider;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -406,7 +407,6 @@ public class LocalQueryRunner
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
-        this.pageSourceManager = new PageSourceManager();
 
         this.pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
         this.expressionCompiler = new ExpressionCompiler(functionManager, pageFunctionCompiler);
@@ -419,7 +419,6 @@ public class LocalQueryRunner
                 metadata,
                 catalogManager,
                 accessControl,
-                pageSourceManager,
                 indexManager,
                 nodePartitioningManager,
                 pageSinkManager,
@@ -444,6 +443,7 @@ public class LocalQueryRunner
                 tableProceduresPropertyManager,
                 nodeSchedulerConfig);
         this.splitManager = new SplitManager(createSplitManagerProvider(connectorManager), new QueryManagerConfig());
+        this.pageSourceManager = new PageSourceManager(createPageSourceProvider(connectorManager));
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
