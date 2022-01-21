@@ -70,6 +70,7 @@ import static java.util.Objects.requireNonNull;
 public class MockConnectorFactory
         implements ConnectorFactory
 {
+    private final String name;
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
     private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns;
@@ -92,12 +93,14 @@ public class MockConnectorFactory
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Set<Procedure> procedures;
+    private final boolean allowMissingColumnsOnInsert;
 
     // access control
     private final ListRoleGrants roleGrants;
     private final Optional<ConnectorAccessControl> accessControl;
 
     private MockConnectorFactory(
+            String name,
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
             Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns,
@@ -121,8 +124,10 @@ public class MockConnectorFactory
             Function<SchemaTableName, List<List<?>>> data,
             Set<Procedure> procedures,
             ListRoleGrants roleGrants,
-            Optional<ConnectorAccessControl> accessControl)
+            Optional<ConnectorAccessControl> accessControl,
+            boolean allowMissingColumnsOnInsert)
     {
+        this.name = (name != null) ? name : "mock";
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
         this.streamTableColumns = requireNonNull(streamTableColumns, "streamTableColumns is null");
@@ -147,12 +152,13 @@ public class MockConnectorFactory
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
+        this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
     }
 
     @Override
     public String getName()
     {
-        return "mock";
+        return name;
     }
 
     @Override
@@ -188,7 +194,8 @@ public class MockConnectorFactory
                 roleGrants,
                 accessControl,
                 data,
-                procedures);
+                procedures,
+                allowMissingColumnsOnInsert);
     }
 
     public static Builder builder()
@@ -261,6 +268,7 @@ public class MockConnectorFactory
 
     public static final class Builder
     {
+        private String name;
         private Function<ConnectorSession, List<String>> listSchemaNames = defaultListSchemaNames();
         private BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = defaultListTables();
         private Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns = Optional.empty();
@@ -291,6 +299,13 @@ public class MockConnectorFactory
         private Grants<SchemaTableName> tableGrants = new AllowAllGrants<>();
         private Function<SchemaTableName, ViewExpression> rowFilter = (tableName) -> null;
         private BiFunction<SchemaTableName, String, ViewExpression> columnMask = (tableName, columnName) -> null;
+        private boolean allowMissingColumnsOnInsert;
+
+        public Builder withName(String name)
+        {
+            this.name = requireNonNull(name, "name is null");
+            return this;
+        }
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -470,6 +485,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withAllowMissingColumnsOnInsert(boolean allowMissingColumnsOnInsert)
+        {
+            this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
             Optional<ConnectorAccessControl> accessControl = Optional.empty();
@@ -477,6 +498,7 @@ public class MockConnectorFactory
                 accessControl = Optional.of(new MockConnectorAccessControl(schemaGrants, tableGrants, rowFilter, columnMask));
             }
             return new MockConnectorFactory(
+                    name,
                     listSchemaNames,
                     listTables,
                     streamTableColumns,
@@ -500,7 +522,8 @@ public class MockConnectorFactory
                     data,
                     procedures,
                     roleGrants,
-                    accessControl);
+                    accessControl,
+                    allowMissingColumnsOnInsert);
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()
