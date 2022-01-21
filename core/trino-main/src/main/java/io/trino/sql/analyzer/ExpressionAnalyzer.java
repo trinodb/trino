@@ -54,6 +54,7 @@ import io.trino.sql.analyzer.Analysis.PredicateCoercions;
 import io.trino.sql.analyzer.Analysis.Range;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.PatternRecognitionAnalyzer.PatternRecognitionAnalysis;
+import io.trino.sql.planner.LiteralInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
@@ -1016,7 +1017,13 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitDecimalLiteral(DecimalLiteral node, StackableAstVisitorContext<Context> context)
         {
-            DecimalParseResult parseResult = Decimals.parse(node.getValue());
+            DecimalParseResult parseResult;
+            try {
+                parseResult = Decimals.parse(node.getValue());
+            }
+            catch (RuntimeException e) {
+                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid decimal literal", node.getValue());
+            }
             return setExpressionType(node, parseResult.getType());
         }
 
@@ -1044,6 +1051,12 @@ public class ExpressionAnalyzer
                 catch (IllegalArgumentException e) {
                     throw semanticException(INVALID_LITERAL, node, "No literal form for type %s", type);
                 }
+            }
+            try {
+                LiteralInterpreter.evaluate(plannerContext, session, ImmutableMap.of(NodeRef.of(node), type), node);
+            }
+            catch (RuntimeException e) {
+                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid %s literal", node.getValue(), type.getDisplayName());
             }
 
             return setExpressionType(node, type);
@@ -1110,6 +1123,12 @@ public class ExpressionAnalyzer
             }
             else {
                 type = INTERVAL_DAY_TIME;
+            }
+            try {
+                LiteralInterpreter.evaluate(plannerContext, session, ImmutableMap.of(NodeRef.of(node), type), node);
+            }
+            catch (RuntimeException e) {
+                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid interval literal", node.getValue());
             }
             return setExpressionType(node, type);
         }

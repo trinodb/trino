@@ -17,7 +17,7 @@ import io.trino.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -38,7 +38,7 @@ public class TestIntegerOperators
     {
         assertFunction("INTEGER '37'", INTEGER, 37);
         assertFunction("INTEGER '17'", INTEGER, 17);
-        assertInvalidCast("INTEGER '" + ((long) Integer.MAX_VALUE + 1L) + "'");
+        assertInvalidFunction("INTEGER '" + ((long) Integer.MAX_VALUE + 1L) + "'", INVALID_LITERAL);
     }
 
     @Test
@@ -53,7 +53,7 @@ public class TestIntegerOperators
     {
         assertFunction("INTEGER '-37'", INTEGER, -37);
         assertFunction("INTEGER '-17'", INTEGER, -17);
-        assertInvalidFunction("INTEGER '-" + Integer.MIN_VALUE + "'", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("INTEGER '-" + Integer.MIN_VALUE + "'", INVALID_LITERAL);
     }
 
     @Test

@@ -3250,19 +3250,153 @@ public class TestAnalyzer
     @Test
     public void testLiteral()
     {
+        // boolean
+        assertFails("SELECT BOOLEAN '2'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT BOOLEAN 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // tinyint
+        assertFails("SELECT TINYINT ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TINYINT '128'") // max value + 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TINYINT '-129'") // min value - 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TINYINT '12.1'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TINYINT 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // smallint
+        assertFails("SELECT SMALLINT ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT SMALLINT '2147483648'") // max value + 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT SMALLINT '-2147483649'") // min value - 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT SMALLINT '12.1'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT SMALLINT 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // integer
+        assertFails("SELECT INTEGER ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTEGER '2147483648'") // max value + 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTEGER '-2147483649'") // min value - 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTEGER '12.1'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTEGER 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // bigint
+        assertFails("SELECT BIGINT ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT BIGINT '9223372036854775808'") // max value + 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT BIGINT '-9223372036854775809'") // min value - 1
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT BIGINT '12.1'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT BIGINT 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // real
+        assertFails("SELECT REAL ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT REAL '1.2.3'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT REAL 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // double
+        assertFails("SELECT DOUBLE ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DOUBLE '1.2.3'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DOUBLE 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // decimal
+        assertFails("SELECT 1234567890123456789012.34567890123456789") // 39 digits, decimal point
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT 0.123456789012345678901234567890123456789") // 39 digits after "0."
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT .123456789012345678901234567890123456789") // 39 digits after "."
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL '123456789012345678901234567890123456789'") // 39 digits, no decimal point
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL '1234567890123456789012.34567890123456789'") // 39 digits, decimal point
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL '0.123456789012345678901234567890123456789'") // 39 digits after "0."
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL '.123456789012345678901234567890123456789'") // 39 digits after "."
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DECIMAL 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // date
+        assertFails("SELECT DATE '20220101'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DATE 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DATE 'today'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT DATE '2022-01-01 UTC'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // time
+        assertFails("SELECT TIME ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TIME '12'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TIME '1234567'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TIME 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // timestamp
+        assertFails("SELECT TIMESTAMP ''")
+                .hasErrorCode(INVALID_LITERAL);
         assertFails("SELECT TIMESTAMP '2012-10-31 01:00:00 PT'")
                 .hasErrorCode(INVALID_LITERAL);
-    }
+        assertFails("SELECT TIMESTAMP 'a'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT TIMESTAMP 'now'")
+                .hasErrorCode(INVALID_LITERAL);
 
-    @Test
-    public void testJsonLiteral()
-    {
-        // TODO All the below should fail. Literals should be validated during analysis https://github.com/trinodb/trino/issues/10719
-        analyze("SELECT JSON '{}{'");
-        analyze("SELECT JSON '{} \"a\"'");
-        analyze("SELECT JSON '{}{abc'");
-        analyze("SELECT JSON '{}abc'");
-        analyze("SELECT JSON ''");
+        // interval
+        assertFails("SELECT INTERVAL 'a' DAY TO SECOND")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTERVAL '12.1' DAY TO SECOND")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTERVAL '12' YEAR TO DAY")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT INTERVAL '12' SECOND TO MINUTE")
+                .hasErrorCode(INVALID_LITERAL);
+
+        // json
+        assertFails("SELECT JSON ''")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{}{'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{} \"a\"'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{}{'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{} \"a\"'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{}{abc'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON '{}abc'")
+                .hasErrorCode(INVALID_LITERAL);
+        assertFails("SELECT JSON ''")
+                .hasErrorCode(INVALID_LITERAL);
     }
 
     @Test
