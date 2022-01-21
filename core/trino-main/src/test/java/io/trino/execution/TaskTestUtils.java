@@ -122,7 +122,7 @@ public final class TaskTestUtils
                 createTestingTypeAnalyzer(PLANNER_CONTEXT),
                 Optional.empty(),
                 pageSourceManager,
-                new IndexManager(),
+                new IndexManager(CatalogServiceProvider.fail()),
                 nodePartitioningManager,
                 new PageSinkManager(CatalogServiceProvider.fail()),
                 new MockDirectExchangeClientSupplier(),

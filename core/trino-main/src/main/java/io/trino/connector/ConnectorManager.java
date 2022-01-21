@@ -24,7 +24,6 @@ import io.trino.connector.system.SystemConnector;
 import io.trino.connector.system.SystemTablesProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
-import io.trino.index.IndexManager;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
@@ -103,7 +102,6 @@ public class ConnectorManager
     private final Metadata metadata;
     private final CatalogManager catalogManager;
     private final AccessControlManager accessControlManager;
-    private final IndexManager indexManager;
     private final NodePartitioningManager nodePartitioningManager;
 
     private final HandleResolver handleResolver;
@@ -141,7 +139,6 @@ public class ConnectorManager
             Metadata metadata,
             CatalogManager catalogManager,
             AccessControlManager accessControlManager,
-            IndexManager indexManager,
             NodePartitioningManager nodePartitioningManager,
             HandleResolver handleResolver,
             InternalNodeManager nodeManager,
@@ -167,7 +164,6 @@ public class ConnectorManager
         this.metadata = metadata;
         this.catalogManager = catalogManager;
         this.accessControlManager = accessControlManager;
-        this.indexManager = indexManager;
         this.nodePartitioningManager = nodePartitioningManager;
         this.handleResolver = handleResolver;
         this.nodeManager = nodeManager;
@@ -314,9 +310,6 @@ public class ConnectorManager
         checkState(!connectors.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
         connectors.put(catalogName, connector);
 
-        connector.getIndexProvider()
-                .ifPresent(indexProvider -> indexManager.addIndexProvider(catalogName, indexProvider));
-
         connector.getPartitioningProvider()
                 .ifPresent(partitioningProvider -> nodePartitioningManager.addPartitioningProvider(catalogName, partitioningProvider));
 
@@ -341,7 +334,6 @@ public class ConnectorManager
 
     private synchronized void removeConnectorInternal(CatalogName catalogName)
     {
-        indexManager.removeIndexProvider(catalogName);
         nodePartitioningManager.removePartitioningProvider(catalogName);
         procedureRegistry.removeProcedures(catalogName);
         tableProceduresRegistry.removeProcedures(catalogName);
