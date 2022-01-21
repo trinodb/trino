@@ -1605,8 +1605,14 @@ public class TrinoS3FileSystem
             if (bufferSize == buffer.length || (finished && bufferSize > 0)) {
                 byte[] data = buffer;
                 int length = bufferSize;
-                this.buffer = new byte[buffer.length];
-                bufferSize = 0;
+
+                if (finished) {
+                    this.buffer = null;
+                }
+                else {
+                    this.buffer = new byte[buffer.length];
+                    bufferSize = 0;
+                }
 
                 inProgressUploadFuture = uploadExecutor.submit(() -> uploadPage(data, length));
             }
