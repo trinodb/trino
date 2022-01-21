@@ -14,6 +14,7 @@
 package io.trino.type;
 
 import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.spi.type.Int128;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -21,6 +22,7 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDecimalOperators
         extends AbstractTestFunctions
@@ -195,6 +197,15 @@ public class TestDecimalOperators
         assertInvalidFunction("DECIMAL '.12345678901234567890123456789012345678' * DECIMAL '9'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '12345678901234567890123456789012345678' * DECIMAL '-9'", NUMERIC_VALUE_OUT_OF_RANGE);
         assertInvalidFunction("DECIMAL '.12345678901234567890123456789012345678' * DECIMAL '-9'", NUMERIC_VALUE_OUT_OF_RANGE);
+
+        assertThatThrownBy(() -> DecimalOperators.multiplyLongShortLong(Int128.valueOf("12345678901234567890123456789012345678"), 9))
+                .hasMessage("Decimal overflow");
+
+        assertThatThrownBy(() -> DecimalOperators.multiplyShortLongLong(9, Int128.valueOf("12345678901234567890123456789012345678")))
+                .hasMessage("Decimal overflow");
+
+        assertThatThrownBy(() -> DecimalOperators.multiplyLongLongLong(Int128.valueOf("12345678901234567890123456789012345678"), Int128.valueOf("9")))
+                .hasMessage("Decimal overflow");
     }
 
     @Test
