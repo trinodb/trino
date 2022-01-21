@@ -37,6 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
@@ -66,7 +67,7 @@ public abstract class AbstractTestExchangeManager
     public void testHappyPath()
             throws Exception
     {
-        Exchange exchange = exchangeManager.createExchange(new ExchangeContext(new QueryId("query"), 0), 2);
+        Exchange exchange = exchangeManager.createExchange(new ExchangeContext(new QueryId("query"), createRandomExchangeId()), 2);
         ExchangeSinkHandle sinkHandle0 = exchange.addSink(0);
         ExchangeSinkHandle sinkHandle1 = exchange.addSink(1);
         ExchangeSinkHandle sinkHandle2 = exchange.addSink(2);

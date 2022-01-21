@@ -98,7 +98,7 @@ public class LocalFileSystemExchange
     {
         LocalFileSystemExchangeSinkHandle sinkHandle = new LocalFileSystemExchangeSinkHandle(
                 exchangeContext.getQueryId(),
-                exchangeContext.getStageId(),
+                exchangeContext.getExchangeId(),
                 taskPartitionId);
         allSinks.add(sinkHandle);
         return sinkHandle;
@@ -214,7 +214,7 @@ public class LocalFileSystemExchange
 
     private Path getExchangeDirectory()
     {
-        return baseDirectory.resolve(exchangeContext.getQueryId() + "." + exchangeContext.getStageId());
+        return baseDirectory.resolve(exchangeContext.getQueryId() + "." + exchangeContext.getExchangeId());
     }
 
     @Override

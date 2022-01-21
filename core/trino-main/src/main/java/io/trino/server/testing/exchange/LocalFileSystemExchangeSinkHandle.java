@@ -16,6 +16,7 @@ package io.trino.server.testing.exchange;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.QueryId;
+import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeSinkHandle;
 
 import java.util.Objects;
@@ -27,17 +28,17 @@ public class LocalFileSystemExchangeSinkHandle
         implements ExchangeSinkHandle
 {
     private final QueryId queryId;
-    private final int stageId;
+    private final ExchangeId exchangeId;
     private final int taskPartitionId;
 
     @JsonCreator
     public LocalFileSystemExchangeSinkHandle(
             @JsonProperty("queryId") QueryId queryId,
-            @JsonProperty("stageId") int stageId,
+            @JsonProperty("exchangeId") ExchangeId exchangeId,
             @JsonProperty("taskPartitionId") int taskPartitionId)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
-        this.stageId = stageId;
+        this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
         this.taskPartitionId = taskPartitionId;
     }
 
@@ -48,9 +49,9 @@ public class LocalFileSystemExchangeSinkHandle
     }
 
     @JsonProperty
-    public int getStageId()
+    public ExchangeId getExchangeId()
     {
-        return stageId;
+        return exchangeId;
     }
 
     @JsonProperty
@@ -68,14 +69,14 @@ public class LocalFileSystemExchangeSinkHandle
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        LocalFileSystemExchangeSinkHandle sinkHandle = (LocalFileSystemExchangeSinkHandle) o;
-        return stageId == sinkHandle.stageId && taskPartitionId == sinkHandle.taskPartitionId && Objects.equals(queryId, sinkHandle.queryId);
+        LocalFileSystemExchangeSinkHandle that = (LocalFileSystemExchangeSinkHandle) o;
+        return taskPartitionId == that.taskPartitionId && Objects.equals(queryId, that.queryId) && Objects.equals(exchangeId, that.exchangeId);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(queryId, stageId, taskPartitionId);
+        return Objects.hash(queryId, exchangeId, taskPartitionId);
     }
 
     @Override
@@ -83,7 +84,7 @@ public class LocalFileSystemExchangeSinkHandle
     {
         return toStringHelper(this)
                 .add("queryId", queryId)
-                .add("stageId", stageId)
+                .add("exchangeId", exchangeId)
                 .add("taskPartitionId", taskPartitionId)
                 .toString();
     }
