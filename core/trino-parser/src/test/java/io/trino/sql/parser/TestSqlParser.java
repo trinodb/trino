@@ -364,7 +364,10 @@ public class TestSqlParser
     public void testNumbers()
     {
         assertExpression("9223372036854775807", new LongLiteral("9223372036854775807"));
+        assertInvalidExpression("9223372036854775808", "Invalid numeric literal: 9223372036854775808");
+
         assertExpression("-9223372036854775808", new LongLiteral("-9223372036854775808"));
+        assertInvalidExpression("-9223372036854775809", "Invalid numeric literal: -9223372036854775809");
 
         assertExpression("1E5", new DoubleLiteral("1E5"));
         assertExpression("1E-5", new DoubleLiteral("1E-5"));
