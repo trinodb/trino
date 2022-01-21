@@ -232,20 +232,25 @@ public class GlueHiveMetastore
 
     private static AWSCredentialsProvider getAwsCredentialsProvider(GlueHiveMetastoreConfig config)
     {
-        if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
-            return new AWSStaticCredentialsProvider(
-                    new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
-        }
-        if (config.getIamRole().isPresent()) {
-            return new STSAssumeRoleSessionCredentialsProvider
-                    .Builder(config.getIamRole().get(), "trino-session")
-                    .withExternalId(config.getExternalId().orElse(null))
-                    .build();
-        }
         if (config.getAwsCredentialsProvider().isPresent()) {
             return getCustomAWSCredentialsProvider(config.getAwsCredentialsProvider().get());
         }
-        return DefaultAWSCredentialsProviderChain.getInstance();
+        AWSCredentialsProvider provider;
+        if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
+            provider = new AWSStaticCredentialsProvider(
+                    new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
+        }
+        else {
+            provider = DefaultAWSCredentialsProviderChain.getInstance();
+        }
+        if (config.getIamRole().isPresent()) {
+            provider = new STSAssumeRoleSessionCredentialsProvider
+                    .Builder(config.getIamRole().get(), "trino-session")
+                    .withExternalId(config.getExternalId().orElse(null))
+                    .withLongLivedCredentialsProvider(provider)
+                    .build();
+        }
+        return provider;
     }
 
     private static AWSCredentialsProvider getCustomAWSCredentialsProvider(String providerClass)
