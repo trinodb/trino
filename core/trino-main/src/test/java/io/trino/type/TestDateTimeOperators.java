@@ -23,7 +23,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
-import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -261,8 +261,8 @@ public class TestDateTimeOperators
     public void testDateCastFromVarchar()
     {
         assertFunction("DATE '2013-02-02'", DATE, toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
-        assertInvalidFunction("DATE '5881580-07-12'", INVALID_CAST_ARGUMENT, "Value cannot be cast to date: 5881580-07-12");
-        assertInvalidFunction("DATE '392251590-07-12'", INVALID_CAST_ARGUMENT, "Value cannot be cast to date: 392251590-07-12");
+        assertInvalidFunction("DATE '5881580-07-12'", INVALID_LITERAL, "line 1:1: '5881580-07-12' is not a valid date literal");
+        assertInvalidFunction("DATE '392251590-07-12'", INVALID_LITERAL, "line 1:1: '392251590-07-12' is not a valid date literal");
     }
 
     @Test
