@@ -124,7 +124,7 @@ public final class TaskTestUtils
                 pageSourceManager,
                 new IndexManager(),
                 nodePartitioningManager,
-                new PageSinkManager(),
+                new PageSinkManager(CatalogServiceProvider.fail()),
                 new MockDirectExchangeClientSupplier(),
                 new ExpressionCompiler(PLANNER_CONTEXT.getFunctionManager(), pageFunctionCompiler),
                 pageFunctionCompiler,
