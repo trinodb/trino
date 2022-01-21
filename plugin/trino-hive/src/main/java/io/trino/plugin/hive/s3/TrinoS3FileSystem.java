@@ -1596,6 +1596,7 @@ public class TrinoS3FileSystem
                     return;
                 }
                 catch (AmazonServiceException e) {
+                    failed = true;
                     throw new IOException(e);
                 }
             }
