@@ -49,7 +49,7 @@
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.9.2</dep.antlr.version>
-        <dep.airlift.version>213</dep.airlift.version>
+        <dep.airlift.version>214</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.12.85</dep.aws-sdk.version>
         <dep.okhttp.version>3.14.9</dep.okhttp.version>
