@@ -17,7 +17,7 @@ import io.trino.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -38,7 +38,7 @@ public class TestSmallintOperators
     {
         assertFunction("SMALLINT '37'", SMALLINT, (short) 37);
         assertFunction("SMALLINT '17'", SMALLINT, (short) 17);
-        assertInvalidCast("SMALLINT '" + ((long) Short.MAX_VALUE + 1L) + "'");
+        assertInvalidFunction("SMALLINT '" + ((long) Short.MAX_VALUE + 1L) + "'", INVALID_LITERAL);
     }
 
     @Test
@@ -53,7 +53,7 @@ public class TestSmallintOperators
     {
         assertFunction("SMALLINT '-37'", SMALLINT, (short) -37);
         assertFunction("SMALLINT '-17'", SMALLINT, (short) -17);
-        assertInvalidFunction("SMALLINT '-" + Short.MIN_VALUE + "'", INVALID_CAST_ARGUMENT);
+        assertInvalidFunction("SMALLINT '-" + Short.MIN_VALUE + "'", INVALID_LITERAL);
     }
 
     @Test

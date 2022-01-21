@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -180,11 +181,11 @@ public class TestJsonOperators
         assertFunction("JSON '[null]'", JSON, "[null]");
         assertFunction("JSON '[13,null,42]'", JSON, "[13,null,42]");
         assertFunction("JSON '{\"x\": null}'", JSON, "{\"x\":null}");
-        assertInvalidFunction("JSON '{}{'", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("JSON '{} \"a\"'", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("JSON '{}{abc'", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("JSON '{}abc'", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("JSON ''", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON '{}{'", INVALID_LITERAL);
+        assertInvalidFunction("JSON '{} \"a\"'", INVALID_LITERAL);
+        assertInvalidFunction("JSON '{}{abc'", INVALID_LITERAL);
+        assertInvalidFunction("JSON '{}abc'", INVALID_LITERAL);
+        assertInvalidFunction("JSON ''", INVALID_LITERAL);
     }
 
     @Test
