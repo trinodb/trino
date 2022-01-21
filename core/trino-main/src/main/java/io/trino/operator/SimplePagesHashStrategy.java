@@ -215,7 +215,7 @@ public class SimplePagesHashStrategy
             Block leftBlock = channels.get(hashChannel).get(leftBlockIndex);
             Block rightBlock = page.getBlock(rightChannels[i]);
             BlockPositionIsDistinctFrom isDistinctFromOperator = isDistinctFromOperators.get(i);
-            if (!isDistinctFromOperator.isDistinctFrom(leftBlock, leftPosition, rightBlock, rightPosition)) {
+            if (isDistinctFromOperator.isDistinctFrom(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }
