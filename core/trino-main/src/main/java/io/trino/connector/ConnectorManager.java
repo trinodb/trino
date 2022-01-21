@@ -65,7 +65,6 @@ import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.TypeManager;
 import io.trino.split.RecordPageSourceProvider;
-import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.transaction.TransactionManager;
 
 import javax.annotation.PreDestroy;
@@ -102,7 +101,6 @@ public class ConnectorManager
     private final Metadata metadata;
     private final CatalogManager catalogManager;
     private final AccessControlManager accessControlManager;
-    private final NodePartitioningManager nodePartitioningManager;
 
     private final HandleResolver handleResolver;
     private final InternalNodeManager nodeManager;
@@ -139,7 +137,6 @@ public class ConnectorManager
             Metadata metadata,
             CatalogManager catalogManager,
             AccessControlManager accessControlManager,
-            NodePartitioningManager nodePartitioningManager,
             HandleResolver handleResolver,
             InternalNodeManager nodeManager,
             NodeInfo nodeInfo,
@@ -164,7 +161,6 @@ public class ConnectorManager
         this.metadata = metadata;
         this.catalogManager = catalogManager;
         this.accessControlManager = accessControlManager;
-        this.nodePartitioningManager = nodePartitioningManager;
         this.handleResolver = handleResolver;
         this.nodeManager = nodeManager;
         this.pageSorter = pageSorter;
@@ -310,9 +306,6 @@ public class ConnectorManager
         checkState(!connectors.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
         connectors.put(catalogName, connector);
 
-        connector.getPartitioningProvider()
-                .ifPresent(partitioningProvider -> nodePartitioningManager.addPartitioningProvider(catalogName, partitioningProvider));
-
         procedureRegistry.addProcedures(catalogName, connector.getProcedures());
         Set<TableProcedureMetadata> tableProcedures = connector.getTableProcedures();
         tableProceduresRegistry.addTableProcedures(catalogName, tableProcedures);
@@ -334,7 +327,6 @@ public class ConnectorManager
 
     private synchronized void removeConnectorInternal(CatalogName catalogName)
     {
-        nodePartitioningManager.removePartitioningProvider(catalogName);
         procedureRegistry.removeProcedures(catalogName);
         tableProceduresRegistry.removeProcedures(catalogName);
         tableFunctionRegistry.removeTableFunctions(catalogName);

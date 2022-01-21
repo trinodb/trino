@@ -17,6 +17,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.scheduler.BucketNodeMap;
 import io.trino.execution.scheduler.FixedBucketNodeMap;
 import io.trino.execution.scheduler.NodeScheduler;
@@ -41,8 +42,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -55,26 +54,17 @@ public class NodePartitioningManager
 {
     private final NodeScheduler nodeScheduler;
     private final BlockTypeOperators blockTypeOperators;
-    private final ConcurrentMap<CatalogName, ConnectorNodePartitioningProvider> partitioningProviders = new ConcurrentHashMap<>();
+    private final CatalogServiceProvider<ConnectorNodePartitioningProvider> partitioningProvider;
 
     @Inject
-    public NodePartitioningManager(NodeScheduler nodeScheduler, BlockTypeOperators blockTypeOperators)
+    public NodePartitioningManager(
+            NodeScheduler nodeScheduler,
+            BlockTypeOperators blockTypeOperators,
+            CatalogServiceProvider<ConnectorNodePartitioningProvider> partitioningProvider)
     {
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
-    }
-
-    public void addPartitioningProvider(CatalogName catalogName, ConnectorNodePartitioningProvider nodePartitioningProvider)
-    {
-        requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
-        checkArgument(partitioningProviders.putIfAbsent(catalogName, nodePartitioningProvider) == null,
-                "NodePartitioningProvider for connector '%s' is already registered", catalogName);
-    }
-
-    public void removePartitioningProvider(CatalogName catalogName)
-    {
-        partitioningProviders.remove(catalogName);
+        this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
     }
 
     public PartitionFunction getPartitionFunction(
@@ -241,9 +231,7 @@ public class NodePartitioningManager
 
     private ConnectorNodePartitioningProvider getPartitioningProvider(CatalogName catalogName)
     {
-        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(requireNonNull(catalogName, "catalogName is null"));
-        checkArgument(partitioningProvider != null, "No partitioning provider for connector %s", catalogName);
-        return partitioningProvider;
+        return partitioningProvider.getService(requireNonNull(catalogName, "catalogName is null"));
     }
 
     private static List<InternalNode> createArbitraryBucketToNode(List<InternalNode> nodes, int bucketCount)
