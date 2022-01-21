@@ -65,7 +65,6 @@ import io.trino.spi.procedure.Procedure;
 import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.TypeManager;
-import io.trino.split.PageSinkManager;
 import io.trino.split.RecordPageSourceProvider;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.transaction.TransactionManager;
@@ -107,7 +106,6 @@ public class ConnectorManager
     private final IndexManager indexManager;
     private final NodePartitioningManager nodePartitioningManager;
 
-    private final PageSinkManager pageSinkManager;
     private final HandleResolver handleResolver;
     private final InternalNodeManager nodeManager;
     private final PageSorter pageSorter;
@@ -145,7 +143,6 @@ public class ConnectorManager
             AccessControlManager accessControlManager,
             IndexManager indexManager,
             NodePartitioningManager nodePartitioningManager,
-            PageSinkManager pageSinkManager,
             HandleResolver handleResolver,
             InternalNodeManager nodeManager,
             NodeInfo nodeInfo,
@@ -172,7 +169,6 @@ public class ConnectorManager
         this.accessControlManager = accessControlManager;
         this.indexManager = indexManager;
         this.nodePartitioningManager = nodePartitioningManager;
-        this.pageSinkManager = pageSinkManager;
         this.handleResolver = handleResolver;
         this.nodeManager = nodeManager;
         this.pageSorter = pageSorter;
@@ -318,9 +314,6 @@ public class ConnectorManager
         checkState(!connectors.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
         connectors.put(catalogName, connector);
 
-        connector.getPageSinkProvider()
-                .ifPresent(pageSinkProvider -> pageSinkManager.addConnectorPageSinkProvider(catalogName, pageSinkProvider));
-
         connector.getIndexProvider()
                 .ifPresent(indexProvider -> indexManager.addIndexProvider(catalogName, indexProvider));
 
@@ -348,7 +341,6 @@ public class ConnectorManager
 
     private synchronized void removeConnectorInternal(CatalogName catalogName)
     {
-        pageSinkManager.removeConnectorPageSinkProvider(catalogName);
         indexManager.removeIndexProvider(catalogName);
         nodePartitioningManager.removePartitioningProvider(catalogName);
         procedureRegistry.removeProcedures(catalogName);

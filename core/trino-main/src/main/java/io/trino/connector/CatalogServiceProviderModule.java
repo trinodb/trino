@@ -16,6 +16,7 @@ package io.trino.connector;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
@@ -39,5 +40,12 @@ public class CatalogServiceProviderModule
     public static CatalogServiceProvider<ConnectorPageSourceProvider> createPageSourceProvider(ConnectorServicesProvider connectorServicesProvider)
     {
         return new ConnectorCatalogServiceProvider<>("page source provider", connectorServicesProvider, connector -> connector.getPageSourceProvider().orElse(null));
+    }
+
+    @Provides
+    @Singleton
+    public static CatalogServiceProvider<ConnectorPageSinkProvider> createPageSinkProvider(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new ConnectorCatalogServiceProvider<>("page sink provider", connectorServicesProvider, connector -> connector.getPageSinkProvider().orElse(null));
     }
 }
