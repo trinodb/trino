@@ -138,7 +138,7 @@ public interface SystemSecurityMetadata
     /**
      * Get the identity to run the view as
      */
-    Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName viewName);
+    Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName viewName, Optional<String> owner);
 
     /**
      * Set the owner of the specified view

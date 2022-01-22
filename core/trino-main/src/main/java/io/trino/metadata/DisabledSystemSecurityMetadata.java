@@ -162,7 +162,7 @@ public class DisabledSystemSecurityMetadata
     }
 
     @Override
-    public Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName view)
+    public Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName view, Optional<String> owner)
     {
         return Optional.empty();
     }

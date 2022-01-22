@@ -1188,8 +1188,9 @@ public final class MetadataManager
             return connectorView.map(view -> new ViewDefinition(viewName, view));
         }
 
-        Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName())
-                .or(() -> connectorView.get().getOwner().map(Identity::ofUser))
+        Optional<String> owner = connectorView.get().getOwner();
+        Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName(), owner)
+                .or(() -> owner.map(Identity::ofUser))
                 .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Catalog does not support run-as DEFINER views: " + viewName));
         return Optional.of(new ViewDefinition(viewName, connectorView.get(), runAsIdentity));
     }
@@ -1384,8 +1385,9 @@ public final class MetadataManager
             });
         }
 
-        Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName())
-                .or(() -> connectorView.get().getOwner().map(Identity::ofUser))
+        Optional<String> owner = connectorView.get().getOwner();
+        Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName(), owner)
+                .or(() -> owner.map(Identity::ofUser))
                 .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Materialized view does not have an owner: " + viewName));
         return Optional.of(new MaterializedViewDefinition(connectorView.get(), runAsIdentity));
     }

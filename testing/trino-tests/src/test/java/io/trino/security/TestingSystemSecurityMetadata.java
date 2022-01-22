@@ -226,7 +226,7 @@ class TestingSystemSecurityMetadata
     }
 
     @Override
-    public Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName viewName)
+    public Optional<Identity> getViewRunAsIdentity(Session session, CatalogSchemaTableName viewName, Optional<String> owner)
     {
         return Optional.empty();
     }
