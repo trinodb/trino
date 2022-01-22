@@ -259,7 +259,8 @@ public class TestClickHouseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         //NOT support engine
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'bad_engine')", "Unable to set table property 'engine' to.*");
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'bad_engine')",
+                "Unable to set catalog 'clickhouse' table property 'engine' to.*");
     }
 
     /**
@@ -318,15 +319,15 @@ public class TestClickHouseConnectorTest
 
         // Primary key must be a prefix of the sorting key,
         assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id'], sample_by = ARRAY['x', 'y'])",
-                "Invalid value for table property 'sample_by': .*");
+                "Invalid value for catalog 'clickhouse' table property 'sample_by': .*");
 
         // wrong property type
         assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL) WITH (engine = 'MergeTree', order_by = 'id')",
-                "Invalid value for table property 'order_by': .*");
+                "Invalid value for catalog 'clickhouse' table property 'order_by': .*");
         assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id'], primary_key = 'id')",
-                "Invalid value for table property 'primary_key': .*");
+                "Invalid value for catalog 'clickhouse' table property 'primary_key': .*");
         assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id'], primary_key = ARRAY['id'], partition_by = 'id')",
-                "Invalid value for table property 'partition_by': .*");
+                "Invalid value for catalog 'clickhouse' table property 'partition_by': .*");
     }
 
     @Test
@@ -365,7 +366,7 @@ public class TestClickHouseConnectorTest
                 "(p1 int NOT NULL, p2 int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['p1', 'p2'], primary_key = ARRAY['p1', 'p2'])")) {
             assertQueryFails(
                     "ALTER TABLE " + table.getName() + " SET PROPERTIES invalid_property = 'p2'",
-                    "Catalog 'clickhouse' does not support table property 'invalid_property'");
+                    "Catalog 'clickhouse' table property 'invalid_property' does not exist");
         }
     }
 

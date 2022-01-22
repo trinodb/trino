@@ -19,14 +19,20 @@ import io.trino.security.AccessControl;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Property;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static java.lang.String.format;
@@ -37,7 +43,7 @@ public class TableProceduresPropertyManager
 {
     public TableProceduresPropertyManager()
     {
-        super("procedure", INVALID_PROCEDURE_ARGUMENT);
+        super(INVALID_PROCEDURE_ARGUMENT);
     }
 
     public void addProperties(CatalogName catalogName, String procedureName, List<PropertyMetadata<?>> properties)
@@ -58,27 +64,26 @@ public class TableProceduresPropertyManager
     public Map<String, Object> getProperties(
             CatalogName catalog,
             String procedureName,
-            String catalogNameForDiagnostics,
             Map<String, Expression> sqlPropertyValues,
             Session session,
             PlannerContext plannerContext,
             AccessControl accessControl,
             Map<NodeRef<Parameter>, Expression> parameters)
     {
-        return doGetProperties(
+        Map<String, Optional<Object>> propertyValues = doGetNullableProperties(
                 new Key(catalog, procedureName),
-                catalogNameForDiagnostics,
-                sqlPropertyValues,
+                sqlPropertyValues.entrySet().stream()
+                        .map(entry -> new Property(new Identifier(entry.getKey()), entry.getValue()))
+                        .collect(toImmutableList()),
                 session,
                 plannerContext,
                 accessControl,
-                parameters);
-    }
-
-    @Override
-    protected String formatPropertiesKeyForMessage(String catalogName, Key propertiesKey)
-    {
-        return format("Catalog %s table procedure %s", catalogName, propertiesKey.procedureName);
+                parameters,
+                true,
+                format("catalog '%s' table procedure '%s' property", catalog, procedureName));
+        return propertyValues.entrySet().stream()
+                .filter(entry -> entry.getValue().isPresent())
+                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().orElseThrow()));
     }
 
     static final class Key

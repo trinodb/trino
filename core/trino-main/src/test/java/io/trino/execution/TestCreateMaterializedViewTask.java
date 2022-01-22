@@ -192,7 +192,7 @@ public class TestCreateMaterializedViewTask
         assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager, new FeaturesConfig())
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .hasErrorCode(INVALID_MATERIALIZED_VIEW_PROPERTY)
-                .hasMessage("Catalog 'catalog' does not support materialized view property 'baz'");
+                .hasMessage("Catalog 'catalog' materialized view property 'baz' does not exist");
 
         assertEquals(metadata.getCreateMaterializedViewCallCount(), 0);
     }

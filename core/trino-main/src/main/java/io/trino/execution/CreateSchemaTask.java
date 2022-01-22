@@ -103,12 +103,12 @@ public class CreateSchemaTask
 
         Map<String, Object> properties = schemaPropertyManager.getProperties(
                 catalogName,
-                schema.getCatalogName(),
                 statement.getProperties(),
                 session,
                 plannerContext,
                 accessControl,
-                parameterExtractor(statement, parameters));
+                parameterExtractor(statement, parameters),
+                true);
 
         TrinoPrincipal principal = getCreatePrincipal(statement, session, plannerContext.getMetadata(), catalogName.getCatalogName());
         try {

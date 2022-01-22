@@ -104,12 +104,12 @@ public class CreateMaterializedViewTask
 
         Map<String, Object> properties = materializedViewPropertyManager.getProperties(
                 catalogName,
-                name.getCatalogName(),
                 statement.getProperties(),
                 session,
                 plannerContext,
                 accessControl,
-                parameterLookup);
+                parameterLookup,
+                true);
 
         MaterializedViewDefinition definition = new MaterializedViewDefinition(
                 sql,
