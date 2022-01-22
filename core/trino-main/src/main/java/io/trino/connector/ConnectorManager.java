@@ -28,17 +28,17 @@ import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.CatalogMetadata.SecurityManagement;
+import io.trino.metadata.CatalogProcedures;
+import io.trino.metadata.CatalogTableProcedures;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableProceduresPropertyManager;
-import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControlManager;
 import io.trino.server.PluginClassLoader;
@@ -111,8 +111,6 @@ public class ConnectorManager
     private final TransactionManager transactionManager;
     private final EventListenerManager eventListenerManager;
     private final TypeManager typeManager;
-    private final ProcedureRegistry procedureRegistry;
-    private final TableProceduresRegistry tableProceduresRegistry;
     private final TableFunctionRegistry tableFunctionRegistry;
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
@@ -146,8 +144,6 @@ public class ConnectorManager
             TransactionManager transactionManager,
             EventListenerManager eventListenerManager,
             TypeManager typeManager,
-            ProcedureRegistry procedureRegistry,
-            TableProceduresRegistry tableProceduresRegistry,
             TableFunctionRegistry tableFunctionRegistry,
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
@@ -170,8 +166,6 @@ public class ConnectorManager
         this.transactionManager = transactionManager;
         this.eventListenerManager = eventListenerManager;
         this.typeManager = typeManager;
-        this.procedureRegistry = procedureRegistry;
-        this.tableProceduresRegistry = tableProceduresRegistry;
         this.tableFunctionRegistry = tableFunctionRegistry;
         this.sessionPropertyManager = sessionPropertyManager;
         this.schemaPropertyManager = schemaPropertyManager;
@@ -306,9 +300,6 @@ public class ConnectorManager
         checkState(!connectors.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
         connectors.put(catalogName, connector);
 
-        procedureRegistry.addProcedures(catalogName, connector.getProcedures());
-        Set<TableProcedureMetadata> tableProcedures = connector.getTableProcedures();
-        tableProceduresRegistry.addTableProcedures(catalogName, tableProcedures);
         tableFunctionRegistry.addTableFunctions(catalogName, connector.getTableFunctions());
 
         connector.getAccessControl()
@@ -319,7 +310,7 @@ public class ConnectorManager
         columnPropertyManager.addProperties(catalogName, connector.getColumnProperties());
         schemaPropertyManager.addProperties(catalogName, connector.getSchemaProperties());
         analyzePropertyManager.addProperties(catalogName, connector.getAnalyzeProperties());
-        for (TableProcedureMetadata tableProcedure : tableProcedures) {
+        for (TableProcedureMetadata tableProcedure : connector.getTableProcedures().getTableProcedures()) {
             tableProceduresPropertyManager.addProperties(catalogName, tableProcedure.getName(), tableProcedure.getProperties());
         }
         sessionPropertyManager.addConnectorSessionProperties(catalogName, connector.getSessionProperties());
@@ -327,8 +318,6 @@ public class ConnectorManager
 
     private synchronized void removeConnectorInternal(CatalogName catalogName)
     {
-        procedureRegistry.removeProcedures(catalogName);
-        tableProceduresRegistry.removeProcedures(catalogName);
         tableFunctionRegistry.removeTableFunctions(catalogName);
         accessControlManager.removeCatalogAccessControl(catalogName);
         tablePropertyManager.removeProperties(catalogName);
@@ -454,8 +443,8 @@ public class ConnectorManager
         private final Connector connector;
         private final Runnable afterShutdown;
         private final Set<SystemTable> systemTables;
-        private final Set<Procedure> procedures;
-        private final Set<TableProcedureMetadata> tableProcedures;
+        private final CatalogProcedures procedures;
+        private final CatalogTableProcedures tableProcedures;
         private final Set<ConnectorTableFunction> connectorTableFunctions;
         private final Optional<ConnectorSplitManager> splitManager;
         private final Optional<ConnectorPageSourceProvider> pageSourceProvider;
@@ -484,11 +473,11 @@ public class ConnectorManager
 
             Set<Procedure> procedures = connector.getProcedures();
             requireNonNull(procedures, format("Connector '%s' returned a null procedures set", catalogName));
-            this.procedures = ImmutableSet.copyOf(procedures);
+            this.procedures = new CatalogProcedures(procedures);
 
             Set<TableProcedureMetadata> tableProcedures = connector.getTableProcedures();
             requireNonNull(tableProcedures, format("Connector '%s' returned a null table procedures set", catalogName));
-            this.tableProcedures = ImmutableSet.copyOf(tableProcedures);
+            this.tableProcedures = new CatalogTableProcedures(tableProcedures);
 
             Set<ConnectorTableFunction> connectorTableFunctions = connector.getTableFunctions();
             requireNonNull(connectorTableFunctions, format("Connector '%s' returned a null table functions set", catalogName));
@@ -603,12 +592,12 @@ public class ConnectorManager
             return systemTables;
         }
 
-        public Set<Procedure> getProcedures()
+        public CatalogProcedures getProcedures()
         {
             return procedures;
         }
 
-        public Set<TableProcedureMetadata> getTableProcedures()
+        public CatalogTableProcedures getTableProcedures()
         {
             return tableProcedures;
         }

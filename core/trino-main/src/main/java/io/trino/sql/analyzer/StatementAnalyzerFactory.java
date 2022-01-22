@@ -15,6 +15,7 @@ package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.SessionPropertyManager;
@@ -127,7 +128,7 @@ public class StatementAnalyzerFactory
                 accessControl,
                 new NoOpTransactionManager(),
                 user -> ImmutableSet.of(),
-                new TableProceduresRegistry(),
+                new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")),
                 new TableFunctionRegistry(),
                 new SessionPropertyManager(),
                 tablePropertyManager,

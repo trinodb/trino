@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
@@ -99,7 +100,7 @@ public class RemoveUnsupportedDynamicFilters
                         new AllowAllAccessControl(),
                         new NoOpTransactionManager(),
                         user -> ImmutableSet.of(),
-                        new TableProceduresRegistry(),
+                        new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")),
                         new TableFunctionRegistry(),
                         new SessionPropertyManager(),
                         new TablePropertyManager(),
