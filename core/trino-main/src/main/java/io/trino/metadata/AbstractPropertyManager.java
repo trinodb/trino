@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -31,10 +32,12 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Property;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -204,9 +207,11 @@ abstract class AbstractPropertyManager<K>
         return propertiesBuilder.build();
     }
 
-    protected final Map<K, Map<String, PropertyMetadata<?>>> doGetAllProperties()
+    protected final Collection<PropertyMetadata<?>> doGetAllProperties(K key)
     {
-        return ImmutableMap.copyOf(connectorProperties);
+        return Optional.ofNullable(connectorProperties.get(key))
+                .map(Map::values)
+                .orElse(ImmutableList.of());
     }
 
     /**
