@@ -16,8 +16,10 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.CatalogProcedures;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ProcedureRegistry;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
@@ -148,9 +150,8 @@ public class TestCallTask
 
     private static ProcedureRegistry createProcedureRegistry(Procedure procedure)
     {
-        ProcedureRegistry procedureRegistry = new ProcedureRegistry();
-        procedureRegistry.addProcedures(new CatalogName("test"), ImmutableList.of(procedure));
-        return procedureRegistry;
+        CatalogName catalogName = new CatalogName("test");
+        return new ProcedureRegistry(CatalogServiceProvider.singleton(catalogName, new CatalogProcedures(ImmutableList.of(procedure))));
     }
 
     private QueryStateMachine stateMachine(TransactionManager transactionManager, Metadata metadata, AccessControl accessControl)
