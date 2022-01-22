@@ -50,6 +50,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.session.PropertyMetadata;
 
 import java.util.List;
 import java.util.Map;
@@ -94,6 +95,8 @@ public class MockConnectorFactory
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Set<Procedure> procedures;
     private final boolean allowMissingColumnsOnInsert;
+    private final Supplier<List<PropertyMetadata<?>>> schemaProperties;
+    private final Supplier<List<PropertyMetadata<?>>> tableProperties;
 
     // access control
     private final ListRoleGrants roleGrants;
@@ -123,6 +126,8 @@ public class MockConnectorFactory
             Supplier<Iterable<EventListener>> eventListeners,
             Function<SchemaTableName, List<List<?>>> data,
             Set<Procedure> procedures,
+            Supplier<List<PropertyMetadata<?>>> schemaProperties,
+            Supplier<List<PropertyMetadata<?>>> tableProperties,
             ListRoleGrants roleGrants,
             Optional<ConnectorAccessControl> accessControl,
             boolean allowMissingColumnsOnInsert)
@@ -148,6 +153,8 @@ public class MockConnectorFactory
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
         this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
+        this.schemaProperties = requireNonNull(schemaProperties, "schemaProperties is null");
+        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
@@ -195,7 +202,9 @@ public class MockConnectorFactory
                 accessControl,
                 data,
                 procedures,
-                allowMissingColumnsOnInsert);
+                allowMissingColumnsOnInsert,
+                schemaProperties,
+                tableProperties);
     }
 
     public static Builder builder()
@@ -291,6 +300,8 @@ public class MockConnectorFactory
         private BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable = (session, tableName) -> Optional.empty();
         private Function<SchemaTableName, List<List<?>>> data = schemaTableName -> ImmutableList.of();
         private Set<Procedure> procedures = ImmutableSet.of();
+        private Supplier<List<PropertyMetadata<?>>> schemaProperties = ImmutableList::of;
+        private Supplier<List<PropertyMetadata<?>>> tableProperties = ImmutableList::of;
 
         // access control
         private boolean provideAccessControl;
@@ -445,8 +456,19 @@ public class MockConnectorFactory
 
         public Builder withProcedures(Set<Procedure> procedures)
         {
-            provideAccessControl = true;
             this.procedures = procedures;
+            return this;
+        }
+
+        public Builder withSchemaProperties(Supplier<List<PropertyMetadata<?>>> schemaProperties)
+        {
+            this.schemaProperties = requireNonNull(schemaProperties, "schemaProperties is null");
+            return this;
+        }
+
+        public Builder withTableProperties(Supplier<List<PropertyMetadata<?>>> tableProperties)
+        {
+            this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
             return this;
         }
 
@@ -521,6 +543,8 @@ public class MockConnectorFactory
                     eventListeners,
                     data,
                     procedures,
+                    schemaProperties,
+                    tableProperties,
                     roleGrants,
                     accessControl,
                     allowMissingColumnsOnInsert);

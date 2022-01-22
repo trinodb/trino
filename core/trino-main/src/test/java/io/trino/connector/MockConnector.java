@@ -68,6 +68,7 @@ import io.trino.spi.procedure.Procedure;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.spi.type.Type;
@@ -124,6 +125,8 @@ public class MockConnector
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Set<Procedure> procedures;
     private final boolean allowMissingColumnsOnInsert;
+    private final Supplier<List<PropertyMetadata<?>>> schemaProperties;
+    private final Supplier<List<PropertyMetadata<?>>> tableProperties;
 
     MockConnector(
             Function<ConnectorSession, List<String>> listSchemaNames,
@@ -150,7 +153,9 @@ public class MockConnector
             Optional<ConnectorAccessControl> accessControl,
             Function<SchemaTableName, List<List<?>>> data,
             Set<Procedure> procedures,
-            boolean allowMissingColumnsOnInsert)
+            boolean allowMissingColumnsOnInsert,
+            Supplier<List<PropertyMetadata<?>>> schemaProperties,
+            Supplier<List<PropertyMetadata<?>>> tableProperties)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -177,6 +182,8 @@ public class MockConnector
         this.data = requireNonNull(data, "data is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
         this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
+        this.schemaProperties = requireNonNull(schemaProperties, "schemaProperties is null");
+        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
     }
 
     @Override
@@ -232,6 +239,18 @@ public class MockConnector
     public Set<Procedure> getProcedures()
     {
         return procedures;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSchemaProperties()
+    {
+        return schemaProperties.get();
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getTableProperties()
+    {
+        return tableProperties.get();
     }
 
     private class MockConnectorMetadata

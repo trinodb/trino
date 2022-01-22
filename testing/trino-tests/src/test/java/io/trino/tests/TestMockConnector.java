@@ -26,6 +26,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -35,6 +36,8 @@ import java.util.Optional;
 
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -60,7 +63,12 @@ public class TestMockConnector
                                     }
                                     return ImmutableList.of(new ColumnMetadata("nationkey", BIGINT));
                                 })
-                                .withGetTableHandle((session, tableName) -> new MockConnectorTableHandle(tableName))
+                                .withGetTableHandle((session, tableName) -> {
+                                    if (tableName.equals(new SchemaTableName("default", "new_table"))) {
+                                        return null;
+                                    }
+                                    return new MockConnectorTableHandle(tableName);
+                                })
                                 .withGetMaterializedViews((session, schemaTablePrefix) -> ImmutableMap.of(
                                         new SchemaTableName("default", "test_materialized_view"),
                                         new ConnectorMaterializedViewDefinition(
@@ -79,6 +87,12 @@ public class TestMockConnector
                                     throw new UnsupportedOperationException();
                                 })
                                 .withProcedures(ImmutableSet.of(new TestProcedure().get()))
+                                .withSchemaProperties(() -> ImmutableList.<PropertyMetadata<?>>builder()
+                                        .add(booleanProperty("boolean_schema_property", "description", false, false))
+                                        .build())
+                                .withTableProperties(() -> ImmutableList.<PropertyMetadata<?>>builder()
+                                        .add(integerProperty("integer_table_property", "description", 0, false))
+                                        .build())
                                 .build()));
         queryRunner.createCatalog("mock", "mock");
         return queryRunner;
@@ -179,5 +193,21 @@ public class TestMockConnector
         assertUpdate("CALL mock.default.test_procedure()");
         assertThatThrownBy(() -> assertUpdate("CALL mock.default.non_exist_procedure()"))
                 .hasMessage("Procedure not registered: default.non_exist_procedure");
+    }
+
+    @Test
+    public void testSchemaProperties()
+    {
+        assertUpdate("CREATE SCHEMA mock.test_schema WITH (boolean_schema_property = true)");
+        assertThatThrownBy(() -> assertUpdate("CREATE SCHEMA mock.test_schema WITH (unknown_property = true)"))
+                .hasMessage("Catalog 'mock' does not support schema property 'unknown_property'");
+    }
+
+    @Test
+    public void testTableProperties()
+    {
+        assertUpdate("CREATE TABLE mock.default.new_table (c int) WITH (integer_table_property = 1)");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE mock.default.new_table (c int) WITH (unknown_property = 1)"))
+                .hasMessage("Catalog 'mock' does not support table property 'unknown_property'");
     }
 }
