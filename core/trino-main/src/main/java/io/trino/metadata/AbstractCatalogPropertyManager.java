@@ -13,10 +13,13 @@
  */
 package io.trino.metadata;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Maps;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCodeSupplier;
+import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
@@ -29,29 +32,41 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.metadata.PropertyUtil.evaluateProperties;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 abstract class AbstractCatalogPropertyManager
-        extends AbstractPropertyManager<CatalogName>
 {
+    private final ConcurrentMap<CatalogName, Map<String, PropertyMetadata<?>>> connectorProperties = new ConcurrentHashMap<>();
     private final String propertyType;
+    private final ErrorCodeSupplier propertyError;
 
     protected AbstractCatalogPropertyManager(String propertyType, ErrorCodeSupplier propertyError)
     {
-        super(propertyError);
         this.propertyType = propertyType;
+        this.propertyError = requireNonNull(propertyError, "propertyError is null");
     }
 
     public void addProperties(CatalogName catalogName, List<PropertyMetadata<?>> properties)
     {
-        doAddProperties(catalogName, properties);
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(properties, "properties is null");
+
+        Map<String, PropertyMetadata<?>> propertiesByName = Maps.uniqueIndex(properties, PropertyMetadata::getName);
+
+        checkState(connectorProperties.putIfAbsent(catalogName, propertiesByName) == null, "Properties for key %s are already registered", catalogName);
     }
 
     public void removeProperties(CatalogName catalogName)
     {
-        doRemoveProperties(catalogName);
+        connectorProperties.remove(catalogName);
     }
 
     public Map<String, Object> getProperties(
@@ -85,19 +100,27 @@ abstract class AbstractCatalogPropertyManager
             Map<NodeRef<Parameter>, Expression> parameters,
             boolean includeAllProperties)
     {
-        return doGetNullableProperties(
-                catalog,
+        Map<String, PropertyMetadata<?>> propertyMetadata = connectorProperties.get(catalog);
+        if (propertyMetadata == null) {
+            throw new TrinoException(NOT_FOUND, format("Catalog '%s' %s property not found", catalog, propertyType));
+        }
+
+        return evaluateProperties(
                 properties,
                 session,
                 plannerContext,
                 accessControl,
                 parameters,
                 includeAllProperties,
+                propertyMetadata,
+                propertyError,
                 format("catalog '%s' %s property", catalog, propertyType));
     }
 
     public Collection<PropertyMetadata<?>> getAllProperties(CatalogName catalogName)
     {
-        return doGetAllProperties(catalogName);
+        return Optional.ofNullable(connectorProperties.get(catalogName))
+                .map(Map::values)
+                .orElse(ImmutableList.of());
     }
 }

@@ -13,9 +13,11 @@
  */
 package io.trino.metadata;
 
+import com.google.common.collect.Maps;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.security.AccessControl;
+import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;
@@ -30,25 +32,33 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.metadata.PropertyUtil.evaluateProperties;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class TableProceduresPropertyManager
-        extends AbstractPropertyManager<TableProceduresPropertyManager.Key>
 {
-    public TableProceduresPropertyManager()
-    {
-        super(INVALID_PROCEDURE_ARGUMENT);
-    }
+    private final ConcurrentMap<Key, Map<String, PropertyMetadata<?>>> connectorProperties = new ConcurrentHashMap<>();
 
     public void addProperties(CatalogName catalogName, String procedureName, List<PropertyMetadata<?>> properties)
     {
-        doAddProperties(new Key(catalogName, procedureName), properties);
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(procedureName, "procedureName is null");
+        requireNonNull(catalogName, "catalogName is null");
+
+        Map<String, PropertyMetadata<?>> propertiesByName = Maps.uniqueIndex(properties, PropertyMetadata::getName);
+
+        Key propertiesKey = new Key(catalogName, procedureName);
+        checkState(connectorProperties.putIfAbsent(propertiesKey, propertiesByName) == null, "Properties for key %s are already registered", propertiesKey);
     }
 
     public void removeProperties(CatalogName catalogName)
@@ -57,7 +67,7 @@ public class TableProceduresPropertyManager
                 .filter(key -> catalogName.equals(key.getCatalogName()))
                 .collect(toImmutableSet());
         for (Key key : keysToRemove) {
-            doRemoveProperties(key);
+            connectorProperties.remove(key);
         }
     }
 
@@ -70,8 +80,12 @@ public class TableProceduresPropertyManager
             AccessControl accessControl,
             Map<NodeRef<Parameter>, Expression> parameters)
     {
-        Map<String, Optional<Object>> propertyValues = doGetNullableProperties(
-                new Key(catalog, procedureName),
+        Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(new Key(catalog, procedureName));
+        if (supportedProperties == null) {
+            throw new TrinoException(NOT_FOUND, format("Catalog '%s' table procedure '%s' property not found", catalog, procedureName));
+        }
+
+        Map<String, Optional<Object>> propertyValues = evaluateProperties(
                 sqlPropertyValues.entrySet().stream()
                         .map(entry -> new Property(new Identifier(entry.getKey()), entry.getValue()))
                         .collect(toImmutableList()),
@@ -80,6 +94,8 @@ public class TableProceduresPropertyManager
                 accessControl,
                 parameters,
                 true,
+                supportedProperties,
+                INVALID_PROCEDURE_ARGUMENT,
                 format("catalog '%s' table procedure '%s' property", catalog, procedureName));
         return propertyValues.entrySet().stream()
                 .filter(entry -> entry.getValue().isPresent())
