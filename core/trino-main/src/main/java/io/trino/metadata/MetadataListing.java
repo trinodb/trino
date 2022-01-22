@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableColumnsMetadata;
@@ -158,6 +159,17 @@ public final class MetadataListing
         return materializedViews.entrySet().stream()
                 .filter(entry -> accessible.contains(entry.getKey()))
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+    }
+
+    public static Set<SchemaTableName> listStorageTab(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    {
+        Set<SchemaTableName> storageTables = metadata.getMaterializedViews(session, prefix).values().stream()
+                .map(ViewInfo::getStorageTable)
+                .map(Optional<CatalogSchemaTableName>::get)
+                .map(CatalogSchemaTableName::getSchemaTableName)
+                .collect(toImmutableSet());
+
+        return accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), storageTables);
     }
 
     public static Set<GrantInfo> listTablePrivileges(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)

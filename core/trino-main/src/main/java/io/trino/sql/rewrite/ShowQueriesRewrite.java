@@ -54,6 +54,7 @@ import io.trino.sql.tree.ArrayConstructor;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.ColumnDefinition;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
@@ -143,6 +144,7 @@ import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static io.trino.sql.tree.CreateView.Security.DEFINER;
 import static io.trino.sql.tree.CreateView.Security.INVOKER;
 import static io.trino.sql.tree.LogicalExpression.and;
@@ -275,7 +277,9 @@ public final class ShowQueriesRewrite
             }
 
             Expression predicate = equal(identifier("table_schema"), new StringLiteral(schema.getSchemaName()));
-
+            Expression predicateNot = new ComparisonExpression(NOT_EQUAL,
+                    identifier("table_type"), new StringLiteral("STORAGE TABLE"));
+            predicate = logicalAnd(predicate, predicateNot);
             Optional<String> likePattern = showTables.getLikePattern();
             if (likePattern.isPresent()) {
                 Expression likePredicate = new LikePredicate(
