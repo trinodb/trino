@@ -207,7 +207,7 @@ public class TestMockConnector
     {
         assertUpdate("CREATE SCHEMA mock.test_schema WITH (boolean_schema_property = true)");
         assertThatThrownBy(() -> assertUpdate("CREATE SCHEMA mock.test_schema WITH (unknown_property = true)"))
-                .hasMessage("Catalog 'mock' does not support schema property 'unknown_property'");
+                .hasMessage("Catalog 'mock' schema property 'unknown_property' does not exist");
     }
 
     @Test
@@ -215,6 +215,6 @@ public class TestMockConnector
     {
         assertUpdate("CREATE TABLE mock.default.new_table (c int) WITH (integer_table_property = 1)");
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE mock.default.new_table (c int) WITH (unknown_property = 1)"))
-                .hasMessage("Catalog 'mock' does not support table property 'unknown_property'");
+                .hasMessage("Catalog 'mock' table property 'unknown_property' does not exist");
     }
 }
