@@ -88,7 +88,6 @@ import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.MetadataUtil;
-import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.SchemaPropertyManager;
@@ -219,10 +218,11 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.connector.CatalogServiceProviderModule.createIndexProvider;
+import static io.trino.connector.CatalogServiceProviderModule.createNodePartitioningProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createPageSinkProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createPageSourceProvider;
-import static io.trino.connector.CatalogServiceProviderModule.createNodePartitioningProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createSplitManagerProvider;
+import static io.trino.connector.CatalogServiceProviderModule.createTableProceduresProvider;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
@@ -378,7 +378,6 @@ public class LocalQueryRunner
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
-        TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry();
         this.sessionPropertyManager = createSessionPropertyManager(extraSessionProperties, taskManagerConfig, featuresConfig, optimizerConfig);
         this.schemaPropertyManager = new SchemaPropertyManager();
         this.columnPropertyManager = new ColumnPropertyManager();
@@ -386,25 +385,6 @@ public class LocalQueryRunner
         this.materializedViewPropertyManager = new MaterializedViewPropertyManager();
         this.analyzePropertyManager = new AnalyzePropertyManager();
         TableProceduresPropertyManager tableProceduresPropertyManager = new TableProceduresPropertyManager();
-
-        this.statementAnalyzerFactory = new StatementAnalyzerFactory(
-                plannerContext,
-                sqlParser,
-                accessControl,
-                transactionManager,
-                groupProvider,
-                tableProceduresRegistry,
-                new TableFunctionRegistry(),
-                sessionPropertyManager,
-                tablePropertyManager,
-                analyzePropertyManager,
-                tableProceduresPropertyManager);
-        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(plannerContext, statementAnalyzerFactory);
-        this.statsCalculator = createNewStatsCalculator(plannerContext, typeAnalyzer);
-        this.scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, typeAnalyzer);
-        this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
-        this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
-        this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
 
         this.pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
         this.expressionCompiler = new ExpressionCompiler(functionManager, pageFunctionCompiler);
@@ -426,8 +406,6 @@ public class LocalQueryRunner
                 transactionManager,
                 eventListenerManager,
                 typeManager,
-                new ProcedureRegistry(),
-                tableProceduresRegistry,
                 new TableFunctionRegistry(),
                 sessionPropertyManager,
                 schemaPropertyManager,
@@ -443,6 +421,26 @@ public class LocalQueryRunner
         this.indexManager = new IndexManager(createIndexProvider(connectorManager));
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators, createNodePartitioningProvider(connectorManager));
+        TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(connectorManager));
+
+        this.statementAnalyzerFactory = new StatementAnalyzerFactory(
+                plannerContext,
+                sqlParser,
+                accessControl,
+                transactionManager,
+                groupProvider,
+                tableProceduresRegistry,
+                new TableFunctionRegistry(),
+                sessionPropertyManager,
+                tablePropertyManager,
+                analyzePropertyManager,
+                tableProceduresPropertyManager);
+        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(plannerContext, statementAnalyzerFactory);
+        this.statsCalculator = createNewStatsCalculator(plannerContext, typeAnalyzer);
+        this.scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, typeAnalyzer);
+        this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
+        this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
+        this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
 
         this.planFragmenter = new PlanFragmenter(metadata, functionManager, nodePartitioningManager, new QueryManagerConfig());
 

@@ -16,6 +16,9 @@ package io.trino.connector;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import io.trino.connector.ConnectorManager.ConnectorServices;
+import io.trino.metadata.CatalogProcedures;
+import io.trino.metadata.CatalogTableProcedures;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -63,5 +66,19 @@ public class CatalogServiceProviderModule
     public static CatalogServiceProvider<ConnectorNodePartitioningProvider> createNodePartitioningProvider(ConnectorServicesProvider connectorServicesProvider)
     {
         return new ConnectorCatalogServiceProvider<>("node partitioning provider", connectorServicesProvider, connector -> connector.getPartitioningProvider().orElse(null));
+    }
+
+    @Provides
+    @Singleton
+    public static CatalogServiceProvider<CatalogProcedures> createProceduresProvider(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new ConnectorCatalogServiceProvider<>("procedures", connectorServicesProvider, ConnectorServices::getProcedures);
+    }
+
+    @Provides
+    @Singleton
+    public static CatalogServiceProvider<CatalogTableProcedures> createTableProceduresProvider(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new ConnectorCatalogServiceProvider<>("table procedures", connectorServicesProvider, ConnectorServices::getTableProcedures);
     }
 }

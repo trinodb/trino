@@ -7979,7 +7979,7 @@ public abstract class BaseHiveConnectorTest
         assertThat(getTableFiles(tableName)).hasSameElementsAs(compactedFiles);
 
         // optimize with delimited procedure name
-        assertQueryFails(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Procedure optimize not registered for catalog hive");
+        assertQueryFails(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"optimize\"", "Table procedure not registered: optimize");
         assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\"");
         // optimize with delimited parameter name (and procedure name)
         assertUpdate(optimizeEnabledSession, "ALTER TABLE " + tableName + " EXECUTE \"OPTIMIZE\" (\"file_size_threshold\" => '10B')"); // TODO (https://github.com/trinodb/trino/issues/11326) this should fail
