@@ -75,11 +75,6 @@ public class TableProceduresPropertyManager
                 parameters);
     }
 
-    public Map<Key, Map<String, PropertyMetadata<?>>> getAllProperties()
-    {
-        return doGetAllProperties();
-    }
-
     @Override
     protected String formatPropertiesKeyForMessage(String catalogName, Key propertiesKey)
     {
