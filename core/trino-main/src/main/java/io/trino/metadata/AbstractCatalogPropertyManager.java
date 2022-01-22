@@ -24,6 +24,7 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Property;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -98,9 +99,9 @@ abstract class AbstractCatalogPropertyManager
                 parameters);
     }
 
-    public Map<CatalogName, Map<String, PropertyMetadata<?>>> getAllProperties()
+    public Collection<PropertyMetadata<?>> getAllProperties(CatalogName catalogName)
     {
-        return doGetAllProperties();
+        return doGetAllProperties(catalogName);
     }
 
     @Override
