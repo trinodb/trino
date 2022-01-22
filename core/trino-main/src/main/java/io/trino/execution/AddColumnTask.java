@@ -118,12 +118,12 @@ public class AddColumnTask
         }
         Map<String, Object> columnProperties = columnPropertyManager.getProperties(
                 catalogName,
-                tableName.getCatalogName(),
                 element.getProperties(),
                 session,
                 plannerContext,
                 accessControl,
-                parameterExtractor(statement, parameters));
+                parameterExtractor(statement, parameters),
+                true);
 
         ColumnMetadata column = ColumnMetadata.builder()
                 .setName(element.getName().getValue())

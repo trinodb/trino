@@ -27,13 +27,21 @@ import io.trino.sql.tree.Property;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
+
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 
 abstract class AbstractCatalogPropertyManager
         extends AbstractPropertyManager<CatalogName>
 {
+    private final String propertyType;
+
     protected AbstractCatalogPropertyManager(String propertyType, ErrorCodeSupplier propertyError)
     {
-        super(propertyType, propertyError);
+        super(propertyError);
+        this.propertyType = propertyType;
     }
 
     public void addProperties(CatalogName catalogName, List<PropertyMetadata<?>> properties)
@@ -46,67 +54,50 @@ abstract class AbstractCatalogPropertyManager
         doRemoveProperties(catalogName);
     }
 
-    /**
-     * Evaluate {@code properties}. The returned {@code Map&lt;String, Object&gt;} contains a supported property iff its value is
-     * (implicitly or explictly) set to a non-{@code null} value. Thus,
-     * <ul>
-     *     <li>If a property does not appear in the result, then its value is {@code null}</li>
-     *     <li>If a {@code Property} in {@code properties} is set to DEFAULT, then it will appear in the result iff the default value is not
-     *     {@code null}.</li>
-     *     <li>If a property does not appear in {@code properties} at all, then it will appear in the result iff its default value is not
-     *     {@code null}. (Thus, specifying a property to have the DEFAULT value is the same as not specifying it at all.)</li>
-     * </ul>
-     */
     public Map<String, Object> getProperties(
             CatalogName catalog,
-            String catalogNameForDiagnostics,
             Iterable<Property> properties,
             Session session,
             PlannerContext plannerContext,
             AccessControl accessControl,
-            Map<NodeRef<Parameter>, Expression> parameters)
+            Map<NodeRef<Parameter>, Expression> parameters,
+            boolean includeAllProperties)
     {
-        return doGetProperties(
+        Map<String, Optional<Object>> nullableValues = getNullableProperties(
                 catalog,
-                catalogNameForDiagnostics,
                 properties,
                 session,
                 plannerContext,
                 accessControl,
-                parameters);
+                parameters,
+                includeAllProperties);
+        return nullableValues.entrySet().stream()
+                .filter(entry -> entry.getValue().isPresent())
+                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().orElseThrow()));
     }
 
-    /**
-     * Evaluate {@code properties}. Unlike {@link #getProperties}, a property appears in the returned result iff it is specified in
-     * {@code properties}.
-     */
-    public Properties getOnlySpecifiedProperties(
+    public Map<String, Optional<Object>> getNullableProperties(
             CatalogName catalog,
-            String catalogNameForDiagnostics,
             Iterable<Property> properties,
             Session session,
             PlannerContext plannerContext,
             AccessControl accessControl,
-            Map<NodeRef<Parameter>, Expression> parameters)
+            Map<NodeRef<Parameter>, Expression> parameters,
+            boolean includeAllProperties)
     {
-        return doGetOnlySpecifiedProperties(
+        return doGetNullableProperties(
                 catalog,
-                catalogNameForDiagnostics,
                 properties,
                 session,
                 plannerContext,
                 accessControl,
-                parameters);
+                parameters,
+                includeAllProperties,
+                format("catalog '%s' %s property", catalog, propertyType));
     }
 
     public Collection<PropertyMetadata<?>> getAllProperties(CatalogName catalogName)
     {
         return doGetAllProperties(catalogName);
-    }
-
-    @Override
-    protected String formatPropertiesKeyForMessage(String catalogName, CatalogName ignored)
-    {
-        return "Catalog '" + catalogName + "'";
     }
 }

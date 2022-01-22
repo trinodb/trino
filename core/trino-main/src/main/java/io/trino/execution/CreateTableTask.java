@@ -164,12 +164,12 @@ public class CreateTableTask
                 }
                 Map<String, Object> columnProperties = columnPropertyManager.getProperties(
                         catalogName,
-                        tableName.getCatalogName(),
                         column.getProperties(),
                         session,
                         plannerContext,
                         accessControl,
-                        parameterLookup);
+                        parameterLookup,
+                        true);
 
                 columns.put(name, ColumnMetadata.builder()
                         .setName(name)
@@ -245,12 +245,12 @@ public class CreateTableTask
         }
         Map<String, Object> properties = tablePropertyManager.getProperties(
                 catalogName,
-                tableName.getCatalogName(),
                 statement.getProperties(),
                 session,
                 plannerContext,
                 accessControl,
-                parameterLookup);
+                parameterLookup,
+                true);
 
         if (!disableSetPropertiesSecurityCheckForCreateDdl) {
             accessControl.checkCanCreateTable(session.toSecurityContext(), tableName, properties);

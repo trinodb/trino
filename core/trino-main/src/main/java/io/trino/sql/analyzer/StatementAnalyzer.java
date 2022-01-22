@@ -753,12 +753,12 @@ class StatementAnalyzer
 
             Map<String, Object> analyzeProperties = analyzePropertyManager.getProperties(
                     catalogName,
-                    catalogName.getCatalogName(),
                     node.getProperties(),
                     session,
                     plannerContext,
                     accessControl,
-                    analysis.getParameters());
+                    analysis.getParameters(),
+                    true);
             TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
 
@@ -842,13 +842,12 @@ class StatementAnalyzer
 
             Map<String, Object> properties = tablePropertyManager.getProperties(
                     catalogName,
-                    targetTable.getCatalogName(),
                     node.getProperties(),
                     session,
                     plannerContext,
                     accessControl,
-                    analysis.getParameters());
-
+                    analysis.getParameters(),
+                    true);
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
 
             // analyze target table layout
@@ -1084,7 +1083,6 @@ class StatementAnalyzer
             Map<String, Object> tableProperties = tableProceduresPropertyManager.getProperties(
                     catalogName,
                     procedureName,
-                    catalogName.getCatalogName(),
                     propertiesMap,
                     session,
                     plannerContext,
