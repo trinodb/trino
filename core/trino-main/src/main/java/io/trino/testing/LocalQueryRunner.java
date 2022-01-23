@@ -24,7 +24,9 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProviderModule;
 import io.trino.connector.ConnectorManager;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.system.AnalyzePropertiesSystemTable;
 import io.trino.connector.system.CatalogSystemTable;
 import io.trino.connector.system.ColumnPropertiesSystemTable;
@@ -384,7 +386,6 @@ public class LocalQueryRunner
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
-        this.sessionPropertyManager = createSessionPropertyManager(extraSessionProperties, taskManagerConfig, featuresConfig, optimizerConfig);
         TableProceduresPropertyManager tableProceduresPropertyManager = new TableProceduresPropertyManager();
 
         this.pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
@@ -407,7 +408,6 @@ public class LocalQueryRunner
                 transactionManager,
                 eventListenerManager,
                 typeManager,
-                sessionPropertyManager,
                 tableProceduresPropertyManager,
                 nodeSchedulerConfig);
         this.splitManager = new SplitManager(createSplitManagerProvider(connectorManager), new QueryManagerConfig());
@@ -415,6 +415,7 @@ public class LocalQueryRunner
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(connectorManager));
         this.indexManager = new IndexManager(createIndexProvider(connectorManager));
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
+        this.sessionPropertyManager = createSessionPropertyManager(connectorManager, extraSessionProperties, taskManagerConfig, featuresConfig, optimizerConfig);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators, createNodePartitioningProvider(connectorManager));
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(connectorManager));
         TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(connectorManager));
@@ -513,6 +514,7 @@ public class LocalQueryRunner
     }
 
     private static SessionPropertyManager createSessionPropertyManager(
+            ConnectorServicesProvider connectorServicesProvider,
             Set<SystemSessionPropertiesProvider> extraSessionProperties,
             TaskManagerConfig taskManagerConfig,
             FeaturesConfig featuresConfig,
@@ -531,7 +533,7 @@ public class LocalQueryRunner
                         new NodeSchedulerConfig()))
                 .build();
 
-        return new SessionPropertyManager(systemSessionProperties);
+        return CatalogServiceProviderModule.createSessionPropertyManager(systemSessionProperties, connectorServicesProvider);
     }
 
     private static StatsCalculator createNewStatsCalculator(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)

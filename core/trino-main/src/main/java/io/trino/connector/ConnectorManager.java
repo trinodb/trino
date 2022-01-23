@@ -34,7 +34,6 @@ import io.trino.metadata.CatalogTableProcedures;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.security.AccessControlManager;
 import io.trino.server.PluginClassLoader;
@@ -110,7 +109,6 @@ public class ConnectorManager
     private final TransactionManager transactionManager;
     private final EventListenerManager eventListenerManager;
     private final TypeManager typeManager;
-    private final SessionPropertyManager sessionPropertyManager;
     private final TableProceduresPropertyManager tableProceduresPropertyManager;
 
     private final boolean schedulerIncludeCoordinator;
@@ -137,7 +135,6 @@ public class ConnectorManager
             TransactionManager transactionManager,
             EventListenerManager eventListenerManager,
             TypeManager typeManager,
-            SessionPropertyManager sessionPropertyManager,
             TableProceduresPropertyManager tableProceduresPropertyManager,
             NodeSchedulerConfig nodeSchedulerConfig)
     {
@@ -153,7 +150,6 @@ public class ConnectorManager
         this.transactionManager = transactionManager;
         this.eventListenerManager = eventListenerManager;
         this.typeManager = typeManager;
-        this.sessionPropertyManager = sessionPropertyManager;
         this.tableProceduresPropertyManager = tableProceduresPropertyManager;
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
     }
@@ -287,14 +283,12 @@ public class ConnectorManager
         for (TableProcedureMetadata tableProcedure : connector.getTableProcedures().getTableProcedures()) {
             tableProceduresPropertyManager.addProperties(catalogName, tableProcedure.getName(), tableProcedure.getProperties());
         }
-        sessionPropertyManager.addConnectorSessionProperties(catalogName, connector.getSessionProperties());
     }
 
     private synchronized void removeConnectorInternal(CatalogName catalogName)
     {
         accessControlManager.removeCatalogAccessControl(catalogName);
         tableProceduresPropertyManager.removeProperties(catalogName);
-        sessionPropertyManager.removeConnectorSessionProperties(catalogName);
 
         ConnectorServices connectorServices = connectors.remove(catalogName);
         if (connectorServices != null) {
@@ -421,7 +415,7 @@ public class ConnectorManager
         private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
         private final Optional<ConnectorAccessControl> accessControl;
         private final List<EventListener> eventListeners;
-        private final List<PropertyMetadata<?>> sessionProperties;
+        private final Map<String, PropertyMetadata<?>> sessionProperties;
         private final Map<String, PropertyMetadata<?>> tableProperties;
         private final Map<String, PropertyMetadata<?>> materializedViewProperties;
         private final Map<String, PropertyMetadata<?>> schemaProperties;
@@ -520,7 +514,7 @@ public class ConnectorManager
 
             List<PropertyMetadata<?>> sessionProperties = connector.getSessionProperties();
             requireNonNull(sessionProperties, format("Connector '%s' returned a null system properties set", catalogName));
-            this.sessionProperties = ImmutableList.copyOf(sessionProperties);
+            this.sessionProperties = Maps.uniqueIndex(sessionProperties, PropertyMetadata::getName);
 
             List<PropertyMetadata<?>> tableProperties = connector.getTableProperties();
             requireNonNull(tableProperties, format("Connector '%s' returned a null table properties set", catalogName));
@@ -617,7 +611,7 @@ public class ConnectorManager
             return eventListeners;
         }
 
-        public List<PropertyMetadata<?>> getSessionProperties()
+        public Map<String, PropertyMetadata<?>> getSessionProperties()
         {
             return sessionProperties;
         }
