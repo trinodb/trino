@@ -28,21 +28,28 @@ import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TablePropertyManager;
+import io.trino.security.AccessControlManager;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
+import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import java.util.Optional;
 import java.util.Set;
 
 public class CatalogServiceProviderModule
         implements Module
 {
     @Override
-    public void configure(Binder binder) {}
+    public void configure(Binder binder)
+    {
+        binder.bind(ConnectorAccessControlLazyRegister.class).asEagerSingleton();
+    }
 
     @Provides
     @Singleton
@@ -147,5 +154,23 @@ public class CatalogServiceProviderModule
     public static TableProceduresPropertyManager createTableProceduresPropertyManager(ConnectorServicesProvider connectorServicesProvider)
     {
         return new TableProceduresPropertyManager(new ConnectorCatalogServiceProvider<>("table procedures", connectorServicesProvider, ConnectorServices::getTableProcedures));
+    }
+
+    @Provides
+    @Singleton
+    public static CatalogServiceProvider<Optional<ConnectorAccessControl>> createAccessControlProvider(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new ConnectorCatalogServiceProvider<>("access control", connectorServicesProvider, ConnectorServices::getAccessControl);
+    }
+
+    private static class ConnectorAccessControlLazyRegister
+    {
+        @Inject
+        public ConnectorAccessControlLazyRegister(
+                AccessControlManager accessControl,
+                CatalogServiceProvider<Optional<ConnectorAccessControl>> connectorAccessControlProvider)
+        {
+            accessControl.setConnectorAccessControlProvider(connectorAccessControlProvider);
+        }
     }
 }

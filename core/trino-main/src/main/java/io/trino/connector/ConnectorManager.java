@@ -34,7 +34,7 @@ import io.trino.metadata.CatalogTableProcedures;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
-import io.trino.security.AccessControlManager;
+import io.trino.security.AccessControl;
 import io.trino.server.PluginClassLoader;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -97,7 +97,7 @@ public class ConnectorManager
 
     private final Metadata metadata;
     private final CatalogManager catalogManager;
-    private final AccessControlManager accessControlManager;
+    private final AccessControl accessControl;
 
     private final HandleResolver handleResolver;
     private final InternalNodeManager nodeManager;
@@ -123,7 +123,7 @@ public class ConnectorManager
     public ConnectorManager(
             Metadata metadata,
             CatalogManager catalogManager,
-            AccessControlManager accessControlManager,
+            AccessControl accessControl,
             HandleResolver handleResolver,
             InternalNodeManager nodeManager,
             NodeInfo nodeInfo,
@@ -137,7 +137,7 @@ public class ConnectorManager
     {
         this.metadata = metadata;
         this.catalogManager = catalogManager;
-        this.accessControlManager = accessControlManager;
+        this.accessControl = accessControl;
         this.handleResolver = handleResolver;
         this.nodeManager = nodeManager;
         this.pageSorter = pageSorter;
@@ -217,7 +217,7 @@ public class ConnectorManager
 
         ConnectorServices informationSchemaConnector = new ConnectorServices(
                 createInformationSchemaCatalogName(catalogName),
-                new InformationSchemaConnector(catalogName.getCatalogName(), nodeManager, metadata, accessControlManager),
+                new InformationSchemaConnector(catalogName.getCatalogName(), nodeManager, metadata, accessControl),
                 () -> {});
 
         CatalogName systemId = createSystemTablesCatalogName(catalogName);
@@ -272,15 +272,10 @@ public class ConnectorManager
         CatalogName catalogName = connector.getCatalogName();
         checkState(!connectors.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
         connectors.put(catalogName, connector);
-
-        connector.getAccessControl()
-                .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(catalogName, accessControl));
     }
 
     private synchronized void removeConnectorInternal(CatalogName catalogName)
     {
-        accessControlManager.removeCatalogAccessControl(catalogName);
-
         ConnectorServices connectorServices = connectors.remove(catalogName);
         if (connectorServices != null) {
             connectorServices.shutdown();
