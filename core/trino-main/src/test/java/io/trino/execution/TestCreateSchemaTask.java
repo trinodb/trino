@@ -14,7 +14,9 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.security.AllowAllAccessControl;
@@ -81,8 +83,7 @@ public class TestCreateSchemaTask
 
     private CreateSchemaTask getCreateSchemaTask()
     {
-        SchemaPropertyManager schemaPropertyManager = new SchemaPropertyManager();
-        schemaPropertyManager.addProperties(new CatalogName(CATALOG_NAME), ImmutableList.of());
+        SchemaPropertyManager schemaPropertyManager = new SchemaPropertyManager(CatalogServiceProvider.singleton(new CatalogName(CATALOG_NAME), ImmutableMap.of()));
         return new CreateSchemaTask(plannerContext, new AllowAllAccessControl(), schemaPropertyManager);
     }
 }
