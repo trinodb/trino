@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TablePropertyManager;
@@ -68,7 +69,7 @@ public class TestSetPropertiesTask
 
     private void executeSetProperties(SetProperties statement)
     {
-        new SetPropertiesTask(plannerContext, new AllowAllAccessControl(), new TablePropertyManager(), materializedViewPropertyManager)
+        new SetPropertiesTask(plannerContext, new AllowAllAccessControl(), new TablePropertyManager(CatalogServiceProvider.fail()), materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 }

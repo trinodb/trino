@@ -17,9 +17,14 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import io.trino.connector.ConnectorManager.ConnectorServices;
+import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.CatalogProcedures;
 import io.trino.metadata.CatalogTableFunctions;
 import io.trino.metadata.CatalogTableProcedures;
+import io.trino.metadata.ColumnPropertyManager;
+import io.trino.metadata.MaterializedViewPropertyManager;
+import io.trino.metadata.SchemaPropertyManager;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -88,5 +93,38 @@ public class CatalogServiceProviderModule
     public static CatalogServiceProvider<CatalogTableFunctions> createTableFunctionProvider(ConnectorServicesProvider connectorServicesProvider)
     {
         return new ConnectorCatalogServiceProvider<>("table functions", connectorServicesProvider, ConnectorServices::getTableFunctions);
+    }
+
+    public static SchemaPropertyManager createSchemaPropertyManager(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new SchemaPropertyManager(new ConnectorCatalogServiceProvider<>("schema properties", connectorServicesProvider, ConnectorServices::getSchemaProperties));
+    }
+
+    @Provides
+    @Singleton
+    public static ColumnPropertyManager createColumnPropertyManager(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new ColumnPropertyManager(new ConnectorCatalogServiceProvider<>("column properties", connectorServicesProvider, ConnectorServices::getColumnProperties));
+    }
+
+    @Provides
+    @Singleton
+    public static TablePropertyManager createTablePropertyManager(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new TablePropertyManager(new ConnectorCatalogServiceProvider<>("table properties", connectorServicesProvider, ConnectorServices::getTableProperties));
+    }
+
+    @Provides
+    @Singleton
+    public static MaterializedViewPropertyManager createMaterializedViewPropertyManager(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new MaterializedViewPropertyManager(new ConnectorCatalogServiceProvider<>("materialized view properties", connectorServicesProvider, ConnectorServices::getMaterializedViewProperties));
+    }
+
+    @Provides
+    @Singleton
+    public static AnalyzePropertyManager createAnalyzePropertyManager(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new AnalyzePropertyManager(new ConnectorCatalogServiceProvider<>("analyze properties", connectorServicesProvider, ConnectorServices::getAnalyzeProperties));
     }
 }

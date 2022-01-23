@@ -21,6 +21,7 @@ import com.google.common.io.Closer;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.StaticConnectorFactory;
 import io.trino.execution.DynamicFilterConfig;
@@ -6257,10 +6258,10 @@ public class TestAnalyzer
                 SQL_PARSER,
                 accessControl,
                 new SessionPropertyManager(),
-                new SchemaPropertyManager(),
-                new ColumnPropertyManager(),
+                new SchemaPropertyManager(CatalogServiceProvider.fail()),
+                new ColumnPropertyManager(CatalogServiceProvider.fail()),
                 tablePropertyManager,
-                new MaterializedViewPropertyManager())));
+                new MaterializedViewPropertyManager(catalogName -> ImmutableMap.of()))));
         StatementAnalyzerFactory statementAnalyzerFactory = createTestingStatementAnalyzerFactory(plannerContext, accessControl, tablePropertyManager, analyzePropertyManager);
         AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, statementRewrite);
         return analyzerFactory.createAnalyzer(

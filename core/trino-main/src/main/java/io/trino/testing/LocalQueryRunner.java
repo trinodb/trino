@@ -217,13 +217,18 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.connector.CatalogServiceProviderModule.createAnalyzePropertyManager;
+import static io.trino.connector.CatalogServiceProviderModule.createColumnPropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createIndexProvider;
+import static io.trino.connector.CatalogServiceProviderModule.createMaterializedViewPropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createNodePartitioningProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createPageSinkProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createPageSourceProvider;
+import static io.trino.connector.CatalogServiceProviderModule.createSchemaPropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createSplitManagerProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createTableFunctionProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createTableProceduresProvider;
+import static io.trino.connector.CatalogServiceProviderModule.createTablePropertyManager;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
@@ -380,11 +385,6 @@ public class LocalQueryRunner
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
         this.sessionPropertyManager = createSessionPropertyManager(extraSessionProperties, taskManagerConfig, featuresConfig, optimizerConfig);
-        this.schemaPropertyManager = new SchemaPropertyManager();
-        this.columnPropertyManager = new ColumnPropertyManager();
-        this.tablePropertyManager = new TablePropertyManager();
-        this.materializedViewPropertyManager = new MaterializedViewPropertyManager();
-        this.analyzePropertyManager = new AnalyzePropertyManager();
         TableProceduresPropertyManager tableProceduresPropertyManager = new TableProceduresPropertyManager();
 
         this.pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
@@ -408,11 +408,6 @@ public class LocalQueryRunner
                 eventListenerManager,
                 typeManager,
                 sessionPropertyManager,
-                schemaPropertyManager,
-                columnPropertyManager,
-                tablePropertyManager,
-                materializedViewPropertyManager,
-                analyzePropertyManager,
                 tableProceduresPropertyManager,
                 nodeSchedulerConfig);
         this.splitManager = new SplitManager(createSplitManagerProvider(connectorManager), new QueryManagerConfig());
@@ -423,6 +418,11 @@ public class LocalQueryRunner
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators, createNodePartitioningProvider(connectorManager));
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(connectorManager));
         TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(connectorManager));
+        this.schemaPropertyManager = createSchemaPropertyManager(connectorManager);
+        this.columnPropertyManager = createColumnPropertyManager(connectorManager);
+        this.tablePropertyManager = createTablePropertyManager(connectorManager);
+        this.materializedViewPropertyManager = createMaterializedViewPropertyManager(connectorManager);
+        this.analyzePropertyManager = createAnalyzePropertyManager(connectorManager);
 
         this.statementAnalyzerFactory = new StatementAnalyzerFactory(
                 plannerContext,

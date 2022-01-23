@@ -15,6 +15,7 @@ package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.connector.informationschema.InformationSchemaConnector;
@@ -24,22 +25,17 @@ import io.trino.connector.system.SystemConnector;
 import io.trino.connector.system.SystemTablesProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
-import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.CatalogMetadata.SecurityManagement;
 import io.trino.metadata.CatalogProcedures;
 import io.trino.metadata.CatalogTableFunctions;
 import io.trino.metadata.CatalogTableProcedures;
-import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNodeManager;
-import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableProceduresPropertyManager;
-import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControlManager;
 import io.trino.server.PluginClassLoader;
 import io.trino.spi.PageIndexerFactory;
@@ -115,11 +111,6 @@ public class ConnectorManager
     private final EventListenerManager eventListenerManager;
     private final TypeManager typeManager;
     private final SessionPropertyManager sessionPropertyManager;
-    private final SchemaPropertyManager schemaPropertyManager;
-    private final ColumnPropertyManager columnPropertyManager;
-    private final TablePropertyManager tablePropertyManager;
-    private final MaterializedViewPropertyManager materializedViewPropertyManager;
-    private final AnalyzePropertyManager analyzePropertyManager;
     private final TableProceduresPropertyManager tableProceduresPropertyManager;
 
     private final boolean schedulerIncludeCoordinator;
@@ -147,11 +138,6 @@ public class ConnectorManager
             EventListenerManager eventListenerManager,
             TypeManager typeManager,
             SessionPropertyManager sessionPropertyManager,
-            SchemaPropertyManager schemaPropertyManager,
-            ColumnPropertyManager columnPropertyManager,
-            TablePropertyManager tablePropertyManager,
-            MaterializedViewPropertyManager materializedViewPropertyManager,
-            AnalyzePropertyManager analyzePropertyManager,
             TableProceduresPropertyManager tableProceduresPropertyManager,
             NodeSchedulerConfig nodeSchedulerConfig)
     {
@@ -168,11 +154,6 @@ public class ConnectorManager
         this.eventListenerManager = eventListenerManager;
         this.typeManager = typeManager;
         this.sessionPropertyManager = sessionPropertyManager;
-        this.schemaPropertyManager = schemaPropertyManager;
-        this.columnPropertyManager = columnPropertyManager;
-        this.tablePropertyManager = tablePropertyManager;
-        this.materializedViewPropertyManager = materializedViewPropertyManager;
-        this.analyzePropertyManager = analyzePropertyManager;
         this.tableProceduresPropertyManager = tableProceduresPropertyManager;
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
     }
@@ -303,11 +284,6 @@ public class ConnectorManager
         connector.getAccessControl()
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(catalogName, accessControl));
 
-        tablePropertyManager.addProperties(catalogName, connector.getTableProperties());
-        materializedViewPropertyManager.addProperties(catalogName, connector.getMaterializedViewProperties());
-        columnPropertyManager.addProperties(catalogName, connector.getColumnProperties());
-        schemaPropertyManager.addProperties(catalogName, connector.getSchemaProperties());
-        analyzePropertyManager.addProperties(catalogName, connector.getAnalyzeProperties());
         for (TableProcedureMetadata tableProcedure : connector.getTableProcedures().getTableProcedures()) {
             tableProceduresPropertyManager.addProperties(catalogName, tableProcedure.getName(), tableProcedure.getProperties());
         }
@@ -317,11 +293,6 @@ public class ConnectorManager
     private synchronized void removeConnectorInternal(CatalogName catalogName)
     {
         accessControlManager.removeCatalogAccessControl(catalogName);
-        tablePropertyManager.removeProperties(catalogName);
-        materializedViewPropertyManager.removeProperties(catalogName);
-        columnPropertyManager.removeProperties(catalogName);
-        schemaPropertyManager.removeProperties(catalogName);
-        analyzePropertyManager.removeProperties(catalogName);
         tableProceduresPropertyManager.removeProperties(catalogName);
         sessionPropertyManager.removeConnectorSessionProperties(catalogName);
 
@@ -451,11 +422,11 @@ public class ConnectorManager
         private final Optional<ConnectorAccessControl> accessControl;
         private final List<EventListener> eventListeners;
         private final List<PropertyMetadata<?>> sessionProperties;
-        private final List<PropertyMetadata<?>> tableProperties;
-        private final List<PropertyMetadata<?>> materializedViewProperties;
-        private final List<PropertyMetadata<?>> schemaProperties;
-        private final List<PropertyMetadata<?>> columnProperties;
-        private final List<PropertyMetadata<?>> analyzeProperties;
+        private final Map<String, PropertyMetadata<?>> tableProperties;
+        private final Map<String, PropertyMetadata<?>> materializedViewProperties;
+        private final Map<String, PropertyMetadata<?>> schemaProperties;
+        private final Map<String, PropertyMetadata<?>> columnProperties;
+        private final Map<String, PropertyMetadata<?>> analyzeProperties;
         private final Set<ConnectorCapabilities> capabilities;
 
         public ConnectorServices(CatalogName catalogName, Connector connector, Runnable afterShutdown)
@@ -553,23 +524,23 @@ public class ConnectorManager
 
             List<PropertyMetadata<?>> tableProperties = connector.getTableProperties();
             requireNonNull(tableProperties, format("Connector '%s' returned a null table properties set", catalogName));
-            this.tableProperties = ImmutableList.copyOf(tableProperties);
+            this.tableProperties = Maps.uniqueIndex(tableProperties, PropertyMetadata::getName);
 
             List<PropertyMetadata<?>> materializedViewProperties = connector.getMaterializedViewProperties();
             requireNonNull(materializedViewProperties, format("Connector '%s' returned a null materialized view properties set", catalogName));
-            this.materializedViewProperties = ImmutableList.copyOf(materializedViewProperties);
+            this.materializedViewProperties = Maps.uniqueIndex(materializedViewProperties, PropertyMetadata::getName);
 
             List<PropertyMetadata<?>> schemaProperties = connector.getSchemaProperties();
             requireNonNull(schemaProperties, format("Connector '%s' returned a null schema properties set", catalogName));
-            this.schemaProperties = ImmutableList.copyOf(schemaProperties);
+            this.schemaProperties = Maps.uniqueIndex(schemaProperties, PropertyMetadata::getName);
 
             List<PropertyMetadata<?>> columnProperties = connector.getColumnProperties();
             requireNonNull(columnProperties, format("Connector '%s' returned a null column properties set", catalogName));
-            this.columnProperties = ImmutableList.copyOf(columnProperties);
+            this.columnProperties = Maps.uniqueIndex(columnProperties, PropertyMetadata::getName);
 
             List<PropertyMetadata<?>> analyzeProperties = connector.getAnalyzeProperties();
             requireNonNull(analyzeProperties, format("Connector '%s' returned a null analyze properties set", catalogName));
-            this.analyzeProperties = ImmutableList.copyOf(analyzeProperties);
+            this.analyzeProperties = Maps.uniqueIndex(analyzeProperties, PropertyMetadata::getName);
 
             Set<ConnectorCapabilities> capabilities = connector.getCapabilities();
             requireNonNull(capabilities, format("Connector '%s' returned a null capabilities set", catalogName));
@@ -651,27 +622,27 @@ public class ConnectorManager
             return sessionProperties;
         }
 
-        public List<PropertyMetadata<?>> getTableProperties()
+        public Map<String, PropertyMetadata<?>> getTableProperties()
         {
             return tableProperties;
         }
 
-        public List<PropertyMetadata<?>> getMaterializedViewProperties()
+        public Map<String, PropertyMetadata<?>> getMaterializedViewProperties()
         {
             return materializedViewProperties;
         }
 
-        public List<PropertyMetadata<?>> getColumnProperties()
+        public Map<String, PropertyMetadata<?>> getColumnProperties()
         {
             return columnProperties;
         }
 
-        public List<PropertyMetadata<?>> getSchemaProperties()
+        public Map<String, PropertyMetadata<?>> getSchemaProperties()
         {
             return schemaProperties;
         }
 
-        public List<PropertyMetadata<?>> getAnalyzeProperties()
+        public Map<String, PropertyMetadata<?>> getAnalyzeProperties()
         {
             return analyzeProperties;
         }
