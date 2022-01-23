@@ -380,8 +380,9 @@ public final class Environment
 
             container.withCreateContainerCmdModifier(Builder::updateContainerHostConfig);
 
-            if (!container.getLogicalName().equals(TESTS)) {
-                // Tests container cannot be auto removed as we need to inspect it's exit code
+            if (!container.getLogicalName().equals(TESTS) && !container.isTemporary()) {
+                // Tests container cannot be auto removed as we need to inspect it's exit code.
+                // Temporal containers might exit earlier than the startup check polling interval.
                 container.withCreateContainerCmdModifier(Builder::setContainerAutoRemove);
             }
 
