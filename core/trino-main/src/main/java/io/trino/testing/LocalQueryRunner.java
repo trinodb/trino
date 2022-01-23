@@ -219,6 +219,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.connector.CatalogServiceProviderModule.createAccessControlProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createAnalyzePropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createColumnPropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createIndexProvider;
@@ -423,6 +424,8 @@ public class LocalQueryRunner
         this.materializedViewPropertyManager = createMaterializedViewPropertyManager(connectorManager);
         this.analyzePropertyManager = createAnalyzePropertyManager(connectorManager);
         TableProceduresPropertyManager tableProceduresPropertyManager = createTableProceduresPropertyManager(connectorManager);
+
+        accessControl.setConnectorAccessControlProvider(createAccessControlProvider(connectorManager));
 
         this.statementAnalyzerFactory = new StatementAnalyzerFactory(
                 plannerContext,
