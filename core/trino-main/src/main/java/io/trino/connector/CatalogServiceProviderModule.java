@@ -26,6 +26,7 @@ import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -139,5 +140,12 @@ public class CatalogServiceProviderModule
     public static AnalyzePropertyManager createAnalyzePropertyManager(ConnectorServicesProvider connectorServicesProvider)
     {
         return new AnalyzePropertyManager(new ConnectorCatalogServiceProvider<>("analyze properties", connectorServicesProvider, ConnectorServices::getAnalyzeProperties));
+    }
+
+    @Provides
+    @Singleton
+    public static TableProceduresPropertyManager createTableProceduresPropertyManager(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new TableProceduresPropertyManager(new ConnectorCatalogServiceProvider<>("table procedures", connectorServicesProvider, ConnectorServices::getTableProcedures));
     }
 }

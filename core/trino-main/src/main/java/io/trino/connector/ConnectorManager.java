@@ -34,7 +34,6 @@ import io.trino.metadata.CatalogTableProcedures;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.security.AccessControlManager;
 import io.trino.server.PluginClassLoader;
 import io.trino.spi.PageIndexerFactory;
@@ -109,7 +108,6 @@ public class ConnectorManager
     private final TransactionManager transactionManager;
     private final EventListenerManager eventListenerManager;
     private final TypeManager typeManager;
-    private final TableProceduresPropertyManager tableProceduresPropertyManager;
 
     private final boolean schedulerIncludeCoordinator;
 
@@ -135,7 +133,6 @@ public class ConnectorManager
             TransactionManager transactionManager,
             EventListenerManager eventListenerManager,
             TypeManager typeManager,
-            TableProceduresPropertyManager tableProceduresPropertyManager,
             NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.metadata = metadata;
@@ -150,7 +147,6 @@ public class ConnectorManager
         this.transactionManager = transactionManager;
         this.eventListenerManager = eventListenerManager;
         this.typeManager = typeManager;
-        this.tableProceduresPropertyManager = tableProceduresPropertyManager;
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
     }
 
@@ -279,16 +275,11 @@ public class ConnectorManager
 
         connector.getAccessControl()
                 .ifPresent(accessControl -> accessControlManager.addCatalogAccessControl(catalogName, accessControl));
-
-        for (TableProcedureMetadata tableProcedure : connector.getTableProcedures().getTableProcedures()) {
-            tableProceduresPropertyManager.addProperties(catalogName, tableProcedure.getName(), tableProcedure.getProperties());
-        }
     }
 
     private synchronized void removeConnectorInternal(CatalogName catalogName)
     {
         accessControlManager.removeCatalogAccessControl(catalogName);
-        tableProceduresPropertyManager.removeProperties(catalogName);
 
         ConnectorServices connectorServices = connectors.remove(catalogName);
         if (connectorServices != null) {
