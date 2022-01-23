@@ -79,7 +79,6 @@ import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ProcedureRegistry;
-import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.StaticCatalogStore;
 import io.trino.metadata.StaticCatalogStoreConfig;
 import io.trino.metadata.SystemFunctionBundle;
@@ -240,7 +239,6 @@ public class ServerMainModule
 
         // session properties
         newSetBinder(binder, SystemSessionPropertiesProvider.class).addBinding().to(SystemSessionProperties.class);
-        binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(SystemSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(SessionPropertyDefaults.class).in(Scopes.SINGLETON);
 

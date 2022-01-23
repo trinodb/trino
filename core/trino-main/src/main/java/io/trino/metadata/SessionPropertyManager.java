@@ -14,14 +14,15 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
@@ -42,7 +43,6 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -65,7 +65,7 @@ public final class SessionPropertyManager
 {
     private static final JsonCodecFactory JSON_CODEC_FACTORY = new JsonCodecFactory();
     private final ConcurrentMap<String, PropertyMetadata<?>> systemSessionProperties = new ConcurrentHashMap<>();
-    private final ConcurrentMap<CatalogName, Map<String, PropertyMetadata<?>>> connectorSessionProperties = new ConcurrentHashMap<>();
+    private final CatalogServiceProvider<Map<String, PropertyMetadata<?>>> connectorSessionProperties;
 
     public SessionPropertyManager()
     {
@@ -74,21 +74,16 @@ public final class SessionPropertyManager
 
     public SessionPropertyManager(SystemSessionPropertiesProvider systemSessionPropertiesProvider)
     {
-        this(ImmutableSet.of(systemSessionPropertiesProvider));
+        this(ImmutableSet.of(systemSessionPropertiesProvider), connectorName -> ImmutableMap.of());
     }
 
-    @Inject
-    public SessionPropertyManager(Set<SystemSessionPropertiesProvider> systemSessionProperties)
+    public SessionPropertyManager(Set<SystemSessionPropertiesProvider> systemSessionProperties, CatalogServiceProvider<Map<String, PropertyMetadata<?>>> connectorSessionProperties)
     {
-        this(systemSessionProperties
+        addSystemSessionProperties(requireNonNull(systemSessionProperties, "systemSessionProperties is null")
                 .stream()
                 .flatMap(provider -> provider.getSessionProperties().stream())
                 .collect(toImmutableList()));
-    }
-
-    public SessionPropertyManager(List<PropertyMetadata<?>> systemSessionProperties)
-    {
-        addSystemSessionProperties(systemSessionProperties);
+        this.connectorSessionProperties = requireNonNull(connectorSessionProperties, "connectorSessionProperties is null");
     }
 
     public void addSystemSessionProperties(List<PropertyMetadata<?>> systemSessionProperties)
@@ -104,20 +99,6 @@ public final class SessionPropertyManager
                 "System session property '%s' are already registered", sessionProperty.getName());
     }
 
-    public void addConnectorSessionProperties(CatalogName catalogName, List<PropertyMetadata<?>> properties)
-    {
-        requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(properties, "properties is null");
-
-        Map<String, PropertyMetadata<?>> propertiesByName = Maps.uniqueIndex(properties, PropertyMetadata::getName);
-        checkState(connectorSessionProperties.putIfAbsent(catalogName, propertiesByName) == null, "Session properties for catalog '%s' are already registered", catalogName);
-    }
-
-    public void removeConnectorSessionProperties(CatalogName catalogName)
-    {
-        connectorSessionProperties.remove(catalogName);
-    }
-
     public Optional<PropertyMetadata<?>> getSystemSessionPropertyMetadata(String name)
     {
         requireNonNull(name, "name is null");
@@ -129,14 +110,7 @@ public final class SessionPropertyManager
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(propertyName, "propertyName is null");
-        Map<String, PropertyMetadata<?>> properties = connectorSessionProperties.get(catalogName);
-        if (properties == null) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, "Unknown catalog: " + catalogName);
-        }
-        if (properties.isEmpty()) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, "No session properties found for catalog: " + catalogName);
-        }
-
+        Map<String, PropertyMetadata<?>> properties = connectorSessionProperties.getService(catalogName);
         return Optional.ofNullable(properties.get(propertyName));
     }
 
@@ -164,7 +138,7 @@ public final class SessionPropertyManager
             CatalogName catalogName = catalogInfo.getCatalogName();
             Map<String, String> connectorProperties = session.getCatalogProperties(catalogName.getCatalogName());
 
-            for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.get(catalogName)).values()) {
+            for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.getService(catalogName)).values()) {
                 String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
                 String value = connectorProperties.getOrDefault(property.getName(), defaultValue);
 
