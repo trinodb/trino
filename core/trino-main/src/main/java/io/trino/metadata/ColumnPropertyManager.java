@@ -13,13 +13,18 @@
  */
 package io.trino.metadata;
 
+import io.trino.connector.CatalogServiceProvider;
+import io.trino.spi.session.PropertyMetadata;
+
+import java.util.Map;
+
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 
 public class ColumnPropertyManager
         extends AbstractCatalogPropertyManager
 {
-    public ColumnPropertyManager()
+    public ColumnPropertyManager(CatalogServiceProvider<Map<String, PropertyMetadata<?>>> connectorProperties)
     {
-        super("column", INVALID_COLUMN_PROPERTY);
+        super("column", INVALID_COLUMN_PROPERTY, connectorProperties);
     }
 }

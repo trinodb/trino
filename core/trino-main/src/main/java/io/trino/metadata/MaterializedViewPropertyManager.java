@@ -13,13 +13,18 @@
  */
 package io.trino.metadata;
 
+import io.trino.connector.CatalogServiceProvider;
+import io.trino.spi.session.PropertyMetadata;
+
+import java.util.Map;
+
 import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
 
 public class MaterializedViewPropertyManager
         extends AbstractCatalogPropertyManager
 {
-    public MaterializedViewPropertyManager()
+    public MaterializedViewPropertyManager(CatalogServiceProvider<Map<String, PropertyMetadata<?>>> connectorProperties)
     {
-        super("materialized view", INVALID_MATERIALIZED_VIEW_PROPERTY);
+        super("materialized view", INVALID_MATERIALIZED_VIEW_PROPERTY, connectorProperties);
     }
 }
