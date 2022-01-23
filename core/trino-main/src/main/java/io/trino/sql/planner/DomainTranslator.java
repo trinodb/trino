@@ -320,7 +320,7 @@ public final class DomainTranslator
                         new SessionPropertyManager(),
                         new TablePropertyManager(CatalogServiceProvider.fail("table properties not supported in domain translator")),
                         new AnalyzePropertyManager(CatalogServiceProvider.fail("analyze properties not supported in domain translator")),
-                        new TableProceduresPropertyManager()));
+                        new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in domain translator"))));
         return new Visitor(plannerContext, session, types, typeAnalyzer).process(predicate, false);
     }
 

@@ -84,7 +84,6 @@ import io.trino.metadata.StaticCatalogStoreConfig;
 import io.trino.metadata.SystemFunctionBundle;
 import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.metadata.TableFunctionRegistry;
-import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TypeRegistry;
 import io.trino.operator.DirectExchangeClientConfig;
@@ -241,9 +240,6 @@ public class ServerMainModule
         newSetBinder(binder, SystemSessionPropertiesProvider.class).addBinding().to(SystemSessionProperties.class);
         binder.bind(SystemSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(SessionPropertyDefaults.class).in(Scopes.SINGLETON);
-
-        // table procedures properties
-        binder.bind(TableProceduresPropertyManager.class).in(Scopes.SINGLETON);
 
         // node manager
         discoveryBinder(binder).bindSelector("trino");

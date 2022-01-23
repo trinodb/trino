@@ -229,6 +229,7 @@ import static io.trino.connector.CatalogServiceProviderModule.createPageSourcePr
 import static io.trino.connector.CatalogServiceProviderModule.createSchemaPropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createSplitManagerProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createTableFunctionProvider;
+import static io.trino.connector.CatalogServiceProviderModule.createTableProceduresPropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createTableProceduresProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createTablePropertyManager;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
@@ -386,8 +387,6 @@ public class LocalQueryRunner
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
-        TableProceduresPropertyManager tableProceduresPropertyManager = new TableProceduresPropertyManager();
-
         this.pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
         this.expressionCompiler = new ExpressionCompiler(functionManager, pageFunctionCompiler);
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(functionManager);
@@ -408,7 +407,6 @@ public class LocalQueryRunner
                 transactionManager,
                 eventListenerManager,
                 typeManager,
-                tableProceduresPropertyManager,
                 nodeSchedulerConfig);
         this.splitManager = new SplitManager(createSplitManagerProvider(connectorManager), new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProvider(connectorManager));
@@ -424,6 +422,7 @@ public class LocalQueryRunner
         this.tablePropertyManager = createTablePropertyManager(connectorManager);
         this.materializedViewPropertyManager = createMaterializedViewPropertyManager(connectorManager);
         this.analyzePropertyManager = createAnalyzePropertyManager(connectorManager);
+        TableProceduresPropertyManager tableProceduresPropertyManager = createTableProceduresPropertyManager(connectorManager);
 
         this.statementAnalyzerFactory = new StatementAnalyzerFactory(
                 plannerContext,

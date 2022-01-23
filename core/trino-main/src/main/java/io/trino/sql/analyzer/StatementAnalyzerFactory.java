@@ -133,6 +133,6 @@ public class StatementAnalyzerFactory
                 new SessionPropertyManager(),
                 tablePropertyManager,
                 analyzePropertyManager,
-                new TableProceduresPropertyManager());
+                new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")));
     }
 }

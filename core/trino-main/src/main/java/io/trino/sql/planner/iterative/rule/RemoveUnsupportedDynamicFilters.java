@@ -105,7 +105,7 @@ public class RemoveUnsupportedDynamicFilters
                         new SessionPropertyManager(),
                         new TablePropertyManager(CatalogServiceProvider.fail("table properties not supported in testing analyzer")),
                         new AnalyzePropertyManager(CatalogServiceProvider.fail("analyze properties not supported in testing analyzer")),
-                        new TableProceduresPropertyManager()));
+                        new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in testing analyzer"))));
     }
 
     @Override
