@@ -16,6 +16,7 @@ package io.trino.connector;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import io.trino.SystemSessionPropertiesProvider;
 import io.trino.connector.ConnectorManager.ConnectorServices;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.CatalogProcedures;
@@ -24,6 +25,7 @@ import io.trino.metadata.CatalogTableProcedures;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.SchemaPropertyManager;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -32,6 +34,8 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
 import javax.inject.Singleton;
+
+import java.util.Set;
 
 public class CatalogServiceProviderModule
         implements Module
@@ -95,6 +99,15 @@ public class CatalogServiceProviderModule
         return new ConnectorCatalogServiceProvider<>("table functions", connectorServicesProvider, ConnectorServices::getTableFunctions);
     }
 
+    @Provides
+    @Singleton
+    public static SessionPropertyManager createSessionPropertyManager(Set<SystemSessionPropertiesProvider> systemSessionProperties, ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new SessionPropertyManager(systemSessionProperties, new ConnectorCatalogServiceProvider<>("session properties", connectorServicesProvider, ConnectorServices::getSessionProperties));
+    }
+
+    @Provides
+    @Singleton
     public static SchemaPropertyManager createSchemaPropertyManager(ConnectorServicesProvider connectorServicesProvider)
     {
         return new SchemaPropertyManager(new ConnectorCatalogServiceProvider<>("schema properties", connectorServicesProvider, ConnectorServices::getSchemaProperties));

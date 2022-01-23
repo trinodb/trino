@@ -14,11 +14,16 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogName;
+import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 
@@ -53,9 +58,10 @@ public class PinotQueryRunner
 
     public static Session createSession(String schema, PinotConfig config)
     {
-        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
         PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(config);
-        sessionPropertyManager.addConnectorSessionProperties(new CatalogName(PINOT_CATALOG), pinotSessionProperties.getSessionProperties());
+        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(
+                ImmutableSet.of(new SystemSessionProperties()),
+                CatalogServiceProvider.singleton(new CatalogName(PINOT_CATALOG), Maps.uniqueIndex(pinotSessionProperties.getSessionProperties(), PropertyMetadata::getName)));
         return testSessionBuilder(sessionPropertyManager)
                 .setCatalog(PINOT_CATALOG)
                 .setSchema(schema)
