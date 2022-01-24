@@ -95,7 +95,6 @@ public class RemoveUnsupportedDynamicFilters
                         plannerContext,
                         new SqlParser(),
                         new AllowAllAccessControl(),
-                        user -> ImmutableSet.of(),
                         new TableProceduresRegistry(),
                         new SessionPropertyManager(),
                         new TablePropertyManager(),
