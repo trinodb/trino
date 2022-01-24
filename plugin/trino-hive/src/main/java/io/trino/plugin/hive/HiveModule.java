@@ -64,7 +64,8 @@ public class HiveModule
         configBinder(binder).bindConfig(HiveConfig.class);
         configBinder(binder).bindConfig(MetastoreConfig.class);
 
-        binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, HiveSessionProperties.class)
+                .setDefault().to(HiveSessionProperties.class);
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveAnalyzeProperties.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, HiveMaterializedViewPropertiesProvider.class)
