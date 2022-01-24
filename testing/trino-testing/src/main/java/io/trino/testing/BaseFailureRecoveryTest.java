@@ -85,10 +85,12 @@ public abstract class BaseFailureRecoveryTest
     private static final Duration REQUEST_TIMEOUT = new Duration(5, SECONDS);
 
     private final RetryPolicy retryPolicy;
+    private final Map<String, String> exchangeManagerProperties;
 
-    protected BaseFailureRecoveryTest(RetryPolicy retryPolicy)
+    protected BaseFailureRecoveryTest(RetryPolicy retryPolicy, Map<String, String> exchangeManagerProperties)
     {
         this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+        this.exchangeManagerProperties = requireNonNull(exchangeManagerProperties, "exchangeManagerProperties is null");
     }
 
     @Override
@@ -113,10 +115,15 @@ public abstract class BaseFailureRecoveryTest
                 ImmutableMap.<String, String>builder()
                         // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
                         .put("scheduler.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
-                        .buildOrThrow());
+                        .buildOrThrow(),
+                exchangeManagerProperties);
     }
 
-    protected abstract QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
+    protected abstract QueryRunner createQueryRunner(
+            List<TpchTable<?>> requiredTpchTables,
+            Map<String, String> configProperties,
+            Map<String, String> coordinatorProperties,
+            Map<String, String> exchangeManagerProperties)
             throws Exception;
 
     @BeforeClass

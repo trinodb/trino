@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.testing.exchange;
+package io.trino.plugin.exchange;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -20,26 +20,34 @@ import io.airlift.slice.SizeOf;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
-public class LocalFileSystemExchangeSourceHandle
+public class FileSystemExchangeSourceHandle
         implements ExchangeSourceHandle
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LocalFileSystemExchangeSourceHandle.class).instanceSize();
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FileSystemExchangeSourceHandle.class).instanceSize();
 
     private final int partitionId;
-    private final List<String> files;
+    private final List<FileStatus> files;
+    private final Optional<byte[]> secretKey;
 
     @JsonCreator
-    public LocalFileSystemExchangeSourceHandle(@JsonProperty("partitionId") int partitionId, @JsonProperty("files") List<String> files)
+    public FileSystemExchangeSourceHandle(
+            @JsonProperty("partitionId") int partitionId,
+            @JsonProperty("files") List<FileStatus> files,
+            @JsonProperty("secretKey") Optional<byte[]> secretKey)
     {
         this.partitionId = partitionId;
         this.files = ImmutableList.copyOf(requireNonNull(files, "files is null"));
+        this.secretKey = requireNonNull(secretKey, "secretKey is null");
     }
 
     @Override
@@ -49,17 +57,24 @@ public class LocalFileSystemExchangeSourceHandle
         return partitionId;
     }
 
-    @JsonProperty
-    public List<String> getFiles()
-    {
-        return files;
-    }
-
     @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
-                + estimatedSizeOf(files, SizeOf::estimatedSizeOf);
+                + estimatedSizeOf(files, FileStatus::getRetainedSizeInBytes)
+                + sizeOf(secretKey, SizeOf::sizeOf);
+    }
+
+    @JsonProperty
+    public List<FileStatus> getFiles()
+    {
+        return files;
+    }
+
+    @JsonProperty
+    public Optional<byte[]> getSecretKey()
+    {
+        return secretKey;
     }
 
     @Override
@@ -71,14 +86,19 @@ public class LocalFileSystemExchangeSourceHandle
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        LocalFileSystemExchangeSourceHandle that = (LocalFileSystemExchangeSourceHandle) o;
-        return partitionId == that.partitionId && Objects.equals(files, that.files);
+        FileSystemExchangeSourceHandle that = (FileSystemExchangeSourceHandle) o;
+        if (secretKey.isPresent() && that.secretKey.isPresent()) {
+            return partitionId == that.getPartitionId() && Arrays.equals(secretKey.get(), that.secretKey.get());
+        }
+        else {
+            return partitionId == that.getPartitionId() && secretKey.isEmpty() && that.secretKey.isEmpty();
+        }
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(partitionId, files);
+        return Objects.hash(partitionId, files, secretKey);
     }
 
     @Override
@@ -87,6 +107,7 @@ public class LocalFileSystemExchangeSourceHandle
         return toStringHelper(this)
                 .add("partitionId", partitionId)
                 .add("files", files)
+                .add("secretKey", secretKey.map(value -> "[REDACTED]"))
                 .toString();
     }
 }

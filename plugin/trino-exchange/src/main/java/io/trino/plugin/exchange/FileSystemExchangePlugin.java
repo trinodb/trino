@@ -11,18 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.testing;
+package io.trino.plugin.exchange;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.server.testing.exchange.LocalFileSystemExchangeManagerFactory;
-import io.trino.spi.exchange.ExchangeManager;
+import com.google.common.collect.ImmutableList;
+import io.trino.spi.Plugin;
+import io.trino.spi.exchange.ExchangeManagerFactory;
 
-public class TestLocalFileSystemExchangeManager
-        extends AbstractTestExchangeManager
+public class FileSystemExchangePlugin
+        implements Plugin
 {
     @Override
-    protected ExchangeManager createExchangeManager()
+    public Iterable<ExchangeManagerFactory> getExchangeManagerFactories()
     {
-        return new LocalFileSystemExchangeManagerFactory().create(ImmutableMap.of());
+        return ImmutableList.of(new FileSystemExchangeManagerFactory());
     }
 }

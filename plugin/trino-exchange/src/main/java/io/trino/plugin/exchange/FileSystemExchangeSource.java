@@ -11,46 +11,50 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.testing.exchange;
+package io.trino.plugin.exchange;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
-import io.airlift.units.DataSize;
 import io.trino.spi.exchange.ExchangeSource;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+import javax.crypto.SecretKey;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Path;
+import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static java.lang.Math.toIntExact;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class LocalFileSystemExchangeSource
+public class FileSystemExchangeSource
         implements ExchangeSource
 {
-    private static final int BUFFER_SIZE_IN_BYTES = toIntExact(DataSize.of(4, KILOBYTE).toBytes());
-
+    private final FileSystemExchangeStorage exchangeStorage;
     @GuardedBy("this")
-    private final Iterator<Path> files;
+    private final Iterator<URI> files;
+    @GuardedBy("this")
+    private final Iterator<Optional<SecretKey>> secretKeys;
 
     @GuardedBy("this")
     private SliceInput sliceInput;
     @GuardedBy("this")
     private boolean closed;
 
-    public LocalFileSystemExchangeSource(List<Path> files)
+    public FileSystemExchangeSource(FileSystemExchangeStorage exchangeStorage, List<URI> files, List<Optional<SecretKey>> secretKeys)
     {
-        this.files = ImmutableList.copyOf(requireNonNull(files, "files is null")).iterator();
+        this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
+        checkArgument(requireNonNull(files, "files is null").size() == requireNonNull(secretKeys, "secretKeys is null").size(),
+                format("number of files (%d) doesn't match number of secretKeys (%d)", files.size(), secretKeys.size()));
+        this.files = ImmutableList.copyOf(files).iterator();
+        this.secretKeys = ImmutableList.copyOf(secretKeys).iterator();
     }
 
     @Override
@@ -80,11 +84,13 @@ public class LocalFileSystemExchangeSource
 
         if (sliceInput == null) {
             if (files.hasNext()) {
-                Path file = files.next();
+                // TODO: implement parallel read
+                URI file = files.next();
+                Optional<SecretKey> secretKey = secretKeys.next();
                 try {
-                    sliceInput = new InputStreamSliceInput(new FileInputStream(file.toFile()), BUFFER_SIZE_IN_BYTES);
+                    sliceInput = exchangeStorage.getSliceInput(file, secretKey);
                 }
-                catch (FileNotFoundException e) {
+                catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
             }

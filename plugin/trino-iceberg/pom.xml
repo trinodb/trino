@@ -202,6 +202,12 @@
         <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-exchange</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-hive</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
@@ -296,6 +302,17 @@
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.basepom.maven</groupId>
+                    <artifactId>duplicate-finder-maven-plugin</artifactId>
+                    <configuration>
+                        <ignoredResourcePatterns>
+                            <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
+                            <ignoredResourcePattern>mime.types</ignoredResourcePattern>
+                            <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                        </ignoredResourcePatterns>
                     </configuration>
                 </plugin>
             </plugins>
