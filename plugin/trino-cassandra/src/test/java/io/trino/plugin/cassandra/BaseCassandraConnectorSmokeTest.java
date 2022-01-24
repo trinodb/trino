@@ -15,6 +15,7 @@ package io.trino.plugin.cassandra;
 
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import java.time.ZoneId;
@@ -22,6 +23,7 @@ import java.time.ZonedDateTime;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_DELETE_DATA;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseCassandraConnectorSmokeTest
@@ -79,5 +81,14 @@ public abstract class BaseCassandraConnectorSmokeTest
         assertUpdate("DELETE FROM " + keyspaceAndTable + wherePrimaryKey);
 
         assertQuery("SELECT COUNT(*) FROM " + keyspaceAndTable, "VALUES 14");
+    }
+
+    @Test
+    public void testInsertDate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", "(a_date date)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " (a_date) VALUES ( DATE '2020-05-11')", 1);
+            assertThat(query("SELECT a_date FROM " + table.getName())).matches("VALUES (DATE '2020-05-11')");
+        }
     }
 }
