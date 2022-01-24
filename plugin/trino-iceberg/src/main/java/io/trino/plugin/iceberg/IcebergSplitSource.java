@@ -33,9 +33,11 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
@@ -60,11 +62,13 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
+import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
@@ -81,7 +85,6 @@ public class IcebergSplitSource
     private static final ConnectorSplitBatch NO_MORE_SPLITS_BATCH = new ConnectorSplitBatch(ImmutableList.of(), true);
 
     private final IcebergTableHandle tableHandle;
-    private final Set<IcebergColumnHandle> identityPartitionColumns;
     private final TableScan tableScan;
     private final Optional<Long> maxScannedFileSizeInBytes;
     private final Map<Integer, Type.PrimitiveType> fieldIdToType;
@@ -89,6 +92,7 @@ public class IcebergSplitSource
     private final long dynamicFilteringWaitTimeoutMillis;
     private final Stopwatch dynamicFilterWaitStopwatch;
     private final Constraint constraint;
+    private final TypeManager typeManager;
 
     private CloseableIterable<CombinedScanTask> combinedScanIterable;
     private Iterator<FileScanTask> fileScanIterator;
@@ -99,16 +103,15 @@ public class IcebergSplitSource
 
     public IcebergSplitSource(
             IcebergTableHandle tableHandle,
-            Set<IcebergColumnHandle> identityPartitionColumns,
             TableScan tableScan,
             Optional<DataSize> maxScannedFileSize,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringWaitTimeout,
             Constraint constraint,
+            TypeManager typeManager,
             boolean recordScannedFiles)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        this.identityPartitionColumns = requireNonNull(identityPartitionColumns, "identityPartitionColumns is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.maxScannedFileSizeInBytes = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null").map(DataSize::toBytes);
         this.fieldIdToType = primitiveFieldTypes(tableScan.schema());
@@ -116,6 +119,7 @@ public class IcebergSplitSource
         this.dynamicFilteringWaitTimeoutMillis = requireNonNull(dynamicFilteringWaitTimeout, "dynamicFilteringWaitTimeout is null").toMillis();
         this.dynamicFilterWaitStopwatch = Stopwatch.createStarted();
         this.constraint = requireNonNull(constraint, "constraint is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.recordScannedFiles = recordScannedFiles;
     }
 
@@ -180,6 +184,11 @@ public class IcebergSplitSource
             }
 
             IcebergSplit icebergSplit = toIcebergSplit(scanTask);
+
+            Schema fileSchema = scanTask.spec().schema();
+            Set<IcebergColumnHandle> identityPartitionColumns = icebergSplit.getPartitionKeys().keySet().stream()
+                    .map(fieldId -> getColumnHandle(fileSchema.findField(fieldId), typeManager))
+                    .collect(toImmutableSet());
 
             Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> {
                 Map<ColumnHandle, NullableValue> bindings = new HashMap<>();
