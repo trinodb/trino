@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.utils.Bytes;
+import com.datastax.oss.protocol.internal.util.Bytes;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Shorts;
@@ -120,6 +120,8 @@ public class TestCassandraConnector
 
         Connector connector = connectorFactory.create("test", ImmutableMap.of(
                 "cassandra.contact-points", server.getHost(),
+                "cassandra.load-policy.use-dc-aware", "true",
+                "cassandra.load-policy.dc-aware.local-dc", "datacenter1",
                 "cassandra.native-protocol-port", Integer.toString(server.getPort())),
                 new TestingConnectorContext());
 
