@@ -61,6 +61,7 @@ public class IcebergConfig
     // to avoid deleting those files if Trino is unable to check.
     private boolean deleteSchemaLocationsFallback;
     private double minimumAssignedSplitWeight = 0.05;
+    private boolean allowLegacySnapshotSyntax;
 
     public CatalogType getCatalogType()
     {
@@ -288,5 +289,19 @@ public class IcebergConfig
     public double getMinimumAssignedSplitWeight()
     {
         return minimumAssignedSplitWeight;
+    }
+
+    @Config("iceberg.allow-legacy-snapshot-syntax")
+    @Deprecated
+    public IcebergConfig setAllowLegacySnapshotSyntax(boolean allowLegacySnapshotSyntax)
+    {
+        this.allowLegacySnapshotSyntax = allowLegacySnapshotSyntax;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isAllowLegacySnapshotSyntax()
+    {
+        return allowLegacySnapshotSyntax;
     }
 }

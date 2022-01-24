@@ -56,7 +56,8 @@ public class TestIcebergConfig
                 .setRemoveOrphanFilesMinRetention(new Duration(7, DAYS))
                 .setDeleteSchemaLocationsFallback(false)
                 .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
-                .setMinimumAssignedSplitWeight(0.05));
+                .setMinimumAssignedSplitWeight(0.05)
+                .setAllowLegacySnapshotSyntax(false));
     }
 
     @Test
@@ -79,6 +80,7 @@ public class TestIcebergConfig
                 .put("iceberg.delete-schema-locations-fallback", "true")
                 .put("iceberg.target-max-file-size", "1MB")
                 .put("iceberg.minimum-assigned-split-weight", "0.01")
+                .put("iceberg.allow-legacy-snapshot-syntax", "true")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -97,7 +99,8 @@ public class TestIcebergConfig
                 .setRemoveOrphanFilesMinRetention(new Duration(14, HOURS))
                 .setDeleteSchemaLocationsFallback(true)
                 .setTargetMaxFileSize(DataSize.of(1, MEGABYTE))
-                .setMinimumAssignedSplitWeight(0.01);
+                .setMinimumAssignedSplitWeight(0.01)
+                .setAllowLegacySnapshotSyntax(true);
 
         assertFullMapping(properties, expected);
     }
