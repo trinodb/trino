@@ -435,7 +435,16 @@ public class TestClickHouseTypeMapping
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        // TODO (https://github.com/trinodb/trino/issues/10538) Support writing timestamp and datetime types in ClickHouse connector
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp(0)", "timestamp '1970-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '1970-01-01 00:00:00'") // min value in ClickHouse
+                .addRoundTrip("timestamp(0)", "timestamp '1986-01-01 00:13:07'", createTimestampType(0), "TIMESTAMP '1986-01-01 00:13:07'") // time gap in Kathmandu
+                .addRoundTrip("timestamp(0)", "timestamp '2018-03-25 03:17:17'", createTimestampType(0), "TIMESTAMP '2018-03-25 03:17:17'") // time gap in Vilnius
+                .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'") // time doubled in JVM zone
+                .addRoundTrip("timestamp(0)", "timestamp '2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'") // time double in Vilnius
+                .addRoundTrip("timestamp(0)", "timestamp '2105-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '2105-12-31 23:59:59'") // max value in ClickHouse
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("tpch.test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("tpch.test_timestamp"));
+
         addTimestampRoundTrips("timestamp")
                 .execute(getQueryRunner(), session, clickhouseCreateAndInsert("tpch.test_timestamp"));
         addTimestampRoundTrips("datetime")
@@ -452,8 +461,26 @@ public class TestClickHouseTypeMapping
                 .addRoundTrip(inputType, "'2018-10-28 01:33:17'", createTimestampType(0), "TIMESTAMP '2018-10-28 01:33:17'") // time doubled in JVM zone
                 .addRoundTrip(inputType, "'2018-10-28 03:33:33'", createTimestampType(0), "TIMESTAMP '2018-10-28 03:33:33'") // time double in Vilnius
                 .addRoundTrip(inputType, "'2105-12-31 23:59:59'", createTimestampType(0), "TIMESTAMP '2105-12-31 23:59:59'") // max value in ClickHouse
-                .addRoundTrip(inputType, "'2106-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '2106-01-01 00:00:00'") // unsupported timestamp become 1970-01-01 23:59:59
                 .addRoundTrip(format("Nullable(%s)", inputType), "NULL", createTimestampType(0), "CAST(NULL AS TIMESTAMP(0))");
+    }
+
+    @Test
+    public void testUnsupportedTimestamp()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_timestamp", "(dt timestamp(0))")) {
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (TIMESTAMP '-9999-12-31 23:59:59')", table.getName()),
+                    "Timestamp must be between 1970-01-01 00:00:00 and 2105-12-31 23:59:59 in ClickHouse: -9999-12-31 23:59:59");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (TIMESTAMP '1969-12-31 23:59:59')", table.getName()),
+                    "Timestamp must be between 1970-01-01 00:00:00 and 2105-12-31 23:59:59 in ClickHouse: 1969-12-31 23:59:59");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (TIMESTAMP '2106-01-01 00:00:00')", table.getName()),
+                    "Timestamp must be between 1970-01-01 00:00:00 and 2105-12-31 23:59:59 in ClickHouse: 2106-01-01 00:00:00");
+            assertQueryFails(
+                    format("INSERT INTO %s VALUES (TIMESTAMP '9999-12-31 23:59:59')", table.getName()),
+                    "Timestamp must be between 1970-01-01 00:00:00 and 2105-12-31 23:59:59 in ClickHouse: 9999-12-31 23:59:59");
+        }
     }
 
     @DataProvider
