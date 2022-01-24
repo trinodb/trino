@@ -114,9 +114,9 @@ public class TranslatingPageSource
     }
 
     @Override
-    public long getSystemMemoryUsage()
+    public long getMemoryUsage()
     {
-        return delegate.getSystemMemoryUsage();
+        return delegate.getMemoryUsage();
     }
 
     @Override
