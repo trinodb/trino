@@ -1178,7 +1178,7 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_MAX_MEMORY_PER_NODE, DataSize.class);
     }
 
-    public static Optional<DataSize> getQueryMaxTotalMemoryPerTask(Session session)
+    public static Optional<DataSize> getQueryMaxMemoryPerTask(Session session)
     {
         return Optional.ofNullable(session.getSystemProperty(QUERY_MAX_MEMORY_PER_TASK, DataSize.class));
     }
