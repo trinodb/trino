@@ -300,6 +300,9 @@ Property Name                                      Description                  
 
 ``hive.create-empty-bucket-files``                 Should empty files be created for buckets that have no data? ``false``
 
+``hive.partition-statistics-sample-size``          Specifies the number of partitions to analyze when           100
+                                                   computing table statistics.                 
+
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
 
 ``hive.max-partitions-per-scan``                   Maximum number of partitions for a single table scan.        100,000
