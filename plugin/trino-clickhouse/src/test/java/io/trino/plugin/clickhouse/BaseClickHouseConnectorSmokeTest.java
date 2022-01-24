@@ -15,7 +15,6 @@ package io.trino.plugin.clickhouse;
 
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
-import org.testng.annotations.Test;
 
 public abstract class BaseClickHouseConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
@@ -31,8 +30,6 @@ public abstract class BaseClickHouseConnectorSmokeTest
         }
     }
 
-    // TODO (https://github.com/trinodb/trino/issues/10653) Disable until fixing the flaky test issue
-    @Test(enabled = false)
     @Override
     public void testRenameSchema()
     {
