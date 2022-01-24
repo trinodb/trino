@@ -14,6 +14,7 @@
 package io.trino.testing.assertions;
 
 import io.airlift.units.Duration;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -34,11 +35,13 @@ public class Assert
 {
     private Assert() {}
 
+    @SuppressModernizer // Assert.assertEquals(Iterable, Iterable) is forbidden, advising to use this class as a safety-adding wrapper.
     public static void assertEquals(Iterable<?> actual, Iterable<?> expected)
     {
         assertEquals(actual, expected, null);
     }
 
+    @SuppressModernizer // Assert.assertEquals(Iterable, Iterable, String) is forbidden, advising to use this class as a safety-adding wrapper.
     public static void assertEquals(Iterable<?> actual, Iterable<?> expected, String message)
     {
         try {
