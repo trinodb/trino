@@ -18,6 +18,7 @@ import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.operator.GroupByHash;
+import io.trino.operator.GroupByHashFactory;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.Work;
 import io.trino.spi.Page;
@@ -25,8 +26,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
-import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntListIterator;
@@ -40,7 +39,6 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.trino.operator.GroupByHash.createGroupByHash;
 import static io.trino.operator.UpdateMemory.NOOP;
 import static io.trino.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
 import static java.util.Objects.requireNonNull;
@@ -57,8 +55,7 @@ public class UnloadedIndexKeyRecordSet
             Set<Integer> channelsForDistinct,
             List<Type> types,
             List<UpdateRequest> requests,
-            JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators)
+            GroupByHashFactory groupByHashFactory)
     {
         requireNonNull(existingSnapshot, "existingSnapshot is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -73,7 +70,7 @@ public class UnloadedIndexKeyRecordSet
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
-        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, normalizedDistinctChannels, Optional.empty(), 10_000, joinCompiler, blockTypeOperators, NOOP);
+        GroupByHash groupByHash = groupByHashFactory.createGroupByHash(session, distinctChannelTypes, normalizedDistinctChannels, Optional.empty(), 10_000, NOOP);
         for (UpdateRequest request : requests) {
             Page page = request.getPage();
 

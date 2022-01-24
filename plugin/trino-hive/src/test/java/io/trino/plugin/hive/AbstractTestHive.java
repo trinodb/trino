@@ -24,6 +24,8 @@ import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.operator.GroupByHashFactory;
+import io.trino.operator.GroupByHashFactoryTestUtils;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -197,6 +199,7 @@ import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.trino.operator.GroupByHashFactoryTestUtils.createGroupByHashFactory;
 import static io.trino.plugin.hive.AbstractTestHive.TransactionDeleteInsertTestTag.COMMIT;
 import static io.trino.plugin.hive.AbstractTestHive.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_APPEND_PAGE;
 import static io.trino.plugin.hive.AbstractTestHive.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_BEGIN_INSERT;
@@ -896,7 +899,7 @@ public abstract class AbstractTestHive
                 hdfsEnvironment,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
-                new GroupByHashPageIndexerFactory(JOIN_COMPILER, BLOCK_TYPE_OPERATORS),
+                new GroupByHashPageIndexerFactory(createGroupByHashFactory(JOIN_COMPILER, BLOCK_TYPE_OPERATORS)),
                 TESTING_TYPE_MANAGER,
                 getHiveConfig(),
                 locationService,

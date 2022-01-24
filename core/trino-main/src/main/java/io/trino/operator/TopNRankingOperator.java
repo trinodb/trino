@@ -25,7 +25,6 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
 import io.trino.type.BlockTypeOperators;
@@ -36,7 +35,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.operator.GroupByHash.createGroupByHash;
 import static java.util.Objects.requireNonNull;
 
 public class TopNRankingOperator
@@ -63,7 +61,7 @@ public class TopNRankingOperator
 
         private final boolean generateRanking;
         private boolean closed;
-        private final JoinCompiler joinCompiler;
+        private final GroupByHashFactory groupByHashFactory;
         private final TypeOperators typeOperators;
         private final BlockTypeOperators blockTypeOperators;
         private final Optional<DataSize> maxPartialMemory;
@@ -83,7 +81,7 @@ public class TopNRankingOperator
                 Optional<Integer> hashChannel,
                 int expectedPositions,
                 Optional<DataSize> maxPartialMemory,
-                JoinCompiler joinCompiler,
+                GroupByHashFactory groupByHashFactory,
                 TypeOperators typeOperators,
                 BlockTypeOperators blockTypeOperators)
         {
@@ -103,7 +101,7 @@ public class TopNRankingOperator
             checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
             this.generateRanking = !partial;
             this.expectedPositions = expectedPositions;
-            this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+            this.groupByHashFactory = requireNonNull(groupByHashFactory, "groupByHashFactory is null");
             this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
             this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
             this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null");
@@ -128,7 +126,7 @@ public class TopNRankingOperator
                     hashChannel,
                     expectedPositions,
                     maxPartialMemory,
-                    joinCompiler,
+                    groupByHashFactory,
                     typeOperators,
                     blockTypeOperators);
         }
@@ -157,7 +155,7 @@ public class TopNRankingOperator
                     hashChannel,
                     expectedPositions,
                     maxPartialMemory,
-                    joinCompiler,
+                    groupByHashFactory,
                     typeOperators,
                     blockTypeOperators);
         }
@@ -190,7 +188,7 @@ public class TopNRankingOperator
             Optional<Integer> hashChannel,
             int expectedPositions,
             Optional<DataSize> maxPartialMemory,
-            JoinCompiler joinCompiler,
+            GroupByHashFactory groupByHashFactory,
             TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators)
     {
@@ -228,8 +226,7 @@ public class TopNRankingOperator
                         partitionTypes,
                         hashChannel,
                         operatorContext.getSession(),
-                        joinCompiler,
-                        blockTypeOperators,
+                        groupByHashFactory,
                         this::updateMemoryReservation));
     }
 
@@ -239,8 +236,7 @@ public class TopNRankingOperator
             List<Type> partitionTypes,
             Optional<Integer> hashChannel,
             Session session,
-            JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators,
+            GroupByHashFactory groupByHashFactory,
             UpdateMemory updateMemory)
     {
         if (partitionChannels.isEmpty()) {
@@ -249,14 +245,12 @@ public class TopNRankingOperator
         else {
             checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
             int[] channels = Ints.toArray(partitionChannels);
-            return () -> createGroupByHash(
+            return () -> groupByHashFactory.createGroupByHash(
                     session,
                     partitionTypes,
                     channels,
                     hashChannel,
                     expectedPositions,
-                    joinCompiler,
-                    blockTypeOperators,
                     updateMemory);
         }
     }

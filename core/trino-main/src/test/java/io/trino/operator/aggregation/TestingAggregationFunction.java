@@ -19,9 +19,7 @@ import io.trino.metadata.FunctionNullability;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.AggregationNode.Step;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.OptionalInt;
@@ -29,6 +27,7 @@ import java.util.OptionalInt;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.operator.GroupByHashFactoryTestUtils.createGroupByHashFactory;
 import static io.trino.operator.aggregation.AccumulatorCompiler.generateAccumulatorFactory;
 import static java.util.Objects.requireNonNull;
 
@@ -55,8 +54,7 @@ public class TestingAggregationFunction
         distinctFactory = new DistinctAccumulatorFactory(
                 factory,
                 parameterTypes,
-                new JoinCompiler(TYPE_OPERATORS),
-                new BlockTypeOperators(TYPE_OPERATORS),
+                createGroupByHashFactory(TYPE_OPERATORS),
                 TEST_SESSION);
     }
 
@@ -70,8 +68,7 @@ public class TestingAggregationFunction
         distinctFactory = new DistinctAccumulatorFactory(
                 factory,
                 parameterTypes,
-                new JoinCompiler(TYPE_OPERATORS),
-                new BlockTypeOperators(TYPE_OPERATORS),
+                createGroupByHashFactory(TYPE_OPERATORS),
                 TEST_SESSION);
     }
 

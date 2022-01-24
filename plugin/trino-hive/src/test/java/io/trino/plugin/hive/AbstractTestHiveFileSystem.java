@@ -62,12 +62,9 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingNodeManager;
-import io.trino.type.BlockTypeOperators;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem;
@@ -90,6 +87,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.operator.GroupByHashFactoryTestUtils.createGroupByHashFactory;
 import static io.trino.plugin.hive.AbstractTestHive.createTableProperties;
 import static io.trino.plugin.hive.AbstractTestHive.filterNonHiddenColumnHandles;
 import static io.trino.plugin.hive.AbstractTestHive.filterNonHiddenColumnMetadata;
@@ -240,14 +238,13 @@ public abstract class AbstractTestHiveFileSystem
                 config.getMaxSplitsPerSecond(),
                 config.getRecursiveDirWalkerEnabled(),
                 TESTING_TYPE_MANAGER);
-        TypeOperators typeOperators = new TypeOperators();
-        BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
+
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, hdfsEnvironment),
                 hdfsEnvironment,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
-                new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), blockTypeOperators),
+                new GroupByHashPageIndexerFactory(createGroupByHashFactory()),
                 TESTING_TYPE_MANAGER,
                 config,
                 locationService,

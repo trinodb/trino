@@ -24,6 +24,7 @@ import io.trino.execution.SplitAssignment;
 import io.trino.metadata.Split;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverFactory;
+import io.trino.operator.GroupByHashFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
@@ -31,7 +32,6 @@ import io.trino.operator.join.LookupSource;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
@@ -73,8 +73,7 @@ public class IndexLoader
     private final List<Type> keyTypes;
     private final List<BlockPositionEqual> keyEqualOperators;
     private final PagesIndex.Factory pagesIndexFactory;
-    private final JoinCompiler joinCompiler;
-    private final BlockTypeOperators blockTypeOperators;
+    private final GroupByHashFactory groupByHashFactory;
 
     @GuardedBy("this")
     private IndexSnapshotLoader indexSnapshotLoader; // Lazily initialized
@@ -95,7 +94,7 @@ public class IndexLoader
             DataSize maxIndexMemorySize,
             IndexJoinLookupStats stats,
             PagesIndex.Factory pagesIndexFactory,
-            JoinCompiler joinCompiler,
+            GroupByHashFactory groupByHashFactory,
             BlockTypeOperators blockTypeOperators)
     {
         requireNonNull(lookupSourceInputChannels, "lookupSourceInputChannels is null");
@@ -109,7 +108,7 @@ public class IndexLoader
         requireNonNull(maxIndexMemorySize, "maxIndexMemorySize is null");
         requireNonNull(stats, "stats is null");
         requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
-        requireNonNull(joinCompiler, "joinCompiler is null");
+        requireNonNull(groupByHashFactory, "groupByHashFactory is null");
         requireNonNull(blockTypeOperators, "blockTypeOperators is null");
 
         this.lookupSourceInputChannels = ImmutableSet.copyOf(lookupSourceInputChannels);
@@ -121,8 +120,7 @@ public class IndexLoader
         this.maxIndexMemorySize = maxIndexMemorySize;
         this.stats = stats;
         this.pagesIndexFactory = pagesIndexFactory;
-        this.joinCompiler = joinCompiler;
-        this.blockTypeOperators = blockTypeOperators;
+        this.groupByHashFactory = groupByHashFactory;
 
         this.keyTypes = keyOutputChannels.stream()
                 .map(outputTypes::get)
@@ -266,8 +264,7 @@ public class IndexLoader
                     expectedPositions,
                     maxIndexMemorySize,
                     pagesIndexFactory,
-                    joinCompiler,
-                    blockTypeOperators);
+                    groupByHashFactory);
         }
     }
 
@@ -280,8 +277,7 @@ public class IndexLoader
         private final Set<Integer> allInputChannels;
         private final List<Type> indexTypes;
         private final AtomicReference<IndexSnapshot> indexSnapshotReference;
-        private final JoinCompiler joinCompiler;
-        private final BlockTypeOperators blockTypeOperators;
+        private final GroupByHashFactory groupByHashFactory;
 
         private final IndexSnapshotBuilder indexSnapshotBuilder;
 
@@ -296,15 +292,13 @@ public class IndexLoader
                 int expectedPositions,
                 DataSize maxIndexMemorySize,
                 PagesIndex.Factory pagesIndexFactory,
-                JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                GroupByHashFactory groupByHashFactory)
         {
             this.pipelineContext = pipelineContext;
             this.indexSnapshotReference = indexSnapshotReference;
             this.lookupSourceInputChannels = lookupSourceInputChannels;
             this.indexTypes = indexTypes;
-            this.joinCompiler = joinCompiler;
-            this.blockTypeOperators = blockTypeOperators;
+            this.groupByHashFactory = groupByHashFactory;
 
             List<Type> outputTypes = indexBuildDriverFactoryProvider.getOutputTypes();
             this.indexSnapshotBuilder = new IndexSnapshotBuilder(
@@ -332,7 +326,7 @@ public class IndexLoader
         public boolean load(List<UpdateRequest> requests)
         {
             // Generate a RecordSet that only presents index keys that have not been cached and are deduped based on lookupSourceInputChannels
-            UnloadedIndexKeyRecordSet recordSetForLookupSource = new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests, joinCompiler, blockTypeOperators);
+            UnloadedIndexKeyRecordSet recordSetForLookupSource = new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), lookupSourceInputChannels, indexTypes, requests, groupByHashFactory);
 
             // Drive index lookup to produce the output (landing in indexSnapshotBuilder)
             try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext())) {
@@ -353,7 +347,7 @@ public class IndexLoader
             // Generate a RecordSet that presents unique index keys that have not been cached
             UnloadedIndexKeyRecordSet indexKeysRecordSet = (lookupSourceInputChannels.equals(allInputChannels))
                     ? recordSetForLookupSource
-                    : new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), allInputChannels, indexTypes, requests, joinCompiler, blockTypeOperators);
+                    : new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), allInputChannels, indexTypes, requests, groupByHashFactory);
 
             // Create lookup source with new data
             IndexSnapshot newValue = indexSnapshotBuilder.createIndexSnapshot(indexKeysRecordSet);

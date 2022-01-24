@@ -23,9 +23,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,7 +32,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
-import static io.trino.operator.GroupByHash.createGroupByHash;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
@@ -54,8 +51,7 @@ public class RowNumberOperator
         private final Optional<Integer> hashChannel;
         private final int expectedPositions;
         private boolean closed;
-        private final JoinCompiler joinCompiler;
-        private final BlockTypeOperators blockTypeOperators;
+        private final GroupByHashFactory groupByHashFactory;
 
         public RowNumberOperatorFactory(
                 int operatorId,
@@ -67,8 +63,7 @@ public class RowNumberOperator
                 Optional<Integer> maxRowsPerPartition,
                 Optional<Integer> hashChannel,
                 int expectedPositions,
-                JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                GroupByHashFactory groupByHashFactory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -81,8 +76,7 @@ public class RowNumberOperator
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             checkArgument(expectedPositions > 0, "expectedPositions < 0");
             this.expectedPositions = expectedPositions;
-            this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-            this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
+            this.groupByHashFactory = requireNonNull(groupByHashFactory, "groupByHashFactory is null");
         }
 
         @Override
@@ -100,8 +94,7 @@ public class RowNumberOperator
                     maxRowsPerPartition,
                     hashChannel,
                     expectedPositions,
-                    joinCompiler,
-                    blockTypeOperators);
+                    groupByHashFactory);
         }
 
         @Override
@@ -113,7 +106,7 @@ public class RowNumberOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new RowNumberOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, partitionChannels, partitionTypes, maxRowsPerPartition, hashChannel, expectedPositions, joinCompiler, blockTypeOperators);
+            return new RowNumberOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, partitionChannels, partitionTypes, maxRowsPerPartition, hashChannel, expectedPositions, groupByHashFactory);
         }
     }
 
@@ -146,8 +139,7 @@ public class RowNumberOperator
             Optional<Integer> maxRowsPerPartition,
             Optional<Integer> hashChannel,
             int expectedPositions,
-            JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators)
+            GroupByHashFactory groupByHashFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
@@ -168,7 +160,7 @@ public class RowNumberOperator
         }
         else {
             int[] channels = Ints.toArray(partitionChannels);
-            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, channels, hashChannel, expectedPositions, joinCompiler, blockTypeOperators, this::updateMemoryReservation));
+            this.groupByHash = Optional.of(groupByHashFactory.createGroupByHash(operatorContext.getSession(), partitionTypes, channels, hashChannel, expectedPositions, this::updateMemoryReservation));
         }
     }
 

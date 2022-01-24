@@ -20,13 +20,10 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.operator.GroupByHash.createGroupByHash;
 import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
@@ -86,19 +83,17 @@ public class ChannelSet
         private final OperatorContext operatorContext;
         private final LocalMemoryContext localMemoryContext;
 
-        public ChannelSetBuilder(Type type, boolean hashPresent, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators)
+        public ChannelSetBuilder(Type type, boolean hashPresent, int expectedPositions, OperatorContext operatorContext, GroupByHashFactory groupByHashFactory)
         {
             // Set builder has a single channel which goes in channel 0, if hash is present, add a hashBlock to channel 1
             Optional<Integer> hashChannel = hashPresent ? Optional.of(1) : Optional.empty();
             List<Type> types = ImmutableList.of(type);
-            this.hash = createGroupByHash(
+            this.hash = groupByHashFactory.createGroupByHash(
                     operatorContext.getSession(),
                     types,
                     HASH_CHANNELS,
                     hashChannel,
                     expectedPositions,
-                    joinCompiler,
-                    blockTypeOperators,
                     this::updateMemoryReservation);
             this.nullBlockPage = createNullPage(type, hashPresent);
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");

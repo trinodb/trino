@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.operator.GroupByHashFactory;
 import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.MarkDistinctHash;
 import io.trino.operator.UpdateMemory;
@@ -24,8 +25,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,21 +41,18 @@ public class DistinctAccumulatorFactory
 {
     private final AccumulatorFactory delegate;
     private final List<Type> argumentTypes;
-    private final JoinCompiler joinCompiler;
-    private final BlockTypeOperators blockTypeOperators;
+    private final GroupByHashFactory groupByHashFactory;
     private final Session session;
 
     public DistinctAccumulatorFactory(
             AccumulatorFactory delegate,
             List<Type> argumentTypes,
-            JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators,
+            GroupByHashFactory groupByHashFactory,
             Session session)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
-        this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
+        this.groupByHashFactory = requireNonNull(groupByHashFactory, "groupByHashFactory is null");
         this.session = requireNonNull(session, "session is null");
     }
 
@@ -73,8 +69,7 @@ public class DistinctAccumulatorFactory
                 delegate.createAccumulator(lambdaProviders),
                 argumentTypes,
                 session,
-                joinCompiler,
-                blockTypeOperators);
+                groupByHashFactory);
     }
 
     @Override
@@ -90,8 +85,7 @@ public class DistinctAccumulatorFactory
                 delegate.createGroupedAccumulator(lambdaProviders),
                 argumentTypes,
                 session,
-                joinCompiler,
-                blockTypeOperators);
+                groupByHashFactory);
     }
 
     @Override
@@ -110,8 +104,7 @@ public class DistinctAccumulatorFactory
                 Accumulator accumulator,
                 List<Type> inputTypes,
                 Session session,
-                JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                GroupByHashFactory groupByHashFactory)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.hash = new MarkDistinctHash(
@@ -119,8 +112,7 @@ public class DistinctAccumulatorFactory
                     inputTypes,
                     IntStream.range(0, inputTypes.size()).toArray(),
                     Optional.empty(),
-                    joinCompiler,
-                    blockTypeOperators,
+                    groupByHashFactory,
                     UpdateMemory.NOOP);
         }
 
@@ -186,8 +178,7 @@ public class DistinctAccumulatorFactory
                 GroupedAccumulator accumulator,
                 List<Type> inputTypes,
                 Session session,
-                JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                GroupByHashFactory groupByHashFactory)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.hash = new MarkDistinctHash(
@@ -198,8 +189,7 @@ public class DistinctAccumulatorFactory
                             .build(),
                     IntStream.range(0, inputTypes.size() + 1).toArray(),
                     Optional.empty(),
-                    joinCompiler,
-                    blockTypeOperators,
+                    groupByHashFactory,
                     UpdateMemory.NOOP);
         }
 

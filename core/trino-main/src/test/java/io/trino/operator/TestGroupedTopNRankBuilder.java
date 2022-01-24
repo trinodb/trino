@@ -18,7 +18,6 @@ import com.google.common.primitives.Ints;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -32,6 +31,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.RowPageBuilder.rowPageBuilder;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
+import static io.trino.operator.GroupByHashFactoryTestUtils.createGroupByHashFactory;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.UpdateMemory.NOOP;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
@@ -252,14 +252,12 @@ public class TestGroupedTopNRankBuilder
 
     private GroupByHash createGroupByHash(List<Type> partitionTypes, List<Integer> partitionChannels, UpdateMemory updateMemory, TypeOperators typeOperators, BlockTypeOperators blockTypeOperators)
     {
-        return GroupByHash.createGroupByHash(
+        return createGroupByHashFactory(typeOperators, blockTypeOperators).createGroupByHash(
                 partitionTypes,
                 Ints.toArray(partitionChannels),
                 Optional.empty(),
                 1,
                 false,
-                new JoinCompiler(typeOperators),
-                blockTypeOperators,
                 updateMemory);
     }
 

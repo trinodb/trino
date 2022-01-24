@@ -60,6 +60,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.operator.GroupByHashFactoryTestUtils.createGroupByHashFactory;
 import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -117,6 +118,7 @@ public final class TaskTestUtils
         NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators);
 
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
+        JoinCompiler joinCompiler = new JoinCompiler(PLANNER_CONTEXT.getTypeOperators());
         return new LocalExecutionPlanner(
                 PLANNER_CONTEXT,
                 createTestingTypeAnalyzer(PLANNER_CONTEXT),
@@ -141,7 +143,8 @@ public final class TaskTestUtils
                     throw new UnsupportedOperationException();
                 },
                 new PagesIndex.TestingFactory(false),
-                new JoinCompiler(PLANNER_CONTEXT.getTypeOperators()),
+                joinCompiler,
+                createGroupByHashFactory(joinCompiler, blockTypeOperators),
                 new TrinoOperatorFactories(),
                 new OrderingCompiler(PLANNER_CONTEXT.getTypeOperators()),
                 new DynamicFilterConfig(),

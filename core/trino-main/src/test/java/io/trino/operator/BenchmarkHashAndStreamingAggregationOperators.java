@@ -59,6 +59,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.operator.BenchmarkHashAndStreamingAggregationOperators.Context.ROWS_PER_PAGE;
 import static io.trino.operator.BenchmarkHashAndStreamingAggregationOperators.Context.TOTAL_PAGES;
+import static io.trino.operator.GroupByHashFactoryTestUtils.createGroupByHashFactory;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -267,7 +268,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     succinctBytes(8),
                     succinctBytes(Integer.MAX_VALUE),
                     spillerFactory,
-                    JOIN_COMPILER,
+                    createGroupByHashFactory(JOIN_COMPILER, BLOCK_TYPE_OPERATORS),
                     BLOCK_TYPE_OPERATORS,
                     Optional.empty());
         }

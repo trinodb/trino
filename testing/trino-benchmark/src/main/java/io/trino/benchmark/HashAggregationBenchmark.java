@@ -16,6 +16,7 @@ package io.trino.benchmark;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
+import io.trino.operator.GroupByHashFactory;
 import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import io.trino.operator.OperatorFactory;
 import io.trino.spi.type.Type;
@@ -62,7 +63,7 @@ public class HashAggregationBenchmark
                 Optional.empty(),
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
-                new JoinCompiler(localQueryRunner.getTypeOperators()),
+                new GroupByHashFactory(new JoinCompiler(localQueryRunner.getTypeOperators()), localQueryRunner.getBlockTypeOperators()),
                 localQueryRunner.getBlockTypeOperators(),
                 Optional.empty());
         return ImmutableList.of(tableScanOperator, aggregationOperator);

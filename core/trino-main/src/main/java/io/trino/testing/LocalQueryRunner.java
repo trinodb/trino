@@ -103,6 +103,7 @@ import io.trino.metadata.TypeRegistry;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
+import io.trino.operator.GroupByHashFactory;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactories;
@@ -283,6 +284,7 @@ public class LocalQueryRunner
     private final PlanOptimizersProvider planOptimizersProvider;
     private final OperatorFactories operatorFactories;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
+    private final GroupByHashFactory groupByHashFactory;
     private boolean printPlan;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -362,7 +364,8 @@ public class LocalQueryRunner
         this.splitManager = new SplitManager(new QueryManagerConfig());
         this.planFragmenter = new PlanFragmenter(metadata, functionManager, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(typeOperators);
-        PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler, blockTypeOperators);
+        this.groupByHashFactory = new GroupByHashFactory(joinCompiler, blockTypeOperators);
+        PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(groupByHashFactory);
         this.groupProvider = new TestingGroupProvider();
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
@@ -923,6 +926,7 @@ public class LocalQueryRunner
                 partitioningSpillerFactory,
                 new PagesIndex.TestingFactory(false),
                 joinCompiler,
+                groupByHashFactory,
                 operatorFactories,
                 new OrderingCompiler(plannerContext.getTypeOperators()),
                 new DynamicFilterConfig(),

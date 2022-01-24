@@ -19,9 +19,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.trino.operator.ChannelSet.ChannelSetBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.type.BlockTypeOperators;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
@@ -73,8 +71,7 @@ public class SetBuilderOperator
         private final int setChannel;
         private final int expectedPositions;
         private boolean closed;
-        private final JoinCompiler joinCompiler;
-        private final BlockTypeOperators blockTypeOperators;
+        private final GroupByHashFactory groupByHashFactory;
 
         public SetBuilderOperatorFactory(
                 int operatorId,
@@ -83,8 +80,7 @@ public class SetBuilderOperator
                 int setChannel,
                 Optional<Integer> hashChannel,
                 int expectedPositions,
-                JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                GroupByHashFactory groupByHashFactory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -93,8 +89,7 @@ public class SetBuilderOperator
             this.setChannel = setChannel;
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
             this.expectedPositions = expectedPositions;
-            this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-            this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
+            this.groupByHashFactory = requireNonNull(groupByHashFactory, "groupByHashFactory is null");
         }
 
         public SetSupplier getSetProvider()
@@ -107,7 +102,7 @@ public class SetBuilderOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, SetBuilderOperator.class.getSimpleName());
-            return new SetBuilderOperator(operatorContext, setProvider, setChannel, hashChannel, expectedPositions, joinCompiler, blockTypeOperators);
+            return new SetBuilderOperator(operatorContext, setProvider, setChannel, hashChannel, expectedPositions, groupByHashFactory);
         }
 
         @Override
@@ -119,7 +114,7 @@ public class SetBuilderOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new SetBuilderOperatorFactory(operatorId, planNodeId, setProvider.getType(), setChannel, hashChannel, expectedPositions, joinCompiler, blockTypeOperators);
+            return new SetBuilderOperatorFactory(operatorId, planNodeId, setProvider.getType(), setChannel, hashChannel, expectedPositions, groupByHashFactory);
         }
     }
 
@@ -140,8 +135,7 @@ public class SetBuilderOperator
             int setChannel,
             Optional<Integer> hashChannel,
             int expectedPositions,
-            JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators)
+            GroupByHashFactory groupByHashFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.setSupplier = requireNonNull(setSupplier, "setSupplier is null");
@@ -157,8 +151,7 @@ public class SetBuilderOperator
                 hashChannel.isPresent(),
                 expectedPositions,
                 requireNonNull(operatorContext, "operatorContext is null"),
-                requireNonNull(joinCompiler, "joinCompiler is null"),
-                requireNonNull(blockTypeOperators, "blockTypeOperators is null"));
+                requireNonNull(groupByHashFactory, "groupByHashFactory is null"));
     }
 
     @Override

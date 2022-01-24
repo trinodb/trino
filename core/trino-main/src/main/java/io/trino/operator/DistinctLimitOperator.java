@@ -19,9 +19,7 @@ import com.google.common.primitives.Ints;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.Arrays;
 import java.util.List;
@@ -32,7 +30,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.operator.GroupByHash.createGroupByHash;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -50,8 +47,7 @@ public class DistinctLimitOperator
         private final long limit;
         private final Optional<Integer> hashChannel;
         private boolean closed;
-        private final JoinCompiler joinCompiler;
-        private final BlockTypeOperators blockTypeOperators;
+        private final GroupByHashFactory groupByHashFactory;
 
         public DistinctLimitOperatorFactory(
                 int operatorId,
@@ -60,8 +56,7 @@ public class DistinctLimitOperator
                 List<Integer> distinctChannels,
                 long limit,
                 Optional<Integer> hashChannel,
-                JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                GroupByHashFactory groupByHashFactory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -71,8 +66,7 @@ public class DistinctLimitOperator
             checkArgument(limit >= 0, "limit must be at least zero");
             this.limit = limit;
             this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
-            this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-            this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
+            this.groupByHashFactory = requireNonNull(groupByHashFactory, "groupByHashFactory is null");
         }
 
         @Override
@@ -83,7 +77,7 @@ public class DistinctLimitOperator
             List<Type> distinctTypes = distinctChannels.stream()
                     .map(sourceTypes::get)
                     .collect(toImmutableList());
-            return new DistinctLimitOperator(operatorContext, distinctChannels, distinctTypes, limit, hashChannel, joinCompiler, blockTypeOperators);
+            return new DistinctLimitOperator(operatorContext, distinctChannels, distinctTypes, limit, hashChannel, groupByHashFactory);
         }
 
         @Override
@@ -95,7 +89,7 @@ public class DistinctLimitOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new DistinctLimitOperatorFactory(operatorId, planNodeId, sourceTypes, distinctChannels, limit, hashChannel, joinCompiler, blockTypeOperators);
+            return new DistinctLimitOperatorFactory(operatorId, planNodeId, sourceTypes, distinctChannels, limit, hashChannel, groupByHashFactory);
         }
     }
 
@@ -115,7 +109,7 @@ public class DistinctLimitOperator
     private GroupByIdBlock groupByIds;
     private Work<GroupByIdBlock> unfinishedWork;
 
-    public DistinctLimitOperator(OperatorContext operatorContext, List<Integer> distinctChannels, List<Type> distinctTypes, long limit, Optional<Integer> hashChannel, JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators)
+    public DistinctLimitOperator(OperatorContext operatorContext, List<Integer> distinctChannels, List<Type> distinctTypes, long limit, Optional<Integer> hashChannel, GroupByHashFactory groupByHashFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
@@ -131,14 +125,12 @@ public class DistinctLimitOperator
             outputChannels = distinctChannelInts.clone(); // defensive copy since this is passed into createGroupByHash
         }
 
-        this.groupByHash = createGroupByHash(
+        this.groupByHash = groupByHashFactory.createGroupByHash(
                 operatorContext.getSession(),
                 distinctTypes,
                 distinctChannelInts,
                 hashChannel,
                 toIntExact(Math.min(limit, 10_000)),
-                joinCompiler,
-                blockTypeOperators,
                 this::updateMemoryReservation);
         remainingLimit = limit;
     }

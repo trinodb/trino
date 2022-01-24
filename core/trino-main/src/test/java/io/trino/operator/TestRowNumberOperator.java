@@ -22,11 +22,8 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
-import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -43,6 +40,7 @@ import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.operator.GroupByHashFactoryTestUtils.createGroupByHashFactory;
 import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
 import static io.trino.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
@@ -61,9 +59,7 @@ public class TestRowNumberOperator
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
-    private final TypeOperators typeOperators = new TypeOperators();
-    private final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
-    private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
+    private final GroupByHashFactory groupByHashFactory = createGroupByHashFactory();
 
     @BeforeClass
     public void setUp()
@@ -127,8 +123,7 @@ public class TestRowNumberOperator
                 Optional.empty(),
                 Optional.empty(),
                 10,
-                joinCompiler,
-                blockTypeOperators);
+                groupByHashFactory);
 
         MaterializedResult expectedResult = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
                 .row(0.3, 1L)
@@ -167,8 +162,7 @@ public class TestRowNumberOperator
                 Optional.empty(),
                 Optional.empty(),
                 1,
-                joinCompiler,
-                blockTypeOperators);
+                groupByHashFactory);
 
         // get result with yield; pick a relatively small buffer for partitionRowCount's memory usage
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((RowNumberOperator) operator).getCapacity(), 1_400_000);
@@ -216,8 +210,7 @@ public class TestRowNumberOperator
                 Optional.of(10),
                 rowPagesBuilder.getHashChannel(),
                 10,
-                joinCompiler,
-                blockTypeOperators);
+                groupByHashFactory);
 
         MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
                 .row(0.3, 1L)
@@ -283,8 +276,7 @@ public class TestRowNumberOperator
                 Optional.of(3),
                 Optional.empty(),
                 10,
-                joinCompiler,
-                blockTypeOperators);
+                groupByHashFactory);
 
         MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
                 .row(0.3, 1L)
@@ -353,8 +345,7 @@ public class TestRowNumberOperator
                 Optional.of(3),
                 Optional.empty(),
                 10,
-                joinCompiler,
-                blockTypeOperators);
+                groupByHashFactory);
 
         MaterializedResult expectedRows = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
                 .row(0.3, 1L)

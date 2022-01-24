@@ -34,8 +34,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
-import io.trino.sql.gen.JoinCompiler;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingNodeManager;
 import io.trino.tpch.LineItem;
@@ -43,7 +41,6 @@ import io.trino.tpch.LineItemColumn;
 import io.trino.tpch.LineItemGenerator;
 import io.trino.tpch.TpchColumnType;
 import io.trino.tpch.TpchColumnTypes;
-import io.trino.type.BlockTypeOperators;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
@@ -61,6 +58,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.trino.operator.GroupByHashFactoryTestUtils.createGroupByHashFactory;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveCompressionCodec.NONE;
@@ -276,14 +274,12 @@ public class TestHivePageSink
                 false,
                 false);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
-        TypeOperators typeOperators = new TypeOperators();
-        BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
         HivePageSinkProvider provider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, HDFS_ENVIRONMENT),
                 HDFS_ENVIRONMENT,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastore),
-                new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), blockTypeOperators),
+                new GroupByHashPageIndexerFactory(createGroupByHashFactory()),
                 TESTING_TYPE_MANAGER,
                 config,
                 new HiveLocationService(HDFS_ENVIRONMENT),

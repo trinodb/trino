@@ -18,6 +18,7 @@ import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.trino.benchmark.HandTpchQuery1.TpchQuery1Operator.TpchQuery1OperatorFactory;
 import io.trino.operator.DriverContext;
+import io.trino.operator.GroupByHashFactory;
 import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
@@ -122,7 +123,7 @@ public class HandTpchQuery1
                 Optional.empty(),
                 10_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
-                new JoinCompiler(localQueryRunner.getTypeOperators()),
+                new GroupByHashFactory(new JoinCompiler(localQueryRunner.getTypeOperators()), localQueryRunner.getBlockTypeOperators()),
                 localQueryRunner.getBlockTypeOperators(),
                 Optional.empty());
 
