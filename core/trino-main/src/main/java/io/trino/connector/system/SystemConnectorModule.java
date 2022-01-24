@@ -13,12 +13,12 @@
  */
 package io.trino.connector.system;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import com.google.inject.multibindings.ProvidesIntoSet;
+import io.trino.connector.CatalogName;
 import io.trino.connector.ConnectorManager;
 import io.trino.connector.system.jdbc.AttributeJdbcTable;
 import io.trino.connector.system.jdbc.CatalogJdbcTable;
@@ -77,7 +77,7 @@ public class SystemConnectorModule
 
         binder.bind(KillQueryProcedure.class).in(Scopes.SINGLETON);
 
-        binder.bind(GlobalSystemConnectorFactory.class).in(Scopes.SINGLETON);
+        binder.bind(GlobalSystemConnector.class).in(Scopes.SINGLETON);
         binder.bind(SystemConnectorRegistrar.class).asEagerSingleton();
     }
 
@@ -90,10 +90,9 @@ public class SystemConnectorModule
     private static class SystemConnectorRegistrar
     {
         @Inject
-        public SystemConnectorRegistrar(ConnectorManager manager, GlobalSystemConnectorFactory globalSystemConnectorFactory)
+        public SystemConnectorRegistrar(ConnectorManager manager, GlobalSystemConnector globalSystemConnector)
         {
-            manager.addConnectorFactory(globalSystemConnectorFactory, ignored -> globalSystemConnectorFactory.getClass().getClassLoader());
-            manager.createCatalog(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
+            manager.createCatalog(new CatalogName(GlobalSystemConnector.NAME), GlobalSystemConnector.NAME, globalSystemConnector, () -> {});
         }
     }
 }
