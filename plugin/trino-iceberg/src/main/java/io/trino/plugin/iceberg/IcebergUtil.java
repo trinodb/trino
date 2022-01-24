@@ -166,16 +166,19 @@ public final class IcebergUtil
     public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)
     {
         return schema.columns().stream()
-                .map(column -> {
-                    Type type = toTrinoType(column.type(), typeManager);
-                    return new IcebergColumnHandle(
-                            createColumnIdentity(column),
-                            type,
-                            ImmutableList.of(),
-                            type,
-                            Optional.ofNullable(column.doc()));
-                })
+                .map(column -> getColumnHandle(column, typeManager))
                 .collect(toImmutableList());
+    }
+
+    public static IcebergColumnHandle getColumnHandle(NestedField column, TypeManager typeManager)
+    {
+        Type type = toTrinoType(column.type(), typeManager);
+        return new IcebergColumnHandle(
+                createColumnIdentity(column),
+                type,
+                ImmutableList.of(),
+                type,
+                Optional.ofNullable(column.doc()));
     }
 
     public static Map<PartitionField, Integer> getIdentityPartitions(PartitionSpec partitionSpec)
