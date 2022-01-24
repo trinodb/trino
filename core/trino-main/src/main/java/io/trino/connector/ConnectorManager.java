@@ -180,36 +180,40 @@ public class ConnectorManager
 
     public synchronized CatalogName createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
+        checkState(!stopped.get(), "ConnectorManager is stopped");
+
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(connectorName, "connectorName is null");
+        requireNonNull(properties, "properties is null");
+
         InternalConnectorFactory connectorFactory = connectorFactories.get(connectorName);
         checkArgument(connectorFactory != null, "No factory for connector '%s'.  Available factories: %s", connectorName, connectorFactories.keySet());
-        return createCatalog(catalogName, connectorName, connectorFactory, properties);
-    }
-
-    private synchronized CatalogName createCatalog(String catalogName, String connectorName, InternalConnectorFactory connectorFactory, Map<String, String> properties)
-    {
-        checkState(!stopped.get(), "ConnectorManager is stopped");
-        requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(properties, "properties is null");
-        requireNonNull(connectorFactory, "connectorFactory is null");
-        checkArgument(catalogManager.getCatalog(catalogName).isEmpty(), "Catalog '%s' already exists", catalogName);
 
         CatalogName catalog = new CatalogName(catalogName);
         checkState(!connectors.containsKey(catalog), "Catalog '%s' already exists", catalog);
 
-        createCatalog(catalog, connectorName, connectorFactory, properties);
+        CatalogClassLoaderSupplier duplicatePluginClassLoaderFactory = new CatalogClassLoaderSupplier(catalog, connectorFactory.getDuplicatePluginClassLoaderFactory(), handleResolver);
+        Connector connector = createConnector(catalog, connectorFactory.getConnectorFactory(), duplicatePluginClassLoaderFactory, properties);
+        createCatalog(catalog, connectorName, connector, duplicatePluginClassLoaderFactory::destroy);
 
         return catalog;
     }
 
-    private synchronized void createCatalog(CatalogName catalogName, String connectorName, InternalConnectorFactory factory, Map<String, String> properties)
+    public synchronized void createCatalog(CatalogName catalogName, String connectorName, Connector connector, Runnable destroy)
     {
-        // create all connectors before adding, so a broken connector does not leave the system half updated
-        CatalogClassLoaderSupplier duplicatePluginClassLoaderFactory = new CatalogClassLoaderSupplier(catalogName, factory.getDuplicatePluginClassLoaderFactory(), handleResolver);
-        ConnectorServices connector = new ConnectorServices(
+        checkState(!stopped.get(), "ConnectorManager is stopped");
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(connectorName, "connectorName is null");
+        requireNonNull(connector, "connector is null");
+        requireNonNull(destroy, "destroy is null");
+
+        checkState(!connectors.containsKey(catalogName), "Catalog '%s' already exists", catalogName.getCatalogName());
+        checkArgument(catalogManager.getCatalog(catalogName.getCatalogName()).isEmpty(), "Catalog '%s' already exists", catalogName.getCatalogName());
+
+        ConnectorServices connectorServices = new ConnectorServices(
                 catalogName,
-                createConnector(catalogName, factory.getConnectorFactory(), duplicatePluginClassLoaderFactory, properties),
-                duplicatePluginClassLoaderFactory::destroy);
+                connector,
+                destroy);
 
         ConnectorServices informationSchemaConnector = new ConnectorServices(
                 createInformationSchemaCatalogName(catalogName),
@@ -224,10 +228,10 @@ public class ConnectorManager
                     transactionManager,
                     metadata,
                     catalogName.getCatalogName(),
-                    new StaticSystemTablesProvider(connector.getSystemTables()));
+                    new StaticSystemTablesProvider(connectorServices.getSystemTables()));
         }
         else {
-            systemTablesProvider = new StaticSystemTablesProvider(connector.getSystemTables());
+            systemTablesProvider = new StaticSystemTablesProvider(connectorServices.getSystemTables());
         }
 
         ConnectorServices systemConnector = new ConnectorServices(systemId, new SystemConnector(
@@ -239,13 +243,13 @@ public class ConnectorManager
         Catalog catalog = new Catalog(
                 catalogName,
                 connectorName,
-                connector,
+                connectorServices,
                 informationSchemaConnector.getCatalogName(),
                 informationSchemaConnector,
                 systemConnector.getCatalogName(),
                 systemConnector);
         try {
-            addConnectorInternal(connector);
+            addConnectorInternal(connectorServices);
             addConnectorInternal(informationSchemaConnector);
             addConnectorInternal(systemConnector);
             catalogManager.registerCatalog(catalog);
@@ -254,7 +258,7 @@ public class ConnectorManager
             catalogManager.removeCatalog(catalog.getCatalogName().getCatalogName());
             removeConnectorInternal(systemConnector.getCatalogName());
             removeConnectorInternal(informationSchemaConnector.getCatalogName());
-            removeConnectorInternal(connector.getCatalogName());
+            removeConnectorInternal(connectorServices.getCatalogName());
             throw e;
         }
     }
