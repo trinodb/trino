@@ -79,6 +79,11 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
+        </dependency>
+
         <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
@@ -123,19 +128,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.gaul</groupId>
-                <artifactId>modernizer-maven-plugin</artifactId>
-                <configuration>
-                    <ignoreClassNamePatterns>
-                        <!-- To allow usage of java.util.Hashtable -->
-                        <ignoreClassNamePattern>io/trino/plugin/password/jndi/JndiUtils</ignoreClassNamePattern>
-                    </ignoreClassNamePatterns>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>

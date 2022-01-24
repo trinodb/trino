@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.password.jndi;
 
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+
 import javax.naming.NamingException;
 import javax.naming.directory.DirContext;
 import javax.naming.directory.InitialDirContext;
@@ -27,6 +29,12 @@ public final class JndiUtils
     public static DirContext createDirContext(Map<String, String> environment)
             throws NamingException
     {
-        return new InitialDirContext(new Hashtable<>(environment));
+        return new InitialDirContext(createHashtable(environment));
+    }
+
+    @SuppressModernizer
+    private static Hashtable<String, String> createHashtable(Map<String, String> map)
+    {
+        return new Hashtable<>(map);
     }
 }
