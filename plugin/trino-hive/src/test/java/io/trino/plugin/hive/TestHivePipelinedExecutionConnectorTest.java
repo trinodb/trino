@@ -14,12 +14,15 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.testing.QueryRunner;
 
 public class TestHivePipelinedExecutionConnectorTest
         extends BaseHiveConnectorTest
 {
-    public TestHivePipelinedExecutionConnectorTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(ImmutableMap.of());
+        return BaseHiveConnectorTest.createHiveQueryRunner(ImmutableMap.of());
     }
 }
