@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.cassandra.util;
 
-import com.datastax.driver.core.VersionNumber;
+import com.datastax.oss.driver.api.core.Version;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.cassandra.CassandraClusteringPredicatesExtractor;
@@ -37,7 +37,7 @@ public class TestCassandraClusteringPredicatesExtractor
     private static CassandraColumnHandle col3;
     private static CassandraColumnHandle col4;
     private static CassandraTable cassandraTable;
-    private static VersionNumber cassandraVersion;
+    private static Version cassandraVersion;
 
     @BeforeTest
     public void setUp()
@@ -50,7 +50,7 @@ public class TestCassandraClusteringPredicatesExtractor
         cassandraTable = new CassandraTable(
                 new CassandraTableHandle("test", "records"), ImmutableList.of(col1, col2, col3, col4));
 
-        cassandraVersion = VersionNumber.parse("2.1.5");
+        cassandraVersion = Version.parse("2.1.5");
     }
 
     @Test

@@ -13,17 +13,12 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.JdkSSLOptions;
-import com.datastax.driver.core.QueryOptions;
-import com.datastax.driver.core.SocketOptions;
-import com.datastax.driver.core.policies.ConstantSpeculativeExecutionPolicy;
-import com.datastax.driver.core.policies.DCAwareRoundRobinPolicy;
-import com.datastax.driver.core.policies.ExponentialReconnectionPolicy;
-import com.datastax.driver.core.policies.LoadBalancingPolicy;
-import com.datastax.driver.core.policies.RoundRobinPolicy;
-import com.datastax.driver.core.policies.TokenAwarePolicy;
-import com.datastax.driver.core.policies.WhiteListPolicy;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
+import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
+import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
+import com.datastax.oss.driver.internal.core.loadbalancing.DefaultLoadBalancingPolicy;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
@@ -42,9 +37,11 @@ import javax.net.ssl.SSLContext;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
@@ -113,80 +110,70 @@ public class CassandraClientModule
         requireNonNull(config, "config is null");
         requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
 
-        Cluster.Builder clusterBuilder = Cluster.builder();
+        CqlSessionBuilder cqlSessionBuilder = CqlSession.builder();
+        ProgrammaticDriverConfigLoaderBuilder driverConfigLoaderBuilder = DriverConfigLoader.programmaticBuilder();
+        // allow the retrieval of metadata for the system keyspaces
+        driverConfigLoaderBuilder.withStringList(DefaultDriverOption.METADATA_SCHEMA_REFRESHED_KEYSPACES, List.of());
+
         if (config.getProtocolVersion() != null) {
-            clusterBuilder.withProtocolVersion(config.getProtocolVersion());
+            driverConfigLoaderBuilder.withString(DefaultDriverOption.PROTOCOL_VERSION, config.getProtocolVersion().name());
         }
 
         List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
         checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
-        clusterBuilder.withPort(config.getNativeProtocolPort());
-        clusterBuilder.withReconnectionPolicy(new ExponentialReconnectionPolicy(500, 10000));
-        clusterBuilder.withRetryPolicy(config.getRetryPolicy().getPolicy());
 
-        LoadBalancingPolicy loadPolicy = new RoundRobinPolicy();
+        driverConfigLoaderBuilder.withString(DefaultDriverOption.RECONNECTION_POLICY_CLASS, com.datastax.oss.driver.internal.core.connection.ExponentialReconnectionPolicy.class.getName());
+        driverConfigLoaderBuilder.withDuration(DefaultDriverOption.RECONNECTION_BASE_DELAY, Duration.ofMillis(500));
+        driverConfigLoaderBuilder.withDuration(DefaultDriverOption.RECONNECTION_MAX_DELAY, Duration.ofMillis(10_000));
+        driverConfigLoaderBuilder.withString(DefaultDriverOption.RETRY_POLICY_CLASS, config.getRetryPolicy().getPolicyClass().getName());
 
+        driverConfigLoaderBuilder.withString(DefaultDriverOption.LOAD_BALANCING_POLICY_CLASS, DefaultLoadBalancingPolicy.class.getName());
         if (config.isUseDCAware()) {
             requireNonNull(config.getDcAwareLocalDC(), "DCAwarePolicy localDC is null");
-            DCAwareRoundRobinPolicy.Builder builder = DCAwareRoundRobinPolicy.builder()
-                    .withLocalDc(config.getDcAwareLocalDC());
+            driverConfigLoaderBuilder.withString(DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER, config.getDcAwareLocalDC());
+
             if (config.getDcAwareUsedHostsPerRemoteDc() > 0) {
-                builder.withUsedHostsPerRemoteDc(config.getDcAwareUsedHostsPerRemoteDc());
+                driverConfigLoaderBuilder.withInt(DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_MAX_NODES_PER_REMOTE_DC, config.getDcAwareUsedHostsPerRemoteDc());
                 if (config.isDcAwareAllowRemoteDCsForLocal()) {
-                    builder.allowRemoteDCsForLocalConsistencyLevel();
+                    driverConfigLoaderBuilder.withBoolean(DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_ALLOW_FOR_LOCAL_CONSISTENCY_LEVELS, true);
                 }
             }
-            loadPolicy = builder.build();
         }
 
-        if (config.isUseTokenAware()) {
-            loadPolicy = new TokenAwarePolicy(loadPolicy, config.isTokenAwareShuffleReplicas());
-        }
-
-        if (!config.getAllowedAddresses().isEmpty()) {
-            checkArgument(!config.getAllowedAddresses().isEmpty(), "empty AllowListAddresses");
-            List<InetSocketAddress> allowList = new ArrayList<>();
-            for (String point : config.getAllowedAddresses()) {
-                allowList.add(new InetSocketAddress(point, config.getNativeProtocolPort()));
-            }
-            loadPolicy = new WhiteListPolicy(loadPolicy, allowList);
-        }
-
-        clusterBuilder.withLoadBalancingPolicy(loadPolicy);
-
-        SocketOptions socketOptions = new SocketOptions();
-        socketOptions.setReadTimeoutMillis(toIntExact(config.getClientReadTimeout().toMillis()));
-        socketOptions.setConnectTimeoutMillis(toIntExact(config.getClientConnectTimeout().toMillis()));
+        driverConfigLoaderBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofMillis(toIntExact(config.getClientReadTimeout().toMillis())));
+        driverConfigLoaderBuilder.withDuration(DefaultDriverOption.CONNECTION_CONNECT_TIMEOUT, Duration.ofMillis(toIntExact(config.getClientConnectTimeout().toMillis())));
         if (config.getClientSoLinger() != null) {
-            socketOptions.setSoLinger(config.getClientSoLinger());
+            driverConfigLoaderBuilder.withInt(DefaultDriverOption.SOCKET_LINGER_INTERVAL, config.getClientSoLinger());
         }
         if (config.isTlsEnabled()) {
             buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTruststorePath(), config.getTruststorePassword())
-                    .ifPresent(context -> clusterBuilder.withSSL(JdkSSLOptions.builder().withSSLContext(context).build()));
+                    .ifPresent(cqlSessionBuilder::withSslContext);
         }
-        clusterBuilder.withSocketOptions(socketOptions);
 
         if (config.getUsername() != null && config.getPassword() != null) {
-            clusterBuilder.withCredentials(config.getUsername(), config.getPassword());
+            cqlSessionBuilder.withAuthCredentials(config.getUsername(), config.getPassword());
         }
 
-        QueryOptions options = new QueryOptions();
-        options.setFetchSize(config.getFetchSize());
-        options.setConsistencyLevel(config.getConsistencyLevel());
-        clusterBuilder.withQueryOptions(options);
+        driverConfigLoaderBuilder.withInt(DefaultDriverOption.REQUEST_PAGE_SIZE, config.getFetchSize());
+        driverConfigLoaderBuilder.withString(DefaultDriverOption.REQUEST_CONSISTENCY, config.getConsistencyLevel().name());
 
         if (config.getSpeculativeExecutionLimit().isPresent()) {
-            clusterBuilder.withSpeculativeExecutionPolicy(new ConstantSpeculativeExecutionPolicy(
-                    config.getSpeculativeExecutionDelay().toMillis(), // delay before a new execution is launched
-                    config.getSpeculativeExecutionLimit().get())); // maximum number of executions
+            driverConfigLoaderBuilder.withString(DefaultDriverOption.SPECULATIVE_EXECUTION_POLICY_CLASS, com.datastax.oss.driver.internal.core.specex.ConstantSpeculativeExecutionPolicy.class.getName());
+            // maximum number of executions
+            driverConfigLoaderBuilder.withInt(DefaultDriverOption.SPECULATIVE_EXECUTION_MAX, config.getSpeculativeExecutionLimit().get());
+            // delay before a new execution is launched
+            driverConfigLoaderBuilder.withDuration(DefaultDriverOption.SPECULATIVE_EXECUTION_DELAY, Duration.ofMillis(config.getSpeculativeExecutionDelay().toMillis()));
         }
+
+        cqlSessionBuilder.withConfigLoader(driverConfigLoaderBuilder.build());
 
         return new CassandraSession(
                 extraColumnMetadataCodec,
-                new ReopeningCluster(() -> {
-                    contactPoints.forEach(clusterBuilder::addContactPoint);
-                    return clusterBuilder.build();
-                }),
+                () -> {
+                    contactPoints.forEach(contactPoint -> cqlSessionBuilder.addContactPoint(
+                            createInetSocketAddress(contactPoint, config.getNativeProtocolPort())));
+                    return cqlSessionBuilder.build();
+                },
                 config.getNoHostAvailableRetryTimeout());
     }
 
@@ -205,6 +192,16 @@ public class CassandraClientModule
         }
         catch (GeneralSecurityException | IOException e) {
             throw new TrinoException(CASSANDRA_SSL_INITIALIZATION_FAILURE, e);
+        }
+    }
+
+    private static InetSocketAddress createInetSocketAddress(String contactPoint, int port)
+    {
+        try {
+            return new InetSocketAddress(InetAddress.getByName(contactPoint), port);
+        }
+        catch (UnknownHostException e) {
+            throw new IllegalArgumentException("Failed to add contact point: " + contactPoint, e);
         }
     }
 }

@@ -13,9 +13,8 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.datastax.driver.core.LocalDate;
-import com.datastax.driver.core.querybuilder.Insert;
-import com.datastax.driver.core.querybuilder.QueryBuilder;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -26,9 +25,13 @@ import io.trino.spi.connector.SchemaTableName;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Date;
 import java.util.UUID;
 
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.literal;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -167,28 +170,29 @@ public final class CassandraTestingUtils
     private static void insertTestData(CassandraSession session, SchemaTableName table, Date date, int rowsCount)
     {
         for (int rowNumber = 1; rowNumber <= rowsCount; rowNumber++) {
-            Insert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
-                    .value("key", "key " + rowNumber)
-                    .value("typeuuid", UUID.fromString(format("00000000-0000-0000-0000-%012d", rowNumber)))
-                    .value("typetinyint", rowNumber)
-                    .value("typesmallint", rowNumber)
-                    .value("typeinteger", rowNumber)
-                    .value("typelong", rowNumber + 1000)
-                    .value("typebytes", ByteBuffer.wrap(Ints.toByteArray(rowNumber)).asReadOnlyBuffer())
-                    .value("typedate", LocalDate.fromMillisSinceEpoch(date.getTime()))
-                    .value("typetimestamp", date)
-                    .value("typeansi", "ansi " + rowNumber)
-                    .value("typeboolean", rowNumber % 2 == 0)
-                    .value("typedecimal", new BigDecimal(Math.pow(2, rowNumber)))
-                    .value("typedouble", Math.pow(4, rowNumber))
-                    .value("typefloat", (float) Math.pow(8, rowNumber))
-                    .value("typeinet", InetAddresses.forString("127.0.0.1"))
-                    .value("typevarchar", "varchar " + rowNumber)
-                    .value("typevarint", BigInteger.TEN.pow(rowNumber))
-                    .value("typetimeuuid", UUID.fromString(format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber)))
-                    .value("typelist", ImmutableList.of("list-value-1" + rowNumber, "list-value-2" + rowNumber))
-                    .value("typemap", ImmutableMap.of(rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L))
-                    .value("typeset", ImmutableSet.of(false, true));
+            SimpleStatement insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
+                    .value("key", literal("key " + rowNumber))
+                    .value("typeuuid", literal(UUID.fromString(format("00000000-0000-0000-0000-%012d", rowNumber))))
+                    .value("typetinyint", literal(rowNumber))
+                    .value("typesmallint", literal(rowNumber))
+                    .value("typeinteger", literal(rowNumber))
+                    .value("typelong", literal(rowNumber + 1000))
+                    .value("typebytes", literal(ByteBuffer.wrap(Ints.toByteArray(rowNumber)).asReadOnlyBuffer()))
+                    .value("typedate", literal(LocalDate.ofInstant(Instant.ofEpochMilli(date.getTime()), ZoneId.systemDefault())))
+                    .value("typetimestamp", literal(Instant.ofEpochMilli(date.getTime())))
+                    .value("typeansi", literal("ansi " + rowNumber))
+                    .value("typeboolean", literal(rowNumber % 2 == 0))
+                    .value("typedecimal", literal(new BigDecimal(Math.pow(2, rowNumber))))
+                    .value("typedouble", literal(Math.pow(4, rowNumber)))
+                    .value("typefloat", literal((float) Math.pow(8, rowNumber)))
+                    .value("typeinet", literal(InetAddresses.forString("127.0.0.1")))
+                    .value("typevarchar", literal("varchar " + rowNumber))
+                    .value("typevarint", literal(BigInteger.TEN.pow(rowNumber)))
+                    .value("typetimeuuid", literal(UUID.fromString(format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber))))
+                    .value("typelist", literal(ImmutableList.of("list-value-1" + rowNumber, "list-value-2" + rowNumber)))
+                    .value("typemap", literal(ImmutableMap.of(rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L)))
+                    .value("typeset", literal(ImmutableSet.of(false, true)))
+                    .build();
 
             session.execute(insert);
         }
@@ -230,26 +234,27 @@ public final class CassandraTestingUtils
                          9 |             9 | clust_one_9 | null
          */
         for (int rowNumber = 1; rowNumber < 10; rowNumber++) {
-            Insert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
-                    .value("partition_one", rowNumber)
-                    .value("partition_two", rowNumber)
-                    .value("clust_one", "clust_one_" + rowNumber);
+            SimpleStatement insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
+                    .value("partition_one", literal(rowNumber))
+                    .value("partition_two", literal(rowNumber))
+                    .value("clust_one", literal("clust_one_" + rowNumber))
+                    .build();
             session.execute(insert);
         }
         session.execute(QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
-                .value("partition_one", 1L).value("partition_two", 1).value("clust_one", "clust_one_" + 2));
+                .value("partition_one", literal(1L)).value("partition_two", literal(1)).value("clust_one", literal("clust_one_" + 2)).build());
         session.execute(QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
-                .value("partition_one", 1L).value("partition_two", 1).value("clust_one", "clust_one_" + 3));
+                .value("partition_one", literal(1L)).value("partition_two", literal(1)).value("clust_one", literal("clust_one_" + 3)).build());
 
         session.execute(QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
-                .value("partition_one", 1L).value("partition_two", 2).value("clust_one", "clust_one_" + 1));
+                .value("partition_one", literal(1L)).value("partition_two", literal(2)).value("clust_one", literal("clust_one_" + 1)).build());
         session.execute(QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
-                .value("partition_one", 1L).value("partition_two", 2).value("clust_one", "clust_one_" + 2));
+                .value("partition_one", literal(1L)).value("partition_two", literal(2)).value("clust_one", literal("clust_one_" + 2)).build());
         session.execute(QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
-                .value("partition_one", 1L).value("partition_two", 2).value("clust_one", "clust_one_" + 3));
+                .value("partition_one", literal(1L)).value("partition_two", literal(2)).value("clust_one", literal("clust_one_" + 3)).build());
 
         session.execute(QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
-                .value("partition_one", 2L).value("partition_two", 2).value("clust_one", "clust_one_" + 1));
+                .value("partition_one", literal(2L)).value("partition_two", literal(2)).value("clust_one", literal("clust_one_" + 1)).build());
 
         assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 15);
     }

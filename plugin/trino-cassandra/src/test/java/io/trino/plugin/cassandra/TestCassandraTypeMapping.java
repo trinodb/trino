@@ -140,6 +140,7 @@ public class TestCassandraTypeMapping
         return createCassandraQueryRunner(
                 server,
                 ImmutableMap.of(),
+                ImmutableMap.of(),
                 ImmutableList.of());
     }
 

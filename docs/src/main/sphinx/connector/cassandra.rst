@@ -76,9 +76,11 @@ Property Name                                      Description
                                                    This is a global setting used for all connections, regardless
                                                    of the user connected to Trino.
 
-``cassandra.protocol-version``                     It is possible to override the protocol version for older Cassandra clusters.
-                                                   By default, the values from the highest protocol version the driver can use.
-                                                   Possible values include ``V2``, ``V3`` and ``V4``.
+``cassandra.protocol-version``                     It is possible to override the protocol version for older Cassandra
+                                                   clusters.
+                                                   By default, the value corresponds to the default protocol version
+                                                   used in the underlying Cassandra java driver.
+                                                   Possible values include ``V3``, ``V4``, ``V5``, ``V6``.
 ================================================== ======================================================================
 
 .. note::
