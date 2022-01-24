@@ -170,6 +170,7 @@ import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshotMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getRemoveOrphanFilesMinRetention;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isAllowLegacySnapshotSyntax;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
@@ -311,7 +312,7 @@ public class IcebergMetadata
         }
 
         Optional<Long> snapshotId = endVersion.map(version -> getSnapshotIdFromVersion(table, version))
-                .or(() -> getSnapshotId(table, name.getSnapshotId()));
+                .or(() -> getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session)));
 
         Map<String, String> tableProperties = table.properties();
         String nameMappingJson = tableProperties.get(TableProperties.DEFAULT_NAME_MAPPING);
@@ -408,11 +409,11 @@ public class IcebergMetadata
                 }
                 return Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
             case PARTITIONS:
-                return Optional.of(new PartitionTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId())));
+                return Optional.of(new PartitionTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
             case MANIFESTS:
-                return Optional.of(new ManifestsTable(systemTableName, table, getSnapshotId(table, name.getSnapshotId())));
+                return Optional.of(new ManifestsTable(systemTableName, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
             case FILES:
-                return Optional.of(new FilesTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId())));
+                return Optional.of(new FilesTable(systemTableName, typeManager, table, getSnapshotId(table, name.getSnapshotId(), isAllowLegacySnapshotSyntax(session))));
             case PROPERTIES:
                 return Optional.of(new PropertiesTable(systemTableName, table));
         }
@@ -1921,14 +1922,14 @@ public class IcebergMetadata
         catalog.setTablePrincipal(session, tableName, principal);
     }
 
-    private Optional<Long> getSnapshotId(Table table, Optional<Long> snapshotId)
+    private Optional<Long> getSnapshotId(Table table, Optional<Long> snapshotId, boolean allowLegacySnapshotSyntax)
     {
         // table.name() is an encoded version of SchemaTableName
         return snapshotId
                 .map(id ->
                         snapshotIds.computeIfAbsent(
                                 table.name() + "@" + id,
-                                ignored -> IcebergUtil.resolveSnapshotId(table, id)))
+                                ignored -> IcebergUtil.resolveSnapshotId(table, id, allowLegacySnapshotSyntax)))
                 .or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId));
     }
 

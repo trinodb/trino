@@ -76,6 +76,7 @@ public final class IcebergSessionProperties
     private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "expire_snapshots_min_retention";
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "remove_orphan_files_min_retention";
+    private static final String ALLOW_LEGACY_SNAPSHOT_SYNTAX = "allow_legacy_snapshot_syntax";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -245,6 +246,11 @@ public final class IcebergSessionProperties
                         "Minimal retention period for remove_orphan_files procedure",
                         icebergConfig.getRemoveOrphanFilesMinRetention(),
                         false))
+                .add(booleanProperty(
+                        ALLOW_LEGACY_SNAPSHOT_SYNTAX,
+                        "Allow snapshot access based on timestamp and snapshotid",
+                        icebergConfig.isAllowLegacySnapshotSyntax(),
+                        false))
                 .build();
     }
 
@@ -404,5 +410,10 @@ public final class IcebergSessionProperties
     public static double getMinimumAssignedSplitWeight(ConnectorSession session)
     {
         return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
+    }
+
+    public static boolean isAllowLegacySnapshotSyntax(ConnectorSession session)
+    {
+        return session.getProperty(ALLOW_LEGACY_SNAPSHOT_SYNTAX, Boolean.class);
     }
 }

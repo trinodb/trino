@@ -4217,24 +4217,27 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testModifyingOldSnapshotIsNotPossible()
     {
+        Session sessionWithLegacySyntaxSupport = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "allow_legacy_snapshot_syntax", "true")
+                .build();
         String tableName = "test_modifying_old_snapshot_" + randomTableSuffix();
         assertUpdate(format("CREATE TABLE %s (col int)", tableName));
         assertUpdate(format("INSERT INTO %s VALUES 1,2,3", tableName), 3);
         long oldSnapshotId = getCurrentSnapshotId(tableName);
         assertUpdate(format("INSERT INTO %s VALUES 4,5,6", tableName), 3);
-        assertQuery(format("SELECT * FROM \"%s@%d\"", tableName, oldSnapshotId), "VALUES 1,2,3");
-        assertThatThrownBy(() -> query(format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, oldSnapshotId)))
+        assertQuery(sessionWithLegacySyntaxSupport, format("SELECT * FROM \"%s@%d\"", tableName, oldSnapshotId), "VALUES 1,2,3");
+        assertThatThrownBy(() -> query(sessionWithLegacySyntaxSupport, format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, oldSnapshotId)))
                 .hasMessage("Modifying old snapshot is not supported in Iceberg.");
-        assertThatThrownBy(() -> query(format("DELETE FROM \"%s@%d\" WHERE col = 5", tableName, oldSnapshotId)))
+        assertThatThrownBy(() -> query(sessionWithLegacySyntaxSupport, format("DELETE FROM \"%s@%d\" WHERE col = 5", tableName, oldSnapshotId)))
                 .hasMessage("Modifying old snapshot is not supported in Iceberg.");
-        assertThatThrownBy(() -> query(format("UPDATE \"%s@%d\" SET col = 50 WHERE col = 5", tableName, oldSnapshotId)))
+        assertThatThrownBy(() -> query(sessionWithLegacySyntaxSupport, format("UPDATE \"%s@%d\" SET col = 50 WHERE col = 5", tableName, oldSnapshotId)))
                 .hasMessage("Modifying old snapshot is not supported in Iceberg.");
-        assertThatThrownBy(() -> query(format("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE", tableName, oldSnapshotId)))
+        assertThatThrownBy(() -> query(sessionWithLegacySyntaxSupport, format("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE", tableName, oldSnapshotId)))
                 .hasMessage("Modifying old snapshot is not supported in Iceberg.");
-        assertUpdate(format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, getCurrentSnapshotId(tableName)), 3);
-        assertUpdate(format("DELETE FROM \"%s@%d\" WHERE col = 9", tableName, getCurrentSnapshotId(tableName)), 1);
-        assertUpdate(format("UPDATE \"%s@%d\" set col = 50 WHERE col = 5", tableName, getCurrentSnapshotId(tableName)), 1);
-        assertQuerySucceeds(format("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE", tableName, getCurrentSnapshotId(tableName)));
+        assertUpdate(sessionWithLegacySyntaxSupport, format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, getCurrentSnapshotId(tableName)), 3);
+        assertUpdate(sessionWithLegacySyntaxSupport, format("DELETE FROM \"%s@%d\" WHERE col = 9", tableName, getCurrentSnapshotId(tableName)), 1);
+        assertUpdate(sessionWithLegacySyntaxSupport, format("UPDATE \"%s@%d\" set col = 50 WHERE col = 5", tableName, getCurrentSnapshotId(tableName)), 1);
+        assertQuerySucceeds(sessionWithLegacySyntaxSupport, format("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE", tableName, getCurrentSnapshotId(tableName)));
         assertQuery(format("SELECT * FROM %s", tableName), "VALUES 1,2,3,4,50,6,7,8");
 
         assertUpdate("DROP TABLE " + tableName);

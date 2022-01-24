@@ -218,8 +218,20 @@ public final class IcebergUtil
         return properties.buildOrThrow();
     }
 
-    public static long resolveSnapshotId(Table table, long snapshotId)
+    @Deprecated
+    public static long resolveSnapshotId(Table table, long snapshotId, boolean allowLegacySnapshotSyntax)
     {
+        if (!allowLegacySnapshotSyntax) {
+            throw new TrinoException(
+                    NOT_SUPPORTED,
+                    format(
+                            "Failed to access snapshot %s for table %s. This syntax for accessing Iceberg tables is not "
+                                    + "supported. Use the AS OF syntax OR set the catalog session property "
+                                    + "allow_legacy_snapshot_syntax=true for temporarily restoring previous behavior.",
+                            snapshotId,
+                            table.name()));
+        }
+
         if (table.snapshot(snapshotId) != null) {
             return snapshotId;
         }
