@@ -333,5 +333,11 @@ public final class ThriftQueryRunner
         {
             source.injectTaskFailure(traceToken, stageId, partitionId, attemptId, injectionType, errorType);
         }
+
+        @Override
+        public void loadExchangeManager(String name, Map<String, String> properties)
+        {
+            source.loadExchangeManager(name, properties);
+        }
     }
 }

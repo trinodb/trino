@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.operator.RetryPolicy;
+import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
@@ -28,11 +29,15 @@ public class TestHiveFileTaskFailureRecoveryTest
 {
     protected TestHiveFileTaskFailureRecoveryTest()
     {
-        super(RetryPolicy.TASK);
+        super(RetryPolicy.TASK, FaultTolerantExecutionConnectorTestHelper.getExchangeManagerProperties());
     }
 
     @Override
-    protected QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
+    protected QueryRunner createQueryRunner(
+            List<TpchTable<?>> requiredTpchTables,
+            Map<String, String> configProperties,
+            Map<String, String> coordinatorProperties,
+            Map<String, String> exchangeManagerProperties)
             throws Exception
     {
         return HiveQueryRunner.builder()
@@ -43,6 +48,7 @@ public class TestHiveFileTaskFailureRecoveryTest
                         // currently not supported for fault tolerant execution mode
                         .put("enable-dynamic-filtering", "false")
                         .build())
+                .setExchangeManagerProperties(exchangeManagerProperties)
                 .build();
     }
 

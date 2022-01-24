@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.trino.operator.RetryPolicy;
+import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
@@ -25,17 +26,18 @@ public class TestHiveFileQueryFailureRecoveryTest
 {
     public TestHiveFileQueryFailureRecoveryTest()
     {
-        super(RetryPolicy.QUERY);
+        super(RetryPolicy.QUERY, FaultTolerantExecutionConnectorTestHelper.getExchangeManagerProperties());
     }
 
     @Override
-    protected QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
+    protected QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties, Map<String, String> exchangeManagerProperties)
             throws Exception
     {
         return HiveQueryRunner.builder()
                 .setInitialTables(requiredTpchTables)
                 .setCoordinatorProperties(coordinatorProperties)
                 .setExtraProperties(configProperties)
+                .setExchangeManagerProperties(exchangeManagerProperties)
                 .build();
     }
 }

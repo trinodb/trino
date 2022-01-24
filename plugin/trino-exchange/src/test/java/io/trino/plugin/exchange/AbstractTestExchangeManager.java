@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.testing;
+package io.trino.plugin.exchange;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -33,14 +33,12 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestExchangeManager
 {
@@ -141,10 +139,7 @@ public abstract class AbstractTestExchangeManager
                 true);
         exchange.sinkFinished(sinkInstanceHandle);
 
-        CompletableFuture<List<ExchangeSourceHandle>> inputPartitionHandlesFuture = exchange.getSourceHandles();
-        assertTrue(inputPartitionHandlesFuture.isDone());
-
-        List<ExchangeSourceHandle> partitionHandles = inputPartitionHandlesFuture.get();
+        List<ExchangeSourceHandle> partitionHandles = exchange.getSourceHandles().get();
         assertThat(partitionHandles).hasSize(2);
 
         Map<Integer, ExchangeSourceHandle> partitions = partitionHandles.stream()

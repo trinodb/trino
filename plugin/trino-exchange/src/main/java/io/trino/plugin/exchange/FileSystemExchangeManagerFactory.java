@@ -11,49 +11,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.testing.exchange;
+package io.trino.plugin.exchange;
 
+import com.google.inject.Injector;
+import io.airlift.bootstrap.Bootstrap;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeManagerFactory;
 import io.trino.spi.exchange.ExchangeManagerHandleResolver;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Map;
 
-public class LocalFileSystemExchangeManagerFactory
+import static java.util.Objects.requireNonNull;
+
+public class FileSystemExchangeManagerFactory
         implements ExchangeManagerFactory
 {
-    private static final String BASE_DIRECTORY_PROPERTY = "base-directory";
-
     @Override
     public String getName()
     {
-        return "local";
+        return "filesystem";
     }
 
     @Override
     public ExchangeManager create(Map<String, String> config)
     {
-        String configuredBaseDirectory = config.get(BASE_DIRECTORY_PROPERTY);
-        Path baseDirectory;
-        if (configuredBaseDirectory != null) {
-            baseDirectory = Paths.get(configuredBaseDirectory);
-        }
-        else {
-            try {
-                baseDirectory = Files.createTempDirectory("exchange-manager-");
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }
-        return new LocalFileSystemExchangeManager(baseDirectory);
+        requireNonNull(config, "config is null");
+
+        Bootstrap app = new Bootstrap(new FileSystemExchangeModule());
+
+        Injector injector = app
+                .doNotInitializeLogging()
+                .setRequiredConfigurationProperties(config)
+                .initialize();
+
+        return injector.getInstance(FileSystemExchangeManager.class);
     }
 
     @Override
@@ -64,13 +57,13 @@ public class LocalFileSystemExchangeManagerFactory
             @Override
             public Class<? extends ExchangeSinkInstanceHandle> getExchangeSinkInstanceHandleClass()
             {
-                return LocalFileSystemExchangeSinkInstanceHandle.class;
+                return FileSystemExchangeSinkInstanceHandle.class;
             }
 
             @Override
             public Class<? extends ExchangeSourceHandle> getExchangeSourceHandleHandleClass()
             {
-                return LocalFileSystemExchangeSourceHandle.class;
+                return FileSystemExchangeSourceHandle.class;
             }
         };
     }

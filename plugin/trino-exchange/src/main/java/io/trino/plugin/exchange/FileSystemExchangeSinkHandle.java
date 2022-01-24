@@ -11,53 +11,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.testing.exchange;
+package io.trino.plugin.exchange;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.QueryId;
-import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeSinkHandle;
 
+import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class LocalFileSystemExchangeSinkHandle
+public class FileSystemExchangeSinkHandle
         implements ExchangeSinkHandle
 {
-    private final QueryId queryId;
-    private final ExchangeId exchangeId;
-    private final int taskPartitionId;
+    private final int partitionId;
+    private final Optional<byte[]> secretKey;
 
     @JsonCreator
-    public LocalFileSystemExchangeSinkHandle(
-            @JsonProperty("queryId") QueryId queryId,
-            @JsonProperty("exchangeId") ExchangeId exchangeId,
-            @JsonProperty("taskPartitionId") int taskPartitionId)
+    public FileSystemExchangeSinkHandle(
+            @JsonProperty("partitionId") int partitionId,
+            @JsonProperty("secretKey") Optional<byte[]> secretKey)
     {
-        this.queryId = requireNonNull(queryId, "queryId is null");
-        this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
-        this.taskPartitionId = taskPartitionId;
+        this.partitionId = partitionId;
+        this.secretKey = requireNonNull(secretKey, "secretKey is null");
     }
 
     @JsonProperty
-    public QueryId getQueryId()
+    public int getPartitionId()
     {
-        return queryId;
+        return partitionId;
     }
 
     @JsonProperty
-    public ExchangeId getExchangeId()
+    public Optional<byte[]> getSecretKey()
     {
-        return exchangeId;
-    }
-
-    @JsonProperty
-    public int getTaskPartitionId()
-    {
-        return taskPartitionId;
+        return secretKey;
     }
 
     @Override
@@ -69,23 +60,27 @@ public class LocalFileSystemExchangeSinkHandle
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        LocalFileSystemExchangeSinkHandle that = (LocalFileSystemExchangeSinkHandle) o;
-        return taskPartitionId == that.taskPartitionId && Objects.equals(queryId, that.queryId) && Objects.equals(exchangeId, that.exchangeId);
+        FileSystemExchangeSinkHandle that = (FileSystemExchangeSinkHandle) o;
+        if (secretKey.isPresent() && that.secretKey.isPresent()) {
+            return partitionId == that.getPartitionId() && Arrays.equals(secretKey.get(), that.secretKey.get());
+        }
+        else {
+            return partitionId == that.getPartitionId() && secretKey.isEmpty() && that.secretKey.isEmpty();
+        }
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(queryId, exchangeId, taskPartitionId);
+        return Objects.hash(partitionId, secretKey);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("queryId", queryId)
-                .add("exchangeId", exchangeId)
-                .add("taskPartitionId", taskPartitionId)
+                .add("partitionId", partitionId)
+                .add("secretKey", secretKey.map(value -> "[REDACTED]"))
                 .toString();
     }
 }

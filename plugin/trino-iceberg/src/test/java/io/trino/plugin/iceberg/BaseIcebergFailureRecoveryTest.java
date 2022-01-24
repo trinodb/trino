@@ -19,6 +19,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.lang.String.format;
@@ -27,9 +28,9 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 public abstract class BaseIcebergFailureRecoveryTest
         extends BaseFailureRecoveryTest
 {
-    protected BaseIcebergFailureRecoveryTest(RetryPolicy retryPolicy)
+    protected BaseIcebergFailureRecoveryTest(RetryPolicy retryPolicy, Map<String, String> exchangeManagerProperties)
     {
-        super(retryPolicy);
+        super(retryPolicy, exchangeManagerProperties);
     }
 
     @Override

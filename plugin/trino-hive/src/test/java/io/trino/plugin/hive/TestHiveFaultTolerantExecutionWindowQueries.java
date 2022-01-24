@@ -24,11 +24,12 @@ public class TestHiveFaultTolerantExecutionWindowQueries
         extends AbstractTestFaultTolerantExecutionWindowQueries
 {
     @Override
-    protected QueryRunner createQueryRunner(Map<String, String> extraProperties)
+    protected QueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> exchangeManagerProperties)
             throws Exception
     {
         return HiveQueryRunner.builder()
                 .setExtraProperties(extraProperties)
+                .setExchangeManagerProperties(exchangeManagerProperties)
                 .setInitialTables(getTables())
                 .build();
     }

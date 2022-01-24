@@ -32,17 +32,20 @@ public class TestHiveMinioQueryFailureRecoveryTest
 {
     public TestHiveMinioQueryFailureRecoveryTest()
     {
-        super(RetryPolicy.QUERY);
+        super(RetryPolicy.QUERY, ImmutableMap.of());
     }
 
-    private String bucketName;
     private HiveMinioDataLake dockerizedS3DataLake;
 
     @Override
-    protected QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
+    protected QueryRunner createQueryRunner(
+            List<TpchTable<?>> requiredTpchTables,
+            Map<String, String> configProperties,
+            Map<String, String> coordinatorProperties,
+            Map<String, String> exchangeManagerProperties)
             throws Exception
     {
-        this.bucketName = "test-hive-insert-overwrite-" + randomTableSuffix(); // randomizing bucket name to ensure cached TrinoS3FileSystem objects are not reused
+        String bucketName = "test-hive-insert-overwrite-" + randomTableSuffix(); // randomizing bucket name to ensure cached TrinoS3FileSystem objects are not reused
         this.dockerizedS3DataLake = new HiveMinioDataLake(bucketName, ImmutableMap.of(), HiveHadoop.DEFAULT_IMAGE);
         this.dockerizedS3DataLake.start();
 
@@ -56,6 +59,7 @@ public class TestHiveMinioQueryFailureRecoveryTest
                         // the tests to run out of memory as the buffer space is eagerly allocated for each output file.
                         .put("hive.s3.streaming.enabled", "false")
                         .build())
+                .setExchangeManagerProperties(exchangeManagerProperties)
                 .build();
     }
 

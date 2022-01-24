@@ -25,7 +25,7 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return BaseHiveConnectorTest.createHiveQueryRunner(FaultTolerantExecutionConnectorTestHelper.getExtraProperties());
+        return BaseHiveConnectorTest.createHiveQueryRunner(FaultTolerantExecutionConnectorTestHelper.getExtraProperties(), FaultTolerantExecutionConnectorTestHelper.getExchangeManagerProperties());
     }
 
     @Override
