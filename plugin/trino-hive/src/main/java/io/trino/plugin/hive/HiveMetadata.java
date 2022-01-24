@@ -177,6 +177,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
@@ -2370,6 +2371,9 @@ public class HiveMetadata
             catch (TrinoException e) {
                 if (e.getErrorCode().equals(HIVE_VIEW_TRANSLATION_ERROR.toErrorCode())) {
                     // Ignore hive views for which translation fails
+                }
+                else if (e.getErrorCode().equals(HIVE_INVALID_VIEW_DATA.toErrorCode())) {
+                    // Ignore views that are not valid
                 }
                 else if (e.getErrorCode().equals(TABLE_NOT_FOUND.toErrorCode())) {
                     // Ignore view that was dropped during query execution (race condition)
