@@ -71,7 +71,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
-import static io.trino.SystemSessionProperties.getQueryMaxTotalMemoryPerTask;
+import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerTask;
 import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.SqlTask.createSqlTask;
@@ -401,7 +401,7 @@ public class SqlTaskManager
         if (!queryContext.isMemoryLimitsInitialized()) {
             long sessionQueryMaxMemoryPerNode = getQueryMaxMemoryPerNode(session).toBytes();
 
-            Optional<DataSize> effectiveQueryMaxMemoryPerTask = getQueryMaxTotalMemoryPerTask(session);
+            Optional<DataSize> effectiveQueryMaxMemoryPerTask = getQueryMaxMemoryPerTask(session);
             if (queryMaxMemoryPerTask.isPresent() &&
                     (effectiveQueryMaxMemoryPerTask.isEmpty() || effectiveQueryMaxMemoryPerTask.get().toBytes() > queryMaxMemoryPerTask.get().toBytes())) {
                 effectiveQueryMaxMemoryPerTask = queryMaxMemoryPerTask;
