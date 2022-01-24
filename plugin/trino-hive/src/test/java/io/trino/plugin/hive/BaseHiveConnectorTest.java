@@ -183,7 +183,7 @@ public abstract class BaseHiveConnectorTest
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
     }
 
-    protected static QueryRunner createHiveQueryRunner(Map<String, String> extraProperties)
+    protected static QueryRunner createHiveQueryRunner(Map<String, String> extraProperties, Map<String, String> exchangeManagerProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
@@ -195,6 +195,7 @@ public abstract class BaseHiveConnectorTest
                         // Make weighted split scheduling more conservative to avoid OOMs in test
                         "hive.minimum-assigned-split-weight", "0.5"))
                 .addExtraProperty("legacy.allow-set-view-authorization", "true")
+                .setExchangeManagerProperties(exchangeManagerProperties)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
 

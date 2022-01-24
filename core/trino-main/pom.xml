@@ -378,6 +378,12 @@
         <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-exchange</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-parser</artifactId>
             <type>test-jar</type>
             <scope>test</scope>

@@ -26,7 +26,7 @@ import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.metadata.ExchangeHandleResolver;
-import io.trino.server.testing.exchange.LocalFileSystemExchangeManagerFactory;
+import io.trino.plugin.exchange.FileSystemExchangeManagerFactory;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import org.testng.annotations.AfterClass;
@@ -65,9 +65,9 @@ public class TestDeduplicatingDirectExchangeBuffer
     public void beforeClass()
     {
         exchangeManagerRegistry = new ExchangeManagerRegistry(new ExchangeHandleResolver());
-        exchangeManagerRegistry.addExchangeManagerFactory(new LocalFileSystemExchangeManagerFactory());
-        exchangeManagerRegistry.loadExchangeManager("local", ImmutableMap.of(
-                "base-directory", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
+        exchangeManagerRegistry.addExchangeManagerFactory(new FileSystemExchangeManagerFactory());
+        exchangeManagerRegistry.loadExchangeManager("filesystem", ImmutableMap.of(
+                "exchange.base-directory", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
     }
 
     @AfterClass(alwaysRun = true)

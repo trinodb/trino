@@ -294,6 +294,12 @@ public final class StandaloneQueryRunner
                 errorType);
     }
 
+    @Override
+    public void loadExchangeManager(String name, Map<String, String> properties)
+    {
+        server.loadExchangeManager(name, properties);
+    }
+
     private static TestingTrinoServer createTestingTrinoServer()
     {
         return TestingTrinoServer.builder()

@@ -104,6 +104,8 @@ public interface QueryRunner
             InjectedFailureType injectionType,
             Optional<ErrorType> errorType);
 
+    void loadExchangeManager(String name, Map<String, String> properties);
+
     class MaterializedResultWithPlan
     {
         private final MaterializedResult materializedResult;
