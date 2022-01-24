@@ -16,7 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
-public class TestHivePipelinedExecutionConnectorTest
+public class TestHiveConnectorTest
         extends BaseHiveConnectorTest
 {
     @Override
