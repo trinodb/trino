@@ -15,6 +15,13 @@ package io.trino.metadata;
 
 import io.trino.connector.CatalogName;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorCapabilities;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.transaction.IsolationLevel;
+import io.trino.transaction.InternalConnector;
+import io.trino.transaction.TransactionId;
+
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.metadata.MetadataUtil.checkCatalogName;
@@ -91,7 +98,32 @@ public class Catalog
         return systemTablesId;
     }
 
-    public Connector getConnector(CatalogName catalogName)
+    public Set<ConnectorCapabilities> getCapabilities()
+    {
+        return connector.getCapabilities();
+    }
+
+    public CatalogTransaction beginTransaction(
+            CatalogName catalogName,
+            TransactionId transactionId,
+            IsolationLevel isolationLevel,
+            boolean readOnly,
+            boolean autoCommitContext)
+    {
+        Connector connector = getConnector(catalogName);
+
+        ConnectorTransactionHandle transactionHandle;
+        if (connector instanceof InternalConnector) {
+            transactionHandle = ((InternalConnector) connector).beginTransaction(transactionId, isolationLevel, readOnly);
+        }
+        else {
+            transactionHandle = connector.beginTransaction(isolationLevel, readOnly, autoCommitContext);
+        }
+
+        return new CatalogTransaction(catalogName, connector, transactionHandle);
+    }
+
+    private Connector getConnector(CatalogName catalogName)
     {
         if (this.connectorCatalogName.equals(catalogName)) {
             return connector;
