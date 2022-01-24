@@ -85,6 +85,7 @@ import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
+import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
@@ -174,6 +175,7 @@ public final class MetadataManager
     private final FunctionRegistry functions;
     private final FunctionResolver functionResolver;
     private final SystemSecurityMetadata systemSecurityMetadata;
+    private final GroupProvider groupProvider;
     private final TransactionManager transactionManager;
     private final TypeManager typeManager;
 
@@ -189,6 +191,7 @@ public final class MetadataManager
             FeaturesConfig featuresConfig,
             SystemSecurityMetadata systemSecurityMetadata,
             TransactionManager transactionManager,
+            GroupProvider groupProvider,
             TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators,
             TypeManager typeManager,
@@ -201,6 +204,7 @@ public final class MetadataManager
         functionResolver = new FunctionResolver(this, typeManager);
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
+        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
 
         functionDecoder = new ResolvedFunctionDecoder(typeManager::getType);
@@ -238,6 +242,7 @@ public final class MetadataManager
                 featuresConfig,
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
+                user -> ImmutableSet.of(),
                 typeOperators,
                 new BlockTypeOperators(typeOperators),
                 typeManager,
@@ -1189,9 +1194,16 @@ public final class MetadataManager
         }
 
         Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName())
-                .or(() -> connectorView.get().getOwner().map(Identity::ofUser))
+                .or(() -> connectorView.get().getOwner().map(this::createViewOwnerIdentity))
                 .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Catalog does not support run-as DEFINER views: " + viewName));
         return Optional.of(new ViewDefinition(viewName, connectorView.get(), runAsIdentity));
+    }
+
+    private Identity createViewOwnerIdentity(String user)
+    {
+        return Identity.forUser(user)
+                .withGroups(groupProvider.getGroups(user))
+                .build();
     }
 
     private Optional<ConnectorViewDefinition> getViewInternal(Session session, QualifiedObjectName viewName)
