@@ -67,6 +67,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -100,8 +102,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRounding;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
@@ -122,15 +124,20 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.lang.System.arraycopy;
+import static java.time.ZoneOffset.UTC;
 
 public class ClickHouseClient
         extends BaseJdbcClient
@@ -138,6 +145,11 @@ public class ClickHouseClient
     static final int CLICKHOUSE_MAX_DECIMAL_PRECISION = 76;
     private static final long MIN_SUPPORTED_DATE_EPOCH = LocalDate.parse("1970-01-01").toEpochDay();
     private static final long MAX_SUPPORTED_DATE_EPOCH = LocalDate.parse("2106-02-07").toEpochDay(); // The max date is '2148-12-31' in new ClickHouse version
+
+    private static final LocalDateTime MIN_SUPPORTED_TIMESTAMP = LocalDateTime.parse("1970-01-01T00:00:00");
+    private static final LocalDateTime MAX_SUPPORTED_TIMESTAMP = LocalDateTime.parse("2105-12-31T23:59:59");
+    private static final long MIN_SUPPORTED_TIMESTAMP_EPOCH = MIN_SUPPORTED_TIMESTAMP.toEpochSecond(UTC);
+    private static final long MAX_SUPPORTED_TIMESTAMP_EPOCH = MAX_SUPPORTED_TIMESTAMP.toEpochSecond(UTC);
 
     private final AggregateFunctionRewriter<JdbcExpression> aggregateFunctionRewriter;
     private final Type uuidType;
@@ -468,7 +480,10 @@ public class ClickHouseClient
             case Types.TIMESTAMP:
                 if (jdbcTypeName.equals("DateTime")) {
                     verify(typeHandle.getRequiredDecimalDigits() == 0, "Expected 0 as timestamp precision, but got %s", typeHandle.getRequiredDecimalDigits());
-                    return Optional.of(timestampColumnMapping(TIMESTAMP_SECONDS));
+                    return Optional.of(ColumnMapping.longMapping(
+                            TIMESTAMP_SECONDS,
+                            timestampReadFunction(TIMESTAMP_SECONDS),
+                            timestampSecondsWriteFunction()));
                 }
                 // TODO (https://github.com/trinodb/trino/issues/10537) Add support for Datetime64 type
                 return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
@@ -522,6 +537,9 @@ public class ClickHouseClient
             // TODO (https://github.com/trinodb/trino/issues/10055) Deny unsupported dates to prevent inserting wrong values. 2106-02-07 is max value in version 20.8
             return WriteMapping.longMapping("Date", dateWriteFunctionUsingLocalDate());
         }
+        if (type == TIMESTAMP_SECONDS) {
+            return WriteMapping.longMapping("DateTime", timestampSecondsWriteFunction());
+        }
         if (type.equals(uuidType)) {
             return WriteMapping.sliceMapping("UUID", uuidWriteFunction());
         }
@@ -570,6 +588,25 @@ public class ClickHouseClient
         // Deny unsupported dates eagerly to prevent unexpected results. ClickHouse stores '1970-01-01' when the date is out of supported range.
         if (value < MIN_SUPPORTED_DATE_EPOCH || value > MAX_SUPPORTED_DATE_EPOCH) {
             throw new TrinoException(INVALID_ARGUMENTS, format("Date must be between %s and %s in ClickHouse: %s", LocalDate.ofEpochDay(MIN_SUPPORTED_DATE_EPOCH), LocalDate.ofEpochDay(MAX_SUPPORTED_DATE_EPOCH), LocalDate.ofEpochDay(value)));
+        }
+    }
+
+    private static LongWriteFunction timestampSecondsWriteFunction()
+    {
+        return (statement, index, value) -> {
+            long epochSecond = floorDiv(value, MICROSECONDS_PER_SECOND);
+            int nanoFraction = floorMod(value, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+            verify(nanoFraction == 0, "Nanos of second must be zero: '%s'", value);
+            verifySupportedTimestamp(epochSecond);
+            statement.setObject(index, LocalDateTime.ofEpochSecond(epochSecond, 0, UTC));
+        };
+    }
+
+    private static void verifySupportedTimestamp(long epochSecond)
+    {
+        if (epochSecond < MIN_SUPPORTED_TIMESTAMP_EPOCH || epochSecond > MAX_SUPPORTED_TIMESTAMP_EPOCH) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
+            throw new TrinoException(INVALID_ARGUMENTS, format("Timestamp must be between %s and %s in ClickHouse: %s", MIN_SUPPORTED_TIMESTAMP.format(formatter), MAX_SUPPORTED_TIMESTAMP.format(formatter), LocalDateTime.ofEpochSecond(epochSecond, 0, UTC).format(formatter)));
         }
     }
 
