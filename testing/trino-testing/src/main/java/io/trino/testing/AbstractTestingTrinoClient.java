@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -188,20 +189,22 @@ public abstract class AbstractTestingTrinoClient<T>
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
-        return transaction(trinoServer.getTransactionManager(), trinoServer.getAccessControl())
-                .readOnly()
-                .execute(session, transactionSession -> {
-                    return trinoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
-                });
+        return inTransaction(session, transactionSession ->
+                trinoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema)));
     }
 
     public boolean tableExists(Session session, String table)
     {
+        return inTransaction(session, transactionSession ->
+                MetadataUtil.tableExists(trinoServer.getMetadata(), transactionSession, table));
+    }
+
+    private <V> V inTransaction(Session session, Function<Session, V> callback)
+    {
         return transaction(trinoServer.getTransactionManager(), trinoServer.getAccessControl())
                 .readOnly()
-                .execute(session, transactionSession -> {
-                    return MetadataUtil.tableExists(trinoServer.getMetadata(), transactionSession, table);
-                });
+                .singleStatement()
+                .execute(session, callback);
     }
 
     public Session getDefaultSession()
