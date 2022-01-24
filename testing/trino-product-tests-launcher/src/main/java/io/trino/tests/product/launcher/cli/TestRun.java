@@ -16,6 +16,7 @@ package io.trino.tests.product.launcher.cli;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -41,6 +42,7 @@ import javax.inject.Inject;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -50,8 +52,10 @@ import java.util.concurrent.Callable;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
@@ -59,6 +63,8 @@ import static io.trino.tests.product.launcher.testcontainers.PortBinder.unsafely
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.mapping;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
@@ -234,6 +240,7 @@ public final class TestRun
 
             Collection<DockerContainer> allContainers = environment.getContainers();
             DockerContainer testsContainer = environment.getContainer(TESTS);
+            DockerContainer coordinatorContainer = environment.getContainer(COORDINATOR);
 
             if (!attach) {
                 // Reestablish dependency on every startEnvironment attempt
@@ -250,6 +257,14 @@ public final class TestRun
                 // TODO prune previous ptl-tests container
                 testsContainer.start();
             }
+
+            String grepNameOutput = coordinatorContainer.execCommand("/usr/bin/grep", "--recursive", "--fixed-strings", ".name=", "/docker/presto-product-tests/conf/presto/etc");
+            log.info("grepNameOutput:\n%s", grepNameOutput);
+            Map<String, ImmutableSet<String>> features = Arrays.stream(grepNameOutput.split("\\R+"))
+                    .map(line -> line.substring(line.lastIndexOf(':') + 1))
+                    .map(line -> Arrays.asList(line.split("\\.name=")))
+                    .collect(groupingBy(list -> list.get(0), mapping(list -> list.get(1), toImmutableSet())));
+            log.info("Features: %s", features);
 
             return environment;
         }
