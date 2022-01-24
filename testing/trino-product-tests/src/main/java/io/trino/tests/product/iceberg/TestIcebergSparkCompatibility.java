@@ -35,6 +35,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -716,6 +717,84 @@ public class TestIcebergSparkCompatibility
                         .addField("drop_and_add", 114L)
                         .addField("added", 115L)
                         .build()));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")
+    public void testReadAfterPartitionEvolution(StorageFormat storageFormat, int specVersion)
+    {
+        String baseTableName = "test_read_after_partition_evolution_" + storageFormat;
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
+        onSpark().executeQuery(format(
+                "CREATE TABLE %s (" +
+                        "int_col BIGINT, " +
+                        "struct_col STRUCT<field_one: INT, field_two: INT>, " +
+                        "timestamp_col TIMESTAMP) "
+                        + " USING ICEBERG"
+                        + " TBLPROPERTIES ('write.format.default' = '%s', 'format-version' = %s)",
+                sparkTableName,
+                storageFormat,
+                specVersion));
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, named_struct('field_one', 1, 'field_two', 1), TIMESTAMP '2021-06-28 14:16:00.456')");
+
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD PARTITION FIELD bucket(3, int_col)");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (2, named_struct('field_one', 2, 'field_two', 2), TIMESTAMP '2022-06-28 14:16:00.456')");
+
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD PARTITION FIELD struct_col.field_one");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (3, named_struct('field_one', 3, 'field_two', 3), TIMESTAMP '2023-06-28 14:16:00.456')");
+
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " DROP PARTITION FIELD struct_col.field_one");
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD PARTITION FIELD struct_col.field_two");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (4, named_struct('field_one', 4, 'field_two', 4), TIMESTAMP '2024-06-28 14:16:00.456')");
+
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " DROP PARTITION FIELD bucket(3, int_col)");
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " DROP PARTITION FIELD struct_col.field_two");
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD PARTITION FIELD days(timestamp_col)");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (5, named_struct('field_one', 5, 'field_two', 5), TIMESTAMP '2025-06-28 14:16:00.456')");
+
+        // The Iceberg documentation states it is not necessary to drop a day transform partition field in order to add an hourly one
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD PARTITION FIELD hours(timestamp_col)");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (6, named_struct('field_one', 6, 'field_two', 6), TIMESTAMP '2026-06-28 14:16:00.456')");
+
+        onSpark().executeQuery("ALTER TABLE " + sparkTableName + " ADD PARTITION FIELD int_col");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (7, named_struct('field_one', 7, 'field_two', 7), TIMESTAMP '2027-06-28 14:16:00.456')");
+
+        Function<Integer, io.trino.jdbc.Row> buildStructColValue = intValue -> rowBuilder()
+                .addField("field_one", intValue)
+                .addField("field_two", intValue)
+                .build();
+
+        assertThat(onTrino().executeQuery("SELECT int_col, struct_col, CAST(timestamp_col AS TIMESTAMP) FROM " + trinoTableName))
+                .containsOnly(
+                        row(1, buildStructColValue.apply(1), Timestamp.valueOf("2021-06-28 14:16:00.456")),
+                        row(2, buildStructColValue.apply(2), Timestamp.valueOf("2022-06-28 14:16:00.456")),
+                        row(3, buildStructColValue.apply(3), Timestamp.valueOf("2023-06-28 14:16:00.456")),
+                        row(4, buildStructColValue.apply(4), Timestamp.valueOf("2024-06-28 14:16:00.456")),
+                        row(5, buildStructColValue.apply(5), Timestamp.valueOf("2025-06-28 14:16:00.456")),
+                        row(6, buildStructColValue.apply(6), Timestamp.valueOf("2026-06-28 14:16:00.456")),
+                        row(7, buildStructColValue.apply(7), Timestamp.valueOf("2027-06-28 14:16:00.456")));
+
+        assertThat(onTrino().executeQuery("SELECT struct_col.field_two FROM " + trinoTableName))
+                .containsOnly(row(1), row(2), row(3), row(4), row(5), row(6), row(7));
+        assertThat(onTrino().executeQuery("SELECT CAST(timestamp_col AS TIMESTAMP) FROM " + trinoTableName + " WHERE struct_col.field_two = 2"))
+                .containsOnly(row(Timestamp.valueOf("2022-06-28 14:16:00.456")));
+
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE int_col = 2"))
+                .containsOnly(row(1));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE int_col % 2 = 0"))
+                .containsOnly(row(3));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE struct_col.field_one = 2"))
+                .containsOnly(row(1));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE struct_col.field_one % 2 = 0"))
+                .containsOnly(row(3));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE year(timestamp_col) = 2022"))
+                .containsOnly(row(1));
+        assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE year(timestamp_col) % 2 = 0"))
+                .containsOnly(row(3));
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
