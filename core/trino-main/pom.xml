@@ -485,17 +485,6 @@
                     </dependency>
                 </dependencies>
             </plugin>
-
-            <plugin>
-                <groupId>org.gaul</groupId>
-                <artifactId>modernizer-maven-plugin</artifactId>
-                <configuration>
-                    <ignoreClassNamePatterns>
-                        <!-- we require certain org.testng.Assert methods be called via our Assert class, so that class needs to be allowed to call them -->
-                        <ignoreClassNamePattern>io/trino/testing/assertions/Assert</ignoreClassNamePattern>
-                    </ignoreClassNamePatterns>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
 
