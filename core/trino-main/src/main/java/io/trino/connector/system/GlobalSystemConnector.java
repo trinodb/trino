@@ -23,6 +23,8 @@ import io.trino.spi.transaction.IsolationLevel;
 import io.trino.transaction.InternalConnector;
 import io.trino.transaction.TransactionId;
 
+import javax.inject.Inject;
+
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -35,6 +37,7 @@ public class GlobalSystemConnector
     private final Set<SystemTable> systemTables;
     private final Set<Procedure> procedures;
 
+    @Inject
     public GlobalSystemConnector(Set<SystemTable> systemTables, Set<Procedure> procedures)
     {
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
