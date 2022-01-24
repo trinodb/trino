@@ -14,6 +14,7 @@
 package io.trino.plugin.ml;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.FeaturesConfig;
 import io.trino.RowPageBuilder;
@@ -70,6 +71,7 @@ public class TestLearnAggregations
                 new FeaturesConfig(),
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
+                user -> ImmutableSet.of(),
                 typeOperators,
                 new BlockTypeOperators(typeOperators),
                 typeManager,
