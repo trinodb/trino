@@ -177,17 +177,14 @@ public abstract class BaseHiveConnectorTest
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS");
     private final String catalog;
     private final Session bucketedSession;
-    private final Map<String, String> extraProperties;
 
-    protected BaseHiveConnectorTest(Map<String, String> extraProperties)
+    protected BaseHiveConnectorTest()
     {
         this.catalog = HIVE_CATALOG;
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
-        this.extraProperties = ImmutableMap.copyOf(requireNonNull(extraProperties, "extraProperties is null"));
     }
 
-    @Override
-    protected final QueryRunner createQueryRunner()
+    protected static QueryRunner createHiveQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()

@@ -14,15 +14,18 @@
 package io.trino.plugin.hive;
 
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
+import io.trino.testing.QueryRunner;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveFaultTolerantExecutionConnectorTest
         extends BaseHiveConnectorTest
 {
-    public TestHiveFaultTolerantExecutionConnectorTest()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        super(FaultTolerantExecutionConnectorTestHelper.getExtraProperties());
+        return BaseHiveConnectorTest.createHiveQueryRunner(FaultTolerantExecutionConnectorTestHelper.getExtraProperties());
     }
 
     @Override
