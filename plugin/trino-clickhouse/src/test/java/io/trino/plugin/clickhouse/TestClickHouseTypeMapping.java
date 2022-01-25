@@ -421,10 +421,10 @@ public class TestClickHouseTypeMapping
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_date", "(dt date)")) {
             assertQueryFails(
                     format("INSERT INTO %s VALUES (DATE '1969-12-31')", table.getName()),
-                    "Date must be between 1970-01-01 and 2106-02-07: 1969-12-31");
+                    "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: 1969-12-31");
             assertQueryFails(
                     format("INSERT INTO %s VALUES (DATE '2106-02-08')", table.getName()),
-                    "Date must be between 1970-01-01 and 2106-02-07: 2106-02-08");
+                    "Date must be between 1970-01-01 and 2106-02-07 in ClickHouse: 2106-02-08");
         }
     }
 
