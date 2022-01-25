@@ -88,10 +88,11 @@ public final class ClickHouseQueryRunner
     {
         Logging.initialize();
 
+        TestingClickHouseServer clickHouseServer = new TestingClickHouseServer();
         DistributedQueryRunner queryRunner = createClickHouseQueryRunner(
-                new TestingClickHouseServer(),
+                clickHouseServer,
                 ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
+                ImmutableMap.of("clickhouse.use-deprecated-driver", String.valueOf(!clickHouseServer.isLatestDriverMinimumSupportedVersion())),
                 TpchTable.getTables());
 
         Logger log = Logger.get(ClickHouseQueryRunner.class);

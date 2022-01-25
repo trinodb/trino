@@ -27,11 +27,13 @@ public class TestAltinityConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        TestingClickHouseServer clickHouseServer = closeAfterClass(new TestingClickHouseServer(ALTINITY_DEFAULT_IMAGE));
         return createClickHouseQueryRunner(
-                closeAfterClass(new TestingClickHouseServer(ALTINITY_DEFAULT_IMAGE)),
+                clickHouseServer,
                 ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         .put("clickhouse.map-string-as-varchar", "true") // To handle string types in TPCH tables as varchar instead of varbinary
+                        .put("clickhouse.use-deprecated-driver", String.valueOf(!clickHouseServer.isLatestDriverMinimumSupportedVersion()))
                         .buildOrThrow(),
                 REQUIRED_TPCH_TABLES);
     }

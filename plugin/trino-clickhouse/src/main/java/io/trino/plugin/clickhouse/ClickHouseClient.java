@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.clickhouse;
 
+import com.clickhouse.client.ClickHouseColumn;
+import com.clickhouse.client.ClickHouseDataType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.InetAddresses;
@@ -61,9 +63,7 @@ import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDate;
@@ -330,16 +330,9 @@ public class ClickHouseClient
     }
 
     @Override
-    public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
-            throws SQLException
+    protected Optional<List<String>> getTableTypes()
     {
-        // ClickHouse maps their "database" to SQL catalogs and does not have schemas
-        DatabaseMetaData metadata = connection.getMetaData();
-        return metadata.getTables(
-                null,
-                schemaName.orElse(null),
-                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
-                new String[] {"TABLE", "VIEW"});
+        return Optional.empty();
     }
 
     @Override
@@ -390,13 +383,15 @@ public class ClickHouseClient
             return mapping;
         }
 
-        switch (jdbcTypeName.replaceAll("\\(.*\\)$", "")) {
-            case "IPv4":
+        ClickHouseColumn column = ClickHouseColumn.of("", jdbcTypeName);
+        ClickHouseDataType columnDataType = column.getDataType();
+        switch (columnDataType) {
+            case IPv4:
                 return Optional.of(ipAddressColumnMapping("IPv4StringToNum(?)"));
-            case "IPv6":
+            case IPv6:
                 return Optional.of(ipAddressColumnMapping("IPv6StringToNum(?)"));
-            case "Enum8":
-            case "Enum16":
+            case Enum8:
+            case Enum16:
                 return Optional.of(ColumnMapping.sliceMapping(
                         createUnboundedVarcharType(),
                         varcharReadFunction(createUnboundedVarcharType()),
@@ -404,8 +399,8 @@ public class ClickHouseClient
                         // TODO (https://github.com/trinodb/trino/issues/7100) Currently pushdown would not work and may require a custom bind expression
                         DISABLE_PUSHDOWN));
 
-            case "FixedString": // FixedString(n)
-            case "String":
+            case FixedString: // FixedString(n)
+            case String:
                 if (isMapStringAsVarchar(session)) {
                     return Optional.of(ColumnMapping.sliceMapping(
                             createUnboundedVarcharType(),
@@ -415,7 +410,7 @@ public class ClickHouseClient
                 }
                 // TODO (https://github.com/trinodb/trino/issues/7100) test & enable predicate pushdown
                 return Optional.of(varbinaryColumnMapping());
-            case "UUID":
+            case UUID:
                 return Optional.of(uuidColumnMapping());
         }
 
@@ -466,7 +461,7 @@ public class ClickHouseClient
                 return Optional.of(dateColumnMappingUsingLocalDate());
 
             case Types.TIMESTAMP:
-                if (jdbcTypeName.equals("DateTime")) {
+                if (columnDataType == ClickHouseDataType.DateTime) {
                     verify(typeHandle.getRequiredDecimalDigits() == 0, "Expected 0 as timestamp precision, but got %s", typeHandle.getRequiredDecimalDigits());
                     return Optional.of(timestampColumnMapping(TIMESTAMP_SECONDS));
                 }
