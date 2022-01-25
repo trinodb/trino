@@ -46,7 +46,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
@@ -141,7 +140,7 @@ public final class SessionPropertyManager
         return Optional.ofNullable(properties.get(propertyName));
     }
 
-    public List<SessionPropertyValue> getAllSessionProperties(Session session, Map<String, CatalogName> catalogs)
+    public List<SessionPropertyValue> getAllSessionProperties(Session session, Set<String> catalogNames)
     {
         requireNonNull(session, "session is null");
 
@@ -161,20 +160,18 @@ public final class SessionPropertyManager
                     property.isHidden()));
         }
 
-        for (Entry<String, CatalogName> entry : new TreeMap<>(catalogs).entrySet()) {
-            String catalog = entry.getKey();
-            CatalogName catalogName = entry.getValue();
-            Map<String, String> connectorProperties = session.getCatalogProperties(catalog);
+        for (String name : ImmutableSet.copyOf(catalogNames)) {
+            Map<String, String> connectorProperties = session.getCatalogProperties(name);
 
-            for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.get(catalogName)).values()) {
+            for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.get(new CatalogName(name))).values()) {
                 String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
                 String value = connectorProperties.getOrDefault(property.getName(), defaultValue);
 
                 sessionPropertyValues.add(new SessionPropertyValue(
                         value,
                         defaultValue,
-                        catalog + "." + property.getName(),
-                        Optional.of(catalog),
+                        name + "." + property.getName(),
+                        Optional.of(name),
                         property.getName(),
                         property.getDescription(),
                         property.getSqlType().getDisplayName(),
