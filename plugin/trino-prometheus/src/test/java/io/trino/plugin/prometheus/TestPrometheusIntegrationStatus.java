@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.plugin.prometheus.PrometheusQueryRunner.createPrometheusQueryRunner;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -101,8 +102,8 @@ public class TestPrometheusIntegrationStatus
     @Test
     public void testPushDown()
     {
-        // default interval on the `up` metric that Prometheus records on itself is 15 seconds, so this should only yield one row
+        // default interval on the `up` metric that Prometheus records on itself is about 15 seconds, so this should only yield one or two row
         MaterializedResult results = computeActual("SELECT * FROM prometheus.default.up WHERE timestamp > (NOW() - INTERVAL '15' SECOND)");
-        assertEquals(results.getRowCount(), 1);
+        assertThat(results).hasSizeBetween(1, 2);
     }
 }
