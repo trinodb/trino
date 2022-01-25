@@ -252,20 +252,20 @@ public class MultiChannelGroupByHash
     }
 
     @Override
-    public boolean contains(int position, Page page, int[] hashChannels)
+    public boolean contains(int position, Page page)
     {
         long rawHash = hashStrategy.hashRow(position, page);
-        return contains(position, page, hashChannels, rawHash);
+        return contains(position, page, rawHash);
     }
 
     @Override
-    public boolean contains(int position, Page page, int[] hashChannels, long rawHash)
+    public boolean contains(int position, Page page, long rawHash)
     {
         int hashPosition = (int) getHashPosition(rawHash, mask);
 
         // look for a slot containing this key
         while (groupAddressByHash[hashPosition] != -1) {
-            if (positionNotDistinctFromCurrentRow(groupAddressByHash[hashPosition], hashPosition, position, page, (byte) rawHash, hashChannels)) {
+            if (positionNotDistinctFromCurrentRow(groupAddressByHash[hashPosition], hashPosition, position, page, (byte) rawHash)) {
                 // found an existing slot for this key
                 return true;
             }
@@ -455,6 +455,14 @@ public class MultiChannelGroupByHash
             return false;
         }
         return hashStrategy.positionNotDistinctFromRow(decodeSliceIndex(address), decodePosition(address), position, page, hashChannels);
+    }
+
+    private boolean positionNotDistinctFromCurrentRow(long address, int hashPosition, int position, Page page, byte rawHash)
+    {
+        if (rawHashByHashPosition[hashPosition] != rawHash) {
+            return false;
+        }
+        return hashStrategy.positionNotDistinctFromRow(decodeSliceIndex(address), decodePosition(address), position, page);
     }
 
     private static long getHashPosition(long rawHash, int mask)

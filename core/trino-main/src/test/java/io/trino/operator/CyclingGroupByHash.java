@@ -96,7 +96,7 @@ public class CyclingGroupByHash
     }
 
     @Override
-    public boolean contains(int position, Page page, int[] hashChannels)
+    public boolean contains(int position, Page page)
     {
         throw new UnsupportedOperationException("Not yet supported");
     }

@@ -17,6 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
@@ -25,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.operator.GroupByHash.createGroupByHash;
+import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
@@ -32,13 +35,11 @@ public class ChannelSet
 {
     private final GroupByHash hash;
     private final boolean containsNull;
-    private final int[] hashChannels;
 
-    public ChannelSet(GroupByHash hash, boolean containsNull, int[] hashChannels)
+    public ChannelSet(GroupByHash hash, boolean containsNull)
     {
         this.hash = hash;
         this.containsNull = containsNull;
-        this.hashChannels = hashChannels;
     }
 
     public Type getType()
@@ -68,12 +69,12 @@ public class ChannelSet
 
     public boolean contains(int position, Page page)
     {
-        return hash.contains(position, page, hashChannels);
+        return hash.contains(position, page);
     }
 
     public boolean contains(int position, Page page, long rawHash)
     {
-        return hash.contains(position, page, hashChannels, rawHash);
+        return hash.contains(position, page, rawHash);
     }
 
     public static class ChannelSetBuilder
@@ -85,8 +86,10 @@ public class ChannelSet
         private final OperatorContext operatorContext;
         private final LocalMemoryContext localMemoryContext;
 
-        public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators)
+        public ChannelSetBuilder(Type type, boolean hashPresent, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators)
         {
+            // Set builder has a single channel which goes in channel 0, if hash is present, add a hashBlock to channel 1
+            Optional<Integer> hashChannel = hashPresent ? Optional.of(1) : Optional.empty();
             List<Type> types = ImmutableList.of(type);
             this.hash = createGroupByHash(
                     operatorContext.getSession(),
@@ -97,14 +100,26 @@ public class ChannelSet
                     joinCompiler,
                     blockTypeOperators,
                     this::updateMemoryReservation);
-            this.nullBlockPage = new Page(type.createBlockBuilder(null, 1, UNKNOWN.getFixedSize()).appendNull().build());
+            this.nullBlockPage = createNullPage(type, hashPresent);
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
             this.localMemoryContext = operatorContext.localUserMemoryContext();
         }
 
+        private static Page createNullPage(Type type, boolean hashPresent)
+        {
+            Block nullBlock = type.createBlockBuilder(null, 1, UNKNOWN.getFixedSize()).appendNull().build();
+            if (hashPresent) {
+                Block nullHashCode = BigintType.BIGINT.createBlockBuilder(null, 1).writeLong(NULL_HASH_CODE).build();
+                return new Page(nullBlock, nullHashCode);
+            }
+            else {
+                return new Page(nullBlock);
+            }
+        }
+
         public ChannelSet build()
         {
-            return new ChannelSet(hash, hash.contains(0, nullBlockPage, HASH_CHANNELS), HASH_CHANNELS);
+            return new ChannelSet(hash, hash.contains(0, nullBlockPage));
         }
 
         public long getEstimatedSize()
