@@ -169,6 +169,8 @@ statements, the connector supports the following features:
 
 .. include:: alter-schema-limitation.fragment
 
+.. include:: allow-drop-table-config.fragment
+
 .. _postgresql-pushdown:
 
 Pushdown

@@ -457,3 +457,5 @@ supports the following statements:
 .. include:: sql-delete-limitation.fragment
 
 .. include:: alter-table-limitation.fragment
+
+.. include:: allow-drop-table-config.fragment

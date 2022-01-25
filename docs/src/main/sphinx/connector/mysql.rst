@@ -328,3 +328,5 @@ the following statements:
 * :doc:`/sql/drop-schema`
 
 .. include:: sql-delete-limitation.fragment
+
+.. include:: allow-drop-table-config.fragment

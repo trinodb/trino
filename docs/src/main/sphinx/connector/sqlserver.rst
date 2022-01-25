@@ -158,6 +158,8 @@ supports the following features:
 
 .. include:: alter-table-limitation.fragment
 
+.. include:: allow-drop-table-config.fragment
+
 .. _sqlserver-pushdown:
 
 Pushdown

@@ -234,3 +234,15 @@ statements, the connector supports the following features:
 * :doc:`/sql/drop-schema`
 
 .. include:: sql-delete-limitation.fragment
+
+DROP TABLE
+^^^^^^^^^^
+
+The connector allows use of :doc:`/sql/drop-table` statements by default.
+To disable these statements, configure the ``allow-drop-table`` catalog
+configuration property:
+
+.. code-block:: properties
+
+    allow-drop-table=false
+

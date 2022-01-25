@@ -208,3 +208,5 @@ statements, the connector supports the following features:
 * :ref:`sql-schema-table-management`
 
 .. include:: alter-schema-limitation.fragment
+
+.. include:: allow-drop-table-config.fragment

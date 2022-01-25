@@ -1,0 +1,11 @@
+DROP TABLE
+^^^^^^^^^^
+
+The connector disables use of :doc:`/sql/drop-table` statements by default.
+To enable these statements, configure the ``allow-drop-table`` catalog
+configuration property:
+
+.. code-block:: properties
+
+    allow-drop-table=true
+

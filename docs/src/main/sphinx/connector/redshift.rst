@@ -127,3 +127,5 @@ statements, the connector supports the following features:
 .. include:: alter-table-limitation.fragment
 
 .. include:: alter-schema-limitation.fragment
+
+.. include:: allow-drop-table-config.fragment

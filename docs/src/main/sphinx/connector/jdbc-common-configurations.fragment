@@ -47,3 +47,6 @@ connector:
       session property </sql/set-session>` is ``join_pushdown_enabled``.  Enabling
       this may negatively impact performance for some queries.
     - ``false``
+  * - ``allow-drop-table``
+    - Enable :doc:`/sql/drop-table` statements if supported by the connector.
+    - ``false``
