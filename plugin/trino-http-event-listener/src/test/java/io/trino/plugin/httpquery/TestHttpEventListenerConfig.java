@@ -24,7 +24,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestHttpQueryListenerConfig
+public class TestHttpEventListenerConfig
 {
     @Test
     public void testDefaults()

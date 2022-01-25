@@ -71,7 +71,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class TestHttpQueryListener
+public class TestHttpEventListener
 {
     private MockWebServer server;
 
