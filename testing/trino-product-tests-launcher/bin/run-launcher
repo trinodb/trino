@@ -16,4 +16,5 @@ if ! test -x "${launcher_jar[0]}"; then
     exit 3
 fi
 
+# Run the executable directly to pick memory settings defined in it. Invoking as `java -jar ...` would ignore them.
 exec "${launcher_jar[0]}" "$@"
