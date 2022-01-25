@@ -64,7 +64,7 @@
         <dep.testcontainers.version>1.16.3</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
-        <dep.coral.version>1.0.121</dep.coral.version>
+        <dep.coral.version>2.0.55</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
 
         <dep.docker.images.version>53</dep.docker.images.version>
@@ -1117,7 +1117,7 @@
 
             <dependency>
                 <groupId>com.linkedin.coral</groupId>
-                <artifactId>coral-hive</artifactId>
+                <artifactId>coral-common</artifactId>
                 <version>${dep.coral.version}</version>
                 <exclusions>
                     <exclusion>
@@ -1133,8 +1133,31 @@
 
             <dependency>
                 <groupId>com.linkedin.coral</groupId>
+                <artifactId>coral-hive</artifactId>
+                <version>${dep.coral.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.linkedin.coral</groupId>
                 <artifactId>coral-trino</artifactId>
                 <version>${dep.coral.version}</version>
+                <exclusions>
+                    <!--
+                        The `trino-parser` library is being used internally within the `coral-trino` library for
+                        parsing Trino SQL statements. This functionality is irrelevant in the context of
+                        using Coral for Hive view translations within Trino.
+                        This dependency is excluded because `trino-parser` does not guarantee API or behavioral
+                        backwards compatibility.
+                        Trino cannot provide the version on which `coral-trino` library depends on, because the
+                        current version of `trino-parser` is used in tests of this module.
+                        The dependency is therefore intentionally excluded to avoid breaking in an unexpected way,
+                        or silent correctness issues.
+                    -->
+                    <exclusion>
+                        <groupId>io.trino</groupId>
+                        <artifactId>trino-parser</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
