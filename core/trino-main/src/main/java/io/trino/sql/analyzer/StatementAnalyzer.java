@@ -64,6 +64,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.ArrayType;
@@ -327,6 +328,7 @@ class StatementAnalyzer
     private final TypeCoercion typeCoercion;
     private final Session session;
     private final SqlParser sqlParser;
+    private final GroupProvider groupProvider;
     private final AccessControl accessControl;
     private final TableProceduresRegistry tableProceduresRegistry;
     private final SessionPropertyManager sessionPropertyManager;
@@ -342,6 +344,7 @@ class StatementAnalyzer
             Analysis analysis,
             PlannerContext plannerContext,
             SqlParser sqlParser,
+            GroupProvider groupProvider,
             AccessControl accessControl,
             Session session,
             TableProceduresRegistry tableProceduresRegistry,
@@ -358,6 +361,7 @@ class StatementAnalyzer
         this.metadata = plannerContext.getMetadata();
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.session = requireNonNull(session, "session is null");
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
@@ -3459,7 +3463,9 @@ class StatementAnalyzer
                 Identity identity;
                 AccessControl viewAccessControl;
                 if (owner.isPresent() && !owner.get().getUser().equals(session.getIdentity().getUser())) {
-                    identity = owner.get();
+                    identity = Identity.from(owner.get())
+                            .withGroups(groupProvider.getGroups(owner.get().getUser()))
+                            .build();
                     viewAccessControl = new ViewAccessControl(accessControl, session.getIdentity());
                 }
                 else {

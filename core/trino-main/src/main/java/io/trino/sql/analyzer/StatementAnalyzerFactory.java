@@ -13,6 +13,7 @@
  */
 package io.trino.sql.analyzer;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
@@ -21,6 +22,7 @@ import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControl;
+import io.trino.spi.security.GroupProvider;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.SqlParser;
 
@@ -33,6 +35,7 @@ public class StatementAnalyzerFactory
     private final PlannerContext plannerContext;
     private final SqlParser sqlParser;
     private final AccessControl accessControl;
+    private final GroupProvider groupProvider;
     private final TableProceduresRegistry tableProceduresRegistry;
     private final SessionPropertyManager sessionPropertyManager;
     private final TablePropertyManager tablePropertyManager;
@@ -44,6 +47,7 @@ public class StatementAnalyzerFactory
             PlannerContext plannerContext,
             SqlParser sqlParser,
             AccessControl accessControl,
+            GroupProvider groupProvider,
             TableProceduresRegistry tableProceduresRegistry,
             SessionPropertyManager sessionPropertyManager,
             TablePropertyManager tablePropertyManager,
@@ -53,6 +57,7 @@ public class StatementAnalyzerFactory
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.tableProceduresRegistry = requireNonNull(tableProceduresRegistry, "tableProceduresRegistry is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
@@ -66,6 +71,7 @@ public class StatementAnalyzerFactory
                 plannerContext,
                 sqlParser,
                 accessControl,
+                groupProvider,
                 tableProceduresRegistry,
                 sessionPropertyManager,
                 tablePropertyManager,
@@ -84,6 +90,7 @@ public class StatementAnalyzerFactory
                 analysis,
                 plannerContext,
                 sqlParser,
+                groupProvider,
                 accessControl,
                 session,
                 tableProceduresRegistry,
@@ -105,6 +112,7 @@ public class StatementAnalyzerFactory
                 plannerContext,
                 new SqlParser(),
                 accessControl,
+                user -> ImmutableSet.of(),
                 new TableProceduresRegistry(),
                 new SessionPropertyManager(),
                 tablePropertyManager,
