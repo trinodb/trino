@@ -3392,4 +3392,12 @@ public abstract class BaseIcebergConnectorTest
         assertThat(updatedFiles).hasSize(3);
         assertThat(getAllDataFilesFromTableDirectory(tableName)).containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
     }
+
+    @Test
+    public void testHiveEnabledFlag()
+    {
+        String tableName = "test_repartitiong_during_optimize_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id int) WITH (hive_enabled=true)");
+        getQueryRunner().tableExists(getSession(), tableName);
+    }
 }

@@ -56,6 +56,7 @@ import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergTableProperties.HIVE_ENABLED;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
 import static io.trino.plugin.iceberg.IcebergUtil.isIcebergTable;
 import static java.lang.Integer.parseInt;
@@ -78,11 +79,19 @@ public abstract class AbstractMetastoreTableOperations
     public static final String METADATA_LOCATION = "metadata_location";
     public static final String PREVIOUS_METADATA_LOCATION = "previous_metadata_location";
     protected static final String METADATA_FOLDER_NAME = "metadata";
+    protected static final String HIVE_ENABLED_FLAG = "engine.hive.enabled";
+    protected static final String STORAGE_HANDLER = "storage_handler";
+    protected static final String HIVE_ICEBERG_STORAGE_HANDLER = "org.apache.iceberg.mr.hive.HiveIcebergStorageHandler";
 
     protected static final StorageFormat STORAGE_FORMAT = StorageFormat.create(
             LazySimpleSerDe.class.getName(),
             FileInputFormat.class.getName(),
             FileOutputFormat.class.getName());
+
+    protected static final StorageFormat HIVE_ICEBERG_STORAGE_FORMAT = StorageFormat.create(
+            "org.apache.iceberg.mr.hive.HiveIcebergSerDe",
+            "org.apache.iceberg.mr.hive.HiveIcebergInputFormat",
+            "org.apache.iceberg.mr.hive.HiveIcebergOutputFormat");
 
     protected final HiveMetastore metastore;
     protected final ConnectorSession session;
@@ -190,6 +199,9 @@ public abstract class AbstractMetastoreTableOperations
     protected void commitNewTable(TableMetadata metadata)
     {
         String newMetadataLocation = writeNewMetadata(metadata, version + 1);
+        boolean isHiveEnabled = metadata.property(HIVE_ENABLED, "false").equals("true");
+
+        StorageFormat storageFormat = isHiveEnabled ? HIVE_ICEBERG_STORAGE_FORMAT : STORAGE_FORMAT;
 
         Table table;
         try {
@@ -200,13 +212,17 @@ public abstract class AbstractMetastoreTableOperations
                     .setTableType(TableType.EXTERNAL_TABLE.name())
                     .setDataColumns(toHiveColumns(metadata.schema().columns()))
                     .withStorage(storage -> storage.setLocation(metadata.location()))
-                    .withStorage(storage -> storage.setStorageFormat(STORAGE_FORMAT))
+                    .withStorage(storage -> storage.setStorageFormat(storageFormat))
                     .setParameter("EXTERNAL", "TRUE")
                     .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
                     .setParameter(METADATA_LOCATION, newMetadataLocation);
             String tableComment = metadata.properties().get(TABLE_COMMENT);
             if (tableComment != null) {
                 builder.setParameter(TABLE_COMMENT, tableComment);
+            }
+            if (isHiveEnabled) {
+                builder.setParameter(HIVE_ENABLED_FLAG, "true")
+                        .setParameter(STORAGE_HANDLER, HIVE_ICEBERG_STORAGE_HANDLER);
             }
             table = builder.build();
         }
