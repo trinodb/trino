@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.prometheus;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
@@ -43,7 +44,7 @@ public class TestPrometheusIntegrationStatus
             throws Exception
     {
         this.server = new PrometheusServer();
-        return createPrometheusQueryRunner(server);
+        return createPrometheusQueryRunner(server, ImmutableMap.of());
     }
 
     @Test
