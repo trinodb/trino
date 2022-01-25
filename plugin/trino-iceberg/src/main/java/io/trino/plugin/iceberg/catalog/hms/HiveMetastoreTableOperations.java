@@ -19,7 +19,6 @@ import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
-import io.trino.plugin.iceberg.catalog.AbstractMetastoreTableOperations;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;

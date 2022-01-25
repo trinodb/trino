@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.catalog;
+package io.trino.plugin.iceberg.catalog.hms;
 
 import io.airlift.log.Logger;
 import io.trino.plugin.hive.metastore.Column;
@@ -21,6 +21,7 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
