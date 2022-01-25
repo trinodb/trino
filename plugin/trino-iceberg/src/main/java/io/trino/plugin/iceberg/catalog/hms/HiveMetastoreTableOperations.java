@@ -20,6 +20,7 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.iceberg.catalog.AbstractMetastoreTableOperations;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.iceberg.TableMetadata;
@@ -33,6 +34,8 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
@@ -95,7 +98,7 @@ public class HiveMetastoreTableOperations
                 catch (RuntimeException ex) {
                     e.addSuppressed(ex);
                 }
-                throw e;
+                throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit to table %s.%s", database, tableName), e);
             }
 
             // todo privileges should not be replaced for an alter
