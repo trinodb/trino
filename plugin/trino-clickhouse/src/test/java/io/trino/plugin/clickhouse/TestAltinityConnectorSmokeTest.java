@@ -14,7 +14,14 @@
 package io.trino.plugin.clickhouse;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.Test;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
 
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
 import static io.trino.plugin.clickhouse.TestingClickHouseServer.ALTINITY_DEFAULT_IMAGE;
@@ -23,12 +30,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestAltinityConnectorSmokeTest
         extends BaseClickHouseConnectorSmokeTest
 {
+    private static final Logger log = Logger.get(TestAltinityConnectorSmokeTest.class);
+    private TestingClickHouseServer clickHouseServer;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        clickHouseServer = closeAfterClass(new TestingClickHouseServer(ALTINITY_DEFAULT_IMAGE));
         return createClickHouseQueryRunner(
-                closeAfterClass(new TestingClickHouseServer(ALTINITY_DEFAULT_IMAGE)),
+                clickHouseServer,
                 ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         .put("clickhouse.map-string-as-varchar", "true") // To handle string types in TPCH tables as varchar instead of varbinary
@@ -36,11 +47,33 @@ public class TestAltinityConnectorSmokeTest
                 REQUIRED_TPCH_TABLES);
     }
 
+    @Test
     @Override
     public void testRenameSchema()
     {
         // Override because RENAME DATABASE statement isn't supported in version < v20.7.2.30-stable
-        assertThatThrownBy(super::testRenameSchema)
-                .hasMessageMatching("ClickHouse exception, code: 62,.* Syntax error.*\\n");
+        debug();
+        try {
+            assertThatThrownBy(super::testRenameSchema)
+                    .hasMessageMatching("ClickHouse exception, code: 62,.* Syntax error.*\\n");
+        }
+        catch (Throwable e) {
+            debug();
+            throw e;
+        }
+    }
+
+    private void debug()
+    {
+        try (Connection connection = DriverManager.getConnection(clickHouseServer.getJdbcUrl());
+                Statement statement = connection.createStatement()) {
+            ResultSet resultSet = statement.executeQuery("SELECT version()");
+            while (resultSet.next()) {
+                log.info("Server version: %s", resultSet.getString(1));
+            }
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to execute statement", e);
+        }
     }
 }
