@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import io.airlift.json.JsonCodec;
 import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
