@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.metastore;
 
-import com.linkedin.coral.hive.hive2rel.HiveMetastoreClient;
+import com.linkedin.coral.common.HiveMetastoreClient;
 import io.trino.plugin.hive.CoralTableRedirectionResolver;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;

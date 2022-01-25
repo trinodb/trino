@@ -192,6 +192,11 @@
 
         <dependency>
             <groupId>com.linkedin.coral</groupId>
+            <artifactId>coral-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.linkedin.coral</groupId>
             <artifactId>coral-hive</artifactId>
         </dependency>
 
@@ -246,6 +251,12 @@
         </dependency>
 
         <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-parser</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
@@ -319,12 +330,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-parser</artifactId>
             <scope>test</scope>
         </dependency>
 

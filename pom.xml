@@ -63,7 +63,7 @@
         <dep.errorprone.version>2.10.0</dep.errorprone.version>
         <dep.testcontainers.version>1.16.3</dep.testcontainers.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
-        <dep.coral.version>1.0.121</dep.coral.version>
+        <dep.coral.version>2.0.44</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
 
         <dep.docker.images.version>53</dep.docker.images.version>
@@ -1077,7 +1077,7 @@
 
             <dependency>
                 <groupId>com.linkedin.coral</groupId>
-                <artifactId>coral-hive</artifactId>
+                <artifactId>coral-common</artifactId>
                 <version>${dep.coral.version}</version>
                 <exclusions>
                     <exclusion>
@@ -1089,6 +1089,12 @@
                         <artifactId>hadoop-common</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.linkedin.coral</groupId>
+                <artifactId>coral-hive</artifactId>
+                <version>${dep.coral.version}</version>
             </dependency>
 
             <dependency>

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import com.linkedin.coral.hive.hive2rel.HiveMetastoreClient;
+import com.linkedin.coral.common.HiveMetastoreClient;
 import com.linkedin.coral.hive.hive2rel.HiveToRelConverter;
 import com.linkedin.coral.trino.rel2trino.RelToTrinoConverter;
 import io.airlift.json.JsonCodec;
@@ -185,7 +185,7 @@ public final class ViewReaderUtil
         public ConnectorViewDefinition decodeViewData(String viewSql, Table table, CatalogName catalogName)
         {
             try {
-                HiveToRelConverter hiveToRelConverter = HiveToRelConverter.create(metastoreClient);
+                HiveToRelConverter hiveToRelConverter = new HiveToRelConverter(metastoreClient);
                 RelNode rel = hiveToRelConverter.convertView(table.getDatabaseName(), table.getTableName());
                 RelToTrinoConverter relToTrino = new RelToTrinoConverter();
                 String trinoSql = relToTrino.convert(rel);
