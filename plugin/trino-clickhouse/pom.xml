@@ -15,8 +15,6 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <air.test.thread-count>1</air.test.thread-count>
-        <air.test.parallel>classes</air.test.parallel>
     </properties>
 
     <dependencies>
