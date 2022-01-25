@@ -26,7 +26,7 @@ import io.trino.execution.executor.TaskExecutor;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.metadata.HandleResolver;
+import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.PipelineContext;
@@ -309,7 +309,7 @@ public class TestMemoryRevokingScheduler
                 sqlTask -> {},
                 DataSize.of(32, MEGABYTE),
                 DataSize.of(200, MEGABYTE),
-                new ExchangeManagerRegistry(new HandleResolver()),
+                new ExchangeManagerRegistry(new ExchangeHandleResolver()),
                 new CounterStat());
     }
 

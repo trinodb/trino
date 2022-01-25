@@ -75,6 +75,7 @@ import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
+import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
@@ -386,7 +387,6 @@ public class LocalQueryRunner
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
 
         NodeInfo nodeInfo = new NodeInfo("test");
-        HandleResolver handleResolver = new HandleResolver();
         this.connectorManager = new ConnectorManager(
                 metadata,
                 catalogManager,
@@ -396,7 +396,7 @@ public class LocalQueryRunner
                 indexManager,
                 nodePartitioningManager,
                 pageSinkManager,
-                handleResolver,
+                new HandleResolver(),
                 nodeManager,
                 nodeInfo,
                 testingVersionEmbedder(),
@@ -429,7 +429,7 @@ public class LocalQueryRunner
                 new TransactionsSystemTable(typeManager, transactionManager)),
                 ImmutableSet.of());
 
-        exchangeManagerRegistry = new ExchangeManagerRegistry(handleResolver);
+        exchangeManagerRegistry = new ExchangeManagerRegistry(new ExchangeHandleResolver());
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 connectorManager,

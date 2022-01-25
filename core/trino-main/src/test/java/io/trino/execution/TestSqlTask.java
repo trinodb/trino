@@ -29,7 +29,7 @@ import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
-import io.trino.metadata.HandleResolver;
+import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.operator.TaskContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.memory.MemoryPoolId;
@@ -367,7 +367,7 @@ public class TestSqlTask
                 sqlTask -> {},
                 DataSize.of(32, MEGABYTE),
                 DataSize.of(200, MEGABYTE),
-                new ExchangeManagerRegistry(new HandleResolver()),
+                new ExchangeManagerRegistry(new ExchangeHandleResolver()),
                 new CounterStat());
     }
 }

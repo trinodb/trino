@@ -35,7 +35,7 @@ import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.memory.context.SimpleLocalMemoryContext;
-import io.trino.metadata.HandleResolver;
+import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
@@ -475,7 +475,7 @@ public class TestDirectExchangeClient
                 scheduler,
                 DataSize.of(1, Unit.MEGABYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(new HandleResolver()),
+                new ExchangeManagerRegistry(new ExchangeHandleResolver()),
                 new QueryId("query"),
                 createRandomExchangeId());
 
@@ -535,7 +535,7 @@ public class TestDirectExchangeClient
                         scheduler,
                         DataSize.of(1, Unit.KILOBYTE),
                         RetryPolicy.QUERY,
-                        new ExchangeManagerRegistry(new HandleResolver()),
+                        new ExchangeManagerRegistry(new ExchangeHandleResolver()),
                         new QueryId("query"),
                         createRandomExchangeId()),
                 maxResponseSize,

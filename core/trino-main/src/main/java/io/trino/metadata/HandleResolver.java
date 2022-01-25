@@ -25,9 +25,6 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.exchange.ExchangeManagerHandleResolver;
-import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
-import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.split.EmptySplitHandleResolver;
 
 import javax.inject.Inject;
@@ -37,7 +34,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -49,7 +45,6 @@ import static java.util.Objects.requireNonNull;
 public final class HandleResolver
 {
     private final ConcurrentMap<String, MaterializedHandleResolver> catalogHandleResolvers = new ConcurrentHashMap<>();
-    private final AtomicReference<ExchangeManagerHandleResolver> exchangeManagerHandleResolver = new AtomicReference<>();
 
     @Inject
     public HandleResolver()
@@ -66,11 +61,6 @@ public final class HandleResolver
         requireNonNull(resolver, "resolver is null");
         MaterializedHandleResolver existingResolver = catalogHandleResolvers.putIfAbsent(catalogName, new MaterializedHandleResolver(resolver));
         checkState(existingResolver == null, "Catalog '%s' is already assigned to resolver: %s", catalogName, existingResolver);
-    }
-
-    public void setExchangeManagerHandleResolver(ExchangeManagerHandleResolver resolver)
-    {
-        checkState(exchangeManagerHandleResolver.compareAndSet(null, resolver), "Exchange manager handle resolver is already set");
     }
 
     public void removeCatalogHandleResolver(String catalogName)
@@ -166,20 +156,6 @@ public final class HandleResolver
     public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass(String id)
     {
         return resolverFor(id).getTransactionHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
-    }
-
-    public Class<? extends ExchangeSinkInstanceHandle> getExchangeSinkInstanceHandleClass()
-    {
-        ExchangeManagerHandleResolver resolver = exchangeManagerHandleResolver.get();
-        checkState(resolver != null, "Exchange manager handle resolver is not set");
-        return resolver.getExchangeSinkInstanceHandleClass();
-    }
-
-    public Class<? extends ExchangeSourceHandle> getExchangeSourceHandleHandleClass()
-    {
-        ExchangeManagerHandleResolver resolver = exchangeManagerHandleResolver.get();
-        checkState(resolver != null, "Exchange manager handle resolver is not set");
-        return resolver.getExchangeSourceHandleHandleClass();
     }
 
     private MaterializedHandleResolver resolverFor(String id)
