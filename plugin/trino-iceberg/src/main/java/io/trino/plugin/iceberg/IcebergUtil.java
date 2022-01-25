@@ -74,6 +74,8 @@ import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
+import static io.trino.plugin.iceberg.IcebergTableProperties.HIVE_ENABLED;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getHiveEnabledFlag;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
@@ -388,9 +390,12 @@ public final class IcebergUtil
         String targetPath = getTableLocation(tableMetadata.getProperties())
                 .orElseGet(() -> catalog.defaultTableLocation(session, schemaTableName));
 
+        Boolean isHiveEnabled = getHiveEnabledFlag(tableMetadata.getProperties()).orElse(false);
+
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(2);
         FileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
+        propertiesBuilder.put(HIVE_ENABLED, isHiveEnabled.toString());
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }

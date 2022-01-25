@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -36,6 +37,7 @@ public class IcebergTableProperties
     public static final String FILE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONING_PROPERTY = "partitioning";
     public static final String LOCATION_PROPERTY = "location";
+    public static final String HIVE_ENABLED = "hive_enabled";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -65,6 +67,11 @@ public class IcebergTableProperties
                         "File system location URI for the table",
                         null,
                         false))
+                .add(booleanProperty(
+                        HIVE_ENABLED,
+                        "Enable hive support",
+                        false,
+                        false))
                 .build();
     }
 
@@ -88,5 +95,10 @@ public class IcebergTableProperties
     public static Optional<String> getTableLocation(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((String) tableProperties.get(LOCATION_PROPERTY));
+    }
+
+    public static Optional<Boolean> getHiveEnabledFlag(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Boolean) tableProperties.get(HIVE_ENABLED));
     }
 }
