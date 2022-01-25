@@ -28,6 +28,7 @@ import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.MetadataListing;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
@@ -98,7 +99,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.SortedMap;
+import java.util.SortedSet;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -106,7 +107,6 @@ import static io.trino.connector.informationschema.InformationSchemaTable.COLUMN
 import static io.trino.connector.informationschema.InformationSchemaTable.SCHEMATA;
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLES;
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
-import static io.trino.metadata.MetadataListing.listCatalogs;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -442,7 +442,7 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowCatalogs(ShowCatalogs node, Void context)
         {
-            List<Expression> rows = listCatalogs(session, metadata, accessControl).keySet().stream()
+            List<Expression> rows = MetadataListing.listCatalogNames(session, metadata, accessControl).stream()
                     .map(name -> row(new StringLiteral(name)))
                     .collect(toImmutableList());
 
@@ -830,7 +830,7 @@ public final class ShowQueriesRewrite
         protected Node visitShowSession(ShowSession node, Void context)
         {
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-            SortedMap<String, CatalogName> catalogNames = listCatalogs(session, metadata, accessControl);
+            SortedSet<String> catalogNames = MetadataListing.listCatalogNames(session, metadata, accessControl);
             List<SessionPropertyValue> sessionProperties = sessionPropertyManager.getAllSessionProperties(session, catalogNames);
             for (SessionPropertyValue sessionProperty : sessionProperties) {
                 if (sessionProperty.isHidden()) {

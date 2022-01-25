@@ -31,7 +31,7 @@ import javax.inject.Inject;
 import java.util.Optional;
 
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
-import static io.trino.metadata.MetadataListing.listCatalogs;
+import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -70,7 +70,7 @@ public class SchemaJdbcTable
         Optional<String> catalogFilter = tryGetSingleVarcharValue(constraint, 1);
 
         Builder table = InMemoryRecordSet.builder(METADATA);
-        for (String catalog : listCatalogs(session, metadata, accessControl, catalogFilter).keySet()) {
+        for (String catalog : listCatalogNames(session, metadata, accessControl, catalogFilter)) {
             for (String schema : listSchemas(session, metadata, accessControl, catalog)) {
                 table.addRow(schema, catalog);
             }

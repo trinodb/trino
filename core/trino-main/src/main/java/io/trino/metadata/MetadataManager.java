@@ -1036,7 +1036,7 @@ public final class MetadataManager
     }
 
     @Override
-    public Map<String, Catalog> getCatalogs(Session session)
+    public List<CatalogInfo> listCatalogs(Session session)
     {
         return transactionManager.getCatalogs(session.getRequiredTransactionId());
     }

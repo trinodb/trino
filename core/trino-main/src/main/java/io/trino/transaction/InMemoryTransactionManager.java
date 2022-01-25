@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.trino.NotInTransactionException;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.Catalog;
+import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.CatalogMetadata;
 import io.trino.spi.TrinoException;
@@ -48,7 +49,6 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -62,7 +62,6 @@ import static io.trino.spi.StandardErrorCode.READ_ONLY_VIOLATION;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 
 @ThreadSafe
@@ -174,9 +173,9 @@ public class InMemoryTransactionManager
     }
 
     @Override
-    public Map<String, Catalog> getCatalogs(TransactionId transactionId)
+    public List<CatalogInfo> getCatalogs(TransactionId transactionId)
     {
-        return getTransactionMetadata(transactionId).getCatalogs();
+        return getTransactionMetadata(transactionId).listCatalogs();
     }
 
     @Override
@@ -364,7 +363,7 @@ public class InMemoryTransactionManager
             }
         }
 
-        private synchronized Map<String, Catalog> getCatalogs()
+        private synchronized List<CatalogInfo> listCatalogs()
         {
             // register all known catalogs
             catalogManager.getCatalogNames()
@@ -373,7 +372,8 @@ public class InMemoryTransactionManager
             return registeredCatalogs.values().stream()
                     .filter(Optional::isPresent)
                     .map(Optional::get)
-                    .collect(toImmutableMap(catalog -> catalog.getCatalogName().getCatalogName(), identity()));
+                    .map(catalog -> new CatalogInfo(catalog.getCatalogName(), catalog.getConnectorName()))
+                    .collect(toImmutableList());
         }
 
         private synchronized Optional<CatalogName> tryRegisterCatalog(String catalogName)
