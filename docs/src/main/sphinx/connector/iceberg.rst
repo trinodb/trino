@@ -105,10 +105,11 @@ property must be one of the following values:
       :doc:`/sql/create-table`, :doc:`/sql/insert`, or :doc:`/sql/delete` are
       allowed.
   * - ``FILE``
-    - Authorization checks are enforced using a configuration file whose path
-      is specified in the ``security.config-file`` catalog configuration
-      property. See :ref:`hive-file-based-authorization` for information on
-      the authorzation configuration file.
+    - Authorization checks are enforced using a catalog-level access control
+      configuration file whose path is specified in the ``security.config-file``
+      catalog configuration property. See
+      :ref:`catalog-file-based-access-control` for information on the
+      authorzation configuration file.
 
 .. _iceberg-sql-support:
 

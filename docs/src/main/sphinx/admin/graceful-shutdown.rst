@@ -23,9 +23,9 @@ Keep the following aspects in mind:
 * If you have HTTPS/TLS enabled, you have to ensure the worker certificate is
   CA signed, or trusted by the server calling the shut down endpoint.
   Otherwise, you can make the call ``--insecure``, but that isn't recommended.
-* If :ref:`system information rules<system_information_rules>` are configured,
-  then the user in the HTTP request must have read and write permissions in
-  the system information rules.
+* If :ref:`system information rules <system-file-auth-system_information>` are
+  configured, then the user in the HTTP request must have read and write
+  permissions in the system information rules.
 
 Shutdown behavior
 -----------------
