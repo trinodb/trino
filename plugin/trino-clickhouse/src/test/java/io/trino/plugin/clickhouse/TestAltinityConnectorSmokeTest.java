@@ -52,15 +52,8 @@ public class TestAltinityConnectorSmokeTest
     public void testRenameSchema()
     {
         // Override because RENAME DATABASE statement isn't supported in version < v20.7.2.30-stable
-        debug();
-        try {
-            assertThatThrownBy(super::testRenameSchema)
-                    .hasMessageMatching("ClickHouse exception, code: 62,.* Syntax error.*\\n");
-        }
-        catch (Throwable e) {
-            debug();
-            throw e;
-        }
+        assertThatThrownBy(super::testRenameSchema)
+                .hasMessageMatching("ClickHouse exception, code: 62,.* Syntax error.*\\n");
     }
 
     private void debug()
