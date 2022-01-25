@@ -62,7 +62,7 @@ public class FormWebUiAuthenticationFilter
     public static final String UI_LOCATION = "/ui/";
     static final URI UI_LOCATION_URI = URI.create(UI_LOCATION);
     static final String UI_LOGIN = "/ui/login";
-    static final String UI_LOGOUT = "/ui/logout";
+    public static final String UI_LOGOUT = "/ui/logout";
 
     private final Function<String, String> jwtParser;
     private final Function<String, String> jwtGenerator;

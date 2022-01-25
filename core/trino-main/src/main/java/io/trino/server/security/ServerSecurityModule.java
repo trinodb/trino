@@ -82,7 +82,7 @@ public class ServerSecurityModule
             headerBinder.bind(HeaderAuthenticatorManager.class).in(Scopes.SINGLETON);
         }));
         install(authenticatorModule("jwt", JwtAuthenticator.class, new JwtAuthenticatorSupportModule()));
-        install(authenticatorModule("oauth2", OAuth2Authenticator.class, new OAuth2AuthenticationSupportModule()));
+        install(authenticatorModule(OAuth2Authenticator.NAME, OAuth2Authenticator.class, new OAuth2AuthenticationSupportModule()));
 
         configBinder(binder).bindConfig(InsecureAuthenticatorConfig.class);
         binder.bind(InsecureAuthenticator.class).in(Scopes.SINGLETON);
@@ -113,6 +113,13 @@ public class ServerSecurityModule
                 combine(module, authModule));
     }
 
+    public static List<String> authenticationTypes(SecurityConfig config)
+    {
+        return config.getAuthenticationTypes().stream()
+                .map(type -> type.toLowerCase(ENGLISH))
+                .collect(toImmutableList());
+    }
+
     private void installAuthenticator(String name, Class<? extends Authenticator> authenticator, Class<?> config)
     {
         install(authenticatorModule(name, authenticator, binder -> configBinder(binder).bindConfig(config)));
@@ -121,13 +128,6 @@ public class ServerSecurityModule
     private static MapBinder<String, Authenticator> authenticatorBinder(Binder binder)
     {
         return newMapBinder(binder, String.class, Authenticator.class);
-    }
-
-    private static List<String> authenticationTypes(SecurityConfig config)
-    {
-        return config.getAuthenticationTypes().stream()
-                .map(type -> type.toLowerCase(ENGLISH))
-                .collect(toImmutableList());
     }
 
     private void insecureHttpAuthenticationDefaults()

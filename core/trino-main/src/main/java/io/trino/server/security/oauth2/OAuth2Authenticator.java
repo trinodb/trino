@@ -34,6 +34,8 @@ import static java.util.Objects.requireNonNull;
 public class OAuth2Authenticator
         extends AbstractBearerAuthenticator
 {
+    public static final String NAME = "oauth2";
+
     private final OAuth2Service service;
     private final String principalField;
 
