@@ -476,9 +476,9 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public Map<String, Catalog> getCatalogs(Session session)
+    public List<CatalogInfo> listCatalogs(Session session)
     {
-        return delegate.getCatalogs(session);
+        return delegate.listCatalogs(session);
     }
 
     @Override

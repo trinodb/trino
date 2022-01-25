@@ -13,13 +13,11 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.connector.CatalogName;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -49,11 +47,6 @@ public class CatalogManager
     public Set<String> getCatalogNames()
     {
         return ImmutableSet.copyOf(catalogs.keySet());
-    }
-
-    public List<Catalog> getCatalogs()
-    {
-        return ImmutableList.copyOf(catalogs.values());
     }
 
     public Optional<Catalog> getCatalog(String catalogName)

@@ -93,12 +93,12 @@ public final class CatalogName
                 catalogName.getCatalogName().startsWith(INFORMATION_SCHEMA_CONNECTOR_PREFIX);
     }
 
-    public static CatalogName createInformationSchemaCatalogName(CatalogName catalogName)
+    static CatalogName createInformationSchemaCatalogName(CatalogName catalogName)
     {
         return new CatalogName(INFORMATION_SCHEMA_CONNECTOR_PREFIX + catalogName.getCatalogName());
     }
 
-    public static CatalogName createSystemTablesCatalogName(CatalogName catalogName)
+    static CatalogName createSystemTablesCatalogName(CatalogName catalogName)
     {
         return new CatalogName(SYSTEM_TABLES_CONNECTOR_PREFIX + catalogName.getCatalogName());
     }
