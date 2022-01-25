@@ -510,8 +510,7 @@ public class ClusterMemoryManager
     {
         Map<String, Optional<MemoryInfo>> memoryInfo = new HashMap<>();
         for (Entry<String, RemoteNodeMemory> entry : nodes.entrySet()) {
-            // workerId is of the form "node_identifier [node_host]"
-            String workerId = entry.getKey() + " [" + entry.getValue().getNode().getHost() + "]";
+            String workerId = entry.getKey();
             memoryInfo.put(workerId, entry.getValue().getInfo());
         }
         return memoryInfo;
