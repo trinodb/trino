@@ -48,6 +48,7 @@ public class TestingClickHouseServer
     {
         dockerContainer = (ClickHouseContainer) new ClickHouseContainer(image)
                 .withCopyFileToContainer(forClasspathResource("custom.xml"), "/etc/clickhouse-server/config.d/custom.xml")
+                .withExposedPorts(HTTP_PORT)
                 .withStartupAttempts(10);
 
         dockerContainer.start();
