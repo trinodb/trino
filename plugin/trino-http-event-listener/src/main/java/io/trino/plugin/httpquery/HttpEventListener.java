@@ -124,7 +124,7 @@ public class HttpEventListener
                             {
                                 verify(result != null);
 
-                                if (!(result.getStatusCode() >= 200 && result.getStatusCode() < 300) && attempt < config.getRetryCount()) {
+                                if (shouldRetry(result) && attempt < config.getRetryCount()) {
                                     Duration nextDelay = nextDelay(delay);
                                     int nextAttempt = attempt + 1;
 
@@ -160,6 +160,18 @@ public class HttpEventListener
                             }
                         }, executor),
                 (long) delay.getValue(), delay.getUnit());
+    }
+
+    private boolean shouldRetry(StatusResponse result)
+    {
+        int statusCode = result.getStatusCode();
+        if (statusCode >= 200 && statusCode < 300) {
+            return false; // OK
+        }
+        if (statusCode >= 400 && statusCode < 500) {
+            return false; // 4xx is not retriable
+        }
+        return true;
     }
 
     private Duration nextDelay(Duration delay)

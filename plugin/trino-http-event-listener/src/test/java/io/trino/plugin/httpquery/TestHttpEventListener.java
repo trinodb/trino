@@ -362,7 +362,7 @@ public class TestHttpEventListener
     }
 
     @Test
-    public void testServer400ShouldRetry()
+    public void testServer301ShouldRetry()
             throws Exception
     {
         EventListener querylogListener = factory.create(Map.of(
@@ -370,12 +370,12 @@ public class TestHttpEventListener
                 "http-event-listener.log-completed", "true",
                 "http-event-listener.connect-retry-count", "1"));
 
-        server.enqueue(new MockResponse().setResponseCode(400));
+        server.enqueue(new MockResponse().setResponseCode(301));
         server.enqueue(new MockResponse().setResponseCode(200));
 
         querylogListener.queryCompleted(queryCompleteEvent);
 
-        assertNotNull(server.takeRequest(5, TimeUnit.SECONDS)); // First request, send back 400
+        assertNotNull(server.takeRequest(5, TimeUnit.SECONDS)); // First request, send back 301
         checkRequest(server.takeRequest(5, TimeUnit.SECONDS), queryCompleteEvent); // The retry that responds with 200
     }
 
