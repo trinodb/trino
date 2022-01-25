@@ -192,6 +192,26 @@ public class TestHiveCompatibility
         onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
 
+    @Test(groups = STORAGE_FORMATS_DETAILED)
+    public void testSmallDecimalFieldWrittenByOptimizedParquetWriterCannotBeReadByHive()
+            throws Exception
+    {
+        // only admin user is allowed to change session properties
+        setAdminRole(onTrino().getConnection());
+        setSessionProperty(onTrino().getConnection(), "hive.experimental_parquet_optimized_writer_enabled", "true");
+
+        String tableName = "parquet_table_small_decimal_created_in_trino";
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("CREATE TABLE " + tableName + " (a_decimal DECIMAL(5,0)) WITH (format='PARQUET')");
+        onTrino().executeQuery("INSERT INTO " + tableName + " VALUES (123)");
+
+        // Hive expects `FIXED_LEN_BYTE_ARRAY` for decimal values irrespective of the Parquet specification which allows `INT32`, `INT64` for short precision decimal types
+        assertQueryFailure(() -> onHive().executeQuery("SELECT a_decimal FROM " + tableName))
+                .hasMessageMatching(".* org.apache.parquet.io.ParquetDecodingException: Can not read value at 1 in block 0 in file .*");
+
+        onTrino().executeQuery(format("DROP TABLE %s", tableName));
+    }
+
     @DataProvider
     public static TestHiveStorageFormats.StorageFormat[] storageFormatsWithConfiguration()
     {
