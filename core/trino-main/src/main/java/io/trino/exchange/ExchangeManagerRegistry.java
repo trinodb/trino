@@ -14,7 +14,7 @@
 package io.trino.exchange;
 
 import io.airlift.log.Logger;
-import io.trino.metadata.HandleResolver;
+import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.exchange.ExchangeManager;
@@ -44,14 +44,14 @@ public class ExchangeManagerRegistry
     private static final File CONFIG_FILE = new File("etc/exchange-manager.properties");
     private static final String EXCHANGE_MANAGER_NAME_PROPERTY = "exchange-manager.name";
 
-    private final HandleResolver handleResolver;
+    private final ExchangeHandleResolver handleResolver;
 
     private final Map<String, ExchangeManagerFactory> exchangeManagerFactories = new ConcurrentHashMap<>();
 
     private volatile ExchangeManager exchangeManager;
 
     @Inject
-    public ExchangeManagerRegistry(HandleResolver handleResolver)
+    public ExchangeManagerRegistry(ExchangeHandleResolver handleResolver)
     {
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
     }
