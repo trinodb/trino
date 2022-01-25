@@ -89,8 +89,7 @@ Set table properties (``x=y``) to table ``users``::
 Collapse files in a table that are over 10 megabytes in size, as supported by
 the Hive connector::
 
-    ALTER TABLE hive.schema.test_table EXECUTE optimize(file_size_threshold =>
-    '10MB')
+    ALTER TABLE hive.schema.test_table EXECUTE optimize(file_size_threshold => '10MB')
 
 See also
 --------
