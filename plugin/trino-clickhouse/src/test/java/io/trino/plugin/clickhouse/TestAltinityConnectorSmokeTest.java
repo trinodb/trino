@@ -16,6 +16,7 @@ package io.trino.plugin.clickhouse;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -46,6 +47,7 @@ public class TestAltinityConnectorSmokeTest
                 REQUIRED_TPCH_TABLES);
     }
 
+    @Test
     @Override
     public void testRenameSchema()
     {
