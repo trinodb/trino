@@ -322,7 +322,7 @@ Property Name                                      Description                  
 ``hive.security``                                  See :doc:`hive-security`.
 
 ``security.config-file``                           Path of config file to use when ``hive.security=file``.
-                                                   See :ref:`hive-file-based-authorization` for details.
+                                                   See :ref:`catalog-file-based-access-control` for details.
 
 ``hive.non-managed-table-writes-enabled``          Enable writes to non-managed (external) Hive tables.         ``false``
 
