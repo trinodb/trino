@@ -197,6 +197,11 @@
 
         <dependency>
             <groupId>com.linkedin.coral</groupId>
+            <artifactId>coral-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.linkedin.coral</groupId>
             <artifactId>coral-hive</artifactId>
         </dependency>
 
