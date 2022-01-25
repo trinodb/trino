@@ -18,6 +18,8 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 
+import javax.validation.constraints.DecimalMax;
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -44,6 +46,9 @@ public class NodeSchedulerConfig
     private boolean optimizedLocalScheduling = true;
     private SplitsBalancingPolicy splitsBalancingPolicy = SplitsBalancingPolicy.STAGE;
     private int maxUnacknowledgedSplitsPerTask = 500;
+    private int maxAbsoluteFullNodesPerQuery = Integer.MAX_VALUE;
+    private double maxFractionFullNodesPerQuery = 0.5;
+    private NodeAllocatorType nodeAllocatorType = NodeAllocatorType.FULL_NODE_CAPABLE;
 
     @NotNull
     public NodeSchedulerPolicy getNodeSchedulerPolicy()
@@ -162,5 +167,61 @@ public class NodeSchedulerConfig
     {
         this.optimizedLocalScheduling = optimizedLocalScheduling;
         return this;
+    }
+
+    @Config("node-scheduler.max-absolute-full-nodes-per-query")
+    public NodeSchedulerConfig setMaxAbsoluteFullNodesPerQuery(int maxAbsoluteFullNodesPerQuery)
+    {
+        this.maxAbsoluteFullNodesPerQuery = maxAbsoluteFullNodesPerQuery;
+        return this;
+    }
+
+    public int getMaxAbsoluteFullNodesPerQuery()
+    {
+        return maxAbsoluteFullNodesPerQuery;
+    }
+
+    @Config("node-scheduler.max-fraction-full-nodes-per-query")
+    public NodeSchedulerConfig setMaxFractionFullNodesPerQuery(double maxFractionFullNodesPerQuery)
+    {
+        this.maxFractionFullNodesPerQuery = maxFractionFullNodesPerQuery;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getMaxFractionFullNodesPerQuery()
+    {
+        return maxFractionFullNodesPerQuery;
+    }
+
+    public enum NodeAllocatorType
+    {
+        FIXED_COUNT,
+        FULL_NODE_CAPABLE
+    }
+
+    @NotNull
+    public NodeAllocatorType getNodeAllocatorType()
+    {
+        return nodeAllocatorType;
+    }
+
+    @Config("node-scheduler.allocator-type")
+    public NodeSchedulerConfig setNodeAllocatorType(String nodeAllocatorType)
+    {
+        this.nodeAllocatorType = toNodeAllocatorType(nodeAllocatorType);
+        return this;
+    }
+
+    private static NodeAllocatorType toNodeAllocatorType(String nodeAllocatorType)
+    {
+        switch (nodeAllocatorType.toLowerCase(ENGLISH)) {
+            case "fixed_count":
+                return NodeAllocatorType.FIXED_COUNT;
+            case "full_node_capable":
+                return NodeAllocatorType.FULL_NODE_CAPABLE;
+        }
+        throw new IllegalArgumentException("Unknown node allocator type: " + nodeAllocatorType);
     }
 }
