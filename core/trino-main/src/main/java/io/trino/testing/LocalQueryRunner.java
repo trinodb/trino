@@ -331,7 +331,6 @@ public class LocalQueryRunner
                 catalogManager,
                 notificationExecutor);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators);
-        this.groupProvider = new TestingGroupProvider();
 
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         TypeRegistry typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
@@ -341,7 +340,6 @@ public class LocalQueryRunner
                 featuresConfig,
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
-                groupProvider,
                 typeOperators,
                 blockTypeOperators,
                 typeManager,
@@ -352,6 +350,7 @@ public class LocalQueryRunner
         this.planFragmenter = new PlanFragmenter(metadata, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler, blockTypeOperators);
+        this.groupProvider = new TestingGroupProvider();
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
@@ -368,6 +367,7 @@ public class LocalQueryRunner
                 plannerContext,
                 sqlParser,
                 accessControl,
+                groupProvider,
                 tableProceduresRegistry,
                 sessionPropertyManager,
                 tablePropertyManager,

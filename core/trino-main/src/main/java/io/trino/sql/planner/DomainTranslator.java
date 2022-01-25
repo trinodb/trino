@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.PeekingIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -309,6 +310,7 @@ public final class DomainTranslator
                         plannerContext,
                         new SqlParser(),
                         new AllowAllAccessControl(),
+                        user -> ImmutableSet.of(),
                         new TableProceduresRegistry(),
                         new SessionPropertyManager(),
                         new TablePropertyManager(),
