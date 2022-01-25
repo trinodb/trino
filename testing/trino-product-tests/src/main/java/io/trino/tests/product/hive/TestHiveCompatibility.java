@@ -15,6 +15,7 @@ package io.trino.tests.product.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
 import io.trino.tests.product.utils.JdbcDriverUtils;
@@ -38,6 +39,7 @@ import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
 import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
@@ -166,6 +168,27 @@ public class TestHiveCompatibility
         queryResult = onHive().executeQuery(format("SELECT c_row.f1, c_row.f2 FROM %s", tableName));
         assertThat(queryResult).containsOnly(row(42, "Trino"));
 
+        onTrino().executeQuery(format("DROP TABLE %s", tableName));
+    }
+
+    @Test(groups = STORAGE_FORMATS_DETAILED)
+    public void testTimestampFieldWrittenByOptimizedParquetWriterCannotBeReadByHive()
+            throws Exception
+    {
+        // only admin user is allowed to change session properties
+        setAdminRole(onTrino().getConnection());
+        setSessionProperty(onTrino().getConnection(), "hive.experimental_parquet_optimized_writer_enabled", "true");
+
+        String tableName = "parquet_table_timestamp_created_in_trino";
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        onTrino().executeQuery("CREATE TABLE " + tableName + "(timestamp_precision varchar, a_timestamp timestamp) WITH (format = 'PARQUET')");
+        for (HiveTimestampPrecision hiveTimestampPrecision : HiveTimestampPrecision.values()) {
+            setSessionProperty(onTrino().getConnection(), "hive.timestamp_precision", hiveTimestampPrecision.name());
+            onTrino().executeQuery("INSERT INTO " + tableName + " VALUES ('" + hiveTimestampPrecision.name() + "', TIMESTAMP '2021-01-05 12:01:00.111901001')");
+            // Hive expects `INT96` (deprecated on Parquet) for timestamp values
+            assertQueryFailure(() -> onHive().executeQuery("SELECT a_timestamp FROM " + tableName + " WHERE timestamp_precision = '" + hiveTimestampPrecision.name() + "'"))
+                    .hasMessageMatching(".*java.lang.ClassCastException: org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.(TimestampWritable|TimestampWritableV2)");
+        }
         onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
 
