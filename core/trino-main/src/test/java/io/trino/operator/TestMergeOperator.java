@@ -27,7 +27,7 @@ import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.TestingPagesSerdeFactory;
-import io.trino.metadata.HandleResolver;
+import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
@@ -96,7 +96,7 @@ public class TestMergeOperator
                 new DirectExchangeClientConfig(),
                 httpClient,
                 executor,
-                new ExchangeManagerRegistry(new HandleResolver()));
+                new ExchangeManagerRegistry(new ExchangeHandleResolver()));
         orderingCompiler = new OrderingCompiler(new TypeOperators());
     }
 

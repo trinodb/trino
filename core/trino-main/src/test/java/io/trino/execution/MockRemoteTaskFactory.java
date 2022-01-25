@@ -34,7 +34,7 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
 import io.trino.memory.context.SimpleLocalMemoryContext;
-import io.trino.metadata.HandleResolver;
+import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.operator.TaskContext;
@@ -216,7 +216,7 @@ public class MockRemoteTaskFactory
                     DataSize.ofBytes(1),
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                     () -> {},
-                    new ExchangeManagerRegistry(new HandleResolver()));
+                    new ExchangeManagerRegistry(new ExchangeHandleResolver()));
 
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
