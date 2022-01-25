@@ -950,6 +950,39 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testInsertFailsInExplicitTrinoTransaction()
+    {
+        withTemporaryTable("insert_fail_explicit_transaction", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (a_string varchar) WITH (format = 'ORC', transactional = true)", tableName));
+            onTrino().executeQuery("START TRANSACTION");
+            assertQueryFailure(() -> onTrino().executeQuery(format("INSERT INTO %s (a_string) VALUES ('Commander Bun Bun')", tableName)))
+                    .hasMessageContaining("Inserting into Hive transactional tables is not supported in explicit transactions (use autocommit mode)");
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testUpdateFailsInExplicitTrinoTransaction()
+    {
+        withTemporaryTable("update_fail_explicit_transaction", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (a_string varchar) WITH (format = 'ORC', transactional = true)", tableName));
+            onTrino().executeQuery("START TRANSACTION");
+            assertQueryFailure(() -> onTrino().executeQuery(format("UPDATE %s SET a_string = 'Commander Bun Bun'", tableName)))
+                    .hasMessageContaining("Updating transactional tables is not supported in explicit transactions (use autocommit mode)");
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testDeleteFailsInExplicitTrinoTransaction()
+    {
+        withTemporaryTable("delete_fail_explicit_transaction", true, false, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (a_string varchar) WITH (format = 'ORC', transactional = true)", tableName));
+            onTrino().executeQuery("START TRANSACTION");
+            assertQueryFailure(() -> onTrino().executeQuery(format("DELETE FROM %s WHERE a_string = 'Commander Bun Bun'", tableName)))
+                    .hasMessageContaining("Deleting from Hive transactional tables is not supported in explicit transactions (use autocommit mode)");
+        });
+    }
+
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
     public void testColumnRenamesOrcPartitioned(boolean transactional)
     {

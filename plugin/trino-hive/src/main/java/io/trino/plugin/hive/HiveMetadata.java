@@ -1624,6 +1624,9 @@ public class HiveMetadata
         if (!isFullAcidTable(table.getParameters())) {
             throw new TrinoException(NOT_SUPPORTED, "Hive update is only supported for ACID transactional tables");
         }
+        if (!autoCommit) {
+            throw new TrinoException(NOT_SUPPORTED, "Updating transactional tables is not supported in explicit transactions (use autocommit mode)");
+        }
 
         // Verify that none of the updated columns are partition columns or bucket columns
 
@@ -1723,7 +1726,9 @@ public class HiveMetadata
         if (isTransactional && retryMode != NO_RETRIES) {
             throw new TrinoException(NOT_SUPPORTED, "Inserting into Hive transactional tables is not supported with query retries enabled");
         }
-
+        if (isTransactional && !autoCommit) {
+            throw new TrinoException(NOT_SUPPORTED, "Inserting into Hive transactional tables is not supported in explicit transactions (use autocommit mode)");
+        }
         List<HiveColumnHandle> handles = hiveColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toImmutableList());
@@ -2424,6 +2429,9 @@ public class HiveMetadata
 
         if (retryMode != NO_RETRIES) {
             throw new TrinoException(NOT_SUPPORTED, "Deleting from Hive tables is not supported with query retries enabled");
+        }
+        if (!autoCommit) {
+            throw new TrinoException(NOT_SUPPORTED, "Deleting from Hive transactional tables is not supported in explicit transactions (use autocommit mode)");
         }
 
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
