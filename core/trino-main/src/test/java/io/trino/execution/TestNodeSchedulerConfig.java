@@ -38,7 +38,10 @@ public class TestNodeSchedulerConfig
                 .setMaxUnacknowledgedSplitsPerTask(500)
                 .setIncludeCoordinator(true)
                 .setSplitsBalancingPolicy(NodeSchedulerConfig.SplitsBalancingPolicy.STAGE)
-                .setOptimizedLocalScheduling(true));
+                .setOptimizedLocalScheduling(true)
+                .setMaxAbsoluteFullNodesPerQuery(Integer.MAX_VALUE)
+                .setMaxFractionFullNodesPerQuery(0.5)
+                .setNodeAllocatorType("full_node_capable"));
     }
 
     @Test
@@ -53,6 +56,9 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.max-unacknowledged-splits-per-task", "501")
                 .put("node-scheduler.splits-balancing-policy", "node")
                 .put("node-scheduler.optimized-local-scheduling", "false")
+                .put("node-scheduler.max-absolute-full-nodes-per-query", "17")
+                .put("node-scheduler.max-fraction-full-nodes-per-query", "0.3")
+                .put("node-scheduler.allocator-type", "fixed_count")
                 .buildOrThrow();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
@@ -63,7 +69,10 @@ public class TestNodeSchedulerConfig
                 .setMaxUnacknowledgedSplitsPerTask(501)
                 .setMinCandidates(11)
                 .setSplitsBalancingPolicy(NODE)
-                .setOptimizedLocalScheduling(false);
+                .setOptimizedLocalScheduling(false)
+                .setMaxAbsoluteFullNodesPerQuery(17)
+                .setMaxFractionFullNodesPerQuery(0.3)
+                .setNodeAllocatorType("fixed_count");
 
         assertFullMapping(properties, expected);
     }
