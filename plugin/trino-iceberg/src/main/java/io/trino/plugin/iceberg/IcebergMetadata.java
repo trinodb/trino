@@ -20,10 +20,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -31,6 +33,7 @@ import io.trino.plugin.hive.HiveApplyProjectionUtil;
 import io.trino.plugin.hive.HiveApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.hive.HiveWrittenPartitions;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.procedure.IcebergExpireSnapshotsHandle;
 import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableProcedureId;
@@ -83,6 +86,7 @@ import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -99,6 +103,7 @@ import org.apache.iceberg.types.Type;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Comparator;
@@ -123,6 +128,10 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Sets.difference;
+import static com.google.common.collect.Streams.concat;
+import static com.google.common.collect.Streams.stream;
+import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.hive.HiveApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
@@ -134,6 +143,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshotMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
@@ -153,6 +163,7 @@ import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.DEPENDS_ON_TABLES;
+import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.EXPIRE_SNAPSHOTS;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.OPTIMIZE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
@@ -161,14 +172,18 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
+import static org.apache.iceberg.ReachableFileUtil.metadataFileLocations;
+import static org.apache.iceberg.ReachableFileUtil.versionHintLocation;
+import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 
 public class IcebergMetadata
         implements ConnectorMetadata
 {
     private static final Logger log = Logger.get(IcebergMetadata.class);
-
     private static final Pattern PATH_PATTERN = Pattern.compile("(.*)/[^/]+");
     private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 1;
+    private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 2;
+    private static final String RETENTION_THRESHOLD = "retention_threshold";
 
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
@@ -719,6 +734,8 @@ public class IcebergMetadata
         switch (procedureId) {
             case OPTIMIZE:
                 return getTableHandleForOptimize(session, tableHandle, executeProperties, retryMode);
+            case EXPIRE_SNAPSHOTS:
+                return getTableHandleForExpireSnapshots(session, tableHandle, executeProperties);
         }
 
         throw new IllegalArgumentException("Unknown procedure: " + procedureId);
@@ -743,6 +760,18 @@ public class IcebergMetadata
                 icebergTable.location()));
     }
 
+    private Optional<ConnectorTableExecuteHandle> getTableHandleForExpireSnapshots(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
+    {
+        Duration retentionThreshold = (Duration) executeProperties.get(RETENTION_THRESHOLD);
+        Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
+
+        return Optional.of(new IcebergTableExecuteHandle(
+                tableHandle.getSchemaTableName(),
+                EXPIRE_SNAPSHOTS,
+                new IcebergExpireSnapshotsHandle(retentionThreshold),
+                icebergTable.location()));
+    }
+
     @Override
     public Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
     {
@@ -750,6 +779,8 @@ public class IcebergMetadata
         switch (executeHandle.getProcedureId()) {
             case OPTIMIZE:
                 return getLayoutForOptimize(session, executeHandle);
+            case EXPIRE_SNAPSHOTS:
+                // handled via executeTableExecute
         }
         throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
     }
@@ -773,6 +804,8 @@ public class IcebergMetadata
         switch (executeHandle.getProcedureId()) {
             case OPTIMIZE:
                 return beginOptimize(session, executeHandle, table);
+            case EXPIRE_SNAPSHOTS:
+                // handled via executeTableExecute
         }
         throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
     }
@@ -812,6 +845,8 @@ public class IcebergMetadata
             case OPTIMIZE:
                 finishOptimize(session, executeHandle, fragments, splitSourceInfo);
                 return;
+            case EXPIRE_SNAPSHOTS:
+                // handled via executeTableExecute
         }
         throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
     }
@@ -871,6 +906,113 @@ public class IcebergMetadata
         rewriteFiles.commit();
         transaction.commitTransaction();
         transaction = null;
+    }
+
+    @Override
+    public void executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+    {
+        IcebergTableExecuteHandle executeHandle = (IcebergTableExecuteHandle) tableExecuteHandle;
+        switch (executeHandle.getProcedureId()) {
+            case EXPIRE_SNAPSHOTS:
+                executeExpireSnapshots(session, executeHandle);
+                return;
+            default:
+                throw new IllegalArgumentException("Unknown procedure '" + executeHandle.getProcedureId() + "'");
+        }
+    }
+
+    private void executeExpireSnapshots(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
+    {
+        IcebergExpireSnapshotsHandle expireSnapshotsHandle = (IcebergExpireSnapshotsHandle) executeHandle.getProcedureHandle();
+
+        Table table = catalog.loadTable(session, executeHandle.getSchemaTableName());
+        Duration retention = requireNonNull(expireSnapshotsHandle.getRetentionThreshold(), "retention is null");
+        validateTableExecuteParameters(
+                table,
+                executeHandle.getSchemaTableName(),
+                EXPIRE_SNAPSHOTS.name(),
+                retention,
+                getExpireSnapshotMinRetention(session),
+                IcebergConfig.EXPIRE_SNAPSHOTS_MIN_RETENTION,
+                IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION);
+
+        long expireTimestampMillis = session.getStart().toEpochMilli() - retention.toMillis();
+        expireSnapshots(table, expireTimestampMillis, session, executeHandle.getSchemaTableName());
+    }
+
+    private void validateTableExecuteParameters(
+            Table table,
+            SchemaTableName schemaTableName,
+            String procedureName,
+            Duration retentionThreshold,
+            Duration minRetention,
+            String minRetentionParameterName,
+            String sessionMinRetentionParameterName)
+    {
+        int tableFormatVersion = ((BaseTable) table).operations().current().formatVersion();
+        if (tableFormatVersion > CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION) {
+            // It is not known if future version won't bring any new kind of metadata or data files
+            // because of the way procedures are implemented it is safer to fail here than to potentially remove
+            // files that should stay there
+            throw new TrinoException(NOT_SUPPORTED, format("%s is not supported for Iceberg table format version > %d. " +
+                            "Table %s format version is %s.",
+                    procedureName,
+                    CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION,
+                    schemaTableName,
+                    tableFormatVersion));
+        }
+        Map<String, String> properties = table.properties();
+        if (properties.containsKey(WRITE_LOCATION_PROVIDER_IMPL)) {
+            throw new TrinoException(NOT_SUPPORTED, "Table " + schemaTableName + " specifies " + properties.get(WRITE_LOCATION_PROVIDER_IMPL) +
+                    " as a location provider. Writing to Iceberg tables with custom location provider is not supported.");
+        }
+
+        Duration retention = requireNonNull(retentionThreshold, "retention is null");
+        checkProcedureArgument(retention.compareTo(minRetention) >= 0,
+                "Retention specified (%s) is shorter than the minimum retention configured in the system (%s). " +
+                        "Minimum retention can be changed with %s configuration property or iceberg.%s session property",
+                retention,
+                minRetention,
+                minRetentionParameterName,
+                sessionMinRetentionParameterName);
+    }
+
+    private void expireSnapshots(Table table, long expireTimestamp, ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        Set<String> originalFiles = buildSetOfValidFiles(table);
+        table.expireSnapshots().expireOlderThan(expireTimestamp).cleanExpiredFiles(false).commit();
+        Set<String> validFiles = buildSetOfValidFiles(table);
+        try {
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(new HdfsEnvironment.HdfsContext(session), new Path(table.location()));
+            Sets.SetView<String> filesToDelete = difference(originalFiles, validFiles);
+            for (String filePath : filesToDelete) {
+                log.debug("Deleting file %s while expiring snapshots %s", filePath, schemaTableName.getTableName());
+                fileSystem.delete(new Path(filePath), false);
+            }
+        }
+        catch (IOException e) {
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed accessing data for table: " + schemaTableName, e);
+        }
+    }
+
+    private Set<String> buildSetOfValidFiles(Table table)
+    {
+        List<Snapshot> snapshots = ImmutableList.copyOf(table.snapshots());
+        Stream<String> dataFiles = snapshots.stream()
+                .map(Snapshot::snapshotId)
+                .flatMap(snapshotId -> stream(table.newScan().useSnapshot(snapshotId).planFiles()))
+                .map(fileScanTask -> fileScanTask.file().path().toString());
+        Stream<String> manifests = snapshots.stream()
+                .flatMap(snapshot -> snapshot.allManifests().stream())
+                .map(ManifestFile::path);
+        Stream<String> manifestLists = snapshots.stream()
+                .map(Snapshot::manifestListLocation);
+        Stream<String> otherMetadataFiles = concat(
+                metadataFileLocations(table, false).stream(),
+                Stream.of(versionHintLocation(table)));
+        return concat(dataFiles, manifests, manifestLists, otherMetadataFiles)
+                .map(file -> URI.create(file).getPath())
+                .collect(toImmutableSet());
     }
 
     @Override
