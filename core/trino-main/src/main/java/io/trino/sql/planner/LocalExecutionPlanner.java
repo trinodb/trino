@@ -1633,9 +1633,16 @@ public class LocalExecutionPlanner
                     (int) node.getCount(),
                     sortChannels,
                     sortOrders,
-                    plannerContext.getTypeOperators());
+                    plannerContext.getTypeOperators(),
+                    getMaxPartialTopNMemorySize(node.getStep()));
 
             return new PhysicalOperation(operator, source.getLayout(), context, source);
+        }
+
+        private Optional<DataSize> getMaxPartialTopNMemorySize(TopNNode.Step step)
+        {
+            DataSize maxPartialTopNMemorySize = SystemSessionProperties.getMaxPartialTopNMemory(session);
+            return step == TopNNode.Step.PARTIAL && maxPartialTopNMemorySize.compareTo(DataSize.ofBytes(0)) > 0 ? Optional.of(maxPartialTopNMemorySize) : Optional.empty();
         }
 
         @Override

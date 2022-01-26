@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
 import io.trino.operator.WorkProcessor.TransformationState;
@@ -24,6 +25,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
@@ -42,9 +44,10 @@ public class TopNOperator
             int n,
             List<Integer> sortChannels,
             List<SortOrder> sortOrders,
-            TypeOperators typeOperators)
+            TypeOperators typeOperators,
+            Optional<DataSize> maxPartialMemory)
     {
-        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, sortChannels, sortOrders, typeOperators));
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, sortChannels, sortOrders, typeOperators, maxPartialMemory));
     }
 
     private static class Factory
@@ -57,6 +60,7 @@ public class TopNOperator
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
         private final TypeOperators typeOperators;
+        private final Optional<DataSize> maxPartialMemory;
         private boolean closed;
 
         private Factory(
@@ -66,7 +70,8 @@ public class TopNOperator
                 int n,
                 List<Integer> sortChannels,
                 List<SortOrder> sortOrders,
-                TypeOperators typeOperators)
+                TypeOperators typeOperators,
+                Optional<DataSize> maxPartialMemory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -75,6 +80,7 @@ public class TopNOperator
             this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
             this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
             this.typeOperators = typeOperators;
+            this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null");
         }
 
         @Override
@@ -90,7 +96,8 @@ public class TopNOperator
                     n,
                     sortChannels,
                     sortOrders,
-                    typeOperators);
+                    typeOperators,
+                    maxPartialMemory);
         }
 
         @Override
@@ -120,11 +127,10 @@ public class TopNOperator
         @Override
         public Factory duplicate()
         {
-            return new Factory(operatorId, planNodeId, sourceTypes, n, sortChannels, sortOrders, typeOperators);
+            return new Factory(operatorId, planNodeId, sourceTypes, n, sortChannels, sortOrders, typeOperators, maxPartialMemory);
         }
     }
 
-    private final TopNProcessor topNProcessor;
     private final WorkProcessor<Page> pages;
 
     private TopNOperator(
@@ -134,21 +140,25 @@ public class TopNOperator
             int n,
             List<Integer> sortChannels,
             List<SortOrder> sortOrders,
-            TypeOperators typeOperators)
+            TypeOperators typeOperators,
+            Optional<DataSize> maxPartialMemory)
     {
-        this.topNProcessor = new TopNProcessor(
-                requireNonNull(memoryTrackingContext, "memoryTrackingContext is null").aggregateUserMemoryContext(),
-                types,
-                n,
-                sortChannels,
-                sortOrders,
-                typeOperators);
+        requireNonNull(memoryTrackingContext, "memoryTrackingContext is null");
 
         if (n == 0) {
             pages = WorkProcessor.of();
         }
         else {
-            pages = sourcePages.transform(new TopNPages());
+            TopNProcessor topNProcessor = new TopNProcessor(
+                    memoryTrackingContext.aggregateUserMemoryContext(),
+                    types,
+                    n,
+                    sortChannels,
+                    sortOrders,
+                    typeOperators);
+            long maxPartialMemoryWithDefaultValueIfAbsent = requireNonNull(maxPartialMemory, "maxPartialMemory is null")
+                    .map(DataSize::toBytes).orElse(Long.MAX_VALUE);
+            pages = sourcePages.transform(new TopNPages(topNProcessor, maxPartialMemoryWithDefaultValueIfAbsent));
         }
     }
 
@@ -158,18 +168,44 @@ public class TopNOperator
         return pages;
     }
 
-    private class TopNPages
+    private static class TopNPages
             implements WorkProcessor.Transformation<Page, Page>
     {
+        private final TopNProcessor topNProcessor;
+        private final long maxPartialMemory;
+
+        private boolean isPartialFlushing;
+
+        private TopNPages(TopNProcessor topNProcessor, long maxPartialMemory)
+        {
+            this.topNProcessor = topNProcessor;
+            this.maxPartialMemory = maxPartialMemory;
+        }
+
+        private boolean isBuilderFull()
+        {
+            return topNProcessor.getEstimatedSizeInBytes() >= maxPartialMemory;
+        }
+
+        private void addPage(Page page)
+        {
+            checkState(!isPartialFlushing, "TopN buffer is already full");
+            topNProcessor.addInput(page);
+            if (isBuilderFull()) {
+                isPartialFlushing = true;
+            }
+        }
+
         @Override
         public TransformationState<Page> process(Page inputPage)
         {
-            if (inputPage != null) {
-                topNProcessor.addInput(inputPage);
-                return TransformationState.needsMoreData();
+            if (!isPartialFlushing && inputPage != null) {
+                addPage(inputPage);
+                if (!isPartialFlushing) {
+                    return TransformationState.needsMoreData();
+                }
             }
 
-            // no more input, return results
             Page page = null;
             while (page == null && !topNProcessor.noMoreOutput()) {
                 page = topNProcessor.getOutput();
@@ -179,6 +215,14 @@ public class TopNOperator
                 return TransformationState.ofResult(page, false);
             }
 
+            if (isPartialFlushing) {
+                checkState(inputPage != null, "inputPage that triggered partial flushing is null");
+                isPartialFlushing = false;
+                // resume receiving pages
+                return TransformationState.needsMoreData();
+            }
+
+            // all input pages are consumed
             return TransformationState.finished();
         }
     }

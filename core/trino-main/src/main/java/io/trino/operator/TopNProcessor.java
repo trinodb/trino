@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -35,10 +36,13 @@ import static java.util.Objects.requireNonNull;
  */
 public class TopNProcessor
 {
-    private final LocalMemoryContext localUserMemoryContext;
+    private final LocalMemoryContext localMemoryContext;
+    @Nullable
+    private final Supplier<GroupedTopNBuilder> topNBuilderSupplier;
 
     @Nullable
     private GroupedTopNBuilder topNBuilder;
+    @Nullable
     private Iterator<Page> outputIterator;
 
     public TopNProcessor(
@@ -46,28 +50,33 @@ public class TopNProcessor
             List<Type> types,
             int n,
             List<Integer> sortChannels,
-            List<SortOrder> sortOrders, TypeOperators typeOperators)
+            List<SortOrder> sortOrders,
+            TypeOperators typeOperators)
     {
         requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext is null");
-        this.localUserMemoryContext = aggregatedMemoryContext.newLocalMemoryContext(TopNProcessor.class.getSimpleName());
+        this.localMemoryContext = aggregatedMemoryContext.newLocalMemoryContext(TopNProcessor.class.getSimpleName());
         checkArgument(n >= 0, "n must be positive");
 
         if (n == 0) {
-            outputIterator = emptyIterator();
+            topNBuilderSupplier = null;
         }
         else {
-            topNBuilder = new GroupedTopNRowNumberBuilder(
+            GroupByHash noChannelGroupByHash = new NoChannelGroupByHash();
+            PageWithPositionComparator comparator = new SimplePageWithPositionComparator(types, sortChannels, sortOrders, typeOperators);
+            topNBuilderSupplier = () -> new GroupedTopNRowNumberBuilder(
                     types,
-                    new SimplePageWithPositionComparator(types, sortChannels, sortOrders, typeOperators),
+                    comparator,
                     n,
                     false,
-                    new NoChannelGroupByHash());
+                    noChannelGroupByHash);
         }
     }
 
     public void addInput(Page page)
     {
-        requireNonNull(topNBuilder, "topNBuilder is null");
+        if (topNBuilder == null) {
+            topNBuilder = requireNonNull(topNBuilderSupplier.get(), "topNBuilderSupplier is null");
+        }
         boolean done = topNBuilder.processPage(requireNonNull(page, "page is null")).process();
         // there is no grouping so work will always be done
         verify(done);
@@ -78,7 +87,7 @@ public class TopNProcessor
     {
         if (outputIterator == null) {
             // start flushing
-            outputIterator = topNBuilder.buildResult();
+            outputIterator = topNBuilder == null ? emptyIterator() : topNBuilder.buildResult();
         }
 
         Page output = null;
@@ -86,7 +95,8 @@ public class TopNProcessor
             output = outputIterator.next();
         }
         else {
-            outputIterator = emptyIterator();
+            outputIterator = null;
+            topNBuilder = null;
         }
         updateMemoryReservation();
         return output;
@@ -94,12 +104,16 @@ public class TopNProcessor
 
     public boolean noMoreOutput()
     {
-        return outputIterator != null && !outputIterator.hasNext();
+        return topNBuilder == null;
+    }
+
+    public long getEstimatedSizeInBytes()
+    {
+        return topNBuilder == null ? 0 : topNBuilder.getEstimatedSizeInBytes();
     }
 
     private void updateMemoryReservation()
     {
-        requireNonNull(topNBuilder, "topNBuilder is null");
-        localUserMemoryContext.setBytes(topNBuilder.getEstimatedSizeInBytes());
+        localMemoryContext.setBytes(getEstimatedSizeInBytes());
     }
 }

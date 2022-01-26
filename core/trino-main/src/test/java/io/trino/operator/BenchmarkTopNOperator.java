@@ -38,6 +38,7 @@ import org.testng.annotations.Test;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -97,7 +98,8 @@ public class BenchmarkTopNOperator
                     Integer.valueOf(topN),
                     ImmutableList.of(0, 2),
                     ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST),
-                    new TypeOperators());
+                    new TypeOperators(),
+                    Optional.of(DataSize.of(16, DataSize.Unit.MEGABYTE)));
         }
 
         @TearDown

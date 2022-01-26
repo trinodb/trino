@@ -14,6 +14,7 @@
 package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.TopNOperator;
 import io.trino.spi.type.Type;
@@ -21,6 +22,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.LocalQueryRunner;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
@@ -45,7 +47,8 @@ public class Top100Benchmark
                 100,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST),
-                localQueryRunner.getTypeOperators());
+                localQueryRunner.getTypeOperators(),
+                Optional.of(DataSize.of(16, DataSize.Unit.MEGABYTE)));
         return ImmutableList.of(tableScanOperator, topNOperator);
     }
 

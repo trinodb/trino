@@ -24,9 +24,11 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -45,6 +47,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -73,8 +76,14 @@ public class TestTopNOperator
         scheduledExecutor.shutdownNow();
     }
 
-    @Test
-    public void testSingleFieldKey()
+    @DataProvider
+    public Object[][] partial()
+    {
+        return new Object[][] {{true}, {false}};
+    }
+
+    @Test(dataProvider = "partial")
+    public void testSingleFieldKey(boolean partial)
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -93,18 +102,32 @@ public class TestTopNOperator
                 ImmutableList.of(BIGINT, DOUBLE),
                 2,
                 ImmutableList.of(0),
-                ImmutableList.of(DESC_NULLS_LAST));
+                ImmutableList.of(DESC_NULLS_LAST),
+                partial ? Optional.of(DataSize.ofBytes(1)) : Optional.empty());
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
-                .row(6L, 0.6)
-                .row(5L, 0.5)
-                .build();
+        MaterializedResult expected;
+        if (partial) {
+            expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
+                    .row(2L, 0.2)
+                    .row(1L, 0.1)
+                    .row(4L, 0.4)
+                    .row(-1L, -0.1)
+                    .row(6L, 0.6)
+                    .row(5L, 0.5)
+                    .build();
+        }
+        else {
+            expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
+                    .row(6L, 0.6)
+                    .row(5L, 0.5)
+                    .build();
+        }
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
-    @Test
-    public void testMultiFieldKey()
+    @Test(dataProvider = "partial")
+    public void testMultiFieldKey(boolean partial)
     {
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("a", 1L)
@@ -122,19 +145,34 @@ public class TestTopNOperator
                 ImmutableList.of(VARCHAR, BIGINT),
                 3,
                 ImmutableList.of(0, 1),
-                ImmutableList.of(DESC_NULLS_LAST, DESC_NULLS_LAST));
+                ImmutableList.of(DESC_NULLS_LAST, DESC_NULLS_LAST),
+                partial ? Optional.of(DataSize.ofBytes(1)) : Optional.empty());
 
-        MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
-                .row("f", 3L)
-                .row("e", 6L)
-                .row("d", 7L)
-                .build();
+        MaterializedResult expected;
+        if (partial) {
+            expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
+                    .row("b", 2L)
+                    .row("a", 1L)
+                    .row("f", 3L)
+                    .row("a", 4L)
+                    .row("e", 6L)
+                    .row("d", 7L)
+                    .row("d", 5L)
+                    .build();
+        }
+        else {
+            expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
+                    .row("f", 3L)
+                    .row("e", 6L)
+                    .row("d", 7L)
+                    .build();
+        }
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
-    @Test
-    public void testReverseOrder()
+    @Test(dataProvider = "partial")
+    public void testReverseOrder(boolean partial)
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -153,12 +191,26 @@ public class TestTopNOperator
                 ImmutableList.of(BIGINT, DOUBLE),
                 2,
                 ImmutableList.of(0),
-                ImmutableList.of(ASC_NULLS_LAST));
+                ImmutableList.of(ASC_NULLS_LAST),
+                partial ? Optional.of(DataSize.ofBytes(1)) : Optional.empty());
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
-                .row(-1L, -0.1)
-                .row(1L, 0.1)
-                .build();
+        MaterializedResult expected;
+        if (partial) {
+            expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
+                    .row(1L, 0.1)
+                    .row(2L, 0.2)
+                    .row(-1L, -0.1)
+                    .row(4L, 0.4)
+                    .row(4L, 0.41)
+                    .row(5L, 0.5)
+                    .build();
+        }
+        else {
+            expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
+                    .row(-1L, -0.1)
+                    .row(1L, 0.1)
+                    .build();
+        }
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
@@ -171,7 +223,8 @@ public class TestTopNOperator
                 ImmutableList.of(BIGINT),
                 0,
                 ImmutableList.of(0),
-                ImmutableList.of(DESC_NULLS_LAST));
+                ImmutableList.of(DESC_NULLS_LAST),
+                Optional.of(DataSize.ofBytes(1)));
 
         try (Operator operator = factory.createOperator(driverContext)) {
             assertNull(operator.getOutput());
@@ -181,8 +234,8 @@ public class TestTopNOperator
         }
     }
 
-    @Test
-    public void testExceedMemoryLimit()
+    @Test(dataProvider = "partial")
+    public void testExceedMemoryLimit(boolean partial)
             throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT)
@@ -197,7 +250,8 @@ public class TestTopNOperator
                 ImmutableList.of(BIGINT),
                 100,
                 ImmutableList.of(0),
-                ImmutableList.of(ASC_NULLS_LAST));
+                ImmutableList.of(ASC_NULLS_LAST),
+                partial ? Optional.of(DataSize.ofBytes(1)) : Optional.empty());
         Operator operator = operatorFactory.createOperator(smallDiverContext);
         operator.addInput(input.get(0));
         assertThatThrownBy(() -> operator.getOutput())
@@ -205,11 +259,61 @@ public class TestTopNOperator
                 .hasMessageStartingWith("Query exceeded per-node memory limit of ");
     }
 
+    @Test(dataProvider = "partial")
+    public void testPartialFlushing(boolean partial)
+    {
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+                .row(1L, 0.1)
+                .row(2L, 0.2)
+                .pageBreak()
+                .row(-1L, -0.1)
+                .row(4L, 0.4)
+                .pageBreak()
+                .row(5L, 0.5)
+                .row(4L, 0.41)
+                .row(6L, 0.6)
+                .pageBreak()
+                .build();
+
+        OperatorFactory operatorFactory = topNOperatorFactory(
+                ImmutableList.of(BIGINT, DOUBLE),
+                2,
+                ImmutableList.of(0),
+                ImmutableList.of(DESC_NULLS_LAST),
+                partial ? Optional.of(DataSize.ofBytes(1)) : Optional.empty());
+
+        WorkProcessorOperatorAdapter topNOperator = (WorkProcessorOperatorAdapter) operatorFactory.createOperator(driverContext);
+        for (Page inputPage : input) {
+            topNOperator.addInput(inputPage);
+            if (partial) {
+                assertNotNull(topNOperator.getOutput()); // get partial flush result
+                assertFalse(topNOperator.isFinished()); // not finished. just partial flushing.
+                assertNull(topNOperator.getOutput()); // clear flushing
+                assertFalse(topNOperator.isFinished()); // not finished. just yield,
+            }
+            else {
+                assertNull(topNOperator.getOutput());
+            }
+        }
+
+        topNOperator.finish();
+        assertFalse(topNOperator.isFinished()); // not finished. finishing.
+        if (partial) {
+            assertNull(topNOperator.getOutput()); // finished
+            assertTrue(topNOperator.isFinished());
+        }
+        else {
+            assertNotNull(topNOperator.getOutput()); // start flushing final result
+            assertFalse(topNOperator.isFinished());
+        }
+    }
+
     private OperatorFactory topNOperatorFactory(
             List<? extends Type> types,
             int n,
             List<Integer> sortChannels,
-            List<SortOrder> sortOrders)
+            List<SortOrder> sortOrders,
+            Optional<DataSize> maxPartialMemory)
     {
         return TopNOperator.createOperatorFactory(
                 0,
@@ -218,6 +322,7 @@ public class TestTopNOperator
                 n,
                 sortChannels,
                 sortOrders,
-                typeOperators);
+                typeOperators,
+                maxPartialMemory);
     }
 }
