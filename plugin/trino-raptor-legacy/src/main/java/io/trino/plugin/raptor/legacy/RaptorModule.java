@@ -47,7 +47,6 @@ public class RaptorModule
         binder.bind(RaptorSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(RaptorPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(RaptorPageSinkProvider.class).in(Scopes.SINGLETON);
-        binder.bind(RaptorHandleResolver.class).in(Scopes.SINGLETON);
         binder.bind(RaptorNodePartitioningProvider.class).in(Scopes.SINGLETON);
         binder.bind(RaptorSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(RaptorTableProperties.class).in(Scopes.SINGLETON);

@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.Plugin;
@@ -22,7 +23,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -38,9 +38,12 @@ import io.trino.spi.transaction.IsolationLevel;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingHandleResolver;
+import io.trino.testing.TestingHandle;
 import io.trino.testing.TestingMetadata;
+import io.trino.testing.TestingMetadata.TestingColumnHandle;
+import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.TestingPageSinkProvider;
+import io.trino.testing.TestingSplit;
 import io.trino.testing.TestingSplitManager;
 import io.trino.testing.TestingTransactionHandle;
 import org.testng.annotations.AfterClass;
@@ -50,6 +53,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -166,12 +170,6 @@ public class TestBeginQuery
                 }
 
                 @Override
-                public ConnectorHandleResolver getHandleResolver()
-                {
-                    return new TestingHandleResolver();
-                }
-
-                @Override
                 public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
                 {
                     return new TestConnector(metadata);
@@ -188,6 +186,18 @@ public class TestBeginQuery
         private TestConnector(ConnectorMetadata metadata)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
+        }
+
+        @Override
+        public Set<Class<?>> getHandleClasses()
+        {
+            return ImmutableSet.<Class<?>>builder()
+                    .add(TestingTableHandle.class)
+                    .add(TestingColumnHandle.class)
+                    .add(TestingSplit.class)
+                    .add(TestingHandle.class)
+                    .add(TestingTransactionHandle.class)
+                    .build();
         }
 
         @Override

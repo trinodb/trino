@@ -14,6 +14,7 @@
 package io.trino.plugin.kinesis;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -24,6 +25,7 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.List;
+import java.util.Set;
 
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -49,6 +51,17 @@ public class KinesisConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.propertyList = ImmutableList.copyOf(properties.getSessionProperties());
+    }
+
+    @Override
+    public Set<Class<?>> getHandleClasses()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(KinesisTableHandle.class)
+                .add(KinesisColumnHandle.class)
+                .add(KinesisSplit.class)
+                .add(KinesisTransactionHandle.class)
+                .build();
     }
 
     @Override

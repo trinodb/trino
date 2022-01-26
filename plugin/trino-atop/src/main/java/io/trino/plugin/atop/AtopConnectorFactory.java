@@ -24,7 +24,6 @@ import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
@@ -47,12 +46,6 @@ public class AtopConnectorFactory
     public String getName()
     {
         return "atop";
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new AtopHandleResolver();
     }
 
     @Override

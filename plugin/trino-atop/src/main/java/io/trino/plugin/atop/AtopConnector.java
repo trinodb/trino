@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.atop;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -25,6 +26,7 @@ import io.trino.spi.transaction.IsolationLevel;
 import javax.inject.Inject;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -50,6 +52,17 @@ public class AtopConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+    }
+
+    @Override
+    public Set<Class<?>> getHandleClasses()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(AtopTableHandle.class)
+                .add(AtopColumnHandle.class)
+                .add(AtopSplit.class)
+                .add(AtopTransactionHandle.class)
+                .build();
     }
 
     @Override

@@ -15,15 +15,18 @@ package io.trino.testing.tpch;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.tpch.DecimalTypeMapping;
+import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchNodePartitioningProvider;
+import io.trino.plugin.tpch.TpchPartitioningHandle;
 import io.trino.plugin.tpch.TpchRecordSetProvider;
+import io.trino.plugin.tpch.TpchSplit;
 import io.trino.plugin.tpch.TpchSplitManager;
+import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.plugin.tpch.TpchTransactionHandle;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -58,12 +61,6 @@ public class IndexedTpchConnectorFactory
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new TpchIndexHandleResolver();
-    }
-
-    @Override
     public Connector create(String catalogName, Map<String, String> properties, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(properties);
@@ -72,6 +69,19 @@ public class IndexedTpchConnectorFactory
 
         return new Connector()
         {
+            @Override
+            public Set<Class<?>> getHandleClasses()
+            {
+                return ImmutableSet.<Class<?>>builder()
+                        .add(TpchTableHandle.class)
+                        .add(TpchColumnHandle.class)
+                        .add(TpchSplit.class)
+                        .add(TpchIndexHandle.class)
+                        .add(TpchPartitioningHandle.class)
+                        .add(TpchTransactionHandle.class)
+                        .build();
+            }
+
             @Override
             public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
             {

@@ -23,7 +23,6 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -39,12 +38,6 @@ public class ElasticsearchConnectorFactory
     public String getName()
     {
         return "elasticsearch";
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new ElasticsearchHandleResolver();
     }
 
     @Override
