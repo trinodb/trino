@@ -153,13 +153,13 @@ public class DeduplicatingDirectExchangeBuffer
             return;
         }
 
-        checkState(allTasks.contains(taskId), "task is not registered: %s", taskId);
-        checkState(!successfulTasks.contains(taskId), "task is finished: %s", taskId);
-        checkState(!failedTasks.containsKey(taskId), "task is failed: %s", taskId);
-
         if (failure != null) {
             return;
         }
+
+        checkState(allTasks.contains(taskId), "task is not registered: %s", taskId);
+        checkState(!successfulTasks.contains(taskId), "task is finished: %s", taskId);
+        checkState(!failedTasks.containsKey(taskId), "task is failed: %s", taskId);
 
         if (retryPolicy == QUERY && taskId.getAttemptId() < maxAttemptId) {
             return;
