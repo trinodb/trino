@@ -93,7 +93,7 @@
         <dependency>
             <groupId>org.rnorth.duct-tape</groupId>
             <artifactId>duct-tape</artifactId>
-            <version>1.0.8</version>
+            <version>${dep.duct-tape.version}</version>
         </dependency>
 
         <dependency>

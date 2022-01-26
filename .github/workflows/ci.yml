@@ -310,6 +310,7 @@ jobs:
             !:trino-accumulo,
             !:trino-cassandra,
             !:trino-clickhouse,
+            !:trino-delta-lake,
             !:trino-hive,
             !:trino-elasticsearch,
             !:trino-mongodb,
@@ -380,6 +381,7 @@ jobs:
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-cassandra }
             - { modules: plugin/trino-clickhouse }
+            - { modules: plugin/trino-delta-lake }
             - { modules: plugin/trino-hive }
             - { modules: plugin/trino-hive, profile: test-parquet }
             - { modules: plugin/trino-hive, profile: test-failure-recovery }
@@ -441,6 +443,23 @@ jobs:
         if: matrix.modules != 'plugin/trino-memsql'
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
+      - name: Cloud Delta Lake Tests
+        env:
+          ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
+          ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
+          ABFS_ACCESSKEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
+          AWS_REGION: us-east-2
+        # Run tests if any of the secrets is present. Do not skip tests when one secret renamed, or secret name has a typo.
+        if: >-
+          contains(matrix.modules, 'trino-delta-lake') &&
+          (env.ABFS_ACCOUNT != '' || env.ABFS_CONTAINER != '' || env.ABFS_ACCESSKEY != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
+        run: |
+          $MAVEN test ${MAVEN_TEST} -P cloud-tests -pl :trino-delta-lake \
+            -Dhive.hadoop2.azure-abfs-container="${ABFS_CONTAINER}" \
+            -Dhive.hadoop2.azure-abfs-account="${ABFS_ACCOUNT}" \
+            -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESSKEY}"
       - name: Memsql Tests
         env:
           MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}

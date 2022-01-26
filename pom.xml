@@ -62,6 +62,7 @@
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.11.0</dep.errorprone.version>
         <dep.testcontainers.version>1.16.3</dep.testcontainers.version>
+        <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
         <dep.coral.version>1.0.121</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
@@ -113,6 +114,7 @@
         <module>plugin/trino-blackhole</module>
         <module>plugin/trino-cassandra</module>
         <module>plugin/trino-clickhouse</module>
+        <module>plugin/trino-delta-lake</module>
         <module>plugin/trino-druid</module>
         <module>plugin/trino-elasticsearch</module>
         <module>plugin/trino-example-http</module>
