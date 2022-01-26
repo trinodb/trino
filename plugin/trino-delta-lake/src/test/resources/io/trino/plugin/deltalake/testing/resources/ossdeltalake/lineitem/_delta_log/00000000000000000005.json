@@ -1,0 +1,3 @@
+{"commitInfo":{"timestamp":1627656386279,"operation":"UPDATE","operationParameters":{"predicate":"(orderkey#802L = cast(59972 as bigint))"},"readVersion":4,"isBlindAppend":false}}
+{"remove":{"path":"part-00000-f8d85c69-f8aa-4a9d-9d1e-c18f617fcd27-c000.snappy.parquet","deletionTimestamp":1627656386031,"dataChange":true}}
+{"add":{"path":"part-00000-ae91ccaa-9203-4bb6-8e73-ed1653c83e11-c000.snappy.parquet","partitionValues":{},"size":1874610,"modificationTime":1627656386000,"dataChange":true}}

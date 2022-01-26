@@ -1,0 +1,89 @@
+{
+    "type" : "struct",
+    "fields" : [ {
+        "name" : "a",
+        "type" : "integer",
+        "nullable" : true,
+        "metadata" : { }
+    }, {
+        "name" : "b",
+        "type" : {
+            "type" : "struct",
+            "fields" : [ {
+                "name" : "b1",
+                "type" : "integer",
+                "nullable" : true,
+                "metadata" : { }
+            }, {
+                "name" : "b2",
+                "type" : {
+                    "type" : "struct",
+                    "fields" : [ {
+                        "name" : "b21",
+                        "type" : "string",
+                        "nullable" : true,
+                        "metadata" : { }
+                    }, {
+                        "name" : "b22",
+                        "type" : "boolean",
+                        "nullable" : true,
+                        "metadata" : { }
+                    } ]
+                },
+                "nullable" : true,
+                "metadata" : { }
+            } ]
+        },
+        "nullable" : true,
+        "metadata" : { }
+    }, {
+        "name" : "c",
+        "type" : {
+            "type" : "array",
+            "elementType" : "integer",
+            "containsNull" : true
+        },
+        "nullable" : true,
+        "metadata" : { }
+    }, {
+        "name" : "d",
+        "type" : {
+            "type" : "array",
+            "elementType" : {
+                "type" : "struct",
+                "fields" : [ {
+                    "name" : "d1",
+                    "type" : "integer",
+                    "nullable" : true,
+                    "metadata" : { }
+                } ]
+            },
+            "containsNull" : true
+        },
+        "nullable" : true,
+        "metadata" : { }
+    }, {
+        "name" : "e",
+        "type" : {
+            "type" : "map",
+            "keyType" : "string",
+            "valueType" : {
+                "type" : "struct",
+                "fields" : [ {
+                    "name" : "e1",
+                    "type" : "date",
+                    "nullable" : true,
+                    "metadata" : { }
+                }, {
+                    "name" : "e2",
+                    "type" : "timestamp",
+                    "nullable" : true,
+                    "metadata" : { }
+                } ]
+            },
+            "valueContainsNull" : true
+        },
+        "nullable" : true,
+        "metadata" : { }
+    } ]
+}
