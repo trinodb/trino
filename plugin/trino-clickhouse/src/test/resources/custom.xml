@@ -2,4 +2,5 @@
 <yandex>
     <!-- To avoid "failed to response" error message during copy of TPCH tables -->
     <keep_alive_timeout>10</keep_alive_timeout>
+    <http_port>9999</http_port>
 </yandex>
