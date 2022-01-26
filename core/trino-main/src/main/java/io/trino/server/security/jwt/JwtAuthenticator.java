@@ -39,7 +39,7 @@ public class JwtAuthenticator
     private final UserMapping userMapping;
 
     @Inject
-    public JwtAuthenticator(JwtAuthenticatorConfig config, SigningKeyResolver signingKeyResolver)
+    public JwtAuthenticator(JwtAuthenticatorConfig config, @ForJwt SigningKeyResolver signingKeyResolver)
     {
         principalField = config.getPrincipalField();
 
