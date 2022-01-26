@@ -180,6 +180,11 @@ public class TestJsonOperators
         assertFunction("JSON '[null]'", JSON, "[null]");
         assertFunction("JSON '[13,null,42]'", JSON, "[13,null,42]");
         assertFunction("JSON '{\"x\": null}'", JSON, "{\"x\":null}");
+        assertInvalidFunction("JSON '{}{'", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON '{} \"a\"'", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON '{}{abc'", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON '{}abc'", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON ''", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
