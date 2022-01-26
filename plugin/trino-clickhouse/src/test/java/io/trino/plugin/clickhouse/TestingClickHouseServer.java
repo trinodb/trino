@@ -13,14 +13,15 @@
  */
 package io.trino.plugin.clickhouse;
 
+import com.google.common.collect.ImmutableSet;
 import org.testcontainers.containers.ClickHouseContainer;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.shaded.com.google.common.collect.Sets;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
@@ -30,7 +31,6 @@ import java.sql.Statement;
 import java.util.Set;
 
 import static java.lang.String.format;
-import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public class TestingClickHouseServer
         extends ClickHouseContainer
@@ -56,36 +56,35 @@ public class TestingClickHouseServer
     public TestingClickHouseServer(DockerImageName image)
     {
         super(image);
-        port = RANDOM.nextInt();
-        super.withCopyFileToContainer(forClasspathResource("custom.xml"), "/etc/clickhouse-server/config.d/custom.xml");
-        super.withStartupAttempts(10);
+        port = 40000 + RANDOM.nextInt(1000);
+        withCopyFileToContainer(MountableFile.forHostPath(generateConfig(port)), "/etc/clickhouse-server/config.d/custom.xml");
+        withExposedPorts(port);
+        withStartupAttempts(10);
         start();
     }
 
     private static Path generateConfig(int port)
-            throws IOException
     {
-        File tempFile = File.createTempFile("custom-", ".xml");
-        String string = format("" +
-                "<?xml version=\"1.0\"?>\n" +
-                "<yandex>\n" +
-                "    <!-- To avoid \"failed to response\" error message during copy of TPCH tables -->\n" +
-                "    <keep_alive_timeout>10</keep_alive_timeout>\n" +
-                "    <http_port>%s</http_port>\n" +
-                "</yandex>\n", port);
-        Files.writeString(tempFile.toPath(), string);
-        return tempFile.toPath();
-    }
-
-    @Override
-    public GenericContainer<?> withExposedPorts(Integer... ports)
-    {
-        return super.withExposedPorts(9999);
+        try {
+            File tempFile = File.createTempFile("custom-", ".xml");
+            String string = format("" +
+                    "<?xml version=\"1.0\"?>\n" +
+                    "<yandex>\n" +
+                    "    <!-- To avoid \"failed to response\" error message during copy of TPCH tables -->\n" +
+                    "    <keep_alive_timeout>10</keep_alive_timeout>\n" +
+                    "    <http_port>%s</http_port>\n" +
+                    "</yandex>\n", port);
+            Files.writeString(tempFile.toPath(), string);
+            return tempFile.toPath();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override
     public Set<Integer> getLivenessCheckPortNumbers() {
-        return Sets.newHashSet(new Integer[]{9999});
+        return ImmutableSet.of(port);
     }
 
     public void execute(String sql)
@@ -102,7 +101,7 @@ public class TestingClickHouseServer
     @Override
     public String getJdbcUrl()
     {
-        return format("jdbc:clickhouse://%s:%s/", getContainerIpAddress(), getMappedPort(9999));
+        return format("jdbc:clickhouse://%s:%s/", getContainerIpAddress(), getMappedPort(port));
     }
 
     @Override
