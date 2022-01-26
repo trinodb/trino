@@ -60,6 +60,7 @@ import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
@@ -826,10 +827,18 @@ public class LogicalPlanner
     private RelationPlan createTableExecutePlan(Analysis analysis, TableExecute statement)
     {
         Table table = statement.getTable();
-        TableHandle tableHandle = analysis.getTableHandle(table);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, table.getName());
         TableExecuteHandle executeHandle = analysis.getTableExecuteHandle().orElseThrow();
 
+        if (!analysis.isTableExecuteReadsData()) {
+            SimpleTableExecuteNode node = new SimpleTableExecuteNode(
+                    idAllocator.getNextId(),
+                    symbolAllocator.newSymbol("rows", BIGINT),
+                    executeHandle);
+            return new RelationPlan(node, analysis.getRootScope(), node.getOutputSymbols(), Optional.empty());
+        }
+
+        TableHandle tableHandle = analysis.getTableHandle(table);
         RelationPlan tableScanPlan = createRelationPlan(analysis, table);
         PlanBuilder sourcePlanBuilder = newPlanBuilder(tableScanPlan, analysis, ImmutableMap.of(), ImmutableMap.of());
         if (statement.getWhere().isPresent()) {

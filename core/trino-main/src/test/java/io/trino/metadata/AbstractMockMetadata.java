@@ -150,6 +150,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void executeTableExecute(Session session, TableExecuteHandle handle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName)
     {
         throw new UnsupportedOperationException();

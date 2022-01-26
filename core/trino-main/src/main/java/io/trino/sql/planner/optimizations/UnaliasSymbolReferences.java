@@ -65,6 +65,7 @@ import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -645,6 +646,21 @@ public class UnaliasSymbolReferences
             TableExecuteNode rewrittenTableExecute = mapper.map(node, rewrittenSource.getRoot());
 
             return new PlanAndMappings(rewrittenTableExecute, mapping);
+        }
+
+        @Override
+        public PlanAndMappings visitSimpleTableExecuteNode(SimpleTableExecuteNode node, UnaliasContext context)
+        {
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper mapper = symbolMapper(mapping);
+            Symbol newOutput = mapper.map(node.getOutput());
+
+            return new PlanAndMappings(
+                    new SimpleTableExecuteNode(
+                            node.getId(),
+                            newOutput,
+                            node.getExecuteHandle()),
+                    mapping);
         }
 
         @Override

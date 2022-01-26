@@ -1096,6 +1096,7 @@ class StatementAnalyzer
                                     tableProperties)
                             .orElseThrow(() -> semanticException(NOT_SUPPORTED, node, "Procedure '%s' cannot be executed on table '%s'", procedureName, tableName));
 
+            analysis.setTableExecuteReadsData(procedureMetadata.getExecutionMode().isReadsData());
             analysis.setTableExecuteHandle(executeHandle);
 
             analysis.setUpdateType("ALTER TABLE EXECUTE");

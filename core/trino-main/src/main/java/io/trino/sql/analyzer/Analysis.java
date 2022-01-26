@@ -114,6 +114,7 @@ public class Analysis
     private String updateType;
     private Optional<UpdateTarget> target = Optional.empty();
     private boolean skipMaterializedViewRefresh;
+    private Optional<Boolean> tableExecuteReadsData;
 
     private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
 
@@ -274,6 +275,16 @@ public class Analysis
     public void setSkipMaterializedViewRefresh(boolean skipMaterializedViewRefresh)
     {
         this.skipMaterializedViewRefresh = skipMaterializedViewRefresh;
+    }
+
+    public boolean isTableExecuteReadsData()
+    {
+        return tableExecuteReadsData.orElseThrow(() -> new IllegalStateException("tableExecuteReadsData not set"));
+    }
+
+    public void setTableExecuteReadsData(boolean readsData)
+    {
+        this.tableExecuteReadsData = Optional.of(readsData);
     }
 
     public void setAggregates(QuerySpecification node, List<FunctionCall> aggregates)

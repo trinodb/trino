@@ -46,6 +46,7 @@ import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
@@ -296,6 +297,13 @@ public class PlanFragmenter
 
         @Override
         public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<FragmentProperties> context)
+        {
+            context.get().setCoordinatorOnlyDistribution();
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitSimpleTableExecuteNode(SimpleTableExecuteNode node, RewriteContext<FragmentProperties> context)
         {
             context.get().setCoordinatorOnlyDistribution();
             return context.defaultRewrite(node, context.get());

@@ -61,6 +61,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -598,6 +599,16 @@ public class AddExchanges
         public PlanWithProperties visitTableExecute(TableExecuteNode node, PreferredProperties preferredProperties)
         {
             return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), preferredProperties);
+        }
+
+        @Override
+        public PlanWithProperties visitSimpleTableExecuteNode(SimpleTableExecuteNode node, PreferredProperties context)
+        {
+            return new PlanWithProperties(
+                    node,
+                    ActualProperties.builder()
+                            .global(singleStreamPartition())
+                            .build());
         }
 
         private PlanWithProperties visitTableWriter(PlanNode node, Optional<PartitioningScheme> partitioningScheme, PlanNode source, PreferredProperties preferredProperties)
