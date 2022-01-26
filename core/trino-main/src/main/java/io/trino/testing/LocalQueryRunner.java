@@ -29,6 +29,7 @@ import io.trino.connector.CatalogServiceProviderModule;
 import io.trino.connector.ConnectorManager;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.DefaultCatalogFactory;
+import io.trino.connector.LazyCatalogFactory;
 import io.trino.connector.system.AnalyzePropertiesSystemTable;
 import io.trino.connector.system.CatalogSystemTable;
 import io.trino.connector.system.ColumnPropertiesSystemTable;
@@ -348,7 +349,9 @@ public class LocalQueryRunner
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(true);
         requireNonNull(featuresConfig, "featuresConfig is null");
         this.optimizerConfig = new OptimizerConfig();
-        CatalogManager catalogManager = new CatalogManager();
+        LazyCatalogFactory catalogFactory = new LazyCatalogFactory();
+        this.catalogFactory = catalogFactory;
+        CatalogManager catalogManager = new ConnectorManager(catalogFactory);
         this.transactionManager = InMemoryTransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 yieldExecutor,
@@ -388,7 +391,7 @@ public class LocalQueryRunner
         HandleResolver handleResolver = new HandleResolver();
 
         NodeInfo nodeInfo = new NodeInfo("test");
-        this.catalogFactory = new DefaultCatalogFactory(
+        catalogFactory.setCatalogFactory(new DefaultCatalogFactory(
                 metadata,
                 accessControl,
                 handleResolver,
@@ -399,8 +402,8 @@ public class LocalQueryRunner
                 testingVersionEmbedder(),
                 transactionManager,
                 typeManager,
-                nodeSchedulerConfig);
-        this.connectorManager = new ConnectorManager(catalogFactory, catalogManager);
+                nodeSchedulerConfig));
+        this.connectorManager = new ConnectorManager(catalogFactory);
         this.splitManager = new SplitManager(createSplitManagerProvider(connectorManager), new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProvider(connectorManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(connectorManager));

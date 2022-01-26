@@ -35,7 +35,7 @@ public class CatalogManagerModule
         binder.bind(ConnectorManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorServicesProvider.class).to(ConnectorManager.class).in(Scopes.SINGLETON);
 
-        binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
+        binder.bind(CatalogManager.class).to(ConnectorManager.class).in(Scopes.SINGLETON);
 
         install(new CatalogServiceProviderModule());
     }

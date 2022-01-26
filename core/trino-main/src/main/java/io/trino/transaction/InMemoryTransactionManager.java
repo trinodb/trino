@@ -54,6 +54,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
+import static io.trino.metadata.CatalogManager.NO_CATALOGS;
 import static io.trino.spi.StandardErrorCode.AUTOCOMMIT_WRITE_CONFLICT;
 import static io.trino.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONFLICT;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -102,13 +103,8 @@ public class InMemoryTransactionManager
 
     public static TransactionManager createTestTransactionManager()
     {
-        return createTestTransactionManager(new CatalogManager());
-    }
-
-    public static TransactionManager createTestTransactionManager(CatalogManager catalogManager)
-    {
         // No idle checks needed
-        return new InMemoryTransactionManager(new Duration(1, TimeUnit.DAYS), 1, catalogManager, directExecutor());
+        return new InMemoryTransactionManager(new Duration(1, TimeUnit.DAYS), 1, NO_CATALOGS, directExecutor());
     }
 
     private void scheduleIdleChecks(Duration idleCheckInterval, ScheduledExecutorService idleCheckExecutor)

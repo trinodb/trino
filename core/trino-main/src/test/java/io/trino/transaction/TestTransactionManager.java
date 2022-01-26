@@ -16,7 +16,6 @@ package io.trino.transaction;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import io.trino.metadata.CatalogManager;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.testing.LocalQueryRunner;
@@ -31,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.metadata.CatalogManager.NO_CATALOGS;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
@@ -154,7 +154,7 @@ public class TestTransactionManager
                             .setIdleTimeout(new Duration(1, TimeUnit.MILLISECONDS))
                             .setIdleCheckInterval(new Duration(5, TimeUnit.MILLISECONDS)),
                     executor.getExecutor(),
-                    new CatalogManager(),
+                    NO_CATALOGS,
                     finishingExecutor);
 
             TransactionId transactionId = transactionManager.beginTransaction(false);

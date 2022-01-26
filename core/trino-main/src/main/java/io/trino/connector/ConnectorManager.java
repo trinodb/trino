@@ -13,6 +13,8 @@
  */
 package io.trino.connector;
 
+import com.google.common.collect.ImmutableSet;
+import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.spi.connector.Connector;
 
@@ -22,6 +24,8 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -32,10 +36,9 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class ConnectorManager
-        implements ConnectorServicesProvider
+        implements CatalogManager, ConnectorServicesProvider
 {
     private final CatalogFactory catalogFactory;
-    private final CatalogManager catalogManager;
 
     @GuardedBy("this")
     private final ConcurrentMap<String, CatalogConnector> catalogs = new ConcurrentHashMap<>();
@@ -43,10 +46,9 @@ public class ConnectorManager
     private final AtomicBoolean stopped = new AtomicBoolean();
 
     @Inject
-    public ConnectorManager(CatalogFactory catalogFactory, CatalogManager catalogManager)
+    public ConnectorManager(CatalogFactory catalogFactory)
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
-        this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
     }
 
     @PreDestroy
@@ -60,6 +62,19 @@ public class ConnectorManager
             connector.shutdown();
         }
         catalogs.clear();
+    }
+
+    @Override
+    public synchronized Set<String> getCatalogNames()
+    {
+        return ImmutableSet.copyOf(catalogs.keySet());
+    }
+
+    @Override
+    public synchronized Optional<Catalog> getCatalog(String catalogName)
+    {
+        return Optional.ofNullable(catalogs.get(catalogName))
+                .map(CatalogConnector::getCatalog);
     }
 
     @Override
@@ -78,11 +93,8 @@ public class ConnectorManager
 
         checkState(!stopped.get(), "ConnectorManager is stopped");
         checkArgument(!catalogs.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
-        checkArgument(catalogManager.getCatalog(catalogName).isEmpty(), "Catalog '%s' already exists", catalogName);
-
         CatalogConnector catalog = catalogFactory.createCatalog(catalogName, connectorName, properties);
         catalogs.put(catalogName, catalog);
-        catalogManager.registerCatalog(catalog.getCatalog());
         return catalog.getCatalogHandle();
     }
 
@@ -95,10 +107,8 @@ public class ConnectorManager
         checkState(!stopped.get(), "ConnectorManager is stopped");
         String catalogName = catalogHandle.getCatalogName();
         checkArgument(!catalogs.containsKey(catalogName), "Catalog '%s' already exists", catalogName);
-        checkArgument(catalogManager.getCatalog(catalogName).isEmpty(), "Catalog '%s' already exists", catalogName);
 
         CatalogConnector catalog = catalogFactory.createCatalog(catalogHandle, connectorName, connector);
         catalogs.put(catalogName, catalog);
-        catalogManager.registerCatalog(catalog.getCatalog());
     }
 }
