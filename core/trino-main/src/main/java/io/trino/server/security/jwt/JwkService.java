@@ -25,7 +25,6 @@ import io.airlift.units.Duration;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.annotation.processing.Generated;
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.net.URI;
@@ -55,8 +54,7 @@ public final class JwkService
     @Generated("this")
     private Closer closer;
 
-    @Inject
-    public JwkService(@ForJwk URI address, @ForJwk HttpClient httpClient)
+    public JwkService(URI address, HttpClient httpClient)
     {
         this(address, httpClient, new Duration(15, TimeUnit.MINUTES));
     }
