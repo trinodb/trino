@@ -418,7 +418,8 @@ public class BroadcastOutputBuffer
 
     private void checkFlushComplete()
     {
-        if (stateMachine.getState() != FLUSHING && stateMachine.getState() != NO_MORE_BUFFERS) {
+        BufferState state = stateMachine.getState();
+        if (state != FLUSHING && state != NO_MORE_BUFFERS) {
             return;
         }
 
