@@ -41,8 +41,6 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import static io.trino.plugin.redis.RedisHandleResolver.convertColumnHandle;
-import static io.trino.plugin.redis.RedisHandleResolver.convertTableHandle;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -113,7 +111,7 @@ public class RedisMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        SchemaTableName schemaTableName = convertTableHandle(tableHandle).toSchemaTableName();
+        SchemaTableName schemaTableName = ((RedisTableHandle) tableHandle).toSchemaTableName();
         ConnectorTableMetadata tableMetadata = getTableMetadata(schemaTableName);
         if (tableMetadata == null) {
             throw new TableNotFoundException(schemaTableName);
@@ -137,7 +135,7 @@ public class RedisMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        RedisTableHandle redisTableHandle = convertTableHandle(tableHandle);
+        RedisTableHandle redisTableHandle = ((RedisTableHandle) tableHandle);
 
         RedisTableDescription redisTableDescription = getDefinedTables().get(redisTableHandle.toSchemaTableName());
         if (redisTableDescription == null) {
@@ -205,8 +203,7 @@ public class RedisMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        convertTableHandle(tableHandle);
-        return convertColumnHandle(columnHandle).getColumnMetadata();
+        return ((RedisColumnHandle) columnHandle).getColumnMetadata();
     }
 
     @Override

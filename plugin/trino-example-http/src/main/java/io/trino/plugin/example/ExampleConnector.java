@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.example;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -22,6 +23,8 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
+
+import java.util.Set;
 
 import static io.trino.plugin.example.ExampleTransactionHandle.INSTANCE;
 import static java.util.Objects.requireNonNull;
@@ -45,6 +48,17 @@ public class ExampleConnector
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+    }
+
+    @Override
+    public Set<Class<?>> getHandleClasses()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(ExampleTableHandle.class)
+                .add(ExampleColumnHandle.class)
+                .add(ExampleSplit.class)
+                .add(ExampleTransactionHandle.class)
+                .build();
     }
 
     @Override

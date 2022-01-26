@@ -18,10 +18,18 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
-import io.trino.connector.informationschema.InformationSchemaHandleResolver;
-import io.trino.connector.system.SystemHandleResolver;
+import io.trino.connector.informationschema.InformationSchemaColumnHandle;
+import io.trino.connector.informationschema.InformationSchemaSplit;
+import io.trino.connector.informationschema.InformationSchemaTableHandle;
+import io.trino.connector.informationschema.InformationSchemaTransactionHandle;
+import io.trino.connector.system.SystemColumnHandle;
+import io.trino.connector.system.SystemSplit;
+import io.trino.connector.system.SystemTableHandle;
+import io.trino.connector.system.SystemTransactionHandle;
 import io.trino.server.PluginClassLoader;
-import io.trino.split.EmptySplitHandleResolver;
+import io.trino.split.EmptySplit;
+import io.trino.split.RemoteSplit;
+import io.trino.sql.planner.SystemPartitioningHandle;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -47,10 +55,26 @@ public final class HandleResolver
     @Inject
     public HandleResolver()
     {
-        addCatalogHandleClasses(REMOTE_CONNECTOR_ID.toString(), new RemoteHandleResolver().getHandleClasses());
-        addCatalogHandleClasses("$system", new SystemHandleResolver().getHandleClasses());
-        addCatalogHandleClasses("$info_schema", new InformationSchemaHandleResolver().getHandleClasses());
-        addCatalogHandleClasses("$empty", new EmptySplitHandleResolver().getHandleClasses());
+        addCatalogHandleClasses(REMOTE_CONNECTOR_ID.toString(), ImmutableSet.<Class<?>>builder()
+                .add(RemoteSplit.class)
+                .add(RemoteTransactionHandle.class)
+                .add(SystemPartitioningHandle.class)
+                .build());
+        addCatalogHandleClasses("$system", ImmutableSet.<Class<?>>builder()
+                .add(SystemTableHandle.class)
+                .add(SystemColumnHandle.class)
+                .add(SystemSplit.class)
+                .add(SystemTransactionHandle.class)
+                .build());
+        addCatalogHandleClasses("$info_schema", ImmutableSet.<Class<?>>builder()
+                .add(InformationSchemaTableHandle.class)
+                .add(InformationSchemaColumnHandle.class)
+                .add(InformationSchemaSplit.class)
+                .add(InformationSchemaTransactionHandle.class)
+                .build());
+        addCatalogHandleClasses("$empty", ImmutableSet.<Class<?>>builder()
+                .add(EmptySplit.class)
+                .build());
     }
 
     public synchronized void addCatalogHandleClasses(String catalogName, Set<Class<?>> handleClasses)

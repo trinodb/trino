@@ -21,7 +21,6 @@ import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -111,9 +110,18 @@ public class HiveConnector
     }
 
     @Override
-    public Optional<ConnectorHandleResolver> getHandleResolver()
+    public Set<Class<?>> getHandleClasses()
     {
-        return Optional.of(new HiveHandleResolver());
+        return ImmutableSet.<Class<?>>builder()
+                .add(HiveTableHandle.class)
+                .add(HiveColumnHandle.class)
+                .add(HiveSplit.class)
+                .add(HiveOutputTableHandle.class)
+                .add(HiveInsertTableHandle.class)
+                .add(HivePartitioningHandle.class)
+                .add(HiveTableExecuteHandle.class)
+                .add(HiveTransactionHandle.class)
+                .build();
     }
 
     @Override

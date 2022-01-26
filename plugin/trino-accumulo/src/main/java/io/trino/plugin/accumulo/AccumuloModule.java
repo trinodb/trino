@@ -72,7 +72,6 @@ public class AccumuloModule
         binder.bind(AccumuloSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloPageSinkProvider.class).in(Scopes.SINGLETON);
-        binder.bind(AccumuloHandleResolver.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(ZooKeeperMetadataManager.class).in(Scopes.SINGLETON);

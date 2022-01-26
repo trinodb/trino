@@ -56,6 +56,17 @@ public class ElasticsearchConnector
     }
 
     @Override
+    public Set<Class<?>> getHandleClasses()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(ElasticsearchTableHandle.class)
+                .add(ElasticsearchColumnHandle.class)
+                .add(ElasticsearchSplit.class)
+                .add(ElasticsearchTransactionHandle.class)
+                .build();
+    }
+
+    @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);

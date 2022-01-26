@@ -14,6 +14,7 @@
 package io.trino.plugin.blackhole;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -28,6 +29,7 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignatureParameter;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
@@ -72,6 +74,20 @@ public class BlackHoleConnector
         this.partitioningProvider = partitioningProvider;
         this.typeManager = typeManager;
         this.executorService = executorService;
+    }
+
+    @Override
+    public Set<Class<?>> getHandleClasses()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(BlackHoleTableHandle.class)
+                .add(BlackHoleColumnHandle.class)
+                .add(BlackHoleSplit.class)
+                .add(BlackHoleOutputTableHandle.class)
+                .add(BlackHoleInsertTableHandle.class)
+                .add(BlackHolePartitioningHandle.class)
+                .add(BlackHoleTransactionHandle.class)
+                .build();
     }
 
     @Override

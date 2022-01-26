@@ -43,8 +43,6 @@ public class TestKinesisPlugin
 
         String accessKey = "kinesis.accessKey";
         String secretKey = "kinesis.secretKey";
-        // Important: this has to be created before we setup the injector in the factory:
-        assertNotNull(factory.getHandleResolver());
 
         Connector c = factory.create("kinesis.test-connector", ImmutableMap.<String, String>builder()
                 .put("kinesis.hide-internal-columns", "false")

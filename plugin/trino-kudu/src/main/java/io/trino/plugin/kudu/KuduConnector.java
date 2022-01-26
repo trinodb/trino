@@ -73,6 +73,20 @@ public class KuduConnector
     }
 
     @Override
+    public Set<Class<?>> getHandleClasses()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(KuduTableHandle.class)
+                .add(KuduColumnHandle.class)
+                .add(KuduSplit.class)
+                .add(KuduOutputTableHandle.class)
+                .add(KuduInsertTableHandle.class)
+                .add(KuduPartitioningHandle.class)
+                .add(KuduTransactionHandle.class)
+                .build();
+    }
+
+    @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);

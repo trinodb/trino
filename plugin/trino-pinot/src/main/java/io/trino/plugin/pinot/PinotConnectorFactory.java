@@ -23,7 +23,6 @@ import io.trino.plugin.pinot.auth.PinotAuthenticationModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -45,12 +44,6 @@ public class PinotConnectorFactory
     public String getName()
     {
         return "pinot";
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new PinotHandleResolver();
     }
 
     @Override

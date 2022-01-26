@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.procedure.Procedure;
 
@@ -45,12 +44,6 @@ public class GlobalSystemConnectorFactory
     public String getName()
     {
         return GlobalSystemConnector.NAME;
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new GlobalSystemHandleResolver();
     }
 
     @Override
