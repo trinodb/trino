@@ -86,6 +86,7 @@ import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticAggregations;
@@ -1399,6 +1400,14 @@ public class PlanPrinter
                 Symbol symbol = node.getColumns().get(i);
                 nodeOutput.appendDetailsLine("%s := %s", name, symbol);
             }
+
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitSimpleTableExecuteNode(SimpleTableExecuteNode node, Void context)
+        {
+            addNode(node, "SimpleTableExecute", format("[%s]", node.getExecuteHandle()));
 
             return processChildren(node, context);
         }
