@@ -18,11 +18,6 @@ import io.airlift.log.Logger;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.Statement;
-
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
 import static io.trino.plugin.clickhouse.TestingClickHouseServer.ALTINITY_DEFAULT_IMAGE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -54,19 +49,5 @@ public class TestAltinityConnectorSmokeTest
         // Override because RENAME DATABASE statement isn't supported in version < v20.7.2.30-stable
         assertThatThrownBy(super::testRenameSchema)
                 .hasMessageMatching("ClickHouse exception, code: 62,.* Syntax error.*\\n");
-    }
-
-    private void debug()
-    {
-        try (Connection connection = DriverManager.getConnection(clickHouseServer.getJdbcUrl());
-                Statement statement = connection.createStatement()) {
-            ResultSet resultSet = statement.executeQuery("SELECT version()");
-            while (resultSet.next()) {
-                log.info("Server version: %s", resultSet.getString(1));
-            }
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Failed to execute statement", e);
-        }
     }
 }

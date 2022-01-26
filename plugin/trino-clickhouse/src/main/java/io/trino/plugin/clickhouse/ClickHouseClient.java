@@ -16,6 +16,7 @@ package io.trino.plugin.clickhouse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.InetAddresses;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.expression.AggregateFunctionRewriter;
 import io.trino.plugin.base.expression.AggregateFunctionRule;
@@ -65,6 +66,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Types;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -142,6 +144,8 @@ import static java.time.ZoneOffset.UTC;
 public class ClickHouseClient
         extends BaseJdbcClient
 {
+    private static final Logger log = Logger.get(ClickHouseClient.class);
+
     static final int CLICKHOUSE_MAX_DECIMAL_PRECISION = 76;
     private static final long MIN_SUPPORTED_DATE_EPOCH = LocalDate.parse("1970-01-01").toEpochDay();
     private static final long MAX_SUPPORTED_DATE_EPOCH = LocalDate.parse("2106-02-07").toEpochDay(); // The max date is '2148-12-31' in new ClickHouse version
@@ -544,6 +548,27 @@ public class ClickHouseClient
             return WriteMapping.sliceMapping("UUID", uuidWriteFunction());
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type);
+    }
+
+    @Override
+    protected void execute(Connection connection, String query)
+    {
+        debug(connection);
+        super.execute(connection, query);
+        debug(connection);
+    }
+
+    private void debug(Connection connection)
+    {
+        try (Statement statement = connection.createStatement()) {
+            ResultSet resultSet = statement.executeQuery("SELECT version()");
+            while (resultSet.next()) {
+                log.info("Server version: %s", resultSet.getString(1));
+            }
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to execute statement", e);
+        }
     }
 
     /**
