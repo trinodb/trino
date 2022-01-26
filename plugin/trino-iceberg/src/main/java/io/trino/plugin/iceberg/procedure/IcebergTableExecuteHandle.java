@@ -73,4 +73,14 @@ public class IcebergTableExecuteHandle
                 procedureHandle,
                 tableLocation);
     }
+
+    @Override
+    public String toString()
+    {
+        return new StringBuilder()
+                .append("schemaTableName").append(":").append(schemaTableName)
+                .append(", procedureId").append(":").append(procedureId)
+                .append(", procedureHandle").append(":{").append(procedureHandle).append("}")
+                .toString();
+    }
 }

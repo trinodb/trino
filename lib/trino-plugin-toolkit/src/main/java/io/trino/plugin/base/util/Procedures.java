@@ -11,16 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg.procedure;
+package io.trino.plugin.base.util;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.google.errorprone.annotations.FormatMethod;
+import io.trino.spi.TrinoException;
 
-@JsonTypeInfo(
-        use = JsonTypeInfo.Id.NAME,
-        property = "@type")
-@JsonSubTypes({
-        @JsonSubTypes.Type(value = IcebergOptimizeHandle.class, name = "optimize"),
-        @JsonSubTypes.Type(value = IcebergExpireSnapshotsHandle.class, name = "expire_snapshots"),
-})
-public abstract class IcebergProcedureHandle {}
+import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static java.lang.String.format;
+
+public final class Procedures
+{
+    private Procedures() {}
+
+    @FormatMethod
+    public static void checkProcedureArgument(boolean condition, String message, Object... args)
+    {
+        if (!condition) {
+            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format(message, args));
+        }
+    }
+}
