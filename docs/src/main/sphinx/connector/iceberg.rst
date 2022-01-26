@@ -775,9 +775,9 @@ You can retrieve the information about the manifests of the Iceberg table
 
 .. code-block:: text
 
-     path                                                                                                           | length          | partition_spec_id    | added_snapshot_id     |  added_data_files_count  | existing_data_files_count   | deleted_data_files_count    | partitions
-    ----------------------------------------------------------------------------------------------------------------+-----------------+----------------------+-----------------------+--------------------------+-----------------------------+-----------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
-     hdfs://hadoop-master:9000/user/hive/warehouse/test_table/metadata/faa19903-1455-4bb8-855a-61a1bbafbaa7-m0.avro |  6277           |   0                  | 7860805980949777961   |  1                       |   0                         |  0                          |{{contains_null=false, contains_nan= false, lower_bound=1, upper_bound=1},{contains_null=false, contains_nan= false, lower_bound=2021-01-12, upper_bound=2021-01-12}}
+     path                                                                                                           | length          | partition_spec_id    | added_snapshot_id     | added_data_files_count  | added_rows_count | existing_data_files_count   | existing_rows_count | deleted_data_files_count    | deleted_rows_count | partitions
+    ----------------------------------------------------------------------------------------------------------------+-----------------+----------------------+-----------------------+-------------------------+------------------+-----------------------------+---------------------+-----------------------------+--------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+     hdfs://hadoop-master:9000/user/hive/warehouse/test_table/metadata/faa19903-1455-4bb8-855a-61a1bbafbaa7-m0.avro |  6277           |   0                  | 7860805980949777961   | 1                       | 100              | 0                           | 0                   | 0                           | 0                  | {{contains_null=false, contains_nan= false, lower_bound=1, upper_bound=1},{contains_null=false, contains_nan= false, lower_bound=2021-01-12, upper_bound=2021-01-12}}
 
 
 The output of the query has the following columns:
@@ -804,12 +804,21 @@ The output of the query has the following columns:
   * - ``added_data_files_count``
     - ``integer``
     - The number of data files with status ``ADDED`` in the manifest file
+  * - ``added_rows_count``
+    - ``bigint``
+    - The total number of rows in all data files with status ``ADDED`` in the manifest file.
   * - ``existing_data_files_count``
     - ``integer``
     - The number of data files with status ``EXISTING`` in the manifest file
+  * - ``existing_rows_count``
+    - ``bigint``
+    - The total number of rows in all data files with status ``EXISTING`` in the manifest file.
   * - ``deleted_data_files_count``
     - ``integer``
     - The number of data files with status ``DELETED`` in the manifest file
+  * - ``deleted_rows_count``
+    - ``bigint``
+    - The total number of rows in all data files with status ``DELETED`` in the manifest file.
   * - ``partitions``
     - ``array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))``
     - Partition range metadata

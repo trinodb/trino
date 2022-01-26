@@ -68,8 +68,11 @@ public class ManifestsTable
                         .add(new ColumnMetadata("partition_spec_id", INTEGER))
                         .add(new ColumnMetadata("added_snapshot_id", BIGINT))
                         .add(new ColumnMetadata("added_data_files_count", INTEGER))
+                        .add(new ColumnMetadata("added_rows_count", BIGINT))
                         .add(new ColumnMetadata("existing_data_files_count", INTEGER))
+                        .add(new ColumnMetadata("existing_rows_count", BIGINT))
                         .add(new ColumnMetadata("deleted_data_files_count", INTEGER))
+                        .add(new ColumnMetadata("deleted_rows_count", BIGINT))
                         .add(new ColumnMetadata("partitions", new ArrayType(RowType.rowType(
                                 RowType.field("contains_null", BOOLEAN),
                                 RowType.field("contains_nan", BOOLEAN),
@@ -118,8 +121,11 @@ public class ManifestsTable
             pagesBuilder.appendInteger(file.partitionSpecId());
             pagesBuilder.appendBigint(file.snapshotId());
             pagesBuilder.appendInteger(file.addedFilesCount());
+            pagesBuilder.appendBigint(file.addedRowsCount());
             pagesBuilder.appendInteger(file.existingFilesCount());
+            pagesBuilder.appendBigint(file.existingRowsCount());
             pagesBuilder.appendInteger(file.deletedFilesCount());
+            pagesBuilder.appendBigint(file.deletedRowsCount());
             writePartitionSummaries(pagesBuilder.nextColumn(), file.partitions(), partitionSpecsById.get(file.partitionSpecId()));
             pagesBuilder.endRow();
         });
