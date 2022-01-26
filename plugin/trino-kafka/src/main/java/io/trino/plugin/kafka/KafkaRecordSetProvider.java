@@ -32,7 +32,6 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.kafka.KafkaHandleResolver.convertSplit;
 import static java.util.Objects.requireNonNull;
 
 public class KafkaRecordSetProvider
@@ -51,10 +50,10 @@ public class KafkaRecordSetProvider
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
-        KafkaSplit kafkaSplit = convertSplit(split);
+        KafkaSplit kafkaSplit = (KafkaSplit) split;
 
         List<KafkaColumnHandle> kafkaColumns = columns.stream()
-                .map(KafkaHandleResolver::convertColumnHandle)
+                .map(KafkaColumnHandle.class::cast)
                 .collect(toImmutableList());
 
         RowDecoder keyDecoder = decoderFactory.create(

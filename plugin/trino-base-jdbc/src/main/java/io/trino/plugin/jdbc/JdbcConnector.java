@@ -88,6 +88,18 @@ public class JdbcConnector
     }
 
     @Override
+    public Set<Class<?>> getHandleClasses()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(JdbcTableHandle.class)
+                .add(JdbcColumnHandle.class)
+                .add(JdbcSplit.class)
+                .add(JdbcOutputTableHandle.class)
+                .add(JdbcTransactionHandle.class)
+                .build();
+    }
+
+    @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);

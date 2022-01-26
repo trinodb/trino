@@ -13,12 +13,15 @@
  */
 package io.trino.plugin.jmx;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
+
+import java.util.Set;
 
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -45,6 +48,17 @@ public class JmxConnector
         this.jmxSplitManager = requireNonNull(jmxSplitManager, "jmxSplitManager is null");
         this.jmxRecordSetProvider = requireNonNull(jmxRecordSetProvider, "jmxRecordSetProvider is null");
         this.jmxPeriodicSampler = requireNonNull(jmxPeriodicSampler, "jmxPeriodicSampler is null");
+    }
+
+    @Override
+    public Set<Class<?>> getHandleClasses()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(JmxTableHandle.class)
+                .add(JmxColumnHandle.class)
+                .add(JmxSplit.class)
+                .add(JmxTransactionHandle.class)
+                .build();
     }
 
     @Override

@@ -75,8 +75,10 @@ import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.testing.TestingHandleResolver;
+import io.trino.testing.TestingHandle;
+import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingSplit;
+import io.trino.testing.TestingTransactionHandle;
 import io.trino.type.TypeDeserializer;
 import org.testng.annotations.Test;
 
@@ -485,7 +487,13 @@ public class TestHttpRemoteTask
                 .quiet()
                 .initialize();
         HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
-        handleResolver.addCatalogHandleClasses("test", new TestingHandleResolver().getHandleClasses());
+        handleResolver.addCatalogHandleClasses("test", ImmutableSet.<Class<?>>builder()
+                .add(TestingMetadata.TestingTableHandle.class)
+                .add(TestingMetadata.TestingColumnHandle.class)
+                .add(TestingSplit.class)
+                .add(TestingHandle.class)
+                .add(TestingTransactionHandle.class)
+                .build());
         return injector.getInstance(HttpRemoteTaskFactory.class);
     }
 

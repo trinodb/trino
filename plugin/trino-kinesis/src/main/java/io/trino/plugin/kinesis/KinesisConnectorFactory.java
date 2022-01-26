@@ -23,7 +23,6 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Map;
@@ -42,12 +41,6 @@ public class KinesisConnectorFactory
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new KinesisHandleResolver();
-    }
-
-    @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(catalogName, "catalogName is null");
@@ -60,7 +53,6 @@ public class KinesisConnectorFactory
                     new KinesisModule(),
                     binder -> {
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(KinesisHandleResolver.class).toInstance(new KinesisHandleResolver());
                         binder.bind(KinesisClientProvider.class).to(KinesisClientManager.class).in(Scopes.SINGLETON);
                         binder.bind(new TypeLiteral<Supplier<Map<SchemaTableName, KinesisStreamDescription>>>() {}).to(KinesisTableDescriptionSupplier.class).in(Scopes.SINGLETON);
                     });
