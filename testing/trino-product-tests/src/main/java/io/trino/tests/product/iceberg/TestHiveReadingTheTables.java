@@ -102,7 +102,7 @@ public class TestHiveReadingTheTables
 
         try {
             onHive().executeQuery(
-                    format("CREATE TABLE %s (id BIGINT, name VARCHAR) PARTITIONED BY (dept string)", hiveTableName)
+                    format("CREATE TABLE %s (id BIGINT, name string) PARTITIONED BY (dept string)", hiveTableName)
                             .concat(format("\n STORED BY '%s'", hiveSerdeIcebergFormatName)));
 
             assertThat(onTrino().executeQuery(
