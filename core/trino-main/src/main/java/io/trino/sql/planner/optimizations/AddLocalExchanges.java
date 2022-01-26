@@ -49,6 +49,7 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.SimpleTableExecuteNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -578,6 +579,12 @@ public class AddLocalExchanges
             }
 
             return planAndEnforceChildren(node, requiredProperties, requiredProperties);
+        }
+
+        @Override
+        public PlanWithProperties visitSimpleTableExecuteNode(SimpleTableExecuteNode node, StreamPreferredProperties context)
+        {
+            return planAndEnforceChildren(node, singleStream(), singleStream());
         }
 
         //
