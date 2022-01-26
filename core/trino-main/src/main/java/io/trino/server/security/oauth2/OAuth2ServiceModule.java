@@ -14,13 +14,11 @@
 package io.trino.server.security.oauth2;
 
 import com.google.inject.Binder;
-import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.client.HttpClient;
 import io.jsonwebtoken.SigningKeyResolver;
-import io.trino.server.security.jwt.ForJwk;
 import io.trino.server.security.jwt.JwkService;
 import io.trino.server.security.jwt.JwkSigningKeyResolver;
 import io.trino.server.ui.OAuth2WebUiInstalled;
@@ -62,18 +60,22 @@ public class OAuth2ServiceModule
                         .setTrustStorePath(null)
                         .setTrustStorePassword(null)
                         .setAutomaticHttpsSharedSecret(null));
-        // Used by JwkService
-        binder.bind(HttpClient.class).annotatedWith(ForJwk.class).to(Key.get(HttpClient.class, ForOAuth2.class));
-        binder.bind(JwkService.class).in(Scopes.SINGLETON);
-        binder.bind(SigningKeyResolver.class).annotatedWith(ForOAuth2.class).to(JwkSigningKeyResolver.class).in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
-    @ForJwk
-    public static URI createJwkAddress(OAuth2Config config)
+    @ForOAuth2
+    public static JwkService createJwkService(OAuth2Config config, @ForOAuth2 HttpClient httpClient)
     {
-        return URI.create(config.getJwksUrl());
+        return new JwkService(URI.create(config.getJwksUrl()), httpClient);
+    }
+
+    @Provides
+    @Singleton
+    @ForOAuth2
+    public static SigningKeyResolver createSigningKeyResolver(@ForOAuth2 JwkService jwkService)
+    {
+        return new JwkSigningKeyResolver(jwkService);
     }
 
     @Override
