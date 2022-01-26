@@ -13,12 +13,12 @@
  */
 package io.trino.spi.connector;
 
+import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static java.util.stream.Collectors.toSet;
 
 @Deprecated
 public interface ConnectorHandleResolver
@@ -81,7 +81,7 @@ public interface ConnectorHandleResolver
                 value(this::getPartitioningHandleClass),
                 value(this::getTransactionHandleClass))
                 .flatMap(Optional::stream)
-                .collect(toSet());
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private static Optional<Class<?>> value(Supplier<Class<?>> supplier)

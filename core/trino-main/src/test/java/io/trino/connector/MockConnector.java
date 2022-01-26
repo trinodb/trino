@@ -15,6 +15,7 @@ package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
@@ -187,6 +188,19 @@ public class MockConnector
         this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
         this.schemaProperties = requireNonNull(schemaProperties, "schemaProperties is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+    }
+
+    @Override
+    public Set<Class<?>> getHandleClasses()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(MockConnectorTableHandle.class)
+                .add(MockConnectorColumnHandle.class)
+                .add(MockConnectorSplit.class)
+                .add(MockConnectorOutputTableHandle.class)
+                .add(MockConnectorInsertTableHandle.class)
+                .add(MockConnectorTransactionHandle.class)
+                .build();
     }
 
     @Override

@@ -25,7 +25,6 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorSession;
@@ -169,12 +168,6 @@ public class MockConnectorFactory
     public String getName()
     {
         return name;
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new MockConnectorHandleResolver();
     }
 
     @Override

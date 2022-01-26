@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.tpch;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -28,6 +28,7 @@ import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.lang.Boolean.FALSE;
@@ -74,12 +75,6 @@ public class TpchConnectorFactory
     }
 
     @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new TpchHandleResolver();
-    }
-
-    @Override
     public Connector create(String catalogName, Map<String, String> properties, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(properties);
@@ -89,6 +84,18 @@ public class TpchConnectorFactory
 
         return new Connector()
         {
+            @Override
+            public Set<Class<?>> getHandleClasses()
+            {
+                return ImmutableSet.<Class<?>>builder()
+                        .add(TpchTableHandle.class)
+                        .add(TpchColumnHandle.class)
+                        .add(TpchSplit.class)
+                        .add(TpchPartitioningHandle.class)
+                        .add(TpchTransactionHandle.class)
+                        .build();
+            }
+
             @Override
             public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
             {

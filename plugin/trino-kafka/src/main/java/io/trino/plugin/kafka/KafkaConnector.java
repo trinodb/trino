@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.kafka;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.connector.Connector;
@@ -61,6 +62,17 @@ public class KafkaConnector
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
                 .collect(toImmutableList());
+    }
+
+    @Override
+    public Set<Class<?>> getHandleClasses()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(KafkaTableHandle.class)
+                .add(KafkaColumnHandle.class)
+                .add(KafkaSplit.class)
+                .add(KafkaTransactionHandle.class)
+                .build();
     }
 
     @Override

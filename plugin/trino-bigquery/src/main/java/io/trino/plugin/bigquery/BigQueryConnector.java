@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -22,6 +23,8 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
+
+import java.util.Set;
 
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -45,6 +48,17 @@ public class BigQueryConnector
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+    }
+
+    @Override
+    public Set<Class<?>> getHandleClasses()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(BigQueryTableHandle.class)
+                .add(BigQueryColumnHandle.class)
+                .add(BigQuerySplit.class)
+                .add(BigQueryTransactionHandle.class)
+                .build();
     }
 
     @Override

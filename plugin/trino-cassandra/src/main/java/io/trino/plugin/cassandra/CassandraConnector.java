@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.cassandra;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -26,6 +27,7 @@ import io.trino.spi.transaction.IsolationLevel;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Set;
 
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -56,6 +58,19 @@ public class CassandraConnector
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.sessionProperties = requireNonNull(sessionProperties.getSessionProperties(), "sessionProperties is null");
+    }
+
+    @Override
+    public Set<Class<?>> getHandleClasses()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(CassandraTableHandle.class)
+                .add(CassandraColumnHandle.class)
+                .add(CassandraSplit.class)
+                .add(CassandraOutputTableHandle.class)
+                .add(CassandraInsertTableHandle.class)
+                .add(CassandraTransactionHandle.class)
+                .build();
     }
 
     @Override

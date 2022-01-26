@@ -13,11 +13,15 @@
  */
 package io.trino.plugin.accumulo;
 
+import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.accumulo.conf.AccumuloSessionProperties;
 import io.trino.plugin.accumulo.conf.AccumuloTableProperties;
 import io.trino.plugin.accumulo.io.AccumuloPageSinkProvider;
 import io.trino.plugin.accumulo.io.AccumuloRecordSetProvider;
+import io.trino.plugin.accumulo.model.AccumuloColumnHandle;
+import io.trino.plugin.accumulo.model.AccumuloSplit;
+import io.trino.plugin.accumulo.model.AccumuloTableHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -30,6 +34,7 @@ import io.trino.spi.transaction.IsolationLevel;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -71,6 +76,17 @@ public class AccumuloConnector
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+    }
+
+    @Override
+    public Set<Class<?>> getHandleClasses()
+    {
+        return ImmutableSet.<Class<?>>builder()
+                .add(AccumuloTableHandle.class)
+                .add(AccumuloColumnHandle.class)
+                .add(AccumuloSplit.class)
+                .add(AccumuloTransactionHandle.class)
+                .build();
     }
 
     @Override

@@ -19,7 +19,6 @@ import io.airlift.json.JsonModule;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
@@ -43,12 +42,6 @@ public class MongoConnectorFactory
     public String getName()
     {
         return name;
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new MongoHandleResolver();
     }
 
     @Override

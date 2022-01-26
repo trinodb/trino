@@ -19,11 +19,11 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveTransactionHandle;
+import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorCapabilities;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -100,9 +100,17 @@ public class IcebergConnector
     }
 
     @Override
-    public Optional<ConnectorHandleResolver> getHandleResolver()
+    public Set<Class<?>> getHandleClasses()
     {
-        return Optional.of(new IcebergHandleResolver());
+        return ImmutableSet.<Class<?>>builder()
+                .add(IcebergTableHandle.class)
+                .add(IcebergColumnHandle.class)
+                .add(IcebergSplit.class)
+                .add(IcebergWritableTableHandle.class)
+                .add(IcebergTableExecuteHandle.class)
+                .add(IcebergPartitioningHandle.class)
+                .add(HiveTransactionHandle.class)
+                .build();
     }
 
     @Override

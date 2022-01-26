@@ -21,7 +21,6 @@ import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
@@ -57,12 +56,6 @@ public class JdbcConnectorFactory
     public String getName()
     {
         return name;
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new JdbcHandleResolver();
     }
 
     @Override
