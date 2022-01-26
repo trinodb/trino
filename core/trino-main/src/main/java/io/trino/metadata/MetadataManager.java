@@ -2578,12 +2578,6 @@ public final class MetadataManager
 
         private TestMetadataManagerBuilder() {}
 
-        public TestMetadataManagerBuilder withCatalogManager(CatalogManager catalogManager)
-        {
-            this.transactionManager = createTestTransactionManager(catalogManager);
-            return this;
-        }
-
         public TestMetadataManagerBuilder withTransactionManager(TransactionManager transactionManager)
         {
             this.transactionManager = transactionManager;

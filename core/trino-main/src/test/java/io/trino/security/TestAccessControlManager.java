@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.eventlistener.EventListenerManager;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
@@ -285,8 +284,7 @@ public class TestAccessControlManager
     @Test
     public void testDenyExecuteProcedureBySystem()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("deny-all");
@@ -419,8 +417,7 @@ public class TestAccessControlManager
     @Test
     public void testDenyExecuteFunctionBySystemAccessControl()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
 
         TestSystemAccessControlFactory accessControlFactory = new TestSystemAccessControlFactory("deny-all");
@@ -441,8 +438,7 @@ public class TestAccessControlManager
     @Test
     public void testAllowExecuteFunction()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
         accessControlManager.loadSystemAccessControl("allow-all", ImmutableMap.of());
 
