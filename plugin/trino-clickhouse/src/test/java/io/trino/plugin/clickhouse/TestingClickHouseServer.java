@@ -14,6 +14,7 @@
 package io.trino.plugin.clickhouse;
 
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 import org.testcontainers.containers.ClickHouseContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
@@ -36,6 +37,8 @@ public class TestingClickHouseServer
         extends ClickHouseContainer
         implements Closeable
 {
+    private static final Logger log = Logger.get(TestingClickHouseServer.class);
+
     private static final DockerImageName CLICKHOUSE_IMAGE = DockerImageName.parse("yandex/clickhouse-server");
     public static final DockerImageName CLICKHOUSE_LATEST_IMAGE = CLICKHOUSE_IMAGE.withTag("21.11.10.1");
     public static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("21.3.2.5"); // EOL is 30 Mar 2022
@@ -57,6 +60,7 @@ public class TestingClickHouseServer
     {
         super(image);
         port = 40000 + RANDOM.nextInt(1000);
+        log.info("image: %s, port: %s", image, port);
         withCopyFileToContainer(MountableFile.forHostPath(generateConfig(port)), "/etc/clickhouse-server/config.d/custom.xml");
         withExposedPorts(port);
         withStartupAttempts(10);
