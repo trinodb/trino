@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.http.client.HttpClient;
 import io.jsonwebtoken.SigningKeyResolver;
 
 import javax.inject.Singleton;
@@ -39,7 +40,7 @@ public class JwtAuthenticatorSupportModule
                 JwtAuthenticatorConfig.class,
                 JwtAuthenticatorSupportModule::isHttp,
                 new JwkModule(),
-                jwkBinder -> jwkBinder.bind(SigningKeyResolver.class).to(FileSigningKeyResolver.class).in(Scopes.SINGLETON)));
+                jwkBinder -> jwkBinder.bind(SigningKeyResolver.class).annotatedWith(ForJwt.class).to(FileSigningKeyResolver.class).in(Scopes.SINGLETON)));
     }
 
     private static boolean isHttp(JwtAuthenticatorConfig config)
@@ -53,10 +54,8 @@ public class JwtAuthenticatorSupportModule
         @Override
         public void configure(Binder binder)
         {
-            binder.bind(SigningKeyResolver.class).to(JwkSigningKeyResolver.class).in(Scopes.SINGLETON);
-            binder.bind(JwkService.class).in(Scopes.SINGLETON);
             httpClientBinder(binder)
-                    .bindHttpClient("jwk", ForJwk.class)
+                    .bindHttpClient("jwk", ForJwt.class)
                     // Reset HttpClient default configuration to override InternalCommunicationModule changes.
                     // Setting a keystore and/or a truststore for internal communication changes the default SSL configuration
                     // for all clients in the same guice context. This, however, does not make sense for this client which will
@@ -72,10 +71,18 @@ public class JwtAuthenticatorSupportModule
 
         @Provides
         @Singleton
-        @ForJwk
-        public static URI createJwkAddress(JwtAuthenticatorConfig config)
+        @ForJwt
+        public static JwkService createJwkService(JwtAuthenticatorConfig config, @ForJwt HttpClient httpClient)
         {
-            return URI.create(config.getKeyFile());
+            return new JwkService(URI.create(config.getKeyFile()), httpClient);
+        }
+
+        @Provides
+        @Singleton
+        @ForJwt
+        public static SigningKeyResolver createJwkSigningKeyResolver(@ForJwt JwkService jwkService)
+        {
+            return new JwkSigningKeyResolver(jwkService);
         }
 
         // this module can be added multiple times, and this prevents multiple processing by Guice
