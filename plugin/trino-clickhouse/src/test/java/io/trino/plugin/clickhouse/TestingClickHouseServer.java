@@ -87,7 +87,8 @@ public class TestingClickHouseServer
     }
 
     @Override
-    public Set<Integer> getLivenessCheckPortNumbers() {
+    public Set<Integer> getLivenessCheckPortNumbers()
+    {
         return ImmutableSet.of(port);
     }
 
