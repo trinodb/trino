@@ -15,9 +15,8 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.memory.context.MemoryTrackingContext;
+import io.trino.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
 import io.trino.operator.WorkProcessor.TransformationState;
-import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
-import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
@@ -25,17 +24,16 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
+import static io.trino.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Returns the top N rows from the source sorted according to the specified ordering in the keyChannelIndex channel.
  */
 public class TopNOperator
-        implements AdapterWorkProcessorOperator
+        implements WorkProcessorOperator
 {
     public static OperatorFactory createOperatorFactory(
             int operatorId,
@@ -50,7 +48,7 @@ public class TopNOperator
     }
 
     private static class Factory
-            implements AdapterWorkProcessorOperatorFactory
+            implements BasicAdapterWorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
@@ -87,21 +85,7 @@ public class TopNOperator
             checkState(!closed, "Factory is already closed");
             return new TopNOperator(
                     processorContext.getMemoryTrackingContext(),
-                    Optional.of(sourcePages),
-                    sourceTypes,
-                    n,
-                    sortChannels,
-                    sortOrders,
-                    typeOperators);
-        }
-
-        @Override
-        public AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext)
-        {
-            checkState(!closed, "Factory is already closed");
-            return new TopNOperator(
-                    processorContext.getMemoryTrackingContext(),
-                    Optional.empty(),
+                    sourcePages,
                     sourceTypes,
                     n,
                     sortChannels,
@@ -142,11 +126,10 @@ public class TopNOperator
 
     private final TopNProcessor topNProcessor;
     private final WorkProcessor<Page> pages;
-    private final PageBuffer pageBuffer = new PageBuffer();
 
     private TopNOperator(
             MemoryTrackingContext memoryTrackingContext,
-            Optional<WorkProcessor<Page>> sourcePages,
+            WorkProcessor<Page> sourcePages,
             List<Type> types,
             int n,
             List<Integer> sortChannels,
@@ -165,7 +148,7 @@ public class TopNOperator
             pages = WorkProcessor.of();
         }
         else {
-            pages = sourcePages.orElse(pageBuffer.pages()).transform(new TopNPages());
+            pages = sourcePages.transform(new TopNPages());
         }
     }
 
@@ -175,29 +158,6 @@ public class TopNOperator
         return pages;
     }
 
-    @Override
-    public boolean needsInput()
-    {
-        return pageBuffer.isEmpty() && !pageBuffer.isFinished();
-    }
-
-    @Override
-    public void addInput(Page page)
-    {
-        addPage(page);
-    }
-
-    @Override
-    public void finish()
-    {
-        pageBuffer.finish();
-    }
-
-    private void addPage(Page page)
-    {
-        topNProcessor.addInput(page);
-    }
-
     private class TopNPages
             implements WorkProcessor.Transformation<Page, Page>
     {
@@ -205,7 +165,7 @@ public class TopNOperator
         public TransformationState<Page> process(Page inputPage)
         {
             if (inputPage != null) {
-                addPage(inputPage);
+                topNProcessor.addInput(inputPage);
                 return TransformationState.needsMoreData();
             }
 
