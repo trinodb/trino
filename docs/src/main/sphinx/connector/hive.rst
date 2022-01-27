@@ -680,6 +680,8 @@ features:
 
 Refer to :doc:`the migration guide </appendix/from-hive>` for practical advice on migrating from Hive to Trino.
 
+.. include:: alter-mv-set-properties-unsupported.fragment
+
 .. _hive-alter-table-execute:
 
 ALTER TABLE EXECUTE
