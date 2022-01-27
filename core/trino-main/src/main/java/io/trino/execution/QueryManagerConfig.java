@@ -456,6 +456,7 @@ public class QueryManagerConfig
     }
 
     @Config("fault-tolerant-execution-target-task-input-size")
+    @ConfigDescription("Target size in bytes of all task inputs for a single fault tolerant task")
     public QueryManagerConfig setFaultTolerantExecutionTargetTaskInputSize(DataSize faultTolerantExecutionTargetTaskInputSize)
     {
         this.faultTolerantExecutionTargetTaskInputSize = faultTolerantExecutionTargetTaskInputSize;
@@ -469,6 +470,7 @@ public class QueryManagerConfig
     }
 
     @Config("fault-tolerant-execution-target-task-split-count")
+    @ConfigDescription("Target number of splits for a single fault tolerant task")
     public QueryManagerConfig setFaultTolerantExecutionTargetTaskSplitCount(int faultTolerantExecutionTargetTaskSplitCount)
     {
         this.faultTolerantExecutionTargetTaskSplitCount = faultTolerantExecutionTargetTaskSplitCount;
