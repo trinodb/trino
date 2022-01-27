@@ -199,7 +199,8 @@ public class TestTopNOperator
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST));
         Operator operator = operatorFactory.createOperator(smallDiverContext);
-        assertThatThrownBy(() -> operator.addInput(input.get(0)))
+        operator.addInput(input.get(0));
+        assertThatThrownBy(() -> operator.getOutput())
                 .isInstanceOf(ExceededMemoryLimitException.class)
                 .hasMessageStartingWith("Query exceeded per-node memory limit of ");
     }
