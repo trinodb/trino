@@ -67,7 +67,9 @@ public class TestQueryManagerConfig
                 .setRetryInitialDelay(new Duration(10, SECONDS))
                 .setRetryMaxDelay(new Duration(1, MINUTES))
                 .setFaultTolerantExecutionTargetTaskInputSize(DataSize.of(1, GIGABYTE))
+                .setFaultTolerantExecutionMinTaskSplitCount(16)
                 .setFaultTolerantExecutionTargetTaskSplitCount(16)
+                .setFaultTolerantExecutionMaxTaskSplitCount(256)
                 .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15))));
     }
 
@@ -103,7 +105,9 @@ public class TestQueryManagerConfig
                 .put("retry-initial-delay", "1m")
                 .put("retry-max-delay", "1h")
                 .put("fault-tolerant-execution-target-task-input-size", "222MB")
+                .put("fault-tolerant-execution-min-task-split-count", "2")
                 .put("fault-tolerant-execution-target-task-split-count", "3")
+                .put("fault-tolerant-execution-max-task-split-count", "22")
                 .put("fault-tolerant-execution-task-descriptor-storage-max-memory", "3GB")
                 .buildOrThrow();
 
@@ -136,7 +140,9 @@ public class TestQueryManagerConfig
                 .setRetryInitialDelay(new Duration(1, MINUTES))
                 .setRetryMaxDelay(new Duration(1, HOURS))
                 .setFaultTolerantExecutionTargetTaskInputSize(DataSize.of(222, MEGABYTE))
+                .setFaultTolerantExecutionMinTaskSplitCount(2)
                 .setFaultTolerantExecutionTargetTaskSplitCount(3)
+                .setFaultTolerantExecutionMaxTaskSplitCount(22)
                 .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.of(3, GIGABYTE));
 
         assertFullMapping(properties, expected);

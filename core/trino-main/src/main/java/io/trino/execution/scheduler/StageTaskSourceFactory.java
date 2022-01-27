@@ -34,6 +34,7 @@ import io.trino.execution.TableExecuteContextManager;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.QueryId;
+import io.trino.spi.SplitWeight;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.exchange.ExchangeSourceSplitter;
@@ -49,14 +50,12 @@ import io.trino.sql.planner.plan.RemoteSourceNode;
 
 import javax.inject.Inject;
 
-import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.Set;
 import java.util.function.LongConsumer;
 
@@ -68,6 +67,8 @@ import static com.google.common.collect.Sets.newIdentityHashSet;
 import static com.google.common.collect.Sets.union;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxTaskSplitCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMinTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskInputSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskSplitCount;
 import static io.trino.connector.CatalogName.isInternalSystemConnector;
@@ -154,7 +155,9 @@ public class StageTaskSourceFactory
                     tableExecuteContextManager,
                     splitBatchSize,
                     getSplitTimeRecorder,
-                    getFaultTolerantExecutionTargetTaskSplitCount(session));
+                    getFaultTolerantExecutionMinTaskSplitCount(session),
+                    getFaultTolerantExecutionTargetTaskSplitCount(session) * SplitWeight.standard().getRawValue(),
+                    getFaultTolerantExecutionMaxTaskSplitCount(session));
         }
 
         // other partitioning handles are not expected to be set as a fragment partitioning
@@ -481,9 +484,11 @@ public class StageTaskSourceFactory
         private final int splitBatchSize;
         private final LongConsumer getSplitTimeRecorder;
         private final Optional<CatalogName> catalogRequirement;
-        private final int targetPartitionSplitCount;
+        private final int minPartitionSplitCount;
+        private final long targetPartitionSplitWeight;
+        private final int maxPartitionSplitCount;
 
-        private final Queue<Split> remotelyAccessibleSplitBuffer = new ArrayDeque<>();
+        private final Set<Split> remotelyAccessibleSplitBuffer = newIdentityHashSet();
         private final Map<HostAddress, Set<Split>> locallyAccessibleSplitBuffer = new HashMap<>();
 
         private int currentPartitionId;
@@ -498,7 +503,9 @@ public class StageTaskSourceFactory
                 TableExecuteContextManager tableExecuteContextManager,
                 int splitBatchSize,
                 LongConsumer getSplitTimeRecorder,
-                int targetPartitionSplitCount)
+                int minPartitionSplitCount,
+                long targetPartitionSplitWeight,
+                int maxPartitionSplitCount)
         {
             checkArgument(fragment.getPartitionedSources().size() == 1, "single partitioned source is expected, got: %s", fragment.getPartitionedSources());
 
@@ -521,7 +528,9 @@ public class StageTaskSourceFactory
                     splitBatchSize,
                     getSplitTimeRecorder,
                     catalogName,
-                    targetPartitionSplitCount);
+                    minPartitionSplitCount,
+                    targetPartitionSplitWeight,
+                    maxPartitionSplitCount);
         }
 
         public SourceDistributionTaskSource(
@@ -533,7 +542,9 @@ public class StageTaskSourceFactory
                 int splitBatchSize,
                 LongConsumer getSplitTimeRecorder,
                 Optional<CatalogName> catalogRequirement,
-                int targetPartitionSplitCount)
+                int minPartitionSplitCount,
+                long targetPartitionSplitWeight,
+                int maxPartitionSplitCount)
         {
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.partitionedSourceNodeId = requireNonNull(partitionedSourceNodeId, "partitionedSourceNodeId is null");
@@ -543,8 +554,16 @@ public class StageTaskSourceFactory
             this.splitBatchSize = splitBatchSize;
             this.getSplitTimeRecorder = requireNonNull(getSplitTimeRecorder, "getSplitTimeRecorder is null");
             this.catalogRequirement = requireNonNull(catalogRequirement, "catalogRequirement is null");
-            checkArgument(targetPartitionSplitCount > 0, "targetPartitionSplitCount must be positive: %s", targetPartitionSplitCount);
-            this.targetPartitionSplitCount = targetPartitionSplitCount;
+            checkArgument(targetPartitionSplitWeight > 0, "targetPartitionSplitCount must be greater than 0: %s", targetPartitionSplitWeight);
+            this.targetPartitionSplitWeight = targetPartitionSplitWeight;
+            checkArgument(minPartitionSplitCount >= 0, "minPartitionSplitCount must be greater than or equal to 0: %s", minPartitionSplitCount);
+            this.minPartitionSplitCount = minPartitionSplitCount;
+            checkArgument(maxPartitionSplitCount > 0, "maxPartitionSplitCount must be greater than 0: %s", maxPartitionSplitCount);
+            checkArgument(maxPartitionSplitCount >= minPartitionSplitCount,
+                    "maxPartitionSplitCount(%s) must be greater than or equal to minPartitionSplitCount(%s)",
+                    maxPartitionSplitCount,
+                    minPartitionSplitCount);
+            this.maxPartitionSplitCount = maxPartitionSplitCount;
         }
 
         @Override
@@ -554,34 +573,28 @@ public class StageTaskSourceFactory
                 return ImmutableList.of();
             }
 
+            List<TaskDescriptor> result = new ArrayList<>();
+
             while (true) {
-                if (remotelyAccessibleSplitBuffer.size() >= targetPartitionSplitCount) {
-                    ImmutableList.Builder<Split> splits = ImmutableList.builder();
-                    for (int i = 0; i < targetPartitionSplitCount; i++) {
-                        splits.add(remotelyAccessibleSplitBuffer.poll());
-                    }
-                    return ImmutableList.of(
-                            new TaskDescriptor(
-                                    currentPartitionId++,
-                                    ImmutableListMultimap.<PlanNodeId, Split>builder().putAll(partitionedSourceNodeId, splits.build()).build(),
-                                    replicatedExchangeSourceHandles,
-                                    new NodeRequirements(catalogRequirement, ImmutableSet.of())));
-                }
+                boolean includeRemainder = splitSource.isFinished();
+
+                result.addAll(getReadyTasks(
+                        remotelyAccessibleSplitBuffer,
+                        ImmutableList.of(),
+                        new NodeRequirements(catalogRequirement, ImmutableSet.of()),
+                        includeRemainder));
                 for (HostAddress remoteHost : locallyAccessibleSplitBuffer.keySet()) {
-                    Set<Split> hostSplits = locallyAccessibleSplitBuffer.get(remoteHost);
-                    if (hostSplits.size() >= targetPartitionSplitCount) {
-                        List<Split> splits = removeN(hostSplits, targetPartitionSplitCount);
-                        locallyAccessibleSplitBuffer.values().forEach(otherHostSplits -> splits.forEach(otherHostSplits::remove));
-                        return ImmutableList.of(
-                                new TaskDescriptor(
-                                        currentPartitionId++,
-                                        ImmutableListMultimap.<PlanNodeId, Split>builder().putAll(partitionedSourceNodeId, splits).build(),
-                                        replicatedExchangeSourceHandles,
-                                        new NodeRequirements(catalogRequirement, ImmutableSet.of(remoteHost))));
-                    }
+                    result.addAll(getReadyTasks(
+                            locallyAccessibleSplitBuffer.get(remoteHost),
+                            locallyAccessibleSplitBuffer.entrySet().stream()
+                                    .filter(entry -> !entry.getKey().equals(remoteHost))
+                                    .map(Map.Entry::getValue)
+                                    .collect(toImmutableList()),
+                            new NodeRequirements(catalogRequirement, ImmutableSet.of(remoteHost)),
+                            includeRemainder));
                 }
 
-                if (splitSource.isFinished()) {
+                if (!result.isEmpty() || splitSource.isFinished()) {
                     break;
                 }
 
@@ -606,56 +619,72 @@ public class StageTaskSourceFactory
                 }
             }
 
-            Optional<List<Object>> tableExecuteSplitsInfo = splitSource.getTableExecuteSplitsInfo();
+            if (splitSource.isFinished()) {
+                Optional<List<Object>> tableExecuteSplitsInfo = splitSource.getTableExecuteSplitsInfo();
 
-            // Here we assume that we can get non-empty tableExecuteSplitsInfo only for queries which facilitate single split source.
-            tableExecuteSplitsInfo.ifPresent(info -> {
-                TableExecuteContext tableExecuteContext = tableExecuteContextManager.getTableExecuteContextForQuery(queryId);
-                tableExecuteContext.setSplitsInfo(info);
-            });
+                // Here we assume that we can get non-empty tableExecuteSplitsInfo only for queries which facilitate single split source.
+                tableExecuteSplitsInfo.ifPresent(info -> {
+                    TableExecuteContext tableExecuteContext = tableExecuteContextManager.getTableExecuteContextForQuery(queryId);
+                    tableExecuteContext.setSplitsInfo(info);
+                });
 
-            finished = true;
-            splitSource.close();
+                finished = true;
+                splitSource.close();
+            }
 
+            return ImmutableList.copyOf(result);
+        }
+
+        private List<TaskDescriptor> getReadyTasks(Set<Split> splits, List<Set<Split>> otherSplitSets, NodeRequirements nodeRequirements, boolean includeRemainder)
+        {
             ImmutableList.Builder<TaskDescriptor> result = ImmutableList.builder();
-
-            if (!remotelyAccessibleSplitBuffer.isEmpty()) {
-                result.add(new TaskDescriptor(
-                        currentPartitionId++,
-                        ImmutableListMultimap.<PlanNodeId, Split>builder().putAll(partitionedSourceNodeId, ImmutableList.copyOf(remotelyAccessibleSplitBuffer)).build(),
-                        replicatedExchangeSourceHandles,
-                        new NodeRequirements(catalogRequirement, ImmutableSet.of())));
-                remotelyAccessibleSplitBuffer.clear();
-            }
-
-            if (!locallyAccessibleSplitBuffer.isEmpty()) {
-                for (HostAddress remoteHost : locallyAccessibleSplitBuffer.keySet()) {
-                    List<Split> splits = ImmutableList.copyOf(locallyAccessibleSplitBuffer.get(remoteHost));
-                    if (!splits.isEmpty()) {
-                        locallyAccessibleSplitBuffer.values().forEach(otherHostSplits -> splits.forEach(otherHostSplits::remove));
-                        result.add(new TaskDescriptor(
-                                currentPartitionId++,
-                                ImmutableListMultimap.<PlanNodeId, Split>builder().putAll(partitionedSourceNodeId, splits).build(),
-                                replicatedExchangeSourceHandles,
-                                new NodeRequirements(catalogRequirement, ImmutableSet.of(remoteHost))));
-                    }
+            while (true) {
+                Optional<TaskDescriptor> readyTask = getReadyTask(splits, otherSplitSets, nodeRequirements);
+                if (readyTask.isEmpty()) {
+                    break;
                 }
-                locallyAccessibleSplitBuffer.clear();
+                result.add(readyTask.get());
             }
 
+            if (includeRemainder && !splits.isEmpty()) {
+                result.add(buildTaskDescriptor(splits, nodeRequirements));
+                for (Set<Split> otherSplits : otherSplitSets) {
+                    otherSplits.removeAll(splits);
+                }
+                splits.clear();
+            }
             return result.build();
         }
 
-        private static <T> List<T> removeN(Collection<T> collection, int n)
+        private Optional<TaskDescriptor> getReadyTask(Set<Split> splits, List<Set<Split>> otherSplitSets, NodeRequirements nodeRequirements)
         {
-            ImmutableList.Builder<T> result = ImmutableList.builder();
-            Iterator<T> iterator = collection.iterator();
-            for (int i = 0; i < n && iterator.hasNext(); i++) {
-                T item = iterator.next();
-                iterator.remove();
-                result.add(item);
+            ImmutableList.Builder<Split> chosenSplitsBuilder = ImmutableList.builder();
+            int splitCount = 0;
+            int totalSplitWeight = 0;
+            for (Split split : splits) {
+                totalSplitWeight += split.getSplitWeight().getRawValue();
+                splitCount++;
+                chosenSplitsBuilder.add(split);
+
+                if (splitCount >= minPartitionSplitCount && (totalSplitWeight >= targetPartitionSplitWeight || splitCount >= maxPartitionSplitCount)) {
+                    ImmutableList<Split> chosenSplits = chosenSplitsBuilder.build();
+                    for (Set<Split> otherSplits : otherSplitSets) {
+                        chosenSplits.forEach(otherSplits::remove);
+                    }
+                    chosenSplits.forEach(splits::remove);
+                    return Optional.of(buildTaskDescriptor(chosenSplits, nodeRequirements));
+                }
             }
-            return result.build();
+            return Optional.empty();
+        }
+
+        private TaskDescriptor buildTaskDescriptor(Collection<Split> splits, NodeRequirements nodeRequirements)
+        {
+            return new TaskDescriptor(
+                    currentPartitionId++,
+                    ImmutableListMultimap.<PlanNodeId, Split>builder().putAll(partitionedSourceNodeId, splits).build(),
+                    replicatedExchangeSourceHandles,
+                    nodeRequirements);
         }
 
         @Override

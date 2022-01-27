@@ -81,7 +81,10 @@ public class QueryManagerConfig
     private Duration retryMaxDelay = new Duration(1, MINUTES);
 
     private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(1, GIGABYTE);
+
+    private int faultTolerantExecutionMinTaskSplitCount = 16;
     private int faultTolerantExecutionTargetTaskSplitCount = 16;
+    private int faultTolerantExecutionMaxTaskSplitCount = 256;
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
 
     @Min(1)
@@ -464,16 +467,44 @@ public class QueryManagerConfig
     }
 
     @Min(1)
+    public int getFaultTolerantExecutionMinTaskSplitCount()
+    {
+        return faultTolerantExecutionMinTaskSplitCount;
+    }
+
+    @Config("fault-tolerant-execution-min-task-split-count")
+    @ConfigDescription("Minimal number of splits for a single fault tolerant task (count based)")
+    public QueryManagerConfig setFaultTolerantExecutionMinTaskSplitCount(int faultTolerantExecutionMinTaskSplitCount)
+    {
+        this.faultTolerantExecutionMinTaskSplitCount = faultTolerantExecutionMinTaskSplitCount;
+        return this;
+    }
+
+    @Min(1)
     public int getFaultTolerantExecutionTargetTaskSplitCount()
     {
         return faultTolerantExecutionTargetTaskSplitCount;
     }
 
     @Config("fault-tolerant-execution-target-task-split-count")
-    @ConfigDescription("Target number of splits for a single fault tolerant task")
+    @ConfigDescription("Target number of splits for a single fault tolerant task (split weight aware)")
     public QueryManagerConfig setFaultTolerantExecutionTargetTaskSplitCount(int faultTolerantExecutionTargetTaskSplitCount)
     {
         this.faultTolerantExecutionTargetTaskSplitCount = faultTolerantExecutionTargetTaskSplitCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getFaultTolerantExecutionMaxTaskSplitCount()
+    {
+        return faultTolerantExecutionMaxTaskSplitCount;
+    }
+
+    @Config("fault-tolerant-execution-max-task-split-count")
+    @ConfigDescription("Maximal number of splits for a single fault tolerant task (count based)")
+    public QueryManagerConfig setFaultTolerantExecutionMaxTaskSplitCount(int faultTolerantExecutionMaxTaskSplitCount)
+    {
+        this.faultTolerantExecutionMaxTaskSplitCount = faultTolerantExecutionMaxTaskSplitCount;
         return this;
     }
 
