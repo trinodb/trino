@@ -74,6 +74,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/hudi">
+        <artifact id="${project.groupId}:trino-hudi:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/iceberg">
         <artifact id="${project.groupId}:trino-iceberg:zip:${project.version}">
             <unpack />
