@@ -39,6 +39,11 @@ The ``ALTER TABLE EXECUTE`` statement followed by a ``command`` and
 parameters. ``ALTER TABLE EXECUTE`` supports different commands on a
 per-connector basis.
 
+You can use the ``=>`` operator for passing named parameter values.
+The left side is the name of the parameter, the right side is the value being passed::
+
+    ALTER TABLE hive.schema.test_table EXECUTE optimize(file_size_threshold => '10MB')
+
 Examples
 --------
 
