@@ -102,7 +102,7 @@ public class ExchangeManagerRegistry
     {
         ExchangeManager exchangeManager = this.exchangeManager;
         if (exchangeManager == null) {
-            throw new TrinoException(EXCHANGE_MANAGER_NOT_CONFIGURED, "Exchange manager is not configured");
+            throw new TrinoException(EXCHANGE_MANAGER_NOT_CONFIGURED, "Exchange manager must be configured for the failure recovery capabilities to be fully functional");
         }
         return exchangeManager;
     }
