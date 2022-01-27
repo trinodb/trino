@@ -1,0 +1,5 @@
+ALTER MATERIALIZED VIEW SET PROPERTIES
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector does not support :ref:`ALTER MATERIALIZED VIEW SET PROPERTIES
+<alter-materialized-view-set-properties>` statements.

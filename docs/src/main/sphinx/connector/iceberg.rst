@@ -127,6 +127,8 @@ supports the following features:
   :ref:`iceberg-materialized-views`
 * :ref:`sql-views-management`
 
+.. include:: alter-mv-set-properties-unsupported.fragment
+
 .. _iceberg-type-mapping:
 
 Type mapping
