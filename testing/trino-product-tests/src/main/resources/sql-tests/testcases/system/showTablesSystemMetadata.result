@@ -1,5 +1,6 @@
 -- delimiter: |; ignoreOrder: true;
 catalogs|
+plugins|
 analyze_properties|
 schema_properties|
 table_properties|

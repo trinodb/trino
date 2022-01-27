@@ -47,6 +47,10 @@ system| metadata| analyze_properties| description| varchar| YES| null| null|
 system| metadata| catalogs| catalog_name| varchar| YES| null| null|
 system| metadata| catalogs| connector_id| varchar| YES| null| null|
 system| metadata| catalogs| connector_name| varchar| YES| null| null|
+system| metadata| plugins| plugin_name| varchar| YES| null| null|
+system| metadata| plugins| catalogs| array(varchar)| YES| null| null|
+system| metadata| plugins| functions| array(varchar)| YES| null| null|
+system| metadata| plugins| event_listeners| array(varchar)| YES| null| null|
 system| metadata| column_properties| catalog_name| varchar| YES| null| null|
 system| metadata| column_properties| property_name| varchar| YES| null| null|
 system| metadata| column_properties| default_value| varchar| YES| null| null|

@@ -20,6 +20,7 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.trino.connector.ConnectorManager;
+import io.trino.connector.PluginSystemTable;
 import io.trino.connector.system.jdbc.AttributeJdbcTable;
 import io.trino.connector.system.jdbc.CatalogJdbcTable;
 import io.trino.connector.system.jdbc.ColumnJdbcTable;
@@ -49,6 +50,7 @@ public class SystemConnectorModule
         globalTableBinder.addBinding().to(QuerySystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(TaskSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(CatalogSystemTable.class).in(Scopes.SINGLETON);
+        globalTableBinder.addBinding().to(PluginSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(TableCommentSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(SchemaPropertiesSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(TablePropertiesSystemTable.class).in(Scopes.SINGLETON);

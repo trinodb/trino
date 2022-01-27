@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.JDBC;
@@ -121,5 +123,34 @@ public class TestSystemConnector
                                 row("jmx", "jmx", "jmx"),
                                 row("system", "system", "system"),
                                 row("tpch", "tpch", "tpch")));
+    }
+
+    @Test(groups = {SYSTEM_CONNECTOR, JDBC})
+    public void selectMetadataPlugins()
+    {
+        String sql = "select plugin_name, connectors, functions, event_listeners from system.metadata.plugins where plugin_name like 'jmx' or plugin_name like 'httpquery' or plugin_name like 'mongodb'";
+        assertThat(onTrino().executeQuery(sql))
+                .hasColumns(VARCHAR, ARRAY, ARRAY, ARRAY)
+                .contains(
+                        ImmutableList.of(
+                                row(
+                                        "io.trino.plugin.httpquery.HttpEventListenerPlugin",
+                                        List.of(),
+                                        List.of(),
+                                        List.of("http")),
+                                row(
+                                        "io.trino.plugin.jmx.JmxPlugin",
+                                        List.of("jmx"),
+                                        List.of(),
+                                        List.of()),
+                                row(
+                                        "io.trino.plugin.mongodb.MongoPlugin",
+                                        List.of("mongodb"),
+                                        List.of("objectid",
+                                                "objectid",
+                                                "timestamp_objectid",
+                                                "objectid_timestamp",
+                                                "$operator$CAST"),
+                                        List.of())));
     }
 }

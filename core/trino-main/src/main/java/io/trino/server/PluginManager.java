@@ -21,6 +21,7 @@ import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.MetadataManager;
+import io.trino.metadata.SqlFunction;
 import io.trino.metadata.TypeRegistry;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
@@ -47,11 +48,13 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.metadata.FunctionExtractor.extractFunctions;
@@ -86,6 +89,7 @@ public class PluginManager
     private final BlockEncodingManager blockEncodingManager;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
+    private final List<PluginMetadata> plugins = new ArrayList<>();
 
     @Inject
     public PluginManager(
@@ -171,6 +175,10 @@ public class PluginManager
 
     private void installPluginInternal(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
     {
+        ImmutableList.Builder<String> connectorNames = ImmutableList.builder();
+        ImmutableList.Builder<String> functionNames = ImmutableList.builder();
+        ImmutableList.Builder<String> eventListenerNames = ImmutableList.builder();
+
         for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
             log.info("Registering block encoding %s", blockEncoding.getName());
             blockEncodingManager.addBlockEncoding(blockEncoding);
@@ -189,11 +197,17 @@ public class PluginManager
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {
             log.info("Registering connector %s", connectorFactory.getName());
             connectorManager.addConnectorFactory(connectorFactory, duplicatePluginClassLoaderFactory);
+            connectorNames.add(connectorFactory.getName());
         }
 
         for (Class<?> functionClass : plugin.getFunctions()) {
             log.info("Registering functions from %s", functionClass.getName());
-            metadataManager.addFunctions(extractFunctions(functionClass));
+            List<? extends SqlFunction> functions = extractFunctions(functionClass);
+            metadataManager.addFunctions(functions);
+            functionNames.addAll(
+                    functions.stream()
+                            .map(function -> function.getFunctionMetadata().getSignature().getName())
+                            .collect(Collectors.toList()));
         }
 
         for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {
@@ -233,6 +247,7 @@ public class PluginManager
         for (EventListenerFactory eventListenerFactory : plugin.getEventListenerFactories()) {
             log.info("Registering event listener %s", eventListenerFactory.getName());
             eventListenerManager.addEventListenerFactory(eventListenerFactory);
+            eventListenerNames.add(eventListenerFactory.getName());
         }
 
         for (GroupProviderFactory groupProviderFactory : plugin.getGroupProviderFactories()) {
@@ -244,12 +259,22 @@ public class PluginManager
             log.info("Registering exchange manager %s", exchangeManagerFactory.getName());
             exchangeManagerRegistry.addExchangeManagerFactory(exchangeManagerFactory);
         }
+        plugins.add(new PluginMetadata(
+                plugin.getClass().getName(),
+                connectorNames.build(),
+                functionNames.build(),
+                eventListenerNames.build()));
     }
 
     public static PluginClassLoader createClassLoader(List<URL> urls)
     {
         ClassLoader parent = PluginManager.class.getClassLoader();
         return new PluginClassLoader(urls, parent, SPI_PACKAGES);
+    }
+
+    public List<PluginMetadata> getPluginsMetadata()
+    {
+        return plugins;
     }
 
     public interface PluginsProvider
