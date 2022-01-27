@@ -211,17 +211,7 @@ public class ParquetPageSourceFactory
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             fileSchema = fileMetaData.getSchema();
 
-            Optional<MessageType> message = projectSufficientColumns(columns)
-                    .map(projection -> projection.get().stream()
-                            .map(HiveColumnHandle.class::cast)
-                            .collect(toUnmodifiableList()))
-                    .orElse(columns).stream()
-                    .filter(column -> column.getColumnType() == REGULAR)
-                    .map(column -> getColumnType(column, fileSchema, useColumnNames))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .map(type -> new MessageType(fileSchema.getName(), type))
-                    .reduce(MessageType::union);
+            Optional<MessageType> message = getParquetMessageType(columns, useColumnNames, fileSchema);
 
             requestedSchema = message.orElse(new MessageType(fileSchema.getName(), ImmutableList.of()));
             messageColumn = getColumnIO(fileSchema, requestedSchema);
@@ -301,6 +291,22 @@ public class ParquetPageSourceFactory
         }
     }
 
+    public static Optional<MessageType> getParquetMessageType(List<HiveColumnHandle> columns, boolean useColumnNames, MessageType fileSchema)
+    {
+        Optional<MessageType> message = projectSufficientColumns(columns)
+                .map(projection -> projection.get().stream()
+                        .map(HiveColumnHandle.class::cast)
+                        .collect(toUnmodifiableList()))
+                .orElse(columns).stream()
+                .filter(column -> column.getColumnType() == REGULAR)
+                .map(column -> getColumnType(column, fileSchema, useColumnNames))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(type -> new MessageType(fileSchema.getName(), type))
+                .reduce(MessageType::union);
+        return message;
+    }
+
     public static Optional<org.apache.parquet.schema.Type> getParquetType(GroupType groupType, boolean useParquetColumnNames, HiveColumnHandle column)
     {
         if (useParquetColumnNames) {
@@ -341,7 +347,7 @@ public class ParquetPageSourceFactory
         return Optional.of(new GroupType(baseType.getRepetition(), baseType.getName(), ImmutableList.of(type)));
     }
 
-    private static Optional<ColumnIndexStore> getColumnIndexStore(
+    public static Optional<ColumnIndexStore> getColumnIndexStore(
             ParquetDataSource dataSource,
             BlockMetaData blockMetadata,
             Map<List<String>, ColumnDescriptor> descriptorsByPath,
@@ -416,7 +422,7 @@ public class ParquetPageSourceFactory
         return TupleDomain.withColumnDomains(predicate.buildOrThrow());
     }
 
-    private static org.apache.parquet.schema.Type getParquetType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)
+    public static org.apache.parquet.schema.Type getParquetType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)
     {
         if (useParquetColumnNames) {
             return getParquetTypeByName(column.getBaseColumnName(), messageType);
@@ -428,7 +434,7 @@ public class ParquetPageSourceFactory
         return null;
     }
 
-    private static List<ParquetReaderColumn> createParquetReaderColumns(List<HiveColumnHandle> baseColumns, MessageType fileSchema, MessageColumnIO messageColumn, boolean useColumnNames)
+    public static List<ParquetReaderColumn> createParquetReaderColumns(List<HiveColumnHandle> baseColumns, MessageType fileSchema, MessageColumnIO messageColumn, boolean useColumnNames)
     {
         for (HiveColumnHandle column : baseColumns) {
             checkArgument(column == PARQUET_ROW_INDEX_COLUMN || column.getColumnType() == REGULAR, "column type must be REGULAR: %s", column);
