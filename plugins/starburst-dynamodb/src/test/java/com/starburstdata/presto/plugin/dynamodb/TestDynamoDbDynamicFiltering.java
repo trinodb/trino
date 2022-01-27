@@ -38,6 +38,14 @@ public class TestDynamoDbDynamicFiltering
         return false;
     }
 
+    @Override
+    @Test(timeOut = 240_000)
+    public void testDynamicFiltering()
+    {
+        // Predicate pushdown is disabled
+        assertNoDynamicFiltering("SELECT * FROM orders a JOIN orders b ON a.orderkey = b.orderkey AND b.totalprice < 1000");
+    }
+
     @Test(timeOut = 120_000)
     @Override
     public void testDynamicFilteringBroadcastJoin()
