@@ -43,6 +43,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -50,6 +51,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -454,13 +456,13 @@ public class TestStageTaskSourceFactory
 
         // non remotely accessible splits
         ImmutableList<Split> splits = ImmutableList.of(
-                createSplit(1, ImmutableList.of(HostAddress.fromString("host1:8080"), HostAddress.fromString("host2:8080"))),
-                createSplit(2, ImmutableList.of(HostAddress.fromString("host2:8080"))),
-                createSplit(3, ImmutableList.of(HostAddress.fromString("host1:8080"), HostAddress.fromString("host3:8080"))),
-                createSplit(4, ImmutableList.of(HostAddress.fromString("host3:8080"), HostAddress.fromString("host1:8080"))),
-                createSplit(5, ImmutableList.of(HostAddress.fromString("host1:8080"), HostAddress.fromString("host2:8080"))),
-                createSplit(6, ImmutableList.of(HostAddress.fromString("host2:8080"), HostAddress.fromString("host3:8080"))),
-                createSplit(7, ImmutableList.of(HostAddress.fromString("host3:8080"), HostAddress.fromString("host4:8080"))));
+                createSplit(1, "host1:8080", "host2:8080"),
+                createSplit(2, "host2:8080"),
+                createSplit(3, "host1:8080", "host3:8080"),
+                createSplit(4, "host3:8080", "host1:8080"),
+                createSplit(5, "host1:8080", "host2:8080"),
+                createSplit(6, "host2:8080", "host3:8080"),
+                createSplit(7, "host3:8080", "host4:8080"));
         taskSource = createSourceDistributionTaskSource(splits, ImmutableListMultimap.of(), 3, 2);
 
         List<TaskDescriptor> tasks = taskSource.getMoreTasks();
@@ -506,19 +508,25 @@ public class TestStageTaskSourceFactory
                 splitsPerTask);
     }
 
-    private static Split createSplit(int id)
+    private static Split createSplit(int id, String... addresses)
     {
-        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.empty()), Lifespan.taskWide());
-    }
-
-    private static Split createSplit(int id, List<HostAddress> addresses)
-    {
-        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.empty(), Optional.of(addresses)), Lifespan.taskWide());
+        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.empty(), addressesList(addresses)), Lifespan.taskWide());
     }
 
     private static Split createBucketedSplit(int id, int bucket)
     {
         return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.of(bucket), Optional.empty()), Lifespan.taskWide());
+    }
+
+    private static Optional<List<HostAddress>> addressesList(String... addresses)
+    {
+        requireNonNull(addresses, "addresses is null");
+        if (addresses.length == 0) {
+            return Optional.empty();
+        }
+        return Optional.of(Arrays.stream(addresses)
+                .map(HostAddress::fromString)
+                .collect(toImmutableList()));
     }
 
     private static BucketNodeMap getTestingBucketNodeMap(int bucketCount)
