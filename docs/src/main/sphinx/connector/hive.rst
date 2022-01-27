@@ -571,7 +571,38 @@ Property Name                              Description
      - Hive metastore client keytab location.
    * - ``hive.metastore.thrift.delete-files-on-drop``
      - Actively delete the files for drop table operations, for cases when the
-       metastore does not delete the files. Default is ``false``.
+       metastore does not delete the files.
+       This setting can be considered as a fallback in the
+       case when the Hive metastore completed the drop operation
+       without removing the files of the table.
+       Default is ``false``.
+   * - ``hive.metastore.thrift.assume-canonical-partition-keys``
+     - Allow the metastore to assume that the values of partition
+       columns can be converted to string values. This can lead to
+       performance improvements in the queries which apply filters
+       on the partition columns.
+       Note that the partition keys of type ``timestamp`` do
+       not get canonicalized. Default is ``false``.
+   * - ``hive.metastore.thrift.client.socks-proxy``
+     - SOCKS proxy to use for the Thrift Hive metastore.
+   * - ``hive.metastore.thrift.client.max-retries``
+     - Maximum number of retry attempts for metastore requests.
+       Default is ``9``.
+   * - ``hive.metastore.thrift.client.backoff-scale-factor``
+     - Scale factor for metastore request retry delay.
+       Default is ``2.0``.
+   * - ``hive.metastore.thrift.client.max-retry-time``
+     - Total time limit for a metastore request to be retried.
+       Default is ``30`` seconds.
+   * - ``hive.metastore.thrift.client.min-backoff-delay``
+     - Minimum delay between metastore request retries.
+       Default is ``1`` second.
+   * - ``hive.metastore.thrift.client.max-backoff-delay``
+     - Maximum delay between metastore request retries.
+       Default is ``1`` second.
+   * - ``hive.metastore.thrift.txn-lock-max-wait``
+     - Maximum time to wait to acquire hive transaction lock.
+       Default is ``10`` minutes.
 
 .. _hive-glue-metastore:
 
