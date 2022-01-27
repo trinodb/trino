@@ -237,16 +237,4 @@ public class PhoenixMetadata
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support truncating tables");
     }
-
-    @Override
-    public Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            List<AggregateFunction> aggregates,
-            Map<String, ColumnHandle> assignments,
-            List<List<ColumnHandle>> groupingSets)
-    {
-        // TODO support aggregation pushdown
-        return Optional.empty();
-    }
 }
