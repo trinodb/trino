@@ -518,12 +518,7 @@ public class TestStageTaskSourceFactory
 
     private static Split createBucketedSplit(int id, int bucket)
     {
-        return createBucketedSplit(id, bucket, Optional.empty());
-    }
-
-    private static Split createBucketedSplit(int id, int bucket, Optional<List<HostAddress>> addresses)
-    {
-        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.of(bucket), addresses), Lifespan.taskWide());
+        return new Split(CATALOG, new TestingConnectorSplit(id, OptionalInt.of(bucket), Optional.empty()), Lifespan.taskWide());
     }
 
     private static BucketNodeMap getTestingBucketNodeMap(int bucketCount)
