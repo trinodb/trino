@@ -295,16 +295,24 @@ jobs:
             !:trino-accumulo,
             !:trino-cassandra,
             !:trino-clickhouse,
-            !:trino-hive,!:trino-orc,!:trino-parquet,
-            !:trino-mongodb,!:trino-kafka,!:trino-elasticsearch,
+            !:trino-hive,
+            !:trino-elasticsearch,
+            !:trino-mongodb,
+            !:trino-kafka,
+            !:trino-pinot,
             !:trino-redis,
-            !:trino-sqlserver,!:trino-postgresql,!:trino-mysql,!:trino-memsql,
+            !:trino-mysql,
+            !:trino-postgresql,
+            !:trino-sqlserver,
             !:trino-oracle,
             !:trino-kudu,
-            !:trino-iceberg,!:trino-druid,
+            !:trino-druid,
+            !:trino-iceberg,
             !:trino-phoenix,!:trino-phoenix5,
+            !:trino-jdbc,!:trino-base-jdbc,!:trino-thrift,!:trino-memory,
             !:trino-docs,!:trino-server,!:trino-server-rpm,
             !:trino-test-jdbc-compatibility-old-server,
+            !:trino-memsql,
             !:trino-bigquery'
       - name: Upload test results
         uses: actions/upload-artifact@v2
@@ -339,18 +347,24 @@ jobs:
           - ":trino-accumulo"
           - ":trino-cassandra"
           - ":trino-clickhouse"
-          - ":trino-hive,:trino-orc"
-          - ":trino-hive,:trino-parquet -P test-parquet"
+          - ":trino-hive"
+          - ":trino-hive -P test-parquet"
           - ":trino-hive -P test-failure-recovery"
           - ":trino-hive -P test-fault-tolerant-execution"
-          - ":trino-mongodb,:trino-kafka,:trino-elasticsearch"
-          - ":trino-elasticsearch -P test-stats"
+          - ":trino-elasticsearch,:trino-elasticsearch -P test-stats"
+          - ":trino-mongodb"
+          - ":trino-kafka"
+          - ":trino-pinot"
           - ":trino-redis"
-          - ":trino-sqlserver,:trino-postgresql,:trino-mysql"
+          - ":trino-mysql"
+          - ":trino-postgresql"
+          - ":trino-sqlserver"
           - ":trino-oracle"
           - ":trino-kudu"
-          - ":trino-iceberg,:trino-druid"
+          - ":trino-druid"
+          - ":trino-iceberg"
           - ":trino-phoenix,:trino-phoenix5"
+          - ":trino-jdbc,:trino-base-jdbc,:trino-thrift,:trino-memory"
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
