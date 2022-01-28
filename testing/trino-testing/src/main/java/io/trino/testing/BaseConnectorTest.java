@@ -13,6 +13,7 @@
  */
 package io.trino.testing;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
@@ -34,11 +35,19 @@ import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -47,6 +56,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -105,6 +115,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 /**
  * Generic test for connectors.
@@ -1197,6 +1208,184 @@ public abstract class BaseConnectorTest
         assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "'"))
                 .skippingTypesCheck()
                 .containsAll("VALUES '" + viewName + "'");
+    }
+
+    /**
+     * Test that reading table, column metadata, like {@code SHOW TABLES} or reading from {@code information_schema.views}
+     * does not fail when relations are concurrently created or dropped.
+     */
+    @Test(timeOut = 180_000)
+    public void testReadMetadataWithRelationsConcurrentModifications()
+            throws Exception
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE) && !hasBehavior(SUPPORTS_CREATE_VIEW) && !hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
+            throw new SkipException("Cannot test");
+        }
+
+        int readIterations = 5;
+        // generous timeout as this is a generic test; typically should be faster
+        int testTimeoutSeconds = 150;
+
+        testReadMetadataWithRelationsConcurrentModifications(readIterations, testTimeoutSeconds);
+    }
+
+    protected void testReadMetadataWithRelationsConcurrentModifications(int readIterations, int testTimeoutSeconds)
+            throws Exception
+    {
+        Stopwatch testWatch = Stopwatch.createStarted();
+
+        int readerTasksCount = 6
+                + (hasBehavior(SUPPORTS_CREATE_VIEW) ? 1 : 0)
+                + (hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW) ? 1 : 0);
+        AtomicInteger incompleteReadTasks = new AtomicInteger(readerTasksCount);
+        List<Callable<Void>> readerTasks = new ArrayList<>();
+        readerTasks.add(queryRepeatedly(readIterations, incompleteReadTasks, "SHOW TABLES"));
+        readerTasks.add(queryRepeatedly(readIterations, incompleteReadTasks, "SELECT * FROM information_schema.tables WHERE table_schema = CURRENT_SCHEMA"));
+        readerTasks.add(queryRepeatedly(readIterations, incompleteReadTasks, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA"));
+        readerTasks.add(queryRepeatedly(readIterations, incompleteReadTasks, "SELECT * FROM system.jdbc.tables WHERE table_cat = CURRENT_CATALOG AND table_schem = CURRENT_SCHEMA"));
+        readerTasks.add(queryRepeatedly(readIterations, incompleteReadTasks, "SELECT * FROM system.jdbc.columns WHERE table_cat = CURRENT_CATALOG AND table_schem = CURRENT_SCHEMA"));
+        readerTasks.add(queryRepeatedly(readIterations, incompleteReadTasks, "SELECT * FROM system.metadata.table_comments WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA"));
+        if (hasBehavior(SUPPORTS_CREATE_VIEW)) {
+            readerTasks.add(queryRepeatedly(readIterations, incompleteReadTasks, "SELECT * FROM information_schema.views WHERE table_schema = CURRENT_SCHEMA"));
+        }
+        if (hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
+            readerTasks.add(queryRepeatedly(readIterations, incompleteReadTasks, "SELECT * FROM system.metadata.materialized_views WHERE catalog_name = CURRENT_CATALOG AND schema_name = CURRENT_SCHEMA"));
+        }
+        assertEquals(readerTasks.size(), readerTasksCount);
+
+        int writeTasksCount = 1
+                + (hasBehavior(SUPPORTS_CREATE_VIEW) ? 1 : 0)
+                + (hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW) ? 1 : 0);
+        writeTasksCount = 2 * writeTasksCount; // writes are scheduled twice
+        CountDownLatch writeTasksInitialized = new CountDownLatch(writeTasksCount);
+        Runnable writeInitialized = writeTasksInitialized::countDown;
+        Supplier<Boolean> done = () -> incompleteReadTasks.get() == 0;
+        List<Callable<Void>> writeTasks = new ArrayList<>();
+        writeTasks.add(createDropRepeatedly(writeInitialized, done, "concur_table", "CREATE TABLE %s(a integer)", "DROP TABLE %s"));
+        if (hasBehavior(SUPPORTS_CREATE_VIEW)) {
+            writeTasks.add(createDropRepeatedly(writeInitialized, done, "concur_view", "CREATE VIEW %s AS SELECT 1 a", "DROP VIEW %s"));
+        }
+        if (hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
+            writeTasks.add(createDropRepeatedly(writeInitialized, done, "concur_mview", "CREATE MATERIALIZED VIEW %s AS SELECT 1 a", "DROP MATERIALIZED VIEW %s"));
+        }
+        assertEquals(writeTasks.size() * 2, writeTasksCount);
+
+        ExecutorService executor = newFixedThreadPool(readerTasksCount + writeTasksCount);
+        try {
+            CompletionService<Void> completionService = new ExecutorCompletionService<>(executor);
+            submitTasks(writeTasks, completionService);
+            submitTasks(writeTasks, completionService); // twice to increase chances of catching problems
+            if (!writeTasksInitialized.await(testTimeoutSeconds, SECONDS)) {
+                Future<Void> someFailure = completionService.poll();
+                if (someFailure != null) {
+                    someFailure.get(); // non-blocking
+                }
+                fail("Setup failed");
+            }
+            submitTasks(readerTasks, completionService);
+            for (int i = 0; i < readerTasksCount + writeTasksCount; i++) {
+                long remainingTimeSeconds = testTimeoutSeconds - testWatch.elapsed(SECONDS);
+                Future<Void> future = completionService.poll(remainingTimeSeconds, SECONDS);
+                verifyNotNull(future, "Task did not completed before timeout; completed tasks: %s, current poll timeout: %s s", i, remainingTimeSeconds);
+                future.get(); // non-blocking
+            }
+        }
+        finally {
+            executor.shutdownNow();
+        }
+        assertTrue(executor.awaitTermination(10, SECONDS));
+    }
+
+    /**
+     * Run {@code sql} query at least {@code minIterations} times and keep running until other tasks complete.
+     * {@code incompleteReadTasks} is used for orchestrating end of execution.
+     */
+    protected Callable<Void> queryRepeatedly(int minIterations, AtomicInteger incompleteReadTasks, @Language("SQL") String sql)
+    {
+        return new Callable<>()
+        {
+            @Override
+            public Void call()
+            {
+                boolean alwaysEmpty = true;
+                for (int i = 0; i < minIterations; i++) {
+                    MaterializedResult result = computeActual(sql);
+                    alwaysEmpty &= result.getRowCount() == 0;
+                }
+                if (alwaysEmpty) {
+                    fail(format("The results of [%s] are always empty after %s iterations, this may indicate test misconfiguration or broken connector behavior", sql, minIterations));
+                }
+                assertThat(incompleteReadTasks.decrementAndGet()).as("incompleteReadTasks").isGreaterThanOrEqualTo(0);
+                // Keep running so that faster test queries have same length of exposure in wall time
+                while (incompleteReadTasks.get() != 0) {
+                    computeActual(sql);
+                }
+                return null;
+            }
+
+            @Override
+            public String toString()
+            {
+                return format("Query(%s)", sql);
+            }
+        };
+    }
+
+    protected Callable<Void> createDropRepeatedly(Runnable initReady, Supplier<Boolean> done, String namePrefix, String createTemplate, String dropTemplate)
+    {
+        return new Callable<>()
+        {
+            @Override
+            public Void call()
+            {
+                int objectsToKeep = 3;
+                Deque<String> liveObjects = new ArrayDeque<>(objectsToKeep);
+                for (int i = 0; i < objectsToKeep; i++) {
+                    String name = namePrefix + "_" + randomTableSuffix();
+                    assertUpdate(format(createTemplate, name));
+                    liveObjects.addLast(name);
+                }
+                initReady.run();
+                while (!done.get()) {
+                    assertUpdate(format(dropTemplate, liveObjects.removeFirst()));
+                    String name = namePrefix + "_" + randomTableSuffix();
+                    assertUpdate(format(createTemplate, name));
+                    liveObjects.addLast(name);
+                }
+                while (!liveObjects.isEmpty()) {
+                    assertUpdate(format(dropTemplate, liveObjects.removeFirst()));
+                }
+                return null;
+            }
+
+            @Override
+            public String toString()
+            {
+                return format("Repeat (%s) and (%s)", createTemplate, dropTemplate);
+            }
+        };
+    }
+
+    protected <T> void submitTasks(List<Callable<T>> callables, CompletionService<T> completionService)
+    {
+        for (Callable<T> callable : callables) {
+            String taskDescription = callable.toString();
+            completionService.submit(new Callable<T>()
+            {
+                @Override
+                public T call()
+                        throws Exception
+                {
+                    try {
+                        return callable.call();
+                    }
+                    catch (Throwable e) {
+                        e.addSuppressed(new Exception("Task: " + taskDescription));
+                        throw e;
+                    }
+                }
+            });
+        }
     }
 
     @Test
