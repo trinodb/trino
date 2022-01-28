@@ -134,7 +134,7 @@ public class DeduplicatingDirectExchangeBuffer
     }
 
     @Override
-    public ListenableFuture<Void> isBlocked()
+    public synchronized ListenableFuture<Void> isBlocked()
     {
         if (failure != null || closed) {
             return immediateVoidFuture();
