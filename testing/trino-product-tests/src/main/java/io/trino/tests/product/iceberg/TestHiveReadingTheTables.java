@@ -70,7 +70,8 @@ public class TestHiveReadingTheTables
         String tableName = "iceberg.iceberg.test_table";
         onTrino().executeQuery("CREATE TABLE " + tableName + "(a BIGINT, b VARCHAR) WITH(hive_enabled=false)");
         try {
-            assertQueryFailure(() -> onHive().executeQuery(format("SELECT * FROM %s", "iceberg.test_table")));
+            assertQueryFailure(() -> onHive().executeQuery(format("SELECT * FROM %s", "iceberg.test_table")))
+                    .hasMessageContaining("Cannot create an instance of InputFormat class org.apache.hadoop.mapred.FileInputFormat as specified in mapredWork!");
             assertThat(onSpark().executeQuery(format("SELECT * FROM %s", "iceberg_test.iceberg.test_table")))
                     .containsOnly();
         }
@@ -85,7 +86,8 @@ public class TestHiveReadingTheTables
         String tableName = "iceberg.iceberg.test_table";
         onTrino().executeQuery("CREATE TABLE " + tableName + "(a BIGINT, b VARCHAR)");
         try {
-            assertQueryFailure(() -> onHive().executeQuery(format("SELECT * FROM %s", "iceberg.test_table")));
+            assertQueryFailure(() -> onHive().executeQuery(format("SELECT * FROM %s", "iceberg.test_table")))
+                    .hasMessageContaining("Cannot create an instance of InputFormat class org.apache.hadoop.mapred.FileInputFormat as specified in mapredWork!");
             assertThat(onSpark().executeQuery(format("SELECT * FROM %s", "iceberg_test.iceberg.test_table")))
                     .containsOnly();
         }
