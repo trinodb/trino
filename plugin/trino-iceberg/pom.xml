@@ -125,6 +125,11 @@
             <artifactId>joda-time</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>net.jodah</groupId>
+            <artifactId>failsafe</artifactId>
+        </dependency>
+
         <!-- Iceberg -->
         <dependency>
             <groupId>org.apache.iceberg</groupId>

@@ -121,7 +121,7 @@ public class TableCommentSystemTable
                 try {
                     comment = getComment(session, prefix, name, views, materializedViews);
                 }
-                catch (TrinoException e) {
+                catch (RuntimeException e) {
                     // getTableHandle may throw an exception (e.g. Cassandra connector doesn't allow case insensitive column names)
                     LOG.warn(e, "Failed to get metadata for table: %s", name);
                 }
