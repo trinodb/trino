@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.http.client.HttpClient;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -50,6 +51,8 @@ import static java.util.Objects.requireNonNull;
 public class DirectExchangeClient
         implements Closeable
 {
+    private static final Logger log = Logger.get(DirectExchangeClient.class);
+
     private final String selfAddress;
     private final DataIntegrityVerification dataIntegrityVerification;
     private final DataSize maxResponseSize;
@@ -240,8 +243,15 @@ public class DirectExchangeClient
         for (HttpPageBufferClient client : allClients.values()) {
             closeQuietly(client);
         }
-        buffer.close();
-        memoryContext.setBytes(0);
+        try {
+            buffer.close();
+        }
+        catch (RuntimeException e) {
+            log.warn(e, "error closing buffer");
+        }
+        finally {
+            memoryContext.setBytes(0);
+        }
     }
 
     private synchronized void scheduleRequestIfNecessary()
