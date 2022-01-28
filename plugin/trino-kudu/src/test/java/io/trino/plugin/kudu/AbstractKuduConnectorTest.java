@@ -355,6 +355,13 @@ public abstract class AbstractKuduConnectorTest
         throw new SkipException("TODO");
     }
 
+    @Override
+    public void testReadMetadataWithRelationsConcurrentModifications()
+    {
+        // TODO Support these test once kudu connector can create tables with default partitions
+        throw new SkipException("TODO");
+    }
+
     @Test
     @Override
     public void testCreateTableAsSelectNegativeDate()
