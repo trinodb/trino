@@ -42,7 +42,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.Flaky;
 import io.trino.tpch.TpchTable;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
@@ -283,31 +282,12 @@ public abstract class BaseIcebergConnectorTest
                         ")");
     }
 
-    @Test
-    @Flaky(
-            issue = "https://github.com/trinodb/trino/issues/10976",
-            // Due to the nature of the problem, actual failure can vary greatly
-            match = "^")
-    @Override
-    public void testSelectInformationSchemaColumns()
-    {
-        super.testSelectInformationSchemaColumns();
-    }
-
     @Override
     protected void checkInformationSchemaViewsForMaterializedView(String schemaName, String viewName)
     {
         // TODO should probably return materialized view, as it's also a view -- to be double checked
         assertThatThrownBy(() -> super.checkInformationSchemaViewsForMaterializedView(schemaName, viewName))
                 .hasMessageFindingMatch("(?s)Expecting.*to contain:.*\\Q[(" + viewName + ")]");
-    }
-
-    @Test(enabled = false) // TODO fails
-    @Override
-    public void testReadMetadataWithRelationsConcurrentModifications()
-            throws Exception
-    {
-        super.testReadMetadataWithRelationsConcurrentModifications();
     }
 
     @Test

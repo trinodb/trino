@@ -408,6 +408,10 @@ public class IcebergMetadata
             catch (UnknownTableTypeException e) {
                 // ignore table of unknown type
             }
+            catch (RuntimeException e) {
+                // Table can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
+                log.warn(e, "Failed to access metadata of table %s during column listing for %s", table, prefix);
+            }
         }
         return columns.buildOrThrow();
     }
@@ -1274,6 +1278,22 @@ public class IcebergMetadata
     public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
     {
         return catalog.listMaterializedViews(session, schemaName);
+    }
+
+    @Override
+    public Map<SchemaTableName, ConnectorMaterializedViewDefinition> getMaterializedViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews = new HashMap<>();
+        for (SchemaTableName name : listMaterializedViews(session, schemaName)) {
+            try {
+                getMaterializedView(session, name).ifPresent(view -> materializedViews.put(name, view));
+            }
+            catch (RuntimeException e) {
+                // Materialized view can be being removed and this may cause all sorts of exceptions. Log, because we're catching broadly.
+                log.warn(e, "Failed to access metadata of materialized view %s during listing", name);
+            }
+        }
+        return materializedViews;
     }
 
     @Override
