@@ -279,6 +279,7 @@ public abstract class AbstractMetastoreTableOperations
         Tasks.foreach(newLocation)
                 .retry(20)
                 .exponentialBackoff(100, 5000, 600000, 4.0)
+                .stopRetryOn(org.apache.iceberg.exceptions.NotFoundException.class) // qualified name, as this is NOT the io.trino.spi.connector.NotFoundException
                 .run(metadataLocation -> newMetadata.set(
                         TableMetadataParser.read(fileIo, io().newInputFile(metadataLocation))));
 
