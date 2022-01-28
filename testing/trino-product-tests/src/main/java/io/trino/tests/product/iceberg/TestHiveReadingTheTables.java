@@ -25,8 +25,8 @@ import java.time.LocalDateTime;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tests.product.TestGroups.HIVE_ICEBERG_REDIRECTIONS;
 import static io.trino.tests.product.TestGroups.ICEBERG;
+import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -49,7 +49,7 @@ public class TestHiveReadingTheTables
         onTrino().executeQuery("DROP SCHEMA iceberg.iceberg");
     }
 
-    @Test(groups = { ICEBERG, HIVE_ICEBERG_REDIRECTIONS })
+    @Test(groups = { ICEBERG, STORAGE_FORMATS })
     public void testCreateTableWithHiveSupportEnabled()
     {
         String tableName = "iceberg.iceberg.test_table";
@@ -64,7 +64,7 @@ public class TestHiveReadingTheTables
         }
     }
 
-    @Test(groups = {ICEBERG, HIVE_ICEBERG_REDIRECTIONS})
+    @Test(groups = {ICEBERG, STORAGE_FORMATS})
     public void testCreateTableWithHiveSupportDisabled()
     {
         String tableName = "iceberg.iceberg.test_table";
@@ -80,7 +80,7 @@ public class TestHiveReadingTheTables
         }
     }
 
-    @Test(groups = {ICEBERG, HIVE_ICEBERG_REDIRECTIONS})
+    @Test(groups = {ICEBERG, STORAGE_FORMATS})
     public void testByDefaultTableShouldHasHiveEnabledSetToFalse()
     {
         String tableName = "iceberg.iceberg.test_table";
@@ -96,7 +96,7 @@ public class TestHiveReadingTheTables
         }
     }
 
-    @Test(groups = {ICEBERG, HIVE_ICEBERG_REDIRECTIONS})
+    @Test(groups = {ICEBERG, STORAGE_FORMATS})
     public void testReadingHiveCreatedIcebergTable()
     {
         String tableName = "iceberg.iceberg.test_table";
@@ -116,7 +116,7 @@ public class TestHiveReadingTheTables
         }
     }
 
-    @Test(groups = {ICEBERG, HIVE_ICEBERG_REDIRECTIONS})
+    @Test(groups = {ICEBERG, STORAGE_FORMATS})
     public void testCreatedModifiedTableByTrinoTable()
     {
         String tableName = "iceberg.iceberg.test_table";
@@ -145,7 +145,7 @@ public class TestHiveReadingTheTables
         }
     }
 
-    @Test(groups = {ICEBERG, HIVE_ICEBERG_REDIRECTIONS})
+    @Test(groups = {ICEBERG, STORAGE_FORMATS})
     public void testCreatedModifiedTableByTrinoWithDifferentDataTypes()
     {
         String tableName = "iceberg.iceberg.test_table";
@@ -179,7 +179,7 @@ public class TestHiveReadingTheTables
         }
     }
 
-    @Test(groups = {ICEBERG, HIVE_ICEBERG_REDIRECTIONS})
+    @Test(groups = {ICEBERG, STORAGE_FORMATS})
     public void testPropertiesAndSerdeAssignedINHMS()
     {
         String enabledTableName = "iceberg.iceberg.hive_enabled";
