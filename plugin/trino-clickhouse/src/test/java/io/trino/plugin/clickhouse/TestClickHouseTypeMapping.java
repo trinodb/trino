@@ -28,7 +28,6 @@ import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -106,19 +105,14 @@ public class TestClickHouseTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        clickhouseServer = new TestingClickHouseServer();
+        clickhouseServer = closeAfterClass(new TestingClickHouseServer());
         return createClickHouseQueryRunner(clickhouseServer, ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         .put("metadata.cache-ttl", "10m")
                         .put("metadata.cache-missing", "true")
+                        .put("clickhouse.use-deprecated-driver", String.valueOf(!clickhouseServer.isLatestDriverMinimumSupportedVersion()))
                         .buildOrThrow(),
                 ImmutableList.of());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        clickhouseServer.close();
     }
 
     @Test

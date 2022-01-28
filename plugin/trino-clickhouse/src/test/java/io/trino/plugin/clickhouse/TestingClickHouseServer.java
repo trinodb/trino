@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.clickhouse;
 
-import com.google.common.collect.ImmutableSet;
+import com.clickhouse.client.ClickHouseVersion;
 import io.airlift.log.Logger;
 import org.testcontainers.containers.ClickHouseContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -29,7 +29,6 @@ import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
-import java.util.Set;
 
 import static java.lang.String.format;
 
@@ -43,13 +42,20 @@ public class TestingClickHouseServer
     public static final DockerImageName CLICKHOUSE_LATEST_IMAGE = CLICKHOUSE_IMAGE.withTag("21.11.10.1");
     public static final DockerImageName CLICKHOUSE_DEFAULT_IMAGE = CLICKHOUSE_IMAGE.withTag("21.3.2.5"); // EOL is 30 Mar 2022
 
+    private static final String CLICKHOUSE_LATEST_DRIVER_CLASS_NAME = "com.clickhouse.jdbc.ClickHouseDriver";
+    // TODO: This Driver will not be available when clickhouse-jdbc is upgraded to 0.4.0 or above
+    private static final String CLICKHOUSE_DEPRECATED_DRIVER_CLASS_NAME = "ru.yandex.clickhouse.ClickHouseDriver";
+    private static final String CLICKHOUSE_LATEST_DRIVER_MINIMUM_SUPPORTED_VERSION = "20.7";
+
     // Altinity Stable Builds Life-Cycle Table https://docs.altinity.com/altinitystablebuilds/#altinity-stable-builds-life-cycle-table
     private static final DockerImageName ALTINITY_IMAGE = DockerImageName.parse("altinity/clickhouse-server").asCompatibleSubstituteFor("yandex/clickhouse-server");
-    public static final DockerImageName ALTINITY_LATEST_IMAGE = ALTINITY_IMAGE.withTag("21.8.13.1.altinitystable");
+    public static final DockerImageName ALTINITY_LATEST_IMAGE = ALTINITY_IMAGE.withTag("21.8.12.29.altinitystable");
     public static final DockerImageName ALTINITY_DEFAULT_IMAGE = ALTINITY_IMAGE.withTag("20.3.12-aes"); // EOL is 24 June 2022
 
     private static final SecureRandom RANDOM = new SecureRandom();
-    private int port;
+
+    private final int port;
+    private final boolean latestDriverMinimumSupportedVersion;
 
     public TestingClickHouseServer()
     {
@@ -60,6 +66,7 @@ public class TestingClickHouseServer
     {
         super(image);
         port = 40000 + RANDOM.nextInt(1000);
+        latestDriverMinimumSupportedVersion = ClickHouseVersion.of(image.getVersionPart()).isNewerOrEqualTo(CLICKHOUSE_LATEST_DRIVER_MINIMUM_SUPPORTED_VERSION);
         log.info("image: %s, port: %s", image, port);
         withCopyFileToContainer(MountableFile.forHostPath(generateConfig(port)), "/etc/clickhouse-server/config.d/custom.xml");
         withExposedPorts(port);
@@ -86,10 +93,9 @@ public class TestingClickHouseServer
         }
     }
 
-    @Override
-    public Set<Integer> getLivenessCheckPortNumbers()
+    public boolean isLatestDriverMinimumSupportedVersion()
     {
-        return ImmutableSet.of(port);
+        return latestDriverMinimumSupportedVersion;
     }
 
     public void execute(String sql)
@@ -101,6 +107,16 @@ public class TestingClickHouseServer
         catch (Exception e) {
             throw new RuntimeException("Failed to execute statement: " + sql, e);
         }
+    }
+
+    @Override
+    public String getDriverClassName()
+    {
+        if (latestDriverMinimumSupportedVersion) {
+            return CLICKHOUSE_LATEST_DRIVER_CLASS_NAME;
+        }
+
+        return CLICKHOUSE_DEPRECATED_DRIVER_CLASS_NAME;
     }
 
     @Override
