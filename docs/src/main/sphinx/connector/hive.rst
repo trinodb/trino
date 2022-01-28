@@ -669,6 +669,13 @@ Property Name                                           Description
 
 ``hive.metastore.glue.write-statistics-threads``        Number of threads for parallel statistic writes to Glue.
                                                         Defaults to ``5``.
+
+``hive.metastore.glue.assume-canonical-partition-keys`` Allow the metastore to assume that the values of partition
+                                                        columns can be converted to string values. This can lead to
+                                                        performance improvements in the queries which apply filters
+                                                        on the partition columns.
+                                                        Note that the partition keys of type ``timestamp`` do
+                                                        not get canonicalized. Defaults to ``false``.
 ======================================================= ============================================================
 
 .. _hive-google-cloud-storage-configuration:
