@@ -326,6 +326,10 @@ Property Name                                      Description                  
 
 ``hive.create-empty-bucket-files``                 Should empty files be created for buckets that have no data? ``false``
 
+``hive.validate-bucketing``                        Verify that data is in the correct bucket file when reading  ``true``
+                                                   bucketed tables. This check is enabled by default, as
+                                                   incorrect bucketing can cause incorrect query results.
+
 ``hive.partition-statistics-sample-size``          Specifies the number of partitions to analyze when           100
                                                    computing table statistics.
 
