@@ -25,6 +25,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import io.trino.testng.services.Flaky;
+import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -133,6 +135,35 @@ public abstract class BaseSqlServerConnectorTest
         assertTrue(getQueryRunner().tableExists(getSession(), "test_view"));
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
         onRemoteDatabase().execute("DROP VIEW IF EXISTS test_view");
+    }
+
+    // TODO (https://github.com/trinodb/trino/issues/10846): Test is expected to be flaky because tests execute in parallel
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/10846", match = "was deadlocked on lock resources with another process and has been chosen as the deadlock victim")
+    @Test
+    @Override
+    public void testSelectInformationSchemaColumns()
+    {
+        super.testSelectInformationSchemaColumns();
+    }
+
+    @Test
+    @Override
+    public void testReadMetadataWithRelationsConcurrentModifications()
+    {
+        try {
+            super.testReadMetadataWithRelationsConcurrentModifications();
+        }
+        catch (Exception expected) {
+            // The test failure is not guaranteed
+            // TODO (https://github.com/trinodb/trino/issues/10846): shouldn't fail
+            assertThat(expected)
+                    .hasMessageMatching("(?s).*(" +
+                            "No task completed before timeout|" +
+                            "was deadlocked on lock resources with another process and has been chosen as the deadlock victim|" +
+                            // E.g. system.metadata.table_comments can return empty results, when underlying metadata list tables call fails
+                            "Expecting actual not to be empty).*");
+            throw new SkipException("to be fixed");
+        }
     }
 
     @Test
