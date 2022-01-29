@@ -122,7 +122,8 @@ public class TestingClickHouseServer
     @Override
     public String getJdbcUrl()
     {
-        return format("jdbc:clickhouse://%s:%s/", getContainerIpAddress(), getMappedPort(port));
+        return format("jdbc:clickhouse://%s:%s/%s", getContainerIpAddress(), getMappedPort(port),
+            CLICKHOUSE_DEPRECATED_DRIVER_CLASS_NAME.equals(getDriverClassName()) ? "?validateAfterInactivityMillis=100" : "");
     }
 
     @Override

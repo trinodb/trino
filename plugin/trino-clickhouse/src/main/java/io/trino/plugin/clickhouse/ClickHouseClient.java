@@ -550,17 +550,6 @@ public class ClickHouseClient
     protected void execute(Connection connection, String query)
     {
         debug(connection);
-        for (int i = 0; i < 3; i++) {
-            try (Statement statement = connection.createStatement();
-                    ResultSet resultSet = statement.executeQuery("select 1")) {
-                if (resultSet.next()) {
-                    break;
-                }
-            }
-            catch (Exception e) {
-                // ignore
-            }
-        }
         super.execute(connection, query);
         debug(connection);
     }
