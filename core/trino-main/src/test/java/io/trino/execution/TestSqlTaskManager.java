@@ -25,6 +25,11 @@ import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import io.trino.Session;
+import io.trino.connector.CatalogHandle;
+import io.trino.connector.CatalogProperties;
+import io.trino.connector.ConnectorServices;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.BufferState;
@@ -337,6 +342,7 @@ public class TestSqlTaskManager
     {
         return new SqlTaskManager(
                 new EmbedVersion("testversion"),
+                new NoConnectorServicesProvider(),
                 createTestingPlanner(),
                 new MockLocationFactory(),
                 taskExecutor,
@@ -360,6 +366,7 @@ public class TestSqlTaskManager
     {
         return new SqlTaskManager(
                 new EmbedVersion("testversion"),
+                new NoConnectorServicesProvider(),
                 createTestingPlanner(),
                 new MockLocationFactory(),
                 taskExecutor,
@@ -476,6 +483,22 @@ public class TestSqlTaskManager
         @Override
         public void close()
         {
+        }
+    }
+
+    private static class NoConnectorServicesProvider
+            implements ConnectorServicesProvider
+    {
+        @Override
+        public void loadInitialCatalogs() {}
+
+        @Override
+        public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs) {}
+
+        @Override
+        public ConnectorServices getConnectorServices(CatalogHandle catalogHandle)
+        {
+            throw new UnsupportedOperationException();
         }
     }
 }

@@ -16,6 +16,7 @@ package io.trino.connector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
@@ -37,8 +38,10 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -127,6 +130,25 @@ public class CoordinatorDynamicCatalogManager
     }
 
     @Override
+    public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs)
+    {
+        List<CatalogProperties> missingCatalogs = catalogs.stream()
+                .filter(catalog -> !this.catalogs.containsKey(catalog.getCatalogHandle().getCatalogName()))
+                .collect(toImmutableList());
+
+        if (!missingCatalogs.isEmpty()) {
+            throw new TrinoException(CATALOG_NOT_AVAILABLE, "Missing catalogs: " + missingCatalogs);
+        }
+    }
+
+    @Override
+    public Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle)
+    {
+        return Optional.ofNullable(catalogs.get(catalogHandle.getCatalogName()))
+                .flatMap(CatalogConnector::getCatalogProperties);
+    }
+
+    @Override
     public ConnectorServices getConnectorServices(CatalogHandle catalogHandle)
     {
         CatalogConnector catalogConnector = catalogs.get(catalogHandle.getCatalogName());
@@ -135,7 +157,7 @@ public class CoordinatorDynamicCatalogManager
     }
 
     @Override
-    public CatalogHandle createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(connectorName, "connectorName is null");
@@ -152,7 +174,6 @@ public class CoordinatorDynamicCatalogManager
             CatalogProperties catalogProperties = new CatalogProperties(createRootCatalogHandle(catalogName), connectorName, properties);
             CatalogConnector catalog = catalogFactory.createCatalog(catalogProperties);
             catalogs.put(catalogName, catalog);
-            return catalog.getCatalogHandle();
         }
         finally {
             catalogsUpdateLock.unlock();

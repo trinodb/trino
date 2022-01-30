@@ -100,6 +100,7 @@ public final class TaskTestUtils
             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(SYMBOL))
                     .withBucketToPartition(Optional.of(new int[1])),
             StatsAndCosts.empty(),
+            ImmutableList.of(),
             Optional.empty());
 
     public static final DynamicFilterId DYNAMIC_FILTER_SOURCE_ID = new DynamicFilterId("filter");
@@ -122,6 +123,7 @@ public final class TaskTestUtils
             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(SYMBOL))
                     .withBucketToPartition(Optional.of(new int[1])),
             StatsAndCosts.empty(),
+            ImmutableList.of(),
             Optional.empty());
 
     public static LocalExecutionPlanner createTestingPlanner()

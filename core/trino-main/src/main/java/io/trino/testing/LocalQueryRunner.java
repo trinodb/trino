@@ -24,7 +24,6 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.connector.CatalogFactory;
-import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProviderModule;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.CoordinatorDynamicCatalogManager;
@@ -75,6 +74,7 @@ import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.ExchangeHandleResolver;
@@ -441,7 +441,7 @@ public class LocalQueryRunner
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
 
-        this.planFragmenter = new PlanFragmenter(metadata, functionManager, new QueryManagerConfig());
+        this.planFragmenter = new PlanFragmenter(metadata, functionManager, transactionManager, catalogManager, new QueryManagerConfig());
 
         GlobalSystemConnector globalSystemConnector = new GlobalSystemConnector(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
@@ -716,11 +716,10 @@ public class LocalQueryRunner
         return expressionCompiler;
     }
 
-    public CatalogHandle createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
+    public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
         catalogFactory.addConnectorFactory(connectorFactory, ignored -> connectorFactory.getClass().getClassLoader());
-        CatalogHandle catalogHandle = catalogManager.createCatalog(catalogName, connectorFactory.getName(), properties);
-        return catalogHandle;
+        catalogManager.createCatalog(catalogName, connectorFactory.getName(), properties);
     }
 
     @Override
@@ -739,6 +738,11 @@ public class LocalQueryRunner
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         catalogManager.createCatalog(catalogName, connectorName, properties);
+    }
+
+    public CatalogManager getCatalogManager()
+    {
+        return catalogManager;
     }
 
     public LocalQueryRunner printPlan()
