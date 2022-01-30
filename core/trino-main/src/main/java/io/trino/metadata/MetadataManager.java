@@ -2539,6 +2539,16 @@ public final class MetadataManager
         return connectorVersion;
     }
 
+    @Override
+    public void setViewColumnComment(Session session, QualifiedObjectName viewName, ViewDefinition viewDefinition, ViewColumn viewColumn, Optional<String> comment)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.setViewColumnComment(session.toConnectorSession(catalogName), viewName.asSchemaTableName(), viewDefinition.toConnectorViewDefinition(), viewColumn.getName(), comment);
+    }
+
     private static class OperatorCacheKey
     {
         private final OperatorType operatorType;

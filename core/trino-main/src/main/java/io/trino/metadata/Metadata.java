@@ -713,4 +713,9 @@ public interface Metadata
      * Returns a table handle for the specified table name with a specified version
      */
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+
+    /**
+     * Comments to the specified view column
+     */
+    void setViewColumnComment(Session session, QualifiedObjectName viewName, ViewDefinition viewDefinition, ViewColumn viewColumn, Optional<String> comment);
 }

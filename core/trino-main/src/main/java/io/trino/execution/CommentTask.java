@@ -19,6 +19,8 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.ViewColumn;
+import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.sql.tree.Comment;
@@ -86,20 +88,37 @@ public class CommentTask
             }
 
             QualifiedObjectName tableName = createQualifiedObjectName(session, statement, prefix.get());
-            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-            if (tableHandle.isEmpty()) {
-                throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: " + tableName);
-            }
-
             String columnName = statement.getName().getSuffix();
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
-            if (!columnHandles.containsKey(columnName)) {
-                throw semanticException(COLUMN_NOT_FOUND, statement, "Column does not exist: " + columnName);
+            Optional<ViewDefinition> optionalView = metadata.getView(session, tableName);
+            if (optionalView.isPresent()) {
+                ViewDefinition viewDefinition = optionalView.get();
+                List<ViewColumn> viewColumns = viewDefinition.getColumns();
+                Optional<ViewColumn> optionalViewColumn = viewColumns
+                        .stream()
+                        .filter(viewColumn -> viewColumn.getName().equals(columnName))
+                        .findFirst();
+
+                if (optionalViewColumn.isEmpty()) {
+                    throw semanticException(COLUMN_NOT_FOUND, statement, "Column does not exist: " + columnName);
+                }
+
+                accessControl.checkCanSetColumnComment(session.toSecurityContext(), tableName);
             }
+            else {
+                Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+                if (tableHandle.isEmpty()) {
+                    throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: " + tableName);
+                }
 
-            accessControl.checkCanSetColumnComment(session.toSecurityContext(), tableName);
+                Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
+                if (!columnHandles.containsKey(columnName)) {
+                    throw semanticException(COLUMN_NOT_FOUND, statement, "Column does not exist: " + columnName);
+                }
 
-            metadata.setColumnComment(session, tableHandle.get(), columnHandles.get(columnName), statement.getComment());
+                accessControl.checkCanSetColumnComment(session.toSecurityContext(), tableName);
+
+                metadata.setColumnComment(session, tableHandle.get(), columnHandles.get(columnName), statement.getComment());
+            }
         }
         else {
             throw semanticException(NOT_SUPPORTED, statement, "Unsupported comment type: %s", statement.getType());

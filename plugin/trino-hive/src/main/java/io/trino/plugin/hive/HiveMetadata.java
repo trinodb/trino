@@ -3482,6 +3482,50 @@ public class HiveMetadata
                 new TableNameSplitResult(tableName.substring(0, metadataMarkerIndex), Optional.of(tableName.substring(metadataMarkerIndex)));
     }
 
+    @Override
+    public void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition viewDefinition, String columnName, Optional<String> comment)
+    {
+        Table table = metastore.getTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName()).get();
+
+        List<ConnectorViewDefinition.ViewColumn> viewColumns = new ArrayList<>();
+        for (ConnectorViewDefinition.ViewColumn viewColumn : viewDefinition.getColumns()) {
+            if (columnName.equals(viewColumn.getName())) {
+                ConnectorViewDefinition.ViewColumn updatedColumn = new ConnectorViewDefinition.ViewColumn(viewColumn.getName(), viewColumn.getType(), comment);
+                viewColumns.add(updatedColumn);
+            }
+            else {
+                viewColumns.add(viewColumn);
+            }
+        }
+
+        ConnectorViewDefinition definition = new ConnectorViewDefinition(viewDefinition.getOriginalSql(),
+                                                                        viewDefinition.getCatalog(),
+                                                                        viewDefinition.getSchema(),
+                                                                        viewColumns,
+                                                                        viewDefinition.getComment(),
+                                                                        viewDefinition.getOwner(),
+                                                                        viewDefinition.isRunAsInvoker());
+
+        Table.Builder tableBuilder = Table.builder()
+                .setDatabaseName(table.getDatabaseName())
+                .setTableName(table.getTableName())
+                .setOwner(table.getOwner())
+                .setTableType(table.getTableType())
+                .setDataColumns(table.getDataColumns())
+                .setPartitionColumns(table.getPartitionColumns())
+                .setParameters(table.getParameters())
+                .setViewOriginalText(Optional.of(encodeViewData(definition)))
+                .setViewExpandedText(table.getViewExpandedText());
+
+        tableBuilder.getStorageBuilder()
+                .setStorageFormat(table.getStorage().getStorageFormat())
+                .setLocation(table.getStorage().getLocation());
+        Table newTable = tableBuilder.build();
+        PrincipalPrivileges principalPrivileges = accessControlMetadata.isUsingSystemSecurity() ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
+
+        metastore.replaceTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName(), newTable, principalPrivileges);
+    }
+
     private static class TableNameSplitResult
     {
         private final String baseTableName;

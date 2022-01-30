@@ -1038,4 +1038,12 @@ public class ClassLoaderSafeConnectorMetadata
             return delegate.isSupportedVersionType(session, tableName, pointerType, versioning);
         }
     }
+
+    @Override
+    public void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition viewDefinition, String columnName, Optional<String> comment)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.setViewColumnComment(session, viewName, viewDefinition, columnName, comment);
+        }
+    }
 }

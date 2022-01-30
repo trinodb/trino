@@ -124,7 +124,7 @@ public class ViewDefinition
                 catalog,
                 schema,
                 columns.stream()
-                        .map(column -> new ConnectorViewDefinition.ViewColumn(column.getName(), column.getType()))
+                        .map(column -> new ConnectorViewDefinition.ViewColumn(column.getName(), column.getType(), column.getComment()))
                         .collect(toImmutableList()),
                 comment,
                 runAsIdentity.map(Identity::getUser),

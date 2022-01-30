@@ -1340,4 +1340,12 @@ public interface ConnectorMetadata
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
     }
+
+    /**
+     * Comments to the specified view column
+     */
+    default void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition viewDefinition, String columnName, Optional<String> comment)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting view column comments");
+    }
 }

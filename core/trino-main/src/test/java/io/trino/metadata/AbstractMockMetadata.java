@@ -886,4 +886,10 @@ public abstract class AbstractMockMetadata
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public void setViewColumnComment(Session session, QualifiedObjectName viewName, ViewDefinition viewDefinition, ViewColumn viewColumn, Optional<String> comment)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

@@ -133,14 +133,22 @@ public class ConnectorViewDefinition
     {
         private final String name;
         private final TypeId type;
+        private final Optional<String> comment;
+
+        public ViewColumn(String name, TypeId type)
+        {
+            this(name, type, Optional.empty());
+        }
 
         @JsonCreator
         public ViewColumn(
                 @JsonProperty("name") String name,
-                @JsonProperty("type") TypeId type)
+                @JsonProperty("type") TypeId type,
+                @JsonProperty("comment") Optional<String> comment)
         {
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
+            this.comment = comment;
         }
 
         @JsonProperty
@@ -155,10 +163,16 @@ public class ConnectorViewDefinition
             return type;
         }
 
+        @JsonProperty
+        public Optional<String> getComment()
+        {
+            return comment;
+        }
+
         @Override
         public String toString()
         {
-            return name + " " + type;
+            return name + " " + type + " " + comment.orElse(null);
         }
     }
 }
