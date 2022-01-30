@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
+import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
@@ -46,6 +47,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
@@ -154,6 +156,25 @@ public class StaticCatalogManager
     }
 
     @Override
+    public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs)
+    {
+        List<CatalogProperties> missingCatalogs = catalogs.stream()
+                .filter(catalog -> !this.catalogs.containsKey(catalog.getCatalogHandle().getCatalogName()))
+                .collect(toImmutableList());
+
+        if (!missingCatalogs.isEmpty()) {
+            throw new TrinoException(CATALOG_NOT_AVAILABLE, "Missing catalogs: " + missingCatalogs);
+        }
+    }
+
+    @Override
+    public Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle)
+    {
+        // static catalog manager does not propagate catalogs between machines
+        return Optional.empty();
+    }
+
+    @Override
     public ConnectorServices getConnectorServices(CatalogHandle catalogHandle)
     {
         CatalogConnector catalogConnector = catalogs.get(catalogHandle.getCatalogName());
@@ -172,7 +193,7 @@ public class StaticCatalogManager
     }
 
     @Override
-    public CatalogHandle createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         throw new TrinoException(NOT_SUPPORTED, "Create catalog is not supported by the static catalog manager");
     }

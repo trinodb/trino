@@ -28,6 +28,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.event.SplitMonitor;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
@@ -108,6 +109,7 @@ public class SqlTaskManager
             elements -> elements.stream().anyMatch(stackTraceElement -> JONI_REGEXP_FUNCTION_CLASS_NAMES.contains(stackTraceElement.getClassName()));
 
     private final VersionEmbedder versionEmbedder;
+    private final ConnectorServicesProvider connectorServicesProvider;
     private final ExecutorService taskNotificationExecutor;
     private final ThreadPoolExecutorMBean taskNotificationExecutorMBean;
 
@@ -131,6 +133,7 @@ public class SqlTaskManager
     @Inject
     public SqlTaskManager(
             VersionEmbedder versionEmbedder,
+            ConnectorServicesProvider connectorServicesProvider,
             LocalExecutionPlanner planner,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
@@ -146,6 +149,7 @@ public class SqlTaskManager
             ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this(versionEmbedder,
+                connectorServicesProvider,
                 planner,
                 locationFactory,
                 taskExecutor,
@@ -165,6 +169,7 @@ public class SqlTaskManager
     @VisibleForTesting
     public SqlTaskManager(
             VersionEmbedder versionEmbedder,
+            ConnectorServicesProvider connectorServicesProvider,
             LocalExecutionPlanner planner,
             LocationFactory locationFactory,
             TaskExecutor taskExecutor,
@@ -180,6 +185,8 @@ public class SqlTaskManager
             ExchangeManagerRegistry exchangeManagerRegistry,
             Predicate<List<StackTraceElement>> stuckSplitStackTracePredicate)
     {
+        this.connectorServicesProvider = requireNonNull(connectorServicesProvider, "connectorServicesProvider is null");
+
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
         infoCacheTime = config.getInfoMaxAge();
@@ -485,6 +492,8 @@ public class SqlTaskManager
                         min(sessionQueryMaxMemoryPerNode, queryMaxMemoryPerNode));
             }
         }
+
+        fragment.ifPresent(planFragment -> connectorServicesProvider.ensureCatalogsLoaded(session, planFragment.getActiveCatalogs()));
 
         sqlTask.recordHeartbeat();
         return sqlTask.updateTask(session, fragment, splitAssignments, outputBuffers, dynamicFilterDomains);

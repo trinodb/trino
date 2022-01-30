@@ -45,6 +45,8 @@ public interface TransactionManager
 
     List<CatalogInfo> getCatalogs(TransactionId transactionId);
 
+    List<CatalogInfo> getActiveCatalogs(TransactionId transactionId);
+
     Optional<CatalogHandle> getCatalogHandle(TransactionId transactionId, String catalogName);
 
     default CatalogMetadata getRequiredCatalogMetadata(TransactionId transactionId, String catalogName)

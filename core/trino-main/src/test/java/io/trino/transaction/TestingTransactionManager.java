@@ -98,6 +98,12 @@ public class TestingTransactionManager
     }
 
     @Override
+    public List<CatalogInfo> getActiveCatalogs(TransactionId transactionId)
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
     public Optional<CatalogHandle> getCatalogHandle(TransactionId transactionId, String catalogName)
     {
         return Optional.empty();

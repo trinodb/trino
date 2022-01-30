@@ -72,6 +72,12 @@ public class NoOpTransactionManager
     }
 
     @Override
+    public List<CatalogInfo> getActiveCatalogs(TransactionId transactionId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<CatalogHandle> getCatalogHandle(TransactionId transactionId, String catalogName)
     {
         throw new UnsupportedOperationException();

@@ -181,6 +181,12 @@ public class InMemoryTransactionManager
     }
 
     @Override
+    public List<CatalogInfo> getActiveCatalogs(TransactionId transactionId)
+    {
+        return getTransactionMetadata(transactionId).getActiveCatalogs();
+    }
+
+    @Override
     public Optional<CatalogHandle> getCatalogHandle(TransactionId transactionId, String catalogName)
     {
         return getTransactionMetadata(transactionId).tryRegisterCatalog(catalogName);
@@ -373,6 +379,17 @@ public class InMemoryTransactionManager
                     throw new TrinoException(TRANSACTION_ALREADY_ABORTED, "Current transaction is aborted, commands ignored until end of transaction block");
                 }
             }
+        }
+
+        private synchronized List<CatalogInfo> getActiveCatalogs()
+        {
+            return activeCatalogs.keySet().stream()
+                    .map(CatalogHandle::getCatalogName)
+                    .distinct()
+                    .map(key -> registeredCatalogs.getOrDefault(key, Optional.empty()))
+                    .flatMap(Optional::stream)
+                    .map(catalog -> new CatalogInfo(catalog.getCatalogName(), catalog.getCatalogHandle(), catalog.getConnectorName()))
+                    .collect(toImmutableList());
         }
 
         private synchronized List<CatalogInfo> listCatalogs()
