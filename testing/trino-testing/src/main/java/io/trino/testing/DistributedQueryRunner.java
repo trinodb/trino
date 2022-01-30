@@ -24,7 +24,6 @@ import io.airlift.testing.Assertions;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
-import io.trino.connector.CatalogHandle;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryManager;
@@ -32,7 +31,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
-import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
@@ -58,11 +56,9 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -71,7 +67,6 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.log.Level.DEBUG;
 import static io.airlift.log.Level.ERROR;
@@ -450,38 +445,10 @@ public class DistributedQueryRunner
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         long start = System.nanoTime();
-        Set<CatalogHandle> catalogHandles = new HashSet<>();
         for (TestingTrinoServer server : servers) {
-            catalogHandles.add(server.createCatalog(catalogName, connectorName, properties));
+            server.createCatalog(catalogName, connectorName, properties);
         }
-        CatalogHandle catalog = getOnlyElement(catalogHandles);
-        log.info("Created catalog %s (%s) in %s", catalogName, catalog, nanosSince(start));
-
-        // wait for all nodes to announce the new catalog
-        start = System.nanoTime();
-        while (!isConnectionVisibleToAllNodes(catalog)) {
-            Assertions.assertLessThan(nanosSince(start), new Duration(100, SECONDS), "waiting for catalog " + catalogName + " to be initialized in every node");
-            try {
-                MILLISECONDS.sleep(10);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
-            }
-        }
-        log.info("Announced catalog %s (%s) in %s", catalogName, catalog, nanosSince(start));
-    }
-
-    private boolean isConnectionVisibleToAllNodes(CatalogHandle catalogHandle)
-    {
-        for (TestingTrinoServer server : servers) {
-            server.refreshNodes();
-            Set<InternalNode> activeNodesWithConnector = server.getActiveNodesWithConnector(catalogHandle);
-            if (activeNodesWithConnector.size() != servers.size()) {
-                return false;
-            }
-        }
-        return true;
+        log.info("Created catalog %s in %s", catalogName, nanosSince(start));
     }
 
     @Override

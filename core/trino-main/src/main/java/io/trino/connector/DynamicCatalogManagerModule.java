@@ -18,6 +18,7 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.CatalogManager;
+import io.trino.server.ServerConfig;
 
 import javax.inject.Inject;
 
@@ -30,18 +31,26 @@ public class DynamicCatalogManagerModule
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
-        CatalogStoreConfig config = buildConfigObject(CatalogStoreConfig.class);
-        switch (config.getCatalogStoreKind()) {
-            case NONE -> binder.bind(CatalogStore.class).toInstance(NO_STORED_CATALOGS);
-            case FILE -> {
-                configBinder(binder).bindConfig(StaticCatalogManagerConfig.class);
-                binder.bind(CatalogStore.class).to(FileCatalogStore.class).in(Scopes.SINGLETON);
+        if (buildConfigObject(ServerConfig.class).isCoordinator()) {
+            binder.bind(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
+            CatalogStoreConfig config = buildConfigObject(CatalogStoreConfig.class);
+            switch (config.getCatalogStoreKind()) {
+                case NONE -> binder.bind(CatalogStore.class).toInstance(NO_STORED_CATALOGS);
+                case FILE -> {
+                    configBinder(binder).bindConfig(StaticCatalogManagerConfig.class);
+                    binder.bind(CatalogStore.class).to(FileCatalogStore.class).in(Scopes.SINGLETON);
+                }
             }
+            binder.bind(ConnectorServicesProvider.class).to(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
+            binder.bind(CatalogManager.class).to(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
+            binder.bind(CoordinatorLazyRegister.class).asEagerSingleton();
         }
-        binder.bind(ConnectorServicesProvider.class).to(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
-        binder.bind(CatalogManager.class).to(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
-        binder.bind(CoordinatorLazyRegister.class).asEagerSingleton();
+        else {
+            binder.bind(WorkerDynamicCatalogManager.class).in(Scopes.SINGLETON);
+            binder.bind(ConnectorServicesProvider.class).to(WorkerDynamicCatalogManager.class).in(Scopes.SINGLETON);
+            // catalog manager is not registered on worker
+            binder.bind(WorkerLazyRegister.class).asEagerSingleton();
+        }
     }
 
     private static class CoordinatorLazyRegister
@@ -51,6 +60,20 @@ public class DynamicCatalogManagerModule
                 DefaultCatalogFactory defaultCatalogFactory,
                 LazyCatalogFactory lazyCatalogFactory,
                 CoordinatorDynamicCatalogManager catalogManager,
+                GlobalSystemConnector globalSystemConnector)
+        {
+            lazyCatalogFactory.setCatalogFactory(defaultCatalogFactory);
+            catalogManager.registerGlobalSystemConnector(globalSystemConnector);
+        }
+    }
+
+    private static class WorkerLazyRegister
+    {
+        @Inject
+        public WorkerLazyRegister(
+                DefaultCatalogFactory defaultCatalogFactory,
+                LazyCatalogFactory lazyCatalogFactory,
+                WorkerDynamicCatalogManager catalogManager,
                 GlobalSystemConnector globalSystemConnector)
         {
             lazyCatalogFactory.setCatalogFactory(defaultCatalogFactory);

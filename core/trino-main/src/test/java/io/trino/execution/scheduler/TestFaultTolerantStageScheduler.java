@@ -1046,6 +1046,7 @@ public class TestFaultTolerantStageScheduler
                 ImmutableList.of(TABLE_SCAN_NODE_ID),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(probeColumnSymbol, buildColumnSymbol)),
                 StatsAndCosts.empty(),
+                ImmutableList.of(),
                 Optional.empty());
     }
 

@@ -39,6 +39,8 @@ import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogHandle;
+import io.trino.connector.CatalogManagerConfig;
+import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
@@ -133,17 +135,22 @@ public class Server
 
             injector.getInstance(PluginManager.class).loadPlugins();
 
-            injector.getInstance(ConnectorServicesProvider.class).loadInitialCatalogs();
+            ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
+            connectorServicesProvider.loadInitialCatalogs();
 
+            // Only static catalog manager announces catalogs
             // Connector event listeners are only supported for statically loaded catalogs
             // TODO: remove connector event listeners or add support for dynamic loading from connector
-            addConnectorEventListeners(
-                    injector.getInstance(CatalogManager.class),
-                    injector.getInstance(ConnectorServicesProvider.class),
-                    injector.getInstance(EventListenerManager.class));
+            if (injector.getInstance(CatalogManagerConfig.class).getCatalogMangerKind() == CatalogMangerKind.STATIC) {
+                CatalogManager catalogManager = injector.getInstance(CatalogManager.class);
+                addConnectorEventListeners(
+                        catalogManager,
+                        injector.getInstance(ConnectorServicesProvider.class),
+                        injector.getInstance(EventListenerManager.class));
 
-            // TODO: remove this huge hack
-            updateConnectorIds(injector.getInstance(Announcer.class), injector.getInstance(CatalogManager.class));
+                // TODO: remove this huge hack
+                updateConnectorIds(injector.getInstance(Announcer.class), catalogManager);
+            }
 
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();

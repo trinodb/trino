@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.connector.CatalogHandle;
+import io.trino.connector.CatalogProperties;
 
 import java.util.Map;
 import java.util.Optional;
@@ -37,7 +38,13 @@ public interface CatalogManager
         }
 
         @Override
-        public CatalogHandle createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+        public Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
         {
             throw new UnsupportedOperationException();
         }
@@ -47,5 +54,7 @@ public interface CatalogManager
 
     Optional<Catalog> getCatalog(String catalogName);
 
-    CatalogHandle createCatalog(String catalogName, String connectorName, Map<String, String> properties);
+    Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle);
+
+    void createCatalog(String catalogName, String connectorName, Map<String, String> properties);
 }

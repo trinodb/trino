@@ -183,6 +183,7 @@ public class TestSqlStage
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
                 StatsAndCosts.empty(),
+                ImmutableList.of(),
                 Optional.empty());
     }
 }
