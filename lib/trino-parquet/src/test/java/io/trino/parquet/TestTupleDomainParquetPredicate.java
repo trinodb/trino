@@ -69,6 +69,7 @@ import static io.trino.parquet.predicate.TupleDomainParquetPredicate.getDomain;
 import static io.trino.spi.predicate.Domain.all;
 import static io.trino.spi.predicate.Domain.create;
 import static io.trino.spi.predicate.Domain.notNull;
+import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
@@ -610,6 +611,39 @@ public class TestTupleDomainParquetPredicate
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
         DictionaryPage page = new DictionaryPage(Slices.wrappedBuffer(new byte[] {0, 0, 0, 0}), 1, PLAIN_DICTIONARY);
         assertTrue(parquetPredicate.matches(new DictionaryDescriptor(column, Optional.of(page))));
+    }
+
+    @Test
+    public void testEmptyDictionary()
+    {
+        ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"path"}, Types.optional(BINARY).named("Test column"), 0, 0);
+        RichColumnDescriptor column = new RichColumnDescriptor(columnDescriptor, new PrimitiveType(OPTIONAL, BINARY, "Test column"));
+        ColumnDescriptor descriptor = new ColumnDescriptor(column.getPath(), column.getPrimitiveType(), 0, 0);
+        VarcharType type = createVarcharType(255);
+
+        DictionaryPage dictionary = new DictionaryPage(EMPTY_SLICE, 0, PLAIN_DICTIONARY);
+        TupleDomainParquetPredicate predicate;
+
+        // only non-nulls allowed
+        predicate = new TupleDomainParquetPredicate(
+                withColumnDomains(singletonMap(descriptor, notNull(type))),
+                singletonList(column),
+                UTC);
+        assertFalse(predicate.matches(new DictionaryDescriptor(column, Optional.of(dictionary))));
+
+        // only nulls allowed
+        predicate = new TupleDomainParquetPredicate(
+                withColumnDomains(singletonMap(descriptor, onlyNull(type))),
+                singletonList(column),
+                UTC);
+        assertTrue(predicate.matches(new DictionaryDescriptor(column, Optional.of(dictionary))));
+
+        // mixed non-nulls and nulls allowed
+        predicate = new TupleDomainParquetPredicate(
+                withColumnDomains(singletonMap(descriptor, singleValue(type, EMPTY_SLICE, true))),
+                singletonList(column),
+                UTC);
+        assertTrue(predicate.matches(new DictionaryDescriptor(column, Optional.of(dictionary))));
     }
 
     @Test
