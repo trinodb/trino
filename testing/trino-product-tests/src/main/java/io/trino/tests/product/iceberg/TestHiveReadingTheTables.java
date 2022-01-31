@@ -26,7 +26,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.ICEBERG;
-import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -49,7 +48,7 @@ public class TestHiveReadingTheTables
         onTrino().executeQuery("DROP SCHEMA iceberg.iceberg");
     }
 
-    @Test(groups = { ICEBERG, STORAGE_FORMATS })
+    @Test(groups = ICEBERG)
     public void testCreateTableWithHiveSupportEnabled()
     {
         String tableName = "iceberg.iceberg.test_table";
@@ -64,7 +63,7 @@ public class TestHiveReadingTheTables
         }
     }
 
-    @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    @Test(groups = ICEBERG)
     public void testCreateTableWithHiveSupportDisabled()
     {
         String tableName = "iceberg.iceberg.test_table";
@@ -80,7 +79,7 @@ public class TestHiveReadingTheTables
         }
     }
 
-    @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    @Test(groups = ICEBERG)
     public void testByDefaultTableShouldHasHiveEnabledSetToFalse()
     {
         String tableName = "iceberg.iceberg.test_table";
@@ -96,7 +95,7 @@ public class TestHiveReadingTheTables
         }
     }
 
-    @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    @Test(groups = ICEBERG)
     public void testReadingHiveCreatedIcebergTable()
     {
         String tableName = "iceberg.iceberg.test_table";
@@ -116,7 +115,7 @@ public class TestHiveReadingTheTables
         }
     }
 
-    @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    @Test(groups = ICEBERG)
     public void testCreatedModifiedTableByTrinoTable()
     {
         String tableName = "iceberg.iceberg.test_table";
@@ -145,7 +144,7 @@ public class TestHiveReadingTheTables
         }
     }
 
-    @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    @Test(groups = ICEBERG)
     public void testCreatedModifiedTableByTrinoWithDifferentDataTypes()
     {
         String tableName = "iceberg.iceberg.test_table";
@@ -179,7 +178,7 @@ public class TestHiveReadingTheTables
         }
     }
 
-    @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    @Test(groups = ICEBERG)
     public void testPropertiesAndSerdeAssignedINHMS()
     {
         String enabledTableName = "iceberg.iceberg.hive_enabled";
