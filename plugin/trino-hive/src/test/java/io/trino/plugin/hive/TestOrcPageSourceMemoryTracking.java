@@ -467,7 +467,7 @@ public class TestOrcPageSourceMemoryTracking
 
             // memory usage varies depending on stripe alignment
             long memoryUsage = driverContext.getMemoryUsage();
-            assertTrue(memoryUsage < 1000 || (memoryUsage > 350_000L && memoryUsage < 465_000L));
+            assertTrue(memoryUsage < 1000 || (memoryUsage > 150_000 && memoryUsage < 630_000), format("Memory usage (%s) outside of bounds", memoryUsage));
 
             totalRows += page.getPositionCount();
         }
