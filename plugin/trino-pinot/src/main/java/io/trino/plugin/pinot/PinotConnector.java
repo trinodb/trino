@@ -14,7 +14,6 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -28,7 +27,6 @@ import io.trino.spi.transaction.IsolationLevel;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -57,17 +55,6 @@ public class PinotConnector
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
         this.sessionProperties = requireNonNull(pinotSessionProperties, "pinotSessionProperties is null");
-    }
-
-    @Override
-    public Set<Class<?>> getHandleClasses()
-    {
-        return ImmutableSet.<Class<?>>builder()
-                .add(PinotTableHandle.class)
-                .add(PinotColumnHandle.class)
-                .add(PinotSplit.class)
-                .add(PinotTransactionHandle.class)
-                .build();
     }
 
     @Override

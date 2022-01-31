@@ -14,7 +14,6 @@
 package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
@@ -116,20 +115,6 @@ public class RaptorConnector
         if (coordinator) {
             dao.unblockAllMaintenance();
         }
-    }
-
-    @Override
-    public Set<Class<?>> getHandleClasses()
-    {
-        return ImmutableSet.<Class<?>>builder()
-                .add(RaptorTableHandle.class)
-                .add(RaptorColumnHandle.class)
-                .add(RaptorSplit.class)
-                .add(RaptorOutputTableHandle.class)
-                .add(RaptorInsertTableHandle.class)
-                .add(RaptorPartitioningHandle.class)
-                .add(RaptorTransactionHandle.class)
-                .build();
     }
 
     @Override

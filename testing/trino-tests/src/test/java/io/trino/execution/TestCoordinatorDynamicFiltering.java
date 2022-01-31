@@ -15,7 +15,6 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpcds.TpcdsPlugin;
@@ -46,10 +45,8 @@ import io.trino.spi.transaction.IsolationLevel;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingHandle;
 import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingPageSinkProvider;
-import io.trino.testing.TestingSplit;
 import io.trino.testing.TestingTransactionHandle;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
@@ -440,18 +437,6 @@ public class TestCoordinatorDynamicFiltering
         private TestConnector(ConnectorMetadata metadata)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
-        }
-
-        @Override
-        public Set<Class<?>> getHandleClasses()
-        {
-            return ImmutableSet.<Class<?>>builder()
-                    .add(TestingMetadata.TestingTableHandle.class)
-                    .add(TestingMetadata.TestingColumnHandle.class)
-                    .add(TestingSplit.class)
-                    .add(TestingHandle.class)
-                    .add(TestingTransactionHandle.class)
-                    .build();
         }
 
         @Override

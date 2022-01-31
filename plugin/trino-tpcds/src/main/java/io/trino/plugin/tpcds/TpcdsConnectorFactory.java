@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.tpcds;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -26,7 +25,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.Map;
-import java.util.Set;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -62,18 +60,6 @@ public class TpcdsConnectorFactory
         NodeManager nodeManager = context.getNodeManager();
         return new Connector()
         {
-            @Override
-            public Set<Class<?>> getHandleClasses()
-            {
-                return ImmutableSet.<Class<?>>builder()
-                        .add(TpcdsTableHandle.class)
-                        .add(TpcdsColumnHandle.class)
-                        .add(TpcdsSplit.class)
-                        .add(TpcdsPartitioningHandle.class)
-                        .add(TpcdsTransactionHandle.class)
-                        .build();
-            }
-
             @Override
             public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
             {

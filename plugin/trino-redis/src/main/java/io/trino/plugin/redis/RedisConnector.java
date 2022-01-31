@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.redis;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
@@ -22,8 +21,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
-
-import java.util.Set;
 
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -49,17 +46,6 @@ public class RedisConnector
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
-    }
-
-    @Override
-    public Set<Class<?>> getHandleClasses()
-    {
-        return ImmutableSet.<Class<?>>builder()
-                .add(RedisTableHandle.class)
-                .add(RedisColumnHandle.class)
-                .add(RedisSplit.class)
-                .add(RedisTransactionHandle.class)
-                .build();
     }
 
     @Override
