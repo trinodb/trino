@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.prometheus;
 
-import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.trino.spi.connector.Connector;
@@ -24,8 +23,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
-
-import java.util.Set;
 
 import static io.trino.plugin.prometheus.PrometheusTransactionHandle.INSTANCE;
 import static java.util.Objects.requireNonNull;
@@ -51,17 +48,6 @@ public class PrometheusConnector
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
-    }
-
-    @Override
-    public Set<Class<?>> getHandleClasses()
-    {
-        return ImmutableSet.<Class<?>>builder()
-                .add(PrometheusTableHandle.class)
-                .add(PrometheusColumnHandle.class)
-                .add(PrometheusSplit.class)
-                .add(PrometheusTransactionHandle.class)
-                .build();
     }
 
     @Override

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.thrift;
 
-import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorIndexProvider;
@@ -27,7 +26,6 @@ import io.trino.spi.transaction.IsolationLevel;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -56,18 +54,6 @@ public class ThriftConnector
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.indexProvider = requireNonNull(indexProvider, "indexProvider is null");
-    }
-
-    @Override
-    public Set<Class<?>> getHandleClasses()
-    {
-        return ImmutableSet.<Class<?>>builder()
-                .add(ThriftTableHandle.class)
-                .add(ThriftColumnHandle.class)
-                .add(ThriftConnectorSplit.class)
-                .add(ThriftIndexHandle.class)
-                .add(ThriftTransactionHandle.class)
-                .build();
     }
 
     @Override

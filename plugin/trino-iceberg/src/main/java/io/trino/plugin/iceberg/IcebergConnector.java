@@ -19,7 +19,6 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveTransactionHandle;
-import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -97,20 +96,6 @@ public class IcebergConnector
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.tableProcedures = ImmutableSet.copyOf(requireNonNull(tableProcedures, "tableProcedures is null"));
-    }
-
-    @Override
-    public Set<Class<?>> getHandleClasses()
-    {
-        return ImmutableSet.<Class<?>>builder()
-                .add(IcebergTableHandle.class)
-                .add(IcebergColumnHandle.class)
-                .add(IcebergSplit.class)
-                .add(IcebergWritableTableHandle.class)
-                .add(IcebergTableExecuteHandle.class)
-                .add(IcebergPartitioningHandle.class)
-                .add(HiveTransactionHandle.class)
-                .build();
     }
 
     @Override

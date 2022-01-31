@@ -19,7 +19,6 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Collections.emptyList;
@@ -27,24 +26,6 @@ import static java.util.Collections.emptySet;
 
 public interface Connector
 {
-    /**
-     * @deprecated use {@link #getHandleClasses()}
-     */
-    @Deprecated
-    default Optional<ConnectorHandleResolver> getHandleResolver()
-    {
-        return Optional.empty();
-    }
-
-    /**
-     * Get all handle classes implemented by the connector.
-     * Every handle returned to the engine must be included.
-     */
-    default Set<Class<?>> getHandleClasses()
-    {
-        return emptySet();
-    }
-
     /**
      * @deprecated use {@link #beginTransaction(IsolationLevel, boolean, boolean)}
      */
