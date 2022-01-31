@@ -13,11 +13,20 @@
  */
 package io.trino.cost;
 
+import io.trino.sql.planner.Symbol;
+import io.trino.util.MoreMath;
+
+import java.util.List;
+import java.util.Map;
+
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static java.lang.Double.max;
 import static java.lang.Double.min;
+import static java.util.Comparator.comparingDouble;
 import static java.util.stream.Stream.concat;
 
 public final class PlanNodeStatsEstimateMath
@@ -133,6 +142,83 @@ public final class PlanNodeStatsEstimateMath
         });
 
         return result.build();
+    }
+
+    public static Map<Symbol, SymbolStatsEstimate> intersectCorrelatedStats(List<PlanNodeStatsEstimate> estimates)
+    {
+        checkArgument(!estimates.isEmpty(), "estimates is empty");
+        if (estimates.size() == 1) {
+            return estimates.get(0).getSymbolStatistics();
+        }
+        PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+        // Update statistic range for symbols
+        estimates.stream().flatMap(estimate -> estimate.getSymbolsWithKnownStatistics().stream())
+                .distinct()
+                .forEach(symbol -> {
+                    List<SymbolStatsEstimate> symbolStatsEstimates = estimates.stream()
+                            .map(estimate -> estimate.getSymbolStatistics(symbol))
+                            .collect(toImmutableList());
+
+                    StatisticRange intersect = symbolStatsEstimates.stream()
+                            .map(StatisticRange::from)
+                            .reduce(StatisticRange::intersect)
+                            .orElseThrow();
+
+                    // intersectCorrelatedStats should try produce stats as if filters are applied in sequence.
+                    // Using min works for filters like (a > 10 AND b < 10), but won't work for
+                    // (a > 10 AND b IS NULL). However, former case is more common.
+                    double nullsFraction = symbolStatsEstimates.stream()
+                            .map(SymbolStatsEstimate::getNullsFraction)
+                            .reduce(MoreMath::minExcludeNaN)
+                            .orElseThrow();
+
+                    double averageRowSize = symbolStatsEstimates.stream()
+                            .map(SymbolStatsEstimate::getAverageRowSize)
+                            .reduce(MoreMath::averageExcludingNaNs)
+                            .orElseThrow();
+
+                    result.addSymbolStatistics(symbol, SymbolStatsEstimate.builder()
+                            .setStatisticsRange(intersect)
+                            .setNullsFraction(nullsFraction)
+                            .setAverageRowSize(averageRowSize)
+                            .build());
+                });
+        return result.build().getSymbolStatistics();
+    }
+
+    public static double estimateCorrelatedConjunctionRowCount(
+            PlanNodeStatsEstimate input,
+            List<PlanNodeStatsEstimate> estimates,
+            double independenceFactor)
+    {
+        checkArgument(!estimates.isEmpty(), "estimates is empty");
+        if (input.isOutputRowCountUnknown() || input.getOutputRowCount() == 0) {
+            return input.getOutputRowCount();
+        }
+        List<PlanNodeStatsEstimate> knownSortedEstimates = estimates.stream()
+                .filter(estimateInfo -> !estimateInfo.isOutputRowCountUnknown())
+                .sorted(comparingDouble(PlanNodeStatsEstimate::getOutputRowCount))
+                .collect(toImmutableList());
+        if (knownSortedEstimates.isEmpty()) {
+            return NaN;
+        }
+
+        PlanNodeStatsEstimate combinedEstimate = knownSortedEstimates.get(0);
+        double combinedSelectivity = combinedEstimate.getOutputRowCount() / input.getOutputRowCount();
+        double combinedIndependenceFactor = 1.0;
+        // For independenceFactor = 0.75 and terms t1, t2, t3
+        // Combined selectivity = (t1 selectivity) * ((t2 selectivity) ^ 0.75) * ((t3 selectivity) ^ (0.75 * 0.75))
+        // independenceFactor = 1 implies the terms are assumed to have no correlation and their selectivities are multiplied without scaling.
+        // independenceFactor = 0 implies the terms are assumed to be fully correlated and only the most selective term drives the selectivity.
+        for (int i = 1; i < knownSortedEstimates.size(); i++) {
+            PlanNodeStatsEstimate term = knownSortedEstimates.get(i);
+            combinedIndependenceFactor *= independenceFactor;
+            combinedSelectivity *= Math.pow(term.getOutputRowCount() / input.getOutputRowCount(), combinedIndependenceFactor);
+        }
+        double outputRowCount = input.getOutputRowCount() * combinedSelectivity;
+        // TODO use UNKNOWN_FILTER_COEFFICIENT only when default-filter-factor is enabled
+        boolean hasUnestimatedTerm = estimates.stream().anyMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown);
+        return hasUnestimatedTerm ? outputRowCount * UNKNOWN_FILTER_COEFFICIENT : outputRowCount;
     }
 
     private static PlanNodeStatsEstimate createZeroStats(PlanNodeStatsEstimate stats)

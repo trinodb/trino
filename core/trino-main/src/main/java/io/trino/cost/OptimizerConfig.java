@@ -19,6 +19,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -43,6 +44,7 @@ public class OptimizerConfig
     private boolean collectPlanStatisticsForAllQueries;
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean defaultFilterFactorEnabled;
+    private double filterConjunctionIndependenceFactor = 0.75;
 
     private boolean colocatedJoinsEnabled;
     private boolean distributedIndexJoinsEnabled;
@@ -251,6 +253,21 @@ public class OptimizerConfig
     public OptimizerConfig setDefaultFilterFactorEnabled(boolean defaultFilterFactorEnabled)
     {
         this.defaultFilterFactorEnabled = defaultFilterFactorEnabled;
+        return this;
+    }
+
+    @Min(0)
+    @Max(1)
+    public double getFilterConjunctionIndependenceFactor()
+    {
+        return filterConjunctionIndependenceFactor;
+    }
+
+    @Config("optimizer.filter-conjunction-independence-factor")
+    @ConfigDescription("Scales the strength of independence assumption for selectivity estimates of the conjunction of multiple filters")
+    public OptimizerConfig setFilterConjunctionIndependenceFactor(double filterConjunctionIndependenceFactor)
+    {
+        this.filterConjunctionIndependenceFactor = filterConjunctionIndependenceFactor;
         return this;
     }
 

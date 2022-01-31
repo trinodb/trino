@@ -14,6 +14,7 @@
 package io.trino.cost;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
@@ -39,6 +40,7 @@ import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
@@ -48,7 +50,6 @@ import io.trino.sql.tree.SymbolReference;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,10 +58,13 @@ import java.util.OptionalDouble;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getFilterConjunctionIndependenceFactor;
 import static io.trino.cost.ComparisonStatsCalculator.estimateExpressionToExpressionComparison;
 import static io.trino.cost.ComparisonStatsCalculator.estimateExpressionToLiteralComparison;
 import static io.trino.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
 import static io.trino.cost.PlanNodeStatsEstimateMath.capStats;
+import static io.trino.cost.PlanNodeStatsEstimateMath.estimateCorrelatedConjunctionRowCount;
+import static io.trino.cost.PlanNodeStatsEstimateMath.intersectCorrelatedStats;
 import static io.trino.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -137,7 +141,14 @@ public class FilterStatsCalculator
         @Override
         public PlanNodeStatsEstimate process(Node node, @Nullable Void context)
         {
-            return normalizer.normalize(super.process(node, context), types);
+            PlanNodeStatsEstimate output;
+            if (input.getOutputRowCount() == 0 || input.isOutputRowCountUnknown()) {
+                output = input;
+            }
+            else {
+                output = super.process(node, context);
+            }
+            return normalizer.normalize(output, types);
         }
 
         @Override
@@ -169,35 +180,93 @@ public class FilterStatsCalculator
 
         private PlanNodeStatsEstimate estimateLogicalAnd(List<Expression> terms)
         {
-            // first try to estimate in the fair way
-            PlanNodeStatsEstimate estimate = process(terms.get(0));
-            if (!estimate.isOutputRowCountUnknown()) {
-                for (int i = 1; i < terms.size(); i++) {
-                    estimate = new FilterExpressionStatsCalculatingVisitor(estimate, session, types).process(terms.get(i));
-
-                    if (estimate.isOutputRowCountUnknown()) {
-                        break;
-                    }
-                }
-
-                if (!estimate.isOutputRowCountUnknown()) {
-                    return estimate;
-                }
-            }
-
-            // If some of the filters cannot be estimated, take the smallest estimate.
-            // Apply 0.9 filter factor as "unknown filter" factor.
-            Optional<PlanNodeStatsEstimate> smallest = terms.stream()
-                    .map(this::process)
-                    .filter(termEstimate -> !termEstimate.isOutputRowCountUnknown())
-                    .sorted(Comparator.comparingDouble(PlanNodeStatsEstimate::getOutputRowCount))
-                    .findFirst();
-
-            if (smallest.isEmpty()) {
+            double filterConjunctionIndependenceFactor = getFilterConjunctionIndependenceFactor(session);
+            List<PlanNodeStatsEstimate> estimates = estimateCorrelatedExpressions(terms, filterConjunctionIndependenceFactor);
+            double outputRowCount = estimateCorrelatedConjunctionRowCount(
+                    input,
+                    estimates,
+                    filterConjunctionIndependenceFactor);
+            if (isNaN(outputRowCount)) {
                 return PlanNodeStatsEstimate.unknown();
             }
+            return normalizer.normalize(new PlanNodeStatsEstimate(outputRowCount, intersectCorrelatedStats(estimates)), types);
+        }
 
-            return smallest.get().mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT);
+        /**
+         * There can be multiple predicate expressions for the same symbol, e.g. x > 0 AND x <= 1, x BETWEEN 1 AND 10.
+         * We attempt to detect such cases in extractUncorrelatedGroups and calculate a combined estimate for each
+         * such group of expressions. This is done so that we don't apply the above scaling factors when combining estimates
+         * from conjunction of multiple predicates on the same symbol and underestimate the output.
+         **/
+        private List<PlanNodeStatsEstimate> estimateCorrelatedExpressions(List<Expression> terms, double filterConjunctionIndependenceFactor)
+        {
+            ImmutableList.Builder<PlanNodeStatsEstimate> estimatesBuilder = ImmutableList.builder();
+            boolean hasUnestimatedTerm = false;
+            for (List<Expression> uncorrelatedExpressions : extractUncorrelatedGroups(terms, filterConjunctionIndependenceFactor)) {
+                PlanNodeStatsEstimate combinedEstimate = PlanNodeStatsEstimate.unknown();
+                for (Expression expression : uncorrelatedExpressions) {
+                    PlanNodeStatsEstimate estimate;
+                    // combinedEstimate is unknown until the 1st known estimated term
+                    if (combinedEstimate.isOutputRowCountUnknown()) {
+                        estimate = process(expression);
+                    }
+                    else {
+                        estimate = new FilterExpressionStatsCalculatingVisitor(combinedEstimate, session, types)
+                                .process(expression);
+                    }
+
+                    if (estimate.isOutputRowCountUnknown()) {
+                        hasUnestimatedTerm = true;
+                    }
+                    else {
+                        // update combinedEstimate only when the term estimate is known so that all the known estimates
+                        // can be applied progressively through FilterExpressionStatsCalculatingVisitor calls.
+                        combinedEstimate = estimate;
+                    }
+                }
+                estimatesBuilder.add(combinedEstimate);
+            }
+            if (hasUnestimatedTerm) {
+                estimatesBuilder.add(PlanNodeStatsEstimate.unknown());
+            }
+            return estimatesBuilder.build();
+        }
+
+        private List<List<Expression>> extractUncorrelatedGroups(List<Expression> terms, double filterConjunctionIndependenceFactor)
+        {
+            if (filterConjunctionIndependenceFactor == 1) {
+                // Allows the filters to be estimated as if there is no correlation between any of the terms
+                return ImmutableList.of(terms);
+            }
+            ArrayListMultimap<Expression, Expression> groupedExpressions = ArrayListMultimap.create();
+            for (Expression expression : terms) {
+                // group expressions by common terms on LHS
+                if (expression instanceof ComparisonExpression) {
+                    ComparisonExpression normalized = normalize((ComparisonExpression) expression);
+                    groupedExpressions.put(normalized.getLeft(), normalized);
+                }
+                else if (expression instanceof InPredicate) {
+                    groupedExpressions.put(((InPredicate) expression).getValue(), expression);
+                }
+                else if (expression instanceof NotExpression) {
+                    groupedExpressions.put(((NotExpression) expression).getValue(), expression);
+                }
+                else if (expression instanceof LikePredicate) {
+                    groupedExpressions.put(((LikePredicate) expression).getValue(), expression);
+                }
+                else if (expression instanceof IsNotNullPredicate) {
+                    groupedExpressions.put(((IsNotNullPredicate) expression).getValue(), expression);
+                }
+                else if (expression instanceof IsNullPredicate) {
+                    groupedExpressions.put(((IsNullPredicate) expression).getValue(), expression);
+                }
+                else {
+                    groupedExpressions.put(expression, expression);
+                }
+            }
+            return groupedExpressions.keySet().stream()
+                    .map(groupedExpressions::get)
+                    .collect(toImmutableList());
         }
 
         private PlanNodeStatsEstimate estimateLogicalOr(List<Expression> terms)
@@ -349,22 +418,12 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitComparisonExpression(ComparisonExpression node, Void context)
         {
-            ComparisonExpression.Operator operator = node.getOperator();
-            Expression left = node.getLeft();
-            Expression right = node.getRight();
+            checkArgument(!(isEffectivelyLiteral(node.getLeft()) && isEffectivelyLiteral(node.getRight())), "Literal-to-literal not supported here, should be eliminated earlier");
 
-            checkArgument(!(isEffectivelyLiteral(left) && isEffectivelyLiteral(right)), "Literal-to-literal not supported here, should be eliminated earlier");
-
-            if (!(left instanceof SymbolReference) && right instanceof SymbolReference) {
-                // normalize so that symbol is on the left
-                return process(new ComparisonExpression(operator.flip(), right, left));
-            }
-
-            if (isEffectivelyLiteral(left)) {
-                verify(!isEffectivelyLiteral(right));
-                // normalize so that literal is on the right
-                return process(new ComparisonExpression(operator.flip(), right, left));
-            }
+            ComparisonExpression normalized = normalize(node);
+            ComparisonExpression.Operator operator = normalized.getOperator();
+            Expression left = normalized.getLeft();
+            Expression right = normalized.getRight();
 
             if (left instanceof SymbolReference && left.equals(right)) {
                 return process(new IsNotNullPredicate(left));
@@ -440,6 +499,26 @@ public class FilterStatsCalculator
                     new AllowAllAccessControl(),
                     ImmutableMap.of());
             return toStatsRepresentation(type, literalValue);
+        }
+
+        private ComparisonExpression normalize(ComparisonExpression node)
+        {
+            ComparisonExpression.Operator operator = node.getOperator();
+            Expression left = node.getLeft();
+            Expression right = node.getRight();
+
+            if (!(left instanceof SymbolReference) && right instanceof SymbolReference) {
+                // normalize so that symbol is on the left
+                return new ComparisonExpression(operator.flip(), right, left);
+            }
+
+            if (isEffectivelyLiteral(left)) {
+                verify(!isEffectivelyLiteral(right));
+                // normalize so that literal is on the right
+                return new ComparisonExpression(operator.flip(), right, left);
+            }
+
+            return node;
         }
     }
 }
