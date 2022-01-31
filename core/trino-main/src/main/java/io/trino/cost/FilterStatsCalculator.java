@@ -14,8 +14,10 @@
 package io.trino.cost;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ListMultimap;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.security.AllowAllAccessControl;
@@ -44,23 +46,29 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.util.DisjointSet;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.Set;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getFilterConjunctionIndependenceFactor;
 import static io.trino.cost.ComparisonStatsCalculator.estimateExpressionToExpressionComparison;
 import static io.trino.cost.ComparisonStatsCalculator.estimateExpressionToLiteralComparison;
 import static io.trino.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
 import static io.trino.cost.PlanNodeStatsEstimateMath.capStats;
+import static io.trino.cost.PlanNodeStatsEstimateMath.estimateCorrelatedConjunctionRowCount;
+import static io.trino.cost.PlanNodeStatsEstimateMath.intersectCorrelatedStats;
 import static io.trino.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -68,6 +76,7 @@ import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.ExpressionUtils.getExpressionTypes;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
@@ -137,7 +146,14 @@ public class FilterStatsCalculator
         @Override
         public PlanNodeStatsEstimate process(Node node, @Nullable Void context)
         {
-            return normalizer.normalize(super.process(node, context), types);
+            PlanNodeStatsEstimate output;
+            if (input.getOutputRowCount() == 0 || input.isOutputRowCountUnknown()) {
+                output = input;
+            }
+            else {
+                output = super.process(node, context);
+            }
+            return normalizer.normalize(output, types);
         }
 
         @Override
@@ -169,35 +185,56 @@ public class FilterStatsCalculator
 
         private PlanNodeStatsEstimate estimateLogicalAnd(List<Expression> terms)
         {
-            // first try to estimate in the fair way
-            PlanNodeStatsEstimate estimate = process(terms.get(0));
-            if (!estimate.isOutputRowCountUnknown()) {
-                for (int i = 1; i < terms.size(); i++) {
-                    estimate = new FilterExpressionStatsCalculatingVisitor(estimate, session, types).process(terms.get(i));
-
-                    if (estimate.isOutputRowCountUnknown()) {
-                        break;
-                    }
-                }
-
-                if (!estimate.isOutputRowCountUnknown()) {
-                    return estimate;
-                }
-            }
-
-            // If some of the filters cannot be estimated, take the smallest estimate.
-            // Apply 0.9 filter factor as "unknown filter" factor.
-            Optional<PlanNodeStatsEstimate> smallest = terms.stream()
-                    .map(this::process)
-                    .filter(termEstimate -> !termEstimate.isOutputRowCountUnknown())
-                    .sorted(Comparator.comparingDouble(PlanNodeStatsEstimate::getOutputRowCount))
-                    .findFirst();
-
-            if (smallest.isEmpty()) {
+            double filterConjunctionIndependenceFactor = getFilterConjunctionIndependenceFactor(session);
+            List<PlanNodeStatsEstimate> estimates = estimateCorrelatedExpressions(terms, filterConjunctionIndependenceFactor);
+            double outputRowCount = estimateCorrelatedConjunctionRowCount(
+                    input,
+                    estimates,
+                    filterConjunctionIndependenceFactor);
+            if (isNaN(outputRowCount)) {
                 return PlanNodeStatsEstimate.unknown();
             }
+            return normalizer.normalize(new PlanNodeStatsEstimate(outputRowCount, intersectCorrelatedStats(estimates)), types);
+        }
 
-            return smallest.get().mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT);
+        /**
+         * There can be multiple predicate expressions for the same symbol, e.g. x > 0 AND x <= 1, x BETWEEN 1 AND 10.
+         * We attempt to detect such cases in extractCorrelatedGroups and calculate a combined estimate for each
+         * such group of expressions. This is done so that we don't apply the above scaling factors when combining estimates
+         * from conjunction of multiple predicates on the same symbol and underestimate the output.
+         **/
+        private List<PlanNodeStatsEstimate> estimateCorrelatedExpressions(List<Expression> terms, double filterConjunctionIndependenceFactor)
+        {
+            ImmutableList.Builder<PlanNodeStatsEstimate> estimatesBuilder = ImmutableList.builder();
+            boolean hasUnestimatedTerm = false;
+            for (List<Expression> correlatedExpressions : extractCorrelatedGroups(terms, filterConjunctionIndependenceFactor)) {
+                PlanNodeStatsEstimate combinedEstimate = PlanNodeStatsEstimate.unknown();
+                for (Expression expression : correlatedExpressions) {
+                    PlanNodeStatsEstimate estimate;
+                    // combinedEstimate is unknown until the 1st known estimated term
+                    if (combinedEstimate.isOutputRowCountUnknown()) {
+                        estimate = process(expression);
+                    }
+                    else {
+                        estimate = new FilterExpressionStatsCalculatingVisitor(combinedEstimate, session, types)
+                                .process(expression);
+                    }
+
+                    if (estimate.isOutputRowCountUnknown()) {
+                        hasUnestimatedTerm = true;
+                    }
+                    else {
+                        // update combinedEstimate only when the term estimate is known so that all the known estimates
+                        // can be applied progressively through FilterExpressionStatsCalculatingVisitor calls.
+                        combinedEstimate = estimate;
+                    }
+                }
+                estimatesBuilder.add(combinedEstimate);
+            }
+            if (hasUnestimatedTerm) {
+                estimatesBuilder.add(PlanNodeStatsEstimate.unknown());
+            }
+            return estimatesBuilder.build();
         }
 
         private PlanNodeStatsEstimate estimateLogicalOr(List<Expression> terms)
@@ -441,5 +478,54 @@ public class FilterStatsCalculator
                     ImmutableMap.of());
             return toStatsRepresentation(type, literalValue);
         }
+    }
+
+    private static List<List<Expression>> extractCorrelatedGroups(List<Expression> terms, double filterConjunctionIndependenceFactor)
+    {
+        if (filterConjunctionIndependenceFactor == 1) {
+            // Allows the filters to be estimated as if there is no correlation between any of the terms
+            return ImmutableList.of(terms);
+        }
+
+        ListMultimap<Expression, Symbol> expressionUniqueSymbols = ArrayListMultimap.create();
+        terms.forEach(expression -> expressionUniqueSymbols.putAll(expression, extractUnique(expression)));
+        // Partition symbols into disjoint sets such that the symbols belonging to different disjoint sets
+        // do not appear together in any expression.
+        DisjointSet<Symbol> symbolsPartitioner = new DisjointSet<>();
+        for (Expression term : terms) {
+            List<Symbol> expressionSymbols = expressionUniqueSymbols.get(term);
+            if (expressionSymbols.isEmpty()) {
+                continue;
+            }
+            // Ensure that symbol is added to DisjointSet when there is only one symbol in the list
+            symbolsPartitioner.find(expressionSymbols.get(0));
+            for (int i = 1; i < expressionSymbols.size(); i++) {
+                symbolsPartitioner.findAndUnion(expressionSymbols.get(0), expressionSymbols.get(i));
+            }
+        }
+
+        // Use disjoint sets of symbols to partition the given list of expressions
+        List<Set<Symbol>> symbolPartitions = ImmutableList.copyOf(symbolsPartitioner.getEquivalentClasses());
+        checkState(symbolPartitions.size() <= terms.size(), "symbolPartitions size exceeds number of expressions");
+        ListMultimap<Integer, Expression> expressionPartitions = ArrayListMultimap.create();
+        for (Expression term : terms) {
+            List<Symbol> expressionSymbols = expressionUniqueSymbols.get(term);
+            int expressionPartitionId;
+            if (expressionSymbols.isEmpty()) {
+                expressionPartitionId = symbolPartitions.size(); // For expressions with no symbols
+            }
+            else {
+                Symbol symbol = expressionSymbols.get(0); // Lookup any symbol to find the partition id
+                expressionPartitionId = IntStream.range(0, symbolPartitions.size())
+                        .filter(partition -> symbolPartitions.get(partition).contains(symbol))
+                        .findFirst()
+                        .orElseThrow();
+            }
+            expressionPartitions.put(expressionPartitionId, term);
+        }
+
+        return expressionPartitions.keySet().stream()
+                .map(expressionPartitions::get)
+                .collect(toImmutableList());
     }
 }

@@ -146,3 +146,18 @@ Specifies minimal bucket to task ratio that has to be matched or exceeded in ord
 to use table scan node partitioning. When the table bucket count is small
 compared to the number of workers, then the table scan is distributed across
 all workers for improved parallelism.
+
+``optimizer.filter-conjunction-independence-factor``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-double`
+* **Default value:** ``0.75``
+* **Min allowed value:** ``0``
+* **Max allowed value:** ``1``
+
+Scales the strength of independence assumption for estimating the selectivity of
+the conjunction of multiple predicates. Lower values for this property will produce
+more conservative estimates by assuming a greater degree of correlation between the
+columns of the predicates in a conjunction. A value of ``0`` results in the
+optimizer assuming that the columns of the predicates are fully correlated and only
+the most selective predicate drives the selectivity of a conjunction of predicates.
