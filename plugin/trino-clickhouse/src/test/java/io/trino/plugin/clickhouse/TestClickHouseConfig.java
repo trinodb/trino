@@ -42,7 +42,8 @@ public class TestClickHouseConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ClickHouseConfig.class)
-                .setMapStringAsVarchar(false));
+                .setMapStringAsVarchar(false)
+                .setLegacyDriver(false));
     }
 
     @Test
@@ -50,10 +51,12 @@ public class TestClickHouseConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("clickhouse.map-string-as-varchar", "true")
+                .put("clickhouse.legacy-driver", "true")
                 .buildOrThrow();
 
         ClickHouseConfig expected = new ClickHouseConfig()
-                .setMapStringAsVarchar(true);
+                .setMapStringAsVarchar(true)
+                .setLegacyDriver(true);
 
         assertFullMapping(properties, expected);
     }
