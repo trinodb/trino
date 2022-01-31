@@ -19,8 +19,10 @@ import io.trino.plugin.hive.metastore.MetastoreConfig;
 import javax.inject.Inject;
 import javax.inject.Provider;
 
+import java.util.Map;
 import java.util.function.Predicate;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
 import static java.util.Objects.requireNonNull;
@@ -49,6 +51,7 @@ public class DefaultGlueMetastoreTableFilterProvider
 
     public static boolean isDeltaLakeTable(Table table)
     {
-        return table.getParameters().getOrDefault(SPARK_TABLE_PROVIDER_KEY, "").equalsIgnoreCase(DELTA_LAKE_PROVIDER);
+        Map<String, String> parameters = firstNonNull(table.getParameters(), Map.of());
+        return parameters.getOrDefault(SPARK_TABLE_PROVIDER_KEY, "").equalsIgnoreCase(DELTA_LAKE_PROVIDER);
     }
 }
