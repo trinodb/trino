@@ -65,14 +65,11 @@ public final class HandleResolver
         checkArgument(classLoader != null, "Unknown handle id: %s", id);
 
         try {
-            Class<?> handleClass = classLoader.loadClass(className);
-            if (handleClass != null) {
-                return handleClass;
-            }
+            return classLoader.loadClass(className);
         }
         catch (ClassNotFoundException ignored) {
+            throw new IllegalArgumentException("Handle ID not found: " + id);
         }
-        throw new IllegalArgumentException("Handle ID not found: " + id);
     }
 
     private static String classId(Class<?> handleClass)
