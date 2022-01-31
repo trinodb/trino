@@ -16,16 +16,21 @@ package io.trino.execution.scheduler;
 import com.google.common.collect.ImmutableSet;
 import io.trino.connector.CatalogName;
 import io.trino.spi.HostAddress;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class NodeRequirements
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(NodeRequirements.class).instanceSize();
+
     private final Optional<CatalogName> catalogName;
     private final Set<HostAddress> addresses;
 
@@ -77,5 +82,12 @@ public class NodeRequirements
                 .add("catalogName", catalogName)
                 .add("addresses", addresses)
                 .toString();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + sizeOf(catalogName, CatalogName::getRetainedSizeInBytes)
+                + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes);
     }
 }

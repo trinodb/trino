@@ -16,6 +16,7 @@ package io.trino.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
@@ -25,6 +26,8 @@ import static java.lang.Integer.parseInt;
 
 public class Lifespan
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Lifespan.class).instanceSize();
+
     private static final Lifespan TASK_WIDE = new Lifespan(false, 0);
 
     private final boolean grouped;
@@ -92,5 +95,10 @@ public class Lifespan
     public int hashCode()
     {
         return Objects.hash(grouped, groupId);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE;
     }
 }
