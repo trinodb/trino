@@ -41,17 +41,6 @@ public class GlobalSystemConnector
     }
 
     @Override
-    public Set<Class<?>> getHandleClasses()
-    {
-        return ImmutableSet.<Class<?>>builder()
-                .add(SystemTableHandle.class)
-                .add(SystemColumnHandle.class)
-                .add(SystemSplit.class)
-                .add(GlobalSystemTransactionHandle.class)
-                .build();
-    }
-
-    @Override
     public ConnectorTransactionHandle beginTransaction(TransactionId transactionId, IsolationLevel isolationLevel, boolean readOnly)
     {
         return new GlobalSystemTransactionHandle(transactionId);

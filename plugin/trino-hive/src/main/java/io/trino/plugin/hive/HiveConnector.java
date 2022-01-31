@@ -110,21 +110,6 @@ public class HiveConnector
     }
 
     @Override
-    public Set<Class<?>> getHandleClasses()
-    {
-        return ImmutableSet.<Class<?>>builder()
-                .add(HiveTableHandle.class)
-                .add(HiveColumnHandle.class)
-                .add(HiveSplit.class)
-                .add(HiveOutputTableHandle.class)
-                .add(HiveInsertTableHandle.class)
-                .add(HivePartitioningHandle.class)
-                .add(HiveTableExecuteHandle.class)
-                .add(HiveTransactionHandle.class)
-                .build();
-    }
-
-    @Override
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
     {
         ConnectorMetadata metadata = transactionManager.get(transaction);

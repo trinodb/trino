@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.memory;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -23,8 +22,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
-
-import java.util.Set;
 
 public class MemoryConnector
         implements Connector
@@ -45,19 +42,6 @@ public class MemoryConnector
         this.splitManager = splitManager;
         this.pageSourceProvider = pageSourceProvider;
         this.pageSinkProvider = pageSinkProvider;
-    }
-
-    @Override
-    public Set<Class<?>> getHandleClasses()
-    {
-        return ImmutableSet.<Class<?>>builder()
-                .add(MemoryTableHandle.class)
-                .add(MemoryColumnHandle.class)
-                .add(MemorySplit.class)
-                .add(MemoryOutputTableHandle.class)
-                .add(MemoryInsertTableHandle.class)
-                .add(MemoryTransactionHandle.class)
-                .build();
     }
 
     @Override

@@ -19,14 +19,5 @@ public interface ConnectorFactory
 {
     String getName();
 
-    /**
-     * @deprecated use {@link Connector#getHandleClasses()}
-     */
-    @Deprecated
-    default ConnectorHandleResolver getHandleResolver()
-    {
-        throw new UnsupportedOperationException();
-    }
-
     Connector create(String catalogName, Map<String, String> config, ConnectorContext context);
 }
