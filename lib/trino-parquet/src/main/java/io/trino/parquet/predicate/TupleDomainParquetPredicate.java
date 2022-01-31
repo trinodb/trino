@@ -485,6 +485,11 @@ public class TupleDomainParquetPredicate
         }
 
         int dictionarySize = dictionaryPage.get().getDictionarySize();
+
+        if (dictionarySize == 0) {
+            return Domain.onlyNull(type);
+        }
+
         DictionaryValueConverter converter = new DictionaryValueConverter(dictionary);
         Function<Integer, Object> convertFunction = converter.getConverter(columnDescriptor.getPrimitiveType());
         List<Object> values = new ArrayList<>();
