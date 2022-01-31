@@ -386,6 +386,8 @@ public class LocalQueryRunner
         this.expressionCompiler = new ExpressionCompiler(metadata, pageFunctionCompiler);
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
 
+        HandleResolver handleResolver = new HandleResolver();
+
         NodeInfo nodeInfo = new NodeInfo("test");
         this.connectorManager = new ConnectorManager(
                 metadata,
@@ -396,7 +398,7 @@ public class LocalQueryRunner
                 indexManager,
                 nodePartitioningManager,
                 pageSinkManager,
-                new HandleResolver(),
+                handleResolver,
                 nodeManager,
                 nodeInfo,
                 testingVersionEmbedder(),
@@ -444,6 +446,7 @@ public class LocalQueryRunner
                 new SessionPropertyDefaults(nodeInfo, accessControl),
                 typeRegistry,
                 blockEncodingManager,
+                handleResolver,
                 exchangeManagerRegistry);
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory, ignored -> globalSystemConnectorFactory.getClass().getClassLoader());
