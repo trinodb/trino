@@ -105,7 +105,7 @@ public class AllowAllAccessControlManager
     public void checkCanRenameTable(SecurityContext context, QualifiedObjectName tableName, QualifiedObjectName newTableName) {}
 
     @Override
-    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames) {}
+    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Optional<Object>> properties) {}
 
     @Override
     public void checkCanSetTableComment(SecurityContext context, QualifiedObjectName tableName) {}
@@ -183,7 +183,7 @@ public class AllowAllAccessControlManager
     public void checkCanRenameMaterializedView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName) {}
 
     @Override
-    public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames) {}
+    public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties) {}
 
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption) {}

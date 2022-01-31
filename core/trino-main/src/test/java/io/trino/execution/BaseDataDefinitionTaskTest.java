@@ -60,8 +60,8 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -326,14 +326,19 @@ public abstract class BaseDataDefinitionTaskTest
         public synchronized void setMaterializedViewProperties(
                 Session session,
                 QualifiedObjectName viewName,
-                Map<String, Object> nonNullProperties,
-                Set<String> nullPropertyNames)
+                Map<String, Optional<Object>> properties)
         {
             MaterializedViewDefinition existingDefinition = getMaterializedView(session, viewName)
                     .orElseThrow(() -> new MaterializedViewNotFoundException(viewName.asSchemaTableName()));
             Map<String, Object> newProperties = new HashMap<>(existingDefinition.getProperties());
-            newProperties.putAll(nonNullProperties);
-            nullPropertyNames.forEach(newProperties::remove);
+            for (Entry<String, Optional<Object>> entry : properties.entrySet()) {
+                if (entry.getValue().isPresent()) {
+                    newProperties.put(entry.getKey(), entry.getValue().orElseThrow());
+                }
+                else {
+                    newProperties.remove(entry.getKey());
+                }
+            }
             materializedViews.put(
                     viewName.asSchemaTableName(),
                     new MaterializedViewDefinition(

@@ -71,15 +71,16 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.clickhouse.ClickHouseSessionProperties.isMapStringAsVarchar;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PROPERTY;
@@ -244,15 +245,19 @@ public class ClickHouseClient
     }
 
     @Override
-    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Optional<Object>> nullableProperties)
     {
         // TODO: Support other table properties
-        checkArgument(nonNullProperties.size() == 1 && nonNullProperties.containsKey(SAMPLE_BY_PROPERTY), "Only support setting 'sample_by' property");
+        checkArgument(nullableProperties.size() == 1 && nullableProperties.containsKey(SAMPLE_BY_PROPERTY), "Only support setting 'sample_by' property");
         // TODO: Support sampling key removal when we support a newer version of ClickHouse. See https://github.com/ClickHouse/ClickHouse/pull/30180.
-        checkArgument(nullPropertyNames.isEmpty(), "Setting a property to null is not supported");
+        checkArgument(nullableProperties.values().stream().anyMatch(Optional::isEmpty), "Setting a property to null is not supported");
+
+        Map<String, Object> properties = nullableProperties.entrySet().stream()
+                .filter(entry -> entry.getValue().isPresent())
+                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().orElseThrow()));
 
         ImmutableList.Builder<String> tableOptions = ImmutableList.builder();
-        ClickHouseTableProperties.getSampleBy(nonNullProperties).ifPresent(value -> tableOptions.add("SAMPLE BY " + value));
+        ClickHouseTableProperties.getSampleBy(properties).ifPresent(value -> tableOptions.add("SAMPLE BY " + value));
 
         try (Connection connection = connectionFactory.openConnection(session)) {
             String sql = format(

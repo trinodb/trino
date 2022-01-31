@@ -206,7 +206,7 @@ public interface Metadata
     /**
      * Set properties to the specified table.
      */
-    void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames);
+    void setTableProperties(Session session, TableHandle tableHandle, Map<String, Optional<Object>> properties);
 
     /**
      * Comments to the specified table.
@@ -685,7 +685,7 @@ public interface Metadata
     /**
      * Sets the properties of the specified materialized view.
      */
-    void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames);
+    void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Optional<Object>> properties);
 
     /**
      * Returns the result of redirecting the table scan on a given table to a different table.

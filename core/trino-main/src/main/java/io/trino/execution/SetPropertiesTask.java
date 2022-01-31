@@ -29,12 +29,8 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Set;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
@@ -124,9 +120,8 @@ public class SetPropertiesTask
             throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", tableName);
         }
 
-        accessControl.checkCanSetTableProperties(session.toSecurityContext(), tableName, getNonNullProperties(properties), getNullProperties(properties));
-
-        plannerContext.getMetadata().setTableProperties(session, tableHandle.get(), getNonNullProperties(properties), getNullProperties(properties));
+        accessControl.checkCanSetTableProperties(session.toSecurityContext(), tableName, properties);
+        plannerContext.getMetadata().setTableProperties(session, tableHandle.get(), properties);
     }
 
     private void setMaterializedViewProperties(
@@ -145,22 +140,7 @@ public class SetPropertiesTask
             }
             throw semanticException(TABLE_NOT_FOUND, statement, exceptionMessage);
         }
-        accessControl.checkCanSetMaterializedViewProperties(session.toSecurityContext(), materializedViewName, getNonNullProperties(properties), getNullProperties(properties));
-        plannerContext.getMetadata().setMaterializedViewProperties(session, materializedViewName, getNonNullProperties(properties), getNullProperties(properties));
-    }
-
-    private static Map<String, Object> getNonNullProperties(Map<String, Optional<Object>> propertyValues)
-    {
-        return propertyValues.entrySet().stream()
-                .filter(entry -> entry.getValue().isPresent())
-                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().orElseThrow()));
-    }
-
-    private static Set<String> getNullProperties(Map<String, Optional<Object>> propertyValues)
-    {
-        return propertyValues.entrySet().stream()
-                .filter(entry -> entry.getValue().isEmpty())
-                .map(Entry::getKey)
-                .collect(toImmutableSet());
+        accessControl.checkCanSetMaterializedViewProperties(session.toSecurityContext(), materializedViewName, properties);
+        plannerContext.getMetadata().setMaterializedViewProperties(session, materializedViewName, properties);
     }
 }

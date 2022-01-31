@@ -3444,9 +3444,9 @@ public class HiveMetadata
     }
 
     @Override
-    public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Optional<Object>> properties)
     {
-        hiveMaterializedViewMetadata.setMaterializedViewProperties(session, viewName, nonNullProperties, nullPropertyNames);
+        hiveMaterializedViewMetadata.setMaterializedViewProperties(session, viewName, properties);
     }
 
     @Override

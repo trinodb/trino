@@ -96,7 +96,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Optional<Object>> properties)
     {
     }
 
@@ -223,7 +223,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Optional<Object>> properties)
     {
     }
 

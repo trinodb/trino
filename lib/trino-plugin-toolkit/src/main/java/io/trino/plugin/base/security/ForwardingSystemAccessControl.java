@@ -210,9 +210,9 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Optional<Object>> properties)
     {
-        delegate().checkCanSetTableProperties(context, table, nonNullProperties, nullPropertyNames);
+        delegate().checkCanSetTableProperties(context, table, properties);
     }
 
     @Override
@@ -366,9 +366,9 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Optional<Object>> properties)
     {
-        delegate().checkCanSetMaterializedViewProperties(context, materializedView, nonNullProperties, nullPropertyNames);
+        delegate().checkCanSetMaterializedViewProperties(context, materializedView, properties);
     }
 
     @Override
