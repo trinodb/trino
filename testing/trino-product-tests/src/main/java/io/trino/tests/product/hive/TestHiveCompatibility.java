@@ -207,7 +207,7 @@ public class TestHiveCompatibility
 
         // Hive expects `FIXED_LEN_BYTE_ARRAY` for decimal values irrespective of the Parquet specification which allows `INT32`, `INT64` for short precision decimal types
         assertQueryFailure(() -> onHive().executeQuery("SELECT a_decimal FROM " + tableName))
-                .hasMessageMatching(".* org.apache.parquet.io.ParquetDecodingException: Can not read value at 1 in block 0 in file .*");
+                .hasMessageMatching(".* parquet.io.ParquetDecodingException: Can not read value at 1 in block 0 in file .*");
 
         onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
