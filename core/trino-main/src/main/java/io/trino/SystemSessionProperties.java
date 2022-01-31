@@ -46,6 +46,7 @@ import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.lang.Math.min;
@@ -122,6 +123,7 @@ public final class SystemSessionProperties
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
+    public static final String FILTER_CONJUNCTION_INDEPENDENCE_FACTOR = "filter_conjunction_independence_factor";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String ALLOW_PUSHDOWN_INTO_CONNECTORS = "allow_pushdown_into_connectors";
     public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
@@ -557,6 +559,15 @@ public final class SystemSessionProperties
                         "use a default filter factor for unknown filters in a filter node",
                         optimizerConfig.isDefaultFilterFactorEnabled(),
                         false),
+                new PropertyMetadata<>(
+                        FILTER_CONJUNCTION_INDEPENDENCE_FACTOR,
+                        "Scales the strength of independence assumption for selectivity estimates of the conjunction of multiple filters",
+                        DOUBLE,
+                        Double.class,
+                        optimizerConfig.getFilterConjunctionIndependenceFactor(),
+                        false,
+                        value -> validateDoubleRange(value, FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, 0.0, 1.0),
+                        value -> value),
                 booleanProperty(
                         SKIP_REDUNDANT_SORT,
                         "Skip redundant sort operations",
@@ -1134,6 +1145,17 @@ public final class SystemSessionProperties
         return intValue;
     }
 
+    private static double validateDoubleRange(Object value, String property, double lowerBoundIncluded, double upperBoundIncluded)
+    {
+        double doubleValue = (double) value;
+        if (doubleValue < lowerBoundIncluded || doubleValue > upperBoundIncluded) {
+            throw new TrinoException(
+                    INVALID_SESSION_PROPERTY,
+                    format("%s must be in the range [%.2f, %.2f]: %.2f", property, lowerBoundIncluded, upperBoundIncluded, doubleValue));
+        }
+        return doubleValue;
+    }
+
     public static boolean isStatisticsCpuTimerEnabled(Session session)
     {
         return session.getSystemProperty(STATISTICS_CPU_TIMER_ENABLED, Boolean.class);
@@ -1162,6 +1184,11 @@ public final class SystemSessionProperties
     public static boolean isDefaultFilterFactorEnabled(Session session)
     {
         return session.getSystemProperty(DEFAULT_FILTER_FACTOR_ENABLED, Boolean.class);
+    }
+
+    public static double getFilterConjunctionIndependenceFactor(Session session)
+    {
+        return session.getSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, Double.class);
     }
 
     public static boolean isSkipRedundantSort(Session session)

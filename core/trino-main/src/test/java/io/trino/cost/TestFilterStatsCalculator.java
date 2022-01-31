@@ -27,6 +27,9 @@ import io.trino.transaction.TestingTransactionManager;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.function.Consumer;
+
+import static io.trino.SystemSessionProperties.FILTER_CONJUNCTION_INDEPENDENCE_FACTOR;
 import static io.trino.sql.ExpressionTestUtils.planExpression;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
@@ -257,6 +260,13 @@ public class TestFilterStatsCalculator
     @Test
     public void testAndStats()
     {
+        // unknown input
+        assertExpression("x < 0e0 AND x < 1e0", PlanNodeStatsEstimate.unknown()).outputRowsCountUnknown();
+        assertExpression("x < 0e0 AND y < 1e0", PlanNodeStatsEstimate.unknown()).outputRowsCountUnknown();
+        // zeroStatistics input
+        assertExpression("x < 0e0 AND x < 1e0", zeroStatistics).equalTo(zeroStatistics);
+        assertExpression("x < 0e0 AND y < 1e0", zeroStatistics).equalTo(zeroStatistics);
+
         assertExpression("x < 0e0 AND x > 1e0").equalTo(zeroStatistics);
 
         assertExpression("x < 0e0 AND x > DOUBLE '-7.5'")
@@ -301,6 +311,128 @@ public class TestFilterStatsCalculator
 
         assertExpression("CAST(NULL AS boolean) AND CAST(NULL AS boolean)").equalTo(zeroStatistics);
         assertExpression("CAST(NULL AS boolean) AND (x < 0e0 AND x > 1e0)").equalTo(zeroStatistics);
+
+        Consumer<SymbolStatsAssertion> symbolAssertX = symbolAssert -> symbolAssert.averageRowSize(4.0)
+                .lowValue(-5.0)
+                .highValue(5.0)
+                .distinctValuesCount(20.0)
+                .nullsFraction(0.0);
+        Consumer<SymbolStatsAssertion> symbolAssertY = symbolAssert -> symbolAssert.averageRowSize(4.0)
+                .lowValue(1.0)
+                .highValue(5.0)
+                .distinctValuesCount(16.0)
+                .nullsFraction(0.0);
+
+        double inputRowCount = standardInputStatistics.getOutputRowCount();
+        double filterSelectivityX = 0.375;
+        double inequalityFilterSelectivityY = 0.4;
+        assertExpression(
+                "(x BETWEEN -5 AND 5) AND y > 1",
+                Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0").build())
+                .outputRowsCount(filterSelectivityX * inputRowCount)
+                .symbolStats("x", symbolAssertX)
+                .symbolStats("y", symbolAssertY);
+
+        assertExpression(
+                "(x BETWEEN -5 AND 5) AND y > 1",
+                Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "1").build())
+                .outputRowsCount(filterSelectivityX * inequalityFilterSelectivityY * inputRowCount)
+                .symbolStats("x", symbolAssertX)
+                .symbolStats("y", symbolAssertY);
+
+        assertExpression(
+                "(x BETWEEN -5 AND 5) AND y > 1",
+                Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
+                .outputRowsCount(filterSelectivityX * (Math.pow(inequalityFilterSelectivityY, 0.5)) * inputRowCount)
+                .symbolStats("x", symbolAssertX)
+                .symbolStats("y", symbolAssertY);
+
+        double nullFilterSelectivityY = 0.5;
+        assertExpression(
+                "(x BETWEEN -5 AND 5) AND y IS NULL",
+                Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "1").build())
+                .outputRowsCount(filterSelectivityX * nullFilterSelectivityY * inputRowCount)
+                .symbolStats("x", symbolAssertX)
+                .symbolStats("y", symbolAssert -> symbolAssert.isEqualTo(SymbolStatsEstimate.zero()));
+
+        assertExpression(
+                "(x BETWEEN -5 AND 5) AND y IS NULL",
+                Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
+                .outputRowsCount(filterSelectivityX * Math.pow(nullFilterSelectivityY, 0.5) * inputRowCount)
+                .symbolStats("x", symbolAssertX)
+                .symbolStats("y", symbolAssert -> symbolAssert.isEqualTo(SymbolStatsEstimate.zero()));
+
+        assertExpression(
+                "(x BETWEEN -5 AND 5) AND y IS NULL",
+                Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0").build())
+                .outputRowsCount(filterSelectivityX * inputRowCount)
+                .symbolStats("x", symbolAssertX)
+                .symbolStats("y", symbolAssert -> symbolAssert.isEqualTo(SymbolStatsEstimate.zero()));
+
+        assertExpression(
+                "y < 1 AND 0 < y",
+                Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
+                .outputRowsCount(100)
+                .symbolStats("y", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .lowValue(0.0)
+                        .highValue(1.0)
+                        .distinctValuesCount(4.0)
+                        .nullsFraction(0.0));
+
+        assertExpression(
+                "x > 0 AND (y < 1 OR y > 2)",
+                Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
+                .outputRowsCount(filterSelectivityX * (Math.pow(inequalityFilterSelectivityY, 0.5)) * inputRowCount)
+                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .lowValue(0.0)
+                        .highValue(10.0)
+                        .distinctValuesCount(20.0)
+                        .nullsFraction(0.0))
+                .symbolStats("y", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .lowValue(0.0)
+                        .highValue(5.0)
+                        .distinctValuesCount(16.0)
+                        .nullsFraction(0.0));
+
+        assertExpression(
+                "x > 0 AND (x < 1 OR y > 1)",
+                Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
+                .outputRowsCount(172.0)
+                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .lowValue(0.0)
+                        .highValue(10.0)
+                        .distinctValuesCount(20.0)
+                        .nullsFraction(0.0))
+                .symbolStats("y", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .lowValue(0.0)
+                        .highValue(5.0)
+                        .distinctValuesCount(20.0)
+                        .nullsFraction(0.1053779069));
+
+        assertExpression(
+                "x IN (0, 1, 2) AND (x = 0 OR (x = 1 AND y = 1) OR (x = 2 AND y = 1))",
+                Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
+                .outputRowsCount(20.373798)
+                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .lowValue(0.0)
+                        .highValue(2.0)
+                        .distinctValuesCount(2.623798)
+                        .nullsFraction(0.0))
+                .symbolStats("y", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .lowValue(0.0)
+                        .highValue(5.0)
+                        .distinctValuesCount(15.686298)
+                        .nullsFraction(0.2300749269));
+
+        assertExpression(
+                "x > 0 AND CAST(NULL AS boolean)",
+                Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
+                .outputRowsCount(filterSelectivityX * inputRowCount * 0.9)
+                .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
+                        .lowValue(0.0)
+                        .highValue(10.0)
+                        .distinctValuesCount(20.0)
+                        .nullsFraction(0.0));
     }
 
     @Test
@@ -573,16 +705,26 @@ public class TestFilterStatsCalculator
 
     private PlanNodeStatsAssertion assertExpression(String expression)
     {
-        return assertExpression(planExpression(PLANNER_CONTEXT, session, standardTypes, expression(expression)));
+        return assertExpression(expression, session);
     }
 
-    private PlanNodeStatsAssertion assertExpression(Expression expression)
+    private PlanNodeStatsAssertion assertExpression(String expression, PlanNodeStatsEstimate inputStatistics)
+    {
+        return assertExpression(planExpression(PLANNER_CONTEXT, session, standardTypes, expression(expression)), session, inputStatistics);
+    }
+
+    private PlanNodeStatsAssertion assertExpression(String expression, Session session)
+    {
+        return assertExpression(planExpression(PLANNER_CONTEXT, session, standardTypes, expression(expression)), session, standardInputStatistics);
+    }
+
+    private PlanNodeStatsAssertion assertExpression(Expression expression, Session session, PlanNodeStatsEstimate inputStatistics)
     {
         return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
                     return PlanNodeStatsAssertion.assertThat(statsCalculator.filterStats(
-                            standardInputStatistics,
+                            inputStatistics,
                             expression,
                             transactionSession,
                             standardTypes));
