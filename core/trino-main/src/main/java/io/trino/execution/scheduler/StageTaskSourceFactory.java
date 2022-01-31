@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
@@ -163,7 +164,7 @@ public class StageTaskSourceFactory
     public static class SingleDistributionTaskSource
             implements TaskSource
     {
-        private final Multimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles;
+        private final ListMultimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles;
 
         private boolean finished;
 
@@ -173,9 +174,9 @@ public class StageTaskSourceFactory
             return new SingleDistributionTaskSource(getInputsForRemoteSources(fragment.getRemoteSourceNodes(), exchangeSourceHandles));
         }
 
-        public SingleDistributionTaskSource(Multimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles)
+        public SingleDistributionTaskSource(ListMultimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles)
         {
-            this.exchangeSourceHandles = ImmutableMultimap.copyOf(requireNonNull(exchangeSourceHandles, "exchangeSourceHandles is null"));
+            this.exchangeSourceHandles = ImmutableListMultimap.copyOf(requireNonNull(exchangeSourceHandles, "exchangeSourceHandles is null"));
         }
 
         @Override
@@ -183,7 +184,7 @@ public class StageTaskSourceFactory
         {
             List<TaskDescriptor> result = ImmutableList.of(new TaskDescriptor(
                     0,
-                    ImmutableMultimap.of(),
+                    ImmutableListMultimap.of(),
                     exchangeSourceHandles,
                     new NodeRequirements(Optional.empty(), ImmutableSet.of())));
             finished = true;
@@ -380,7 +381,7 @@ public class StageTaskSourceFactory
                 return ImmutableList.of();
             }
 
-            Map<Integer, Multimap<PlanNodeId, Split>> partitionToSplitsMap = new HashMap<>();
+            Map<Integer, ListMultimap<PlanNodeId, Split>> partitionToSplitsMap = new HashMap<>();
             Map<Integer, HostAddress> partitionToNodeMap = new HashMap<>();
             for (Map.Entry<PlanNodeId, SplitSource> entry : splitSources.entrySet()) {
                 SplitSource splitSource = entry.getValue();
@@ -426,8 +427,8 @@ public class StageTaskSourceFactory
             int taskPartitionId = 0;
             ImmutableList.Builder<TaskDescriptor> result = ImmutableList.builder();
             for (Integer partition : union(partitionToSplitsMap.keySet(), partitionToExchangeSourceHandlesMap.keySet())) {
-                Multimap<PlanNodeId, Split> splits = partitionToSplitsMap.getOrDefault(partition, ImmutableMultimap.of());
-                Multimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles = ImmutableListMultimap.<PlanNodeId, ExchangeSourceHandle>builder()
+                ListMultimap<PlanNodeId, Split> splits = partitionToSplitsMap.getOrDefault(partition, ImmutableListMultimap.of());
+                ListMultimap<PlanNodeId, ExchangeSourceHandle> exchangeSourceHandles = ImmutableListMultimap.<PlanNodeId, ExchangeSourceHandle>builder()
                         .putAll(partitionToExchangeSourceHandlesMap.getOrDefault(partition, ImmutableMultimap.of()))
                         .putAll(replicatedExchangeSourceHandles)
                         .build();
@@ -476,7 +477,7 @@ public class StageTaskSourceFactory
         private final PlanNodeId partitionedSourceNodeId;
         private final TableExecuteContextManager tableExecuteContextManager;
         private final SplitSource splitSource;
-        private final Multimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSourceHandles;
+        private final ListMultimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSourceHandles;
         private final int splitBatchSize;
         private final LongConsumer getSplitTimeRecorder;
         private final Optional<CatalogName> catalogRequirement;
@@ -528,7 +529,7 @@ public class StageTaskSourceFactory
                 PlanNodeId partitionedSourceNodeId,
                 TableExecuteContextManager tableExecuteContextManager,
                 SplitSource splitSource,
-                Multimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSourceHandles,
+                ListMultimap<PlanNodeId, ExchangeSourceHandle> replicatedExchangeSourceHandles,
                 int splitBatchSize,
                 LongConsumer getSplitTimeRecorder,
                 Optional<CatalogName> catalogRequirement,
@@ -674,7 +675,7 @@ public class StageTaskSourceFactory
         }
     }
 
-    private static Multimap<PlanNodeId, ExchangeSourceHandle> getReplicatedExchangeSourceHandles(PlanFragment fragment, Multimap<PlanFragmentId, ExchangeSourceHandle> handles)
+    private static ListMultimap<PlanNodeId, ExchangeSourceHandle> getReplicatedExchangeSourceHandles(PlanFragment fragment, Multimap<PlanFragmentId, ExchangeSourceHandle> handles)
     {
         return getInputsForRemoteSources(
                 fragment.getRemoteSourceNodes().stream()
@@ -683,7 +684,7 @@ public class StageTaskSourceFactory
                 handles);
     }
 
-    private static Multimap<PlanNodeId, ExchangeSourceHandle> getPartitionedExchangeSourceHandles(PlanFragment fragment, Multimap<PlanFragmentId, ExchangeSourceHandle> handles)
+    private static ListMultimap<PlanNodeId, ExchangeSourceHandle> getPartitionedExchangeSourceHandles(PlanFragment fragment, Multimap<PlanFragmentId, ExchangeSourceHandle> handles)
     {
         return getInputsForRemoteSources(
                 fragment.getRemoteSourceNodes().stream()
@@ -703,7 +704,7 @@ public class StageTaskSourceFactory
         return result.build();
     }
 
-    private static Multimap<PlanNodeId, ExchangeSourceHandle> getInputsForRemoteSources(
+    private static ListMultimap<PlanNodeId, ExchangeSourceHandle> getInputsForRemoteSources(
             List<RemoteSourceNode> remoteSources,
             Multimap<PlanFragmentId, ExchangeSourceHandle> exchangeSourceHandles)
     {

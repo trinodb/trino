@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.trino.connector.CatalogName;
@@ -73,7 +74,7 @@ public class TestStageTaskSourceFactory
     @Test
     public void testSingleDistributionTaskSource()
     {
-        Multimap<PlanNodeId, ExchangeSourceHandle> sources = ImmutableListMultimap.<PlanNodeId, ExchangeSourceHandle>builder()
+        ListMultimap<PlanNodeId, ExchangeSourceHandle> sources = ImmutableListMultimap.<PlanNodeId, ExchangeSourceHandle>builder()
                 .put(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 123))
                 .put(PLAN_NODE_2, new TestingExchangeSourceHandle(0, 321))
                 .put(PLAN_NODE_1, new TestingExchangeSourceHandle(0, 222))
@@ -489,7 +490,7 @@ public class TestStageTaskSourceFactory
 
     private static SourceDistributionTaskSource createSourceDistributionTaskSource(
             List<Split> splits,
-            Multimap<PlanNodeId, ExchangeSourceHandle> replicatedSources,
+            ListMultimap<PlanNodeId, ExchangeSourceHandle> replicatedSources,
             int splitBatchSize,
             int splitsPerTask)
     {
