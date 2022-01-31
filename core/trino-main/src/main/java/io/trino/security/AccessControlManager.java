@@ -468,18 +468,17 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSetTableProperties(SecurityContext securityContext, QualifiedObjectName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetTableProperties(SecurityContext securityContext, QualifiedObjectName tableName, Map<String, Optional<Object>> properties)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
-        requireNonNull(nonNullProperties, "nonNullProperties is null");
-        requireNonNull(nullPropertyNames, "nullPropertyNames is null");
+        requireNonNull(properties, "nonNullProperties is null");
 
         checkCanAccessCatalog(securityContext, tableName.getCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanSetTableProperties(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), nonNullProperties, nullPropertyNames));
+        systemAuthorizationCheck(control -> control.checkCanSetTableProperties(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), properties));
 
-        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanSetTableProperties(context, tableName.asSchemaTableName(), nonNullProperties, nullPropertyNames));
+        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanSetTableProperties(context, tableName.asSchemaTableName(), properties));
     }
 
     @Override
@@ -823,12 +822,11 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSetMaterializedViewProperties(SecurityContext securityContext, QualifiedObjectName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetMaterializedViewProperties(SecurityContext securityContext, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(materializedViewName, "materializedViewName is null");
-        requireNonNull(nonNullProperties, "nonNullProperties is null");
-        requireNonNull(nullPropertyNames, "nullPropertyNames is null");
+        requireNonNull(properties, "nonNullProperties is null");
 
         checkCanAccessCatalog(securityContext, materializedViewName.getCatalogName());
 
@@ -836,12 +834,12 @@ public class AccessControlManager
                 control.checkCanSetMaterializedViewProperties(
                         securityContext.toSystemSecurityContext(),
                         materializedViewName.asCatalogSchemaTableName(),
-                        nonNullProperties, nullPropertyNames));
+                        properties));
 
         catalogAuthorizationCheck(
                 materializedViewName.getCatalogName(),
                 securityContext,
-                (control, context) -> control.checkCanSetMaterializedViewProperties(context, materializedViewName.asSchemaTableName(), nonNullProperties, nullPropertyNames));
+                (control, context) -> control.checkCanSetMaterializedViewProperties(context, materializedViewName.asSchemaTableName(), properties));
     }
 
     @Override

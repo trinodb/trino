@@ -214,7 +214,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Optional<Object>> properties)
     {
         if (!isTableOwner(context, tableName)) {
             denySetTableProperties(tableName.toString());
@@ -422,7 +422,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Optional<Object>> properties)
     {
         if (!isTableOwner(context, materializedViewName)) {
             denySetMaterializedViewProperties(materializedViewName.toString());

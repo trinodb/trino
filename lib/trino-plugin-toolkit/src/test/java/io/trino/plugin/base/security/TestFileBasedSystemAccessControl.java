@@ -586,26 +586,22 @@ public class TestFileBasedSystemAccessControl
         accessControl.checkCanSetMaterializedViewProperties(
                 ADMIN,
                 new CatalogSchemaTableName("some-catalog", "bobschema", "bob-materialized-view"),
-                ImmutableMap.of(),
-                ImmutableSet.of());
+                ImmutableMap.of());
         accessControl.checkCanSetMaterializedViewProperties(
                 ALICE,
                 new CatalogSchemaTableName("some-catalog", "aliceschema", "alice-materialized-view"),
-                ImmutableMap.of(),
-                ImmutableSet.of());
+                ImmutableMap.of());
         assertAccessDenied(
                 () -> accessControl.checkCanSetMaterializedViewProperties(
                         ALICE,
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bob-materialized-view"),
-                        ImmutableMap.of(),
-                        ImmutableSet.of()),
+                        ImmutableMap.of()),
                 SET_MATERIALIZED_VIEW_PROPERTIES_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(
                 () -> accessControl.checkCanSetMaterializedViewProperties(
                         BOB,
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bob-materialized-view"),
-                        ImmutableMap.of(),
-                        ImmutableSet.of()),
+                        ImmutableMap.of()),
                 SET_MATERIALIZED_VIEW_PROPERTIES_ACCESS_DENIED_MESSAGE);
     }
 
@@ -769,9 +765,9 @@ public class TestFileBasedSystemAccessControl
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
 
-        accessControl.checkCanSetTableProperties(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableMap.of(), ImmutableSet.of());
-        accessControl.checkCanSetTableProperties(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "alicetable"), ImmutableMap.of(), ImmutableSet.of());
-        assertAccessDenied(() -> accessControl.checkCanSetTableProperties(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableMap.of(), ImmutableSet.of()), SET_TABLE_PROPERTIES_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanSetTableProperties(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableMap.of());
+        accessControl.checkCanSetTableProperties(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "alicetable"), ImmutableMap.of());
+        assertAccessDenied(() -> accessControl.checkCanSetTableProperties(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableMap.of()), SET_TABLE_PROPERTIES_ACCESS_DENIED_MESSAGE);
     }
 
     @Test

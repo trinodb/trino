@@ -221,9 +221,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void setTableProperties(ConnectorSession session, JdbcTableHandle handle, Map<String, Optional<Object>> properties)
     {
-        stats.getSetTableProperties().wrap(() -> delegate().setTableProperties(session, handle, nonNullProperties, nullPropertyNames));
+        stats.getSetTableProperties().wrap(() -> delegate().setTableProperties(session, handle, properties));
     }
 
     @Override

@@ -261,7 +261,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void setTableProperties(Session session, TableHandle tableHandle, Map<String, Optional<Object>> properties)
     {
         throw new UnsupportedOperationException();
     }
@@ -852,7 +852,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Optional<Object>> properties)
     {
         throw new UnsupportedOperationException();
     }

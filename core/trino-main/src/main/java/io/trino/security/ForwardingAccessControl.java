@@ -185,9 +185,9 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Optional<Object>> properties)
     {
-        delegate().checkCanSetTableProperties(context, tableName, nonNullProperties, nullPropertyNames);
+        delegate().checkCanSetTableProperties(context, tableName, properties);
     }
 
     @Override
@@ -329,9 +329,9 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties)
     {
-        delegate().checkCanSetMaterializedViewProperties(context, materializedViewName, nonNullProperties, nullPropertyNames);
+        delegate().checkCanSetMaterializedViewProperties(context, materializedViewName, properties);
     }
 
     @Override
