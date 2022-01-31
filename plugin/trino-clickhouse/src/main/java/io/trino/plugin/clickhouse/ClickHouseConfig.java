@@ -21,6 +21,9 @@ public class ClickHouseConfig
     // TODO (https://github.com/trinodb/trino/issues/7102) reconsider default behavior
     private boolean mapStringAsVarchar;
 
+    // TODO: This config needs to be deprecated when we upgrade clickhouse-jdbc to version 0.4.0 or above
+    private boolean legacyDriver;
+
     public boolean isMapStringAsVarchar()
     {
         return mapStringAsVarchar;
@@ -31,6 +34,21 @@ public class ClickHouseConfig
     public ClickHouseConfig setMapStringAsVarchar(boolean mapStringAsVarchar)
     {
         this.mapStringAsVarchar = mapStringAsVarchar;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isLegacyDriver()
+    {
+        return legacyDriver;
+    }
+
+    @Deprecated
+    @Config("clickhouse.legacy-driver")
+    @ConfigDescription("Whether to use a legacy driver")
+    public ClickHouseConfig setLegacyDriver(boolean legacyDriver)
+    {
+        this.legacyDriver = legacyDriver;
         return this;
     }
 }
