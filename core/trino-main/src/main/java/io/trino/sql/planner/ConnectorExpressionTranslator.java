@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
@@ -28,6 +29,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.ExpressionUtils;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.AstVisitor;
@@ -49,7 +51,6 @@ import io.trino.sql.tree.SymbolReference;
 import io.trino.type.JoniRegexp;
 import io.trino.type.Re2JRegexp;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -142,10 +143,10 @@ public final class ConnectorExpressionTranslator
 
         protected Optional<Expression> translateLike(ConnectorExpression value, ConnectorExpression pattern)
         {
-            Optional<Expression> valueTrans = translate(session, value);
-            Optional<Expression> patternTrans = translate(session, pattern);
-            if (valueTrans.isPresent() && patternTrans.isPresent()) {
-                return Optional.of(new LikePredicate(valueTrans.get(), patternTrans.get(), Optional.empty()));
+            Optional<Expression> translatedValue = translate(session, value);
+            Optional<Expression> translatedPattern = translate(session, pattern);
+            if (translatedValue.isPresent() && translatedPattern.isPresent()) {
+                return Optional.of(new LikePredicate(translatedValue.get(), translatedPattern.get(), Optional.empty()));
             }
             return Optional.empty();
         }
@@ -235,8 +236,7 @@ public final class ConnectorExpressionTranslator
             String functionName = ResolvedFunction.extractFunctionName(node.getName());
 
             if (LiteralFunction.LITERAL_FUNCTION_NAME.equalsIgnoreCase(functionName)) {
-                ExpressionInterpreter interpreter = new ExpressionInterpreter(node, plannerContext, session, types);
-                Object value = interpreter.evaluate();
+                Object value = ExpressionUtils.evaluateConstantExpression(plannerContext, session, node);
                 verify(!(value instanceof Expression), "Literal function did not evaluate to a constant: %s", node);
                 if (value instanceof JoniRegexp) {
                     Slice pattern = ((JoniRegexp) value).pattern();
@@ -249,7 +249,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.of(new Constant(value, types.get(NodeRef.of(node))));
             }
 
-            List<ConnectorExpression> arguments = new ArrayList<>();
+            ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();
             for (Expression argumentExpression : node.getArguments()) {
                 Optional<ConnectorExpression> argument = process(argumentExpression);
                 if (argument.isEmpty()) {
@@ -258,7 +258,7 @@ public final class ConnectorExpressionTranslator
                 arguments.add(argument.get());
             }
 
-            return Optional.of(new Call(typeOf(node), Optional.empty(), functionName, arguments));
+            return Optional.of(new Call(typeOf(node), Optional.empty(), functionName, arguments.build()));
         }
 
         @Override

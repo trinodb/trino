@@ -303,10 +303,15 @@ public final class ExpressionUtils
 
     private static boolean constantExpressionEvaluatesSuccessfully(PlannerContext plannerContext, Session session, Expression constantExpression)
     {
+        Object literalValue = evaluateConstantExpression(plannerContext, session, constantExpression);
+        return !(literalValue instanceof Expression);
+    }
+
+    public static Object evaluateConstantExpression(PlannerContext plannerContext, Session session, Expression constantExpression)
+    {
         Map<NodeRef<Expression>, Type> types = getExpressionTypes(plannerContext, session, constantExpression, TypeProvider.empty());
         ExpressionInterpreter interpreter = new ExpressionInterpreter(constantExpression, plannerContext, session, types);
-        Object literalValue = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-        return !(literalValue instanceof Expression);
+        return interpreter.optimize(NoOpSymbolResolver.INSTANCE);
     }
 
     /**

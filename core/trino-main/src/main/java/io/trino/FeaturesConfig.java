@@ -130,7 +130,7 @@ public class FeaturesConfig
     private boolean optimizeTopNRanking = true;
     private boolean lateMaterializationEnabled;
     private boolean skipRedundantSort = true;
-    private boolean complexExpressionPushdown = true;
+    private boolean complexExpressionPushdownEnabled = true;
     private boolean predicatePushdownUseTableProperties = true;
     private boolean ignoreDownstreamPreferences;
     private boolean rewriteFilteringSemiJoinToInnerJoin = true;
@@ -949,15 +949,15 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isComplexExpressionPushdown()
+    public boolean isComplexExpressionPushdownEnabled()
     {
-        return complexExpressionPushdown;
+        return complexExpressionPushdownEnabled;
     }
 
-    @Config("optimizer.complex-expression-pushdown")
-    public FeaturesConfig setComplexExpressionPushdown(boolean complexExpressionPushdown)
+    @Config("optimizer.complex-expression-pushdown-enabled")
+    public FeaturesConfig setComplexExpressionPushdownEnabled(boolean complexExpressionPushdownEnabled)
     {
-        this.complexExpressionPushdown = complexExpressionPushdown;
+        this.complexExpressionPushdownEnabled = complexExpressionPushdownEnabled;
         return this;
     }
 

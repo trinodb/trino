@@ -28,7 +28,7 @@ public final class ConnectorExpressionUtils
 
     public static List<ConnectorExpression> extractConjuncts(ConnectorExpression expression)
     {
-        // TODO: Implement after adding LogicalExpression to ConnectorExpression
+        // TODO: Implement after supporting the conversion of io.trino.sql.tree.LogicalExpression to io.trino.spi.expression.Call
         return ImmutableList.of(expression);
     }
 
@@ -39,7 +39,7 @@ public final class ConnectorExpressionUtils
 
     public static ConnectorExpression and(Collection<ConnectorExpression> expressions)
     {
-        // TODO: Implement after adding LogicalExpression to ConnectorExpression
+        // TODO: Implement after supporting the conversion of io.trino.sql.tree.LogicalExpression to io.trino.spi.expression.Call
         if (expressions.size() > 1) {
             throw new RuntimeException("Only single expression is currently supported");
         }

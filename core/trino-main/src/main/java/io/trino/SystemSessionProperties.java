@@ -553,7 +553,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         COMPLEX_EXPRESSION_PUSHDOWN,
                         "Allow complex expression pushdown into connectors",
-                        featuresConfig.isComplexExpressionPushdown(),
+                        featuresConfig.isComplexExpressionPushdownEnabled(),
                         true),
                 booleanProperty(
                         PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES,
