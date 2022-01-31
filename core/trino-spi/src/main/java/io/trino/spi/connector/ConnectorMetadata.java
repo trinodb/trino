@@ -339,7 +339,7 @@ public interface ConnectorMetadata
     /**
      * Set properties to the specified table
      */
-    default void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    default void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Optional<Object>> properties)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting table properties");
     }
@@ -1304,7 +1304,7 @@ public interface ConnectorMetadata
     /**
      * Sets the properties of the specified materialized view
      */
-    default void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    default void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Optional<Object>> properties)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting materialized view properties");
     }

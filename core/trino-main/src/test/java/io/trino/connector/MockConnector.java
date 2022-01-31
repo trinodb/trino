@@ -430,7 +430,7 @@ public class MockConnector
         public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName) {}
 
         @Override
-        public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames) {}
+        public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Optional<Object>> properties) {}
 
         @Override
         public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment) {}
@@ -516,7 +516,7 @@ public class MockConnector
         public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName) {}
 
         @Override
-        public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames) {}
+        public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Optional<Object>> properties) {}
 
         @Override
         public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)

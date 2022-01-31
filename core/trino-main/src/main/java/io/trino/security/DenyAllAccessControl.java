@@ -210,7 +210,7 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Optional<Object>> properties)
     {
         denySetTableProperties(tableName.toString());
     }
@@ -372,7 +372,7 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties)
     {
         denySetMaterializedViewProperties(materializedViewName.toString());
     }

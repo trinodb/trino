@@ -547,7 +547,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Optional<Object>> properties)
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
             denySetTableProperties(table.toString());
@@ -806,7 +806,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Optional<Object>> properties)
     {
         if (!checkTablePermission(context, materializedView, OWNERSHIP)) {
             denySetMaterializedViewProperties(materializedView.toString());

@@ -382,13 +382,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetTableProperties(SecurityContext context, QualifiedObjectName tableName, Map<String, Optional<Object>> properties)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), SET_TABLE_PROPERTIES)) {
             denySetTableProperties(tableName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanSetTableProperties(context, tableName, nonNullProperties, nullPropertyNames);
+            super.checkCanSetTableProperties(context, tableName, properties);
         }
     }
 
@@ -599,13 +599,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetMaterializedViewProperties(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Optional<Object>> properties)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), materializedViewName.getObjectName(), SET_MATERIALIZED_VIEW_PROPERTIES)) {
             denySetMaterializedViewProperties(materializedViewName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanSetMaterializedViewProperties(context, materializedViewName, nonNullProperties, nullPropertyNames);
+            super.checkCanSetMaterializedViewProperties(context, materializedViewName, properties);
         }
     }
 

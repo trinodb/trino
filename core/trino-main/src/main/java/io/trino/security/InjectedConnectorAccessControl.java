@@ -140,10 +140,10 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Optional<Object>> properties)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanSetTableProperties(securityContext, getQualifiedObjectName(tableName), nonNullProperties, nullPropertyNames);
+        accessControl.checkCanSetTableProperties(securityContext, getQualifiedObjectName(tableName), properties);
     }
 
     @Override
@@ -315,10 +315,10 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Optional<Object>> properties)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanSetMaterializedViewProperties(securityContext, getQualifiedObjectName(materializedViewName), nonNullProperties, nullPropertyNames);
+        accessControl.checkCanSetMaterializedViewProperties(securityContext, getQualifiedObjectName(materializedViewName), properties);
     }
 
     @Override

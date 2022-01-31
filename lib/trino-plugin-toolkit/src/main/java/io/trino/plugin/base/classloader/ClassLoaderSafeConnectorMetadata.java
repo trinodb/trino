@@ -408,10 +408,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Optional<Object>> properties)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.setTableProperties(session, tableHandle, nonNullProperties, nullPropertyNames);
+            delegate.setTableProperties(session, tableHandle, properties);
         }
     }
 
@@ -976,10 +976,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Object> nonNullProperties, Set<String> nullPropertyNames)
+    public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Optional<Object>> properties)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.setMaterializedViewProperties(session, viewName, nonNullProperties, nullPropertyNames);
+            delegate.setMaterializedViewProperties(session, viewName, properties);
         }
     }
 
