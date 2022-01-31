@@ -21,6 +21,7 @@ import io.trino.eventlistener.EventListenerManager;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.HandleResolver;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.security.AccessControlManager;
@@ -86,6 +87,7 @@ public class PluginManager
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final TypeRegistry typeRegistry;
     private final BlockEncodingManager blockEncodingManager;
+    private final HandleResolver handleResolver;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
 
@@ -104,6 +106,7 @@ public class PluginManager
             SessionPropertyDefaults sessionPropertyDefaults,
             TypeRegistry typeRegistry,
             BlockEncodingManager blockEncodingManager,
+            HandleResolver handleResolver,
             ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
@@ -119,6 +122,7 @@ public class PluginManager
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
+        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
     }
 
@@ -146,6 +150,7 @@ public class PluginManager
             log.debug("    %s", url.getPath());
         }
 
+        handleResolver.registerClassLoader(pluginClassLoader);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
             loadPlugin(pluginClassLoader);
         }

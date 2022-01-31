@@ -13,106 +13,66 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
-import com.google.common.collect.HashMultiset;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multiset;
-import io.trino.connector.informationschema.InformationSchemaColumnHandle;
-import io.trino.connector.informationschema.InformationSchemaSplit;
-import io.trino.connector.informationschema.InformationSchemaTableHandle;
-import io.trino.connector.informationschema.InformationSchemaTransactionHandle;
-import io.trino.connector.system.SystemColumnHandle;
-import io.trino.connector.system.SystemSplit;
-import io.trino.connector.system.SystemTableHandle;
-import io.trino.connector.system.SystemTransactionHandle;
 import io.trino.server.PluginClassLoader;
-import io.trino.split.EmptySplit;
-import io.trino.split.RemoteSplit;
-import io.trino.sql.planner.SystemPartitioningHandle;
+import oshi.annotation.concurrent.ThreadSafe;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
-import static java.util.Objects.requireNonNull;
 
+@ThreadSafe
 public final class HandleResolver
 {
-    @GuardedBy("this")
-    private final Map<String, Set<Class<?>>> catalogHandleClasses = new HashMap<>();
-    @GuardedBy("this")
-    private final Multiset<Class<?>> allHandleClasses = HashMultiset.create();
-    @GuardedBy("this")
-    private final BiMap<Class<?>, String> handleClassIds = HashBiMap.create();
+    private final Map<String, ClassLoader> classLoaders = new ConcurrentHashMap<>();
 
     @Inject
     public HandleResolver()
     {
-        addCatalogHandleClasses(REMOTE_CONNECTOR_ID.toString(), ImmutableSet.<Class<?>>builder()
-                .add(RemoteSplit.class)
-                .add(RemoteTransactionHandle.class)
-                .add(SystemPartitioningHandle.class)
-                .build());
-        addCatalogHandleClasses("$system", ImmutableSet.<Class<?>>builder()
-                .add(SystemTableHandle.class)
-                .add(SystemColumnHandle.class)
-                .add(SystemSplit.class)
-                .add(SystemTransactionHandle.class)
-                .build());
-        addCatalogHandleClasses("$info_schema", ImmutableSet.<Class<?>>builder()
-                .add(InformationSchemaTableHandle.class)
-                .add(InformationSchemaColumnHandle.class)
-                .add(InformationSchemaSplit.class)
-                .add(InformationSchemaTransactionHandle.class)
-                .build());
-        addCatalogHandleClasses("$empty", ImmutableSet.<Class<?>>builder()
-                .add(EmptySplit.class)
-                .build());
+        classLoaders.put("system", getClass().getClassLoader());
     }
 
-    public synchronized void addCatalogHandleClasses(String catalogName, Set<Class<?>> handleClasses)
+    public void registerClassLoader(PluginClassLoader classLoader)
     {
-        requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(handleClasses, "handleClasses is null");
-        Set<Class<?>> existing = catalogHandleClasses.putIfAbsent(catalogName, ImmutableSet.copyOf(handleClasses));
-        checkState(existing == null, "Catalog is already registered: %s", catalogName);
-        for (Class<?> handleClass : handleClasses) {
-            allHandleClasses.add(handleClass);
-            handleClassIds.put(handleClass, classId(handleClass));
-        }
+        ClassLoader existingClassLoader = classLoaders.putIfAbsent(classLoader.getId(), classLoader);
+        checkState(existingClassLoader == null, "Class loader already registered: %s", classLoader.getId());
     }
 
-    public synchronized void removeCatalogHandleClasses(String catalogName)
+    public void unregisterClassLoader(PluginClassLoader classLoader)
     {
-        Set<Class<?>> classes = catalogHandleClasses.remove(catalogName);
-        checkState(classes != null, "Catalog not registered: %s", catalogName);
-        for (Class<?> handleClass : classes) {
-            if (allHandleClasses.remove(handleClass, 1) == 1) {
-                handleClassIds.remove(handleClass);
-            }
-        }
+        boolean result = classLoaders.remove(classLoader.getId(), classLoader);
+        checkState(result, "Class loader not registered: %s", classLoader.getId());
     }
 
-    public synchronized String getId(Object tableHandle)
+    @SuppressWarnings("MethodMayBeStatic")
+    public String getId(Object tableHandle)
     {
         Class<?> handleClass = tableHandle.getClass();
-        String id = handleClassIds.get(handleClass);
-        checkArgument(id != null, "Handle class not registered: " + handleClass.getName());
-        return id;
+        return classId(handleClass);
     }
 
-    public synchronized Class<?> getHandleClass(String id)
+    public Class<?> getHandleClass(String id)
     {
-        Class<?> handleClass = handleClassIds.inverse().get(id);
-        checkArgument(handleClass != null, "Handle ID not found: " + id);
-        return handleClass;
+        int splitPoint = id.lastIndexOf(':');
+        checkArgument(splitPoint > 1, "Invalid handle id: %s", id);
+        String classLoaderId = id.substring(0, splitPoint);
+        String className = id.substring(splitPoint + 1);
+
+        ClassLoader classLoader = classLoaders.get(classLoaderId);
+        checkArgument(classLoader != null, "Unknown handle id: %s", id);
+
+        try {
+            Class<?> handleClass = classLoader.loadClass(className);
+            if (handleClass != null) {
+                return handleClass;
+            }
+        }
+        catch (ClassNotFoundException ignored) {
+        }
+        throw new IllegalArgumentException("Handle ID not found: " + id);
     }
 
     private static String classId(Class<?> handleClass)
