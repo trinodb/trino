@@ -18,16 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.FeaturesConfig;
 import io.trino.client.ClientCapabilities;
-import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.informationschema.InformationSchemaColumnHandle;
 import io.trino.connector.informationschema.InformationSchemaMetadata;
 import io.trino.connector.informationschema.InformationSchemaTableHandle;
-import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -39,7 +35,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.testing.TestingConnectorContext;
+import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.Test;
@@ -49,13 +45,10 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
-import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Arrays.stream;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -67,8 +60,9 @@ public class TestInformationSchemaMetadata
 
     public TestInformationSchemaMetadata()
     {
-        MockConnectorFactory.Builder builder = MockConnectorFactory.builder();
-        MockConnectorFactory mockConnectorFactory = builder.withListSchemaNames(connectorSession -> ImmutableList.of("test_schema"))
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION);
+        MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
+                .withListSchemaNames(connectorSession -> ImmutableList.of("test_schema"))
                 .withListTables((connectorSession, schemaNameOrNull) ->
                         ImmutableList.of(
                                 new SchemaTableName("test_schema", "test_view"),
@@ -84,23 +78,11 @@ public class TestInformationSchemaMetadata
                             true);
                     SchemaTableName viewName = new SchemaTableName("test_schema", "test_view");
                     return ImmutableMap.of(viewName, definition);
-                }).build();
-        Connector testConnector = mockConnectorFactory.create("test", ImmutableMap.of(), new TestingConnectorContext());
-        CatalogManager catalogManager = new CatalogManager();
-        String catalogName = "test_catalog";
-        CatalogName catalog = new CatalogName("test_catalog");
-        catalogManager.registerCatalog(new Catalog(
-                catalogName,
-                catalog,
-                "test",
-                testConnector,
-                SecurityManagement.CONNECTOR,
-                createInformationSchemaCatalogName(catalog),
-                testConnector,
-                createSystemTablesCatalogName(catalog),
-                testConnector));
-        transactionManager = createTestTransactionManager(catalogManager);
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+                })
+                .build();
+        queryRunner.createCatalog("test_catalog", mockConnectorFactory, ImmutableMap.of());
+        transactionManager = queryRunner.getTransactionManager();
+        metadata = queryRunner.getMetadata();
     }
 
     /**
@@ -163,7 +145,10 @@ public class TestInformationSchemaMetadata
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
                 .orElseThrow(AssertionError::new);
-        assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
+        // filter blindly applies filter to all visible schemas, so information_schema must be included
+        assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(
+                new QualifiedTablePrefix("test_catalog", "test_schema", "test_view"),
+                new QualifiedTablePrefix("test_catalog", "information_schema", "test_view")));
     }
 
     @Test
@@ -250,7 +235,10 @@ public class TestInformationSchemaMetadata
                 .orElseThrow(AssertionError::new);
 
         // "" table name is valid schema name, but is (currently) valid for QualifiedTablePrefix
-        assertEquals(filtered.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "")));
+        // filter blindly applies filter to all visible schemas, so information_schema must be included
+        assertEquals(filtered.getPrefixes(), ImmutableSet.of(
+                new QualifiedTablePrefix("test_catalog", "test_schema", ""),
+                new QualifiedTablePrefix("test_catalog", "information_schema", "")));
     }
 
     /**

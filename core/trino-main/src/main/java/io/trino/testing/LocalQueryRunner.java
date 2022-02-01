@@ -258,6 +258,7 @@ public class LocalQueryRunner
     private final ColumnPropertyManager columnPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final MaterializedViewPropertyManager materializedViewPropertyManager;
+    private final AnalyzePropertyManager analyzePropertyManager;
 
     private final PageFunctionCompiler pageFunctionCompiler;
     private final ExpressionCompiler expressionCompiler;
@@ -361,7 +362,7 @@ public class LocalQueryRunner
         this.columnPropertyManager = new ColumnPropertyManager();
         this.tablePropertyManager = new TablePropertyManager();
         this.materializedViewPropertyManager = new MaterializedViewPropertyManager();
-        AnalyzePropertyManager analyzePropertyManager = new AnalyzePropertyManager();
+        this.analyzePropertyManager = new AnalyzePropertyManager();
         TableProceduresPropertyManager tableProceduresPropertyManager = new TableProceduresPropertyManager();
 
         this.statementAnalyzerFactory = new StatementAnalyzerFactory(
@@ -560,6 +561,26 @@ public class LocalQueryRunner
     public Metadata getMetadata()
     {
         return plannerContext.getMetadata();
+    }
+
+    public TablePropertyManager getTablePropertyManager()
+    {
+        return tablePropertyManager;
+    }
+
+    public ColumnPropertyManager getColumnPropertyManager()
+    {
+        return columnPropertyManager;
+    }
+
+    public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
+    {
+        return materializedViewPropertyManager;
+    }
+
+    public AnalyzePropertyManager getAnalyzePropertyManager()
+    {
+        return analyzePropertyManager;
     }
 
     @Override

@@ -13,28 +13,16 @@
  */
 package io.trino.testing;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
-import io.trino.connector.CatalogName;
-import io.trino.connector.system.StaticSystemTablesProvider;
-import io.trino.connector.system.SystemTablesMetadata;
 import io.trino.execution.QueryIdGenerator;
-import io.trino.metadata.Catalog;
-import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.SessionPropertyManager;
-import io.trino.spi.connector.Connector;
-import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.security.Identity;
-import io.trino.spi.transaction.IsolationLevel;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.SqlPath;
 
 import java.util.Optional;
 
-import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
-import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
 import static java.util.Locale.ENGLISH;
 
 public final class TestingSession
@@ -72,38 +60,5 @@ public final class TestingSession
                 .setLocale(ENGLISH)
                 .setRemoteUserAddress("address")
                 .setUserAgent("agent");
-    }
-
-    public static Catalog createBogusTestingCatalog(String catalogName)
-    {
-        CatalogName catalog = new CatalogName(catalogName);
-        return new Catalog(
-                catalogName,
-                catalog,
-                "test",
-                createTestSessionConnector(),
-                SecurityManagement.CONNECTOR,
-                createInformationSchemaCatalogName(catalog),
-                createTestSessionConnector(),
-                createSystemTablesCatalogName(catalog),
-                createTestSessionConnector());
-    }
-
-    private static Connector createTestSessionConnector()
-    {
-        return new Connector()
-        {
-            @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
-            {
-                return new ConnectorTransactionHandle() {};
-            }
-
-            @Override
-            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
-            {
-                return new SystemTablesMetadata(new StaticSystemTablesProvider(ImmutableSet.of()));
-            }
-        };
     }
 }

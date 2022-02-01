@@ -196,8 +196,7 @@ public class TestTableScanNodePartitioning
 
     public static MockConnectorFactory createMockFactory()
     {
-        MockConnectorFactory.Builder builder = MockConnectorFactory.builder();
-        builder
+        return MockConnectorFactory.builder()
                 .withGetColumns(schemaTableName -> ImmutableList.of(
                         new ColumnMetadata(COLUMN_A, BIGINT),
                         new ColumnMetadata(COLUMN_B, VARCHAR)))
@@ -227,8 +226,8 @@ public class TestTableScanNodePartitioning
                                 ImmutableList.of());
                     }
                     return new ConnectorTableProperties();
-                });
-        return builder.build();
+                })
+                .build();
     }
 
     public static class TestPartitioningProvider

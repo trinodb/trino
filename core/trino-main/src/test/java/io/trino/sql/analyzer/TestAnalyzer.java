@@ -17,12 +17,12 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Closer;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.connector.CatalogName;
-import io.trino.connector.informationschema.InformationSchemaConnector;
-import io.trino.connector.system.SystemConnector;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.StaticConnectorFactory;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
@@ -31,12 +31,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
-import io.trino.metadata.Catalog;
-import io.trino.metadata.Catalog.SecurityManagement;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
-import io.trino.metadata.InMemoryNodeManager;
-import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
@@ -72,12 +67,14 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.Statement;
+import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.assertions.TrinoExceptionAssert;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -86,9 +83,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
-import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
@@ -173,26 +168,22 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestAnalyzer
 {
     private static final String TPCH_CATALOG = "tpch";
-    private static final CatalogName TPCH_CATALOG_NAME = new CatalogName(TPCH_CATALOG);
     private static final String SECOND_CATALOG = "c2";
-    private static final CatalogName SECOND_CATALOG_NAME = new CatalogName(SECOND_CATALOG);
     private static final String THIRD_CATALOG = "c3";
-    private static final CatalogName THIRD_CATALOG_NAME = new CatalogName(THIRD_CATALOG);
     private static final String CATALOG_FOR_IDENTIFIER_CHAIN_TESTS = "cat";
-    private static final CatalogName CATALOG_FOR_IDENTIFIER_CHAIN_TESTS_NAME = new CatalogName(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS);
     private static final Session SETUP_SESSION = testSessionBuilder()
             .setCatalog("c1")
             .setSchema("s1")
@@ -208,6 +199,7 @@ public class TestAnalyzer
 
     private static final SqlParser SQL_PARSER = new SqlParser();
 
+    private final Closer closer = Closer.create();
     private TransactionManager transactionManager;
     private AccessControl accessControl;
     private PlannerContext plannerContext;
@@ -5304,8 +5296,9 @@ public class TestAnalyzer
     @BeforeClass
     public void setup()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        transactionManager = createTestTransactionManager(catalogManager);
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION);
+        closer.register(queryRunner);
+        transactionManager = queryRunner.getTransactionManager();
 
         AccessControlManager accessControlManager = new AccessControlManager(
                 transactionManager,
@@ -5315,22 +5308,19 @@ public class TestAnalyzer
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         this.accessControl = accessControlManager;
 
-        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        Metadata metadata = queryRunner.getMetadata();
         metadata.addFunctions(ImmutableList.of(APPLY_FUNCTION));
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
 
-        Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CATALOG_NAME);
-        TestingMetadata testingConnectorMetadata = (TestingMetadata) tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getMetadata(null);
-        catalogManager.registerCatalog(tpchTestCatalog);
+        TestingMetadata testingConnectorMetadata = new TestingMetadata();
+        TestingConnector connector = new TestingConnector(testingConnectorMetadata);
+        queryRunner.createCatalog(TPCH_CATALOG, new StaticConnectorFactory("main", connector), ImmutableMap.of());
 
-        tablePropertyManager = new TablePropertyManager();
-        tablePropertyManager.addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getTableProperties());
+        tablePropertyManager = queryRunner.getTablePropertyManager();
+        analyzePropertyManager = queryRunner.getAnalyzePropertyManager();
 
-        analyzePropertyManager = new AnalyzePropertyManager();
-        analyzePropertyManager.addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getAnalyzeProperties());
-
-        catalogManager.registerCatalog(createTestingCatalog(SECOND_CATALOG, SECOND_CATALOG_NAME));
-        catalogManager.registerCatalog(createTestingCatalog(THIRD_CATALOG, THIRD_CATALOG_NAME));
+        queryRunner.createCatalog(SECOND_CATALOG, MockConnectorFactory.create("second"), ImmutableMap.of());
+        queryRunner.createCatalog(THIRD_CATALOG, MockConnectorFactory.create("third"), ImmutableMap.of());
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
@@ -5472,7 +5462,7 @@ public class TestAnalyzer
                 false));
 
         // for identifier chain resolving tests
-        catalogManager.registerCatalog(createTestingCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS_NAME));
+        queryRunner.createCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, new StaticConnectorFactory("chain", new TestingConnector(new TestingMetadata())), ImmutableMap.of());
         Type singleFieldRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint)");
         Type rowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint, f2 bigint)");
         Type nestedRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 row(f11 bigint, f12 bigint), f2 boolean)");
@@ -5635,6 +5625,13 @@ public class TestAnalyzer
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedMismatchedColumnType.asSchemaTableName());
     }
 
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+            throws Exception
+    {
+        closer.close();
+    }
+
     private void inSetupTransaction(Consumer<Session> consumer)
     {
         transaction(transactionManager, accessControl)
@@ -5701,51 +5698,34 @@ public class TestAnalyzer
         return assertTrinoExceptionThrownBy(() -> analyze(session, query, accessControl));
     }
 
-    private Catalog createTestingCatalog(String catalogName, CatalogName catalog)
+    private static class TestingConnector
+            implements Connector
     {
-        CatalogName systemId = createSystemTablesCatalogName(catalog);
-        Connector connector = createTestingConnector();
-        InternalNodeManager nodeManager = new InMemoryNodeManager();
-        return new Catalog(
-                catalogName,
-                catalog,
-                "test",
-                connector,
-                SecurityManagement.CONNECTOR,
-                createInformationSchemaCatalogName(catalog),
-                new InformationSchemaConnector(catalogName, nodeManager, plannerContext.getMetadata(), accessControl),
-                systemId,
-                new SystemConnector(
-                        nodeManager,
-                        connector.getSystemTables(),
-                        transactionId -> transactionManager.getConnectorTransaction(transactionId, catalog)));
-    }
+        private final ConnectorMetadata metadata;
 
-    private static Connector createTestingConnector()
-    {
-        return new Connector()
+        public TestingConnector(ConnectorMetadata metadata)
         {
-            private final ConnectorMetadata metadata = new TestingMetadata();
+            this.metadata = requireNonNull(metadata, "metadata is null");
+        }
 
-            @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
-            {
-                return new ConnectorTransactionHandle() {};
-            }
+        @Override
+        public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
+        {
+            return new ConnectorTransactionHandle() {};
+        }
 
-            @Override
-            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
-            {
-                return metadata;
-            }
+        @Override
+        public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
+        {
+            return metadata;
+        }
 
-            @Override
-            public List<PropertyMetadata<?>> getAnalyzeProperties()
-            {
-                return ImmutableList.of(
-                        stringProperty("p1", "test string property", "", false),
-                        integerProperty("p2", "test integer property", 0, false));
-            }
-        };
+        @Override
+        public List<PropertyMetadata<?>> getAnalyzeProperties()
+        {
+            return ImmutableList.of(
+                    stringProperty("p1", "test string property", "", false),
+                    integerProperty("p2", "test integer property", 0, false));
+        }
     }
 }

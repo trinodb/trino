@@ -14,10 +14,10 @@
 package io.trino.tests;
 
 import io.trino.Session;
-import io.trino.connector.CatalogName;
-import io.trino.metadata.ProcedureRegistry;
-import io.trino.server.testing.TestingTrinoServer;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.ProcedureTester;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingProcedures;
@@ -30,8 +30,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.tests.AbstractTestEngineOnlyQueries.TESTING_CATALOG;
-import static io.trino.tests.TestDistributedEngineOnlyQueries.addTestingCatalog;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -42,7 +40,9 @@ import static org.testng.Assert.assertFalse;
 public class TestProcedureCall
         extends AbstractTestQueryFramework
 {
+    private static final String TESTING_CATALOG = "testing_catalog";
     private static final String PROCEDURE_SCHEMA = "procedure_schema";
+
     private ProcedureTester tester;
     private Session session;
 
@@ -56,21 +56,17 @@ public class TestProcedureCall
     @BeforeClass
     public void setUp()
     {
-        TestingTrinoServer coordinator = getDistributedQueryRunner().getCoordinator();
-        tester = coordinator.getProcedureTester();
-
-        // register procedures in the bogus testing catalog
-        addTestingCatalog(getDistributedQueryRunner());
-        ProcedureRegistry procedureRegistry = coordinator.getProcedureRegistry();
-        TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester());
-        procedureRegistry.addProcedures(
-                new CatalogName(TESTING_CATALOG),
-                procedures.getProcedures(PROCEDURE_SCHEMA));
-
+        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+        tester = queryRunner.getCoordinator().getProcedureTester();
         session = testSessionBuilder()
                 .setCatalog(TESTING_CATALOG)
                 .setSchema(PROCEDURE_SCHEMA)
                 .build();
+
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withProcedures(new TestingProcedures(tester).getProcedures(PROCEDURE_SCHEMA))
+                .build()));
+        queryRunner.createCatalog(TESTING_CATALOG, "mock");
     }
 
     @AfterClass(alwaysRun = true)
