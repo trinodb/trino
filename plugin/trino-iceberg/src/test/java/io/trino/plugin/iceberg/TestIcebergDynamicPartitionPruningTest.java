@@ -38,7 +38,7 @@ public class TestIcebergDynamicPartitionPruningTest
     @Override
     protected void createLineitemTable(String tableName, List<String> columns, List<String> partitionColumns)
     {
-        String sql = format(
+        @Language("SQL") String sql = format(
                 "CREATE TABLE %s WITH (partitioning=array[%s]) AS SELECT %s FROM tpch.tiny.lineitem",
                 tableName,
                 partitionColumns.stream().map(column -> "'" + column + "'").collect(joining(",")),
