@@ -28,6 +28,7 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.SqlQueryScheduler;
+import io.trino.execution.scheduler.TaskDescriptorStorage;
 import io.trino.execution.scheduler.TaskSourceFactory;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.warnings.WarningCollector;
@@ -121,6 +122,7 @@ public class SqlQueryExecution
     private final TaskManager coordinatorTaskManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final TaskSourceFactory taskSourceFactory;
+    private final TaskDescriptorStorage taskDescriptorStorage;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -149,7 +151,8 @@ public class SqlQueryExecution
             TypeAnalyzer typeAnalyzer,
             TaskManager coordinatorTaskManager,
             ExchangeManagerRegistry exchangeManagerRegistry,
-            TaskSourceFactory taskSourceFactory)
+            TaskSourceFactory taskSourceFactory,
+            TaskDescriptorStorage taskDescriptorStorage)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
@@ -207,6 +210,7 @@ public class SqlQueryExecution
             this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
             this.taskSourceFactory = requireNonNull(taskSourceFactory, "taskSourceFactory is null");
+            this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
         }
     }
 
@@ -521,7 +525,8 @@ public class SqlQueryExecution
                 splitSourceFactory,
                 coordinatorTaskManager,
                 exchangeManagerRegistry,
-                taskSourceFactory);
+                taskSourceFactory,
+                taskDescriptorStorage);
 
         queryScheduler.set(scheduler);
 
@@ -709,6 +714,7 @@ public class SqlQueryExecution
         private final TaskManager coordinatorTaskManager;
         private final ExchangeManagerRegistry exchangeManagerRegistry;
         private final TaskSourceFactory taskSourceFactory;
+        private final TaskDescriptorStorage taskDescriptorStorage;
 
         @Inject
         SqlQueryExecutionFactory(
@@ -734,7 +740,8 @@ public class SqlQueryExecution
                 TypeAnalyzer typeAnalyzer,
                 TaskManager coordinatorTaskManager,
                 ExchangeManagerRegistry exchangeManagerRegistry,
-                TaskSourceFactory taskSourceFactory)
+                TaskSourceFactory taskSourceFactory,
+                TaskDescriptorStorage taskDescriptorStorage)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -760,6 +767,7 @@ public class SqlQueryExecution
             this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
             this.taskSourceFactory = requireNonNull(taskSourceFactory, "taskSourceFactory is null");
+            this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
         }
 
         @Override
@@ -800,7 +808,8 @@ public class SqlQueryExecution
                     typeAnalyzer,
                     coordinatorTaskManager,
                     exchangeManagerRegistry,
-                    taskSourceFactory);
+                    taskSourceFactory,
+                    taskDescriptorStorage);
         }
     }
 }

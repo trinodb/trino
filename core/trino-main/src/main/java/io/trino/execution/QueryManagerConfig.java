@@ -44,6 +44,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "query.remote-task.max-consecutive-error-count"})
 public class QueryManagerConfig
 {
+    public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
+
     private int scheduleSplitBatchSize = 1000;
     private int minScheduleSplitBatchSize = 100;
     private int maxConcurrentQueries = 1000;
@@ -80,6 +82,7 @@ public class QueryManagerConfig
 
     private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(1, GIGABYTE);
     private int faultTolerantExecutionTargetTaskSplitCount = 16;
+    private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -469,6 +472,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionTargetTaskSplitCount(int faultTolerantExecutionTargetTaskSplitCount)
     {
         this.faultTolerantExecutionTargetTaskSplitCount = faultTolerantExecutionTargetTaskSplitCount;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionTaskDescriptorStorageMaxMemory()
+    {
+        return faultTolerantExecutionTaskDescriptorStorageMaxMemory;
+    }
+
+    @Config("fault-tolerant-execution-task-descriptor-storage-max-memory")
+    @ConfigDescription("Maximum amount of memory to be used to store task descriptors for fault tolerant queries on coordinator")
+    public QueryManagerConfig setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory)
+    {
+        this.faultTolerantExecutionTaskDescriptorStorageMaxMemory = faultTolerantExecutionTaskDescriptorStorageMaxMemory;
         return this;
     }
 }

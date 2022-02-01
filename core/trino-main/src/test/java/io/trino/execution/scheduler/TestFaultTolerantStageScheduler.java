@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
@@ -62,6 +63,7 @@ import java.util.Optional;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -82,9 +84,12 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestFaultTolerantStageScheduler
 {
-    private static final Session SESSION = testSessionBuilder().build();
+    private static final QueryId QUERY_ID = new QueryId("query");
+    private static final Session SESSION = testSessionBuilder()
+            .setQueryId(QUERY_ID)
+            .build();
 
-    private static final StageId STAGE_ID = new StageId(new QueryId("query"), 0);
+    private static final StageId STAGE_ID = new StageId(QUERY_ID, 0);
     private static final PlanFragmentId FRAGMENT_ID = new PlanFragmentId("0");
     private static final PlanFragmentId SOURCE_FRAGMENT_ID_1 = new PlanFragmentId("1");
     private static final PlanFragmentId SOURCE_FRAGMENT_ID_2 = new PlanFragmentId("2");
@@ -467,12 +472,15 @@ public class TestFaultTolerantStageScheduler
             Map<PlanFragmentId, Exchange> sourceExchanges,
             int retryAttempts)
     {
+        TaskDescriptorStorage taskDescriptorStorage = new TaskDescriptorStorage(DataSize.of(10, MEGABYTE));
+        taskDescriptorStorage.initialize(SESSION.getQueryId());
         return new FaultTolerantStageScheduler(
                 SESSION,
                 createSqlStage(remoteTaskFactory),
                 new NoOpFailureDetector(),
                 taskSourceFactory,
                 nodeAllocator,
+                taskDescriptorStorage,
                 taskLifecycleListener,
                 sinkExchange,
                 Optional.empty(),
