@@ -106,6 +106,11 @@ public final class Standard
     public void extendEnvironment(Environment.Builder builder)
     {
         builder.addContainers(createPrestoMaster(), createTestsContainer());
+        // default catalogs copied from /docker/presto-product-tests
+        builder.addConnector("blackhole");
+        builder.addConnector("jmx");
+        builder.addConnector("system");
+        builder.addConnector("tpch");
     }
 
     @SuppressWarnings("resource")

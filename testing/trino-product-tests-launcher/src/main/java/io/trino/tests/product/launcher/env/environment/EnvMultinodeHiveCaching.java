@@ -79,9 +79,9 @@ public final class EnvMultinodeHiveCaching
         builder.configureContainer(COORDINATOR, container -> container
                 .withCopyFileToContainer(forHostPath(configDir.getPath("multinode/multinode-master-jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard-multinode/multinode-master-config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_NON_CACHED_PROPERTIES)
-                .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-cached/hive-coordinator.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
                 .withTmpFs(ImmutableMap.of("/tmp/cache", "rw")));
+        builder.addConnector("hive", forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_NON_CACHED_PROPERTIES);
+        builder.addConnector("hive", forHostPath(configDir.getPath("multinode-cached/hive-coordinator.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES);
 
         createPrestoWorker(builder, 0);
         createPrestoWorker(builder, 1);
