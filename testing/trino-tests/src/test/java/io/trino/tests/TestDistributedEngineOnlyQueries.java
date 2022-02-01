@@ -15,9 +15,8 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.metadata.Catalog;
-import io.trino.metadata.SessionPropertyManager;
-import io.trino.server.testing.TestingTrinoServer;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -31,7 +30,6 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
-import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,31 +43,17 @@ public class TestDistributedEngineOnlyQueries
             throws Exception
     {
         DistributedQueryRunner queryRunner = createMemoryQueryRunner(ImmutableMap.of(), TpchTable.getTables());
-        addTestingCatalog(queryRunner);
-        return queryRunner;
-    }
-
-    public static void addTestingCatalog(DistributedQueryRunner queryRunner)
-    {
+        queryRunner.getCoordinator().getSessionPropertyManager().addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
         try {
-            for (TestingTrinoServer server : queryRunner.getServers()) {
-                addTestingCatalog(server);
-            }
+            queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                    .withSessionProperties(TEST_CATALOG_PROPERTIES)
+                    .build()));
+            queryRunner.createCatalog(TESTING_CATALOG, "mock");
         }
         catch (RuntimeException e) {
             throw closeAllSuppress(e, queryRunner);
         }
-    }
-
-    private static void addTestingCatalog(TestingTrinoServer server)
-    {
-        // for testing procedures and session properties
-        Catalog bogusTestingCatalog = createBogusTestingCatalog(TESTING_CATALOG);
-        server.getCatalogManager().registerCatalog(bogusTestingCatalog);
-
-        SessionPropertyManager sessionPropertyManager = server.getSessionPropertyManager();
-        sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
-        sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), TEST_CATALOG_PROPERTIES);
+        return queryRunner;
     }
 
     /**
