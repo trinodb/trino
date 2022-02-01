@@ -19,6 +19,7 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
@@ -75,7 +76,8 @@ public class TestComparisonStatsCalculator
     public void setUp()
     {
         session = testSessionBuilder().build();
-        filterStatsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer());
+        TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(PLANNER_CONTEXT);
+        filterStatsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, typeAnalyzer), new StatsNormalizer(), typeAnalyzer);
 
         uStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(8.0)

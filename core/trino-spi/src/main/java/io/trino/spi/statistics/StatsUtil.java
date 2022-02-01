@@ -85,4 +85,55 @@ public final class StatsUtil
 
         return OptionalDouble.empty();
     }
+
+    /**
+     * Stats representations of the given types are considered compatible if
+     * {@link #toStatsRepresentation} returns the same result for all valid values with either type.
+     */
+    public static boolean areStatsRepresentationsCompatible(Type type, Type otherType)
+    {
+        requireNonNull(type, "type is null");
+        requireNonNull(otherType, "otherType is null");
+
+        if (type.equals(otherType)) {
+            return true;
+        }
+
+        if (type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT) {
+            if (otherType == TINYINT || otherType == SMALLINT || otherType == INTEGER || otherType == BIGINT) {
+                return true;
+            }
+            if (otherType instanceof DecimalType) {
+                return ((DecimalType) otherType).getScale() == 0;
+            }
+            return false;
+        }
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            if (!(otherType instanceof DecimalType)) {
+                if (decimalType.isShort() && decimalType.getScale() == 0) {
+                    return otherType == TINYINT || otherType == SMALLINT || otherType == INTEGER || otherType == BIGINT;
+                }
+                return false;
+            }
+
+            DecimalType otherDecimalType = (DecimalType) otherType;
+            return (decimalType.isShort() == otherDecimalType.isShort())
+                    && (decimalType.getScale() == otherDecimalType.getScale());
+        }
+        if (type instanceof TimestampType) {
+            if (!(otherType instanceof TimestampType)) {
+                return false;
+            }
+            return ((TimestampType) type).isShort() == ((TimestampType) otherType).isShort();
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            if (!(otherType instanceof TimestampWithTimeZoneType)) {
+                return false;
+            }
+            return ((TimestampWithTimeZoneType) type).isShort() == ((TimestampWithTimeZoneType) otherType).isShort();
+        }
+
+        return false;
+    }
 }

@@ -13,6 +13,7 @@
  */
 package io.trino.cost;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,10 +29,12 @@ import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
@@ -44,6 +47,7 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.type.TypeCoercion;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -62,6 +66,7 @@ import static io.trino.cost.ComparisonStatsCalculator.estimateExpressionToLitera
 import static io.trino.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
 import static io.trino.cost.PlanNodeStatsEstimateMath.capStats;
 import static io.trino.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
+import static io.trino.spi.statistics.StatsUtil.areStatsRepresentationsCompatible;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
@@ -85,13 +90,17 @@ public class FilterStatsCalculator
     private final PlannerContext plannerContext;
     private final ScalarStatsCalculator scalarStatsCalculator;
     private final StatsNormalizer normalizer;
+    private final TypeAnalyzer typeAnalyzer;
+    private final TypeCoercion typeCoercion;
 
     @Inject
-    public FilterStatsCalculator(PlannerContext plannerContext, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer)
+    public FilterStatsCalculator(PlannerContext plannerContext, ScalarStatsCalculator scalarStatsCalculator, StatsNormalizer normalizer, TypeAnalyzer typeAnalyzer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
         this.normalizer = requireNonNull(normalizer, "normalizer is null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
+        this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
     }
 
     public PlanNodeStatsEstimate filterStats(
@@ -103,6 +112,31 @@ public class FilterStatsCalculator
         Expression simplifiedExpression = simplifyExpression(session, predicate, types);
         return new FilterExpressionStatsCalculatingVisitor(statsEstimate, session, types)
                 .process(simplifiedExpression);
+    }
+
+    @VisibleForTesting
+    Optional<Symbol> getSymbolReference(Expression expression, Session session, TypeProvider types)
+    {
+        if (expression instanceof SymbolReference) {
+            return Optional.of(Symbol.from(expression));
+        }
+        if (!(expression instanceof Cast)) {
+            return Optional.empty();
+        }
+        Cast castExpression = (Cast) expression;
+        if (!(castExpression.getExpression() instanceof SymbolReference)) {
+            return Optional.empty();
+        }
+        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
+        Type castSourceType = expressionTypes.get(NodeRef.of(castExpression.getExpression()));
+        Type castTargetType = expressionTypes.get(NodeRef.<Expression>of(castExpression));
+        // CAST must be an implicit coercion and the stats representation of target type
+        // should be compatible with the source type
+        if (typeCoercion.canCoerce(castSourceType, castTargetType)
+                && areStatsRepresentationsCompatible(castSourceType, castTargetType)) {
+            return Optional.of(Symbol.from(castExpression.getExpression()));
+        }
+        return Optional.empty();
     }
 
     private Expression simplifyExpression(Session session, Expression predicate, TypeProvider types)
@@ -277,7 +311,8 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitBetweenPredicate(BetweenPredicate node, Void context)
         {
-            if (!(node.getValue() instanceof SymbolReference)) {
+            SymbolStatsEstimate valueStats = getExpressionStats(node.getValue());
+            if (valueStats.isUnknown()) {
                 return PlanNodeStatsEstimate.unknown();
             }
             if (!getExpressionStats(node.getMin()).isSingleValue()) {
@@ -287,7 +322,6 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            SymbolStatsEstimate valueStats = input.getSymbolStatistics(Symbol.from(node.getValue()));
             Expression lowerBound = new ComparisonExpression(GREATER_THAN_OR_EQUAL, node.getValue(), node.getMin());
             Expression upperBound = new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax());
 
@@ -355,7 +389,9 @@ public class FilterStatsCalculator
 
             checkArgument(!(isEffectivelyLiteral(left) && isEffectivelyLiteral(right)), "Literal-to-literal not supported here, should be eliminated earlier");
 
-            if (!(left instanceof SymbolReference) && right instanceof SymbolReference) {
+            Optional<Symbol> leftSymbol = getSymbolReference(left, session, types);
+            Optional<Symbol> rightSymbol = getSymbolReference(right, session, types);
+            if (leftSymbol.isEmpty() && rightSymbol.isPresent()) {
                 // normalize so that symbol is on the left
                 return process(new ComparisonExpression(operator.flip(), right, left));
             }
@@ -371,7 +407,6 @@ public class FilterStatsCalculator
             }
 
             SymbolStatsEstimate leftStats = getExpressionStats(left);
-            Optional<Symbol> leftSymbol = left instanceof SymbolReference ? Optional.of(Symbol.from(left)) : Optional.empty();
             if (isEffectivelyLiteral(right)) {
                 OptionalDouble literal = doubleValueFromLiteral(getType(left), right);
                 return estimateExpressionToLiteralComparison(input, leftStats, leftSymbol, literal, operator);
@@ -383,7 +418,6 @@ public class FilterStatsCalculator
                 return estimateExpressionToLiteralComparison(input, leftStats, leftSymbol, value, operator);
             }
 
-            Optional<Symbol> rightSymbol = right instanceof SymbolReference ? Optional.of(Symbol.from(right)) : Optional.empty();
             return estimateExpressionToExpressionComparison(input, leftStats, leftSymbol, rightStats, rightSymbol, operator);
         }
 

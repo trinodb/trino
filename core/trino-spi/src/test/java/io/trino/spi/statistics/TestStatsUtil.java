@@ -24,8 +24,10 @@ import java.math.BigDecimal;
 import java.util.OptionalDouble;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.spi.statistics.StatsUtil.areStatsRepresentationsCompatible;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -39,6 +41,8 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToIntBits;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestStatsUtil
 {
@@ -64,6 +68,25 @@ public class TestStatsUtil
         assertToStatsRepresentation(createTimestampWithTimeZoneType(6), LongTimestampWithTimeZone.fromEpochMillisAndFraction(3, 999999999, getTimeZoneKey("Europe/Warsaw")), 3.);
         assertToStatsRepresentation(createTimestampWithTimeZoneType(9), LongTimestampWithTimeZone.fromEpochMillisAndFraction(3, 999999999, getTimeZoneKey("Europe/Warsaw")), 3.);
         assertToStatsRepresentation(createTimestampWithTimeZoneType(12), LongTimestampWithTimeZone.fromEpochMillisAndFraction(3, 999999999, getTimeZoneKey("Europe/Warsaw")), 3.);
+    }
+
+    @Test
+    public void testAreStatsRepresentationsCompatible()
+    {
+        assertTrue(areStatsRepresentationsCompatible(BOOLEAN, BOOLEAN));
+        assertFalse(areStatsRepresentationsCompatible(BOOLEAN, INTEGER));
+        assertTrue(areStatsRepresentationsCompatible(TINYINT, INTEGER));
+        assertFalse(areStatsRepresentationsCompatible(TINYINT, REAL));
+        assertTrue(areStatsRepresentationsCompatible(BIGINT, INTEGER));
+        assertTrue(areStatsRepresentationsCompatible(INTEGER, createDecimalType(10, 0)));
+        assertFalse(areStatsRepresentationsCompatible(INTEGER, createDecimalType(10, 2)));
+        assertFalse(areStatsRepresentationsCompatible(DOUBLE, REAL));
+        assertFalse(areStatsRepresentationsCompatible(createDecimalType(10, 0), createDecimalType(30, 0)));
+        assertFalse(areStatsRepresentationsCompatible(createDecimalType(10, 0), createDecimalType(10, 1)));
+        assertTrue(areStatsRepresentationsCompatible(createTimestampType(6), createTimestampType(3)));
+        assertFalse(areStatsRepresentationsCompatible(createTimestampType(6), createTimestampType(9)));
+        assertTrue(areStatsRepresentationsCompatible(createTimestampWithTimeZoneType(2), createTimestampWithTimeZoneType(3)));
+        assertFalse(areStatsRepresentationsCompatible(createTimestampWithTimeZoneType(6), createTimestampWithTimeZoneType(3)));
     }
 
     private static void assertToStatsRepresentation(Type type, Object trinoValue, double expected)

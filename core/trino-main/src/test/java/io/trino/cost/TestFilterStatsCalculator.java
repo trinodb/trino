@@ -16,18 +16,44 @@ package io.trino.cost;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.metadata.OperatorNotFoundException;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.TestingTransactionManager;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
+import java.util.Map;
+
+import static io.trino.spi.statistics.StatsUtil.areStatsRepresentationsCompatible;
+import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.sql.ExpressionTestUtils.planExpression;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
@@ -36,7 +62,9 @@ import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFilterStatsCalculator
 {
@@ -59,6 +87,13 @@ public class TestFilterStatsCalculator
     @BeforeClass
     public void setUp()
     {
+        SymbolStatsEstimate wStats = SymbolStatsEstimate.builder()
+                .setAverageRowSize(4.0)
+                .setDistinctValuesCount(40.0)
+                .setLowValue(-10.0)
+                .setHighValue(10.0)
+                .setNullsFraction(0.25)
+                .build();
         xStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)
                 .setDistinctValuesCount(40.0)
@@ -116,6 +151,7 @@ public class TestFilterStatsCalculator
                 .setNullsFraction(0.34)
                 .build();
         standardInputStatistics = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol("w"), wStats)
                 .addSymbolStatistics(new Symbol("x"), xStats)
                 .addSymbolStatistics(new Symbol("y"), yStats)
                 .addSymbolStatistics(new Symbol("z"), zStats)
@@ -127,6 +163,7 @@ public class TestFilterStatsCalculator
                 .setOutputRowCount(1000.0)
                 .build();
         zeroStatistics = PlanNodeStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol("w"), SymbolStatsEstimate.zero())
                 .addSymbolStatistics(new Symbol("x"), SymbolStatsEstimate.zero())
                 .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.zero())
                 .addSymbolStatistics(new Symbol("z"), SymbolStatsEstimate.zero())
@@ -139,6 +176,7 @@ public class TestFilterStatsCalculator
                 .build();
 
         standardTypes = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
+                .put(new Symbol("w"), createDecimalType(7, 2))
                 .put(new Symbol("x"), DoubleType.DOUBLE)
                 .put(new Symbol("y"), DoubleType.DOUBLE)
                 .put(new Symbol("z"), DoubleType.DOUBLE)
@@ -150,7 +188,8 @@ public class TestFilterStatsCalculator
                 .buildOrThrow());
 
         session = testSessionBuilder().build();
-        statsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer());
+        TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(PLANNER_CONTEXT);
+        statsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, typeAnalyzer), new StatsNormalizer(), typeAnalyzer);
     }
 
     @Test
@@ -448,6 +487,26 @@ public class TestFilterStatsCalculator
                                 .highValue(100.0)
                                 .nullsFraction(0.0));
 
+        // Expression as value. CAST from DOUBLE to DECIMAL(7,2)
+        // Produces row count estimate without updating symbol stats
+        assertExpression("CAST(x AS DECIMAL(7,2)) BETWEEN CAST(DECIMAL '-2.50' AS DECIMAL(7, 2)) AND CAST(DECIMAL '2.50' AS DECIMAL(7, 2))")
+                .outputRowsCount(219.726563)
+                .symbolStats("x", symbolStats ->
+                        symbolStats.distinctValuesCount(xStats.getDistinctValuesCount())
+                                .lowValue(xStats.getLowValue())
+                                .highValue(xStats.getHighValue())
+                                .nullsFraction(xStats.getNullsFraction()));
+
+        // Expression as value, CAST from DECIMAL(7,2) to DECIMAL(12,2)
+        // Produces row count estimate with updated symbol stats
+        assertExpression("CAST(w AS DECIMAL(12,2)) BETWEEN CAST(DECIMAL '-2.50' AS DECIMAL(12, 2)) AND CAST(DECIMAL '2.50' AS DECIMAL(12, 2))")
+                .outputRowsCount(187.5)
+                .symbolStats("w", symbolStats ->
+                        symbolStats.distinctValuesCount(10.0)
+                                .lowValue(-2.5)
+                                .highValue(2.5)
+                                .nullsFraction(0.0));
+
         assertExpression("'a' IN ('a', 'b')").equalTo(standardInputStatistics);
         assertExpression("'a' IN ('b', 'c')").outputRowsCount(0);
         assertExpression("CAST('b' AS VARCHAR(3)) IN (CAST('a' AS VARCHAR(3)), CAST('b' AS VARCHAR(3)))").equalTo(standardInputStatistics);
@@ -569,6 +628,67 @@ public class TestFilterStatsCalculator
                                 .lowValue(-1.0)
                                 .highValue(1.0)
                                 .nullsFraction(0.0));
+    }
+
+    @Test
+    public void testUnwrapCastSymbolReference()
+    {
+        Map<Type, Object> typeValues = ImmutableMap.<Type, Object>builder()
+                .put(BOOLEAN, false)
+                .put(REAL, (long) floatToIntBits(0.2f))
+                .put(DOUBLE, 0.1d)
+                .put(DATE, 1L)
+                .put(TINYINT, 123L)
+                .put(SMALLINT, 1234L)
+                .put(INTEGER, 12345L)
+                .put(BIGINT, 123456L)
+                .put(createDecimalType(5, 2), 12345L)
+                .put(createDecimalType(7, 2), 123456L)
+                .put(createDecimalType(9, 0), 12345678L)
+                .put(createDecimalType(25, 5), Decimals.valueOf(new BigDecimal("12345678901234567890.12345")))
+                .put(createDecimalType(28, 5), Decimals.valueOf(new BigDecimal("12345678901234567890.1234567")))
+                .put(createTimestampType(3), 3_000L)
+                .put(createTimestampType(6), 3L)
+                .put(createTimestampType(9), new LongTimestamp(3, 0))
+                .put(createTimestampType(12), new LongTimestamp(3, 999))
+                .put(createTimestampWithTimeZoneType(0), packDateTimeWithZone(3000, getTimeZoneKey("Europe/Warsaw")))
+                .put(createTimestampWithTimeZoneType(3), packDateTimeWithZone(3, getTimeZoneKey("Europe/Warsaw")))
+                .put(createTimestampWithTimeZoneType(6), LongTimestampWithTimeZone.fromEpochMillisAndFraction(3, 999999999, getTimeZoneKey("Europe/Warsaw")))
+                .put(createTimestampWithTimeZoneType(9), LongTimestampWithTimeZone.fromEpochMillisAndFraction(3, 999999999, getTimeZoneKey("Europe/Warsaw")))
+                .build();
+        for (Type fromType : typeValues.keySet()) {
+            for (Type toType : typeValues.keySet()) {
+                assertThat(areStatsRepresentationsCompatible(fromType, toType))
+                        .isEqualTo(areStatsRepresentationsCompatible(toType, fromType));
+                if (fromType.equals(toType)) {
+                    assertThat(areStatsRepresentationsCompatible(fromType, toType)).isTrue();
+                    continue;
+                }
+                if (!isValidCast(fromType, toType)) {
+                    assertThat(areStatsRepresentationsCompatible(fromType, toType)).isFalse();
+                    continue;
+                }
+                Cast cast = new Cast(new SymbolReference(fromType.getDisplayName()), toSqlType(toType));
+                TypeProvider types = TypeProvider.copyOf(ImmutableMap.of(new Symbol(fromType.getDisplayName()), fromType));
+                if (statsCalculator.getSymbolReference(cast, session, types).isPresent()) {
+                    Object trinoValue = typeValues.get(fromType);
+                    assertThat(areStatsRepresentationsCompatible(fromType, toType)).isTrue();
+                    assertThat(toStatsRepresentation(fromType, trinoValue))
+                            .isEqualTo(toStatsRepresentation(toType, trinoValue));
+                }
+            }
+        }
+    }
+
+    private boolean isValidCast(Type fromType, Type toType)
+    {
+        try {
+            PLANNER_CONTEXT.getMetadata().getCoercion(session, fromType, toType);
+        }
+        catch (OperatorNotFoundException e) {
+            return false;
+        }
+        return true;
     }
 
     private PlanNodeStatsAssertion assertExpression(String expression)

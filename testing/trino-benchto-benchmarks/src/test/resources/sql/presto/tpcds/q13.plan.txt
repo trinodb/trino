@@ -2,25 +2,27 @@ final aggregation over ()
     local exchange (GATHER, SINGLE, [])
         remote exchange (GATHER, SINGLE, [])
             partial aggregation over ()
-                join (INNER, REPLICATED):
-                    join (INNER, REPLICATED):
-                        join (INNER, REPLICATED):
-                            join (INNER, PARTITIONED):
-                                remote exchange (REPARTITION, HASH, ["ss_addr_sk"])
-                                    join (INNER, REPLICATED):
-                                        scan store_sales
+                join (INNER, PARTITIONED):
+                    remote exchange (REPARTITION, HASH, ["ss_store_sk"])
+                        join (INNER, PARTITIONED):
+                            remote exchange (REPARTITION, HASH, ["ss_cdemo_sk"])
+                                join (INNER, REPLICATED):
+                                    join (INNER, PARTITIONED):
+                                        remote exchange (REPARTITION, HASH, ["ss_addr_sk"])
+                                            join (INNER, REPLICATED):
+                                                scan store_sales
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        scan date_dim
                                         local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                scan date_dim
-                                local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["ca_address_sk"])
-                                        scan customer_address
+                                            remote exchange (REPARTITION, HASH, ["ca_address_sk"])
+                                                scan customer_address
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan household_demographics
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPLICATE, BROADCAST, [])
-                                    scan household_demographics
-                        local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPLICATE, BROADCAST, [])
-                                scan customer_demographics
+                                remote exchange (REPARTITION, HASH, ["cd_demo_sk"])
+                                    scan customer_demographics
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPLICATE, BROADCAST, [])
+                        remote exchange (REPARTITION, HASH, ["s_store_sk"])
                             scan store
