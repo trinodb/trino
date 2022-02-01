@@ -38,7 +38,8 @@ import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogHandle;
-import io.trino.connector.ConnectorManager.ConnectorServices;
+import io.trino.connector.CatalogManagerModule;
+import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.eventlistener.EventListenerModule;
@@ -113,6 +114,7 @@ public class Server
                 new EventListenerModule(),
                 new ExchangeManagerModule(),
                 new CoordinatorDiscoveryModule(),
+                new CatalogManagerModule(),
                 new TransactionManagerModule(),
                 new ServerMainModule(trinoVersion),
                 new GracefulShutdownModule(),
