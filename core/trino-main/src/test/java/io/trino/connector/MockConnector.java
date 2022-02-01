@@ -16,6 +16,13 @@ package io.trino.connector;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.trino.connector.MockConnectorFactory.ApplyAggregation;
+import io.trino.connector.MockConnectorFactory.ApplyFilter;
+import io.trino.connector.MockConnectorFactory.ApplyJoin;
+import io.trino.connector.MockConnectorFactory.ApplyProjection;
+import io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
+import io.trino.connector.MockConnectorFactory.ApplyTopN;
+import io.trino.connector.MockConnectorFactory.ListRoleGrants;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.connector.AggregateFunction;
@@ -28,6 +35,7 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
@@ -122,14 +130,17 @@ public class MockConnector
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final MockConnectorFactory.ListRoleGrants roleGrants;
+    private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
     private final Optional<ConnectorAccessControl> accessControl;
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Set<Procedure> procedures;
     private final boolean allowMissingColumnsOnInsert;
     private final Supplier<List<PropertyMetadata<?>>> schemaProperties;
     private final Supplier<List<PropertyMetadata<?>>> tableProperties;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
     MockConnector(
+            List<PropertyMetadata<?>> sessionProperties,
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
             Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns,
@@ -140,18 +151,19 @@ public class MockConnector
             BiFunction<ConnectorSession, SchemaTableName, CompletableFuture<?>> refreshMaterializedView,
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
-            MockConnectorFactory.ApplyProjection applyProjection,
-            MockConnectorFactory.ApplyAggregation applyAggregation,
-            MockConnectorFactory.ApplyJoin applyJoin,
-            MockConnectorFactory.ApplyTopN applyTopN,
-            MockConnectorFactory.ApplyFilter applyFilter,
-            MockConnectorFactory.ApplyTableScanRedirect applyTableScanRedirect,
+            ApplyProjection applyProjection,
+            ApplyAggregation applyAggregation,
+            ApplyJoin applyJoin,
+            ApplyTopN applyTopN,
+            ApplyFilter applyFilter,
+            ApplyTableScanRedirect applyTableScanRedirect,
             BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable,
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> getNewTableLayout,
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             Supplier<Iterable<EventListener>> eventListeners,
-            MockConnectorFactory.ListRoleGrants roleGrants,
+            ListRoleGrants roleGrants,
+            Optional<ConnectorNodePartitioningProvider> partitioningProvider,
             Optional<ConnectorAccessControl> accessControl,
             Function<SchemaTableName, List<List<?>>> data,
             Set<Procedure> procedures,
@@ -159,6 +171,7 @@ public class MockConnector
             Supplier<List<PropertyMetadata<?>>> schemaProperties,
             Supplier<List<PropertyMetadata<?>>> tableProperties)
     {
+        this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
         this.streamTableColumns = requireNonNull(streamTableColumns, "streamTableColumns is null");
@@ -181,12 +194,19 @@ public class MockConnector
         this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
+        this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
         this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
         this.schemaProperties = requireNonNull(schemaProperties, "schemaProperties is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
     }
 
     @Override
@@ -224,6 +244,12 @@ public class MockConnector
                 return new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT));
             }
         };
+    }
+
+    @Override
+    public ConnectorNodePartitioningProvider getNodePartitioningProvider()
+    {
+        return partitioningProvider.orElseThrow(UnsupportedOperationException::new);
     }
 
     @Override

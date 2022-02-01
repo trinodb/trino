@@ -17,10 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AbstractMockMetadata;
-import io.trino.metadata.Catalog;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.FunctionInvoker;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
@@ -51,8 +50,10 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.transaction.TransactionManager;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -70,6 +71,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -77,9 +79,7 @@ import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
-import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Objects.requireNonNull;
 
 @Test
@@ -94,6 +94,7 @@ public abstract class BaseDataDefinitionTaskTest
     protected static final String MATERIALIZED_VIEW_PROPERTY_2_NAME = "property2";
     protected static final String MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE = "defaultProperty2Value";
 
+    private LocalQueryRunner queryRunner;
     protected Session testSession;
     protected MockMetadata metadata;
     protected PlannerContext plannerContext;
@@ -104,14 +105,14 @@ public abstract class BaseDataDefinitionTaskTest
     @BeforeMethod
     public void setUp()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        transactionManager = createTestTransactionManager(catalogManager);
-        Catalog testCatalog = createBogusTestingCatalog(CATALOG_NAME);
-        catalogManager.registerCatalog(testCatalog);
+        queryRunner = LocalQueryRunner.create(TEST_SESSION);
+        transactionManager = queryRunner.getTransactionManager();
+        queryRunner.createCatalog(CATALOG_NAME, MockConnectorFactory.create("initial"), ImmutableMap.of());
+
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-        metadata = new MockMetadata(testCatalog.getConnectorCatalogName());
+        metadata = new MockMetadata(new CatalogName(CATALOG_NAME));
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
         materializedViewPropertyManager = new MaterializedViewPropertyManager();
         materializedViewPropertyManager.addProperties(
@@ -120,6 +121,14 @@ public abstract class BaseDataDefinitionTaskTest
                         longProperty(MATERIALIZED_VIEW_PROPERTY_1_NAME, "property 1", MATERIALIZED_VIEW_PROPERTY_1_DEFAULT_VALUE, false),
                         stringProperty(MATERIALIZED_VIEW_PROPERTY_2_NAME, "property 2", MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE, false)));
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
+    }
+
+    @AfterMethod
+    public void tearDown()
+    {
+        if (queryRunner != null) {
+            queryRunner.close();
+        }
     }
 
     protected static QualifiedObjectName qualifiedObjectName(String objectName)

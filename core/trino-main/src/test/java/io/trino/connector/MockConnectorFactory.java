@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
@@ -51,6 +52,7 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.session.PropertyMetadata;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,6 +73,7 @@ public class MockConnectorFactory
         implements ConnectorFactory
 {
     private final String name;
+    private final List<PropertyMetadata<?>> sessionProperty;
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
     private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns;
@@ -97,6 +100,7 @@ public class MockConnectorFactory
     private final boolean allowMissingColumnsOnInsert;
     private final Supplier<List<PropertyMetadata<?>>> schemaProperties;
     private final Supplier<List<PropertyMetadata<?>>> tableProperties;
+    private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
 
     // access control
     private final ListRoleGrants roleGrants;
@@ -104,6 +108,7 @@ public class MockConnectorFactory
 
     private MockConnectorFactory(
             String name,
+            List<PropertyMetadata<?>> sessionProperty,
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
             Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns,
@@ -129,11 +134,13 @@ public class MockConnectorFactory
             Set<Procedure> procedures,
             Supplier<List<PropertyMetadata<?>>> schemaProperties,
             Supplier<List<PropertyMetadata<?>>> tableProperties,
+            Optional<ConnectorNodePartitioningProvider> partitioningProvider,
             ListRoleGrants roleGrants,
             Optional<ConnectorAccessControl> accessControl,
             boolean allowMissingColumnsOnInsert)
     {
-        this.name = (name != null) ? name : "mock";
+        this.name = requireNonNull(name, "name is null");
+        this.sessionProperty = ImmutableList.copyOf(requireNonNull(sessionProperty, "sessionProperty is null"));
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
         this.streamTableColumns = requireNonNull(streamTableColumns, "streamTableColumns is null");
@@ -157,6 +164,7 @@ public class MockConnectorFactory
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
         this.schemaProperties = requireNonNull(schemaProperties, "schemaProperties is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
@@ -174,6 +182,7 @@ public class MockConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         return new MockConnector(
+                sessionProperty,
                 listSchemaNames,
                 listTables,
                 streamTableColumns,
@@ -196,12 +205,23 @@ public class MockConnectorFactory
                 getTableProperties,
                 eventListeners,
                 roleGrants,
+                partitioningProvider,
                 accessControl,
                 data,
                 procedures,
                 allowMissingColumnsOnInsert,
                 schemaProperties,
                 tableProperties);
+    }
+
+    public static MockConnectorFactory create()
+    {
+        return builder().build();
+    }
+
+    public static MockConnectorFactory create(String name)
+    {
+        return builder().withName(name).build();
     }
 
     public static Builder builder()
@@ -274,7 +294,8 @@ public class MockConnectorFactory
 
     public static final class Builder
     {
-        private String name;
+        private String name = "mock";
+        private final List<PropertyMetadata<?>> sessionProperties = new ArrayList<>();
         private Function<ConnectorSession, List<String>> listSchemaNames = defaultListSchemaNames();
         private BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = defaultListTables();
         private Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Stream<TableColumnsMetadata>>> streamTableColumns = Optional.empty();
@@ -300,6 +321,7 @@ public class MockConnectorFactory
         private Set<Procedure> procedures = ImmutableSet.of();
         private Supplier<List<PropertyMetadata<?>>> schemaProperties = ImmutableList::of;
         private Supplier<List<PropertyMetadata<?>>> tableProperties = ImmutableList::of;
+        private Optional<ConnectorNodePartitioningProvider> partitioningProvider = Optional.empty();
 
         // access control
         private boolean provideAccessControl;
@@ -310,9 +332,25 @@ public class MockConnectorFactory
         private BiFunction<SchemaTableName, String, ViewExpression> columnMask = (tableName, columnName) -> null;
         private boolean allowMissingColumnsOnInsert;
 
+        private Builder() {}
+
         public Builder withName(String name)
         {
             this.name = requireNonNull(name, "name is null");
+            return this;
+        }
+
+        public Builder withSessionProperty(PropertyMetadata<?> sessionProperty)
+        {
+            sessionProperties.add(sessionProperty);
+            return this;
+        }
+
+        public Builder withSessionProperties(Iterable<PropertyMetadata<?>> sessionProperties)
+        {
+            for (PropertyMetadata<?> sessionProperty : sessionProperties) {
+                withSessionProperty(sessionProperty);
+            }
             return this;
         }
 
@@ -458,9 +496,9 @@ public class MockConnectorFactory
             return this;
         }
 
-        public Builder withProcedures(Set<Procedure> procedures)
+        public Builder withProcedures(Iterable<Procedure> procedures)
         {
-            this.procedures = procedures;
+            this.procedures = ImmutableSet.copyOf(procedures);
             return this;
         }
 
@@ -473,6 +511,12 @@ public class MockConnectorFactory
         public Builder withTableProperties(Supplier<List<PropertyMetadata<?>>> tableProperties)
         {
             this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+            return this;
+        }
+
+        public Builder withPartitionProvider(ConnectorNodePartitioningProvider partitioningProvider)
+        {
+            this.partitioningProvider = Optional.of(partitioningProvider);
             return this;
         }
 
@@ -525,6 +569,7 @@ public class MockConnectorFactory
             }
             return new MockConnectorFactory(
                     name,
+                    sessionProperties,
                     listSchemaNames,
                     listTables,
                     streamTableColumns,
@@ -550,6 +595,7 @@ public class MockConnectorFactory
                     procedures,
                     schemaProperties,
                     tableProperties,
+                    partitioningProvider,
                     roleGrants,
                     accessControl,
                     allowMissingColumnsOnInsert);

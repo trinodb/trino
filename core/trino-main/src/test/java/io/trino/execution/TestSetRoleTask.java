@@ -16,31 +16,19 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.FeaturesConfig;
-import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
-import io.trino.connector.system.StaticSystemTablesProvider;
-import io.trino.connector.system.SystemTablesMetadata;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Catalog;
-import io.trino.metadata.Catalog.SecurityManagement;
-import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
-import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.connector.Connector;
-import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.security.TrinoPrincipal;
-import io.trino.spi.transaction.IsolationLevel;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.SetRole;
-import io.trino.testing.TestingConnectorContext;
+import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -52,16 +40,13 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
-import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
@@ -72,6 +57,7 @@ public class TestSetRoleTask
     private static final String USER_NAME = "user";
     private static final String ROLE_NAME = "bar";
 
+    private LocalQueryRunner queryRunner;
     private TransactionManager transactionManager;
     private AccessControl accessControl;
     private Metadata metadata;
@@ -81,61 +67,31 @@ public class TestSetRoleTask
     @BeforeClass
     public void setUp()
     {
-        CatalogManager catalogManager = new CatalogManager();
-        transactionManager = createTestTransactionManager(catalogManager);
-        accessControl = new AllowAllAccessControl();
-
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
-
+        queryRunner = LocalQueryRunner.create(TEST_SESSION);
         MockConnectorFactory mockConnectorFactory = MockConnectorFactory.builder()
                 .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, USER_NAME), ROLE_NAME, false)))
                 .build();
-        Connector testConnector = mockConnectorFactory.create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
-        CatalogName catalogName = new CatalogName(CATALOG_NAME);
-        catalogManager.registerCatalog(new Catalog(
-                CATALOG_NAME,
-                catalogName,
-                "test",
-                testConnector,
-                SecurityManagement.CONNECTOR,
-                createInformationSchemaCatalogName(catalogName),
-                testConnector,
-                createSystemTablesCatalogName(catalogName),
-                testConnector));
+        queryRunner.createCatalog(CATALOG_NAME, mockConnectorFactory, ImmutableMap.of());
 
-        CatalogName systemRoleCatalog = new CatalogName(SYSTEM_ROLE_CATALOG_NAME);
-        Connector systemRoleConnector = new Connector()
-        {
-            @Override
-            public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
-            {
-                return new ConnectorTransactionHandle() {};
-            }
+        MockConnectorFactory systemConnectorFactory = MockConnectorFactory.builder()
+                .withName("system_role_connector")
+                .build();
+        queryRunner.createCatalog(SYSTEM_ROLE_CATALOG_NAME, systemConnectorFactory, ImmutableMap.of());
 
-            @Override
-            public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
-            {
-                return new SystemTablesMetadata(new StaticSystemTablesProvider(ImmutableSet.of()));
-            }
-        };
-        catalogManager.registerCatalog(new Catalog(
-                SYSTEM_ROLE_CATALOG_NAME,
-                systemRoleCatalog,
-                "test",
-                systemRoleConnector,
-                SecurityManagement.SYSTEM,
-                createInformationSchemaCatalogName(systemRoleCatalog),
-                systemRoleConnector,
-                createSystemTablesCatalogName(systemRoleCatalog),
-                systemRoleConnector));
-
+        transactionManager = queryRunner.getTransactionManager();
+        accessControl = queryRunner.getAccessControl();
+        metadata = queryRunner.getMetadata();
+        parser = queryRunner.getSqlParser();
         executor = newCachedThreadPool(daemonThreadsNamed("test-set-role-task-executor-%s"));
-        parser = new SqlParser();
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
+        if (queryRunner != null) {
+            queryRunner.close();
+            queryRunner = null;
+        }
         executor.shutdownNow();
         executor = null;
         metadata = null;
