@@ -36,10 +36,7 @@ import java.time.Duration;
 import java.util.Set;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -75,8 +72,7 @@ public class EnvMultinodeClickhouse
     @Override
     public void extendEnvironment(Builder builder)
     {
-        builder.configureContainer(COORDINATOR, this::addCatalogs);
-        builder.configureContainer(WORKER, this::addCatalogs);
+        builder.addConnector("clickhouse", forHostPath(configDir.getPath("clickhouse.properties")));
 
         builder.addContainers(
                         createZookeeper(portBinder),
@@ -93,14 +89,6 @@ public class EnvMultinodeClickhouse
         builder.configureContainer(logicalName(3), container -> container.withNetworkAliases(container.getLogicalName(), "localhost"));
 
         configureTempto(builder, configDir);
-    }
-
-    private void addCatalogs(DockerContainer container)
-    {
-        container
-                .withCopyFileToContainer(
-                        forHostPath(configDir.getPath("clickhouse.properties")),
-                        CONTAINER_PRESTO_ETC + "/catalog/clickhouse.properties");
     }
 
     private static DockerContainer createZookeeper(PortBinder portBinder)

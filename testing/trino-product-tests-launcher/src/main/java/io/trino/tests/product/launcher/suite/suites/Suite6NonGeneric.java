@@ -41,13 +41,29 @@ public class Suite6NonGeneric
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
         return ImmutableList.of(
-                testOnEnvironment(EnvSinglenodeKerberosKmsHdfsNoImpersonation.class).withGroups("storage_formats").build(),
-                testOnEnvironment(EnvSinglenodeKerberosKmsHdfsImpersonation.class).withGroups("storage_formats").build(),
-                testOnEnvironment(EnvSinglenodeCassandra.class).withGroups("cassandra").build(),
-                testOnEnvironment(EnvMultinodeKafka.class).withGroups("kafka").build(),
-                testOnEnvironment(EnvMultinodeKafkaSsl.class).withGroups("kafka").build(),
-                testOnEnvironment(EnvMultinodeKafkaSaslPlaintext.class).withGroups("kafka").build(),
-                testOnEnvironment(EnvMultinodePhoenix4.class).withGroups("phoenix").build(),
-                testOnEnvironment(EnvMultinodePhoenix5.class).withGroups("phoenix").build());
+                testOnEnvironment(EnvSinglenodeKerberosKmsHdfsNoImpersonation.class)
+                        .withGroups("configured_features", "storage_formats")
+                        .build(),
+                testOnEnvironment(EnvSinglenodeKerberosKmsHdfsImpersonation.class)
+                        .withGroups("configured_features", "storage_formats")
+                        .build(),
+                testOnEnvironment(EnvSinglenodeCassandra.class)
+                        .withGroups("configured_features", "cassandra")
+                        .build(),
+                testOnEnvironment(EnvMultinodeKafka.class)
+                        .withGroups("configured_features", "kafka")
+                        .build(),
+                testOnEnvironment(EnvMultinodeKafkaSsl.class)
+                        .withGroups("configured_features", "kafka")
+                        .build(),
+                testOnEnvironment(EnvMultinodeKafkaSaslPlaintext.class)
+                        .withGroups("configured_features", "kafka")
+                        .build(),
+                testOnEnvironment(EnvMultinodePhoenix4.class)
+                        .withGroups("configured_features", "phoenix")
+                        .build(),
+                testOnEnvironment(EnvMultinodePhoenix5.class)
+                        .withGroups("configured_features", "phoenix")
+                        .build());
     }
 }
