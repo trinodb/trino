@@ -35,11 +35,6 @@ public class OrcWriterOptions
         LEGACY_HIVE_COMPATIBLE,
 
         /**
-         * Write ORC files with the legacy writer identification of PrestoSQL
-         */
-        PRESTO,
-
-        /**
          * Write ORC files with Trino writer identification.
          */
         TRINO,
