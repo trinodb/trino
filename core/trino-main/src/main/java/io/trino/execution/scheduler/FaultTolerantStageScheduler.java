@@ -93,6 +93,7 @@ public class FaultTolerantStageScheduler
     private final FailureDetector failureDetector;
     private final TaskSourceFactory taskSourceFactory;
     private final NodeAllocator nodeAllocator;
+    private final TaskDescriptorStorage taskDescriptorStorage;
 
     private final TaskLifecycleListener taskLifecycleListener;
     // empty when the results are consumed via a direct exchange
@@ -114,8 +115,6 @@ public class FaultTolerantStageScheduler
     @GuardedBy("this")
     private TaskSource taskSource;
     @GuardedBy("this")
-    private final Map<Integer, TaskDescriptor> partitionToTaskDescriptorMap = new HashMap<>();
-    @GuardedBy("this")
     private final Map<Integer, ExchangeSinkHandle> partitionToExchangeSinkHandleMap = new HashMap<>();
     @GuardedBy("this")
     private final Multimap<Integer, RemoteTask> partitionToRemoteTaskMap = ArrayListMultimap.create();
@@ -123,6 +122,8 @@ public class FaultTolerantStageScheduler
     private final Map<TaskId, RemoteTask> runningTasks = new HashMap<>();
     @GuardedBy("this")
     private final Map<TaskId, InternalNode> runningNodes = new HashMap<>();
+    @GuardedBy("this")
+    private final Set<Integer> allPartitions = new HashSet<>();
     @GuardedBy("this")
     private final Queue<Integer> queuedPartitions = new ArrayDeque<>();
     @GuardedBy("this")
@@ -141,6 +142,7 @@ public class FaultTolerantStageScheduler
             FailureDetector failureDetector,
             TaskSourceFactory taskSourceFactory,
             NodeAllocator nodeAllocator,
+            TaskDescriptorStorage taskDescriptorStorage,
             TaskLifecycleListener taskLifecycleListener,
             Optional<Exchange> sinkExchange,
             Optional<int[]> sinkBucketToPartitionMap,
@@ -156,6 +158,7 @@ public class FaultTolerantStageScheduler
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
         this.taskSourceFactory = requireNonNull(taskSourceFactory, "taskSourceFactory is null");
         this.nodeAllocator = requireNonNull(nodeAllocator, "nodeAllocator is null");
+        this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
         this.taskLifecycleListener = requireNonNull(taskLifecycleListener, "taskLifecycleListener is null");
         this.sinkExchange = requireNonNull(sinkExchange, "sinkExchange is null");
         this.sinkBucketToPartitionMap = requireNonNull(sinkBucketToPartitionMap, "sinkBucketToPartitionMap is null");
@@ -227,7 +230,8 @@ public class FaultTolerantStageScheduler
                 List<TaskDescriptor> tasks = taskSource.getMoreTasks();
                 for (TaskDescriptor task : tasks) {
                     queuedPartitions.add(task.getPartitionId());
-                    partitionToTaskDescriptorMap.put(task.getPartitionId(), task);
+                    allPartitions.add(task.getPartitionId());
+                    taskDescriptorStorage.put(stage.getStageId(), task);
                     sinkExchange.ifPresent(exchange -> {
                         ExchangeSinkHandle exchangeSinkHandle = exchange.addSink(task.getPartitionId());
                         partitionToExchangeSinkHandleMap.put(task.getPartitionId(), exchangeSinkHandle);
@@ -243,7 +247,12 @@ public class FaultTolerantStageScheduler
             }
 
             int partition = queuedPartitions.peek();
-            TaskDescriptor taskDescriptor = requireNonNull(partitionToTaskDescriptorMap.get(partition), () -> "task descriptor missing for partition: %s" + partition);
+            Optional<TaskDescriptor> taskDescriptorOptional = taskDescriptorStorage.get(stage.getStageId(), partition);
+            if (taskDescriptorOptional.isEmpty()) {
+                // query has been terminated
+                return;
+            }
+            TaskDescriptor taskDescriptor = taskDescriptorOptional.get();
 
             if (acquireNodeFuture == null) {
                 acquireNodeFuture = nodeAllocator.acquire(taskDescriptor.getNodeRequirements());
@@ -326,7 +335,7 @@ public class FaultTolerantStageScheduler
                 taskSource != null &&
                 taskSource.isFinished() &&
                 queuedPartitions.isEmpty() &&
-                finishedPartitions.containsAll(partitionToTaskDescriptorMap.keySet());
+                finishedPartitions.containsAll(allPartitions);
     }
 
     public void cancel()
