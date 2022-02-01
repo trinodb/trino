@@ -23,10 +23,12 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
+import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProviderModule;
 import io.trino.connector.ConnectorManager;
 import io.trino.connector.ConnectorServicesProvider;
+import io.trino.connector.DefaultCatalogFactory;
 import io.trino.connector.system.AnalyzePropertiesSystemTable;
 import io.trino.connector.system.CatalogSystemTable;
 import io.trino.connector.system.ColumnPropertiesSystemTable;
@@ -288,6 +290,7 @@ public class LocalQueryRunner
     private final ExpressionCompiler expressionCompiler;
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
     private final JoinCompiler joinCompiler;
+    private final CatalogFactory catalogFactory;
     private final ConnectorManager connectorManager;
     private final PluginManager pluginManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
@@ -389,19 +392,19 @@ public class LocalQueryRunner
         HandleResolver handleResolver = new HandleResolver();
 
         NodeInfo nodeInfo = new NodeInfo("test");
-        this.connectorManager = new ConnectorManager(
+        this.catalogFactory = new DefaultCatalogFactory(
                 metadata,
-                catalogManager,
                 accessControl,
                 handleResolver,
                 nodeManager,
-                nodeInfo,
-                testingVersionEmbedder(),
                 pageSorter,
                 pageIndexerFactory,
+                nodeInfo,
+                testingVersionEmbedder(),
                 transactionManager,
                 typeManager,
                 nodeSchedulerConfig);
+        this.connectorManager = new ConnectorManager(catalogFactory, catalogManager);
         this.splitManager = new SplitManager(createSplitManagerProvider(connectorManager), new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProvider(connectorManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(connectorManager));
@@ -457,7 +460,7 @@ public class LocalQueryRunner
         exchangeManagerRegistry = new ExchangeManagerRegistry(new ExchangeHandleResolver());
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
-                connectorManager,
+                catalogFactory,
                 globalFunctionCatalog,
                 new NoOpResourceGroupManager(),
                 accessControl,
@@ -472,7 +475,7 @@ public class LocalQueryRunner
                 handleResolver,
                 exchangeManagerRegistry);
 
-        connectorManager.createCatalog(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, globalSystemConnector, () -> {});
+        connectorManager.createCatalog(GlobalSystemConnector.CATALOG_HANDLE, GlobalSystemConnector.NAME, globalSystemConnector);
 
         // rewrite session to use managed SessionPropertyMetadata
         Optional<TransactionId> transactionId = withInitialTransaction ? Optional.of(transactionManager.beginTransaction(true)) : defaultSession.getTransactionId();
@@ -716,7 +719,7 @@ public class LocalQueryRunner
 
     public CatalogHandle createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
-        connectorManager.addConnectorFactory(connectorFactory, ignored -> connectorFactory.getClass().getClassLoader());
+        catalogFactory.addConnectorFactory(connectorFactory, ignored -> connectorFactory.getClass().getClassLoader());
         CatalogHandle catalogHandle = connectorManager.createCatalog(catalogName, connectorFactory.getName(), properties);
         nodeManager.addCurrentNodeCatalog(catalogHandle);
         return catalogHandle;
