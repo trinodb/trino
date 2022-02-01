@@ -19,6 +19,7 @@ import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
 import io.trino.metadata.CatalogMetadata.SecurityManagement;
 import io.trino.metadata.CatalogProcedures;
+import io.trino.metadata.CatalogTableFunctions;
 import io.trino.metadata.CatalogTableProcedures;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
@@ -34,24 +35,29 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.ptf.ArgumentSpecification;
+import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.ptf.TableArgumentSpecification;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.split.RecordPageSourceProvider;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class MaterializedConnector
+public class ConnectorServices
 {
-    private static final Logger log = Logger.get(MaterializedConnector.class);
+    private static final Logger log = Logger.get(ConnectorServices.class);
 
     private final CatalogHandle catalogHandle;
     private final Connector connector;
@@ -59,6 +65,7 @@ public class MaterializedConnector
     private final Set<SystemTable> systemTables;
     private final CatalogProcedures procedures;
     private final CatalogTableProcedures tableProcedures;
+    private final CatalogTableFunctions tableFunctions;
     private final Optional<ConnectorSplitManager> splitManager;
     private final Optional<ConnectorPageSourceProvider> pageSourceProvider;
     private final Optional<ConnectorPageSinkProvider> pageSinkProvider;
@@ -76,7 +83,7 @@ public class MaterializedConnector
 
     private final AtomicBoolean shutdown = new AtomicBoolean();
 
-    public MaterializedConnector(CatalogHandle catalogHandle, Connector connector, Runnable afterShutdown)
+    public ConnectorServices(CatalogHandle catalogHandle, Connector connector, Runnable afterShutdown)
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.connector = requireNonNull(connector, "connector is null");
@@ -93,6 +100,12 @@ public class MaterializedConnector
         Set<TableProcedureMetadata> tableProcedures = connector.getTableProcedures();
         requireNonNull(procedures, format("Connector '%s' returned a null table procedures set", catalogHandle));
         this.tableProcedures = new CatalogTableProcedures(tableProcedures);
+
+        Set<ConnectorTableFunction> tableFunctions = connector.getTableFunctions();
+        requireNonNull(tableFunctions, format("Connector '%s' returned a null table functions set", catalogHandle));
+        this.tableFunctions = new CatalogTableFunctions(tableFunctions);
+        // TODO ConnectorTableFunction should be converted to a metadata class (and a separate analysis interface) which performs this validation in the constructor
+        tableFunctions.forEach(ConnectorServices::validateTableFunction);
 
         ConnectorSplitManager splitManager = null;
         try {
@@ -213,6 +226,11 @@ public class MaterializedConnector
         return tableProcedures;
     }
 
+    public CatalogTableFunctions getTableFunctions()
+    {
+        return tableFunctions;
+    }
+
     public Optional<ConnectorSplitManager> getSplitManager()
     {
         return splitManager;
@@ -303,5 +321,30 @@ public class MaterializedConnector
         finally {
             afterShutdown.run();
         }
+    }
+
+    private static void validateTableFunction(ConnectorTableFunction tableFunction)
+    {
+        requireNonNull(tableFunction, "tableFunction is null");
+        requireNonNull(tableFunction.getName(), "table function name is null");
+        requireNonNull(tableFunction.getSchema(), "table function schema name is null");
+        requireNonNull(tableFunction.getArguments(), "table function arguments is null");
+        requireNonNull(tableFunction.getReturnTypeSpecification(), "table function returnTypeSpecification is null");
+
+        checkArgument(!tableFunction.getName().isEmpty(), "table function name is empty");
+        checkArgument(!tableFunction.getSchema().isEmpty(), "table function schema name is empty");
+
+        Set<String> argumentNames = new HashSet<>();
+        for (ArgumentSpecification specification : tableFunction.getArguments()) {
+            if (!argumentNames.add(specification.getName())) {
+                throw new IllegalArgumentException("duplicate argument name: " + specification.getName());
+            }
+        }
+        long tableArgumentsWithRowSemantics = tableFunction.getArguments().stream()
+                .filter(TableArgumentSpecification.class::isInstance)
+                .map(TableArgumentSpecification.class::cast)
+                .filter(TableArgumentSpecification::isRowSemantics)
+                .count();
+        checkArgument(tableArgumentsWithRowSemantics <= 1, "more than one table argument with row semantics");
     }
 }

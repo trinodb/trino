@@ -13,8 +13,6 @@
  */
 package io.trino.connector;
 
-import io.trino.connector.ConnectorManager.ConnectorServices;
-
 public interface ConnectorServicesProvider
 {
     ConnectorServices getConnectorServices(CatalogHandle catalogHandle);

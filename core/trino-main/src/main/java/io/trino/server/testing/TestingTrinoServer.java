@@ -40,6 +40,7 @@ import io.airlift.log.Logger;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.connector.CatalogHandle;
+import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.ConnectorManager;
 import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
@@ -261,6 +262,7 @@ public class TestingTrinoServer
                 .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerSecurityModule())
+                .add(new CatalogManagerModule())
                 .add(new TransactionManagerModule())
                 .add(new ServerMainModule("testversion"))
                 .add(new TestingWarningCollectorModule())
