@@ -19,6 +19,7 @@ import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.google.common.collect.ImmutableMap;
+import io.trino.testing.containers.Minio;
 import io.trino.util.AutoCloseableCloser;
 import org.testcontainers.containers.Network;
 
