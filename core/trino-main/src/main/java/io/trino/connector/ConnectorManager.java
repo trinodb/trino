@@ -49,6 +49,7 @@ import io.trino.spi.VersionEmbedder;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorIndexProvider;
@@ -283,19 +284,14 @@ public class ConnectorManager
                 transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogName)),
                 () -> {});
 
-        SecurityManagement securityManagement = connector.getAccessControl().isPresent() ? CONNECTOR : SYSTEM;
-
         Catalog catalog = new Catalog(
-                catalogName.getCatalogName(),
-                connector.getCatalogName(),
+                catalogName,
                 connectorName,
-                connector.getConnector(),
-                securityManagement,
+                connector,
                 informationSchemaConnector.getCatalogName(),
-                informationSchemaConnector.getConnector(),
+                informationSchemaConnector,
                 systemConnector.getCatalogName(),
-                systemConnector.getConnector());
-
+                systemConnector);
         try {
             addConnectorInternal(connector);
             addConnectorInternal(informationSchemaConnector);
@@ -303,7 +299,7 @@ public class ConnectorManager
             catalogManager.registerCatalog(catalog);
         }
         catch (Throwable e) {
-            catalogManager.removeCatalog(catalog.getCatalogName());
+            catalogManager.removeCatalog(catalog.getCatalogName().getCatalogName());
             removeConnectorInternal(systemConnector.getCatalogName());
             removeConnectorInternal(informationSchemaConnector.getCatalogName());
             removeConnectorInternal(connector.getCatalogName());
@@ -483,7 +479,7 @@ public class ConnectorManager
         }
     }
 
-    private static class MaterializedConnector
+    public static class MaterializedConnector
     {
         private final CatalogName catalogName;
         private final Connector connector;
@@ -505,6 +501,7 @@ public class ConnectorManager
         private final List<PropertyMetadata<?>> schemaProperties;
         private final List<PropertyMetadata<?>> columnProperties;
         private final List<PropertyMetadata<?>> analyzeProperties;
+        private final Set<ConnectorCapabilities> capabilities;
 
         public MaterializedConnector(CatalogName catalogName, Connector connector, Runnable afterShutdown)
         {
@@ -616,6 +613,10 @@ public class ConnectorManager
             List<PropertyMetadata<?>> analyzeProperties = connector.getAnalyzeProperties();
             requireNonNull(analyzeProperties, format("Connector '%s' returned a null analyze properties set", catalogName));
             this.analyzeProperties = ImmutableList.copyOf(analyzeProperties);
+
+            Set<ConnectorCapabilities> capabilities = connector.getCapabilities();
+            requireNonNull(capabilities, format("Connector '%s' returned a null capabilities set", catalogName));
+            this.capabilities = capabilities;
         }
 
         public CatalogName getCatalogName()
@@ -673,6 +674,11 @@ public class ConnectorManager
             return partitioningProvider;
         }
 
+        public SecurityManagement getSecurityManagement()
+        {
+            return accessControl.isPresent() ? CONNECTOR : SYSTEM;
+        }
+
         public Optional<ConnectorAccessControl> getAccessControl()
         {
             return accessControl;
@@ -711,6 +717,11 @@ public class ConnectorManager
         public List<PropertyMetadata<?>> getAnalyzeProperties()
         {
             return analyzeProperties;
+        }
+
+        public Set<ConnectorCapabilities> getCapabilities()
+        {
+            return capabilities;
         }
 
         public void shutdown()

@@ -62,7 +62,7 @@ public final class MetadataListing
             catalogNames = metadata.getCatalogs(session).entrySet().stream()
                     .collect(toImmutableMap(
                             Map.Entry::getKey,
-                            entry -> entry.getValue().getConnectorCatalogName()));
+                            entry -> entry.getValue().getCatalogName()));
         }
         Set<String> allowedCatalogs = accessControl.filterCatalogs(session.toSecurityContext(), catalogNames.keySet());
 

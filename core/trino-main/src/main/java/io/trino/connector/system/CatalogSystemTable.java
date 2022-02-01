@@ -78,7 +78,7 @@ public class CatalogSystemTable
         for (Map.Entry<String, Catalog> entry : getCatalogs(session, metadata, accessControl).entrySet()) {
             table.addRow(
                     entry.getKey(),
-                    entry.getValue().getConnectorCatalogName().toString(),
+                    entry.getValue().getCatalogName().toString(),
                     entry.getValue().getConnectorName());
         }
         return table.build().cursor();
