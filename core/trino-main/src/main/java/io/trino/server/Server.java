@@ -44,7 +44,6 @@ import io.trino.exchange.ExchangeManagerModule;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.warnings.WarningCollectorModule;
-import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.StaticCatalogStore;
 import io.trino.security.AccessControlManager;
@@ -66,7 +65,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
@@ -196,10 +194,7 @@ public class Server
         ServiceAnnouncement announcement = getTrinoAnnouncement(announcer.getServiceAnnouncements());
 
         // automatically build connectorIds if not configured
-        Set<String> connectorIds = metadata.getCatalogs().stream()
-                .map(Catalog::getConnectorCatalogName)
-                .map(Object::toString)
-                .collect(toImmutableSet());
+        Set<String> connectorIds = metadata.getCatalogNames();
 
         // build announcement with updated sources
         ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());
