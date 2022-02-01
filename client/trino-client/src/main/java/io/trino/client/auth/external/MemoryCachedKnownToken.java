@@ -13,6 +13,10 @@
  */
 package io.trino.client.auth.external;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import io.trino.collect.cache.NonEvictableLoadingCache;
+
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Optional;
@@ -20,6 +24,9 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
+
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static java.time.Duration.ofHours;
 
 /**
  * This KnownToken instance forces all Connections to reuse same token.
@@ -36,12 +43,20 @@ import java.util.function.Supplier;
 class MemoryCachedKnownToken
         implements KnownToken
 {
-    public static final MemoryCachedKnownToken INSTANCE = new MemoryCachedKnownToken();
+    private static final NonEvictableLoadingCache<String, MemoryCachedKnownToken> CACHED_BY_HOST = buildNonEvictableCache(
+            CacheBuilder.newBuilder()
+                    .expireAfterAccess(ofHours(1)),
+            CacheLoader.from(MemoryCachedKnownToken::new));
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private final Lock readLock = lock.readLock();
     private final Lock writeLock = lock.writeLock();
     private Optional<Token> knownToken = Optional.empty();
+
+    public static MemoryCachedKnownToken memoryCachedKnownToken(String host)
+    {
+        return CACHED_BY_HOST.getUnchecked(host);
+    }
 
     private MemoryCachedKnownToken()
     {

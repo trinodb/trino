@@ -16,6 +16,8 @@ package io.trino.client.auth.external;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static io.trino.client.auth.external.MemoryCachedKnownToken.memoryCachedKnownToken;
+
 public interface KnownToken
 {
     Optional<Token> getToken();
@@ -27,8 +29,8 @@ public interface KnownToken
         return new LocalKnownToken();
     }
 
-    static KnownToken memoryCached()
+    static KnownToken memoryCached(String host)
     {
-        return MemoryCachedKnownToken.INSTANCE;
+        return memoryCachedKnownToken(host);
     }
 }

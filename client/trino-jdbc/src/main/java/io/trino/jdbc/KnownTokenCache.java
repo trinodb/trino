@@ -19,18 +19,18 @@ public enum KnownTokenCache
 {
     NONE {
         @Override
-        KnownToken create()
+        KnownToken create(String host)
         {
             return KnownToken.local();
         }
     },
     MEMORY {
         @Override
-        KnownToken create()
+        KnownToken create(String host)
         {
-            return KnownToken.memoryCached();
+            return KnownToken.memoryCached(host);
         }
     };
 
-    abstract KnownToken create();
+    abstract KnownToken create(String host);
 }

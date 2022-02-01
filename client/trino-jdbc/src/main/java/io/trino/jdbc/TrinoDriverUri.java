@@ -328,7 +328,7 @@ public final class TrinoDriverUri
                 RedirectHandler redirectHandler = Optional.ofNullable(REDIRECT_HANDLER.get())
                         .orElseGet(() -> configuredHandler.orElseThrow(() -> new RuntimeException("External authentication redirect handler is not configured")));
 
-                ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, poller, knownTokenCache.create(), timeout);
+                ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, poller, knownTokenCache.create(getHttpUri().getHost()), timeout);
 
                 builder.authenticator(authenticator);
                 builder.addInterceptor(authenticator);

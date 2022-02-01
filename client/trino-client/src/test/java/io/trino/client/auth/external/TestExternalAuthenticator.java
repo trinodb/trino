@@ -56,6 +56,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestExternalAuthenticator
 {
     private static final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(TestExternalAuthenticator.class.getName() + "-%d"));
+    private static final String TRINO_HOST = "trino.host";
 
     @AfterClass(alwaysRun = true)
     public void shutDownThreadPool()
@@ -195,7 +196,7 @@ public class TestExternalAuthenticator
 
         List<Future<Request>> requests = times(
                 2,
-                () -> new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.memoryCached(), Duration.ofSeconds(1))
+                () -> new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.memoryCached(TRINO_HOST), Duration.ofSeconds(1))
                         .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
                 .map(executor::submit)
                 .collect(toImmutableList());
@@ -218,12 +219,12 @@ public class TestExternalAuthenticator
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
                 .sleepOnRedirect(Duration.ofMillis(500));
 
-        ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.memoryCached(), Duration.ofSeconds(1));
+        ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.memoryCached(TRINO_HOST), Duration.ofSeconds(1));
         Request firstRequest = authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\""));
 
         List<Future<Request>> requests = times(
                 4,
-                () -> new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.memoryCached(), Duration.ofSeconds(1))
+                () -> new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.memoryCached(TRINO_HOST), Duration.ofSeconds(1))
                         .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"", firstRequest)))
                 .map(executor::submit)
                 .collect(toImmutableList());
@@ -244,7 +245,7 @@ public class TestExternalAuthenticator
 
         List<Future<Request>> requests = times(
                 2,
-                () -> new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(), Duration.ofMillis(1))
+                () -> new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(TRINO_HOST), Duration.ofMillis(1))
                         .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
                 .map(executor::submit)
                 .collect(toImmutableList());
@@ -264,13 +265,13 @@ public class TestExternalAuthenticator
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
                 .sleepOnRedirect(Duration.ofMinutes(1));
 
-        ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(), Duration.ofMillis(1));
+        ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(TRINO_HOST), Duration.ofMillis(1));
         Future<Request> interruptedAuthentication = interruptableThreadPool.submit(
                 () -> authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")));
         Thread.sleep(100); //It's here to make sure that authentication will start before the other threads.
         List<Future<Request>> requests = times(
                 2,
-                () -> new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(), Duration.ofMillis(1))
+                () -> new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(TRINO_HOST), Duration.ofMillis(1))
                         .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
                 .map(executor::submit)
                 .collect(toImmutableList());
