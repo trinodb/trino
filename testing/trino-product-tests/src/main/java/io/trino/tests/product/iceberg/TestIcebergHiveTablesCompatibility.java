@@ -24,6 +24,12 @@ import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuf
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
+/**
+ * Tests interactions between Iceberg and Hive connectors, when one tries to read a table created by the other.
+ *
+ * @see TestIcebergRedirectionToHive
+ * @see TestIcebergHiveViewsCompatibility
+ */
 public class TestIcebergHiveTablesCompatibility
         extends ProductTest
 {

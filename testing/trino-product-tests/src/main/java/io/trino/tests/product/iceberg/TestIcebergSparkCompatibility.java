@@ -60,6 +60,9 @@ import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertTrue;
 
+/**
+ * Tests compatibility between Iceberg connector and Spark Iceberg.
+ */
 public class TestIcebergSparkCompatibility
         extends ProductTest
 {
