@@ -30,7 +30,7 @@ appropriate for your setup:
 .. code-block:: properties
 
     connector.name=sqlserver
-    connection-url=jdbc:sqlserver://<host>:<port>;database=<database>
+    connection-url=jdbc:sqlserver://<host>:<port>;database=<database>;encrypt=false
     connection-user=root
     connection-password=secret
 
@@ -49,20 +49,21 @@ properties files.
 Connection security
 ^^^^^^^^^^^^^^^^^^^
 
-If you have TLS configured with a globally-trusted certificate installed on your
-data source, you can enable TLS between your cluster and the data
-source by appending a parameter to the JDBC connection string set in the
-``connection-url`` catalog configuration property.
+The JDBC driver, and therefore the connector, automatically use Transport Layer
+Security (TLS) encryption and certificate validation. This requires a suitable
+TLS certificate configured on your SQL Server database host.
 
-For example, with the JDBC driver for SQL Server 2019, enable TLS by appending
-the ``encrypt=true`` parameter to the ``connection-url`` configuration property:
+If you do not have the necessary configuration established, you can disable
+encryption in the connection string with the ``encrypt`` property:
 
 .. code-block:: properties
 
-  connection-url=jdbc:sqlserver://<host>:<port>;database=<database>;encrypt=true
+  connection-url=jdbc:sqlserver://<host>:<port>;database=<database>;encrypt=false
 
-For more information on TLS configuration options, see the `SQL Server JDBC
-driver documentation <https://docs.microsoft.com/en-us/sql/connect/jdbc/building-the-connection-url>`_.
+Further parameters like ``trustServerCertificate``, ``hostNameInCertificate``,
+``trustStore``, and ``trustStorePassword`` are details in the `TLS section of
+SQL Server JDBC driver documentation
+<https://docs.microsoft.com/en-us/sql/connect/jdbc/using-ssl-encryption>`_.
 
 Multiple SQL Server databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
