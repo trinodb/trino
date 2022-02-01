@@ -20,7 +20,6 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static java.lang.String.format;
@@ -29,9 +28,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public abstract class BaseHiveFailureRecoveryTest
         extends BaseFailureRecoveryTest
 {
-    protected BaseHiveFailureRecoveryTest(RetryPolicy retryPolicy, Map<String, String> exchangeManagerProperties)
+    protected BaseHiveFailureRecoveryTest(RetryPolicy retryPolicy)
     {
-        super(retryPolicy, exchangeManagerProperties);
+        super(retryPolicy);
     }
 
     @Override

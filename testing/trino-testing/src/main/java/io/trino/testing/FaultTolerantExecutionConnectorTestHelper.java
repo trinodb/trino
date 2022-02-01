@@ -35,12 +35,4 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 .put("distributed-sort", "false")
                 .build();
     }
-
-    public static Map<String, String> getExchangeManagerProperties()
-    {
-        return ImmutableMap.<String, String>builder()
-                .put("exchange.base-directory", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager")
-                .put("exchange.encryption-enabled", "true")
-                .build();
-    }
 }
