@@ -39,6 +39,7 @@ import com.starburstdata.presto.plugin.snowflake.auth.StatsCollectingOktaAuthCli
 import com.starburstdata.presto.plugin.snowflake.auth.StatsCollectingSnowflakeAuthClient;
 import com.starburstdata.presto.plugin.toolkit.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.toolkit.authtolocal.AuthToLocalModule;
+import com.starburstdata.presto.plugin.toolkit.security.multiple.tokens.TokenPassThroughConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -302,6 +303,7 @@ public class SnowflakeJdbcClientModule
             protected void setup(Binder binder)
             {
                 install(new WarehouseAwareAuthenticationBasedIdentityCacheMappingModule());
+                configBinder(binder).bindConfig(TokenPassThroughConfig.class, "snowflake");
             }
 
             @Provides
@@ -311,7 +313,8 @@ public class SnowflakeJdbcClientModule
                     BaseJdbcConfig config,
                     JdbcConnectionPoolConfig connectionPoolingConfig,
                     SnowflakeConfig snowflakeConfig,
-                    IdentityCacheMapping identityCacheMapping)
+                    IdentityCacheMapping identityCacheMapping,
+                    TokenPassThroughConfig tokenPassThroughConfig)
             {
                 if (connectionPoolingConfig.isConnectionPoolEnabled()) {
                     return new WarehouseAwarePoolingConnectionFactory(
@@ -320,14 +323,14 @@ public class SnowflakeJdbcClientModule
                             getConnectionProperties(snowflakeConfig),
                             config,
                             connectionPoolingConfig,
-                            new SnowflakeOAuth2TokenPassthroughProvider(),
+                            new SnowflakeOAuth2TokenPassthroughProvider(tokenPassThroughConfig),
                             identityCacheMapping);
                 }
                 return new WarehouseAwareDriverConnectionFactory(
                         new SnowflakeDriver(),
                         config.getConnectionUrl(),
                         getConnectionProperties(snowflakeConfig),
-                        new SnowflakeOAuth2TokenPassthroughProvider());
+                        new SnowflakeOAuth2TokenPassthroughProvider(tokenPassThroughConfig));
             }
         };
     }
