@@ -250,7 +250,7 @@ public class ClickHouseClient
         // TODO: Support other table properties
         checkArgument(nullableProperties.size() == 1 && nullableProperties.containsKey(SAMPLE_BY_PROPERTY), "Only support setting 'sample_by' property");
         // TODO: Support sampling key removal when we support a newer version of ClickHouse. See https://github.com/ClickHouse/ClickHouse/pull/30180.
-        checkArgument(nullableProperties.values().stream().anyMatch(Optional::isEmpty), "Setting a property to null is not supported");
+        checkArgument(nullableProperties.values().stream().noneMatch(Optional::isEmpty), "Setting a property to null is not supported");
 
         Map<String, Object> properties = nullableProperties.entrySet().stream()
                 .filter(entry -> entry.getValue().isPresent())
