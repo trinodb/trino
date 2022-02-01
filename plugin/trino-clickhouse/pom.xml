@@ -202,4 +202,29 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <profiles>
+        <profile>
+            <id>default</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <!-- TODO (https://github.com/trinodb/trino/issues/10752) Enable after resolving flaky test issues -->
+                                <exclude>**/TestAltinityConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestAltinityLatestConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestClickHouseLatestConnectorSmokeTest.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
