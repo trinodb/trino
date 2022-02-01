@@ -34,6 +34,8 @@ public class Suite8NonGeneric
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
         return ImmutableList.of(
-                testOnEnvironment(EnvSinglenodeHdp3.class).withGroups("hdp3_only", "hive_transactional").build());
+                testOnEnvironment(EnvSinglenodeHdp3.class)
+                        .withGroups("configured_features", "hdp3_only", "hive_transactional")
+                        .build());
     }
 }

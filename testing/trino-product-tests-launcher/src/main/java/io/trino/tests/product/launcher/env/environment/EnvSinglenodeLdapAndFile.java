@@ -46,14 +46,15 @@ public class EnvSinglenodeLdapAndFile
     {
         super.extendEnvironment(builder);
         ResourceProvider configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-ldap-and-file");
+        builder.addPasswordAuthenticator(
+                "file",
+                forHostPath(configDir.getPath("file-authenticator.properties")),
+                CONTAINER_PRESTO_ETC + "/file-authenticator.properties");
         builder.configureContainer(COORDINATOR, dockerContainer -> {
             dockerContainer
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("config.properties")),
                             CONTAINER_PRESTO_CONFIG_PROPERTIES)
-                    .withCopyFileToContainer(
-                            forHostPath(configDir.getPath("file-authenticator.properties")),
-                            CONTAINER_PRESTO_ETC + "/file-authenticator.properties")
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("password.db")),
                             CONTAINER_PRESTO_ETC + "/password.db");
