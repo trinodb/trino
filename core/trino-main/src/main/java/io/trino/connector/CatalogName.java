@@ -44,6 +44,17 @@ public final class CatalogName
         return catalogName;
     }
 
+    public CatalogName getActualName()
+    {
+        if (catalogName.startsWith(SYSTEM_TABLES_CONNECTOR_PREFIX)) {
+            return new CatalogName(catalogName.substring(SYSTEM_TABLES_CONNECTOR_PREFIX.length()));
+        }
+        if (catalogName.startsWith(INFORMATION_SCHEMA_CONNECTOR_PREFIX)) {
+            return new CatalogName(catalogName.substring(INFORMATION_SCHEMA_CONNECTOR_PREFIX.length()));
+        }
+        return this;
+    }
+
     @Override
     public boolean equals(Object o)
     {
