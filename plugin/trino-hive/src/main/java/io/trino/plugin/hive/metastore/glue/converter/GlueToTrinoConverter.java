@@ -68,7 +68,9 @@ public final class GlueToTrinoConverter
 
     public static Table convertTable(com.amazonaws.services.glue.model.Table glueTable, String dbName)
     {
-        requireNonNull(glueTable.getStorageDescriptor(), "Table StorageDescriptor is null");
+        // TODO (https://github.com/trinodb/trino/issues/10902) glueTable.getStorageDescriptor() is an optional field in Glue
+        requireNonNull(glueTable.getStorageDescriptor(), () -> format("Table StorageDescriptor is null for table %s.%s (%s)", dbName, glueTable.getName(), glueTable));
+
         Map<String, String> tableParameters = convertParameters(glueTable.getParameters());
         StorageDescriptor sd = glueTable.getStorageDescriptor();
 
