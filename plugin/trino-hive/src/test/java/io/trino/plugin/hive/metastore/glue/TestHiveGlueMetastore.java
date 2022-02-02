@@ -15,11 +15,17 @@ package io.trino.plugin.hive.metastore.glue;
 
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
+import com.amazonaws.services.glue.model.Database;
+import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
+import com.amazonaws.services.glue.model.EntityNotFoundException;
+import com.amazonaws.services.glue.model.GetDatabasesRequest;
+import com.amazonaws.services.glue.model.GetDatabasesResult;
 import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.hive.AbstractTestHiveLocal;
 import io.trino.plugin.hive.HiveBasicStatistics;
@@ -81,6 +87,7 @@ import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
+import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.decimalOf;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
@@ -92,8 +99,10 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -109,9 +118,12 @@ import static org.testng.Assert.assertTrue;
 public class TestHiveGlueMetastore
         extends AbstractTestHiveLocal
 {
+    private static final Logger log = Logger.get(TestHiveGlueMetastore.class);
+
     private static final HiveIdentity HIVE_IDENTITY = new HiveIdentity(SESSION);
     private static final String PARTITION_KEY = "part_key_1";
     private static final String PARTITION_KEY2 = "part_key_2";
+    private static final String TEST_DATABASE_NAME_PREFIX = "test_glue";
 
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
             .add(new ColumnMetadata("id", BigintType.BIGINT))
@@ -163,7 +175,7 @@ public class TestHiveGlueMetastore
 
     public TestHiveGlueMetastore()
     {
-        super("test_glue" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
+        super(TEST_DATABASE_NAME_PREFIX + randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
     }
 
     protected AWSGlueAsync getGlueClient()
@@ -205,6 +217,37 @@ public class TestHiveGlueMetastore
                 new DefaultGlueMetastoreTableFilterProvider(
                         new MetastoreConfig()
                                 .setHideDeltaLakeTables(true)).get());
+    }
+
+    @Test
+    public void cleanupOrphanedDatabases()
+    {
+        long creationTimeMillisThreshold = currentTimeMillis() - DAYS.toMillis(1);
+        List<String> orphanedDatabases = getPaginatedResults(
+                glueClient::getDatabases,
+                new GetDatabasesRequest(),
+                GetDatabasesRequest::setNextToken,
+                GetDatabasesResult::getNextToken)
+                .map(GetDatabasesResult::getDatabaseList)
+                .flatMap(List::stream)
+                .filter(database -> database.getName().startsWith(TEST_DATABASE_NAME_PREFIX) &&
+                        database.getCreateTime().getTime() <= creationTimeMillisThreshold)
+                .map(Database::getName)
+                .collect(toImmutableList());
+
+        log.info("Found %s %s* databases that look orphaned, removing", orphanedDatabases.size(), TEST_DATABASE_NAME_PREFIX);
+        orphanedDatabases.forEach(database -> {
+            try {
+                glueClient.deleteDatabase(new DeleteDatabaseRequest()
+                        .withName(database));
+            }
+            catch (EntityNotFoundException e) {
+                log.info("Database [%s] not found, could be removed by other cleanup process", database);
+            }
+            catch (RuntimeException e) {
+                log.warn(e, "Failed to remove database [%s]", database);
+            }
+        });
     }
 
     @Override
