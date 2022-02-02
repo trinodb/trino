@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
-import org.apache.iceberg.FileFormat;
+import io.trino.plugin.iceberg.IcebergFileFormat;
 
 import java.util.List;
 import java.util.Map;
@@ -32,7 +32,7 @@ public class IcebergOptimizeHandle
     private final String schemaAsJson;
     private final String partitionSpecAsJson;
     private final List<IcebergColumnHandle> tableColumns;
-    private final FileFormat fileFormat;
+    private final IcebergFileFormat fileFormat;
     private final Map<String, String> tableStorageProperties;
     private final DataSize maxScannedFileSize;
 
@@ -41,7 +41,7 @@ public class IcebergOptimizeHandle
             String schemaAsJson,
             String partitionSpecAsJson,
             List<IcebergColumnHandle> tableColumns,
-            FileFormat fileFormat,
+            IcebergFileFormat fileFormat,
             Map<String, String> tableStorageProperties,
             DataSize maxScannedFileSize)
     {
@@ -72,7 +72,7 @@ public class IcebergOptimizeHandle
     }
 
     @JsonProperty
-    public FileFormat getFileFormat()
+    public IcebergFileFormat getFileFormat()
     {
         return fileFormat;
     }

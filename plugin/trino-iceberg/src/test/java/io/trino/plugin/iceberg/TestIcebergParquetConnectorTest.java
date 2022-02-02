@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static org.apache.iceberg.FileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static org.testng.Assert.assertEquals;
 
 public class TestIcebergParquetConnectorTest

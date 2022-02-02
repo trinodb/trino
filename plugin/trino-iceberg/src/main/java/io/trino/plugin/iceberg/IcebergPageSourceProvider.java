@@ -74,7 +74,6 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
-import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.mapping.MappedField;
 import org.apache.iceberg.mapping.MappedFields;
 import org.apache.iceberg.mapping.NameMapping;
@@ -224,7 +223,7 @@ public class IcebergPageSourceProvider
             long start,
             long length,
             long fileSize,
-            FileFormat fileFormat,
+            IcebergFileFormat fileFormat,
             List<IcebergColumnHandle> dataColumns,
             TupleDomain<IcebergColumnHandle> predicate,
             Optional<NameMapping> nameMapping)

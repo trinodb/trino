@@ -220,11 +220,11 @@ public final class IcebergUtil
         throw new IllegalStateException("Unsupported field type: " + nestedField);
     }
 
-    public static FileFormat getFileFormat(Table table)
+    public static IcebergFileFormat getFileFormat(Table table)
     {
-        return FileFormat.valueOf(table.properties()
+        return IcebergFileFormat.fromIceberg(FileFormat.valueOf(table.properties()
                 .getOrDefault(DEFAULT_FILE_FORMAT, DEFAULT_FILE_FORMAT_DEFAULT)
-                .toUpperCase(Locale.ENGLISH));
+                .toUpperCase(Locale.ENGLISH)));
     }
 
     public static Optional<String> getTableComment(Table table)
@@ -395,8 +395,8 @@ public final class IcebergUtil
                 .orElseGet(() -> catalog.defaultTableLocation(session, schemaTableName));
 
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(2);
-        FileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
-        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
+        IcebergFileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
+        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toIceberg().toString());
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
