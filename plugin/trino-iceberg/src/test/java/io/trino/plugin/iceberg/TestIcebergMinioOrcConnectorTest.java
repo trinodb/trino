@@ -14,16 +14,19 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.Session;
+import org.testng.annotations.Test;
 
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergTestUtil.orcSupportsIcebergFileStatistics;
 import static io.trino.plugin.iceberg.IcebergTestUtil.orcSupportsRowGroupStatistics;
 import static io.trino.plugin.iceberg.IcebergTestUtil.orcWithSmallRowGroups;
 
-public class TestIcebergOrcConnectorTest
-        extends BaseIcebergConnectorTest
+// Due to fact some tests running on MinIO are memory consuming, we want to prevent running them in parallel.
+@Test(singleThreaded = true)
+public class TestIcebergMinioOrcConnectorTest
+        extends BaseIcebergMinioConnectorTest
 {
-    public TestIcebergOrcConnectorTest()
+    public TestIcebergMinioOrcConnectorTest()
     {
         super(ORC);
     }

@@ -16,6 +16,13 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.iceberg.version>0.13.1</dep.iceberg.version>
+        <!--
+         Project's default for air.test.parallel is 'methods'. By design, 'classes' makes TestNG run tests from one class in a single thread.
+         As side effect it prevents TestNG from initializing multiple test instances upfront, which happens with 'methods'.
+         A potential downside can be long tail single-threaded execution of a single long test class.
+         This change is due to MVN Surefire issue which is addressed here https://github.com/apache/maven-surefire/pull/407
+         -->
+        <air.test.parallel>classes</air.test.parallel>
     </properties>
 
     <dependencies>
@@ -82,6 +89,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-s3</artifactId>
         </dependency>
 
         <dependency>

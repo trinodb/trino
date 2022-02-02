@@ -117,6 +117,11 @@ public abstract class BaseConnectorTest
         return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);
     }
 
+    protected String createSchemaSql(String schemaName)
+    {
+        return "CREATE SCHEMA IF NOT EXISTS " + schemaName;
+    }
+
     @Test
     @Override
     public void ensureTestNamingConvention()
@@ -149,12 +154,14 @@ public abstract class BaseConnectorTest
     public void testCreateSchema()
     {
         String schemaName = "test_schema_create_" + randomTableSuffix();
+        String creteSchemaSql = createSchemaSql(schemaName);
+
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
-            assertQueryFails("CREATE SCHEMA " + schemaName, "This connector does not support creating schemas");
+            assertQueryFails(creteSchemaSql, "This connector does not support creating schemas");
             return;
         }
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(schemaName);
-        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertUpdate(creteSchemaSql);
 
         // verify listing of new schema
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(schemaName);
@@ -183,7 +190,7 @@ public abstract class BaseConnectorTest
         }
 
         try {
-            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate(createSchemaSql(schemaName));
             assertUpdate("CREATE TABLE " + schemaName + ".t(x int)");
             assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
         }
@@ -1072,7 +1079,7 @@ public abstract class BaseConnectorTest
         assertTestingMaterializedViewQuery(schema, uppercaseName.toLowerCase(ENGLISH)); // Ensure select allows for lower-case, not delimited identifier
 
         String otherSchema = "rename_mv_other_schema";
-        assertUpdate(format("CREATE SCHEMA IF NOT EXISTS %s", otherSchema));
+        assertUpdate(createSchemaSql(otherSchema));
         if (hasBehavior(SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS)) {
             assertUpdate(session, "ALTER MATERIALIZED VIEW " + uppercaseName + " RENAME TO " + otherSchema + "." + originalMaterializedView.getObjectName());
             assertTestingMaterializedViewQuery(otherSchema, originalMaterializedView.getObjectName());
@@ -1106,7 +1113,7 @@ public abstract class BaseConnectorTest
 
     private void createTestingMaterializedView(QualifiedObjectName view, Optional<String> comment)
     {
-        assertUpdate(format("CREATE SCHEMA IF NOT EXISTS %s", view.getSchemaName()));
+        assertUpdate(createSchemaSql(view.getSchemaName()));
         assertUpdate(format(
                 "CREATE MATERIALIZED VIEW %s %s AS SELECT * FROM nation",
                 view,
@@ -1400,7 +1407,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(!hasBehavior(SUPPORTS_MULTI_STATEMENT_WRITES));
 
-        assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_SCHEMA, "CREATE SCHEMA write_not_allowed");
+        assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_SCHEMA, createSchemaSql("write_not_allowed"));
         assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_TABLE, "CREATE TABLE write_not_allowed (x int)");
         assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_TABLE, "DROP TABLE region");
         assertWriteNotAllowedInTransaction(SUPPORTS_CREATE_TABLE_WITH_DATA, "CREATE TABLE write_not_allowed AS SELECT * FROM region");
@@ -1438,7 +1445,7 @@ public abstract class BaseConnectorTest
 
         String schemaName = "test_rename_schema_" + randomTableSuffix();
         try {
-            assertUpdate("CREATE SCHEMA " + schemaName);
+            assertUpdate(createSchemaSql(schemaName));
             assertUpdate("ALTER SCHEMA " + schemaName + " RENAME TO " + schemaName + "_renamed");
         }
         finally {
@@ -1470,7 +1477,7 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
 
         String schemaName = "test_schema_" + randomTableSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
+        assertUpdate(createSchemaSql(schemaName));
 
         String renamedTable = schemaName + ".test_rename_new_" + randomTableSuffix();
         assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + renamedTable);
