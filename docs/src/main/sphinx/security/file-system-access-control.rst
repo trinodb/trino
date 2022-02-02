@@ -385,6 +385,8 @@ Each impersonation rule is composed of the following fields:
 * ``new_user`` (required): regex to match against the user that will be impersonated.
 * ``allow`` (optional): boolean indicating if the authentication should be allowed. Defaults to ``true``.
 
+The impersonation rules are a bit different than the other rules: The attribute ``new_user`` is required to not accidentally prevent more access than intended. Doing so it was possible to make the attribute ``allow`` optional.
+
 The following example allows the ``admin`` role, to impersonate any user, except
 for ``bob``. It also allows any user to impersonate the ``test`` user:
 
