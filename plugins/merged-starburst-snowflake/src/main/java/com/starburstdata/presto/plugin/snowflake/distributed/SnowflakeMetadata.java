@@ -14,10 +14,10 @@ import com.starburstdata.presto.plugin.jdbc.StarburstJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 
 import java.util.Optional;
@@ -43,7 +43,7 @@ class SnowflakeMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout)
     {
         checkColumnsForInvalidCharacters(tableMetadata.getColumns());
         return super.beginCreateTable(session, tableMetadata, layout);
