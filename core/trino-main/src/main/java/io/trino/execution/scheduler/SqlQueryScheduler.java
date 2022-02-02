@@ -1543,6 +1543,7 @@ public class SqlQueryScheduler
             checkState(started.compareAndSet(false, true), "already started");
 
             try (SetThreadName ignored = new SetThreadName("Query-%s", queryStateMachine.getQueryId())) {
+                stageSchedulers.values().forEach(StageScheduler::start);
                 while (!executionSchedule.isFinished()) {
                     List<ListenableFuture<Void>> blockedStages = new ArrayList<>();
                     StagesScheduleResult stagesScheduleResult = executionSchedule.getStagesToSchedule();

@@ -20,6 +20,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.trino.execution.scheduler.StageExecution;
 import io.trino.execution.scheduler.StageExecution.State;
+import io.trino.server.DynamicFilterService;
+import io.trino.spi.QueryId;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -88,6 +90,7 @@ public class PhasedExecutionSchedule
     private final List<PlanFragmentId> sortedFragments = new ArrayList<>();
     private final Map<PlanFragmentId, StageExecution> stagesByFragmentId;
     private final Set<StageExecution> activeStages = new LinkedHashSet<>();
+    private final DynamicFilterService dynamicFilterService;
 
     /**
      * Set by {@link PhasedExecutionSchedule#init(Collection)} method.
@@ -97,28 +100,26 @@ public class PhasedExecutionSchedule
     @GuardedBy("this")
     private SettableFuture<Void> rescheduleFuture = SettableFuture.create();
 
-    public static PhasedExecutionSchedule forStages(Collection<StageExecution> stages)
+    public static PhasedExecutionSchedule forStages(Collection<StageExecution> stages, DynamicFilterService dynamicFilterService)
     {
-        PhasedExecutionSchedule schedule = new PhasedExecutionSchedule(stages);
+        PhasedExecutionSchedule schedule = new PhasedExecutionSchedule(stages, dynamicFilterService);
         schedule.init(stages);
         return schedule;
     }
 
-    private PhasedExecutionSchedule(Collection<StageExecution> stages)
+    private PhasedExecutionSchedule(Collection<StageExecution> stages, DynamicFilterService dynamicFilterService)
     {
         fragmentDependency = new DefaultDirectedGraph<>(new FragmentsEdgeFactory());
         fragmentTopology = new DefaultDirectedGraph<>(new FragmentsEdgeFactory());
         stagesByFragmentId = stages.stream()
                 .collect(toImmutableMap(stage -> stage.getFragment().getId(), identity()));
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
     }
 
     private void init(Collection<StageExecution> stages)
     {
         ImmutableSet.Builder<PlanFragmentId> fragmentsToExecute = ImmutableSet.builder();
-        fragmentsToExecute.addAll(extractDependenciesAndReturnNonLazyFragments(
-                stages.stream()
-                        .map(StageExecution::getFragment)
-                        .collect(toImmutableList())));
+        fragmentsToExecute.addAll(extractDependenciesAndReturnNonLazyFragments(stages));
         // start stages without any dependencies
         fragmentDependency.vertexSet().stream()
                 .filter(fragmentId -> fragmentDependency.inDegreeOf(fragmentId) == 0)
@@ -267,13 +268,24 @@ public class PhasedExecutionSchedule
         return state == SCHEDULED || state == RUNNING || state == FLUSHING || state.isDone();
     }
 
-    private Set<PlanFragmentId> extractDependenciesAndReturnNonLazyFragments(Collection<PlanFragment> fragments)
+    private Set<PlanFragmentId> extractDependenciesAndReturnNonLazyFragments(Collection<StageExecution> stages)
     {
+        if (stages.isEmpty()) {
+            return ImmutableSet.of();
+        }
+
+        QueryId queryId = stages.stream()
+                .map(stage -> stage.getStageId().getQueryId())
+                .findAny().orElseThrow();
+        List<PlanFragment> fragments = stages.stream()
+                .map(StageExecution::getFragment)
+                .collect(toImmutableList());
+
         // Build a graph where the plan fragments are vertexes and the edges represent
         // a before -> after relationship. Destination fragment should be started only
         // when source fragment is completed. For example, a join hash build has an edge
         // to the join probe.
-        Visitor visitor = new Visitor(fragments);
+        Visitor visitor = new Visitor(queryId, fragments);
         visitor.processAllFragments();
 
         // Make sure there are no strongly connected components as it would mean circular dependency between stages
@@ -286,12 +298,14 @@ public class PhasedExecutionSchedule
     private class Visitor
             extends PlanVisitor<FragmentSubGraph, PlanFragmentId>
     {
+        private final QueryId queryId;
         private final Map<PlanFragmentId, PlanFragment> fragments;
         private final ImmutableSet.Builder<PlanFragmentId> nonLazyFragments = ImmutableSet.builder();
         private final Map<PlanFragmentId, FragmentSubGraph> fragmentSubGraphs = new HashMap<>();
 
-        public Visitor(Collection<PlanFragment> fragments)
+        public Visitor(QueryId queryId, Collection<PlanFragment> fragments)
         {
+            this.queryId = queryId;
             this.fragments = requireNonNull(fragments, "fragments is null").stream()
                     .collect(toImmutableMap(PlanFragment::getId, identity()));
         }
@@ -410,7 +424,7 @@ public class PhasedExecutionSchedule
             addDependencyEdges(buildSubGraph.getUpstreamFragments(), probeSubGraph.getLazyUpstreamFragments());
 
             boolean currentFragmentLazy = probeSubGraph.isCurrentFragmentLazy() && buildSubGraph.isCurrentFragmentLazy();
-            if (replicated && currentFragmentLazy) {
+            if (replicated && currentFragmentLazy && !dynamicFilterService.isStageSchedulingNeededToCollectDynamicFilters(queryId, fragments.get(currentFragmentId))) {
                 // Do not start join stage (which can also be a source stage with table scans)
                 // for replicated join until build source stage enters FLUSHING state.
                 // Broadcast join limit for CBO is set in such a way that build source data should
