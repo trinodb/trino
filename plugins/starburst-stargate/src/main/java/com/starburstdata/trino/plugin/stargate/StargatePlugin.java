@@ -20,7 +20,6 @@ import io.trino.spi.Plugin;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 
@@ -74,12 +73,6 @@ public class StargatePlugin
         public String getName()
         {
             return "starburst-remote";
-        }
-
-        @Override
-        public ConnectorHandleResolver getHandleResolver()
-        {
-            return delegate.getHandleResolver();
         }
 
         @Override
