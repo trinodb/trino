@@ -11,7 +11,7 @@ Requirements
 
 To connect to Kudu, you need:
 
-* Kudu version 1.10 or higher.
+* Kudu version 1.13.0 or higher.
 * Network access from the Trino coordinator and workers to Kudu. Port 7051 is
   the default port.
 

@@ -30,7 +30,6 @@ import org.apache.kudu.client.KuduSession;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.RowResult;
 import org.apache.kudu.client.RowResultIterator;
-import org.apache.kudu.client.SessionConfiguration;
 import org.apache.kudu.client.Upsert;
 
 import java.util.ArrayList;
@@ -41,6 +40,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.kudu.KuduClientSession.DEFAULT_SCHEMA;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static org.apache.kudu.client.KuduOperationApplier.applyOperationAndVerifySucceeded;
 
 public class SchemaEmulationByTableNameConvention
         implements SchemaEmulation
@@ -68,7 +68,7 @@ public class SchemaEmulationByTableNameConvention
                 try {
                     Upsert upsert = schemasTable.newUpsert();
                     upsert.getRow().addString(0, schemaName);
-                    session.apply(upsert);
+                    applyOperationAndVerifySucceeded(session, upsert);
                 }
                 finally {
                     session.close();
@@ -110,7 +110,7 @@ public class SchemaEmulationByTableNameConvention
                 try {
                     Delete delete = schemasTable.newDelete();
                     delete.getRow().addString(0, schemaName);
-                    session.apply(delete);
+                    applyOperationAndVerifySucceeded(session, delete);
                 }
                 finally {
                     session.close();
@@ -170,11 +170,10 @@ public class SchemaEmulationByTableNameConvention
         KuduTable schemasTable = client.createTable(rawSchemasTableName, schema, options);
         KuduSession session = client.newSession();
         try {
-            session.setFlushMode(SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND);
             for (String schemaName : existingSchemaNames) {
                 Insert insert = schemasTable.newInsert();
                 insert.getRow().addString(0, schemaName);
-                session.apply(insert);
+                applyOperationAndVerifySucceeded(session, insert);
             }
         }
         finally {

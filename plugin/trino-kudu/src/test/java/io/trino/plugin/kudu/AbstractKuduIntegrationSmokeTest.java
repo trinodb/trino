@@ -40,13 +40,15 @@ public abstract class AbstractKuduIntegrationSmokeTest
 {
     private TestingKuduServer kuduServer;
 
+    protected abstract String getKuduServerVersion();
+
     protected abstract Optional<String> getKuduSchemaEmulationPrefix();
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        kuduServer = new TestingKuduServer();
+        kuduServer = new TestingKuduServer(getKuduServerVersion());
         return createKuduQueryRunnerTpch(kuduServer, getKuduSchemaEmulationPrefix(), CUSTOMER, NATION, ORDERS, REGION);
     }
 
