@@ -531,7 +531,7 @@ public class IcebergMetadata
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
                     .withPath(task.getPath())
                     .withFileSizeInBytes(task.getFileSizeInBytes())
-                    .withFormat(table.getFileFormat())
+                    .withFormat(table.getFileFormat().toIceberg())
                     .withMetrics(task.getMetrics().metrics());
 
             if (!icebergTable.spec().fields().isEmpty()) {
@@ -687,7 +687,7 @@ public class IcebergMetadata
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
                     .withPath(task.getPath())
                     .withFileSizeInBytes(task.getFileSizeInBytes())
-                    .withFormat(optimizeHandle.getFileFormat())
+                    .withFormat(optimizeHandle.getFileFormat().toIceberg())
                     .withMetrics(task.getMetrics().metrics());
 
             if (!icebergTable.spec().fields().isEmpty()) {
@@ -1114,7 +1114,7 @@ public class IcebergMetadata
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
                     .withPath(task.getPath())
                     .withFileSizeInBytes(task.getFileSizeInBytes())
-                    .withFormat(table.getFileFormat())
+                    .withFormat(table.getFileFormat().toIceberg())
                     .withMetrics(task.getMetrics().metrics());
 
             if (!icebergTable.spec().fields().isEmpty()) {

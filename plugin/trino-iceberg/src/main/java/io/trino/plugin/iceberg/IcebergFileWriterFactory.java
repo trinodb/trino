@@ -35,7 +35,6 @@ import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
@@ -111,7 +110,7 @@ public class IcebergFileWriterFactory
             JobConf jobConf,
             ConnectorSession session,
             HdfsContext hdfsContext,
-            FileFormat fileFormat,
+            IcebergFileFormat fileFormat,
             MetricsConfig metricsConfig)
     {
         switch (fileFormat) {
