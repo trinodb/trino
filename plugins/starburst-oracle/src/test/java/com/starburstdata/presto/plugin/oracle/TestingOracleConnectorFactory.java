@@ -11,7 +11,6 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.starburstdata.presto.license.LicenseManager;
 import io.trino.plugin.jdbc.JdbcConnectorFactory;
-import io.trino.spi.connector.ConnectorHandleResolver;
 
 import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
@@ -27,11 +26,5 @@ public class TestingOracleConnectorFactory
                     binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
                     new OracleClientModule(catalogName, licenseManager));
         });
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new OracleHandleResolver();
     }
 }
