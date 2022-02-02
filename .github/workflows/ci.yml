@@ -647,6 +647,10 @@ jobs:
           - config: hdp3
             suite: suite-2
             jdk: 17
+          # this suite is not meant to be run with different configs
+          - config: default
+            suite: suite-all
+            jdk: 11
     # PT Launcher's timeout defaults to 2h, add some margin
     timeout-minutes: 130
     needs: build-pt
