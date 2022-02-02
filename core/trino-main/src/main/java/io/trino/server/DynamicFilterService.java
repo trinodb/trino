@@ -232,7 +232,21 @@ public class DynamicFilterService
             return false;
         }
 
-        return !getSourceStageInnerLazyDynamicFilters(plan).isEmpty();
+        // dynamic filters are collected by additional task only for non-fixed source stage
+        return plan.getPartitioning().equals(SOURCE_DISTRIBUTION) && !getLazyDynamicFilters(plan).isEmpty();
+    }
+
+    public boolean isStageSchedulingNeededToCollectDynamicFilters(QueryId queryId, PlanFragment plan)
+    {
+        DynamicFilterContext context = dynamicFilterContexts.get(queryId);
+        if (context == null) {
+            // query has been removed or not registered (e.g dynamic filtering is disabled)
+            return false;
+        }
+
+        // stage scheduling is not needed to collect dynamic filters for non-fixed source stage, because
+        // for such stage collecting task is created
+        return !plan.getPartitioning().equals(SOURCE_DISTRIBUTION) && !getLazyDynamicFilters(plan).isEmpty();
     }
 
     /**

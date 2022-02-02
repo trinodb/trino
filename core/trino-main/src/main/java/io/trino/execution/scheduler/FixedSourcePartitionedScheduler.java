@@ -323,6 +323,12 @@ public class FixedSourcePartitionedScheduler
         }
 
         @Override
+        public void start()
+        {
+            sourceScheduler.start();
+        }
+
+        @Override
         public ScheduleResult schedule()
         {
             return sourceScheduler.schedule();

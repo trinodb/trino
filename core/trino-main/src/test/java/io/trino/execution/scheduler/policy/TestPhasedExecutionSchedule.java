@@ -28,6 +28,9 @@ import io.trino.execution.scheduler.TaskLifecycleListener;
 import io.trino.execution.scheduler.policy.PhasedExecutionSchedule.FragmentsEdge;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.server.DynamicFilterService;
+import io.trino.spi.QueryId;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -40,6 +43,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.execution.scheduler.StageExecution.State.ABORTED;
 import static io.trino.execution.scheduler.StageExecution.State.FINISHED;
 import static io.trino.execution.scheduler.StageExecution.State.FLUSHING;
@@ -48,6 +52,7 @@ import static io.trino.execution.scheduler.policy.PlanUtils.createBroadcastAndPa
 import static io.trino.execution.scheduler.policy.PlanUtils.createBroadcastJoinPlanFragment;
 import static io.trino.execution.scheduler.policy.PlanUtils.createJoinPlanFragment;
 import static io.trino.execution.scheduler.policy.PlanUtils.createTableScanPlanFragment;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
@@ -56,6 +61,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPhasedExecutionSchedule
 {
+    private final DynamicFilterService dynamicFilterService = new DynamicFilterService(createTestMetadataManager(), new TypeOperators(), newDirectExecutorService());
+
     @Test
     public void testPartitionedJoin()
     {
@@ -67,7 +74,7 @@ public class TestPhasedExecutionSchedule
         TestingStageExecution probeStage = new TestingStageExecution(probeFragment);
         TestingStageExecution joinStage = new TestingStageExecution(joinFragment);
 
-        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(buildStage, probeStage, joinStage));
+        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(buildStage, probeStage, joinStage), dynamicFilterService);
         assertThat(schedule.getSortedFragments()).containsExactly(buildFragment.getId(), probeFragment.getId(), joinFragment.getId());
 
         // single dependency between build and probe stages
@@ -105,7 +112,7 @@ public class TestPhasedExecutionSchedule
         TestingStageExecution buildStage = new TestingStageExecution(buildFragment);
         TestingStageExecution joinSourceStage = new TestingStageExecution(joinSourceFragment);
 
-        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(joinSourceStage, buildStage));
+        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(joinSourceStage, buildStage), dynamicFilterService);
         assertThat(schedule.getSortedFragments()).containsExactly(buildFragment.getId(), joinSourceFragment.getId());
 
         // single dependency between build and join stages
@@ -134,7 +141,7 @@ public class TestPhasedExecutionSchedule
         TestingStageExecution buildStage = new TestingStageExecution(buildFragment);
         TestingStageExecution joinStage = new TestingStageExecution(joinFragment);
 
-        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(sourceStage, aggregationStage, buildStage, joinStage));
+        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(sourceStage, aggregationStage, buildStage, joinStage), dynamicFilterService);
         assertThat(schedule.getSortedFragments()).containsExactly(buildFragment.getId(), sourceFragment.getId(), aggregationFragment.getId(), joinFragment.getId());
 
         // aggregation and source stage should start immediately, join stage should wait for build stage to complete
@@ -156,7 +163,7 @@ public class TestPhasedExecutionSchedule
         TestingStageExecution buildStage = new TestingStageExecution(buildFragment);
         TestingStageExecution joinStage = new TestingStageExecution(joinFragment);
 
-        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(sourceStage, aggregationStage, buildStage, joinStage));
+        PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(sourceStage, aggregationStage, buildStage, joinStage), dynamicFilterService);
         assertThat(schedule.getSortedFragments()).containsExactly(buildFragment.getId(), sourceFragment.getId(), aggregationFragment.getId(), joinFragment.getId());
 
         // aggregation and source stage should start immediately, join stage should wait for build stage to complete
@@ -191,7 +198,7 @@ public class TestPhasedExecutionSchedule
         TestingStageExecution joinStage = new TestingStageExecution(joinFragment);
 
         PhasedExecutionSchedule schedule = PhasedExecutionSchedule.forStages(ImmutableSet.of(
-                broadcastBuildStage, partitionedBuildStage, probeStage, joinStage));
+                broadcastBuildStage, partitionedBuildStage, probeStage, joinStage), dynamicFilterService);
 
         // join stage should start immediately because partitioned join forces that
         DirectedGraph<PlanFragmentId, FragmentsEdge> dependencies = schedule.getFragmentDependency();
@@ -272,7 +279,7 @@ public class TestPhasedExecutionSchedule
         @Override
         public StageId getStageId()
         {
-            throw new UnsupportedOperationException();
+            return new StageId(new QueryId("id"), 0);
         }
 
         @Override
