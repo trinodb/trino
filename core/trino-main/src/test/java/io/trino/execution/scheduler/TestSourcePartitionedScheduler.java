@@ -88,6 +88,8 @@ import static io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPo
 import static io.trino.execution.scheduler.PipelinedStageExecution.createPipelinedStageExecution;
 import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
 import static io.trino.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
+import static io.trino.execution.scheduler.StageExecution.State.PLANNED;
+import static io.trino.execution.scheduler.StageExecution.State.SCHEDULING;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -584,6 +586,12 @@ public class TestSourcePartitionedScheduler
                 ImmutableMap.of(symbol, new TestingColumnHandle("probeColumnA")),
                 symbolAllocator.getTypes());
 
+        // make sure dynamic filtering collecting task was created immediately
+        assertEquals(stage.getState(), PLANNED);
+        scheduler.start();
+        assertEquals(stage.getAllTasks().size(), 1);
+        assertEquals(stage.getState(), SCHEDULING);
+
         // make sure dynamic filter is initially blocked
         assertFalse(dynamicFilter.isBlocked().isDone());
 
@@ -591,8 +599,7 @@ public class TestSourcePartitionedScheduler
         ScheduleResult scheduleResult = scheduler.schedule();
         assertTrue(dynamicFilter.isBlocked().isDone());
 
-        // make sure that an extra task for collecting dynamic filters was created
-        assertEquals(scheduleResult.getNewTasks().size(), 1);
+        // no new probe splits should be scheduled
         assertEquals(scheduleResult.getSplitsScheduled(), 0);
     }
 

@@ -14,8 +14,11 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.FeaturesConfig.JoinDistributionType;
 import io.trino.testing.BaseDynamicPartitionPruningTest;
 import io.trino.testing.QueryRunner;
+import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 
 import java.util.List;
 
@@ -36,6 +39,12 @@ public class TestIcebergDynamicPartitionPruningTest
     }
 
     @Override
+    public void testJoinDynamicFilteringMultiJoinOnBucketedTables(JoinDistributionType joinDistributionType)
+    {
+        throw new SkipException("Iceberg does not support bucketing");
+    }
+
+    @Override
     protected void createLineitemTable(String tableName, List<String> columns, List<String> partitionColumns)
     {
         @Language("SQL") String sql = format(
@@ -44,5 +53,22 @@ public class TestIcebergDynamicPartitionPruningTest
                 partitionColumns.stream().map(column -> "'" + column + "'").collect(joining(",")),
                 String.join(",", columns));
         getQueryRunner().execute(sql);
+    }
+
+    @Override
+    protected void createPartitionedTable(String tableName, List<String> columns, List<String> partitionColumns)
+    {
+        @Language("SQL") String sql = format(
+                "CREATE TABLE %s (%s) WITH (partitioning=array[%s])",
+                tableName,
+                String.join(",", columns),
+                partitionColumns.stream().map(column -> "'" + column + "'").collect(joining(",")));
+        getQueryRunner().execute(sql);
+    }
+
+    @Override
+    protected void createPartitionedAndBucketedTable(String tableName, List<String> columns, List<String> partitionColumns, List<String> bucketColumns)
+    {
+        throw new UnsupportedOperationException();
     }
 }
