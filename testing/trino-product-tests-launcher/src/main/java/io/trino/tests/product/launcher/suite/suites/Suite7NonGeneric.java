@@ -16,6 +16,7 @@ package io.trino.tests.product.launcher.suite.suites;
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeClickhouse;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeHiveIcebergRedirections;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsImpersonationCrossRealm;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeMysql;
@@ -45,6 +46,7 @@ public class Suite7NonGeneric
                 testOnEnvironment(EnvSinglenodeMysql.class).withGroups("mysql").build(),
                 testOnEnvironment(EnvSinglenodePostgresql.class).withGroups("postgresql").build(),
                 testOnEnvironment(EnvSinglenodeSqlserver.class).withGroups("sqlserver").build(),
+                testOnEnvironment(EnvMultinodeClickhouse.class).withGroups("clickhouse").build(),
                 testOnEnvironment(EnvSinglenodeSparkHive.class).withGroups("hive_spark").build(),
                 testOnEnvironment(EnvSinglenodeSparkIceberg.class).withGroups("iceberg").withExcludedGroups("storage_formats").build(),
                 testOnEnvironment(EnvSinglenodeHiveIcebergRedirections.class).withGroups("hive_iceberg_redirections").build(),
