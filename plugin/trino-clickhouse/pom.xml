@@ -203,8 +203,6 @@
                             <excludes>
                                 <!-- TODO (https://github.com/trinodb/trino/issues/10752) Enable after resolving flaky test issues -->
                                 <exclude>**/TestAltinityConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestAltinityLatestConnectorSmokeTest.java</exclude>
-                                <exclude>**/TestClickHouseLatestConnectorSmokeTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
