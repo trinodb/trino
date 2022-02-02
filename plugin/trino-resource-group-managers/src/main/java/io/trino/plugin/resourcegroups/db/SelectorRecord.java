@@ -34,6 +34,7 @@ public class SelectorRecord
     private final long resourceGroupId;
     private final long priority;
     private final Optional<Pattern> userRegex;
+    private final Optional<Pattern> userGroupRegex;
     private final Optional<Pattern> sourceRegex;
     private final Optional<String> queryType;
     private final Optional<List<String>> clientTags;
@@ -43,6 +44,7 @@ public class SelectorRecord
             long resourceGroupId,
             long priority,
             Optional<Pattern> userRegex,
+            Optional<Pattern> userGroupRegex,
             Optional<Pattern> sourceRegex,
             Optional<String> queryType,
             Optional<List<String>> clientTags,
@@ -51,6 +53,7 @@ public class SelectorRecord
         this.resourceGroupId = resourceGroupId;
         this.priority = priority;
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
+        this.userGroupRegex = requireNonNull(userGroupRegex, "userGroupRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null").map(ImmutableList::copyOf);
@@ -70,6 +73,11 @@ public class SelectorRecord
     public Optional<Pattern> getUserRegex()
     {
         return userRegex;
+    }
+
+    public Optional<Pattern> getUserGroupRegex()
+    {
+        return userGroupRegex;
     }
 
     public Optional<Pattern> getSourceRegex()
@@ -106,6 +114,7 @@ public class SelectorRecord
                     resultSet.getLong("resource_group_id"),
                     resultSet.getLong("priority"),
                     Optional.ofNullable(resultSet.getString("user_regex")).map(Pattern::compile),
+                    Optional.ofNullable(resultSet.getString("user_group_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("source_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("query_type")),
                     Optional.ofNullable(resultSet.getString("client_tags")).map(LIST_STRING_CODEC::fromJson),
