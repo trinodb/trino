@@ -364,18 +364,18 @@ use the following rules:
 Impersonation rules
 -------------------
 
-These rules control the ability of a user to impersonate another user.  In
+These rules control the ability of a user to impersonate another user. In
 some environments it is desirable for an administrator (or managed system) to
-run queries on behalf of other users.  In these cases, the administrator
+run queries on behalf of other users. In these cases, the administrator
 authenticates using their credentials, and then submits a query as a different
-user.  When the user context is changed, Trino will verify the administrator
+user. When the user context is changed, Trino will verify the administrator
 is authorized to run queries as the target user.
 
 When these rules are present, the authorization is based on the first matching rule,
 processed from top to bottom. If no rules match, the authorization is denied.
 If impersonation rules are not present but the legacy principal rules are specified,
 it is assumed impersonation access control is being handled by the principal rules,
-so impersonation is allowed.  If neither impersonation nor principal rules are
+so impersonation is allowed. If neither impersonation nor principal rules are
 defined, impersonation is not allowed.
 
 Each impersonation rule is composed of the following fields:
@@ -383,10 +383,10 @@ Each impersonation rule is composed of the following fields:
 * ``original_user`` (optional): regex to match against the user requesting the impersonation. Defaults to ``.*``.
 * ``original_role`` (optional): regex to match against role names of the requesting impersonation. Defaults to ``.*``.
 * ``new_user`` (required): regex to match against the user that will be impersonated.
-* ``allow`` (optional): boolean indicating if the authentication should be allowed.
+* ``allow`` (optional): boolean indicating if the authentication should be allowed. Defaults to ``true``.
 
 The following example allows the ``admin`` role, to impersonate any user, except
-for ``bob``.  It also allows any user to impersonate the ``test`` user:
+for ``bob``. It also allows any user to impersonate the ``test`` user:
 
 .. literalinclude:: user-impersonation.json
     :language: json
