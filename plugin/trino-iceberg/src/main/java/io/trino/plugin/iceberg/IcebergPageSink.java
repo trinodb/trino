@@ -41,7 +41,6 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -95,7 +94,7 @@ public class IcebergPageSink
     private final JobConf jobConf;
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final ConnectorSession session;
-    private final FileFormat fileFormat;
+    private final IcebergFileFormat fileFormat;
     private final MetricsConfig metricsConfig;
     private final PagePartitioner pagePartitioner;
 
@@ -116,7 +115,7 @@ public class IcebergPageSink
             List<IcebergColumnHandle> inputColumns,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
-            FileFormat fileFormat,
+            IcebergFileFormat fileFormat,
             Map<String, String> storageProperties,
             int maxOpenWriters)
     {
@@ -306,7 +305,7 @@ public class IcebergPageSink
 
     private WriteContext createWriter(Optional<PartitionData> partitionData)
     {
-        String fileName = fileFormat.addExtension(randomUUID().toString());
+        String fileName = fileFormat.toIceberg().addExtension(randomUUID().toString());
         Path outputPath = partitionData.map(partition -> new Path(locationProvider.newDataLocation(partitionSpec, partition, fileName)))
                 .orElse(new Path(locationProvider.newDataLocation(fileName)));
 

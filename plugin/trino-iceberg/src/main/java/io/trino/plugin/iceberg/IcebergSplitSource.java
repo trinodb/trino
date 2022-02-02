@@ -378,7 +378,7 @@ public class IcebergSplitSource
                 task.start(),
                 task.length(),
                 task.file().fileSizeInBytes(),
-                task.file().format(),
+                IcebergFileFormat.fromIceberg(task.file().format()),
                 ImmutableList.of(),
                 getPartitionKeys(task));
     }

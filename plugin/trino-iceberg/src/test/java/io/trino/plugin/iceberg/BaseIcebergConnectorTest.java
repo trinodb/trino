@@ -50,7 +50,6 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -87,6 +86,8 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
 import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
@@ -109,8 +110,6 @@ import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
-import static org.apache.iceberg.FileFormat.ORC;
-import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
@@ -122,9 +121,9 @@ public abstract class BaseIcebergConnectorTest
 {
     private static final Pattern WITH_CLAUSE_EXTRACTOR = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
-    private final FileFormat format;
+    private final IcebergFileFormat format;
 
-    protected BaseIcebergConnectorTest(FileFormat format)
+    protected BaseIcebergConnectorTest(IcebergFileFormat format)
     {
         this.format = requireNonNull(format, "format is null");
     }
@@ -1078,11 +1077,11 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreateTableLike()
     {
-        FileFormat otherFormat = format == PARQUET ? ORC : PARQUET;
+        IcebergFileFormat otherFormat = (format == PARQUET) ? ORC : PARQUET;
         testCreateTableLikeForFormat(otherFormat);
     }
 
-    private void testCreateTableLikeForFormat(FileFormat otherFormat)
+    private void testCreateTableLikeForFormat(IcebergFileFormat otherFormat)
     {
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
         String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix();

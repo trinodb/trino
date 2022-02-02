@@ -15,7 +15,7 @@ package io.trino.plugin.iceberg;
 
 import io.trino.Session;
 
-import static org.apache.iceberg.FileFormat.ORC;
+import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 
 public class TestIcebergOrcConnectorTest
         extends BaseIcebergConnectorTest
