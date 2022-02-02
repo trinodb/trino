@@ -122,6 +122,10 @@ public final class TypeHelper
                 return VarbinaryType.VARBINARY;
             case DECIMAL:
                 return DecimalType.createDecimalType(attributes.getPrecision(), attributes.getScale());
+            // TODO: add support for varchar and date types: https://github.com/trinodb/trino/issues/11009
+            case VARCHAR:
+            case DATE:
+                break;
         }
         throw new IllegalStateException("Kudu type not implemented for " + ktype);
     }
