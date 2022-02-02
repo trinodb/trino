@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-public class TestKuduSmokeTestWithEmptyInferSchema
+public abstract class AbstractKuduSmokeTestWithEmptyInferSchema
         extends AbstractKuduIntegrationSmokeTest
 {
     @Override

@@ -150,6 +150,8 @@ public class KuduClientSession
         KuduTable table = tableHandle.getTable(this);
         int primaryKeyColumnCount = table.getSchema().getPrimaryKeyColumnCount();
         KuduScanToken.KuduScanTokenBuilder builder = client.newScanTokenBuilder(table);
+        // TODO: remove when kudu client bug is fixed: https://gerrit.cloudera.org/#/c/18166/
+        builder.includeTabletMetadata(false);
 
         TupleDomain<ColumnHandle> constraint = tableHandle.getConstraint()
                 .intersect(dynamicFilter.getCurrentPredicate().simplify(100));
