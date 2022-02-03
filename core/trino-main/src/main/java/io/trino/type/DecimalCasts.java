@@ -30,7 +30,6 @@ import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
-import io.trino.spi.type.Int128Math;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
@@ -53,6 +52,7 @@ import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.Int128.ZERO;
 import static io.trino.spi.type.Int128Math.multiply;
+import static io.trino.spi.type.Int128Math.powerOfTen;
 import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -113,7 +113,7 @@ public final class DecimalCasts
                                         tenToScale = longTenToNth(DecimalConversions.intScale(scale));
                                     }
                                     else {
-                                        tenToScale = Int128Math.POWERS_OF_TEN[DecimalConversions.intScale(scale)];
+                                        tenToScale = powerOfTen(DecimalConversions.intScale(scale));
                                     }
                                     return ImmutableList.of(precision, scale, tenToScale);
                                 })))
@@ -147,7 +147,7 @@ public final class DecimalCasts
                                         tenToScale = longTenToNth(resultType.getScale());
                                     }
                                     else {
-                                        tenToScale = Int128Math.POWERS_OF_TEN[resultType.getScale()];
+                                        tenToScale = powerOfTen(resultType.getScale());
                                     }
                                     return ImmutableList.of(resultType.getPrecision(), resultType.getScale(), tenToScale);
                                 }))).build();
