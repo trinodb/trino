@@ -687,8 +687,8 @@ public final class SystemSessionProperties
                 booleanProperty(
                         HIDE_INACCESSIBLE_COLUMNS,
                         "When enabled non-accessible columns are silently filtered from results from SELECT * statements",
-                        featuresConfig.isHideInaccesibleColumns(),
-                        value -> validateHideInaccesibleColumns(value, featuresConfig.isHideInaccesibleColumns()),
+                        featuresConfig.isHideInaccessibleColumns(),
+                        value -> validateHideInaccessibleColumns(value, featuresConfig.isHideInaccessibleColumns()),
                         false),
                 dataSizeProperty(
                         FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE,
@@ -1027,7 +1027,7 @@ public final class SystemSessionProperties
         return session.getSystemProperty(MAX_GROUPING_SETS, Integer.class);
     }
 
-    private static void validateHideInaccesibleColumns(boolean value, boolean defaultValue)
+    private static void validateHideInaccessibleColumns(boolean value, boolean defaultValue)
     {
         if (defaultValue == true && value == false) {
             throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s cannot be disabled with session property when it was enabled with configuration", HIDE_INACCESSIBLE_COLUMNS));
@@ -1251,7 +1251,7 @@ public final class SystemSessionProperties
         return session.getSystemProperty(RETRY_MAX_DELAY, Duration.class);
     }
 
-    public static boolean isHideInaccesibleColumns(Session session)
+    public static boolean isHideInaccessibleColumns(Session session)
     {
         return session.getSystemProperty(HIDE_INACCESSIBLE_COLUMNS, Boolean.class);
     }
