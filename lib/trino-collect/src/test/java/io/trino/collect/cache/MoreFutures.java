@@ -16,23 +16,12 @@ package io.trino.collect.cache;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static java.util.Objects.requireNonNull;
 
 final class MoreFutures
 {
     private MoreFutures() {}
-
-    /**
-     * Copy of {@code io.airlift.concurrent.MoreFutures#getDone}, see there for documentation.
-     */
-    public static <T> T getDone(Future<T> future)
-    {
-        requireNonNull(future, "future is null");
-        checkArgument(future.isDone(), "future not done yet");
-        return getFutureValue(future);
-    }
 
     /**
      * Copy of {@code io.airlift.concurrent.MoreFutures#getFutureValue}, see there for documentation.
