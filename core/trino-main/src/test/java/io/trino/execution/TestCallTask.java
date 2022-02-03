@@ -15,7 +15,6 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
@@ -156,9 +155,13 @@ public class TestCallTask
     private QueryStateMachine stateMachine(TransactionManager transactionManager, MetadataManager metadata, AccessControl accessControl)
     {
         return QueryStateMachine.begin(
+                Optional.empty(),
                 "CALL testing_procedure()",
                 Optional.empty(),
-                testSession(transactionManager),
+                testSessionBuilder()
+                        .setCatalog("test")
+                        .setSchema("test")
+                        .build(),
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
                 false,
@@ -168,15 +171,6 @@ public class TestCallTask
                 metadata,
                 WarningCollector.NOOP,
                 Optional.empty());
-    }
-
-    private Session testSession(TransactionManager transactionManager)
-    {
-        return testSessionBuilder()
-                .setCatalog("test")
-                .setSchema("test")
-                .setTransactionId(transactionManager.beginTransaction(true))
-                .build();
     }
 
     public static void testingMethod()

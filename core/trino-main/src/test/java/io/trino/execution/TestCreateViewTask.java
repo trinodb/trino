@@ -18,12 +18,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
-import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TablePropertyManager;
-import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.rewrite.StatementRewrite;
@@ -31,14 +28,11 @@ import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.CreateView;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
-import io.trino.transaction.TransactionManager;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.util.Optional;
 
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.sql.QueryUtil.selectList;
@@ -127,23 +121,6 @@ public class TestCreateViewTask
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(viewName), false)))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)
                 .hasMessage("Materialized view already exists: '%s'", viewName);
-    }
-
-    private QueryStateMachine stateMachine(TransactionManager transactionManager, MetadataManager metadata, AccessControl accessControl)
-    {
-        return QueryStateMachine.begin(
-                "test",
-                Optional.empty(),
-                testSession,
-                URI.create("fake://uri"),
-                new ResourceGroupId("test"),
-                false,
-                transactionManager,
-                accessControl,
-                directExecutor(),
-                metadata,
-                WarningCollector.NOOP,
-                Optional.empty());
     }
 
     private ListenableFuture<Void> executeCreateView(QualifiedName viewName, boolean replace)

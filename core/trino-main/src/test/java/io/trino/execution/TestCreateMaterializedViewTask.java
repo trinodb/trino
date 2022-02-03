@@ -136,9 +136,7 @@ public class TestCreateMaterializedViewTask
 
         materializedViewPropertyManager = queryRunner.getMaterializedViewPropertyManager();
 
-        testSession = testSessionBuilder()
-                .setTransactionId(transactionManager.beginTransaction(false))
-                .build();
+        testSession = testSessionBuilder().build();
         metadata = new MockMetadata(new CatalogName(CATALOG_NAME));
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
         parser = queryRunner.getSqlParser();
@@ -266,6 +264,7 @@ public class TestCreateMaterializedViewTask
     private QueryStateMachine stateMachine(TransactionManager transactionManager, MetadataManager metadata, AccessControl accessControl)
     {
         return QueryStateMachine.begin(
+                Optional.empty(),
                 "test",
                 Optional.empty(),
                 testSession,
