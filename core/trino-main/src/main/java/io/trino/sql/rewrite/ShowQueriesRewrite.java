@@ -23,6 +23,7 @@ import com.google.common.primitives.Primitives;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.MaterializedViewDefinition;
@@ -99,7 +100,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.SortedSet;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -830,8 +830,8 @@ public final class ShowQueriesRewrite
         protected Node visitShowSession(ShowSession node, Void context)
         {
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-            SortedSet<String> catalogNames = MetadataListing.listCatalogNames(session, metadata, accessControl);
-            List<SessionPropertyValue> sessionProperties = sessionPropertyManager.getAllSessionProperties(session, catalogNames);
+            List<CatalogInfo> catalogInfos = MetadataListing.listCatalogs(session, metadata, accessControl);
+            List<SessionPropertyValue> sessionProperties = sessionPropertyManager.getAllSessionProperties(session, catalogInfos);
             for (SessionPropertyValue sessionProperty : sessionProperties) {
                 if (sessionProperty.isHidden()) {
                     continue;
