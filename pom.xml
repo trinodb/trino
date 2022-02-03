@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>370</version>
+    <version>371-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -30,7 +30,7 @@
     <scm>
         <connection>scm:git:git://github.com/trinodb/trino.git</connection>
         <url>https://github.com/trinodb/trino</url>
-        <tag>370</tag>
+        <tag>HEAD</tag>
     </scm>
 
     <properties>
