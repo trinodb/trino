@@ -148,7 +148,7 @@ public class FeaturesConfig
     private boolean incrementalHashArrayLoadFactorEnabled = true;
     private boolean allowSetViewAuthorization;
 
-    private boolean hideInaccesibleColumns;
+    private boolean hideInaccessibleColumns;
 
     public enum JoinReorderingStrategy
     {
@@ -1088,16 +1088,16 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isHideInaccesibleColumns()
+    public boolean isHideInaccessibleColumns()
     {
-        return hideInaccesibleColumns;
+        return hideInaccessibleColumns;
     }
 
     @Config("hide-inaccessible-columns")
     @ConfigDescription("When enabled non-accessible columns are silently filtered from results from SELECT * statements")
-    public FeaturesConfig setHideInaccesibleColumns(boolean hideInaccesibleColumns)
+    public FeaturesConfig setHideInaccessibleColumns(boolean hideInaccessibleColumns)
     {
-        this.hideInaccesibleColumns = hideInaccesibleColumns;
+        this.hideInaccessibleColumns = hideInaccessibleColumns;
         return this;
     }
 
