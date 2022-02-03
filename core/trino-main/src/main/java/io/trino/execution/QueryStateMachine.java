@@ -263,7 +263,12 @@ public class QueryStateMachine
                 metadata,
                 warningCollector,
                 queryType);
-        queryStateMachine.addStateChangeListener(newState -> QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState));
+        queryStateMachine.addStateChangeListener(newState -> {
+            QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState);
+            if (newState.isDone()) {
+                queryStateMachine.getSession().getTransactionId().ifPresent(transactionManager::trySetInactive);
+            }
+        });
 
         return queryStateMachine;
     }
