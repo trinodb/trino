@@ -19,8 +19,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
-import io.trino.plugin.base.cache.NonKeyEvictableLoadingCache;
-import io.trino.plugin.base.cache.SafeCaches;
+import io.trino.collect.cache.NonKeyEvictableLoadingCache;
 import io.trino.plugin.password.Credential;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.AccessDeniedException;
@@ -38,6 +37,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -83,7 +83,7 @@ public class LdapAuthenticator
                 bindDistinguishedName.isPresent() || !userBindSearchPatterns.isEmpty(),
                 "Either user bind search pattern or bind distinguished name must be provided");
 
-        this.authenticationCache = SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll(
+        this.authenticationCache = buildNonEvictableCacheWithWeakInvalidateAll(
                 CacheBuilder.newBuilder()
                         .expireAfterWrite(ldapConfig.getLdapCacheTtl().toMillis(), MILLISECONDS),
                 CacheLoader.from(bindDistinguishedName.isPresent()

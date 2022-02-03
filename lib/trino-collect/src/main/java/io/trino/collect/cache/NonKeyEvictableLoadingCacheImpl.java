@@ -11,27 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.cache;
+package io.trino.collect.cache;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.ForwardingCache;
+import com.google.common.cache.ForwardingLoadingCache;
+import com.google.common.cache.LoadingCache;
 
 import static java.util.Objects.requireNonNull;
 
 // package-private. The interface provides deprecation and javadoc to help at call sites
-class NonKeyEvictableCacheImpl<K, V>
-        extends ForwardingCache<K, V>
-        implements NonKeyEvictableCache<K, V>
+class NonKeyEvictableLoadingCacheImpl<K, V>
+        extends ForwardingLoadingCache<K, V>
+        implements NonKeyEvictableLoadingCache<K, V>
 {
-    private final Cache<K, V> delegate;
+    private final LoadingCache<K, V> delegate;
 
-    NonKeyEvictableCacheImpl(Cache<K, V> delegate)
+    NonKeyEvictableLoadingCacheImpl(LoadingCache<K, V> delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
     @Override
-    protected Cache<K, V> delegate()
+    protected LoadingCache<K, V> delegate()
     {
         return delegate;
     }
@@ -40,13 +40,13 @@ class NonKeyEvictableCacheImpl<K, V>
     public void invalidate(Object key)
     {
         throw new UnsupportedOperationException("invalidate(key) does not invalidate ongoing loads, so a stale value may remain in the cache for ever. " +
-                "Use EvictableCache if you need invalidation");
+                "Use EvictableLoadingCache if you need invalidation");
     }
 
     @Override
     public void invalidateAll(Iterable<?> keys)
     {
         throw new UnsupportedOperationException("invalidateAll(keys) does not invalidate ongoing loads, so a stale value may remain in the cache for ever. " +
-                "Use EvictableCache if you need invalidation");
+                "Use EvictableLoadingCache if you need invalidation");
     }
 }

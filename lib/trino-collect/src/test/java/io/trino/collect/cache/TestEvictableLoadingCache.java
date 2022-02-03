@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.cache;
+package io.trino.collect.cache;
 
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
-import io.airlift.concurrent.MoreFutures;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
@@ -37,7 +38,7 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.base.cache.CacheStatsAssertions.assertCacheStats;
+import static io.trino.collect.cache.CacheStatsAssertions.assertCacheStats;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -129,7 +130,7 @@ public class TestEvictableLoadingCache
         // prime the cache
         assertEquals((int) cache.get(first), 3);
 
-        Map<String, Integer> values = cache.getAll(List.of(second));
+        Map<String, Integer> values = cache.getAll(ImmutableList.of(second));
         assertThat(values).hasSize(1);
         Entry<String, Integer> entry = getOnlyElement(values.entrySet());
         assertEquals((int) entry.getValue(), 3);
@@ -159,7 +160,7 @@ public class TestEvictableLoadingCache
                 OptionalLong.empty(),
                 10_000,
                 false,
-                new CacheLoader<>()
+                new CacheLoader<Integer, String>()
                 {
                     @Override
                     public String load(Integer key)
@@ -190,7 +191,7 @@ public class TestEvictableLoadingCache
                         cache.invalidate(key);
                         break;
                     case INVALIDATE_PREDEFINED_KEYS:
-                        cache.invalidateAll(List.of(key));
+                        cache.invalidateAll(ImmutableList.of(key));
                         break;
                     case INVALIDATE_SELECTED_KEYS:
                         Set<Integer> keys = cache.asMap().keySet().stream()
@@ -261,7 +262,7 @@ public class TestEvictableLoadingCache
                                 cache.invalidate(key);
                                 break;
                             case INVALIDATE_PREDEFINED_KEYS:
-                                cache.invalidateAll(List.of(key));
+                                cache.invalidateAll(ImmutableList.of(key));
                                 break;
                             case INVALIDATE_SELECTED_KEYS:
                                 Set<Integer> keys = cache.asMap().keySet().stream()
@@ -286,7 +287,7 @@ public class TestEvictableLoadingCache
 
             futures.forEach(MoreFutures::getFutureValue);
 
-            assertEquals(remoteState.keySet(), Set.of(key));
+            assertEquals(remoteState.keySet(), ImmutableSet.of(key));
             assertEquals(remoteState.get(key).get(), 2 * 3 * 5 * 7);
             assertEquals((long) cache.get(key), 2 * 3 * 5 * 7);
         }

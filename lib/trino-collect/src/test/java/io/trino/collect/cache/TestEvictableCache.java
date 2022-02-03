@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.cache;
+package io.trino.collect.cache;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
-import io.airlift.concurrent.MoreFutures;
+import com.google.common.collect.ImmutableList;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.testng.annotations.Test;
 
@@ -31,7 +31,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.base.cache.CacheStatsAssertions.assertCacheStats;
+import static io.trino.collect.cache.CacheStatsAssertions.assertCacheStats;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -125,7 +125,7 @@ public class TestEvictableCache
                         cache.invalidate(key);
                         break;
                     case INVALIDATE_PREDEFINED_KEYS:
-                        cache.invalidateAll(List.of(key));
+                        cache.invalidateAll(ImmutableList.of(key));
                         break;
                     case INVALIDATE_SELECTED_KEYS:
                         Set<Integer> keys = cache.asMap().keySet().stream()
@@ -188,7 +188,7 @@ public class TestEvictableCache
                                 cache.invalidate(key);
                                 break;
                             case INVALIDATE_PREDEFINED_KEYS:
-                                cache.invalidateAll(List.of(key));
+                                cache.invalidateAll(ImmutableList.of(key));
                                 break;
                             case INVALIDATE_SELECTED_KEYS:
                                 Set<Integer> keys = cache.asMap().keySet().stream()

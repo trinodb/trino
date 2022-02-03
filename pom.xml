@@ -96,6 +96,7 @@
         <module>core/trino-spi</module>
         <module>docs</module>
         <module>lib/trino-array</module>
+        <module>lib/trino-collect</module>
         <module>lib/trino-geospatial-toolkit</module>
         <module>lib/trino-matching</module>
         <module>lib/trino-memory-context</module>
@@ -225,6 +226,19 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-client</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-collect</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-collect</artifactId>
+                <type>test-jar</type>
                 <version>${project.version}</version>
             </dependency>
 
