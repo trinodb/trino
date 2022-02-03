@@ -186,6 +186,7 @@ public class TestSetSessionTask
     {
         QualifiedName qualifiedPropName = QualifiedName.of(CATALOG_NAME, property);
         QueryStateMachine stateMachine = QueryStateMachine.begin(
+                Optional.empty(),
                 format("set %s = 'old_value'", qualifiedPropName),
                 Optional.empty(),
                 TEST_SESSION,
