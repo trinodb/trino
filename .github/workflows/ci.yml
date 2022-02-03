@@ -515,6 +515,8 @@ jobs:
 
   pt:
     runs-on: ubuntu-latest
+    # skip all PTs if the WIP label is applied
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'WIP') }}
     # explicitly define the name to avoid adding the value of the `ignore exclusion if` matrix item
     name: pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
     strategy:
