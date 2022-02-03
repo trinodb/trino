@@ -49,6 +49,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
@@ -381,24 +382,23 @@ public final class Session
         requireNonNull(systemPropertyDefaults, "systemPropertyDefaults is null");
         requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
 
+        checkState(transactionId.isEmpty(), "property defaults can not be added to a transaction already in progress");
+        checkState(connectorProperties.isEmpty(), "catalog properties have already been processed");
+
+        // NOTE: properties should not be validated here and instead will be validated in beginTransactionId
         Map<String, String> systemProperties = new HashMap<>();
         systemProperties.putAll(systemPropertyDefaults);
         systemProperties.putAll(this.systemProperties);
 
-        validateSystemProperties(accessControl, systemProperties);
-
-        Map<String, Map<String, String>> connectorProperties = catalogPropertyDefaults.entrySet().stream()
+        Map<String, Map<String, String>> unprocessedCatalogProperties = catalogPropertyDefaults.entrySet().stream()
                 .map(entry -> Maps.immutableEntry(entry.getKey(), new HashMap<>(entry.getValue())))
                 .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
         for (Entry<String, Map<String, String>> catalogProperties : this.unprocessedCatalogProperties.entrySet()) {
             String catalog = catalogProperties.getKey();
             for (Entry<String, String> entry : catalogProperties.getValue().entrySet()) {
-                connectorProperties.computeIfAbsent(catalog, id -> new HashMap<>())
+                unprocessedCatalogProperties.computeIfAbsent(catalog, id -> new HashMap<>())
                         .put(entry.getKey(), entry.getValue());
             }
-        }
-        for (Entry<String, Map<String, String>> catalogEntry : connectorProperties.entrySet()) {
-            validateCatalogProperties(this.transactionId, accessControl, new CatalogName(catalogEntry.getKey()), catalogEntry.getValue());
         }
 
         return new Session(
@@ -422,7 +422,7 @@ public final class Session
                 start,
                 systemProperties,
                 ImmutableMap.of(),
-                connectorProperties,
+                unprocessedCatalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
                 protocolHeaders);
