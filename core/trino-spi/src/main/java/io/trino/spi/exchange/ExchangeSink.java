@@ -22,14 +22,14 @@ import java.util.concurrent.CompletableFuture;
 @ThreadSafe
 public interface ExchangeSink
 {
-    CompletableFuture<?> NOT_BLOCKED = CompletableFuture.completedFuture(null);
+    CompletableFuture<Void> NOT_BLOCKED = CompletableFuture.completedFuture(null);
 
     /**
      * Returns a future that will be completed when the exchange sink becomes
      * unblocked.  If the exchange sink is not blocked, this method should return
      * {@code NOT_BLOCKED}
      */
-    CompletableFuture<?> isBlocked();
+    CompletableFuture<Void> isBlocked();
 
     /**
      * Appends arbitrary {@code data} to a partition specified by {@code partitionId}.
@@ -53,7 +53,7 @@ public interface ExchangeSink
      *
      * @return future that will be resolved when the finish operation either succeeds or fails
      */
-    CompletableFuture<?> finish();
+    CompletableFuture<Void> finish();
 
     /**
      * Notifies the exchange that the write operation has been aborted.
@@ -63,5 +63,5 @@ public interface ExchangeSink
      *
      * @return future that will be resolved when the abort operation either succeeds or fails
      */
-    CompletableFuture<?> abort();
+    CompletableFuture<Void> abort();
 }

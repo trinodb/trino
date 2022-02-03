@@ -54,7 +54,7 @@ public class TestSpoolingExchangeOutputBuffer
         assertEquals(outputBuffer.getState(), NO_MORE_BUFFERS);
         assertNotBlocked(outputBuffer.isFull());
 
-        CompletableFuture<?> blocked = new CompletableFuture<>();
+        CompletableFuture<Void> blocked = new CompletableFuture<>();
         exchangeSink.setBlocked(blocked);
 
         ListenableFuture<Void> full = outputBuffer.isFull();
@@ -68,7 +68,7 @@ public class TestSpoolingExchangeOutputBuffer
     public void testFinishSuccess()
     {
         TestingExchangeSink exchangeSink = new TestingExchangeSink();
-        CompletableFuture<?> finish = new CompletableFuture<>();
+        CompletableFuture<Void> finish = new CompletableFuture<>();
         exchangeSink.setFinish(finish);
 
         OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
@@ -87,7 +87,7 @@ public class TestSpoolingExchangeOutputBuffer
     public void testFinishFailure()
     {
         TestingExchangeSink exchangeSink = new TestingExchangeSink();
-        CompletableFuture<?> finish = new CompletableFuture<>();
+        CompletableFuture<Void> finish = new CompletableFuture<>();
         exchangeSink.setFinish(finish);
 
         OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
@@ -108,7 +108,7 @@ public class TestSpoolingExchangeOutputBuffer
     public void testDestroyAfterFinishCompletion()
     {
         TestingExchangeSink exchangeSink = new TestingExchangeSink();
-        CompletableFuture<?> finish = new CompletableFuture<>();
+        CompletableFuture<Void> finish = new CompletableFuture<>();
         exchangeSink.setFinish(finish);
 
         OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
@@ -130,7 +130,7 @@ public class TestSpoolingExchangeOutputBuffer
     public void testDestroyBeforeFinishCompletion()
     {
         TestingExchangeSink exchangeSink = new TestingExchangeSink();
-        CompletableFuture<?> finish = new CompletableFuture<>();
+        CompletableFuture<Void> finish = new CompletableFuture<>();
         exchangeSink.setFinish(finish);
 
         OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
@@ -164,9 +164,9 @@ public class TestSpoolingExchangeOutputBuffer
     public void testAbortBeforeFinishCompletion()
     {
         TestingExchangeSink exchangeSink = new TestingExchangeSink();
-        CompletableFuture<?> finish = new CompletableFuture<>();
+        CompletableFuture<Void> finish = new CompletableFuture<>();
         exchangeSink.setFinish(finish);
-        CompletableFuture<?> abort = new CompletableFuture<>();
+        CompletableFuture<Void> abort = new CompletableFuture<>();
         exchangeSink.setAbort(abort);
 
         OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
@@ -190,9 +190,9 @@ public class TestSpoolingExchangeOutputBuffer
     public void testAbortAfterFinishCompletion()
     {
         TestingExchangeSink exchangeSink = new TestingExchangeSink();
-        CompletableFuture<?> finish = new CompletableFuture<>();
+        CompletableFuture<Void> finish = new CompletableFuture<>();
         exchangeSink.setFinish(finish);
-        CompletableFuture<?> abort = new CompletableFuture<>();
+        CompletableFuture<Void> abort = new CompletableFuture<>();
         exchangeSink.setAbort(abort);
 
         OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
@@ -219,7 +219,7 @@ public class TestSpoolingExchangeOutputBuffer
     public void testEnqueueAfterFinish()
     {
         TestingExchangeSink exchangeSink = new TestingExchangeSink();
-        CompletableFuture<?> finish = new CompletableFuture<>();
+        CompletableFuture<Void> finish = new CompletableFuture<>();
         exchangeSink.setFinish(finish);
 
         OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
@@ -252,7 +252,7 @@ public class TestSpoolingExchangeOutputBuffer
     public void testEnqueueAfterAbort()
     {
         TestingExchangeSink exchangeSink = new TestingExchangeSink();
-        CompletableFuture<?> abort = new CompletableFuture<>();
+        CompletableFuture<Void> abort = new CompletableFuture<>();
         exchangeSink.setAbort(abort);
 
         OutputBuffer outputBuffer = createSpoolingExchangeOutputBuffer(exchangeSink);
@@ -304,20 +304,20 @@ public class TestSpoolingExchangeOutputBuffer
             implements ExchangeSink
     {
         private final ListMultimap<Integer, Slice> dataBuffer = ArrayListMultimap.create();
-        private CompletableFuture<?> blocked = CompletableFuture.completedFuture(null);
-        private CompletableFuture<?> finish = CompletableFuture.completedFuture(null);
-        private CompletableFuture<?> abort = CompletableFuture.completedFuture(null);
+        private CompletableFuture<Void> blocked = CompletableFuture.completedFuture(null);
+        private CompletableFuture<Void> finish = CompletableFuture.completedFuture(null);
+        private CompletableFuture<Void> abort = CompletableFuture.completedFuture(null);
 
         private boolean finishCalled;
         private boolean abortCalled;
 
         @Override
-        public CompletableFuture<?> isBlocked()
+        public CompletableFuture<Void> isBlocked()
         {
             return blocked;
         }
 
-        public void setBlocked(CompletableFuture<?> blocked)
+        public void setBlocked(CompletableFuture<Void> blocked)
         {
             this.blocked = requireNonNull(blocked, "blocked is null");
         }
@@ -341,7 +341,7 @@ public class TestSpoolingExchangeOutputBuffer
         }
 
         @Override
-        public CompletableFuture<?> finish()
+        public CompletableFuture<Void> finish()
         {
             assertFalse(abortCalled);
             assertFalse(finishCalled);
@@ -349,20 +349,20 @@ public class TestSpoolingExchangeOutputBuffer
             return finish;
         }
 
-        public void setFinish(CompletableFuture<?> finish)
+        public void setFinish(CompletableFuture<Void> finish)
         {
             this.finish = requireNonNull(finish, "finish is null");
         }
 
         @Override
-        public CompletableFuture<?> abort()
+        public CompletableFuture<Void> abort()
         {
             assertFalse(abortCalled);
             abortCalled = true;
             return abort;
         }
 
-        public void setAbort(CompletableFuture<?> abort)
+        public void setAbort(CompletableFuture<Void> abort)
         {
             this.abort = requireNonNull(abort, "abort is null");
         }

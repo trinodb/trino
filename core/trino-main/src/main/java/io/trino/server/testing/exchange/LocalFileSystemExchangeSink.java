@@ -74,7 +74,7 @@ public class LocalFileSystemExchangeSink
     }
 
     @Override
-    public CompletableFuture<?> isBlocked()
+    public CompletableFuture<Void> isBlocked()
     {
         return NOT_BLOCKED;
     }
@@ -111,7 +111,7 @@ public class LocalFileSystemExchangeSink
     }
 
     @Override
-    public synchronized CompletableFuture<?> finish()
+    public synchronized CompletableFuture<Void> finish()
     {
         if (closed) {
             return completedFuture(null);
@@ -143,7 +143,7 @@ public class LocalFileSystemExchangeSink
     }
 
     @Override
-    public synchronized CompletableFuture<?> abort()
+    public synchronized CompletableFuture<Void> abort()
     {
         if (closed) {
             return completedFuture(null);
