@@ -107,7 +107,6 @@ public final class StarburstSqlServerQueryRunner
             connectorProperties.putIfAbsent("connection-url", sqlServer.getJdbcUrl());
             connectorProperties.putIfAbsent("connection-user", sqlServer.getUsername());
             connectorProperties.putIfAbsent("connection-password", sqlServer.getPassword());
-            connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             createUser(sqlServer, ALICE_USER);
             createUser(sqlServer, BOB_USER);
