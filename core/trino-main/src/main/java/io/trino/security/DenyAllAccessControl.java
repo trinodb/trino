@@ -506,6 +506,6 @@ public class DenyAllAccessControl
     @Override
     public void checkCanExecuteTableProcedure(SecurityContext context, QualifiedObjectName tableName, String procedureName)
     {
-        denyExecuteTableProcedure(tableName.toString(), procedureName.toString());
+        denyExecuteTableProcedure(tableName.toString(), procedureName);
     }
 }
