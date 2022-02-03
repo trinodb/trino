@@ -51,8 +51,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
-import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
-import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
@@ -329,23 +327,13 @@ public final class Session
         for (Entry<String, SelectedRole> entry : identity.getCatalogRoles().entrySet()) {
             String catalogName = entry.getKey();
             SelectedRole role = entry.getValue();
-            CatalogName catalog = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
-                    .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog for role does not exist: " + catalogName))
-                    .getCatalogName();
+            if (transactionManager.getOptionalCatalogMetadata(transactionId, catalogName).isEmpty()) {
+                throw new TrinoException(NOT_FOUND, "Catalog for role does not exist: " + catalogName);
+            }
             if (role.getType() == SelectedRole.Type.ROLE) {
                 accessControl.checkCanSetCatalogRole(new SecurityContext(transactionId, identity, queryId), role.getRole().orElseThrow(), catalogName);
             }
-            connectorRoles.put(catalog.getCatalogName(), role);
-
-            String informationSchemaCatalogName = createInformationSchemaCatalogName(catalog).getCatalogName();
-            if (transactionManager.getCatalogs(transactionId).containsKey(informationSchemaCatalogName)) {
-                connectorRoles.put(informationSchemaCatalogName, role);
-            }
-
-            String systemTablesCatalogName = createSystemTablesCatalogName(catalog).getCatalogName();
-            if (transactionManager.getCatalogs(transactionId).containsKey(systemTablesCatalogName)) {
-                connectorRoles.put(systemTablesCatalogName, role);
-            }
+            connectorRoles.put(catalogName, role);
         }
 
         return new Session(
