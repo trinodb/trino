@@ -162,15 +162,6 @@ public interface AccessControl
     void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName);
 
     /**
-     * Check if identity is allowed to create the specified table.
-     *
-     * @throws AccessDeniedException if not allowed
-     * @deprecated use {@link #checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map properties)}
-     */
-    @Deprecated
-    void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName);
-
-    /**
      * Check if identity is allowed to create the specified table with properties.
      *
      * @throws AccessDeniedException if not allowed
@@ -337,15 +328,6 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames);
-
-    /**
-     * Check if identity is allowed to create the specified materialized view.
-     *
-     * @throws AccessDeniedException if not allowed
-     * @deprecated use {@link #checkCanCreateMaterializedView(SecurityContext, QualifiedObjectName, Map<String, Object>) instead}
-     */
-    @Deprecated
-    void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName);
 
     /**
      * Check if identity is allowed to create the specified materialized view.

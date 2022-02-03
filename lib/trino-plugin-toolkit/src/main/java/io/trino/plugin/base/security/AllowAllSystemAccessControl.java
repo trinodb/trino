@@ -177,11 +177,6 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
-    {
-    }
-
-    @Override
     public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
     {
     }
@@ -300,11 +295,6 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
-    {
-    }
-
-    @Override
-    public void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
     {
     }
 

@@ -93,9 +93,6 @@ public class AllowAllAccessControlManager
     public void checkCanShowCreateTable(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
-    public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName) {}
-
-    @Override
     public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties) {}
 
     @Override
@@ -166,9 +163,6 @@ public class AllowAllAccessControlManager
 
     @Override
     public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames) {}
-
-    @Override
-    public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName) {}
 
     @Override
     public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties) {}

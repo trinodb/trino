@@ -109,14 +109,6 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanCreateTable(context, tableName);
-        }
-    }
-
-    @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -305,14 +297,6 @@ public class ClassLoaderSafeConnectorAccessControl
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
-        }
-    }
-
-    @Override
-    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanCreateMaterializedView(context, materializedViewName);
         }
     }
 

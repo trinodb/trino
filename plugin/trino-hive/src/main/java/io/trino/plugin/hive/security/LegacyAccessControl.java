@@ -111,11 +111,6 @@ public class LegacyAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-    }
-
-    @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
     {
     }
@@ -266,11 +261,6 @@ public class LegacyAccessControl
 
     @Override
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
-    {
-    }
-
-    @Override
-    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
     {
     }
 

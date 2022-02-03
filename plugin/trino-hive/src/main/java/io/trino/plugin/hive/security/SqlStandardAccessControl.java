@@ -182,14 +182,6 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        if (!isDatabaseOwner(context, tableName.getSchemaName())) {
-            denyCreateTable(tableName.toString());
-        }
-    }
-
-    @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
     {
         if (!isDatabaseOwner(context, tableName.getSchemaName())) {
@@ -378,14 +370,6 @@ public class SqlStandardAccessControl
         // TODO implement column level access control
         if (!checkTablePermission(context, tableName, SELECT, true)) {
             denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
-        }
-    }
-
-    @Override
-    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
-    {
-        if (!isDatabaseOwner(context, materializedViewName.getSchemaName())) {
-            denyCreateMaterializedView(materializedViewName.toString());
         }
     }
 
