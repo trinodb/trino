@@ -74,6 +74,7 @@ import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -561,7 +562,7 @@ public class CassandraType
                 return LocalDate.fromDaysSinceEpoch(((Long) trinoNativeValue).intValue());
             case UUID:
             case TIMEUUID:
-                return java.util.UUID.fromString(((Slice) trinoNativeValue).toStringUtf8());
+                return trinoUuidToJavaUuid((Slice) trinoNativeValue);
             case BLOB:
             case CUSTOM:
             case TUPLE:
