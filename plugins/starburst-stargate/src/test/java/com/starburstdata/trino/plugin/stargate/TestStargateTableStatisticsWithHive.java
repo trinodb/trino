@@ -66,9 +66,7 @@ public class TestStargateTableStatisticsWithHive
                 .build();
         return createStargateQueryRunner(
                 true,
-                Map.of(
-                        "connection-url", stargateConnectionUrl(remoteStarburst, "hive"),
-                        "allow-drop-table", "true"));
+                Map.of("connection-url", stargateConnectionUrl(remoteStarburst, "hive")));
     }
 
     @BeforeClass

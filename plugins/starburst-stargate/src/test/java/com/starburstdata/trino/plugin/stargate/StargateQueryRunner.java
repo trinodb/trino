@@ -126,7 +126,6 @@ public final class StargateQueryRunner
             connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
             connectorProperties.putIfAbsent("connection-user", server.getUser());
             connectorProperties.putIfAbsent("connection-password", server.getPassword());
-            connectorProperties.putIfAbsent("allow-drop-table", "true");
             connectorProperties.putIfAbsent("postgresql.include-system-tables", "true");
 
             server.execute("CREATE SCHEMA tiny");
@@ -264,23 +263,19 @@ public final class StargateQueryRunner
         DistributedQueryRunner queryRunner = createStargateQueryRunner(
                 true,
                 Map.of("http-server.http.port", "8080"),
-                Map.of(
-                        "connection-url", stargateConnectionUrl(stargateQueryRunner, "memory"),
-                        "allow-drop-table", "true"));
+                Map.of("connection-url", stargateConnectionUrl(stargateQueryRunner, "memory")));
         queryRunner.createCatalog(
                 "p2p_remote_postgresql",
                 "stargate",
                 Map.of(
                         "connection-user", "p2p",
-                        "connection-url", stargateConnectionUrl(stargateQueryRunner, "postgresql"),
-                        "allow-drop-table", "true"));
+                        "connection-url", stargateConnectionUrl(stargateQueryRunner, "postgresql")));
         queryRunner.createCatalog(
                 "p2p_remote_hive",
                 "stargate",
                 Map.of(
                         "connection-user", "p2p",
-                        "connection-url", stargateConnectionUrl(stargateQueryRunner, "hive"),
-                        "allow-drop-table", "true"));
+                        "connection-url", stargateConnectionUrl(stargateQueryRunner, "hive")));
 
         Logger log = Logger.get(StargateQueryRunner.class);
         log.info("======== SERVER STARTED ========");

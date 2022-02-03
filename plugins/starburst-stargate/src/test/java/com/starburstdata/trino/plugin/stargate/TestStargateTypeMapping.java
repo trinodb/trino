@@ -100,7 +100,6 @@ public class TestStargateTypeMapping
                 true,
                 Map.of(
                         "connection-url", stargateConnectionUrl(starburstEnterprise, "memory"),
-                        "allow-drop-table", "true",
                         // TODO use synthetic testing type installed on remote Trino only
                         "jdbc-types-mapped-to-varchar", "IPAddress"));
     }

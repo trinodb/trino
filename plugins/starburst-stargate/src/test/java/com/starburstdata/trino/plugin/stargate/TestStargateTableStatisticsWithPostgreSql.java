@@ -71,7 +71,6 @@ public class TestStargateTableStatisticsWithPostgreSql
                 true,
                 Map.of(
                         "connection-url", stargateConnectionUrl(remoteStarburst, "postgresql"),
-                        "allow-drop-table", "true",
                         "case-insensitive-name-matching", "true"));
     }
 

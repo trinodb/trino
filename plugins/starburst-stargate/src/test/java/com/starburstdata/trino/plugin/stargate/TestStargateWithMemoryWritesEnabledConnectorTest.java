@@ -39,9 +39,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
                 createRemoteStarburstQueryRunnerWithMemory(REQUIRED_TPCH_TABLES, Optional.empty()));
         return createStargateQueryRunner(
                 true,
-                Map.of(
-                        "connection-url", stargateConnectionUrl(remoteStarburst, "memory"),
-                        "allow-drop-table", "true"));
+                Map.of("connection-url", stargateConnectionUrl(remoteStarburst, "memory")));
     }
 
     @Override

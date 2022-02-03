@@ -15,9 +15,9 @@ import io.trino.plugin.jdbc.JdbcClient;
 public class StargateMetadata
         extends StarburstJdbcMetadata
 {
-    public StargateMetadata(JdbcClient jdbcClient, boolean allowDropTable)
+    public StargateMetadata(JdbcClient jdbcClient)
     {
-        super(jdbcClient, allowDropTable);
+        super(jdbcClient);
     }
 
     @Override

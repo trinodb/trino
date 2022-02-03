@@ -41,9 +41,7 @@ public class TestStargateWithWritesEnabledExtraTests
                 Optional.empty()));
         return createStargateQueryRunner(
                 true,
-                Map.of(
-                        "connection-url", stargateConnectionUrl(remoteStarburst, "memory"),
-                        "allow-drop-table", "true"));
+                Map.of("connection-url", stargateConnectionUrl(remoteStarburst, "memory")));
     }
 
     @Test(dataProvider = "largeInValuesCount")

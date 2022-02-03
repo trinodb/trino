@@ -36,9 +36,7 @@ public class TestStargateDynamicFiltering
                 Optional.empty()));
         return createStargateQueryRunner(
                 false,
-                Map.of(
-                        "connection-url", stargateConnectionUrl(remoteStarburst, "memory"),
-                        "allow-drop-table", "true"));
+                Map.of("connection-url", stargateConnectionUrl(remoteStarburst, "memory")));
     }
 
     @Override

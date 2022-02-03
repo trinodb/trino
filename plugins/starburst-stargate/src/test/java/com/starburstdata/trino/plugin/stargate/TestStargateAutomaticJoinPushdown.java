@@ -56,9 +56,7 @@ public class TestStargateAutomaticJoinPushdown
 
         return createStargateQueryRunner(
                 false,
-                Map.of(
-                        "connection-url", stargateConnectionUrl(remoteStarburst, "postgresql"),
-                        "allow-drop-table", "true"));
+                Map.of("connection-url", stargateConnectionUrl(remoteStarburst, "postgresql")));
     }
 
     @Override

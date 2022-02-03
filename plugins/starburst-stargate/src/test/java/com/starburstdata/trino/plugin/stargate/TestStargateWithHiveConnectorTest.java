@@ -43,9 +43,7 @@ public class TestStargateWithHiveConnectorTest
                 Optional.empty()));
         return createStargateQueryRunner(
                 false,
-                Map.of(
-                        "connection-url", stargateConnectionUrl(remoteStarburst, getRemoteCatalogName()),
-                        "allow-drop-table", "true"));
+                Map.of("connection-url", stargateConnectionUrl(remoteStarburst, getRemoteCatalogName())));
     }
 
     @Override

@@ -12,7 +12,6 @@ package com.starburstdata.trino.plugin.stargate;
 import com.starburstdata.presto.plugin.jdbc.StarburstJdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadata;
-import io.trino.plugin.jdbc.JdbcMetadataConfig;
 
 import javax.inject.Inject;
 
@@ -20,14 +19,14 @@ public class StargateMetadataFactory
         extends StarburstJdbcMetadataFactory
 {
     @Inject
-    public StargateMetadataFactory(JdbcClient jdbcClient, JdbcMetadataConfig config)
+    public StargateMetadataFactory(JdbcClient jdbcClient)
     {
-        super(jdbcClient, config);
+        super(jdbcClient);
     }
 
     @Override
-    protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient, boolean allowDropTable)
+    protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)
     {
-        return new StargateMetadata(transactionCachingJdbcClient, allowDropTable);
+        return new StargateMetadata(transactionCachingJdbcClient);
     }
 }

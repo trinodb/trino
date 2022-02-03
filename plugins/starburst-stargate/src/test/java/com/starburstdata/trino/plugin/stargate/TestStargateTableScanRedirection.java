@@ -34,7 +34,6 @@ public class TestStargateTableScanRedirection
 
         Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
                 .put("connection-url", stargateConnectionUrl(remoteStarburst, "memory"))
-                .put("allow-drop-table", "true")
                 .putAll(getRedirectionProperties("p2p_remote", "tiny"))
                 .build();
 
