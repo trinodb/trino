@@ -804,7 +804,17 @@ class StatementAnalyzer
 
             validateProperties(node.getProperties(), scope);
 
-            accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable);
+            CatalogName catalogName = getRequiredCatalogHandle(metadata, session, node, targetTable.getCatalogName());
+            Map<String, Object> properties = tablePropertyManager.getProperties(
+                    catalogName,
+                    node.getProperties(),
+                    session,
+                    plannerContext,
+                    accessControl,
+                    analysis.getParameters(),
+                    true);
+            // TODO respect FeaturesConfig.isDisableSetPropertiesSecurityCheckForCreateDdl
+            accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable, properties);
 
             // analyze the query that creates the table
             Scope queryScope = analyze(node.getQuery(), createScope(scope));
@@ -838,16 +848,6 @@ class StatementAnalyzer
             }
 
             // create target table metadata
-            CatalogName catalogName = getRequiredCatalogHandle(metadata, session, node, targetTable.getCatalogName());
-
-            Map<String, Object> properties = tablePropertyManager.getProperties(
-                    catalogName,
-                    node.getProperties(),
-                    session,
-                    plannerContext,
-                    accessControl,
-                    analysis.getParameters(),
-                    true);
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
 
             // analyze target table layout
