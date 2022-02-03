@@ -23,7 +23,7 @@ public interface ExchangeSourceSplitter
     /**
      * Returns a future that will be completed when the splitter becomes unblocked.
      */
-    CompletableFuture<?> isBlocked();
+    CompletableFuture<Void> isBlocked();
 
     /**
      * Returns next sub partition, or {@link Optional#empty()} if the splitting process is finished.

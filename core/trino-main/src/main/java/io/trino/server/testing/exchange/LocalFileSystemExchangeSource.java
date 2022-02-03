@@ -54,7 +54,7 @@ public class LocalFileSystemExchangeSource
     }
 
     @Override
-    public CompletableFuture<?> isBlocked()
+    public CompletableFuture<Void> isBlocked()
     {
         return NOT_BLOCKED;
     }

@@ -232,7 +232,7 @@ public class LocalFileSystemExchange
         return new ExchangeSourceSplitter()
         {
             @Override
-            public CompletableFuture<?> isBlocked()
+            public CompletableFuture<Void> isBlocked()
             {
                 return completedFuture(null);
             }
