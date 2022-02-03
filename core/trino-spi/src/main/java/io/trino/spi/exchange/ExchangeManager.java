@@ -79,6 +79,8 @@ public interface ExchangeManager
      * read. The full list of handles is returned by {@link Exchange#getSourceHandles}.
      * The coordinator decides what items from that list should be handled by what task and creates
      * sub-lists that are further getting sent to a worker to be read.
+     * The <code>handles</code> list may contain {@link ExchangeSourceHandle}'s created by more than
+     * a single {@link Exchange}.
      * @return {@link ExchangeSource} used by the engine to read data from an exchange
      */
     ExchangeSource createSource(List<ExchangeSourceHandle> handles);
