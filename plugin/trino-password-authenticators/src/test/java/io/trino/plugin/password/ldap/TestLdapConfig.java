@@ -50,7 +50,9 @@ public class TestLdapConfig
                 .setBindDistingushedName(null)
                 .setBindPassword(null)
                 .setIgnoreReferrals(false)
-                .setLdapCacheTtl(new Duration(1, TimeUnit.HOURS)));
+                .setLdapCacheTtl(new Duration(1, TimeUnit.HOURS))
+                .setLdapConnectionTimeout(null)
+                .setLdapReadTimeout(null));
     }
 
     @Test
@@ -70,6 +72,8 @@ public class TestLdapConfig
                 .put("ldap.bind-password", "password1234")
                 .put("ldap.ignore-referrals", "true")
                 .put("ldap.cache-ttl", "2m")
+                .put("ldap.timeout.connect", "3m")
+                .put("ldap.timeout.read", "4m")
                 .buildOrThrow();
 
         LdapConfig expected = new LdapConfig()
@@ -82,7 +86,9 @@ public class TestLdapConfig
                 .setBindDistingushedName("CN=User Name,OU=CITY_OU,OU=STATE_OU,DC=domain,DC=domain_root")
                 .setBindPassword("password1234")
                 .setIgnoreReferrals(true)
-                .setLdapCacheTtl(new Duration(2, TimeUnit.MINUTES));
+                .setLdapCacheTtl(new Duration(2, TimeUnit.MINUTES))
+                .setLdapConnectionTimeout(new Duration(3, TimeUnit.MINUTES))
+                .setLdapReadTimeout(new Duration(4, TimeUnit.MINUTES));
 
         assertFullMapping(properties, expected);
     }
