@@ -25,14 +25,14 @@ import java.util.concurrent.CompletableFuture;
 public interface ExchangeSource
         extends Closeable
 {
-    CompletableFuture<?> NOT_BLOCKED = CompletableFuture.completedFuture(null);
+    CompletableFuture<Void> NOT_BLOCKED = CompletableFuture.completedFuture(null);
 
     /**
      * Returns a future that will be completed when the exchange source becomes
      * unblocked.  If the exchange source is not blocked, this method should return
      * {@code NOT_BLOCKED}
      */
-    CompletableFuture<?> isBlocked();
+    CompletableFuture<Void> isBlocked();
 
     /**
      * Once isFinished returns true, {@link #read()} will never return a non-null result

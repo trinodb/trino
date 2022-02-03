@@ -807,9 +807,9 @@ public class DeduplicatingDirectExchangeBuffer
                 return nonCancellationPropagating(asVoid(exchangeSourceFuture));
             }
             if (exchangeSource != null) {
-                CompletableFuture<?> blocked = exchangeSource.isBlocked();
+                CompletableFuture<Void> blocked = exchangeSource.isBlocked();
                 if (!blocked.isDone()) {
-                    return nonCancellationPropagating(asVoid(toListenableFuture(blocked)));
+                    return nonCancellationPropagating(toListenableFuture(blocked));
                 }
             }
             return immediateVoidFuture();

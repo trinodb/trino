@@ -139,7 +139,7 @@ public class SpoolingExchangeOutputBuffer
     @Override
     public ListenableFuture<Void> isFull()
     {
-        return asVoid(toListenableFuture(exchangeSink.isBlocked()));
+        return toListenableFuture(exchangeSink.isBlocked());
     }
 
     @Override
