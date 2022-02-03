@@ -83,12 +83,6 @@ public class ReadOnlyAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        denyCreateTable(tableName.toString());
-    }
-
-    @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
     {
         denyCreateTable(tableName.toString());
@@ -199,12 +193,6 @@ public class ReadOnlyAccessControl
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         // allow
-    }
-
-    @Override
-    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
-    {
-        denyCreateMaterializedView(materializedViewName.toString());
     }
 
     @Override

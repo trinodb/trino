@@ -54,7 +54,6 @@ public class CreateMaterializedViewTask
     private final SqlParser sqlParser;
     private final AnalyzerFactory analyzerFactory;
     private final MaterializedViewPropertyManager materializedViewPropertyManager;
-    private final boolean disableSetPropertiesSecurityCheckForCreateDdl;
 
     @Inject
     public CreateMaterializedViewTask(
@@ -70,7 +69,6 @@ public class CreateMaterializedViewTask
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
         this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
-        this.disableSetPropertiesSecurityCheckForCreateDdl = featuresConfig.isDisableSetPropertiesSecurityCheckForCreateDdl();
     }
 
     @Override
@@ -121,12 +119,7 @@ public class CreateMaterializedViewTask
                 Optional.empty(),
                 properties);
 
-        if (!disableSetPropertiesSecurityCheckForCreateDdl) {
-            accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, properties);
-        }
-        else {
-            accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name);
-        }
+        accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, properties);
         plannerContext.getMetadata().createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());
 
         stateMachine.setOutput(analysis.getTarget());

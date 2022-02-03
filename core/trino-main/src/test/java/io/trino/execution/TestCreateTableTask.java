@@ -16,7 +16,6 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
@@ -147,7 +146,7 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
     }
@@ -161,7 +160,7 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {})))
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("Table already exists");
@@ -178,7 +177,7 @@ public class TestCreateTableTask
                 ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar"))),
                 Optional.empty());
 
-        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         assertTrinoExceptionThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {})))
                 .hasErrorCode(INVALID_TABLE_PROPERTY)
                 .hasMessage("Catalog 'catalog' table property 'foo' does not exist");
@@ -196,7 +195,7 @@ public class TestCreateTableTask
                 new ColumnDefinition(identifier("c"), toSqlType(VARBINARY), false, emptyList(), Optional.empty()));
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
 
-        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
         List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().get(0).getColumns();
@@ -229,7 +228,7 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         assertTrinoExceptionThrownBy(() ->
                 getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {})))
                 .hasErrorCode(NOT_SUPPORTED)
@@ -241,7 +240,7 @@ public class TestCreateTableTask
     {
         CreateTable statement = getCreatleLikeStatement(false);
 
-        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
 
@@ -255,7 +254,7 @@ public class TestCreateTableTask
     {
         CreateTable statement = getCreatleLikeStatement(true);
 
-        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
 
@@ -273,7 +272,7 @@ public class TestCreateTableTask
         TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager, new EventListenerManager(new EventListenerConfig()));
         accessControl.deny(privilege("parent_table", SELECT_COLUMN));
 
-        CreateTableTask createTableTask = new CreateTableTask(plannerContext, accessControl, columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, accessControl, columnPropertyManager, tablePropertyManager);
         assertThatThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {})))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Cannot reference columns of table");
@@ -287,7 +286,7 @@ public class TestCreateTableTask
         TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager, new EventListenerManager(new EventListenerConfig()));
         accessControl.deny(privilege("parent_table", SHOW_CREATE_TABLE));
 
-        CreateTableTask createTableTask = new CreateTableTask(plannerContext, accessControl, columnPropertyManager, tablePropertyManager, new FeaturesConfig());
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, accessControl, columnPropertyManager, tablePropertyManager);
         assertThatThrownBy(() -> getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {})))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Cannot reference properties of table");

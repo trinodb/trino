@@ -96,12 +96,6 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        delegate().checkCanCreateTable(context, tableName);
-    }
-
-    @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
     {
         delegate().checkCanCreateTable(context, tableName, properties);
@@ -243,12 +237,6 @@ public abstract class ForwardingConnectorAccessControl
     public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         delegate().checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
-    }
-
-    @Override
-    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
-    {
-        delegate().checkCanCreateMaterializedView(context, materializedViewName);
     }
 
     @Override

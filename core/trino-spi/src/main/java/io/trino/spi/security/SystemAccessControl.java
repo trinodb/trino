@@ -333,18 +333,6 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to create the specified table in a catalog.
-     *
-     * @throws AccessDeniedException if not allowed
-     * @deprecated use {@link #checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map properties)} instead
-     */
-    @Deprecated
-    default void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
-    {
-        denyCreateTable(table.toString());
-    }
-
-    /**
      * Check if identity is allowed to create the specified table with properties in a catalog.
      *
      * @throws AccessDeniedException if not allowed
@@ -586,18 +574,6 @@ public interface SystemAccessControl
     default void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         denyCreateViewWithSelect(table.toString(), context.getIdentity());
-    }
-
-    /**
-     * Check if identity is allowed to create the specified materialized view in a catalog.
-     *
-     * @throws AccessDeniedException if not allowed
-     * @deprecated use {@link #checkCanCreateMaterializedView(SystemSecurityContext, CatalogSchemaTableName, Map<String, Object>)} instead
-     */
-    @Deprecated
-    default void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
-    {
-        denyCreateMaterializedView(materializedView.toString());
     }
 
     /**

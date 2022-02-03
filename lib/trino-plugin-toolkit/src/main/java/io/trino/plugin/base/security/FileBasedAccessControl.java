@@ -187,15 +187,6 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        // check if user will be an owner of the table after creation
-        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
-            denyCreateTable(tableName.toString());
-        }
-    }
-
-    @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
     {
         // check if user will be an owner of the table after creation
@@ -429,15 +420,6 @@ public class FileBasedAccessControl
         }
         if (!rule.getPrivileges().contains(GRANT_SELECT)) {
             denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
-        }
-    }
-
-    @Override
-    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
-    {
-        // check if user will be an owner of the view after creation
-        if (!checkTablePermission(context, materializedViewName, OWNERSHIP)) {
-            denyCreateMaterializedView(materializedViewName.toString());
         }
     }
 

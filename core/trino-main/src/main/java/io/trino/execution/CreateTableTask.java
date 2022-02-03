@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
@@ -89,21 +88,18 @@ public class CreateTableTask
     private final AccessControl accessControl;
     private final ColumnPropertyManager columnPropertyManager;
     private final TablePropertyManager tablePropertyManager;
-    private final boolean disableSetPropertiesSecurityCheckForCreateDdl;
 
     @Inject
     public CreateTableTask(
             PlannerContext plannerContext,
             AccessControl accessControl,
             ColumnPropertyManager columnPropertyManager,
-            TablePropertyManager tablePropertyManager,
-            FeaturesConfig featuresConfig)
+            TablePropertyManager tablePropertyManager)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
-        this.disableSetPropertiesSecurityCheckForCreateDdl = featuresConfig.isDisableSetPropertiesSecurityCheckForCreateDdl();
     }
 
     @Override
@@ -252,12 +248,7 @@ public class CreateTableTask
                 parameterLookup,
                 true);
 
-        if (!disableSetPropertiesSecurityCheckForCreateDdl) {
-            accessControl.checkCanCreateTable(session.toSecurityContext(), tableName, properties);
-        }
-        else {
-            accessControl.checkCanCreateTable(session.toSecurityContext(), tableName);
-        }
+        accessControl.checkCanCreateTable(session.toSecurityContext(), tableName, properties);
 
         Set<String> specifiedPropertyKeys = statement.getProperties().stream()
                 .map(property -> property.getName().getValue())

@@ -335,17 +335,6 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName)
-    {
-        if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), CREATE_TABLE)) {
-            denyCreateTable(tableName.toString());
-        }
-        if (denyPrivileges.isEmpty()) {
-            super.checkCanCreateTable(context, tableName);
-        }
-    }
-
-    @Override
     public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), CREATE_TABLE)) {
@@ -540,17 +529,6 @@ public class TestingAccessControlManager
         }
         if (denyPrivileges.isEmpty() && denyIdentityTable.equals(IDENTITY_TABLE_TRUE)) {
             super.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
-        }
-    }
-
-    @Override
-    public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
-    {
-        if (shouldDenyPrivilege(context.getIdentity().getUser(), materializedViewName.getObjectName(), CREATE_MATERIALIZED_VIEW)) {
-            denyCreateMaterializedView(materializedViewName.toString());
-        }
-        if (denyPrivileges.isEmpty()) {
-            super.checkCanCreateMaterializedView(context, materializedViewName);
         }
     }
 
