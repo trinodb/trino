@@ -415,19 +415,6 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanCreateTable(SecurityContext securityContext, QualifiedObjectName tableName)
-    {
-        requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(tableName, "tableName is null");
-
-        checkCanAccessCatalog(securityContext, tableName.getCatalogName());
-
-        systemAuthorizationCheck(control -> control.checkCanCreateTable(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
-
-        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanCreateTable(context, tableName.asSchemaTableName()));
-    }
-
-    @Override
     public void checkCanCreateTable(SecurityContext securityContext, QualifiedObjectName tableName, Map<String, Object> properties)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -752,19 +739,6 @@ public class AccessControlManager
         systemAuthorizationCheck(control -> control.checkCanCreateViewWithSelectFromColumns(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columnNames));
 
         catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanCreateViewWithSelectFromColumns(context, tableName.asSchemaTableName(), columnNames));
-    }
-
-    @Override
-    public void checkCanCreateMaterializedView(SecurityContext securityContext, QualifiedObjectName materializedViewName)
-    {
-        requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(materializedViewName, "materializedViewName is null");
-
-        checkCanAccessCatalog(securityContext, materializedViewName.getCatalogName());
-
-        systemAuthorizationCheck(control -> control.checkCanCreateMaterializedView(securityContext.toSystemSecurityContext(), materializedViewName.asCatalogSchemaTableName()));
-
-        catalogAuthorizationCheck(materializedViewName.getCatalogName(), securityContext, (control, context) -> control.checkCanCreateMaterializedView(context, materializedViewName.asSchemaTableName()));
     }
 
     @Override

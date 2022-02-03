@@ -186,12 +186,6 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
-    {
-        delegate().checkCanCreateTable(context, table);
-    }
-
-    @Override
     public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
     {
         delegate().checkCanCreateTable(context, table, properties);
@@ -333,12 +327,6 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         delegate().checkCanCreateViewWithSelectFromColumns(context, table, columns);
-    }
-
-    @Override
-    public void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
-    {
-        delegate().checkCanCreateMaterializedView(context, materializedView);
     }
 
     @Override

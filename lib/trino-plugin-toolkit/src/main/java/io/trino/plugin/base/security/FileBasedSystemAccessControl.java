@@ -504,15 +504,6 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
-    {
-        // check if user will be an owner of the table after creation
-        if (!checkTablePermission(context, table, OWNERSHIP)) {
-            denyCreateTable(table.toString());
-        }
-    }
-
-    @Override
     public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
     {
         // check if user will be an owner of the table after creation
@@ -759,15 +750,6 @@ public class FileBasedSystemAccessControl
         }
         if (!rule.getPrivileges().contains(GRANT_SELECT)) {
             denyCreateViewWithSelect(table.toString(), context.getIdentity());
-        }
-    }
-
-    @Override
-    public void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView)
-    {
-        // check if user will be an owner of the materialize view after creation
-        if (!checkTablePermission(context, materializedView, OWNERSHIP)) {
-            denyCreateMaterializedView(materializedView.toString());
         }
     }
 

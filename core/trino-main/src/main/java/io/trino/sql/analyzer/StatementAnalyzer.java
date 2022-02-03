@@ -813,7 +813,6 @@ class StatementAnalyzer
                     accessControl,
                     analysis.getParameters(),
                     true);
-            // TODO respect FeaturesConfig.isDisableSetPropertiesSecurityCheckForCreateDdl
             accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable, properties);
 
             // analyze the query that creates the table

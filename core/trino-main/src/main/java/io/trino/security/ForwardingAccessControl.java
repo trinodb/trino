@@ -155,12 +155,6 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName)
-    {
-        delegate().checkCanCreateTable(context, tableName);
-    }
-
-    @Override
     public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
     {
         delegate().checkCanCreateTable(context, tableName, properties);
@@ -296,12 +290,6 @@ public abstract class ForwardingAccessControl
     public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
         delegate().checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
-    }
-
-    @Override
-    public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
-    {
-        delegate().checkCanCreateMaterializedView(context, materializedViewName);
     }
 
     @Override

@@ -105,13 +105,6 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-        checkArgument(context == null, "context must be null");
-        accessControl.checkCanCreateTable(securityContext, getQualifiedObjectName(tableName));
-    }
-
-    @Override
     public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
     {
         checkArgument(context == null, "context must be null");
@@ -277,13 +270,6 @@ public class InjectedConnectorAccessControl
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanCreateViewWithSelectFromColumns(securityContext, getQualifiedObjectName(tableName), columnNames);
-    }
-
-    @Override
-    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
-    {
-        checkArgument(context == null, "context must be null");
-        accessControl.checkCanCreateMaterializedView(securityContext, getQualifiedObjectName(materializedViewName));
     }
 
     @Override

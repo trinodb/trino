@@ -44,6 +44,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 @DefunctConfig({
         "analyzer.experimental-syntax-enabled",
         "arrayagg.implementation",
+        "deprecated.disable-set-properties-security-check-for-create-ddl",
         "deprecated.group-by-uses-equal",
         "deprecated.legacy-char-to-varchar-coercion",
         "deprecated.legacy-join-using",
@@ -144,7 +145,6 @@ public class FeaturesConfig
     private int maxGroupingSets = 2048;
 
     private boolean legacyCatalogRoles;
-    private boolean disableSetPropertiesSecurityCheckForCreateDdl;
     private boolean incrementalHashArrayLoadFactorEnabled = true;
     private boolean allowSetViewAuthorization;
 
@@ -1058,18 +1058,6 @@ public class FeaturesConfig
     public FeaturesConfig setLegacyCatalogRoles(boolean legacyCatalogRoles)
     {
         this.legacyCatalogRoles = legacyCatalogRoles;
-        return this;
-    }
-
-    public boolean isDisableSetPropertiesSecurityCheckForCreateDdl()
-    {
-        return disableSetPropertiesSecurityCheckForCreateDdl;
-    }
-
-    @Config("deprecated.disable-set-properties-security-check-for-create-ddl")
-    public FeaturesConfig setDisableSetPropertiesSecurityCheckForCreateDdl(boolean disableSetPropertiesSecurityCheckForCreateDdl)
-    {
-        this.disableSetPropertiesSecurityCheckForCreateDdl = disableSetPropertiesSecurityCheckForCreateDdl;
         return this;
     }
 

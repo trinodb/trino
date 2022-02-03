@@ -186,12 +186,6 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName)
-    {
-        denyCreateTable(tableName.toString());
-    }
-
-    @Override
     public void checkCanCreateTable(SecurityContext context, QualifiedObjectName tableName, Map<String, Object> properties)
     {
         denyCreateTable(tableName.toString());
@@ -339,12 +333,6 @@ public class DenyAllAccessControl
     public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
         denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
-    }
-
-    @Override
-    public void checkCanCreateMaterializedView(SecurityContext context, QualifiedObjectName materializedViewName)
-    {
-        denyCreateMaterializedView(materializedViewName.toString());
     }
 
     @Override
