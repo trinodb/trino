@@ -213,6 +213,54 @@ public class TestHiveSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
+    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
+    public void testInsertFailsOnBucketedTableCreatedBySpark()
+    {
+        String hiveTableName = "spark_insert_bucketed_table_" + randomTableSuffix();
+
+        onSpark().executeQuery(
+                "CREATE TABLE default." + hiveTableName + "(a_key integer, a_value integer) " +
+                        "USING PARQUET " +
+                        "CLUSTERED BY (a_key) INTO 3 BUCKETS");
+
+        assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO default." + hiveTableName + " VALUES (1, 100)"))
+                .hasMessageContaining("Inserting into Spark bucketed tables is not supported");
+
+        onSpark().executeQuery("DROP TABLE " + hiveTableName);
+    }
+
+    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
+    public void testUpdateFailsOnBucketedTableCreatedBySpark()
+    {
+        String hiveTableName = "spark_update_bucketed_table_" + randomTableSuffix();
+
+        onSpark().executeQuery(
+                "CREATE TABLE default." + hiveTableName + "(a_key integer, a_value integer) " +
+                        "USING ORC " +
+                        "CLUSTERED BY (a_key) INTO 3 BUCKETS");
+
+        assertQueryFailure(() -> onTrino().executeQuery("UPDATE default." + hiveTableName + " SET a_value = 100 WHERE a_key = 1"))
+                .hasMessageContaining("Updating Spark bucketed tables is not supported");
+
+        onSpark().executeQuery("DROP TABLE " + hiveTableName);
+    }
+
+    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
+    public void testDeleteFailsOnBucketedTableCreatedBySpark()
+    {
+        String hiveTableName = "spark_delete_bucketed_table_" + randomTableSuffix();
+
+        onSpark().executeQuery(
+                "CREATE TABLE default." + hiveTableName + "(a_key integer, a_value integer) " +
+                        "USING ORC " +
+                        "CLUSTERED BY (a_key) INTO 3 BUCKETS");
+
+        assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM default." + hiveTableName + " WHERE a_key = 1"))
+                .hasMessageContaining("Deleting from Spark bucketed tables is not supported");
+
+        onSpark().executeQuery("DROP TABLE " + hiveTableName);
+    }
+
     private static final String[] HIVE_TIMESTAMP_PRECISIONS = new String[]{"MILLISECONDS", "MICROSECONDS", "NANOSECONDS"};
 
     @DataProvider
