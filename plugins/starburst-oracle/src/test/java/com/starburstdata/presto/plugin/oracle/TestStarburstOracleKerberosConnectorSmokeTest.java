@@ -32,7 +32,6 @@ public class TestStarburstOracleKerberosConnectorSmokeTest
                             .put("kerberos.client.principal", "test@TESTING-KRB.STARBURSTDATA.COM")
                             .put("kerberos.client.keytab", getResource("krb/client/test.keytab").getPath())
                             .put("kerberos.config", getResource("krb/krb5.conf").getPath())
-                            .put("allow-drop-table", "true")
                             .build())
                 .withTables(REQUIRED_TPCH_TABLES)
                 .withSessionModifier(session -> Session.builder(session)
