@@ -140,7 +140,7 @@ public final class SessionPropertyManager
         return Optional.ofNullable(properties.get(propertyName));
     }
 
-    public List<SessionPropertyValue> getAllSessionProperties(Session session, Set<String> catalogNames)
+    public List<SessionPropertyValue> getAllSessionProperties(Session session, List<CatalogInfo> catalogInfos)
     {
         requireNonNull(session, "session is null");
 
@@ -160,18 +160,19 @@ public final class SessionPropertyManager
                     property.isHidden()));
         }
 
-        for (String name : ImmutableSet.copyOf(catalogNames)) {
-            Map<String, String> connectorProperties = session.getCatalogProperties(name);
+        for (CatalogInfo catalogInfo : catalogInfos) {
+            CatalogName catalogName = catalogInfo.getCatalogName();
+            Map<String, String> connectorProperties = session.getCatalogProperties(catalogName.getCatalogName());
 
-            for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.get(new CatalogName(name))).values()) {
+            for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.get(catalogName)).values()) {
                 String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
                 String value = connectorProperties.getOrDefault(property.getName(), defaultValue);
 
                 sessionPropertyValues.add(new SessionPropertyValue(
                         value,
                         defaultValue,
-                        name + "." + property.getName(),
-                        Optional.of(name),
+                        catalogName + "." + property.getName(),
+                        Optional.of(catalogName.getCatalogName()),
                         property.getName(),
                         property.getDescription(),
                         property.getSqlType().getDisplayName(),
