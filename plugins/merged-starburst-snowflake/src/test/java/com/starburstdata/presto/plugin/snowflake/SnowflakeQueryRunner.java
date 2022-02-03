@@ -126,7 +126,6 @@ class SnowflakeQueryRunner
             queryRunner.createCatalog(TPCH_CATALOG, TPCH_CATALOG, ImmutableMap.of());
 
             ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
-                    .put("allow-drop-table", "true")
                     .put("connection-url", JDBC_URL)
                     .put("connection-user", USER)
                     .put("connection-password", PASSWORD)

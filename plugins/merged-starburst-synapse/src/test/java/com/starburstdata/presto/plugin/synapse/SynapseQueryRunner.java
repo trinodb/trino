@@ -91,7 +91,6 @@ public final class SynapseQueryRunner
             connectorProperties.putIfAbsent("connection-url", JDBC_URL);
             connectorProperties.putIfAbsent("connection-user", USERNAME);
             connectorProperties.putIfAbsent("connection-password", PASSWORD);
-            connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             createUser(synapseServer, ALICE_USER, TEST_SCHEMA);
             createUser(synapseServer, BOB_USER, TEST_SCHEMA);

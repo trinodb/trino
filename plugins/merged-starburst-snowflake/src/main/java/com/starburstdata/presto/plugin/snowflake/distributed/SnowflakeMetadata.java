@@ -30,9 +30,9 @@ class SnowflakeMetadata
 {
     private final SnowflakeConnectionManager connectionManager;
 
-    SnowflakeMetadata(SnowflakeConnectionManager connectionManager, JdbcClient jdbcClient, boolean allowDropTable)
+    SnowflakeMetadata(SnowflakeConnectionManager connectionManager, JdbcClient jdbcClient)
     {
-        super(jdbcClient, allowDropTable);
+        super(jdbcClient);
         this.connectionManager = requireNonNull(connectionManager, "connectionManager is null");
     }
 
