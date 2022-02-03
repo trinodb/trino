@@ -100,7 +100,6 @@ public final class DynamoDbQueryRunner
             queryRunner = builder.build();
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             queryRunner.installPlugin(new TestingDynamoDbPlugin(enableWrites));
             queryRunner.createCatalog("dynamodb", "dynamodb", connectorProperties);
