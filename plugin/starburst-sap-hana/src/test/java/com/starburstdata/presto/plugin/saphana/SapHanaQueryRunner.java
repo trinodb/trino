@@ -59,7 +59,6 @@ public final class SapHanaQueryRunner
             connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
             connectorProperties.putIfAbsent("connection-user", server.getUser());
             connectorProperties.putIfAbsent("connection-password", server.getPassword());
-            connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             server.executeWithRetry("CREATE SCHEMA tpch");
             server.executeWithRetry("CREATE USER " + GRANTED_USER);
