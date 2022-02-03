@@ -216,26 +216,7 @@ class TrinoHiveCatalog
             throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + namespace);
         }
 
-        Optional<Path> location = metastore.getDatabase(namespace)
-                .orElseThrow(() -> new SchemaNotFoundException(namespace))
-                .getLocation()
-                .map(Path::new);
-
-        // If we see files in the schema location, don't delete it.
-        // If we see no files, request deletion.
-        // If we fail to check the schema location, behave according to fallback.
-        boolean deleteData = location.map(path -> {
-            HdfsContext context = new HdfsContext(session);
-            try (FileSystem fs = hdfsEnvironment.getFileSystem(context, path)) {
-                return !fs.listLocatedStatus(path).hasNext();
-            }
-            catch (IOException e) {
-                log.warn(e, "Could not check schema directory '%s'", path);
-                return false;
-            }
-        }).orElse(false);
-
-        metastore.dropDatabase(namespace, deleteData);
+        metastore.dropDatabase(namespace, true);
         return true;
     }
 

@@ -41,7 +41,6 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadataMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
@@ -378,30 +377,9 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.createDatabase(database));
     }
 
-    public synchronized void dropDatabase(ConnectorSession session, String schemaName)
+    public synchronized void dropDatabase(String schemaName)
     {
-        Optional<Path> location = delegate.getDatabase(schemaName)
-                .orElseThrow(() -> new SchemaNotFoundException(schemaName))
-                .getLocation()
-                .map(Path::new);
-
-        setExclusive((delegate, hdfsEnvironment) -> {
-            // If we see files in the schema location, don't delete it.
-            // If we see no files, request deletion.
-            // If we fail to check the schema location, behave according to fallback.
-            boolean deleteData = location.map(path -> {
-                HdfsContext context = new HdfsContext(session);
-                try (FileSystem fs = hdfsEnvironment.getFileSystem(context, path)) {
-                    return !fs.listLocatedStatus(path).hasNext();
-                }
-                catch (IOException | RuntimeException e) {
-                    log.warn(e, "Could not check schema directory '%s'", path);
-                    return false;
-                }
-            }).orElse(false);
-
-            delegate.dropDatabase(schemaName, deleteData);
-        });
+        setExclusive((delegate, hdfsEnvironment) -> delegate.dropDatabase(schemaName, true));
     }
 
     public synchronized void renameDatabase(String source, String target)

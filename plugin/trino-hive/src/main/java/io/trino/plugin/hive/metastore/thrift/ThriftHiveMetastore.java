@@ -55,6 +55,7 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.LockComponentBuilder;
 import org.apache.hadoop.hive.metastore.LockRequestBuilder;
@@ -1010,6 +1011,7 @@ public class ThriftHiveMetastore
         }
     }
 
+    // TODO: Remove unused deleteData parameter
     @Override
     public void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
     {
@@ -1018,8 +1020,25 @@ public class ThriftHiveMetastore
                     .stopOn(NoSuchObjectException.class, InvalidOperationException.class)
                     .stopOnIllegalExceptions()
                     .run("dropDatabase", stats.getDropDatabase().wrap(() -> {
+                        String location = getDatabase(databaseName)
+                                .orElseThrow(() -> new SchemaNotFoundException(databaseName))
+                                .getLocationUri();
+
+                        // If we see no files in the schema location, delete data.
+                        // If we see files or fail checking the location, don't request deletion.
+                        boolean deleteData1 = false;
+                        if (!isNullOrEmpty(location)) {
+                            Path path = new Path(location);
+                            try (FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path)) {
+                                deleteData1 = !fs.listLocatedStatus(path).hasNext();
+                            }
+                            catch (IOException e) {
+                                log.warn(e, "Could not check schema directory '%s'", path);
+                            }
+                        }
+
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
-                            client.dropDatabase(databaseName, deleteData, false);
+                            client.dropDatabase(databaseName, deleteData1, false);
                         }
                         return null;
                     }));

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsConfiguration;
 import io.trino.plugin.hive.HdfsConfigurationInitializer;
@@ -132,6 +133,8 @@ import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 public class FileHiveMetastore
         implements HiveMetastore
 {
+    private static final Logger log = Logger.get(FileHiveMetastore.class);
+
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
     private static final String TRINO_SCHEMA_FILE_NAME_SUFFIX = ".trinoSchema";
@@ -214,13 +217,26 @@ public class FileHiveMetastore
     {
         requireNonNull(databaseName, "databaseName is null");
 
-        getRequiredDatabase(databaseName);
+        Optional<Path> location = getRequiredDatabase(databaseName).getLocation().map(Path::new);
+
+        // If we see no files in the schema location, delete data.
+        // If we see files or fail checking the location, don't request deletion.
+        boolean deleteData1 = location.map(path -> {
+            try (FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path)) {
+                return !fs.listLocatedStatus(path).hasNext();
+            }
+            catch (IOException e) {
+                log.warn(e, "Could not check schema directory '%s'", path);
+                return false;
+            }
+        }).orElse(false);
+
         if (!getAllTables(databaseName).isEmpty()) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
         }
 
         // Either delete the entire database directory or just its metadata files
-        if (deleteData) {
+        if (deleteData1) {
             deleteDirectoryAndSchema(DATABASE, getDatabaseMetadataDirectory(databaseName));
         }
         else {
