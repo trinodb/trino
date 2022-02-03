@@ -398,8 +398,8 @@ for the data files and partition the storage per day using the column
 
 Updating the data in the materialized view with
 :doc:`/sql/refresh-materialized-view` deletes the data from the storage table,
-and inserts new data that is the result of executing the materialized view
-query.
+and inserts the data that is the result of executing the materialized view
+query into the existing table.
 
 .. warning::
 
@@ -407,5 +407,5 @@ query.
     when the materialized view is empty. If the commit operation for the insert
     fails, the materialized view remains empty.
 
-Dropping a materialized view with :doc:`/sql/refresh-materialized-view` removes
+Dropping a materialized view with :doc:`/sql/drop-materialized-view` removes
 the definition and the storage table.
