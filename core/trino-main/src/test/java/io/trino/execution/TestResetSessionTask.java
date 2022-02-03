@@ -97,6 +97,7 @@ public class TestResetSessionTask
                 .build();
 
         QueryStateMachine stateMachine = QueryStateMachine.begin(
+                Optional.empty(),
                 "reset foo",
                 Optional.empty(),
                 session,

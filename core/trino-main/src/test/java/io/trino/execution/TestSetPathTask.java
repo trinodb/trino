@@ -96,6 +96,7 @@ public class TestSetPathTask
     private QueryStateMachine createQueryStateMachine(String query)
     {
         return QueryStateMachine.begin(
+                Optional.empty(),
                 query,
                 Optional.empty(),
                 TEST_SESSION,

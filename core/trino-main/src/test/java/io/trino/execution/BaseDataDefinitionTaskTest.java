@@ -109,9 +109,7 @@ public abstract class BaseDataDefinitionTaskTest
         transactionManager = queryRunner.getTransactionManager();
         queryRunner.createCatalog(CATALOG_NAME, MockConnectorFactory.create("initial"), ImmutableMap.of());
 
-        testSession = testSessionBuilder()
-                .setTransactionId(transactionManager.beginTransaction(false))
-                .build();
+        testSession = testSessionBuilder().build();
         metadata = new MockMetadata(new CatalogName(CATALOG_NAME));
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
         materializedViewPropertyManager = new MaterializedViewPropertyManager();
@@ -193,6 +191,7 @@ public abstract class BaseDataDefinitionTaskTest
     private static QueryStateMachine stateMachine(TransactionManager transactionManager, MetadataManager metadata, AccessControl accessControl, Session session)
     {
         return QueryStateMachine.begin(
+                Optional.empty(),
                 "test",
                 Optional.empty(),
                 session,

@@ -250,7 +250,6 @@ public class TestQuerySessionSupplier
         TransactionManager transactionManager = createTestTransactionManager();
         Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
         return new QuerySessionSupplier(
-                transactionManager,
                 metadata,
                 new AllowAllAccessControl(),
                 new SessionPropertyManager(),

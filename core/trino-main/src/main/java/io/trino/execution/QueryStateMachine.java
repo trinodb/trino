@@ -200,6 +200,7 @@ public class QueryStateMachine
      * Created QueryStateMachines must be transitioned to terminal states to clean up resources.
      */
     public static QueryStateMachine begin(
+            Optional<TransactionId> existingTransactionId,
             String query,
             Optional<String> preparedQuery,
             Session session,
@@ -214,6 +215,7 @@ public class QueryStateMachine
             Optional<QueryType> queryType)
     {
         return beginWithTicker(
+                existingTransactionId,
                 query,
                 preparedQuery,
                 session,
@@ -230,6 +232,7 @@ public class QueryStateMachine
     }
 
     static QueryStateMachine beginWithTicker(
+            Optional<TransactionId> existingTransactionId,
             String query,
             Optional<String> preparedQuery,
             Session session,
@@ -244,10 +247,22 @@ public class QueryStateMachine
             WarningCollector warningCollector,
             Optional<QueryType> queryType)
     {
-        // If there is not an existing transaction, begin an auto commit transaction
-        if (session.getTransactionId().isEmpty() && !transactionControl) {
+        // if there is an existing transaction, activate it
+        existingTransactionId.ifPresent(transactionId -> {
+            if (transactionControl) {
+                transactionManager.trySetActive(transactionId);
+            }
+            else {
+                transactionManager.checkAndSetActive(transactionId);
+            }
+        });
+
+        // add the session to the existing transaction, or create a new auto commit transaction for the session
+        // NOTE: for the start transaction command, no transaction is created
+        if (existingTransactionId.isPresent() || !transactionControl) {
             // TODO: make autocommit isolation level a session parameter
-            TransactionId transactionId = transactionManager.beginTransaction(true);
+            TransactionId transactionId = existingTransactionId
+                    .orElseGet(() -> transactionManager.beginTransaction(true));
             session = session.beginTransactionId(transactionId, transactionManager, accessControl);
         }
 

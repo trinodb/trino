@@ -516,6 +516,7 @@ public class TestQueryStateMachine
                 DefaultSystemAccessControl.NAME);
         accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
+                Optional.empty(),
                 QUERY,
                 Optional.empty(),
                 TEST_SESSION,
