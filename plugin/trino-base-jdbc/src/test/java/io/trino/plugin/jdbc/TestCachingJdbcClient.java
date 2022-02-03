@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.units.Duration;
-import io.trino.plugin.base.cache.CacheStatsAssertions;
+import io.trino.collect.cache.CacheStatsAssertions;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.credential.ExtraCredentialConfig;
 import io.trino.spi.connector.ColumnHandle;
@@ -46,7 +46,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.plugin.base.cache.CacheStatsAssertions.assertCacheStats;
+import static io.trino.collect.cache.CacheStatsAssertions.assertCacheStats;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.IntegerType.INTEGER;

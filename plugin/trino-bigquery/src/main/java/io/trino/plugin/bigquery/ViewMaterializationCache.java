@@ -24,7 +24,7 @@ import com.google.cloud.bigquery.TableInfo;
 import com.google.common.cache.CacheBuilder;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.plugin.base.cache.NonEvictableCache;
+import io.trino.collect.cache.NonEvictableCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -35,7 +35,7 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
-import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED;
 import static io.trino.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
 import static java.lang.String.format;

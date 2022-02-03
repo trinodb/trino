@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.cache;
+package io.trino.collect.cache;
 
 import com.google.common.cache.AbstractLoadingCache;
 import com.google.common.cache.CacheBuilder;
@@ -65,7 +65,7 @@ public class EvictableLoadingCache<K, V>
             dataCache.expireAfterWrite(expiresAfterWriteMillis.getAsLong(), MILLISECONDS);
         }
 
-        if (refreshMillis.isPresent() && (expiresAfterWriteMillis.isEmpty() || expiresAfterWriteMillis.getAsLong() > refreshMillis.getAsLong())) {
+        if (refreshMillis.isPresent() && (!expiresAfterWriteMillis.isPresent() || expiresAfterWriteMillis.getAsLong() > refreshMillis.getAsLong())) {
             dataCache.refreshAfterWrite(refreshMillis.getAsLong(), MILLISECONDS);
         }
 

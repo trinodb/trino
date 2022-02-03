@@ -35,8 +35,7 @@ import com.fasterxml.jackson.databind.ser.BeanSerializerFactory;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.google.common.cache.CacheBuilder;
-import io.trino.plugin.base.cache.NonEvictableCache;
-import io.trino.plugin.base.cache.SafeCaches;
+import io.trino.collect.cache.NonEvictableCache;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
@@ -44,6 +43,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractTypedJacksonModule<T>
@@ -93,7 +93,7 @@ public abstract class AbstractTypedJacksonModule<T>
             extends StdSerializer<T>
     {
         private final TypeSerializer typeSerializer;
-        private final NonEvictableCache<Class<?>, JsonSerializer<T>> serializerCache = SafeCaches.buildNonEvictableCache(CacheBuilder.newBuilder());
+        private final NonEvictableCache<Class<?>, JsonSerializer<T>> serializerCache = buildNonEvictableCache(CacheBuilder.newBuilder());
 
         public InternalTypeSerializer(Class<T> baseClass, TypeIdResolver typeIdResolver)
         {
