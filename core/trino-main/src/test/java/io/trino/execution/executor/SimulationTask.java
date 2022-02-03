@@ -40,7 +40,7 @@ abstract class SimulationTask
     {
         this.specification = specification;
         this.taskId = taskId;
-        taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, SECONDS), OptionalInt.empty());
+        taskHandle = taskExecutor.addTask(taskId, () -> 0, 10, new Duration(1, SECONDS), OptionalInt.empty(), Integer.MAX_VALUE);
     }
 
     public void setKilled()

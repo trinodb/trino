@@ -58,6 +58,7 @@ public class TaskHandle
     protected final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
     private final MultilevelSplitQueue splitQueue;
     private final OptionalInt maxDriversPerTask;
+    private final DriverLimitPerQuery driverLimitPerQuery;
 
     public TaskHandle(
             TaskId taskId,
@@ -65,12 +66,14 @@ public class TaskHandle
             DoubleSupplier utilizationSupplier,
             int initialSplitConcurrency,
             Duration splitConcurrencyAdjustFrequency,
-            OptionalInt maxDriversPerTask)
+            OptionalInt maxDriversPerTask,
+            DriverLimitPerQuery driverLimitPerQuery)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.splitQueue = requireNonNull(splitQueue, "splitQueue is null");
         this.utilizationSupplier = requireNonNull(utilizationSupplier, "utilizationSupplier is null");
         this.maxDriversPerTask = requireNonNull(maxDriversPerTask, "maxDriversPerTask is null");
+        this.driverLimitPerQuery = requireNonNull(driverLimitPerQuery, "driverLimitPerQuery is null");
         this.concurrencyController = new SplitConcurrencyController(
                 initialSplitConcurrency,
                 requireNonNull(splitConcurrencyAdjustFrequency, "splitConcurrencyAdjustFrequency is null"));
@@ -114,6 +117,16 @@ public class TaskHandle
         return taskId;
     }
 
+    public boolean isDriverLimitPerQueryExceeded()
+    {
+        return driverLimitPerQuery.isFull();
+    }
+
+    public boolean dereferenceFromDriverLimitPerQuery()
+    {
+        return driverLimitPerQuery.dereference();
+    }
+
     public OptionalInt getMaxDriversPerTask()
     {
         return maxDriversPerTask;
@@ -123,6 +136,10 @@ public class TaskHandle
     public synchronized List<PrioritizedSplitRunner> destroy()
     {
         destroyed = true;
+        int runningLeafSplitsSize = runningLeafSplits.size();
+        if (runningLeafSplitsSize > 0) {
+            driverLimitPerQuery.subtract(runningLeafSplitsSize);
+        }
 
         ImmutableList.Builder<PrioritizedSplitRunner> builder = ImmutableList.builder();
         builder.addAll(runningIntermediateSplits);
@@ -169,6 +186,7 @@ public class TaskHandle
         PrioritizedSplitRunner split = queuedLeafSplits.poll();
         if (split != null) {
             runningLeafSplits.add(split);
+            driverLimitPerQuery.increase();
         }
         return split;
     }
@@ -177,7 +195,9 @@ public class TaskHandle
     {
         concurrencyController.splitFinished(split.getScheduledNanos(), utilizationSupplier.getAsDouble(), runningLeafSplits.size());
         runningIntermediateSplits.remove(split);
-        runningLeafSplits.remove(split);
+        if (runningLeafSplits.remove(split)) {
+            driverLimitPerQuery.decrease();
+        }
     }
 
     public int getNextSplitId()

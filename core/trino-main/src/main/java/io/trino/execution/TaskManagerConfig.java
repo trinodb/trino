@@ -55,6 +55,7 @@ public class TaskManagerConfig
     private boolean shareIndexLoading;
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
     private Integer minDrivers;
+    private Integer maxDriversPerQuery;
     private Integer initialSplitsPerNode;
     private int minDriversPerTask = 3;
     private int maxDriversPerTask = Integer.MAX_VALUE;
@@ -284,6 +285,24 @@ public class TaskManagerConfig
     public TaskManagerConfig setMinDrivers(int minDrivers)
     {
         this.minDrivers = minDrivers;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxDriversPerQuery()
+    {
+        if (maxDriversPerQuery == null) {
+            // minDrivers has the higher priority over maxDriversPerQuery.
+            // That means maxDriversPerQuery is capped by minDrivers.
+            return getMinDrivers();
+        }
+        return maxDriversPerQuery;
+    }
+
+    @Config("task.max-drivers-per-query")
+    public TaskManagerConfig setMaxDriversPerQuery(int maxDrivers)
+    {
+        this.maxDriversPerQuery = maxDrivers;
         return this;
     }
 

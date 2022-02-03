@@ -71,6 +71,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.SystemSessionProperties.getInitialSplitsPerNode;
+import static io.trino.SystemSessionProperties.getMaxDriversPerQuery;
 import static io.trino.SystemSessionProperties.getMaxDriversPerTask;
 import static io.trino.SystemSessionProperties.getSplitConcurrencyAdjustmentInterval;
 import static io.trino.execution.SqlTaskExecution.SplitsState.ADDING_SPLITS;
@@ -263,7 +264,8 @@ public class SqlTaskExecution
                 outputBuffer::getUtilization,
                 getInitialSplitsPerNode(taskContext.getSession()),
                 getSplitConcurrencyAdjustmentInterval(taskContext.getSession()),
-                getMaxDriversPerTask(taskContext.getSession()));
+                getMaxDriversPerTask(taskContext.getSession()),
+                getMaxDriversPerQuery(taskContext.getSession()));
         taskStateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
                 taskExecutor.removeTask(taskHandle);

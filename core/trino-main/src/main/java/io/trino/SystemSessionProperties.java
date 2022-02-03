@@ -118,6 +118,7 @@ public final class SystemSessionProperties
     public static final String STATISTICS_PRECALCULATION_FOR_PUSHDOWN_ENABLED = "statistics_precalculation_for_pushdown_enabled";
     public static final String COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES = "collect_plan_statistics_for_all_queries";
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
+    public static final String MAX_DRIVERS_PER_QUERY = "max_drivers_per_query";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
@@ -518,6 +519,11 @@ public final class SystemSessionProperties
                         COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES,
                         "Collect plan statistics for non-EXPLAIN queries",
                         featuresConfig.isCollectPlanStatisticsForAllQueries(),
+                        false),
+                integerProperty(
+                        MAX_DRIVERS_PER_QUERY,
+                        "Maximum number of drivers per query",
+                        taskManagerConfig.getMaxDriversPerQuery(),
                         false),
                 new PropertyMetadata<>(
                         MAX_DRIVERS_PER_TASK,
@@ -1032,6 +1038,11 @@ public final class SystemSessionProperties
         if (defaultValue == true && value == false) {
             throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s cannot be disabled with session property when it was enabled with configuration", HIDE_INACCESSIBLE_COLUMNS));
         }
+    }
+
+    public static int getMaxDriversPerQuery(Session session)
+    {
+        return session.getSystemProperty(MAX_DRIVERS_PER_QUERY, Integer.class);
     }
 
     public static OptionalInt getMaxDriversPerTask(Session session)

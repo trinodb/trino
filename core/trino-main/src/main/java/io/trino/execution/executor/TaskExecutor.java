@@ -27,6 +27,7 @@ import io.airlift.units.Duration;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
 import org.weakref.jmx.Managed;
@@ -39,6 +40,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -154,6 +156,9 @@ public class TaskExecutor
     private final TimeStat blockedQuantaWallTime = new TimeStat(MICROSECONDS);
     private final TimeStat unblockedQuantaWallTime = new TimeStat(MICROSECONDS);
 
+    @GuardedBy("this")
+    private final Map<QueryId, DriverLimitPerQuery> queryIdDriverLimitPerQueryMap = new HashMap<>();
+
     private volatile boolean closed;
 
     @Inject
@@ -254,7 +259,8 @@ public class TaskExecutor
             DoubleSupplier utilizationSupplier,
             int initialSplitConcurrency,
             Duration splitConcurrencyAdjustFrequency,
-            OptionalInt maxDriversPerTask)
+            OptionalInt maxDriversPerTask,
+            int maxDriversPerQuery)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(utilizationSupplier, "utilizationSupplier is null");
@@ -263,7 +269,24 @@ public class TaskExecutor
 
         log.debug("Task scheduled %s", taskId);
 
-        TaskHandle taskHandle = new TaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, maxDriversPerTask);
+        QueryId queryId = taskId.getQueryId();
+        DriverLimitPerQuery driverLimitPerQuery = queryIdDriverLimitPerQueryMap.get(queryId);
+        if (driverLimitPerQuery == null) {
+            driverLimitPerQuery = new DriverLimitPerQuery(maxDriversPerQuery);
+            driverLimitPerQuery.addInitialReference();
+            queryIdDriverLimitPerQueryMap.put(queryId, driverLimitPerQuery);
+        }
+        else {
+            driverLimitPerQuery.addReference();
+        }
+        TaskHandle taskHandle = new TaskHandle(
+                taskId,
+                waitingSplits,
+                utilizationSupplier,
+                initialSplitConcurrency,
+                splitConcurrencyAdjustFrequency,
+                maxDriversPerTask,
+                driverLimitPerQuery);
 
         tasks.add(taskHandle);
         return taskHandle;
@@ -285,6 +308,9 @@ public class TaskExecutor
         synchronized (this) {
             tasks.remove(taskHandle);
             splits = taskHandle.destroy();
+            if (taskHandle.dereferenceFromDriverLimitPerQuery()) {
+                queryIdDriverLimitPerQueryMap.remove(taskHandle.getTaskId().getQueryId());
+            }
 
             // stop tracking splits (especially blocked splits which may never unblock)
             allSplits.removeAll(splits);
@@ -441,6 +467,10 @@ public class TaskExecutor
             TaskHandle task = iterator.next();
             // skip tasks that are already running the configured max number of drivers
             if (task.getRunningLeafSplits() >= task.getMaxDriversPerTask().orElse(maximumNumberOfDriversPerTask)) {
+                continue;
+            }
+            // skip tasks whose max number of drivers per query value is equal to or less than the current total running leaf splits
+            if (task.isDriverLimitPerQueryExceeded()) {
                 continue;
             }
             PrioritizedSplitRunner split = task.pollNextSplit();
