@@ -37,6 +37,7 @@ public final class CassandraTestingUtils
     public static final String TABLE_ALL_TYPES = "table_all_types";
     public static final String TABLE_ALL_TYPES_INSERT = "table_all_types_insert";
     public static final String TABLE_ALL_TYPES_PARTITION_KEY = "table_all_types_partition_key";
+    public static final String TABLE_PUSHDOWN_UUID_PARTITION_KEY_PREDICATE = "table_pushdown_uuid_partition_key_predicate";
     public static final String TABLE_TUPLE_TYPE = "table_tuple_type";
     public static final String TABLE_USER_DEFINED_TYPE = "table_user_defined_type";
     public static final String TABLE_CLUSTERING_KEYS = "table_clustering_keys";
@@ -53,6 +54,7 @@ public final class CassandraTestingUtils
         createTableAllTypes(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES), date, 9);
         createTableAllTypes(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES_INSERT), date, 0);
         createTableAllTypesPartitionKey(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES_PARTITION_KEY), date);
+        createTablePushdownUuidPartitionKey(cassandraSession, new SchemaTableName(keyspace, TABLE_PUSHDOWN_UUID_PARTITION_KEY_PREDICATE));
         createTableTupleType(cassandraSession, new SchemaTableName(keyspace, TABLE_TUPLE_TYPE));
         createTableUserDefinedType(cassandraSession, new SchemaTableName(keyspace, TABLE_USER_DEFINED_TYPE));
         createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS), 9);
@@ -235,6 +237,15 @@ public final class CassandraTestingUtils
                 ")");
 
         insertTestData(session, table, date, 9);
+    }
+
+    public static void createTablePushdownUuidPartitionKey(CassandraSession session, SchemaTableName table)
+    {
+        session.execute("DROP TABLE IF EXISTS " + table);
+
+        session.execute("CREATE TABLE " + table + " (col_uuid uuid PRIMARY KEY, col_text text)");
+
+        session.execute("INSERT INTO " + table + "(col_uuid, col_text) VALUES (00000000-0000-0000-0000-000000000001, 'Trino')");
     }
 
     public static void createTableTupleType(CassandraSession session, SchemaTableName table)
