@@ -50,6 +50,7 @@ import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_K
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_LARGE;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_DELETE_DATA;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_MULTI_PARTITION_CLUSTERING_KEYS;
+import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_PUSHDOWN_UUID_PARTITION_KEY_PREDICATE;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createTestTables;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -235,6 +236,13 @@ public class TestCassandraConnectorTest
     {
         assertThatThrownBy(super::testCharVarcharComparison)
                 .hasMessage("unsupported type: char(3)");
+    }
+
+    @Test
+    public void testPushdownUuidPartitionKeyPredicate()
+    {
+        assertThat(query(format("SELECT col_text FROM %s.%s WHERE col_uuid = UUID '00000000-0000-0000-0000-000000000001'", KEYSPACE, TABLE_PUSHDOWN_UUID_PARTITION_KEY_PREDICATE)))
+                .matches("VALUES CAST('Trino' AS varchar)");
     }
 
     @Test
