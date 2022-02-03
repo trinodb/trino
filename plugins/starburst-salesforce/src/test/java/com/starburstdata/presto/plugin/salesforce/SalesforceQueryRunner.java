@@ -85,7 +85,6 @@ public final class SalesforceQueryRunner
             queryRunner = builder.build();
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             queryRunner.installPlugin(new TestingSalesforcePlugin(enableWrites));
             queryRunner.createCatalog("salesforce", "salesforce", connectorProperties);
@@ -157,7 +156,6 @@ public final class SalesforceQueryRunner
         extraProperties.forEach(builder::addExtraProperty);
         try (DistributedQueryRunner queryRunner = builder.build()) {
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             // If the redirection properties are included with redirectionDisabled(createSession()), then queryRunner.tableExists fails in copyTableIfNotExists
             // We get an error from the SessionPropertyManager.getConnectorSessionPropertyMetadata "Unknown catalog: salesforce"
