@@ -268,6 +268,7 @@ import static io.trino.plugin.hive.util.HiveUtil.hiveColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
+import static io.trino.plugin.hive.util.HiveUtil.isSparkBucketedTable;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.plugin.hive.util.HiveUtil.verifyPartitionTypeSupported;
 import static io.trino.plugin.hive.util.HiveWriteUtils.checkTableIsWritable;
@@ -1624,6 +1625,9 @@ public class HiveMetadata
         if (!autoCommit) {
             throw new TrinoException(NOT_SUPPORTED, "Updating transactional tables is not supported in explicit transactions (use autocommit mode)");
         }
+        if (isSparkBucketedTable(table)) {
+            throw new TrinoException(NOT_SUPPORTED, "Updating Spark bucketed tables is not supported");
+        }
 
         // Verify that none of the updated columns are partition columns or bucket columns
 
@@ -1724,6 +1728,10 @@ public class HiveMetadata
         if (isTransactional && !autoCommit) {
             throw new TrinoException(NOT_SUPPORTED, "Inserting into Hive transactional tables is not supported in explicit transactions (use autocommit mode)");
         }
+        if (isSparkBucketedTable(table)) {
+            throw new TrinoException(NOT_SUPPORTED, "Inserting into Spark bucketed tables is not supported");
+        }
+
         List<HiveColumnHandle> handles = hiveColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toImmutableList());
@@ -2428,6 +2436,9 @@ public class HiveMetadata
         }
         if (!autoCommit) {
             throw new TrinoException(NOT_SUPPORTED, "Deleting from Hive transactional tables is not supported in explicit transactions (use autocommit mode)");
+        }
+        if (isSparkBucketedTable(table)) {
+            throw new TrinoException(NOT_SUPPORTED, "Deleting from Spark bucketed tables is not supported");
         }
 
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
