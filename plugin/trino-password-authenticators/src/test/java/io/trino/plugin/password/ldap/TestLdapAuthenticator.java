@@ -64,9 +64,11 @@ public class TestLdapAuthenticator
                             .setUserBindSearchPatterns("uid=${USER}," + organization.getDistinguishedName()));
 
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "invalid"))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: Invalid credentials");
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("unknown", "alice-pass"))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageMatching("Access Denied: Invalid credentials");
             assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
         }
     }
@@ -114,11 +116,16 @@ public class TestLdapAuthenticator
                             .setGroupAuthorizationSearchPattern(format("(&(objectClass=groupOfNames)(cn=group_*)(member=uid=${USER},%s))", organization.getDistinguishedName())));
 
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "invalid"))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: Invalid credentials");
+
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("unknown", "alice-pass"))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: Invalid credentials");
+
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("bob", "bob-pass"))
-                    .isInstanceOf(AccessDeniedException.class);
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: User \\[bob] not a member of an authorized group");
 
             openLdapServer.addUserToGroup(alice, group);
             assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
@@ -139,7 +146,8 @@ public class TestLdapAuthenticator
                             .setBindPassword("invalid-password"));
 
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: Invalid credentials");
         }
     }
 
@@ -160,18 +168,22 @@ public class TestLdapAuthenticator
                             .setBindPassword("admin"));
 
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("unknown_user", "invalid"))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: User \\[unknown_user] not a member of an authorized group");
 
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "invalid"))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: User \\[alice] not a member of an authorized group");
             ldapAuthenticator.invalidateCache();
 
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: User \\[alice] not a member of an authorized group");
             ldapAuthenticator.invalidateCache();
 
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("bob", "bob-pass"))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: User \\[bob] not a member of an authorized group");
             ldapAuthenticator.invalidateCache();
 
             openLdapServer.addUserToGroup(alice, group);
@@ -179,13 +191,15 @@ public class TestLdapAuthenticator
             ldapAuthenticator.invalidateCache();
 
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "invalid"))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: Invalid credentials");
             ldapAuthenticator.invalidateCache();
 
             // Now group authorization filter will return multiple entries
             openLdapServer.addUserToGroup(bob, group);
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"))
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageMatching("Access Denied: Multiple group membership results for user \\[alice].*");
             ldapAuthenticator.invalidateCache();
         }
     }
