@@ -19,7 +19,7 @@ import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.common.cache.CacheBuilder;
-import io.trino.plugin.base.cache.NonEvictableCache;
+import io.trino.collect.cache.NonEvictableCache;
 import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
@@ -27,7 +27,7 @@ import javax.inject.Inject;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
-import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

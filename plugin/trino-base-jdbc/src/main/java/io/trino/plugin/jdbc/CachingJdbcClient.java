@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
-import io.trino.plugin.base.cache.EvictableCache;
+import io.trino.collect.cache.EvictableCache;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.IdentityCacheMapping.IdentityCacheKey;
 import io.trino.spi.TrinoException;

@@ -15,7 +15,7 @@ package io.trino.util;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.trino.plugin.base.cache.NonEvictableCache;
+import io.trino.collect.cache.NonEvictableCache;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.booleans.BooleanOpenHashSet;
@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verifyNotNull;
-import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
 import static java.lang.Boolean.TRUE;
 import static java.lang.invoke.MethodType.methodType;

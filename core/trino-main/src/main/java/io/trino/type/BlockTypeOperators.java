@@ -15,7 +15,7 @@ package io.trino.type;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.trino.plugin.base.cache.NonKeyEvictableCache;
+import io.trino.collect.cache.NonKeyEvictableCache;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.InvocationConvention;
@@ -34,7 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;

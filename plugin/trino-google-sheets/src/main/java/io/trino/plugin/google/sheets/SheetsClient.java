@@ -27,7 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
-import io.trino.plugin.base.cache.NonEvictableLoadingCache;
+import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.VarcharType;
 
@@ -47,7 +47,7 @@ import java.util.Set;
 import static com.google.api.client.googleapis.javanet.GoogleNetHttpTransport.newTrustedTransport;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_BAD_CREDENTIALS_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_METASTORE_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_TABLE_LOAD_ERROR;

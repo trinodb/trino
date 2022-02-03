@@ -22,7 +22,7 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
-import io.trino.plugin.base.cache.EvictableLoadingCache;
+import io.trino.collect.cache.EvictableLoadingCache;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;

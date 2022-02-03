@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.cache;
+package io.trino.collect.cache;
 
 import com.google.common.cache.AbstractCache;
 import com.google.common.cache.Cache;
@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
-import static io.airlift.concurrent.MoreFutures.getDone;
+import static io.trino.collect.cache.MoreFutures.getDone;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
 

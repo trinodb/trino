@@ -17,7 +17,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.hash.HashCode;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.plugin.base.cache.NonEvictableCache;
+import io.trino.collect.cache.NonEvictableCache;
 import io.trino.plugin.ml.type.RegressorType;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.ScalarFunction;
@@ -27,7 +27,7 @@ import io.trino.spi.type.StandardTypes;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.ml.type.ClassifierType.BIGINT_CLASSIFIER;
 import static io.trino.plugin.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
 import static io.trino.plugin.ml.type.RegressorType.REGRESSOR;

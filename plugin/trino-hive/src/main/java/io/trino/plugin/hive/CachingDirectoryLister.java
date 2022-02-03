@@ -17,7 +17,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
-import io.trino.plugin.base.cache.NonKeyEvictableCache;
+import io.trino.collect.cache.NonKeyEvictableCache;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.SchemaTablePrefix;
 import org.apache.hadoop.fs.FileSystem;
@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.base.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
+import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 
 public class CachingDirectoryLister
         implements DirectoryLister
