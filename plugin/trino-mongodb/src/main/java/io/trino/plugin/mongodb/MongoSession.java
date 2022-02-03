@@ -15,13 +15,13 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.DBRef;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
@@ -32,7 +32,7 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.trino.collect.cache.EvictableCache;
+import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -134,8 +134,9 @@ public class MongoSession
         this.cursorBatchSize = config.getCursorBatchSize();
         this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
 
-        this.tableCache = EvictableCache.buildWith(CacheBuilder.newBuilder()
-                .expireAfterWrite(1, MINUTES));  // TODO: Configure
+        this.tableCache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(1, MINUTES)  // TODO: Configure
+                .build();
     }
 
     public void shutdown()
@@ -178,7 +179,7 @@ public class MongoSession
         try {
             return tableCache.get(tableName, () -> loadTableSchema(tableName));
         }
-        catch (ExecutionException e) {
+        catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new RuntimeException(e);
         }

@@ -358,7 +358,7 @@ public class TestCachingJdbcClient
         JdbcTableHandle second = createTable(new SchemaTableName(schema, "second"));
 
         // load first
-        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(2).afterRunning(() -> {
+        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
             assertThat(cachingJdbcClient.getTableStatistics(session, first, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
         });
 
@@ -368,7 +368,7 @@ public class TestCachingJdbcClient
         });
 
         // load second
-        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(2).afterRunning(() -> {
+        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
             assertThat(cachingJdbcClient.getTableStatistics(session, second, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
         });
 
@@ -382,7 +382,7 @@ public class TestCachingJdbcClient
         JdbcTableHandle secondFirst = createTable(new SchemaTableName(schema, "first"));
 
         // load first again
-        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(2).afterRunning(() -> {
+        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
             assertThat(cachingJdbcClient.getTableStatistics(session, secondFirst, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
         });
 
@@ -414,7 +414,7 @@ public class TestCachingJdbcClient
                 0);
 
         // load
-        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(2).afterRunning(() -> {
+        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
             assertThat(cachingJdbcClient.getTableStatistics(session, queryOnFirst, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
         });
 
@@ -435,7 +435,7 @@ public class TestCachingJdbcClient
         cachingJdbcClient.dropTable(SESSION, first);
 
         // load again
-        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(2).afterRunning(() -> {
+        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
             assertThat(cachingJdbcClient.getTableStatistics(session, queryOnFirst, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
         });
     }
@@ -449,7 +449,7 @@ public class TestCachingJdbcClient
         JdbcTableHandle table = createTable(new SchemaTableName(schema, "table"));
 
         // load
-        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(2).afterRunning(() -> {
+        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
             assertThat(cachingJdbcClient.getTableStatistics(session, table, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
         });
 
@@ -462,7 +462,7 @@ public class TestCachingJdbcClient
         cachingJdbcClient.truncateTable(SESSION, table);
 
         // load again
-        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(2).afterRunning(() -> {
+        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
             assertThat(cachingJdbcClient.getTableStatistics(session, table, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
         });
 
@@ -502,7 +502,7 @@ public class TestCachingJdbcClient
         ConnectorSession session = createSession("table");
         JdbcTableHandle table = createTable(new SchemaTableName(schema, "table"));
 
-        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(2).afterRunning(() -> {
+        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
             assertThat(cachingJdbcClient.getTableStatistics(session, table, TupleDomain.all())).isEqualTo(TableStatistics.empty());
         });
 
@@ -521,7 +521,7 @@ public class TestCachingJdbcClient
         ConnectorSession session = createSession("table");
         JdbcTableHandle table = createTable(new SchemaTableName(schema, "table"));
 
-        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(2).afterRunning(() -> {
+        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
             assertThat(cachingJdbcClient.getTableStatistics(session, table, TupleDomain.all())).isEqualTo(TableStatistics.empty());
         });
 
@@ -573,7 +573,7 @@ public class TestCachingJdbcClient
         JdbcTableHandle first = createTable(new SchemaTableName(schema, "atable"));
 
         // load table
-        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(2).afterRunning(() -> {
+        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
             assertThat(cachingJdbcClient.getTableStatistics(session, first, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
         });
 
@@ -587,7 +587,7 @@ public class TestCachingJdbcClient
         JdbcTableHandle secondFirst = createTable(new SchemaTableName(schema, "first"));
 
         // load table again
-        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(2).afterRunning(() -> {
+        assertStatisticsCacheStats(cachingJdbcClient).loads(1).misses(1).afterRunning(() -> {
             assertThat(cachingJdbcClient.getTableStatistics(session, secondFirst, TupleDomain.all())).isEqualTo(NON_EMPTY_STATS);
         });
 
