@@ -24,10 +24,10 @@ import io.trino.spi.type.TypeSignature;
 
 import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.Int128Math.POWERS_OF_TEN;
 import static io.trino.spi.type.Int128Math.floorDiv;
 import static io.trino.spi.type.Int128Math.multiply;
 import static io.trino.spi.type.Int128Math.negate;
+import static io.trino.spi.type.Int128Math.powerOfTen;
 import static io.trino.spi.type.Int128Math.subtract;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -86,13 +86,13 @@ public final class DecimalSaturatedFloorCasts
     {
         int scale = resultScale - sourceScale;
         if (scale > 0) {
-            value = multiply(value, POWERS_OF_TEN[scale]);
+            value = multiply(value, powerOfTen(scale));
         }
         else if (scale < 0) {
-            value = floorDiv(value, POWERS_OF_TEN[-scale]);
+            value = floorDiv(value, powerOfTen(-scale));
         }
 
-        Int128 maxUnscaledValue = subtract(POWERS_OF_TEN[resultPrecision], Int128.ONE);
+        Int128 maxUnscaledValue = subtract(powerOfTen(resultPrecision), Int128.ONE);
         if (value.compareTo(maxUnscaledValue) > 0) {
             return maxUnscaledValue;
         }
@@ -142,7 +142,7 @@ public final class DecimalSaturatedFloorCasts
     private static long saturatedCast(Int128 value, int sourceScale, long minValue, long maxValue)
     {
         if (sourceScale > 0) {
-            value = floorDiv(value, POWERS_OF_TEN[sourceScale]);
+            value = floorDiv(value, powerOfTen(sourceScale));
         }
 
         if (value.compareTo(Int128.valueOf(maxValue)) > 0) {
