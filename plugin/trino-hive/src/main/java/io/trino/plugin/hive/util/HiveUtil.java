@@ -177,6 +177,7 @@ public final class HiveUtil
 {
     public static final String SPARK_TABLE_PROVIDER_KEY = "spark.sql.sources.provider";
     public static final String DELTA_LAKE_PROVIDER = "delta";
+    public static final String SPARK_TABLE_BUCKET_NUMBER_KEY = "spark.sql.sources.schema.numBuckets";
 
     public static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
     public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
@@ -1127,5 +1128,11 @@ public final class HiveUtil
     public static boolean isIcebergTable(Table table)
     {
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(ICEBERG_TABLE_TYPE_NAME));
+    }
+
+    public static boolean isSparkBucketedTable(Table table)
+    {
+        return table.getParameters().containsKey(SPARK_TABLE_PROVIDER_KEY)
+                && table.getParameters().containsKey(SPARK_TABLE_BUCKET_NUMBER_KEY);
     }
 }
