@@ -96,7 +96,7 @@ public class HttpTokenPoller
                     .withMaxAttempts(-1)
                     .withMaxDuration(Duration.ofSeconds(4))
                     .withBackoff(100, 500, MILLIS)
-                    .handleResultIf(code -> code != HTTP_OK))
+                    .handleResultIf(code -> code >= 500))
                     .get(() -> {
                         Request request = prepareRequestBuilder(tokenUri)
                                 .delete()
