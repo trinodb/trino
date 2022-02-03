@@ -28,7 +28,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.concurrent.MoreFutures.asVoid;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.execution.buffer.OutputBuffers.BufferType.SPOOL;
 import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
@@ -41,7 +42,7 @@ public class SpoolingExchangeOutputBuffer
 
     private final OutputBufferStateMachine stateMachine;
     private final OutputBuffers outputBuffers;
-    private final ExchangeSink exchangeSink;
+    private ExchangeSink exchangeSink;
     private final Supplier<LocalMemoryContext> memoryContextSupplier;
 
     private final AtomicLong peakMemoryUsage = new AtomicLong();
@@ -57,6 +58,7 @@ public class SpoolingExchangeOutputBuffer
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.outputBuffers = requireNonNull(outputBuffers, "outputBuffers is null");
         checkArgument(outputBuffers.getType() == SPOOL, "Expected a SPOOL output buffer");
+        // this assignment is expected to be followed by an assignment of a final field to ensure safe publication
         this.exchangeSink = requireNonNull(exchangeSink, "exchangeSink is null");
         this.memoryContextSupplier = requireNonNull(memoryContextSupplier, "memoryContextSupplier is null");
 
@@ -67,12 +69,13 @@ public class SpoolingExchangeOutputBuffer
     public OutputBufferInfo getInfo()
     {
         BufferState state = stateMachine.getState();
+        LocalMemoryContext memoryContext = getSystemMemoryContextOrNull();
         return new OutputBufferInfo(
                 "EXTERNAL",
                 state,
                 false,
                 state.canAddPages(),
-                exchangeSink.getMemoryUsage(),
+                memoryContext == null ? 0 : memoryContext.getBytes(),
                 totalPagesAdded.get(),
                 totalRowsAdded.get(),
                 totalPagesAdded.get(),
@@ -139,7 +142,11 @@ public class SpoolingExchangeOutputBuffer
     @Override
     public ListenableFuture<Void> isFull()
     {
-        return toListenableFuture(exchangeSink.isBlocked());
+        ExchangeSink sink = exchangeSink;
+        if (sink != null) {
+            return toListenableFuture(sink.isBlocked());
+        }
+        return immediateVoidFuture();
     }
 
     @Override
@@ -159,11 +166,13 @@ public class SpoolingExchangeOutputBuffer
             return;
         }
 
+        ExchangeSink sink = exchangeSink;
+        checkState(sink != null, "exchangeSink is null");
         for (Slice page : pages) {
-            exchangeSink.add(partition, page);
+            sink.add(partition, page);
             totalRowsAdded.addAndGet(getSerializedPagePositionCount(page));
         }
-        updateMemoryUsage(exchangeSink.getMemoryUsage());
+        updateMemoryUsage(sink.getMemoryUsage());
         totalPagesAdded.addAndGet(pages.size());
     }
 
@@ -174,13 +183,19 @@ public class SpoolingExchangeOutputBuffer
             return;
         }
 
-        exchangeSink.finish().whenComplete((value, failure) -> {
+        ExchangeSink sink = exchangeSink;
+        if (sink == null) {
+            // abort might've released the sink in a meantime
+            return;
+        }
+        sink.finish().whenComplete((value, failure) -> {
             if (failure != null) {
                 stateMachine.fail(failure);
             }
             else {
                 stateMachine.finish();
             }
+            exchangeSink = null;
             updateMemoryUsage(0);
         });
     }
@@ -203,10 +218,15 @@ public class SpoolingExchangeOutputBuffer
             return;
         }
 
-        exchangeSink.abort().whenComplete((value, failure) -> {
+        ExchangeSink sink = exchangeSink;
+        if (sink == null) {
+            return;
+        }
+        sink.abort().whenComplete((value, failure) -> {
             if (failure != null) {
                 log.warn(failure, "Error aborting exchange sink");
             }
+            exchangeSink = null;
             updateMemoryUsage(0);
         });
     }

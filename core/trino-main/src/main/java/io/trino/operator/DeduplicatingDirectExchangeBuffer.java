@@ -42,6 +42,7 @@ import io.trino.spi.exchange.ExchangeSource;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -54,7 +55,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -386,19 +386,19 @@ public class DeduplicatingDirectExchangeBuffer
     }
 
     @Override
-    public synchronized int getBufferedPageCount()
+    public int getBufferedPageCount()
     {
         return pageBuffer.getBufferedPageCount();
     }
 
     @Override
-    public synchronized long getSpilledBytes()
+    public long getSpilledBytes()
     {
         return pageBuffer.getSpilledBytes();
     }
 
     @Override
-    public synchronized int getSpilledPageCount()
+    public int getSpilledPageCount()
     {
         return pageBuffer.getSpilledPageCount();
     }
@@ -451,7 +451,7 @@ public class DeduplicatingDirectExchangeBuffer
         executor.execute(() -> blocked.set(null));
     }
 
-    @NotThreadSafe
+    @ThreadSafe
     private static class PageBuffer
             implements Closeable
     {
@@ -461,23 +461,33 @@ public class DeduplicatingDirectExchangeBuffer
         private final Executor executor;
 
         private final long pageBufferCapacityInBytes;
+        @GuardedBy("this")
         private final ListMultimap<TaskId, Slice> pageBuffer = ArrayListMultimap.create();
+        @GuardedBy("this")
         private long pageBufferRetainedSizeInBytes;
 
+        @GuardedBy("this")
         private ExchangeManager exchangeManager;
+        @GuardedBy("this")
         private Exchange exchange;
+        @GuardedBy("this")
         private ExchangeSinkInstanceHandle sinkInstanceHandle;
+        @GuardedBy("this")
         private ExchangeSink exchangeSink;
+        @GuardedBy("this")
         private SliceOutput writeBuffer;
 
+        @GuardedBy("this")
         private int bufferedPageCount;
+        @GuardedBy("this")
         private long spilledBytes;
+        @GuardedBy("this")
         private int spilledPageCount;
 
+        @GuardedBy("this")
         private boolean inputFinished;
+        @GuardedBy("this")
         private boolean closed;
-
-        private final AtomicBoolean exchangeSinkFinished = new AtomicBoolean();
 
         private PageBuffer(
                 ExchangeManagerRegistry exchangeManagerRegistry,
@@ -493,7 +503,7 @@ public class DeduplicatingDirectExchangeBuffer
             this.pageBufferCapacityInBytes = requireNonNull(pageBufferCapacity, "pageBufferCapacity is null").toBytes();
         }
 
-        public void addPages(TaskId taskId, List<Slice> pages)
+        public synchronized void addPages(TaskId taskId, List<Slice> pages)
         {
             if (closed) {
                 return;
@@ -568,7 +578,7 @@ public class DeduplicatingDirectExchangeBuffer
             }
         }
 
-        public void removePagesForPreviousAttempts(int currentAttemptId)
+        public synchronized void removePagesForPreviousAttempts(int currentAttemptId)
         {
             checkState(!inputFinished, "input is finished");
 
@@ -594,7 +604,7 @@ public class DeduplicatingDirectExchangeBuffer
             bufferedPageCount -= removedPagesCount;
         }
 
-        public OutputSource createOutputSource(Set<TaskId> selectedTasks)
+        public synchronized OutputSource createOutputSource(Set<TaskId> selectedTasks)
         {
             checkState(!inputFinished, "input is already marked as finished and page source has already been created");
             inputFinished = true;
@@ -614,15 +624,18 @@ public class DeduplicatingDirectExchangeBuffer
             // Finish ExchangeSink and create ExchangeSource asynchronously to avoid blocking an ExchangeClient thread for potentially substantial amount of time
             ListenableFuture<ExchangeSource> exchangeSourceFuture = FluentFuture.from(toListenableFuture(exchangeSink.finish()))
                     .transformAsync((ignored) -> {
-                        exchangeSinkFinished.set(true);
                         exchange.sinkFinished(sinkInstanceHandle);
+                        synchronized (this) {
+                            exchangeSink = null;
+                            sinkInstanceHandle = null;
+                        }
                         return toListenableFuture(exchange.getSourceHandles());
                     }, executor)
                     .transform(exchangeManager::createSource, executor);
             return new ExchangeOutputSource(selectedTasks, queryId, exchangeSourceFuture);
         }
 
-        public long getRetainedSizeInBytes()
+        public synchronized long getRetainedSizeInBytes()
         {
             long result = pageBufferRetainedSizeInBytes;
             if (exchangeSink != null) {
@@ -634,23 +647,23 @@ public class DeduplicatingDirectExchangeBuffer
             return result;
         }
 
-        public int getBufferedPageCount()
+        public synchronized int getBufferedPageCount()
         {
             return bufferedPageCount;
         }
 
-        public long getSpilledBytes()
+        public synchronized long getSpilledBytes()
         {
             return spilledBytes;
         }
 
-        public int getSpilledPageCount()
+        public synchronized int getSpilledPageCount()
         {
             return spilledPageCount;
         }
 
         @Override
-        public void close()
+        public synchronized void close()
         {
             if (closed) {
                 return;
@@ -662,7 +675,7 @@ public class DeduplicatingDirectExchangeBuffer
             bufferedPageCount = 0;
             writeBuffer = null;
 
-            if (exchangeSink != null && !exchangeSinkFinished.get()) {
+            if (exchangeSink != null) {
                 try {
                     exchangeSink.abort().whenComplete((result, failure) -> {
                         if (failure != null) {
@@ -673,6 +686,7 @@ public class DeduplicatingDirectExchangeBuffer
                 catch (RuntimeException e) {
                     log.warn(e, "Error aborting exchange sink");
                 }
+                exchangeSink = null;
             }
             if (exchange != null) {
                 exchange.close();
