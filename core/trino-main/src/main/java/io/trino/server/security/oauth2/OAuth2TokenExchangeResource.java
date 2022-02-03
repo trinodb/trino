@@ -48,6 +48,7 @@ import static io.trino.server.security.oauth2.OAuth2TokenExchange.MAX_POLL_TIME;
 import static io.trino.server.security.oauth2.OAuth2TokenExchange.hashAuthId;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
+import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 
 @Path(OAuth2TokenExchangeResource.TOKEN_ENDPOINT)
 public class OAuth2TokenExchangeResource
@@ -114,13 +115,15 @@ public class OAuth2TokenExchangeResource
     @ResourceSecurity(PUBLIC)
     @DELETE
     @Path("{authId}")
-    public void deleteAuthenticationToken(@PathParam("authId") UUID authId)
+    public Response deleteAuthenticationToken(@PathParam("authId") UUID authId)
     {
         if (authId == null) {
             throw new BadRequestException();
         }
 
         tokenExchange.dropToken(authId);
+        return Response.ok("Authentication deleted", TEXT_PLAIN_TYPE)
+                .build();
     }
 
     public static String getTokenUri(UUID authId)
