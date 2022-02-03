@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -43,7 +42,6 @@ public class TrinoCatalogFactory
     private final CatalogType catalogType;
     private final boolean isUniqueTableLocation;
     private final boolean isUsingSystemSecurity;
-    private final boolean deleteSchemaLocationsFallback;
 
     @Inject
     public TrinoCatalogFactory(
@@ -54,8 +52,7 @@ public class TrinoCatalogFactory
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             NodeVersion nodeVersion,
-            IcebergSecurityConfig securityConfig,
-            HiveConfig hiveConfig)
+            IcebergSecurityConfig securityConfig)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
@@ -67,7 +64,6 @@ public class TrinoCatalogFactory
         this.catalogType = config.getCatalogType();
         this.isUniqueTableLocation = config.isUniqueTableLocation();
         this.isUsingSystemSecurity = securityConfig.getSecuritySystem() == SYSTEM;
-        this.deleteSchemaLocationsFallback = requireNonNull(hiveConfig).isDeleteSchemaLocationsFallback();
     }
 
     public TrinoCatalog create(ConnectorIdentity identity)
@@ -83,8 +79,7 @@ public class TrinoCatalogFactory
                         tableOperationsProvider,
                         trinoVersion,
                         isUniqueTableLocation,
-                        isUsingSystemSecurity,
-                        deleteSchemaLocationsFallback);
+                        isUsingSystemSecurity);
             case GLUE:
                 // TODO not supported yet
                 throw new TrinoException(NOT_SUPPORTED, "Unknown Trino Iceberg catalog type");

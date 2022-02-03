@@ -84,7 +84,6 @@ public class TestSemiTransactionalHiveMetastore
                 directExecutor(),
                 false,
                 false,
-                true,
                 Optional.empty(),
                 newScheduledThreadPool(1));
     }
@@ -123,7 +122,6 @@ public class TestSemiTransactionalHiveMetastore
                 updateExecutor,
                 false,
                 false,
-                true,
                 Optional.empty(),
                 newScheduledThreadPool(1));
     }

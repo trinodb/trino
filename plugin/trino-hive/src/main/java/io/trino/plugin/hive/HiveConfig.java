@@ -95,10 +95,6 @@ public class HiveConfig
     private boolean immutablePartitions;
     private Optional<InsertExistingPartitionsBehavior> insertExistingPartitionsBehavior = Optional.empty();
     private boolean createEmptyBucketFiles;
-    // This is meant to protect users who are misusing schema locations (by
-    // putting schemas in locations with extraneous files), so default to false
-    // to avoid deleting those files if Trino is unable to check.
-    private boolean deleteSchemaLocationsFallback;
     private int maxPartitionsPerWriter = 100;
     private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
@@ -538,19 +534,6 @@ public class HiveConfig
     public HiveConfig setCreateEmptyBucketFiles(boolean createEmptyBucketFiles)
     {
         this.createEmptyBucketFiles = createEmptyBucketFiles;
-        return this;
-    }
-
-    public boolean isDeleteSchemaLocationsFallback()
-    {
-        return this.deleteSchemaLocationsFallback;
-    }
-
-    @Config("hive.delete-schema-locations-fallback")
-    @ConfigDescription("Whether schema locations should be deleted when Trino can't determine whether they contain external files.")
-    public HiveConfig setDeleteSchemaLocationsFallback(boolean deleteSchemaLocationsFallback)
-    {
-        this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         return this;
     }
 

@@ -137,7 +137,6 @@ public class SemiTransactionalHiveMetastore
     private final Executor updateExecutor;
     private final boolean skipDeletionForAlter;
     private final boolean skipTargetCleanupOnRollback;
-    private final boolean deleteSchemaLocationsFallback;
     private final ScheduledExecutorService heartbeatExecutor;
     private final Optional<Duration> configuredTransactionHeartbeatInterval;
 
@@ -174,7 +173,6 @@ public class SemiTransactionalHiveMetastore
             Executor updateExecutor,
             boolean skipDeletionForAlter,
             boolean skipTargetCleanupOnRollback,
-            boolean deleteSchemaLocationsFallback,
             Optional<Duration> hiveTransactionHeartbeatInterval,
             ScheduledExecutorService heartbeatService)
     {
@@ -185,7 +183,6 @@ public class SemiTransactionalHiveMetastore
         this.updateExecutor = requireNonNull(updateExecutor, "updateExecutor is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
-        this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.heartbeatExecutor = heartbeatService;
         this.configuredTransactionHeartbeatInterval = requireNonNull(hiveTransactionHeartbeatInterval, "hiveTransactionHeartbeatInterval is null");
     }
@@ -399,9 +396,9 @@ public class SemiTransactionalHiveMetastore
                 }
                 catch (IOException | RuntimeException e) {
                     log.warn(e, "Could not check schema directory '%s'", path);
-                    return deleteSchemaLocationsFallback;
+                    return false;
                 }
-            }).orElse(deleteSchemaLocationsFallback);
+            }).orElse(false);
 
             delegate.dropDatabase(schemaName, deleteData);
         });

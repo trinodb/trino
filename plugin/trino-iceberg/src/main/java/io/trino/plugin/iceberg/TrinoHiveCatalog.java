@@ -130,7 +130,6 @@ class TrinoHiveCatalog
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
     private final boolean isUsingSystemSecurity;
-    private final boolean deleteSchemaLocationsFallback;
 
     private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
     private final ViewReaderUtil.PrestoViewReader viewReader = new ViewReaderUtil.PrestoViewReader();
@@ -143,8 +142,7 @@ class TrinoHiveCatalog
             IcebergTableOperationsProvider tableOperationsProvider,
             String trinoVersion,
             boolean useUniqueTableLocation,
-            boolean isUsingSystemSecurity,
-            boolean deleteSchemaLocationsFallback)
+            boolean isUsingSystemSecurity)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -154,7 +152,6 @@ class TrinoHiveCatalog
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
         this.isUsingSystemSecurity = isUsingSystemSecurity;
-        this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
     }
 
     @Override
@@ -234,9 +231,9 @@ class TrinoHiveCatalog
             }
             catch (IOException e) {
                 log.warn(e, "Could not check schema directory '%s'", path);
-                return deleteSchemaLocationsFallback;
+                return false;
             }
-        }).orElse(deleteSchemaLocationsFallback);
+        }).orElse(false);
 
         metastore.dropDatabase(namespace, deleteData);
         return true;
