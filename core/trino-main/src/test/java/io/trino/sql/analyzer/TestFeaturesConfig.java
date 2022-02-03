@@ -114,7 +114,7 @@ public class TestFeaturesConfig
                 .setLegacyCatalogRoles(false)
                 .setDisableSetPropertiesSecurityCheckForCreateDdl(false)
                 .setIncrementalHashArrayLoadFactorEnabled(true)
-                .setHideInaccesibleColumns(false)
+                .setHideInaccessibleColumns(false)
                 .setAllowSetViewAuthorization(false));
     }
 
@@ -269,7 +269,7 @@ public class TestFeaturesConfig
                 .setLegacyCatalogRoles(true)
                 .setDisableSetPropertiesSecurityCheckForCreateDdl(true)
                 .setIncrementalHashArrayLoadFactorEnabled(false)
-                .setHideInaccesibleColumns(true)
+                .setHideInaccessibleColumns(true)
                 .setAllowSetViewAuthorization(true);
         assertFullMapping(properties, expected);
     }

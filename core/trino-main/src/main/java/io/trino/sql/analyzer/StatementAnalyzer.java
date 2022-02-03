@@ -3219,7 +3219,7 @@ class StatementAnalyzer
 
         private List<Field> filterInaccessibleFields(List<Field> fields)
         {
-            if (!SystemSessionProperties.isHideInaccesibleColumns(session)) {
+            if (!SystemSessionProperties.isHideInaccessibleColumns(session)) {
                 return fields;
             }
 
