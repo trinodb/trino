@@ -114,13 +114,16 @@ public class OAuth2TokenExchangeResource
     @ResourceSecurity(PUBLIC)
     @DELETE
     @Path("{authId}")
-    public void deleteAuthenticationToken(@PathParam("authId") UUID authId)
+    public Response deleteAuthenticationToken(@PathParam("authId") UUID authId)
     {
         if (authId == null) {
             throw new BadRequestException();
         }
 
         tokenExchange.dropToken(authId);
+        return Response
+                .ok()
+                .build();
     }
 
     public static String getTokenUri(UUID authId)
