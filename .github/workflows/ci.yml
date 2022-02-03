@@ -36,6 +36,7 @@ concurrency:
 jobs:
   maven-checks:
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-tests') }}
     strategy:
       fail-fast: false
       matrix:
@@ -71,6 +72,7 @@ jobs:
 
   error-prone-checks:
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-tests') }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v2
@@ -97,6 +99,7 @@ jobs:
 
   web-ui-checks:
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-tests') }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
@@ -105,6 +108,7 @@ jobs:
 
   test-jdbc-compatibility:
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-tests') }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
@@ -150,6 +154,7 @@ jobs:
 
   hive-tests:
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-tests') }}
     strategy:
       fail-fast: false
       matrix:
@@ -271,6 +276,7 @@ jobs:
 
   test-other-modules:
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-tests') }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
@@ -337,6 +343,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-tests') }}
     strategy:
       fail-fast: false
       matrix:
@@ -413,6 +420,7 @@ jobs:
 
   test-memsql:
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-tests') }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
@@ -461,6 +469,7 @@ jobs:
 
   test-bigquery:
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-tests') }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
@@ -515,6 +524,9 @@ jobs:
 
   pt:
     runs-on: ubuntu-latest
+    if: |
+      !contains(github.event.pull_request.labels.*.name, 'skip-tests')
+      && !contains(github.event.pull_request.labels.*.name, 'skip-product-tests')
     # explicitly define the name to avoid adding the value of the `ignore exclusion if` matrix item
     name: pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
     strategy:
