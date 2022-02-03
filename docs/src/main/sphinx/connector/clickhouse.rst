@@ -166,7 +166,7 @@ ClickHouse        Trino           Notes
 ``Int8``          ``TINYINT``     ``TINYINT``, ``BOOL``, ``BOOLEAN`` and ``INT1`` are aliases of ``Int8``
 ``Int16``         ``SMALLINT``    ``SMALLINT`` and ``INT2`` are aliases of ``Int16``
 ``Int32``         ``INTEGER``     ``INT``, ``INT4`` and ``INTEGER`` are aliases of ``Int32``
-``Int64``         ``INTEGER``     ``BIGINT`` is an alias of ``Int64``
+``Int64``         ``BIGINT``      ``BIGINT`` is an alias of ``Int64``
 ``Float32``       ``REAL``        ``FLOAT`` is an alias of ``Float32``
 ``Float64``       ``DOUBLE``      ``DOUBLE`` is an alias of ``Float64``
 ``Decimal``       ``DECIMAL``
