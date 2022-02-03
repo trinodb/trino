@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.trino.testing.TestingProperties;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Network;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 
@@ -46,14 +47,15 @@ public class TestingOpenLdapServer
 {
     private static final String BASE_DISTINGUISED_NAME = "dc=trino,dc=testldap,dc=com";
 
-    private static final int LDAP_PORT = 389;
+    public static final int LDAP_PORT = 389;
 
     private final Closer closer = Closer.create();
     private final GenericContainer<?> openLdapServer;
 
-    public TestingOpenLdapServer()
+    public TestingOpenLdapServer(Network network)
     {
         openLdapServer = new GenericContainer<>("ghcr.io/trinodb/testing/centos7-oj11-openldap:" + TestingProperties.getDockerImagesVersion())
+                .withNetwork(network)
                 .withExposedPorts(LDAP_PORT)
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(new HostPortWaitStrategy())
@@ -65,6 +67,11 @@ public class TestingOpenLdapServer
     public void start()
     {
         openLdapServer.start();
+    }
+
+    public String getNetworkAlias()
+    {
+        return openLdapServer.getNetworkAliases().get(0);
     }
 
     public String getLdapUrl()

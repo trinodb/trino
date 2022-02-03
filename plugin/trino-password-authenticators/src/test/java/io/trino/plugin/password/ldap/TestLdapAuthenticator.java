@@ -17,6 +17,7 @@ import com.google.common.io.Closer;
 import io.trino.plugin.password.ldap.TestingOpenLdapServer.DisposableSubContext;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
+import org.testcontainers.containers.Network;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -37,7 +38,10 @@ public class TestLdapAuthenticator
     public void setup()
             throws Exception
     {
-        openLdapServer = new TestingOpenLdapServer();
+        Network network = Network.newNetwork();
+        closer.register(network::close);
+
+        openLdapServer = new TestingOpenLdapServer(network);
         closer.register(openLdapServer);
         openLdapServer.start();
 
