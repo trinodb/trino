@@ -589,7 +589,7 @@ public final class MetadataManager
     }
 
     @Override
-    public Map<CatalogName, List<TableColumnsMetadata>> listTableColumns(Session session, QualifiedTablePrefix prefix)
+    public List<TableColumnsMetadata> listTableColumns(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
 
@@ -639,11 +639,9 @@ public final class MetadataManager
                 }
             }
         }
-        return ImmutableMap.of(
-                new CatalogName(prefix.getCatalogName()),
-                tableColumns.entrySet().stream()
-                        .map(entry -> new TableColumnsMetadata(entry.getKey(), entry.getValue()))
-                        .collect(toImmutableList()));
+        return tableColumns.entrySet().stream()
+                .map(entry -> new TableColumnsMetadata(entry.getKey(), entry.getValue()))
+                .collect(toImmutableList());
     }
 
     @Override
