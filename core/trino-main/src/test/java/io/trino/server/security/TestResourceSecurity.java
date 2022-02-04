@@ -28,7 +28,6 @@ import io.airlift.node.NodeInfo;
 import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.JwtBuilder;
-import io.jsonwebtoken.Jwts;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlManager;
@@ -96,6 +95,7 @@ import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
+import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
@@ -468,7 +468,7 @@ public class TestResourceSecurity
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
 
             SecretKey hmac = hmacShaKeyFor(Base64.getDecoder().decode(Files.readString(Paths.get(HMAC_KEY)).trim()));
-            JwtBuilder tokenBuilder = Jwts.builder()
+            JwtBuilder tokenBuilder = newJwtBuilder()
                     .signWith(hmac)
                     .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()));
             if (principalField.isPresent()) {
@@ -506,7 +506,7 @@ public class TestResourceSecurity
 
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
 
-            String token = Jwts.builder()
+            String token = newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
                     .setHeaderParam(JwsHeader.KEY_ID, JWK_KEY_ID)
                     .setSubject("test-user")
@@ -777,7 +777,7 @@ public class TestResourceSecurity
 
             assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithOAuthToken);
 
-            String token = Jwts.builder()
+            String token = newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
                     .setHeaderParam(JwsHeader.KEY_ID, JWK_KEY_ID)
                     .setSubject("test-user")
@@ -906,7 +906,7 @@ public class TestResourceSecurity
 
         public String issueAccessToken(Optional<Set<String>> groups)
         {
-            JwtBuilder accessToken = Jwts.builder()
+            JwtBuilder accessToken = newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
                     .setHeaderParam(JwsHeader.KEY_ID, JWK_KEY_ID)
                     .setIssuer(issuer)
@@ -924,7 +924,7 @@ public class TestResourceSecurity
 
         private String issueIdToken(Optional<String> nonceHash)
         {
-            JwtBuilder idToken = Jwts.builder()
+            JwtBuilder idToken = newJwtBuilder()
                     .signWith(JWK_PRIVATE_KEY)
                     .setHeaderParam(JwsHeader.KEY_ID, JWK_KEY_ID)
                     .setIssuer(issuer)

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.testing.Closeables;
-import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
@@ -50,6 +49,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
+import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
@@ -172,7 +172,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
         KeyPairGenerator keyGenerator = KeyPairGenerator.getInstance("RSA");
         keyGenerator.initialize(4096);
         long now = Instant.now().getEpochSecond();
-        String token = Jwts.builder()
+        String token = newJwtBuilder()
                 .setHeaderParam("alg", "RS256")
                 .setHeaderParam("kid", "public:f467aa08-1c1b-4cde-ba45-84b0ef5d2ba8")
                 .setHeaderParam("typ", "JWT")
