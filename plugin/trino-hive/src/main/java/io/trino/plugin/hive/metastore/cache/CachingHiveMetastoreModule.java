@@ -85,6 +85,9 @@ public class CachingHiveMetastoreModule
 
         return Optional.of(cachingHiveMetastore(
                 delegate,
+                // Loading of cache entry in CachingHiveMetastore might trigger loading of another cache entry for different object type
+                // In case there are no empty executor slots, such operation would deadlock. Therefore, a reentrant executor needs to be
+                // used.
                 new ReentrantBoundedExecutor(
                         newCachedThreadPool(daemonThreadsNamed("hive-metastore-" + catalogName + "-%s")),
                         config.getMaxMetastoreRefreshThreads()),
