@@ -118,7 +118,10 @@ public class ExecutingStatementResource
                             }
                             catch (NoSuchElementException e) {
                                 // query is no longer registered
-                                queries.remove(entry.getKey());
+                                Query query = queries.remove(entry.getKey());
+                                if (query != null) {
+                                    query.dispose();
+                                }
                             }
                         }
                     }

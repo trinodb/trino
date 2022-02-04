@@ -450,6 +450,8 @@ class Query
         }
         else {
             nextToken = OptionalLong.empty();
+            // the client is not coming back, make sure the exchangeClient is closed
+            exchangeClient.close();
         }
 
         URI nextResultsUri = null;
@@ -534,6 +536,9 @@ class Query
                 Page page = serde.deserialize(context, serializedPage);
                 bytes += page.getLogicalSizeInBytes();
                 resultBuilder.addPage(page);
+            }
+            if (exchangeClient.isFinished()) {
+                exchangeClient.close();
             }
         }
         catch (Throwable cause) {
