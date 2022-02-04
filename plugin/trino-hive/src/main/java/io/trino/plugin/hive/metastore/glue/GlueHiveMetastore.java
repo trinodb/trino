@@ -536,9 +536,8 @@ public class GlueHiveMetastore
         }
     }
 
-    // TODO: respect deleteData
     @Override
-    public void dropDatabase(String databaseName, boolean deleteData)
+    public void dropDatabase(String databaseName)
     {
         try {
             stats.getDropDatabase().call(() ->

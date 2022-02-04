@@ -213,7 +213,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void dropDatabase(String databaseName, boolean deleteData)
+    public synchronized void dropDatabase(String databaseName)
     {
         requireNonNull(databaseName, "databaseName is null");
 
@@ -221,7 +221,7 @@ public class FileHiveMetastore
 
         // If we see no files in the schema location, delete data.
         // If we see files or fail checking the location, don't request deletion.
-        boolean deleteData1 = location.map(path -> {
+        boolean deleteData = location.map(path -> {
             try (FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path)) {
                 return !fs.listLocatedStatus(path).hasNext();
             }
@@ -236,7 +236,7 @@ public class FileHiveMetastore
         }
 
         // Either delete the entire database directory or just its metadata files
-        if (deleteData1) {
+        if (deleteData) {
             deleteDirectoryAndSchema(DATABASE, getDatabaseMetadataDirectory(databaseName));
         }
         else {

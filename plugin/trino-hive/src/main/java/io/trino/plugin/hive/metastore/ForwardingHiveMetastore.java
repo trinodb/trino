@@ -133,9 +133,9 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public void dropDatabase(String databaseName, boolean deleteData)
+    public void dropDatabase(String databaseName)
     {
-        delegate.dropDatabase(databaseName, deleteData);
+        delegate.dropDatabase(databaseName);
     }
 
     @Override

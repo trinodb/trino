@@ -379,7 +379,7 @@ public class SemiTransactionalHiveMetastore
 
     public synchronized void dropDatabase(String schemaName)
     {
-        setExclusive((delegate, hdfsEnvironment) -> delegate.dropDatabase(schemaName, true));
+        setExclusive((delegate, hdfsEnvironment) -> delegate.dropDatabase(schemaName));
     }
 
     public synchronized void renameDatabase(String source, String target)

@@ -164,9 +164,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void dropDatabase(String databaseName, boolean deleteData)
+    public void dropDatabase(String databaseName)
     {
-        delegate.dropDatabase(identity, databaseName, deleteData);
+        delegate.dropDatabase(identity, databaseName);
     }
 
     @Override

@@ -149,10 +149,10 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public void dropDatabase(String databaseName, boolean deleteData)
+    public void dropDatabase(String databaseName)
     {
         verifyRecordingMode();
-        delegate.dropDatabase(databaseName, deleteData);
+        delegate.dropDatabase(databaseName);
     }
 
     @Override

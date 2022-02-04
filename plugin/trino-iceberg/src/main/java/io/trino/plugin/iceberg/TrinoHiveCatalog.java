@@ -46,7 +46,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
@@ -215,8 +214,7 @@ class TrinoHiveCatalog
                 !listViews(session, Optional.of(namespace)).isEmpty()) {
             throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + namespace);
         }
-
-        metastore.dropDatabase(namespace, true);
+        metastore.dropDatabase(namespace);
         return true;
     }
 

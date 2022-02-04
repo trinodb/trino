@@ -1011,9 +1011,8 @@ public class ThriftHiveMetastore
         }
     }
 
-    // TODO: Remove unused deleteData parameter
     @Override
-    public void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
+    public void dropDatabase(HiveIdentity identity, String databaseName)
     {
         try {
             retry()
@@ -1026,11 +1025,11 @@ public class ThriftHiveMetastore
 
                         // If we see no files in the schema location, delete data.
                         // If we see files or fail checking the location, don't request deletion.
-                        boolean deleteData1 = false;
+                        boolean deleteData = false;
                         if (!isNullOrEmpty(location)) {
                             Path path = new Path(location);
                             try (FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path)) {
-                                deleteData1 = !fs.listLocatedStatus(path).hasNext();
+                                deleteData = !fs.listLocatedStatus(path).hasNext();
                             }
                             catch (IOException e) {
                                 log.warn(e, "Could not check schema directory '%s'", path);
@@ -1038,7 +1037,7 @@ public class ThriftHiveMetastore
                         }
 
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
-                            client.dropDatabase(databaseName, deleteData1, false);
+                            client.dropDatabase(databaseName, deleteData, false);
                         }
                         return null;
                     }));

@@ -130,9 +130,8 @@ public class InMemoryThriftMetastore
         }
     }
 
-    // TODO: respect deleteData
     @Override
-    public synchronized void dropDatabase(HiveIdentity identity, String databaseName, boolean deleteData)
+    public synchronized void dropDatabase(HiveIdentity identity, String databaseName)
     {
         if (!databases.containsKey(databaseName)) {
             throw new SchemaNotFoundException(databaseName);

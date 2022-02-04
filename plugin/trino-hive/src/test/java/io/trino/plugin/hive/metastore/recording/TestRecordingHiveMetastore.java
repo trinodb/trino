@@ -143,7 +143,7 @@ public class TestRecordingHiveMetastore
         HiveMetastoreRecording recording = new HiveMetastoreRecording(recordingConfig, jsonCodec);
         RecordingHiveMetastore recordingHiveMetastore = new RecordingHiveMetastore(new TestingHiveMetastore(), recording);
         validateMetadata(recordingHiveMetastore);
-        recordingHiveMetastore.dropDatabase("other_database", true);
+        recordingHiveMetastore.dropDatabase("other_database");
         recording.writeRecording();
 
         RecordingMetastoreConfig replayingConfig = recordingConfig
@@ -276,7 +276,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public void dropDatabase(String databaseName, boolean deleteData)
+        public void dropDatabase(String databaseName)
         {
             // noop for test purpose
         }
