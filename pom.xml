@@ -60,7 +60,7 @@
         <dep.scribejava.version>6.9.0</dep.scribejava.version>
         <dep.tempto.version>187</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
-        <dep.errorprone.version>2.10.0</dep.errorprone.version>
+        <dep.errorprone.version>2.11.0</dep.errorprone.version>
         <dep.testcontainers.version>1.16.3</dep.testcontainers.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
         <dep.coral.version>1.0.121</dep.coral.version>
@@ -1822,10 +1822,10 @@
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR \
                                     -Xep:MissingCasesInEnumSwitch:ERROR \
                                     -Xep:MissingOverride:ERROR \
-                                    -Xep:MutableConstantField:OFF <!-- flags List fields even if initialized with ImmutableList --> \
                                     -Xep:MutablePublicArray:ERROR \
                                     -Xep:NullOptional:ERROR \
                                     -Xep:ObjectToString:ERROR \
+                                    -Xep:PreferredInterfaceType:OFF <!-- flags List fields even if initialized with ImmutableList --> \
                                     -Xep:StreamResourceLeak:ERROR \
                                     -Xep:UnnecessaryMethodReference:ERROR \
                                     -Xep:UnnecessaryOptionalGet:ERROR \
