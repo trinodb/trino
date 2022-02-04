@@ -15,7 +15,6 @@ package io.trino.server.security.jwt;
 
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.JwtParserBuilder;
-import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.trino.server.security.AbstractBearerAuthenticator;
 import io.trino.server.security.AuthenticationException;
@@ -30,6 +29,7 @@ import javax.ws.rs.container.ContainerRequestContext;
 import java.util.Optional;
 
 import static io.trino.server.security.UserMapping.createUserMapping;
+import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 
 public class JwtAuthenticator
         extends AbstractBearerAuthenticator
@@ -43,7 +43,7 @@ public class JwtAuthenticator
     {
         principalField = config.getPrincipalField();
 
-        JwtParserBuilder jwtParser = Jwts.parserBuilder()
+        JwtParserBuilder jwtParser = newJwtParserBuilder()
                 .setSigningKeyResolver(signingKeyResolver);
 
         if (config.getRequiredIssuer() != null) {

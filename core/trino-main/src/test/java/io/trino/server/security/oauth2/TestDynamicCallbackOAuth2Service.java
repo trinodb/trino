@@ -20,7 +20,6 @@ import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.units.Duration;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.trino.server.security.jwt.JwkService;
 import io.trino.server.security.jwt.JwkSigningKeyResolver;
@@ -35,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.testing.Closeables.closeAll;
+import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -91,7 +91,7 @@ public class TestDynamicCallbackOAuth2Service
 
         OAuth2AccessToken token = service.getAccessTokenClientCredentialsGrant();
 
-        Claims claims = Jwts.parserBuilder()
+        Claims claims = newJwtParserBuilder()
                 .setSigningKeyResolver(signingKeyResolver)
                 .build()
                 .parseClaimsJws(token.getAccessToken())

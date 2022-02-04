@@ -172,4 +172,16 @@
         <version>1.8</version>
         <comment>Use io.airlift.configuration.ConfigurationAwareModule.combine</comment>
     </violation>
+
+    <violation>
+        <name>io/jsonwebtoken/Jwts.builder:()Lio/jsonwebtoken/JwtBuilder;</name>
+        <version>1.8</version>
+        <comment>Use io.trino.server.security.jwt.JwtsUtil or equivalent</comment>
+    </violation>
+
+    <violation>
+        <name>io/jsonwebtoken/Jwts.parserBuilder:()Lio/jsonwebtoken/JwtParserBuilder;</name>
+        <version>1.8</version>
+        <comment>Use io.trino.server.security.jwt.JwtsUtil or equivalent</comment>
+    </violation>
 </modernizer>
